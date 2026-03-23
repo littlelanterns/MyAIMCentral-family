@@ -9,6 +9,8 @@ import { Dashboard } from '@/pages/Dashboard'
 import { GuidingStarsPage } from '@/pages/GuidingStars'
 import { InnerWorkingsPage } from '@/pages/InnerWorkings'
 import { JournalPage } from '@/pages/Journal'
+import { TasksPage } from '@/pages/Tasks'
+import { ListsPage } from '@/pages/Lists'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -41,6 +43,8 @@ function App() {
               <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />
               <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />
               <Route path="/journal" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
+              <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
+              <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
