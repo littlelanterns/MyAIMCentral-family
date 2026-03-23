@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(sort *)",
+      "Bash(echo *)",
+      "Bash(touch *)",
+      "Read(**)",
+      "Write(CLAUDE.md)",
+      "Write(claude/**)",
+      "Write(build-prompts/**)",
+      "Write(workflows/**)",
+      "Write(asset-requirements/**)",
+      "Write(tools/**)",
+      "Write(questions-for-tenise.md)",
+      "Write(src/**)",
+      "Write(supabase/**)",
+      "Write(package.json)",
+      "Write(tsconfig.json)",
+      "Write(next.config.*)",
+      "Write(tailwind.config.*)",
+      "Write(postcss.config.*)",
+      "Write(.gitignore)",
+      "Write(tests/**)",
+      "Write(e2e/**)"
+    ],
+    "deny": [
+      "Write(.env.local)",
+      "Write(.env)",
+      "Write(prds/**)",
+      "Write(specs/**)",
+      "Write(reference/**)"
+    ]
+  }
+}

@@ -1,0 +1,230 @@
+**The LiLa™ Family**
+
+AI Magic for Moms --- Intelligent Assistant System
+
+*Current Versions & Capabilities Guide*
+
+LiLa™ (short for "Little Lady") is the intelligent assistant system at
+the heart of AIMfM. Rather than one monolithic AI, LiLa is split into
+specialized versions, each with a distinct personality, purpose, and
+avatar. This approach lets families interact with the right kind of help
+at the right time --- from troubleshooting a login issue to crafting a
+deeply personalized AI prompt.
+
+All LiLa versions share the same warm, encouraging brand voice and
+visual style, but each serves a unique role in the ecosystem.
+
+1\. LiLa™ Help --- "Happy to Help"
+
+  --------------------- -------------------------------------------------
+  **Subtitle**          Happy to Help
+
+  **Avatar Image**      Lila-HtH.png
+
+  **Primary Role**      Customer support & troubleshooting
+
+  **Current Status**    Frontend shell built; AI responses not yet
+                        connected
+  --------------------- -------------------------------------------------
+
+What She Does
+
+LiLa Help is the first line of support for anyone using the AIMfM
+platform. She handles the practical, operational side of things --- the
+stuff that would normally go to a help desk or FAQ page, but delivered
+with warmth and personality instead of dry documentation.
+
+-   Login and account issues (password resets, access problems)
+
+-   Billing and subscription questions (tier changes, payment issues)
+
+-   Technical troubleshooting (features not loading, browser
+    compatibility)
+
+-   General platform FAQ and quick answers
+
+How She Works
+
+Currently, LiLa Help uses pattern-matching on user input to provide
+pre-written responses for common issues. The component is built as a
+modal chat interface accessible from the LiLa Panel in the global
+header. In future phases, she will connect to OpenRouter for more
+dynamic, context-aware support responses.
+
+2\. LiLa™ Assist --- "Your Guide"
+
+  --------------------- -------------------------------------------------
+  **Subtitle**          Your Guide
+
+  **Avatar Image**      lila-asst.png
+
+  **Primary Role**      Feature guidance, onboarding, and tool
+                        recommendations
+
+  **Current Status**    Frontend shell built; AI responses not yet
+                        connected
+  --------------------- -------------------------------------------------
+
+What She Does
+
+LiLa Assist is the in-app guide who helps users discover and learn the
+AIMfM ecosystem. Think of her as a knowledgeable friend who knows every
+feature and can walk you through anything --- from setting up your
+family profile for the first time to discovering a hidden shortcut you
+never knew existed.
+
+-   Getting started walkthroughs (family profile setup, preferences,
+    navigation)
+
+-   Feature guidance and tips for using any AIMfM tool effectively
+
+-   Tool recommendations based on what a user is trying to accomplish
+
+-   Tutorial suggestions from the Library Vault
+
+-   Optimization tips for getting more value from the subscription
+
+How She Works
+
+Like LiLa Help, Assist currently uses keyword-based response generation
+in a modal chat interface. She detects topics like tasks, archives,
+library, and themes to provide contextual guidance. Future phases will
+connect her to OpenRouter and the Library Vault content system so she
+can recommend specific tutorials and walk users through complex
+workflows interactively.
+
+3\. LiLa™ Optimizer --- "Smart AI"
+
+  --------------------- -------------------------------------------------
+  **Subtitle**          Smart AI
+
+  **Avatar Image**      lila-opt.png
+
+  **Primary Role**      Prompt optimization with family context awareness
+
+  **Current Status**    Frontend shell built; core AI integration planned
+                        for Phase 3
+  --------------------- -------------------------------------------------
+
+What She Does
+
+LiLa Optimizer is the flagship intelligence layer of AIMfM --- the
+version that makes everything else valuable. She takes a simple request
+from Mom and transforms it into a rich, context-aware prompt that any AI
+platform can understand deeply. This is where the Archives, Best
+Intentions, and family context all come together.
+
+-   Fix broken prompts --- diagnose why prompts aren't working and
+    rewrite them
+
+-   Create new prompts from scratch for any task, with role-playing and
+    structure
+
+-   Optimize existing prompts by adding family context, specificity, and
+    platform formatting
+
+-   Learn from conversations --- detect new family information and
+    suggest saving to Archives
+
+-   Platform-specific formatting (ChatGPT, Claude, Gemini, Midjourney,
+    etc.)
+
+How She Works (Planned Architecture)
+
+The Optimizer follows an 80/20 cost strategy: 80% of operations are
+handled through fast JavaScript processing (pattern matching, template
+insertion, context assembly) and only 20% hit the AI API via OpenRouter
+for complex reasoning. This keeps costs under \$1.50 per family per
+month.
+
+**Optimization Flow:** Mom types a simple request → LiLa detects
+mentioned family members → Retrieves relevant context from Archives →
+Pulls active Best Intentions → Crafts an optimized, platform-specific
+prompt → Mom copies/pastes to her preferred AI platform.
+
+**Context Learning:** When Mom mentions new information in conversation
+(e.g., "Jake hates broccoli now"), the Optimizer detects it, asks Mom's
+permission, and suggests saving it to the appropriate Archives folder
+for future use.
+
+**Library Integration:** Library tools include an "Optimize with LiLa"
+button that passes tool details and family context to the Optimizer,
+generating a personalized version of any prompt template.
+
+4\. LiLa™ API --- "The Engine"
+
+  --------------------- -------------------------------------------------
+  **Subtitle**          Backend Intelligence
+
+  **Avatar Image**      N/A (no user-facing avatar)
+
+  **Primary Role**      Backend AI processing, formatting, and edge-case
+                        handling
+
+  **Current Status**    Planned; will initially use OpenRouter,
+                        eventually a self-hosted fine-tuned model
+  --------------------- -------------------------------------------------
+
+What It Does
+
+LiLa API is the behind-the-scenes engine that powers the other LiLa
+versions. It's not a character users interact with directly --- it's the
+infrastructure that handles the actual AI calls, content formatting, and
+processing that the other versions need to do their jobs.
+
+-   Connected to OpenRouter for multi-model AI access
+
+-   Handles primarily JavaScript-based content formatting and
+    beautification
+
+-   Processes small AI jobs and edge-case requests
+
+-   Eventually will be replaced by a fine-tuned, self-hosted model
+
+How It Works
+
+LiLa API serves as the shared backend for all user-facing LiLa versions.
+When the Optimizer needs to make a complex AI call, it routes through
+LiLa API. When Assist needs to generate a dynamic tutorial
+recommendation, it queries LiLa API. The long-term vision is to
+fine-tune a model specifically on AIMfM's family context patterns and
+optimization strategies, then self-host it for maximum cost control and
+customization.
+
+Quick Comparison
+
+  ------------------ ------------- --------------- -------------- -------------
+                     **LiLa Help** **LiLa Assist** **LiLa         **LiLa API**
+                                                   Optimizer**    
+
+  **Subtitle**       Happy to Help Your Guide      Smart AI       The Engine
+
+  **User-Facing?**   Yes           Yes             Yes            No
+
+  **Has Avatar?**    Yes           Yes             Yes            No
+
+  **Primary Focus**  Support       Guidance        Intelligence   Processing
+
+  **Uses AI API?**   Future        Future          Yes (planned)  Yes
+
+  **Dev Status**     Shell built   Shell built     Shell built    Planned
+  ------------------ ------------- --------------- -------------- -------------
+
+How They Work Together
+
+All four LiLa versions are accessible through the LiLa Panel component
+in the global header. The three user-facing versions (Help, Assist,
+Optimizer) each appear as a character card that users can click to open
+a modal chat interface. Behind the scenes, they all route through LiLa
+API for any AI-powered processing.
+
+The versions are designed to be complementary, not overlapping. A user
+who can't figure out how to use a feature talks to **LiLa Help**. A user
+who wants to learn what they can do with a feature talks to **LiLa
+Assist**. A user who wants to use AI more effectively with their family
+context talks to **LiLa Optimizer**. And **LiLa API** quietly powers
+them all.
+
+*AI Magic for Moms --- Real magic for real moms*
+
+Document generated February 2026
