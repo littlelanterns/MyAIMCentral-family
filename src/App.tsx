@@ -8,6 +8,7 @@ import { FamilyLogin } from '@/pages/auth/FamilyLogin'
 import { Dashboard } from '@/pages/Dashboard'
 import { GuidingStarsPage } from '@/pages/GuidingStars'
 import { InnerWorkingsPage } from '@/pages/InnerWorkings'
+import { JournalPage } from '@/pages/Journal'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -39,6 +40,7 @@ function App() {
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />
               <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />
+              <Route path="/journal" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
