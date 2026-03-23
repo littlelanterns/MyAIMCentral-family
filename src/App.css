@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/*
+ * MyAIM Central — Theme System (PRD-03)
+ * Shell-aware CSS custom properties.
+ * Full theme families and color tokens added in Phase 03.
+ */
+
+:root {
+  /* Vibe tokens (structural) */
+  --vibe-radius: 0.5rem;
+  --vibe-spacing: 1rem;
+  --vibe-transition: 200ms ease;
+
+  /* Theme tokens (color) — defaults, overridden by theme provider */
+  --theme-primary: #6366f1;
+  --theme-primary-hover: #4f46e5;
+  --theme-accent: #f59e0b;
+  --theme-background: #ffffff;
+  --theme-surface: #f8fafc;
+  --theme-text: #0f172a;
+  --theme-text-muted: #64748b;
+  --theme-border: #e2e8f0;
+  --theme-success: #22c55e;
+  --theme-warning: #f59e0b;
+  --theme-error: #ef4444;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --theme-background: #0f172a;
+    --theme-surface: #1e293b;
+    --theme-text: #f1f5f9;
+    --theme-text-muted: #94a3b8;
+    --theme-border: #334155;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--theme-background);
+  color: var(--theme-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100svh;
+}
