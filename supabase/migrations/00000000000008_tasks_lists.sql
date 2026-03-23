@@ -330,6 +330,36 @@ CREATE POLICY "lists_manage_own" ON public.lists
     OR family_id IN (SELECT id FROM public.families WHERE primary_parent_id = auth.uid())
   );
 
+-- Note: lists_select_shared policy created AFTER list_shares table (dependency)
+
+-- ============================================================
+-- List Shares (PRD-09B) — must be created before lists_select_shared policy
+-- ============================================================
+
+CREATE TABLE public.list_shares (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  list_id UUID NOT NULL REFERENCES public.lists(id) ON DELETE CASCADE,
+  shared_with UUID NOT NULL REFERENCES public.family_members(id),
+  permission TEXT NOT NULL CHECK (permission IN ('view','edit')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ls_list ON public.list_shares(list_id);
+CREATE INDEX idx_ls_shared ON public.list_shares(shared_with);
+
+ALTER TABLE public.list_shares ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ls_manage_owner" ON public.list_shares
+  FOR ALL USING (
+    list_id IN (
+      SELECT id FROM public.lists WHERE owner_id IN (
+        SELECT id FROM public.family_members WHERE user_id = auth.uid()
+      )
+      OR family_id IN (SELECT id FROM public.families WHERE primary_parent_id = auth.uid())
+    )
+  );
+
+-- Now safe to reference list_shares
 CREATE POLICY "lists_select_shared" ON public.lists
   FOR SELECT USING (
     id IN (SELECT list_id FROM public.list_shares WHERE shared_with IN (
@@ -382,32 +412,7 @@ CREATE POLICY "li_via_list" ON public.list_items
     )
   );
 
--- ============================================================
--- List Shares (PRD-09B)
--- ============================================================
-
-CREATE TABLE public.list_shares (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  list_id UUID NOT NULL REFERENCES public.lists(id) ON DELETE CASCADE,
-  shared_with UUID NOT NULL REFERENCES public.family_members(id),
-  permission TEXT NOT NULL CHECK (permission IN ('view','edit')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_ls_list ON public.list_shares(list_id);
-CREATE INDEX idx_ls_shared ON public.list_shares(shared_with);
-
-ALTER TABLE public.list_shares ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "ls_manage_owner" ON public.list_shares
-  FOR ALL USING (
-    list_id IN (
-      SELECT id FROM public.lists WHERE owner_id IN (
-        SELECT id FROM public.family_members WHERE user_id = auth.uid()
-      )
-      OR family_id IN (SELECT id FROM public.families WHERE primary_parent_id = auth.uid())
-    )
-  );
+-- (list_shares already created above, before lists_select_shared policy)
 
 -- ============================================================
 -- List Templates (PRD-09B)
