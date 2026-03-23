@@ -7,10 +7,16 @@ import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { FamilyLogin } from '@/pages/auth/FamilyLogin'
 import { Dashboard } from '@/pages/Dashboard'
 import { GuidingStarsPage } from '@/pages/GuidingStars'
+import { BestIntentionsPage } from '@/pages/BestIntentions'
 import { InnerWorkingsPage } from '@/pages/InnerWorkings'
 import { JournalPage } from '@/pages/Journal'
 import { TasksPage } from '@/pages/Tasks'
 import { ListsPage } from '@/pages/Lists'
+import { DevPreview } from '@/pages/DevPreview'
+import {
+  VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
+  FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage,
+} from '@/pages/placeholder'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -38,13 +44,25 @@ function App() {
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth/family-login" element={<FamilyLogin />} />
 
+              {/* Dev preview — browse without auth */}
+              <Route path="/preview/*" element={<DevPreview />} />
+
               {/* Protected routes — AuthGuard + ShellProvider + RoleRouter */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />
+              <Route path="/best-intentions" element={<ProtectedRoute><BestIntentionsPage /></ProtectedRoute>} />
               <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />
               <Route path="/journal" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
               <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
+              <Route path="/victories" element={<ProtectedRoute><VictoriesPage /></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+              <Route path="/trackers" element={<ProtectedRoute><TrackersPage /></ProtectedRoute>} />
+              <Route path="/life-lantern" element={<ProtectedRoute><LifeLanternPage /></ProtectedRoute>} />
+              <Route path="/family-context" element={<ProtectedRoute><FamilyContextPage /></ProtectedRoute>} />
+              <Route path="/archives" element={<ProtectedRoute><ArchivesPage /></ProtectedRoute>} />
+              <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
+              <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />

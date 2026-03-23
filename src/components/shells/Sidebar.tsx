@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
-  BarChart3, List, Star, Heart, Trophy, Compass, Users, Archive,
+  BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
   ChevronLeft, ChevronRight, Menu, X,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -51,6 +51,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     title: 'Grow',
     items: [
       { label: 'Guiding Stars', path: '/guiding-stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
+      { label: 'BestIntentions', path: '/best-intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
       { label: 'My Foundation', path: '/inner-workings', icon: <Heart size={20} />, tooltip: 'Self-knowledge and growth' },
       { label: 'Victories', path: '/victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
       { label: 'LifeLantern', path: '/life-lantern', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
@@ -97,9 +98,22 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
 export function Sidebar() {
   const { shell } = useShell()
+  const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const sections = getSidebarSections(shell)
+
+  // In /preview mode, prefix all sidebar paths with /preview
+  const isPreview = location.pathname.startsWith('/preview')
+  const pathPrefix = isPreview ? '/preview' : ''
+
+  const rawSections = getSidebarSections(shell)
+  const sections = rawSections.map(section => ({
+    ...section,
+    items: section.items.map(item => ({
+      ...item,
+      path: pathPrefix + item.path,
+    })),
+  }))
 
   if (shell === 'play' || sections.length === 0) return null
 
