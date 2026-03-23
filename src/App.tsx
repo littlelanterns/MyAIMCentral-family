@@ -9,6 +9,8 @@ import { Dashboard } from '@/pages/Dashboard'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
+import { ShellProvider } from '@/components/shells/ShellProvider'
+import { RoleRouter } from '@/components/shells/RoleRouter'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,24 +25,35 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      <ViewAsProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Welcome />} />
-          <Route path="/auth/create-account" element={<CreateAccount />} />
-          <Route path="/auth/sign-in" element={<SignIn />} />
-          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-          <Route path="/auth/family-login" element={<FamilyLogin />} />
+        <ViewAsProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Welcome />} />
+              <Route path="/auth/create-account" element={<CreateAccount />} />
+              <Route path="/auth/sign-in" element={<SignIn />} />
+              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+              <Route path="/auth/family-login" element={<FamilyLogin />} />
 
-          {/* Protected routes */}
-          <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
+              {/* Protected routes — wrapped in ShellProvider + RoleRouter */}
+              <Route
+                path="/dashboard"
+                element={
+                  <AuthGuard>
+                    <ShellProvider>
+                      <RoleRouter>
+                        <Dashboard />
+                      </RoleRouter>
+                    </ShellProvider>
+                  </AuthGuard>
+                }
+              />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Welcome />} />
-        </Routes>
-      </BrowserRouter>
-      </ViewAsProvider>
+              {/* Catch-all */}
+              <Route path="*" element={<Welcome />} />
+            </Routes>
+          </BrowserRouter>
+        </ViewAsProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

@@ -1,122 +1,157 @@
 /**
  * Convention Lint Tests
  *
- * Verifies that codebase conventions are followed:
- * - Database table names use snake_case
- * - No nautical names in database tables
- * - Feature names use compound capitals
- * - Icons use Lucide only (no emoji in adult interfaces)
- * - CSS uses theme tokens (no hardcoded colors)
+ * Scans the actual codebase to verify conventions are followed:
+ * - Database table names use snake_case, no nautical names
+ * - RLS enabled on every table
+ * - Icons from Lucide only (no emoji in adult interfaces)
+ * - CSS uses theme tokens (no hardcoded colors in components)
  */
 
-import { describe, it, expect } from 'vitest';
-import { glob } from 'glob';
-import { readFileSync } from 'fs';
+import { describe, it, expect } from 'vitest'
+import { readFileSync, readdirSync, existsSync } from 'fs'
+import { join } from 'path'
 
 // Nautical terms that must NOT appear in database table names
 const NAUTICAL_TERMS = [
   'helm', 'compass', 'anchor', 'starboard', 'port', 'keel',
   'rigging', 'manifest', 'galley', 'bow', 'stern', 'mast',
   'sail', 'rudder', 'hull', 'deck', 'berth', 'brig',
-];
+]
 
-// Correct compound capital feature names
-const FEATURE_NAMES = {
-  correct: [
-    'LifeLantern', 'InnerWorkings', 'GuidingStars', 'BestIntentions',
-    'BookShelf', 'ThoughtSift', 'BigPlans', 'MindSweep',
-    'DailyCelebration', 'SafeHarbor', 'QuickTasks',
-  ],
-  incorrect: [
-    'Life_Lantern', 'life_lantern', 'Inner_Workings', 'inner_workings',
-    'Guiding_Stars', 'Best_Intentions', 'Book_Shelf', 'Thought_Sift',
-    'Big_Plans', 'Mind_Sweep', 'Daily_Celebration', 'Safe_Harbor',
-  ],
-};
+function getMigrationFiles(): string[] {
+  const migrationDir = join(process.cwd(), 'supabase/migrations')
+  if (!existsSync(migrationDir)) return []
+  return readdirSync(migrationDir)
+    .filter(f => f.endsWith('.sql'))
+    .map(f => join(migrationDir, f))
+}
+
+function getComponentFiles(): string[] {
+  const results: string[] = []
+  function walk(dir: string) {
+    if (!existsSync(dir)) return
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name)
+      if (entry.isDirectory()) walk(fullPath)
+      else if (entry.name.endsWith('.tsx')) results.push(fullPath)
+    }
+  }
+  walk(join(process.cwd(), 'src'))
+  return results
+}
 
 describe('Convention Lint', () => {
   describe('Database Naming', () => {
-    it('should not use nautical terms in migration files', async () => {
-      // TODO: Scan migration files for nautical table names
-      // const migrationFiles = await glob('supabase/migrations/**/*.sql');
-      // for (const file of migrationFiles) {
-      //   const content = readFileSync(file, 'utf-8').toLowerCase();
-      //   for (const term of NAUTICAL_TERMS) {
-      //     expect(content).not.toContain(`create table ${term}`);
-      //     expect(content).not.toContain(`create table public.${term}`);
-      //   }
-      // }
-      expect(NAUTICAL_TERMS.length).toBeGreaterThan(0);
-    });
+    it('should not use nautical terms in table names', () => {
+      const migrations = getMigrationFiles()
+      expect(migrations.length).toBeGreaterThan(0)
 
-    it('should use snake_case for all table names in migrations', async () => {
-      // TODO: Parse CREATE TABLE statements and verify snake_case
-      expect(true).toBe(true);
-    });
-  });
+      for (const file of migrations) {
+        const content = readFileSync(file, 'utf-8').toLowerCase()
+        // Extract CREATE TABLE statements
+        const tableMatches = content.match(/create\s+table\s+(?:public\.)?([\w]+)/g) ?? []
+        for (const match of tableMatches) {
+          const tableName = match.replace(/create\s+table\s+(?:public\.)?/, '')
+          for (const term of NAUTICAL_TERMS) {
+            expect(tableName).not.toContain(term)
+          }
+        }
+      }
+    })
 
-  describe('Feature Name Conventions', () => {
-    it('should use compound capitals in component file names', async () => {
-      // TODO: Scan src/features/ for files containing incorrect compound names
-      // const tsFiles = await glob('src/**/*.{ts,tsx}');
-      // for (const file of tsFiles) {
-      //   const content = readFileSync(file, 'utf-8');
-      //   for (const incorrect of FEATURE_NAMES.incorrect) {
-      //     // Allow snake_case in database queries and feature keys
-      //     // Only flag in display text and component names
-      //   }
-      // }
-      expect(FEATURE_NAMES.correct.length).toBe(11);
-    });
-  });
-
-  describe('Icon Convention', () => {
-    it('should not use emoji characters in non-Play shell components', async () => {
-      // TODO: Scan adult/independent shell components for emoji
-      // Exception: Play shell components can use emoji
-      expect(true).toBe(true);
-    });
-
-    it('should import icons only from lucide-react', async () => {
-      // TODO: Verify no imports from other icon libraries
-      // const tsxFiles = await glob('src/**/*.tsx');
-      // for (const file of tsxFiles) {
-      //   const content = readFileSync(file, 'utf-8');
-      //   if (content.includes('import') && content.includes('icon')) {
-      //     expect(content).toContain('lucide-react');
-      //   }
-      // }
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('Theme Token Convention', () => {
-    it('should not use hardcoded color values in CSS/TSX', async () => {
-      // TODO: Scan for hardcoded hex colors outside of theme definition files
-      // Allow: theme config files, tailwind config
-      // Deny: component files with raw hex colors
-      expect(true).toBe(true);
-    });
-
-    it('should use --vibe-* or --theme-* CSS variables', async () => {
-      // TODO: Verify CSS files reference theme tokens
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('Human-in-the-Mix Convention', () => {
-    it('should not save AI output without HumanInTheMix wrapper', async () => {
-      // TODO: Scan for AI response handling that persists without
-      // Edit/Approve/Regenerate/Reject flow
-      expect(true).toBe(true);
-    });
-  });
+    it('should use snake_case for all table names', () => {
+      const migrations = getMigrationFiles()
+      for (const file of migrations) {
+        const content = readFileSync(file, 'utf-8')
+        const tableMatches = content.match(/CREATE\s+TABLE\s+(?:public\.)?([\w]+)/gi) ?? []
+        for (const match of tableMatches) {
+          const tableName = match.replace(/CREATE\s+TABLE\s+(?:public\.)?/i, '')
+          // snake_case: only lowercase letters, digits, and underscores
+          expect(tableName).toMatch(/^[a-z][a-z0-9_]*$/)
+        }
+      }
+    })
+  })
 
   describe('RLS Convention', () => {
-    it('should have RLS enabled on every table in migrations', async () => {
-      // TODO: Parse migration files, for each CREATE TABLE verify
-      // ALTER TABLE ... ENABLE ROW LEVEL SECURITY exists
-      expect(true).toBe(true);
-    });
-  });
-});
+    it('should have RLS enabled on every table in migrations', () => {
+      const migrations = getMigrationFiles()
+      for (const file of migrations) {
+        const content = readFileSync(file, 'utf-8')
+        // Find all CREATE TABLE statements
+        const tableMatches = content.match(/CREATE\s+TABLE\s+(?:public\.)?([\w]+)/gi) ?? []
+        for (const match of tableMatches) {
+          const tableName = match.replace(/CREATE\s+TABLE\s+(?:public\.)?/i, '')
+          // Verify corresponding ENABLE ROW LEVEL SECURITY exists
+          const rlsPattern = new RegExp(
+            `ALTER\\s+TABLE\\s+(?:public\\.)?${tableName}\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`,
+            'i'
+          )
+          expect(
+            rlsPattern.test(content),
+            `Table "${tableName}" in ${file.split(/[\\/]/).pop()} is missing ENABLE ROW LEVEL SECURITY`
+          ).toBe(true)
+        }
+      }
+    })
+  })
+
+  describe('Icon Convention', () => {
+    it('should not use emoji in non-Play shell components', () => {
+      const componentFiles = getComponentFiles()
+      // Emoji regex: matches common emoji ranges
+      const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u
+
+      for (const file of componentFiles) {
+        const relativePath = file.replace(process.cwd(), '')
+        // Play shell is exempt — emoji allowed there
+        if (relativePath.includes('PlayShell')) continue
+
+        const content = readFileSync(file, 'utf-8')
+        // Only check JSX string literals (not comments or variable names)
+        const jsxStrings = content.match(/'[^']*'|"[^"]*"|`[^`]*`/g) ?? []
+        for (const str of jsxStrings) {
+          // Skip import paths and CSS values
+          if (str.includes('from') || str.includes('var(--')) continue
+          if (emojiRegex.test(str)) {
+            // Fail with helpful message
+            expect(
+              false,
+              `Emoji found in non-Play component ${relativePath.split(/[\\/]/).pop()}: ${str}`
+            ).toBe(true)
+          }
+        }
+      }
+    })
+  })
+
+  describe('Theme Token Convention', () => {
+    it('should not use hardcoded hex colors in component files', () => {
+      const componentFiles = getComponentFiles()
+      // Match hex colors like #fff, #ffffff, #FFF4EC
+      const hexColorRegex = /#[0-9a-fA-F]{3,8}\b/g
+
+      // Exempt files: theme definitions, tokens, config
+      const exemptPatterns = ['tokens.ts', 'theme/', 'tailwind', 'index.css']
+
+      for (const file of componentFiles) {
+        const relativePath = file.replace(process.cwd(), '')
+        if (exemptPatterns.some(p => relativePath.includes(p))) continue
+
+        const content = readFileSync(file, 'utf-8')
+        const matches = content.match(hexColorRegex) ?? []
+        // Filter out common false positives (CSS-in-JS template literals referencing vars)
+        const realColors = matches.filter(m => {
+          // Allow short matches that might be part of IDs or other non-color strings
+          return m.length >= 4
+        })
+
+        expect(
+          realColors.length,
+          `Hardcoded hex color(s) found in ${relativePath.split(/[\\/]/).pop()}: ${realColors.join(', ')}. Use CSS custom properties instead.`
+        ).toBe(0)
+      }
+    })
+  })
+})
