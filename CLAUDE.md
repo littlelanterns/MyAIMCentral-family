@@ -50,7 +50,7 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 8. **`is_included_in_ai` pattern:** Every context source has this boolean (default true). Three-tier toggles control inclusion.
 9. **Feature keys:** Register in `feature_key_registry`, gate with `<PermissionGate>`, check with `useCanAccess()`.
 10. **During beta:** `useCanAccess()` returns true for everything (all tiers unlocked). Infrastructure must still be in place.
-11. **PRDs are the source of truth.** If a spec doc conflicts with a PRD, the PRD wins. If two PRDs conflict, the newer one wins.
+11. **PRDs are the ONLY source of truth for building features.** Before writing ANY code for a feature, you MUST read the FULL PRD file in `prds/` AND any related addenda in `prds/addenda/`. The `claude/database_schema.md` file is a summary reference — it is NOT authoritative for schema design. If `database_schema.md` conflicts with a PRD, the PRD wins. If two PRDs conflict, the newer one wins. Every column, every enum value, every screen, every interaction, every empty state, every visibility rule in the PRD must be implemented precisely. This platform is a Rube Goldberg machine — every piece connects, and precision is non-negotiable.
 12. **Never modify files in `prds/`, `specs/`, or `reference/`.** These are read-only source material.
 
 ## Pricing (PRD-31 Authoritative)
