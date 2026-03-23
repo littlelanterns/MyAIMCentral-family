@@ -7,6 +7,7 @@ import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { FamilyLogin } from '@/pages/auth/FamilyLogin'
 import { Dashboard } from '@/pages/Dashboard'
 import { AuthGuard } from '@/components/AuthGuard'
+import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +21,7 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ViewAsProvider>
       <BrowserRouter>
         <Routes>
           {/* Public routes */}
@@ -36,6 +38,7 @@ function App() {
           <Route path="*" element={<Welcome />} />
         </Routes>
       </BrowserRouter>
+      </ViewAsProvider>
     </QueryClientProvider>
   )
 }
