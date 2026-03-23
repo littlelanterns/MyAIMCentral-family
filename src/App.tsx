@@ -1,5 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Welcome } from '@/pages/Welcome'
+import { CreateAccount } from '@/pages/auth/CreateAccount'
+import { SignIn } from '@/pages/auth/SignIn'
+import { ForgotPassword } from '@/pages/auth/ForgotPassword'
+import { FamilyLogin } from '@/pages/auth/FamilyLogin'
+import { Dashboard } from '@/pages/Dashboard'
+import { AuthGuard } from '@/components/AuthGuard'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -10,23 +17,23 @@ const queryClient = new QueryClient({
   },
 })
 
-function HomePage() {
-  return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>MyAIM Central</h1>
-      <p style={{ color: 'var(--theme-text-muted)' }}>
-        Family Platform v2 — Phase 00 Complete
-      </p>
-    </div>
-  )
-}
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          {/* Public routes */}
+          <Route path="/" element={<Welcome />} />
+          <Route path="/auth/create-account" element={<CreateAccount />} />
+          <Route path="/auth/sign-in" element={<SignIn />} />
+          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/family-login" element={<FamilyLogin />} />
+
+          {/* Protected routes */}
+          <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Welcome />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
