@@ -52,7 +52,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     items: [
       { label: 'Guiding Stars', path: '/guiding-stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
       { label: 'BestIntentions', path: '/best-intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
-      { label: 'My Foundation', path: '/inner-workings', icon: <Heart size={20} />, tooltip: 'Self-knowledge and growth' },
+      { label: 'InnerWorkings', path: '/inner-workings', icon: <Heart size={20} />, tooltip: 'Self-knowledge and growth' },
       { label: 'Victories', path: '/victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
       { label: 'LifeLantern', path: '/life-lantern', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
     ],

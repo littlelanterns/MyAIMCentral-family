@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
-import { Settings } from 'lucide-react'
 import { LilaDrawer } from '@/components/lila'
+import { NotepadDrawer } from '@/components/notepad'
+import { ThemeSelector } from '@/components/ThemeSelector'
 import type { LilaConversation } from '@/hooks/useLila'
 
 interface MomShellProps {
@@ -10,7 +11,7 @@ interface MomShellProps {
 
 export function MomShell({ children }: MomShellProps) {
   const [activeConversation, setActiveConversation] = useState<LilaConversation | null>(null)
-  const [drawerVisible, setDrawerVisible] = useState(true)
+  const [lilaVisible, setLilaVisible] = useState(true)
 
   return (
     <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -18,36 +19,27 @@ export function MomShell({ children }: MomShellProps) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Floating buttons (top-right) */}
-        <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
-          <button
-            className="p-2 rounded-full"
-            style={{
-              backgroundColor: 'var(--color-bg-card)',
-              color: 'var(--color-text-secondary)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-            title="Settings"
-          >
-            <Settings size={20} />
-          </button>
+        <div className="fixed top-3 right-12 z-30 flex items-center gap-2">
+          <ThemeSelector />
         </div>
 
-        {/* Main content — extra bottom padding for LiLa drawer trigger */}
+        {/* Main content — extra padding for drawers */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-16">
           {children}
         </main>
 
-        {/* LiLa bottom drawer */}
-        {drawerVisible && (
+        {/* LiLa bottom drawer with pull tab */}
+        {lilaVisible && (
           <LilaDrawer
             conversation={activeConversation}
             onConversationCreated={setActiveConversation}
-            onClose={() => setDrawerVisible(false)}
+            onClose={() => setLilaVisible(false)}
           />
         )}
       </div>
 
-      {/* STUB: Smart Notepad right drawer — Phase 09 */}
+      {/* Smart Notepad right drawer with pull tab */}
+      <NotepadDrawer />
     </div>
   )
 }

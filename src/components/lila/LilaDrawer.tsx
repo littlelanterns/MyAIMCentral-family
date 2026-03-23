@@ -19,7 +19,7 @@ interface LilaDrawerProps {
 
 /**
  * LiLa bottom drawer — Mom shell only (PRD-04/05).
- * Pull-up conversational AI interface.
+ * Pull-up conversational AI interface with an edge pull tab.
  */
 export function LilaDrawer({ conversation, onConversationCreated, onClose }: LilaDrawerProps) {
   const { data: member } = useFamilyMember()
@@ -44,7 +44,6 @@ export function LilaDrawer({ conversation, onConversationCreated, onClose }: Lil
     setInput('')
     setExpanded(true)
 
-    // Ensure conversation exists
     let conv = conversation
     if (!conv) {
       conv = await createConversation.mutateAsync({
@@ -56,14 +55,12 @@ export function LilaDrawer({ conversation, onConversationCreated, onClose }: Lil
       onConversationCreated(conv)
     }
 
-    // Send user message
     await sendMessage.mutateAsync({
       conversation_id: conv.id,
       role: 'user',
       content: messageText,
     })
 
-    // Layer 1: Crisis detection
     if (detectCrisis(messageText)) {
       await sendMessage.mutateAsync({
         conversation_id: conv.id,
@@ -75,7 +72,6 @@ export function LilaDrawer({ conversation, onConversationCreated, onClose }: Lil
     }
 
     // STUB: Call lila-chat Edge Function for AI response
-    // For now, insert a placeholder response
     setIsThinking(true)
     await new Promise(resolve => setTimeout(resolve, 500))
     await sendMessage.mutateAsync({
@@ -87,115 +83,104 @@ export function LilaDrawer({ conversation, onConversationCreated, onClose }: Lil
   }
 
   return (
-    <>
-      {/* Collapsed trigger bar */}
-      {!expanded && (
-        <button
-          onClick={() => setExpanded(true)}
-          className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-center gap-2 py-2 md:left-[220px]"
-          style={{
-            backgroundColor: 'var(--color-bg-card)',
-            borderTop: '1px solid var(--color-border)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          <MessageCircle size={16} />
-          <span className="text-sm">Talk to LiLa</span>
-          <ChevronUp size={16} />
-        </button>
-      )}
+    <div className="fixed bottom-0 left-0 right-0 z-30 md:left-[220px]">
+      {/* Pull tab — always visible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-1 rounded-t-lg text-xs font-medium"
+        style={{
+          backgroundColor: 'var(--color-btn-primary-bg)',
+          color: 'var(--color-btn-primary-text)',
+        }}
+      >
+        <MessageCircle size={12} />
+        LiLa
+        {expanded ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+      </button>
 
-      {/* Expanded drawer */}
-      {expanded && (
+      {/* Drawer body */}
+      <div
+        className="flex flex-col transition-all duration-300 ease-in-out overflow-hidden"
+        style={{
+          height: expanded ? 'min(50vh, 400px)' : '0px',
+          backgroundColor: 'var(--color-bg-card)',
+          borderTop: expanded ? '2px solid var(--color-border)' : 'none',
+        }}
+      >
+        {/* Header */}
         <div
-          className="fixed bottom-0 left-0 right-0 z-30 flex flex-col md:left-[220px]"
-          style={{
-            height: '50vh',
-            maxHeight: '400px',
-            backgroundColor: 'var(--color-bg-card)',
-            borderTop: '2px solid var(--color-border)',
-          }}
+          className="flex items-center justify-between px-4 py-2 border-b shrink-0"
+          style={{ borderColor: 'var(--color-border)' }}
         >
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-4 py-2 border-b"
-            style={{ borderColor: 'var(--color-border)' }}
-          >
-            <div className="flex items-center gap-2">
-              <MessageCircle size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
-                LiLa
+          <div className="flex items-center gap-2">
+            <MessageCircle size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              LiLa
+            </span>
+            {conversation?.guided_mode && (
+              <span
+                className="px-2 py-0.5 rounded text-xs"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}
+              >
+                {conversation.guided_mode}
               </span>
-              {conversation?.guided_mode && (
-                <span
-                  className="px-2 py-0.5 rounded text-xs"
-                  style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}
-                >
-                  {conversation.guided_mode}
-                </span>
-              )}
-            </div>
-            <div className="flex gap-1">
-              <button onClick={() => setExpanded(false)} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
-                <ChevronDown size={16} />
-              </button>
-              <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {messages.length === 0 && (
-              <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
-                Hi! I'm LiLa, your processing partner. How can I help?
-              </p>
             )}
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {isThinking && (
-              <div className="text-sm italic" style={{ color: 'var(--color-text-secondary)' }}>
-                LiLa is thinking...
-              </div>
-            )}
-            <div ref={messagesEndRef} />
           </div>
-
-          {/* Input */}
-          <div
-            className="flex items-center gap-2 px-4 py-3 border-t"
-            style={{ borderColor: 'var(--color-border)' }}
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder="Type a message..."
-              className="flex-1 px-3 py-2 rounded-lg text-sm"
-              style={{
-                backgroundColor: 'var(--color-bg-primary)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text-primary)',
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="p-2 rounded-lg disabled:opacity-50"
-              style={{
-                backgroundColor: 'var(--color-btn-primary-bg)',
-                color: 'var(--color-btn-primary-text)',
-              }}
-            >
-              <Send size={16} />
-            </button>
-          </div>
+          <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
+            <X size={16} />
+          </button>
         </div>
-      )}
-    </>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {messages.length === 0 && (
+            <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
+              Hi! I'm LiLa, your processing partner. How can I help?
+            </p>
+          )}
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))}
+          {isThinking && (
+            <div className="text-sm italic" style={{ color: 'var(--color-text-secondary)' }}>
+              LiLa is thinking...
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div
+          className="flex items-center gap-2 px-4 py-3 border-t shrink-0"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            placeholder="Type a message..."
+            className="flex-1 px-3 py-2 rounded-lg text-sm"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className="p-2 rounded-lg disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+            }}
+          >
+            <Send size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

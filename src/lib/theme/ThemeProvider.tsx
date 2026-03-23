@@ -151,7 +151,7 @@ export function ThemeProvider({ children, defaultShell = 'mom' }: ThemeProviderP
     (localStorage.getItem('myaim-vibe') as VibeKey) || 'classic'
   )
   const [colorMode, setColorModeState] = useState<ColorMode>(() =>
-    (localStorage.getItem('myaim-color-mode') as ColorMode) || 'system'
+    (localStorage.getItem('myaim-color-mode') as ColorMode) || 'light'
   )
   const [gradientEnabled, setGradientEnabledState] = useState<boolean>(() =>
     localStorage.getItem('myaim-gradient') !== 'false'
