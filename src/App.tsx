@@ -8,6 +8,7 @@ import { FamilyLogin } from '@/pages/auth/FamilyLogin'
 import { Dashboard } from '@/pages/Dashboard'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
+import { ThemeProvider } from '@/lib/theme'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +22,7 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <ViewAsProvider>
       <BrowserRouter>
         <Routes>
@@ -39,6 +41,7 @@ function App() {
         </Routes>
       </BrowserRouter>
       </ViewAsProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

@@ -1,50 +1,99 @@
 @import "tailwindcss";
 
 /*
- * MyAIM Central — Theme System (PRD-03)
- * Shell-aware CSS custom properties.
- * Full theme families and color tokens added in Phase 03.
+ * MyAIM Central — Design System (PRD-03)
+ * CSS custom properties injected by ThemeProvider at runtime.
+ * This file provides structural defaults and responsive foundation.
  */
 
-:root {
-  /* Vibe tokens (structural) */
-  --vibe-radius: 0.5rem;
-  --vibe-spacing: 1rem;
-  --vibe-transition: 200ms ease;
+/* Font scale accessibility */
+html { font-size: 16px; }
+html.font-scale-large { font-size: 18px; }
+html.font-scale-extra-large { font-size: 20px; }
 
-  /* Theme tokens (color) — defaults, overridden by theme provider */
-  --theme-primary: #6366f1;
-  --theme-primary-hover: #4f46e5;
-  --theme-accent: #f59e0b;
-  --theme-background: #ffffff;
-  --theme-surface: #f8fafc;
-  --theme-text: #0f172a;
-  --theme-text-muted: #64748b;
-  --theme-border: #e2e8f0;
-  --theme-success: #22c55e;
-  --theme-warning: #f59e0b;
-  --theme-error: #ef4444;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --theme-background: #0f172a;
-    --theme-surface: #1e293b;
-    --theme-text: #f1f5f9;
-    --theme-text-muted: #94a3b8;
-    --theme-border: #334155;
-  }
-}
-
+/* Base styles */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: var(--theme-background);
-  color: var(--theme-text);
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  background-color: var(--color-bg-primary, #fff4ec);
+  color: var(--color-text-primary, #5a4033);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
 }
 
 #root {
   min-height: 100svh;
+}
+
+/* Headings use theme heading font */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading, Georgia, serif);
+  color: var(--color-text-heading, var(--color-text-primary));
+  line-height: 1.25;
+}
+
+/* Links */
+a {
+  color: var(--color-btn-primary-bg, #68a395);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Focus ring for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--color-border-focus, #68a395);
+  outline-offset: 2px;
+}
+
+/* Scrollbar theming */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary, #d4e3d9);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-btn-primary-bg, #68a395);
+  border-radius: 4px;
+}
+.gradient-on ::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary, var(--color-btn-primary-bg));
+}
+
+/* Gradient button enhancement */
+.gradient-on .btn-primary {
+  background: var(--gradient-primary) !important;
+}
+.gradient-on .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--color-btn-primary-bg, #68a395);
+  color: var(--color-btn-primary-text, white);
+}
+
+/* Touch target minimum */
+button, a, input, select, textarea {
+  min-height: var(--touch-target-min, 44px);
+}
+
+/* Responsive breakpoints */
+@media (max-width: 767px) {
+  /* Mobile: stack everything */
+  .desktop-only { display: none !important; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet */
+  .mobile-only { display: none !important; }
+}
+@media (min-width: 1024px) {
+  /* Desktop */
+  .mobile-only { display: none !important; }
 }
