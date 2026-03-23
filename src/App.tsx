@@ -6,11 +6,11 @@ import { SignIn } from '@/pages/auth/SignIn'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { FamilyLogin } from '@/pages/auth/FamilyLogin'
 import { Dashboard } from '@/pages/Dashboard'
-import { AuthGuard } from '@/components/AuthGuard'
+import { GuidingStarsPage } from '@/pages/GuidingStars'
+import { InnerWorkingsPage } from '@/pages/InnerWorkings'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
-import { ShellProvider } from '@/components/shells/ShellProvider'
-import { RoleRouter } from '@/components/shells/RoleRouter'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,19 +35,10 @@ function App() {
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth/family-login" element={<FamilyLogin />} />
 
-              {/* Protected routes — wrapped in ShellProvider + RoleRouter */}
-              <Route
-                path="/dashboard"
-                element={
-                  <AuthGuard>
-                    <ShellProvider>
-                      <RoleRouter>
-                        <Dashboard />
-                      </RoleRouter>
-                    </ShellProvider>
-                  </AuthGuard>
-                }
-              />
+              {/* Protected routes — AuthGuard + ShellProvider + RoleRouter */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />
+              <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
