@@ -128,32 +128,11 @@ export function ThemeSelector() {
             </div>
           </div>
 
-          {/* Vibe */}
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Vibe
-            </p>
-            <div className="space-y-1">
-              {VIBE_LIST.map(v => (
-                <button
-                  key={v.key}
-                  onClick={() => setVibe(v.key)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: vibe === v.key ? 'var(--color-bg-secondary)' : 'transparent',
-                    color: vibe === v.key ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
-                    fontWeight: vibe === v.key ? 500 : 400,
-                  }}
-                >
-                  {v.name}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Vibe selector hidden for Vibeathon — only Classic MyAIM active */}
 
           {/* Gradient Toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Gradients</span>
+            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Gradient background</span>
             <button
               onClick={() => setGradientEnabled(!gradientEnabled)}
               className="w-10 h-6 rounded-full relative transition-colors"

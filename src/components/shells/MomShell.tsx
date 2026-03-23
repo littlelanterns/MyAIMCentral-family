@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar'
 import { LilaDrawer } from '@/components/lila'
 import { NotepadDrawer } from '@/components/notepad'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { useTheme } from '@/lib/theme'
 import type { LilaConversation } from '@/hooks/useLila'
 
 interface MomShellProps {
@@ -12,9 +13,17 @@ interface MomShellProps {
 export function MomShell({ children }: MomShellProps) {
   const [activeConversation, setActiveConversation] = useState<LilaConversation | null>(null)
   const [lilaVisible, setLilaVisible] = useState(true)
+  const { gradientEnabled } = useTheme()
 
   return (
-    <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+    <div
+      className="flex min-h-svh"
+      style={{
+        background: gradientEnabled
+          ? 'var(--gradient-background, var(--color-bg-primary))'
+          : 'var(--color-bg-primary)',
+      }}
+    >
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
