@@ -79,3 +79,72 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 | Creator | $39.99 | $34.99 |
 
 100 founding family limit. Founding rates are lifetime locks with growing dollar discount.
+
+## Universal Scheduler (PRD-35)
+
+23. **All scheduling uses the Universal Scheduler component (PRD-35).** Never build a custom recurrence picker. Import from `@/components/scheduling`.
+24. **Schedule data is stored as RRULE JSONB** in each consuming feature's `recurrence_details` column. Format: `{rrule, dtstart, until, count, exdates, rdates, timezone, schedule_type, completion_dependent, custody_pattern}`.
+25. **Use rrule.js for all instance generation.** Never pre-generate infinite instances. Expand on-the-fly with a configurable horizon.
+26. **`access_schedules` replaces `shift_schedules`** for Special Adult/co-parent access windows.
+27. **Completion-dependent schedules** generate the next instance from the last completion timestamp, not from a fixed calendar position.
+28. **The [+ Add another] pattern** is the universal solution for multi-value scheduling (multiple weekdays, multiple dates, multiple seasonal ranges). No fixed limit on rows.
+29. **Calendar preview is REQUIRED** on all scheduler instances. It must work for every frequency type and be navigable to any month/year.
+30. **Time is optional by default.** Consuming features pass `showTimeDefault: true` for time-centric features (calendar, meetings, shifts).
+
+## PlannedExpansionCard (PRD-32A)
+
+31. **PlannedExpansionCard enhanced pattern:** Every PlannedExpansionCard includes THREE sections:
+    (a) "What this will do" — A FeatureGuide-style description of the planned feature written in present-future tense. Pulled from `feature_expansion_registry.ts` description field. This shows judges and users the vision.
+    (b) "I'm interested" — Yes/No vote buttons + optional freeform note (500 char) on Yes. Saves to `feature_demand_responses` table. Shows previous vote state on return. This collects real user demand data.
+    (c) "Notify me when it's ready" — Toggle that opts user into a notification when the feature launches. This builds anticipation.
+    The card should feel warm and exciting ("On our roadmap!"), not like a dead end ("Coming soon"). Use btn-primary styling, warm brand energy. Every PlannedExpansionCard page ALSO gets a FeatureGuide card explaining the demand validation concept itself ("Help us build what matters most to your family!").
+
+## Universal Timer (PRD-36)
+
+32. **Timer is timestamp-based, not client-side.** `started_at` and `ended_at` are server timestamps. Duration = `ended_at - started_at`. Timer persists across page refresh and device switches.
+33. **Floating bubble renders at shell level** via `TimerProvider` wrapping each shell. Z-index: above content and QuickTasks, below modals. Hidden when no active timers.
+34. **Multiple concurrent timers supported.** Each timer is an independent `time_sessions` row. The bubble shows a badge with count.
+35. **5 visual timer styles** (sand_timer, hourglass, thermometer, arc, filling_jar) are SVG/CSS animations consuming theme tokens. Play shell shows visual-only (no numbers).
+36. **Soft delete only** for timer sessions (`deleted_at` timestamp). Mom can edit timestamps with full audit trail preserved in `original_timestamps` JSONB.
+37. **Play mode age gate** is a speed bump (client-side useState), not security. Under 18 redirects to "ask a grown-up". Mom quick-starts countdowns for Play children.
+
+## Permissions UI (PRD-02)
+
+38. **PIN lockout is server-side.** `verify_member_pin` RPC returns JSONB `{success, reason, attempts_remaining, locked_until, remaining_seconds}`. 5 failures → 15-minute lockout. Columns: `pin_failed_attempts`, `pin_locked_until` on `family_members`.
+39. **View As renders full-shell mode** via `ViewAsShellWrapper` wrapping MomShell content. `ViewAsBanner` (z-45) shows "Viewing as [Name]" with Switch/Exit buttons. `ViewAsMemberPicker` is a modal grid.
+40. **Special Adult shifts use `time_sessions`** with `source_type='shift'`, `is_standalone=true`. No separate `shift_sessions` table. Co-parents with `always_on` schedule skip shift start/end entirely.
+41. **Default permissions auto-created** via `trg_fm_auto_permissions` trigger when `additional_adult` is inserted. Grants `view` level for basic features to all children.
+
+## Design System (PRD-03)
+
+42. **38 themes implemented** across 6 mood categories (Warm & Cozy, Cool & Calm, Bold & Rich, Soft & Light, Bright & Fun). Each has light + dark variants with 20 semantic token fields including `accentDeep`, `textOnPrimary`, `borderDefault`.
+43. **Tooltip is fully theme-adaptive.** Background=`var(--color-accent-deep)`, text=`var(--color-text-on-primary)`, border=`var(--color-border-default)`, radius=`var(--vibe-radius-input)`. Zero hardcoded colors. Desktop: hover 300ms delay. Mobile: long-press. Auto-positioning via portal.
+44. **Shared component library:** Button, Card, Input, Modal, Badge, LoadingSpinner, EmptyState, Toggle, Avatar, Tabs, Select, Tooltip, SparkleOverlay — all in `@/components/shared`, all theme-aware via CSS custom properties.
+45. **Shell token overrides** applied via `applyShellTokens()`: touch targets (44/48/56px), font scale, line height, icon size, transition timing per shell type.
+46. **SparkleOverlay** reserved exclusively for victory celebrations in Play shell. Quick burst (8-12 particles, 0.8s) and full celebration (16-24 particles, 1.6s). Respects prefers-reduced-motion.
+47. **Dark mode defaults to system** (`prefers-color-scheme`). Theme preferences persist to Supabase `family_members.theme_preferences` JSONB via `useThemePersistence` hook.
+
+## Shell Routing (PRD-04)
+
+48. **BottomNav is shell-aware.** Mom/Adult/Independent: Home, Tasks, Journal, Notepad, More. Guided/Play have their own nav (BottomNav returns null). More menu has ⓘ info toggle for descriptions.
+49. **QuickTasks strip** is a horizontal scrollable pill bar at the top of Mom/Adult/Independent shells. Collapsible (persists to localStorage). Default items: Add Task, Journal, Quick Note, Victory, Calendar, MindSweep. "Quick Note" opens the Notepad drawer via bridge context.
+50. **PerspectiveSwitcher** is a segmented control on the dashboard page only (mom only). Three views: My Dashboard, Family Overview, Family Hub. Caller owns the state.
+51. **Play shell** uses pure emoji nav (🏠✅⭐🎮), parent-locked Settings button, prominent "Celebrate!" button, 56px touch targets.
+52. **Guided shell** shows personalized greeting header with member name + date. 48px touch targets. No sidebar on mobile.
+53. **Settings is NOT in the sidebar.** Access only via floating gear icon in top-right of each shell.
+54. **NotepadDrawer** is available in Mom, Adult, and Independent shells (wrapped with NotepadProvider). Not available in Guided (lightweight version future) or Play.
+
+## LiLa AI (PRD-05)
+
+55. **HumanInTheMix Regenerate** deletes the assistant message, re-sends with "[Please try a different approach]" appended. **Reject** deletes the assistant message and invalidates the query.
+56. **Help/Assist pattern matching** via `help-patterns.ts` (13 FAQ patterns) runs BEFORE AI calls. Matched responses insert directly into `lila_messages` with `metadata.source = 'pattern_match'` — zero API cost.
+57. **Context assembly has 7 stub loaders** for future sources (archives, LifeLantern, partner, BookShelf, family vision, personal vision, recent tasks). Each returns empty arrays until its PRD phase is built.
+58. **Permission filtering** (Step 5) excludes other members' context for non-mom. **Privacy Filtered** (Step 6) excludes private-visibility items for non-mom. Both auto-activate when `belongsToOtherMember` and `visibility` fields are populated.
+59. **Voice input** wired to LiLa drawer/modal via `useVoiceInput` hook → `whisper-transcribe` Edge Function. Recording indicator, interim preview, transcribed text inserted into input.
+60. **Page context** passed as `window.location.pathname` when creating conversations. Available in context snapshots for mode auto-routing (future).
+61. **Opening messages** seeded for core modes (help, assist, general, optimizer) and task_breaker modes. Rotate randomly on conversation start.
+
+## Auth Gaps (PRD-01)
+
+62. **Accept-invite flow** at `/auth/accept-invite?token=xxx`. Validates token against `family_members.invite_token`, supports new account creation or existing account linking. `accept_family_invite` RPC (SECURITY DEFINER) handles the DB update atomically.
+63. **Session duration per role:** adult=24h, independent=4h, guided=1h, play=30m. `useSessionTimeout` hook in ShellProvider tracks inactivity (mouse/key/touch/scroll), throttled to 30s resets. Warning banner 2 minutes before expiry. Auto-signout on timeout.

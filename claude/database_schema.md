@@ -25,7 +25,7 @@
 | founding_family_lost_at | TIMESTAMPTZ | — | YES | PRD-31 |
 | timezone | TEXT | 'America/Chicago' | NO | |
 | tablet_hub_config | JSONB | — | YES | |
-| tablet_hub_timeout | INTEGER | 300 | NO | Seconds |
+| tablet_hub_timeout | TEXT | 'never' | NO | CHECK: 'never','15min','30min','1hr','4hr' |
 | sweep_email_address | TEXT | — | YES | PRD-17B |
 | sweep_email_enabled | BOOLEAN | false | NO | PRD-17B |
 | analytics_opt_in | BOOLEAN | true | NO | PRD-22 |
@@ -48,7 +48,7 @@
 | family_id | UUID | — | NO | FK families |
 | user_id | UUID | — | YES | FK auth.users; NULL for PIN-only members |
 | display_name | TEXT | — | NO | |
-| role | TEXT | — | NO | CHECK: 'primary_parent','additional_adult','special_adult','independent','guided','play' |
+| role | TEXT | — | NO | CHECK: 'primary_parent','additional_adult','special_adult','member' |
 | avatar_url | TEXT | — | YES | |
 | pin_hash | TEXT | — | YES | |
 | visual_password | JSONB | — | YES | |
@@ -139,6 +139,28 @@
 
 ---
 
+### `permission_presets`
+**PRD:** PRD-02 | **Domain:** auth_family
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| family_id | UUID | — | YES | FK families; NULL for system presets |
+| created_by | UUID | — | YES | FK family_members (mom) |
+| preset_name | TEXT | — | NO | Display name (e.g., "Full Partner") |
+| target_role | TEXT | — | NO | CHECK: 'additional_adult','special_adult' |
+| permissions_config | JSONB | — | NO | Full permissions snapshot |
+| is_system_preset | BOOLEAN | false | NO | True for built-in presets; cannot be deleted |
+| created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
+
+**System Presets:** Full Partner, Active Helper, Observer (additional_adult); Babysitter, Grandparent, Tutor (special_adult)
+**RLS:** System presets public read. Family presets restricted to primary parent.
+**Indexes:** `idx_pp_family_role` ON (family_id, target_role)
+**Triggers:** `trg_pp_updated_at`
+
+---
+
 ### `access_schedules`
 **PRD:** PRD-35 | **Domain:** auth_family
 
@@ -147,14 +169,17 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
-| schedule_type | TEXT | — | NO | CHECK: 'shift','custody','always_on' |
-| recurrence_details | JSONB | — | YES | RRULE format per PRD-35 |
+| schedule_name | TEXT | — | YES | Optional label ("Custody Schedule", "Tuesday Babysitting") |
+| schedule_type | TEXT | 'recurring' | NO | CHECK: 'recurring','custody','always_on' |
+| recurrence_details | JSONB | '{}' | NO | Full RRULE JSONB format from Universal Scheduler |
+| start_time | TIME | — | YES | Daily access window start (NULL = all day) |
+| end_time | TIME | — | YES | Daily access window end (NULL = all day) |
 | is_active | BOOLEAN | true | NO | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Primary parent can manage. Scheduled member can read own.
-**Indexes:** `idx_as_family` ON family_id; `idx_as_member` ON member_id; `idx_as_active` ON (family_id, is_active)
+**Indexes:** `idx_as_family` ON family_id; `idx_as_member` ON member_id; `idx_as_active` ON (family_id, is_active); `idx_as_member_active` ON (member_id, is_active)
 **Triggers:** `trg_as_updated_at`
 
 ---
@@ -4412,24 +4437,35 @@
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
-| member_id | UUID | — | NO | FK family_members |
-| mode | TEXT | — | NO | CHECK: 'clock','pomodoro','stopwatch','countdown' |
-| started_at | TIMESTAMPTZ | — | NO | |
-| ended_at | TIMESTAMPTZ | — | YES | |
-| duration_seconds | INTEGER | — | YES | |
+| family_member_id | UUID | — | NO | FK family_members (who is being timed) |
+| started_by | UUID | — | NO | FK family_members (who pressed start) |
 | task_id | UUID | — | YES | FK tasks |
-| widget_id | UUID | — | YES | FK dashboard_widgets |
+| widget_id | UUID | — | YES | FK dashboard_widgets (deferred) |
 | list_item_id | UUID | — | YES | FK list_items |
-| source_type | TEXT | — | YES | |
-| source_reference_id | UUID | — | YES | |
-| original_timestamps | JSONB | — | YES | |
-| edit_reason | TEXT | — | YES | |
-| edited_by | UUID | — | YES | FK family_members |
-| deleted_at | TIMESTAMPTZ | — | YES | Soft delete |
+| source_type | TEXT | — | YES | Generic attachment: 'learning_log', 'project_step', etc. |
+| source_reference_id | UUID | — | YES | FK to source record |
+| timer_mode | TEXT | 'clock' | NO | CHECK: 'clock','pomodoro_focus','pomodoro_break','stopwatch','countdown' |
+| started_at | TIMESTAMPTZ | now() | NO | Precise start timestamp |
+| ended_at | TIMESTAMPTZ | — | YES | NULL = currently active |
+| duration_minutes | INTEGER | — | YES | Calculated on session end |
+| is_standalone | BOOLEAN | false | NO | True if not attached to task/widget/list/source |
+| standalone_label | TEXT | — | YES | User label for standalone sessions |
+| pomodoro_interval_number | INTEGER | — | YES | Which interval in Pomodoro sequence |
+| pomodoro_config | JSONB | — | YES | {focus_minutes, short_break_minutes, long_break_minutes, intervals_before_long_break} |
+| countdown_target_minutes | INTEGER | — | YES | For countdown mode: original target |
+| auto_paused | BOOLEAN | false | NO | True if ended by idle protection |
+| edited | BOOLEAN | false | NO | True if timestamps manually adjusted |
+| edited_by | UUID | — | YES | FK family_members (who edited) |
+| edited_at | TIMESTAMPTZ | — | YES | When edit occurred |
+| original_timestamps | JSONB | — | YES | {started_at, ended_at} — preserved for audit |
+| edit_reason | TEXT | — | YES | Optional reason for edit |
+| deleted_at | TIMESTAMPTZ | — | YES | Soft delete; NULL = active |
+| metadata | JSONB | '{}' | NO | Additional context |
 | created_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Member can manage own. Parent can read children's.
-**Indexes:** `idx_ts_family_member` ON (family_id, member_id); `idx_ts_started` ON started_at DESC; `idx_ts_task` ON task_id WHERE task_id IS NOT NULL; `idx_ts_active` ON (member_id) WHERE ended_at IS NULL AND deleted_at IS NULL
+**RLS:** Family-scoped. Mom full access. Members own sessions.
+**Indexes:** `idx_ts_member_ended` ON (family_member_id, ended_at); `idx_ts_task_member` ON (task_id, family_member_id, created_at); `idx_ts_widget_member` ON (widget_id, family_member_id, created_at); `idx_ts_list_member` ON (list_item_id, family_member_id, created_at); `idx_ts_source` ON (source_type, source_reference_id); `idx_ts_family_ended` ON (family_id, ended_at); `idx_ts_member_mode` ON (family_member_id, timer_mode, created_at); `idx_ts_auto_paused` ON auto_paused WHERE true; `idx_ts_active` ON (family_member_id) WHERE ended_at IS NULL AND deleted_at IS NULL
+**Triggers:** `trg_ts_calc_duration` — BEFORE UPDATE calculates duration_minutes from timestamps
 
 ---
 
@@ -4440,21 +4476,26 @@
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
-| member_id | UUID | — | NO | FK family_members |
-| default_mode | TEXT | 'clock' | NO | |
-| pomodoro_focus_minutes | INTEGER | 25 | NO | |
-| pomodoro_break_minutes | INTEGER | 5 | NO | |
-| idle_reminder_minutes | INTEGER | 120 | NO | |
-| idle_repeat_minutes | INTEGER | 60 | NO | |
-| auto_pause_enabled | BOOLEAN | false | NO | |
-| child_timer_visible | BOOLEAN | false | NO | |
-| standalone_permitted | BOOLEAN | true | NO | |
+| family_member_id | UUID | — | NO | FK family_members (UNIQUE) |
+| timer_visible | BOOLEAN | true | NO | Default varies by shell |
+| idle_reminder_minutes | INTEGER | 120 | NO | Minutes before first idle reminder; 0 = disabled |
+| idle_repeat_minutes | INTEGER | 60 | NO | Minutes between repeated reminders; 0 = no repeat |
+| auto_pause_minutes | INTEGER | 0 | NO | Auto-pause after this many minutes; 0 = disabled |
+| pomodoro_focus_minutes | INTEGER | 25 | NO | Default Pomodoro focus interval |
+| pomodoro_short_break_minutes | INTEGER | 5 | NO | Default short break |
+| pomodoro_long_break_minutes | INTEGER | 15 | NO | Default long break |
+| pomodoro_intervals_before_long | INTEGER | 4 | NO | Focus intervals before long break |
+| pomodoro_break_required | BOOLEAN | false | NO | For Guided/Play: dim task UI during breaks |
+| can_start_standalone | BOOLEAN | true | NO | Default: true for Mom/Dad/Independent, false for Guided/Play |
+| visual_timer_style | TEXT | 'sand_timer' | NO | CHECK: 'sand_timer','hourglass','thermometer','arc','filling_jar' |
+| show_time_as_numbers | BOOLEAN | true | NO | False for Play mode: visual only |
+| bubble_position | JSONB | '{"x":"right","y":"bottom"}' | NO | Remembered bubble position |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Member can manage own. Primary parent can manage children's.
-**Indexes:** `idx_tc2_family_member` UNIQUE ON (family_id, member_id)
-**Triggers:** `trg_tc2_updated_at`
+**RLS:** Family-scoped. Mom full CRUD. Members read own.
+**Indexes:** `idx_tc_family_member` ON family_member_id (UNIQUE); `idx_tc_family` ON family_id
+**Triggers:** `trg_tc_updated_at`
 
 ---
 

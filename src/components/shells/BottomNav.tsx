@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, CheckSquare, Calendar, MessageCircle, MoreHorizontal, X, ChevronRight } from 'lucide-react'
+import { Home, CheckSquare, BookOpen, FileText, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useShell } from './ShellProvider'
 
 /**
  * Mobile-only bottom navigation bar (PRD-04).
  * 56px fixed at bottom. Hidden on md+ (desktop uses Sidebar).
+ * Shell-aware: guided and play shells render their own nav — this component returns null for those.
  * "More" button opens a slide-up menu with full navigation.
  */
 
 const NAV_ITEMS = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
+  { path: '/dashboard', icon: Home, label: 'Home' },
   { path: '/tasks', icon: CheckSquare, label: 'Tasks' },
-  { path: '/calendar', icon: Calendar, label: 'Calendar' },
-  { path: '/messages', icon: MessageCircle, label: 'Messages' },
+  { path: '/journal', icon: BookOpen, label: 'Journal' },
+  { path: '/notepad', icon: FileText, label: 'Notepad' },
 ]
 
 interface NavSection {
@@ -23,13 +25,21 @@ interface NavSection {
 
 const MORE_SECTIONS: NavSection[] = [
   {
+    title: 'Daily',
+    items: [
+      { path: '/calendar', label: 'Calendar', description: 'Events & schedule' },
+      { path: '/messages', label: 'Messages', description: 'Family conversations' },
+      { path: '/victories', label: 'Victories', description: 'Celebrate wins' },
+      { path: '/lists', label: 'Lists', description: 'Checklists & references' },
+    ],
+  },
+  {
     title: 'Personal Growth',
     items: [
       { path: '/guiding-stars', label: 'GuidingStars', description: 'Values & intentions' },
       { path: '/inner-workings', label: 'InnerWorkings', description: 'Self-knowledge' },
-      { path: '/journal', label: 'Journal', description: 'Reflections & entries' },
-      { path: '/victories', label: 'Victories', description: 'Celebrate wins' },
       { path: '/life-lantern', label: 'LifeLantern', description: 'Life assessment' },
+      { path: '/safe-harbor', label: 'Safe Harbor', description: 'Private processing space' },
     ],
   },
   {
@@ -44,19 +54,23 @@ const MORE_SECTIONS: NavSection[] = [
   {
     title: 'Tools',
     items: [
-      { path: '/lists', label: 'Lists', description: 'Checklists & references' },
-      { path: '/notepad', label: 'Smart Notepad', description: 'Quick capture' },
       { path: '/vault', label: 'AI Vault', description: 'Browse & learn' },
       { path: '/bigplans', label: 'BigPlans', description: 'Project planning' },
       { path: '/thoughtsift', label: 'ThoughtSift', description: 'Decision tools' },
+      { path: '/archives', label: 'Archives', description: 'Context & documents' },
     ],
   },
 ]
 
 export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false)
+  const [showDescriptions, setShowDescriptions] = useState(false)
   const location = useLocation()
   const { data: member } = useFamilyMember()
+  const { shell } = useShell()
+
+  // Guided and play shells handle their own navigation
+  if (shell === 'guided' || shell === 'play') return null
 
   return (
     <>
@@ -151,17 +165,34 @@ export function BottomNav() {
                   {member?.display_name || 'Menu'}
                 </span>
               </div>
-              <button
-                onClick={() => setMoreOpen(false)}
-                className="p-1.5 rounded-full"
-                style={{
-                  color: 'var(--color-text-secondary)',
-                  background: 'transparent',
-                  minHeight: 'unset',
-                }}
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowDescriptions((v) => !v)}
+                  className="p-1.5 rounded-full"
+                  title={showDescriptions ? 'Hide descriptions' : 'Show descriptions'}
+                  style={{
+                    color: showDescriptions ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                    backgroundColor: showDescriptions ? 'var(--color-bg-secondary)' : 'transparent',
+                    border: 'none',
+                    minHeight: 'unset',
+                    transition: 'color 0.15s ease, background-color 0.15s ease',
+                  }}
+                >
+                  <Info size={16} />
+                </button>
+                <button
+                  onClick={() => setMoreOpen(false)}
+                  className="p-1.5 rounded-full"
+                  style={{
+                    color: 'var(--color-text-secondary)',
+                    background: 'transparent',
+                    border: 'none',
+                    minHeight: 'unset',
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Scrollable sections */}
@@ -189,7 +220,7 @@ export function BottomNav() {
                     >
                       <div className="flex-1">
                         <span className="text-sm font-medium">{item.label}</span>
-                        {item.description && (
+                        {showDescriptions && item.description && (
                           <span
                             className="block text-xs"
                             style={{ color: 'var(--color-text-secondary)' }}

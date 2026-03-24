@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Search, Filter, Archive, Trash2, Pencil } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Search, Archive, Trash2, Pencil } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import {
   useConversationHistory,
@@ -12,13 +12,42 @@ import { LilaAvatar, getAvatarKeyForMode, getModeDisplayName } from './LilaAvata
 
 /**
  * Conversation History — PRD-05
- * List of past conversations with search, filter, rename, archive, delete.
+ * List of past conversations with search, date range filter, status filter, mode filter,
+ * rename, archive, and delete.
  * Accessible from drawer header (mom) or as a standalone panel.
  */
+
+type DateRange = 'all' | 'today' | 'week' | 'month'
 
 interface LilaConversationHistoryProps {
   onConversationSelect: (conv: LilaConversation) => void
   onClose: () => void
+}
+
+/** Returns the start of a date range as an ISO string, or null for 'all'. */
+function getDateRangeStart(range: DateRange): Date | null {
+  const now = new Date()
+  switch (range) {
+    case 'today': {
+      const d = new Date(now)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+    case 'week': {
+      const d = new Date(now)
+      d.setDate(d.getDate() - 7)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+    case 'month': {
+      const d = new Date(now)
+      d.setDate(d.getDate() - 30)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+    default:
+      return null
+  }
 }
 
 export function LilaConversationHistory({ onConversationSelect, onClose }: LilaConversationHistoryProps) {
@@ -26,6 +55,7 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'archived' | undefined>(undefined)
   const [modeFilter, setModeFilter] = useState<string | undefined>(undefined)
+  const [dateRange, setDateRange] = useState<DateRange>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
 
@@ -38,12 +68,21 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
   const deleteConversation = useDeleteConversation()
   const renameConversation = useRenameConversation()
 
+  // Client-side date filtering — applied on top of the server query
+  const filteredConversations = useMemo(() => {
+    const cutoff = getDateRangeStart(dateRange)
+    if (!cutoff) return conversations
+    return conversations.filter(c => new Date(c.updated_at) >= cutoff)
+  }, [conversations, dateRange])
+
   function handleRename(conv: LilaConversation) {
     if (editTitle.trim() && member) {
       renameConversation.mutate({ id: conv.id, title: editTitle.trim(), memberId: member.id })
     }
     setEditingId(null)
   }
+
+  const isEmpty = filteredConversations.length === 0
 
   return (
     <div className="flex flex-col h-full">
@@ -76,23 +115,30 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Date range filter */}
+      <div className="px-4 pt-2">
+        <select
+          value={dateRange}
+          onChange={(e) => setDateRange(e.target.value as DateRange)}
+          className="w-full px-2 py-1.5 rounded-lg text-xs outline-none"
+          style={{
+            backgroundColor: 'var(--color-bg-input, var(--color-bg-primary))',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-primary)',
+          }}
+        >
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="week">Last 7 days</option>
+          <option value="month">Last 30 days</option>
+        </select>
+      </div>
+
+      {/* Status + mode filter chips */}
       <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto">
-        <FilterChip
-          label="All"
-          active={!statusFilter}
-          onClick={() => setStatusFilter(undefined)}
-        />
-        <FilterChip
-          label="Active"
-          active={statusFilter === 'active'}
-          onClick={() => setStatusFilter('active')}
-        />
-        <FilterChip
-          label="Archived"
-          active={statusFilter === 'archived'}
-          onClick={() => setStatusFilter('archived')}
-        />
+        <FilterChip label="All" active={!statusFilter} onClick={() => setStatusFilter(undefined)} />
+        <FilterChip label="Active" active={statusFilter === 'active'} onClick={() => setStatusFilter('active')} />
+        <FilterChip label="Archived" active={statusFilter === 'archived'} onClick={() => setStatusFilter('archived')} />
         <div className="w-px h-4 mx-1" style={{ backgroundColor: 'var(--color-border)' }} />
         <FilterChip
           label="Help"
@@ -113,13 +159,15 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
-        {conversations.length === 0 && (
+        {isEmpty && (
           <p className="text-sm text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
-            {search ? 'No conversations match your search.' : 'No conversations yet.'}
+            {search || dateRange !== 'all'
+              ? 'No conversations match your filters.'
+              : 'No conversations yet.'}
           </p>
         )}
 
-        {conversations.map(conv => {
+        {filteredConversations.map(conv => {
           const avatarKey = getAvatarKeyForMode(conv.mode || 'general')
           const modeLabel = getModeDisplayName(conv.mode, conv.guided_subtype)
           const isEditing = editingId === conv.id
@@ -142,7 +190,9 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
                     {modeLabel}
                   </span>
                   {conv.status === 'archived' && (
-                    <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Archived</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      Archived
+                    </span>
                   )}
                 </div>
 
@@ -176,7 +226,10 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => { setEditingId(conv.id); setEditTitle(conv.title || '') }}
+                  onClick={() => {
+                    setEditingId(conv.id)
+                    setEditTitle(conv.title || '')
+                  }}
                   className="p-1 rounded hover:opacity-70"
                   style={{ color: 'var(--color-text-secondary)' }}
                   title="Rename"

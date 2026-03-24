@@ -1,3 +1,5 @@
 export { ThemeProvider, useTheme } from './ThemeProvider'
+export { applyShellTokens } from './shellTokens'
+export { useThemePersistence } from './useThemePersistence'
 export { themes, vibes, brand, status, shellScaling } from './tokens'
 export type { ThemeKey, VibeKey, ShellType, ThemeColors, VibeConfig } from './tokens'

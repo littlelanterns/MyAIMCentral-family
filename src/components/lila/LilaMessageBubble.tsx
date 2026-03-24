@@ -19,6 +19,7 @@ interface LilaMessageBubbleProps {
   isLatestAssistant?: boolean
   isStreaming?: boolean
   onRegenerate?: () => void
+  onReject?: () => void
 }
 
 export function LilaMessageBubble({
@@ -27,6 +28,7 @@ export function LilaMessageBubble({
   isLatestAssistant = false,
   isStreaming = false,
   onRegenerate,
+  onReject,
 }: LilaMessageBubbleProps) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
@@ -142,7 +144,7 @@ export function LilaMessageBubble({
             }}
             onApprove={() => {/* Approve = no action needed, message stays */}}
             onRegenerate={() => onRegenerate?.()}
-            onReject={() => {/* STUB: remove message from conversation */}}
+            onReject={() => onReject?.()}
           />
         )}
       </div>

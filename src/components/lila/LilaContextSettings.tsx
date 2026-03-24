@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, ChevronRight, ChevronDown, Lock } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 
 /**
@@ -25,6 +25,7 @@ interface LilaContextSettingsProps {
 export function LilaContextSettings({ onClose }: LilaContextSettingsProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
+  const { data: familyMembers = [] } = useFamilyMembers(family?.id)
   const [sources, setSources] = useState<ContextSource[]>([])
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -146,6 +147,29 @@ export function LilaContextSettings({ onClose }: LilaContextSettingsProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+        {/* Person-level toggles (mom only) — UI placeholder; filtering wires in Phase 20 */}
+        {member?.role === 'primary_parent' && familyMembers.length > 1 && (
+          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              Include context from
+            </div>
+            {familyMembers
+              .filter(fm => fm.id !== member.id)
+              .map(fm => (
+                <label key={fm.id} className="flex items-center gap-2 py-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="rounded"
+                  />
+                  <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                    {fm.display_name}
+                  </span>
+                </label>
+              ))}
+          </div>
+        )}
+
         {loading && (
           <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
             Loading context sources...

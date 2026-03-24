@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronUp, ChevronDown, Send, X, History, Mic } from 'lucide-react'
+import { ChevronUp, ChevronDown, Send, X, History, Mic, Loader } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   useLilaMessages,
   useCreateConversation,
@@ -17,7 +18,10 @@ import { LilaModeSwitcher } from './LilaModeSwitcher'
 import { LilaAvatar, getAvatarKeyForMode, getModeDisplayName } from './LilaAvatar'
 import { LilaContextIndicator } from './LilaContextIndicator'
 import { assembleContext, getContextSummary, createContextSnapshot } from '@/lib/ai/context-assembly'
+import { matchHelpPattern } from '@/lib/ai/help-patterns'
+import { supabase } from '@/lib/supabase/client'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
+import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 
 type DrawerState = 'collapsed' | 'peek' | 'full'
 
@@ -50,6 +54,16 @@ export function LilaDrawer({
   const { data: guidedModes = [] } = useGuidedModes()
   const createConversation = useCreateConversation()
   const renameConversation = useRenameConversation()
+  const queryClient = useQueryClient()
+
+  const {
+    state: voiceState,
+    duration: voiceDuration,
+    interimText,
+    startRecording,
+    stopRecording,
+    isSupported: voiceSupported,
+  } = useVoiceInput()
 
   const [drawerState, setDrawerState] = useState<DrawerState>('collapsed')
   const [input, setInput] = useState('')
@@ -61,6 +75,13 @@ export function LilaDrawer({
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Show interim voice text in input while recording
+  useEffect(() => {
+    if (voiceState === 'recording' && interimText) {
+      setInput(interimText)
+    }
+  }, [interimText, voiceState])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -112,6 +133,21 @@ export function LilaDrawer({
     }
   }, [currentMode, guidedModes, messages.length])
 
+  const handleVoiceMic = useCallback(async () => {
+    if (voiceState === 'recording') {
+      const transcribed = await stopRecording()
+      if (transcribed) {
+        setInput(prev => {
+          const base = prev.replace(interimText, '').trimEnd()
+          return base ? base + ' ' + transcribed : transcribed
+        })
+      }
+    } else if (voiceState === 'idle') {
+      setInput('')
+      await startRecording()
+    }
+  }, [voiceState, stopRecording, startRecording, interimText])
+
   const handleSend = useCallback(async () => {
     if (!input.trim() || !member || !family || isStreaming) return
 
@@ -133,7 +169,7 @@ export function LilaDrawer({
         family_id: family.id,
         member_id: member.id,
         mode: ['general', 'help', 'assist', 'optimizer'].includes(currentMode)
-          ? currentMode as 'general' | 'help' | 'assist' | 'optimizer'
+          ? (currentMode as 'general' | 'help' | 'assist' | 'optimizer')
           : 'general',
         guided_mode: currentMode !== 'general' ? currentMode : undefined,
         container_type: 'drawer',
@@ -143,6 +179,20 @@ export function LilaDrawer({
       // Update context_snapshot via separate call (since insert doesn't support jsonb well in some cases)
       // The Edge Function handles the actual context assembly server-side
       onConversationCreated(conv)
+    }
+
+    // Help/Assist pattern matching — check canned responses BEFORE calling AI (PRD-32)
+    if (currentMode === 'help' || currentMode === 'assist') {
+      const cannedResponse = matchHelpPattern(messageText)
+      if (cannedResponse) {
+        // Insert user message first, then the canned assistant response — no AI call
+        await supabase.from('lila_messages').insert([
+          { conversation_id: conv.id, role: 'user', content: messageText, metadata: {} },
+          { conversation_id: conv.id, role: 'assistant', content: cannedResponse, metadata: { source: 'pattern_match' } },
+        ])
+        queryClient.invalidateQueries({ queryKey: ['lila-messages', conv.id] })
+        return
+      }
     }
 
     // Client-side crisis detection (Layer 1)
@@ -178,7 +228,7 @@ export function LilaDrawer({
       (error) => {
         console.error('LiLa chat error:', error)
         setIsStreaming(false)
-        setStreamingContent("I had trouble with that. Want to try again?")
+        setStreamingContent('I had trouble with that. Want to try again?')
       },
     )
   }, [input, member, family, isStreaming, conversation, currentMode, guidedModes, createConversation, onConversationCreated])
@@ -305,7 +355,10 @@ export function LilaDrawer({
               {/* Conversation title (click to rename) */}
               {conversation?.title && !editingTitle && (
                 <button
-                  onClick={() => { setEditingTitle(true); setTitleInput(conversation.title || '') }}
+                  onClick={() => {
+                    setEditingTitle(true)
+                    setTitleInput(conversation.title || '')
+                  }}
                   className="text-xs truncate max-w-[200px] hover:underline block"
                   style={{ color: 'rgba(255,255,255,0.7)' }}
                   title="Click to rename"
@@ -335,23 +388,42 @@ export function LilaDrawer({
           <div className="flex items-center gap-1">
             {/* Expand/collapse toggle */}
             {drawerState === 'peek' && (
-              <button onClick={() => setDrawerState('full')} className="p-1.5 rounded-full" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }} title="Expand">
+              <button
+                onClick={() => setDrawerState('full')}
+                className="p-1.5 rounded-full"
+                style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
+                title="Expand"
+              >
                 <ChevronUp size={16} />
               </button>
             )}
             {drawerState === 'full' && (
-              <button onClick={() => setDrawerState('peek')} className="p-1.5 rounded-full" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }} title="Shrink">
+              <button
+                onClick={() => setDrawerState('peek')}
+                className="p-1.5 rounded-full"
+                style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
+                title="Shrink"
+              >
                 <ChevronDown size={16} />
               </button>
             )}
 
             {/* History button */}
-            <button onClick={onHistoryOpen} className="p-1.5 rounded-full" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }} title="Conversation history">
+            <button
+              onClick={onHistoryOpen}
+              className="p-1.5 rounded-full"
+              style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
+              title="Conversation history"
+            >
               <History size={16} />
             </button>
 
             {/* Close */}
-            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/20 transition-colors" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+              style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
+            >
               <X size={16} />
             </button>
           </div>
@@ -396,9 +468,7 @@ export function LilaDrawer({
           )}
 
           {messages.map((msg, i) => {
-            const isLatestAssistant = msg.role === 'assistant' &&
-              i === messages.length - 1 &&
-              !isStreaming
+            const isLatestAssistant = msg.role === 'assistant' && i === messages.length - 1 && !isStreaming
             return (
               <LilaMessageBubble
                 key={msg.id}
@@ -453,34 +523,73 @@ export function LilaDrawer({
         >
           {/* Context indicator */}
           <div className="px-4 pt-2">
-            <LilaContextIndicator
-              summary={contextSummary}
-              onClick={onContextSettingsOpen}
-            />
+            <LilaContextIndicator summary={contextSummary} onClick={onContextSettingsOpen} />
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-3">
-            {/* Voice input stub */}
-            <button
-              className="p-2 rounded-full opacity-30"
-              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-              disabled
-              title="Voice input coming soon"
+          {/* Recording status bar — visible only while recording or transcribing */}
+          {(voiceState === 'recording' || voiceState === 'transcribing') && (
+            <div
+              className="mx-4 mt-1.5 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+              style={{
+                backgroundColor: voiceState === 'recording' ? 'rgba(220,38,38,0.1)' : 'var(--color-bg-secondary)',
+                color: voiceState === 'recording' ? 'var(--color-error, #dc2626)' : 'var(--color-text-secondary)',
+              }}
             >
-              <Mic size={16} />
-            </button>
+              {voiceState === 'recording' && (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span>Recording — {formatDuration(voiceDuration)} — tap mic to finish</span>
+                </>
+              )}
+              {voiceState === 'transcribing' && (
+                <>
+                  <Loader size={12} className="animate-spin" />
+                  <span>Transcribing...</span>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 px-4 py-3">
+            {/* Voice input button — live when supported */}
+            {voiceSupported ? (
+              <button
+                type="button"
+                onClick={handleVoiceMic}
+                disabled={voiceState === 'transcribing' || isStreaming}
+                className="p-2 rounded-full transition-colors"
+                style={{
+                  background: voiceState === 'recording' ? 'rgba(220,38,38,0.12)' : 'transparent',
+                  color: voiceState === 'recording' ? 'var(--color-error, #dc2626)' : 'var(--color-text-secondary)',
+                  minHeight: 'unset',
+                  opacity: voiceState === 'transcribing' || isStreaming ? 0.4 : 1,
+                }}
+                title={voiceState === 'recording' ? 'Stop recording' : 'Voice input'}
+              >
+                {voiceState === 'transcribing' ? <Loader size={16} className="animate-spin" /> : <Mic size={16} />}
+              </button>
+            ) : (
+              <button
+                className="p-2 rounded-full opacity-30"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                disabled
+                title="Voice input not supported in this browser"
+              >
+                <Mic size={16} />
+              </button>
+            )}
 
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder={placeholders[currentMode] || "What's on your mind?"}
-              disabled={isStreaming}
+              placeholder={voiceState === 'recording' ? 'Listening...' : placeholders[currentMode] || "What's on your mind?"}
+              disabled={isStreaming || voiceState === 'transcribing'}
               className="flex-1 px-4 py-2.5 rounded-full text-sm disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--color-bg-primary)',
-                border: '1px solid var(--color-border)',
+                border: voiceState === 'recording' ? '1px solid var(--color-error, #dc2626)' : '1px solid var(--color-border)',
                 color: 'var(--color-text-primary)',
               }}
             />

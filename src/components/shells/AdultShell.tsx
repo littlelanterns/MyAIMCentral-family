@@ -2,6 +2,9 @@ import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Settings } from 'lucide-react'
 import { LilaModalTrigger } from '@/components/lila'
+import { TimerProvider } from '@/features/timer'
+import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
+import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
 
 interface AdultShellProps {
   children: ReactNode
@@ -13,6 +16,8 @@ interface AdultShellProps {
  */
 export function AdultShell({ children }: AdultShellProps) {
   return (
+    <TimerProvider>
+    <NotepadProvider>
     <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <Sidebar />
 
@@ -32,10 +37,25 @@ export function AdultShell({ children }: AdultShellProps) {
           </button>
         </div>
 
+        <AdultNotepadBridgedQuickTasks />
+
         <main className="flex-1 p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>
+
+      <NotepadDrawer />
     </div>
+    </NotepadProvider>
+    </TimerProvider>
+  )
+}
+
+function AdultNotepadBridgedQuickTasks() {
+  const { openNotepad } = useNotepadContext()
+  return (
+    <QuickTasksNotepadBridgeProvider openNotepad={openNotepad}>
+      <QuickTasks />
+    </QuickTasksNotepadBridgeProvider>
   )
 }

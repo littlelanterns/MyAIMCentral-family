@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Send, Mic } from 'lucide-react'
+import { X, Send, Mic, Loader } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   useLilaMessages,
   useCreateConversation,
@@ -13,6 +14,9 @@ import {
 import type { LilaConversation } from '@/hooks/useLila'
 import { LilaMessageBubble } from './LilaMessageBubble'
 import { LilaAvatar } from './LilaAvatar'
+import { matchHelpPattern } from '@/lib/ai/help-patterns'
+import { supabase } from '@/lib/supabase/client'
+import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 
 /**
  * LiLa Modal — Non-mom members (PRD-05)
@@ -35,12 +39,29 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
   const [conversation, setConversation] = useState<LilaConversation | null>(existingConversation || null)
   const { data: messages = [] } = useLilaMessages(conversation?.id)
   const createConversation = useCreateConversation()
+  const queryClient = useQueryClient()
+
+  const {
+    state: voiceState,
+    duration: voiceDuration,
+    interimText,
+    startRecording,
+    stopRecording,
+    isSupported: voiceSupported,
+  } = useVoiceInput()
 
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [openingMessage, setOpeningMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Show interim voice text in input while recording
+  useEffect(() => {
+    if (voiceState === 'recording' && interimText) {
+      setInput(interimText)
+    }
+  }, [interimText, voiceState])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -64,6 +85,21 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
     return () => document.removeEventListener('keydown', handleEscape)
   }, [onClose, isStreaming])
 
+  const handleVoiceMic = useCallback(async () => {
+    if (voiceState === 'recording') {
+      const transcribed = await stopRecording()
+      if (transcribed) {
+        setInput(prev => {
+          const base = prev.replace(interimText, '').trimEnd()
+          return base ? base + ' ' + transcribed : transcribed
+        })
+      }
+    } else if (voiceState === 'idle') {
+      setInput('')
+      await startRecording()
+    }
+  }, [voiceState, stopRecording, startRecording, interimText])
+
   const handleSend = useCallback(async () => {
     if (!input.trim() || !member || !family || isStreaming) return
 
@@ -85,6 +121,19 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
       setConversation(conv)
     }
 
+    // Help/Assist pattern matching — check canned responses BEFORE calling AI (PRD-32)
+    if (modeKey === 'help' || modeKey === 'assist') {
+      const cannedResponse = matchHelpPattern(messageText)
+      if (cannedResponse) {
+        await supabase.from('lila_messages').insert([
+          { conversation_id: conv.id, role: 'user', content: messageText, metadata: {} },
+          { conversation_id: conv.id, role: 'assistant', content: cannedResponse, metadata: { source: 'pattern_match' } },
+        ])
+        queryClient.invalidateQueries({ queryKey: ['lila-messages', conv.id] })
+        return
+      }
+    }
+
     if (detectCrisis(messageText)) {
       setStreamingContent(CRISIS_RESPONSE)
       return
@@ -97,14 +146,60 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
       conv.id,
       messageText,
       (chunk) => setStreamingContent(prev => prev + chunk),
-      () => { setIsStreaming(false); setStreamingContent('') },
+      () => {
+        setIsStreaming(false)
+        setStreamingContent('')
+      },
       (error) => {
         console.error('LiLa modal error:', error)
         setIsStreaming(false)
-        setStreamingContent("I had trouble with that. Want to try again?")
+        setStreamingContent('I had trouble with that. Want to try again?')
       },
     )
-  }, [input, member, family, isStreaming, conversation, modeKey, referenceId, mode, createConversation])
+  }, [input, member, family, isStreaming, conversation, modeKey, referenceId, mode, createConversation, queryClient])
+
+  /** Delete the assistant message and re-send the last user message */
+  const handleRegenerate = useCallback(
+    async (messageId: string) => {
+      if (!conversation || isStreaming) return
+
+      const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
+      if (!lastUserMessage) return
+
+      await supabase.from('lila_messages').delete().eq('id', messageId)
+      queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+
+      setIsStreaming(true)
+      setStreamingContent('')
+
+      await streamLilaChat(
+        conversation.id,
+        lastUserMessage.content + '\n\n[Please try a different approach.]',
+        (chunk) => setStreamingContent(prev => prev + chunk),
+        () => {
+          setIsStreaming(false)
+          setStreamingContent('')
+          queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+        },
+        (error) => {
+          console.error('LiLa modal regenerate error:', error)
+          setIsStreaming(false)
+          setStreamingContent('I had trouble with that. Want to try again?')
+        },
+      )
+    },
+    [conversation, messages, isStreaming, queryClient],
+  )
+
+  /** Delete the assistant message */
+  const handleReject = useCallback(
+    async (messageId: string) => {
+      if (!conversation) return
+      await supabase.from('lila_messages').delete().eq('id', messageId)
+      queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+    },
+    [conversation, queryClient],
+  )
 
   const avatarKey = mode?.avatar_key || 'sitting'
 
@@ -170,6 +265,8 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
               message={msg}
               avatarKey={avatarKey}
               isLatestAssistant={msg.role === 'assistant' && i === messages.length - 1 && !isStreaming}
+              onRegenerate={() => handleRegenerate(msg.id)}
+              onReject={() => handleReject(msg.id)}
             />
           ))}
 
@@ -202,25 +299,72 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Recording status bar */}
+        {(voiceState === 'recording' || voiceState === 'transcribing') && (
+          <div
+            className="mx-4 mb-1 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+            style={{
+              backgroundColor: voiceState === 'recording' ? 'rgba(220,38,38,0.1)' : 'var(--color-bg-secondary)',
+              color: voiceState === 'recording' ? 'var(--color-error, #dc2626)' : 'var(--color-text-secondary)',
+            }}
+          >
+            {voiceState === 'recording' && (
+              <>
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span>Recording — {formatDuration(voiceDuration)} — tap mic to finish</span>
+              </>
+            )}
+            {voiceState === 'transcribing' && (
+              <>
+                <Loader size={12} className="animate-spin" />
+                <span>Transcribing...</span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Input */}
         <div
           className="flex items-center gap-2 px-4 py-3 border-t shrink-0"
           style={{ borderColor: 'var(--color-border)' }}
         >
-          <button className="p-2 rounded-lg opacity-30" disabled title="Voice input coming soon">
-            <Mic size={16} style={{ color: 'var(--color-text-secondary)' }} />
-          </button>
+          {/* Voice input button — live when supported */}
+          {voiceSupported ? (
+            <button
+              type="button"
+              onClick={handleVoiceMic}
+              disabled={voiceState === 'transcribing' || isStreaming}
+              className="p-2 rounded-lg transition-colors"
+              style={{
+                background: voiceState === 'recording' ? 'rgba(220,38,38,0.12)' : 'transparent',
+                color: voiceState === 'recording' ? 'var(--color-error, #dc2626)' : 'var(--color-text-secondary)',
+                opacity: voiceState === 'transcribing' || isStreaming ? 0.4 : 1,
+              }}
+              title={voiceState === 'recording' ? 'Stop recording' : 'Voice input'}
+            >
+              {voiceState === 'transcribing' ? <Loader size={16} className="animate-spin" /> : <Mic size={16} />}
+            </button>
+          ) : (
+            <button
+              className="p-2 rounded-lg opacity-30"
+              disabled
+              title="Voice input not supported in this browser"
+            >
+              <Mic size={16} style={{ color: 'var(--color-text-secondary)' }} />
+            </button>
+          )}
+
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Type a message..."
-            disabled={isStreaming}
+            placeholder={voiceState === 'recording' ? 'Listening...' : 'Type a message...'}
+            disabled={isStreaming || voiceState === 'transcribing'}
             className="flex-1 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
             style={{
               backgroundColor: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border)',
+              border: voiceState === 'recording' ? '1px solid var(--color-error, #dc2626)' : '1px solid var(--color-border)',
               color: 'var(--color-text-primary)',
             }}
           />

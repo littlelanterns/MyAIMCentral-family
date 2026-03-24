@@ -2,33 +2,46 @@ import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Home, CheckSquare, BookOpen, Trophy, BarChart3, Settings } from 'lucide-react'
 import { LilaModalTrigger } from '@/components/lila'
+import { TimerProvider } from '@/features/timer'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 
 interface GuidedShellProps {
   children: ReactNode
 }
 
+const navItems = [
+  { path: '/dashboard', icon: <Home size={22} />, label: 'Home' },
+  { path: '/tasks', icon: <CheckSquare size={22} />, label: 'Tasks' },
+  { path: '/journal', icon: <BookOpen size={22} />, label: 'Journal' },
+  { path: '/victories', icon: <Trophy size={22} />, label: 'Victories' },
+  { path: '/trackers', icon: <BarChart3 size={22} />, label: 'Progress' },
+]
+
 export function GuidedShell({ children }: GuidedShellProps) {
-  const navItems = [
-    { path: '/dashboard', icon: <Home size={22} />, label: 'Home' },
-    { path: '/tasks', icon: <CheckSquare size={22} />, label: 'Tasks' },
-    { path: '/journal', icon: <BookOpen size={22} />, label: 'Journal' },
-    { path: '/victories', icon: <Trophy size={22} />, label: 'Victories' },
-    { path: '/trackers', icon: <BarChart3 size={22} />, label: 'Progress' },
-  ]
+  const { data: member } = useFamilyMember()
+
+  const today = new Date()
+  const hour = today.getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
+    <TimerProvider>
     <div className="flex flex-col min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       {/* Header */}
       <header
         className="flex items-center justify-between px-4 py-3 border-b"
         style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-card)' }}
       >
-        <h1
-          className="text-lg font-medium"
-          style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-heading)' }}
-        >
-          MyAIM
-        </h1>
+        <div>
+          <h1
+            className="text-lg font-medium"
+            style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-heading)' }}
+          >
+            {greeting}, {member?.display_name || 'Friend'}!
+          </h1>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{dateStr}</p>
+        </div>
         <div className="flex items-center gap-2">
           <LilaModalTrigger modeKey="guided_communication_coach" label="LiLa" />
           <button className="p-2 rounded-full" style={{ color: 'var(--color-text-secondary)' }}>
@@ -51,7 +64,7 @@ export function GuidedShell({ children }: GuidedShellProps) {
           <NavLink
             key={item.path}
             to={item.path}
-            className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px]"
+            className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
             style={({ isActive }) => ({
               color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
             })}
@@ -62,5 +75,6 @@ export function GuidedShell({ children }: GuidedShellProps) {
         ))}
       </nav>
     </div>
+    </TimerProvider>
   )
 }

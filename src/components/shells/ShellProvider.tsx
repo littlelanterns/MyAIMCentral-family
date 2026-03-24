@@ -1,5 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useSessionTimeout } from '@/hooks/useSessionTimeout'
+import { SessionWarning } from '@/components/shared/SessionWarning'
 import type { ShellType } from '@/lib/theme'
 
 interface ShellContextType {
@@ -41,6 +43,7 @@ interface ShellProviderProps {
 
 export function ShellProvider({ children }: ShellProviderProps) {
   const { data: member } = useFamilyMember()
+  const { showWarning, secondsRemaining, dismissWarning } = useSessionTimeout()
 
   const shell = member ? getShellForMember(member.role, member.dashboard_mode) : 'mom'
 
@@ -53,6 +56,12 @@ export function ShellProvider({ children }: ShellProviderProps) {
         memberName: member?.display_name ?? null,
       }}
     >
+      {showWarning && (
+        <SessionWarning
+          secondsRemaining={secondsRemaining}
+          onDismiss={dismissWarning}
+        />
+      )}
       {children}
     </ShellContext.Provider>
   )

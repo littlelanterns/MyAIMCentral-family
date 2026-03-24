@@ -5,6 +5,7 @@ import { CreateAccount } from '@/pages/auth/CreateAccount'
 import { SignIn } from '@/pages/auth/SignIn'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { FamilyLogin } from '@/pages/auth/FamilyLogin'
+import { AcceptInvite } from '@/pages/auth/AcceptInvite'
 import { Dashboard } from '@/pages/Dashboard'
 import { FamilySetup } from '@/pages/FamilySetup'
 import { FamilyLoginNameSetup } from '@/pages/FamilyLoginNameSetup'
@@ -47,6 +48,7 @@ function App() {
               <Route path="/auth/sign-in" element={<SignIn />} />
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth/family-login" element={<FamilyLogin />} />
+              <Route path="/auth/accept-invite" element={<AcceptInvite />} />
 
               {/* Dev preview — browse without auth */}
               <Route path="/preview/*" element={<DevPreview />} />

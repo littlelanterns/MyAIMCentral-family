@@ -111,4 +111,34 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
       'LiLa uses your Guiding Stars, InnerWorkings, and Archives as context',
     ],
   },
+  shift_view: {
+    title: 'Your Shift View',
+    description:
+      'Start and end your care shifts here. Your activity during a shift is logged automatically so mom always has a clear picture of what happened.',
+    bullets: [
+      'Start a shift when you arrive — end it when you leave',
+      'Co-parents with always-on access skip shift tracking entirely',
+      'Activity logged during your shift appears here in real time',
+    ],
+  },
+  accept_invite: {
+    title: "You've been invited to join a family!",
+    description:
+      'Create a new account or sign in to your existing one. Once you join, you can start using your family dashboard right away.',
+    bullets: [
+      'New to MyAIM Central? Create a free account in seconds',
+      'Already have an account? Sign in and you\'ll be linked automatically',
+      'Your display name was set by your family admin',
+    ],
+  },
+  teen_transparency_panel: {
+    title: "What's Shared About You",
+    description:
+      "This panel shows exactly what each audience can see about you. Mom's access is set by Mom. You can share more with family — but sharing goes one way. Once shared, it stays shared.",
+    bullets: [
+      'Green check = they can currently see that part of your profile',
+      'Gray X = they cannot see it',
+      'Tap Share in the Family column to open up a feature to the whole family',
+    ],
+  },
 };

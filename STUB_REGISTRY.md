@@ -16,12 +16,20 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
 | PIN verification (FamilyLogin) | PRD-01 (Phase 01) | Remediation | ✅ Wired | Remediation |
+| Accept-invite flow (/auth/accept-invite) | PRD-01 | PRD-01 | ✅ Wired | Remediation |
+| Session duration per role | PRD-01 | PRD-01 | ✅ Wired | Remediation |
+| Inactivity warning banner | PRD-01 | PRD-01 | ✅ Wired | Remediation |
 | Family device hub widgets | PRD-01 | PRD-14D | ✅ Wired | Phase 15 |
 | Tablet hub timeout config | PRD-01 | PRD-22 | ✅ Wired | Phase 27 |
 | Permission hub UI | PRD-02 | PRD-22 | ✅ Wired | Phase 27 |
-| Transparency panel | PRD-02 | PRD-14C | ✅ Wired | Phase 15 |
-| View As sessions | PRD-02 | PRD-14 | ✅ Wired | Phase 14 |
+| Transparency panel (mom side) | PRD-02 | PRD-02 | ✅ Wired | Phase 02 |
+| Teen transparency panel (teen side) | PRD-02 | PRD-02 | ✅ Wired | Remediation |
+| View As sessions | PRD-02 | PRD-02 | ✅ Wired | Phase 02 |
+| View As full-shell mode + banner | PRD-02 | PRD-02 | ✅ Wired | Remediation |
+| Special Adult Shift View | PRD-02 | PRD-02 | ✅ Wired | Remediation |
 | Shift schedule config | PRD-02 | PRD-35 (access_schedules) | ✅ Wired | Phase 05 |
+| PIN lockout (server-side) | PRD-01 | PRD-02 | ✅ Wired | Remediation |
+| Default permission auto-creation | PRD-02 | PRD-02 | ✅ Wired | Remediation |
 | Admin user management | PRD-02 | PRD-32 | ✅ Wired | Phase 39 |
 
 ## LiLa AI Stubs
@@ -29,8 +37,22 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
 | LiLa Optimizer mode | PRD-05 | PRD-05C | ✅ Wired | Phase 23 |
+| HumanInTheMix Regenerate/Reject | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Help/Assist pattern matching (13 FAQs) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Opening messages (core + task_breaker) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Context assembly stubs (7 sources) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Permission + privacy filtering | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Voice input (Whisper) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Page context passing | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Person-level context toggles (UI) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
+| Conversation history date filter | PRD-05 | PRD-05 | ✅ Wired | Remediation |
 | Context sources (GuidingStars, etc.) | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
 | Review & Route pipeline | PRD-05 | PRD-08 | ✅ Wired | Phase 09 |
+| Long conversation summarization | PRD-05 | — | 📌 Post-MVP | — |
+| Mode auto-routing mid-conversation | PRD-05 | — | ⏳ Unwired (MVP) | Phase 07+ |
+| Archive context loading | PRD-05 | PRD-13 | ⏳ Unwired (MVP) | Phase 13 |
+| BookShelf RAG context | PRD-05 | PRD-23 | ⏳ Unwired (MVP) | Phase 28 |
+| Tool permission management UI | PRD-05 | PRD-22 | ⏳ Unwired (MVP) | Phase 27 |
 | Victory detection/recording | PRD-05 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
 | Context Learning write-back | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
 | Mediator/Peacemaker mode | PRD-05 | PRD-34 (mediator) | ✅ Wired | Phase 35 |
@@ -166,10 +188,39 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
+| Universal Scheduler UI component | PRD-35 | PRD-35 | ✅ Wired | Phase 05 |
 | Completion-dependent scheduling | PRD-35 | PRD-35 | ✅ Wired | Phase 05 |
 | Custody patterns | PRD-35 | PRD-27 | ✅ Wired | Phase 31 |
-| Timer idle reminders | PRD-36 | PRD-15 | ✅ Wired | Phase 16 |
-| Timer → homeschool time logs | PRD-36 | PRD-28 | ✅ Wired | Phase 32 |
+| Family holiday calendar auto-exclusion | PRD-35 | — | 📌 Post-MVP | — |
+| ICS export from RRULE strings | PRD-35 | — | 📌 Post-MVP | — |
+| LiLa schedule extraction cards | PRD-35 | PRD-08 | ⏳ Unwired (MVP) | Phase 09 |
+| LiLa conversational schedule builder | PRD-35 | PRD-05 | ⏳ Unwired (MVP) | Phase 06 |
+| Universal Timer UI (all 4 modes) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
+| Floating timer bubble (all 5 shells) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
+| 5 visual timer styles (SVG/CSS) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
+| Timer session history + editing | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
+| Play mode age gate + visual timer | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
+| Timer config panel (per-member) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
+| All 38 color themes | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| Theme-adaptive Tooltip | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| 11 shared components (Button, Card, etc.) | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| SparkleOverlay (Play victories) | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| Shell token overrides (touch/font/spacing) | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| Theme persistence to Supabase | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| Shell-aware BottomNav | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| QuickTasks strip | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| PerspectiveSwitcher (dashboard) | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| Play shell Celebrate button | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| Guided shell personalized header | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| Notepad in Adult/Independent shells | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| Settings removed from Sidebar | PRD-04 | PRD-04 | ✅ Wired | Remediation |
+| Guided lightweight notepad | PRD-04 | PRD-08 | ⏳ Unwired (MVP) | Phase 09 |
+| PWA entry points | PRD-04 | PRD-33 | 📌 Post-MVP | — |
+| Timer idle reminders | PRD-36 | PRD-15 | ⏳ Unwired (MVP) | Phase 16 |
+| Timer → homeschool time logs | PRD-36 | PRD-28 | ⏳ Unwired (MVP) | Phase 32 |
+| Timer → task completion threshold | PRD-36 | PRD-09A | ⏳ Unwired (MVP) | Phase 10 |
+| Timer → widget data points | PRD-36 | PRD-10 | ⏳ Unwired (MVP) | Phase 11 |
+| Visual World themed timer animations | PRD-36 | PRD-24A | 📌 Post-MVP | — |
 
 ---
 

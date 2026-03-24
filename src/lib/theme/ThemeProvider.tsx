@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { themes, vibes, status, shellScaling } from './tokens'
 import type { ThemeKey, VibeKey, ShellType, ThemeColors, VibeConfig } from './tokens'
+import { applyShellTokens } from './shellTokens'
 
 type ColorMode = 'light' | 'dark' | 'system'
 type FontScale = 'default' | 'large' | 'extra-large'
@@ -68,6 +69,11 @@ function applyTokens(
   root.style.setProperty('--color-border', colors.border)
   root.style.setProperty('--color-border-focus', colors.borderFocus)
   root.style.setProperty('--color-accent', colors.accent)
+  // Semantic tooltip / overlay / border tokens
+  root.style.setProperty('--color-accent-deep', colors.accentDeep)
+  root.style.setProperty('--color-text-on-primary', colors.textOnPrimary)
+  root.style.setProperty('--color-border-default', colors.borderDefault)
+  root.style.setProperty('--font-size-xs', '0.75rem')
 
   // Legacy tokens (backward compat with Phase 00-02 components)
   root.style.setProperty('--theme-primary', colors.btnPrimaryBg)
@@ -136,6 +142,9 @@ function applyTokens(
   root.style.setProperty('--touch-target-min', '44px')
   root.style.setProperty('--nav-height', '56px')
   root.style.setProperty('--sidebar-width', '240px')
+
+  // Shell-specific token overrides (font-size-base, touch-target-min, etc.)
+  applyShellTokens(shell)
 }
 
 interface ThemeProviderProps {
@@ -151,7 +160,7 @@ export function ThemeProvider({ children, defaultShell = 'mom' }: ThemeProviderP
     (localStorage.getItem('myaim-vibe') as VibeKey) || 'classic'
   )
   const [colorMode, setColorModeState] = useState<ColorMode>(() =>
-    (localStorage.getItem('myaim-color-mode') as ColorMode) || 'light'
+    (localStorage.getItem('myaim-color-mode') as ColorMode) || 'system'
   )
   const [gradientEnabled, setGradientEnabledState] = useState<boolean>(() =>
     localStorage.getItem('myaim-gradient') !== 'false'

@@ -13,7 +13,7 @@ interface ParsedMember {
   id: string
   display_name: string
   relationship: 'spouse' | 'child' | 'special' | 'out_of_nest'
-  role: 'additional_adult' | 'special_adult' | 'independent' | 'guided' | 'play'
+  role: 'additional_adult' | 'special_adult' | 'member'
   dashboard_mode: 'adult' | 'independent' | 'guided' | 'play'
   date_of_birth: string | null
   age: number | null
@@ -142,13 +142,12 @@ Return ONLY a JSON array. Example:
           const dashboardMode = (['adult', 'independent', 'guided', 'play'].includes(m.dashboard_mode as string)
             ? m.dashboard_mode : 'guided') as ParsedMember['dashboard_mode']
 
-          // Role derives from relationship + dashboard_mode
-          // Children's role matches their dashboard_mode (independent/guided/play)
-          // Out of Nest members don't go in family_members, but we set a default role for the UI
+          // Role derives from relationship (PRD-01: 4-value role model)
+          // Children are always role='member' with dashboard_mode determining their shell
           let role: ParsedMember['role']
           if (relationship === 'spouse') role = 'additional_adult'
           else if (relationship === 'special') role = 'special_adult'
-          else role = dashboardMode === 'adult' ? 'additional_adult' : dashboardMode
+          else role = 'member'
 
           // Auto-assign unique colors round-robin
           const member_color = MEMBER_COLORS[colorIndex % MEMBER_COLORS.length].hex
@@ -191,7 +190,7 @@ Return ONLY a JSON array. Example:
           id: crypto.randomUUID(),
           display_name: '',
           relationship: 'child' as const,
-          role: 'guided' as const,
+          role: 'member' as const,
           dashboard_mode: 'guided' as const,
           date_of_birth: null,
           age: null,
@@ -610,7 +609,7 @@ function MemberCard({
               const mode = isAdult ? 'adult' as const : member.dashboard_mode === 'adult' ? 'guided' as const : member.dashboard_mode
               const role = rel === 'spouse' ? 'additional_adult' as const
                 : rel === 'special' ? 'special_adult' as const
-                : (mode === 'adult' ? 'additional_adult' as const : mode)
+                : 'member' as const
               onUpdate({
                 relationship: rel,
                 role,
@@ -652,7 +651,7 @@ function MemberCard({
               value={member.dashboard_mode}
               onChange={(e) => {
                 const mode = e.target.value as ParsedMember['dashboard_mode']
-                const role = mode === 'adult' ? 'additional_adult' as const : mode
+                const role = 'member' as const
                 onUpdate({ dashboard_mode: mode, role })
               }}
               disabled={member.relationship !== 'child'}

@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  ChevronLeft, ChevronRight, Menu, X, Settings, Eye,
+  ChevronLeft, ChevronRight, Menu, X, Eye,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -76,18 +76,11 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const settings: NavSection = {
-    title: 'System',
-    items: [
-      { label: 'Settings', path: '/settings', icon: <Settings size={20} />, tooltip: 'Account and family settings' },
-    ],
-  }
-
   switch (shell) {
     case 'mom':
-      return [home, capture, plan, grow, family, tools, settings]
+      return [home, capture, plan, grow, family, tools]
     case 'adult':
-      return [home, capture, plan, grow, family, settings]
+      return [home, capture, plan, grow, family]
     case 'independent':
       return [home, capture, plan, {
         ...grow,

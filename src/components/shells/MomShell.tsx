@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Settings } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
+import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
 import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar } from '@/components/lila'
-import { NotepadDrawer, NotepadProvider } from '@/components/notepad'
+import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { TimerProvider } from '@/features/timer'
+import { ViewAsShellWrapper } from '@/features/permissions'
 import { useTheme } from '@/lib/theme'
 import type { LilaConversation } from '@/hooks/useLila'
 
@@ -37,6 +40,7 @@ export function MomShell({ children }: MomShellProps) {
   }
 
   return (
+    <TimerProvider>
     <NotepadProvider>
     <div
       className="flex min-h-svh"
@@ -48,6 +52,7 @@ export function MomShell({ children }: MomShellProps) {
     >
       <Sidebar />
 
+      <ViewAsShellWrapper>
       <div className="flex-1 flex flex-col min-w-0">
         {/* Floating buttons (top-right) — desktop: full row, mobile: icons only */}
         <div className="fixed top-3 right-3 md:right-12 z-30 flex items-center gap-1.5 md:gap-2">
@@ -71,6 +76,11 @@ export function MomShell({ children }: MomShellProps) {
           >
             <Settings size={20} />
           </button>
+        </div>
+
+        {/* QuickTasks strip — wired to NotepadProvider via bridge */}
+        <div className="mt-0 pt-0">
+          <NotepadBridgedQuickTasks />
         </div>
 
         {/* Main content — padding-bottom accounts for bottom nav on mobile + LiLa drawer */}
@@ -114,6 +124,7 @@ export function MomShell({ children }: MomShellProps) {
           </div>
         )}
       </div>
+      </ViewAsShellWrapper>
 
       {/* Smart Notepad right drawer — desktop pull tab, mobile hidden (accessible via More menu) */}
       <NotepadDrawer />
@@ -122,6 +133,22 @@ export function MomShell({ children }: MomShellProps) {
       <BottomNav />
     </div>
     </NotepadProvider>
+    </TimerProvider>
+  )
+}
+
+/**
+ * NotepadBridgedQuickTasks
+ *
+ * Lives inside NotepadProvider's tree so it can call useNotepadContext()
+ * safely, then passes openNotepad down to QuickTasks via the bridge provider.
+ */
+function NotepadBridgedQuickTasks() {
+  const { openNotepad } = useNotepadContext()
+  return (
+    <QuickTasksNotepadBridgeProvider openNotepad={openNotepad}>
+      <QuickTasks />
+    </QuickTasksNotepadBridgeProvider>
   )
 }
 

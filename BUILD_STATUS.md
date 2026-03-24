@@ -10,6 +10,14 @@
 | 05 | PRD-35, PRD-36 | Universal Scheduler & Timer | Phase 04 | Complete | 2026-03-23 | 2026-03-23 |
 | 06 | PRD-05 | LiLa Core AI System | Phase 04 | Complete | 2026-03-23 | 2026-03-23 |
 | — | PRD-01, PRD-04, PRD-15 | Family Setup Remediation + Mobile Layout + UI Polish | Phase 06 | Complete | 2026-03-23 | 2026-03-23 |
+| — | PRD-01, PRD-02, PRD-05, PRD-35, PRD-36 | Schema Remediation Batch 2: Timer tables, scheduler fix, role enum, tablet_hub_timeout, permission_presets | Phase 06 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-35 | Universal Scheduler UI Component: all frequency types, calendar preview, custody grid, completion-dependent, compact mode | Phase 05 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-36 | Universal Timer: 4 modes, floating bubble, mini panel, 5 visual styles, session history, Play mode, config panel, wired to all 5 shells | Phase 05 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-02 | Permissions UI Remediation: Shift View, Teen Transparency Panel, View As full-shell mode, PIN lockout (server-side), default permission auto-creation | Phase 02 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-03 | Design System Remediation: All 38 themes, Tooltip (fully theme-adaptive), 11 shared components (Button/Card/Input/Modal/Badge/Spinner/EmptyState/Toggle/Avatar/Tabs/Select), SparkleOverlay, shell token overrides, theme persistence to Supabase, dark mode default=system | Phase 03 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-04 | Shell Routing Remediation: Shell-aware BottomNav, QuickTasks strip, PerspectiveSwitcher, Play/Guided shell fixes, Notepad wired to Adult/Independent, Settings removed from Sidebar | Phase 04 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-05 | LiLa AI Remediation: HumanInTheMix Regenerate/Reject wired, help-patterns FAQ (13 patterns), context assembly stubs (7 sources), permission+privacy filtering, voice input (Whisper), opening messages seeded, task_breaker modes, conversation history date filter, page context passing, person-level context toggles | Phase 06 | Complete | 2026-03-24 | 2026-03-24 |
+| — | PRD-01 | Auth Gaps: Accept-invite flow (/auth/accept-invite route + RPC), session duration config per role (24h/4h/1h/30m), inactivity warning banner | Phase 01 | Complete | 2026-03-24 | 2026-03-24 |
 | 07 | PRD-06 | GuidingStars & BestIntentions | Phase 06 | Pending | | |
 | 08 | PRD-07 | InnerWorkings | Phase 06 | Pending | | |
 | 09 | PRD-08 | Smart Notepad (capture + routing) | Phase 06 | Complete (Notepad) | 2026-03-23 | 2026-03-23 |
