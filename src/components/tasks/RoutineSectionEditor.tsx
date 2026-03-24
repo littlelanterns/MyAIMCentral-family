@@ -615,25 +615,71 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
             />
           ))}
 
-        <button
-          type="button"
-          onClick={addStep}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            padding: '0.375rem 0.5rem',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--color-btn-primary-bg)',
-            fontSize: 'var(--font-size-xs, 0.75rem)',
-            fontWeight: 500,
-          }}
-        >
-          <Plus size={13} />
-          Add step
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={addStep}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              padding: '0.375rem 0.5rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-btn-primary-bg)',
+              fontSize: 'var(--font-size-xs, 0.75rem)',
+              fontWeight: 500,
+            }}
+          >
+            <Plus size={13} />
+            Add step
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBulkAdd(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              padding: '0.375rem 0.5rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--font-size-xs, 0.75rem)',
+              fontWeight: 500,
+            }}
+          >
+            <Sparkles size={13} />
+            Bulk add
+          </button>
+        </div>
+
+        {showBulkAdd && (
+          <BulkAddWithAI
+            title={`Bulk Add Steps — ${section.name || 'Section'}`}
+            placeholder="List routine steps one per line. E.g.: Brush teeth, Get dressed, Make bed..."
+            hint="Type or paste all steps. AI will parse them into individual routine steps."
+            parsePrompt="Parse the following text into individual routine checklist steps. Each step should be a short, actionable item. Return a JSON array of strings."
+            onSave={async (parsed) => {
+              const maxOrder = section.steps.reduce((m, s) => Math.max(m, s.sort_order), -1)
+              const newSteps = parsed
+                .filter(i => i.selected)
+                .map((item, idx) => ({
+                  id: generateId(),
+                  title: item.text,
+                  notes: '',
+                  showNotes: false,
+                  instanceCount: 1,
+                  requirePhoto: false,
+                  sort_order: maxOrder + 1 + idx,
+                }))
+              onChange({ ...section, steps: [...section.steps, ...newSteps] })
+            }}
+            onClose={() => setShowBulkAdd(false)}
+          />
+        )}
       </div>
     </div>
   )

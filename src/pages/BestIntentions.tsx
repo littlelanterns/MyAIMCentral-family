@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Target, Plus, Pencil, RotateCcw } from 'lucide-react'
-import { FeatureIcon } from '@/components/shared'
+import { Target, Plus, Pencil, RotateCcw, Sparkles } from 'lucide-react'
+import { FeatureIcon, BulkAddWithAI } from '@/components/shared'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useBestIntentions, useCreateBestIntention, useUpdateBestIntention } from '@/hooks/useBestIntentions'
@@ -14,6 +14,7 @@ export function BestIntentionsPage() {
   const updateIntention = useUpdateBestIntention()
 
   const [showCreate, setShowCreate] = useState(false)
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [editing, setEditing] = useState<BestIntention | null>(null)
   const [formStatement, setFormStatement] = useState('')
 
@@ -48,14 +49,44 @@ export function BestIntentionsPage() {
             BestIntentions
           </h1>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-        >
-          <Plus size={16} /> Add Intention
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBulkAdd(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+            title="Bulk add intentions with AI"
+          >
+            <Sparkles size={14} />
+            <span className="hidden sm:inline">Bulk</span>
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            <Plus size={16} /> Add Intention
+          </button>
+        </div>
       </div>
+
+      {showBulkAdd && member && family && (
+        <BulkAddWithAI
+          title="Bulk Add Intentions"
+          placeholder={'Paste or type multiple intentions, one per line. E.g.:\nI intend to be more present with my kids\nI intend to move my body every morning\nI intend to respond instead of react'}
+          hint="AI will parse your text into individual intention statements."
+          parsePrompt='Parse the following text into individual intention statements. Each should be a clear, personal statement (often starting with "I intend to..." but not required). Return a JSON array of strings: ["intention1", "intention2", ...].'
+          onSave={async (parsed) => {
+            for (const item of parsed.filter(i => i.selected)) {
+              await createIntention.mutateAsync({
+                family_id: family.id,
+                member_id: member.id,
+                statement: item.text,
+              })
+            }
+          }}
+          onClose={() => setShowBulkAdd(false)}
+        />
+      )}
 
       <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
         This is a Ta-Da list, not a to-do list. Celebrate every iteration.

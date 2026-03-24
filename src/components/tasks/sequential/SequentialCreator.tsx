@@ -4,7 +4,8 @@
  */
 
 import { useState } from 'react'
-import { List, Link, Camera } from 'lucide-react'
+import { List, Link, Camera, Sparkles } from 'lucide-react'
+import { BulkAddWithAI } from '@/components/shared'
 
 interface SequentialCreatorProps {
   familyId: string
@@ -25,6 +26,7 @@ export function SequentialCreator({ familyId: _familyId, onSave, onCancel }: Seq
   const [title, setTitle] = useState('')
   const [inputMethod, setInputMethod] = useState<'manual' | 'url' | 'image'>('manual')
   const [rawText, setRawText] = useState('')
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [promotionTiming, setPromotionTiming] = useState<'immediate' | 'next_day' | 'manual'>('immediate')
   const [activeCount, setActiveCount] = useState(1)
 
@@ -141,6 +143,39 @@ export function SequentialCreator({ familyId: _familyId, onSave, onCancel }: Seq
             Image/OCR parsing coming soon — use manual input for now
           </p>
         </div>
+      )}
+
+      {/* AI Bulk Parse button */}
+      <button
+        type="button"
+        onClick={() => setShowBulkAdd(true)}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm w-full justify-center"
+        style={{
+          backgroundColor: 'var(--color-bg-secondary)',
+          color: 'var(--color-btn-primary-bg)',
+          border: '1px dashed var(--color-border)',
+        }}
+      >
+        <Sparkles size={14} />
+        Paste a table of contents or syllabus — AI will parse it
+      </button>
+
+      {showBulkAdd && (
+        <BulkAddWithAI
+          title="AI Parse — Sequential Items"
+          placeholder={'Paste a table of contents, syllabus, chapter list, or lesson plan. E.g.:\n\nChapter 1: Introduction to Place Value\nChapter 2: Addition & Subtraction Strategies\nChapter 3: Multiplication Concepts\n\nOr paste URLs, video titles, or any ordered content.'}
+          hint="AI will extract ordered items and preserve their sequence. Works with chapter lists, syllabi, video playlists, and more."
+          parsePrompt='Parse the following text into an ordered list of sequential items (chapters, lessons, steps, etc.). Preserve the original order. Remove numbering prefixes but keep the descriptive text. Return a JSON array of strings: ["item1", "item2", ...].'
+          onSave={async (parsed) => {
+            const newItems = parsed.filter(i => i.selected).map(i => i.text)
+            if (newItems.length > 0) {
+              // Append to existing rawText
+              const existing = rawText.trim()
+              setRawText(existing ? existing + '\n' + newItems.join('\n') : newItems.join('\n'))
+            }
+          }}
+          onClose={() => setShowBulkAdd(false)}
+        />
       )}
 
       {/* Promotion timing */}
