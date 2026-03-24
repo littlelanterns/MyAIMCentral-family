@@ -6,8 +6,8 @@
  * No visible scrollbars — swipe to scroll on mobile, drag on desktop.
  */
 
-import { useState } from 'react'
-import { ChevronDown, ChevronRight, MoveHorizontal } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { ChevronDown, ChevronRight, ChevronLeft, MoveHorizontal } from 'lucide-react'
 import { StudioTemplateCard } from './StudioTemplateCard'
 import type { StudioTemplate } from './StudioTemplateCard'
 
@@ -71,30 +71,19 @@ export function StudioCategorySection({
           {/* Planned content (for future PRD categories) */}
           {plannedContent && <div>{plannedContent}</div>}
 
-          {/* Blank template cards — horizontal swipe row, NO scrollbar */}
+          {/* Blank template cards — horizontal swipe row with arrow buttons */}
           {!plannedContent && templates.length > 0 && (
-            <div className="relative">
-              <div
-                className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
-                style={{
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                  WebkitOverflowScrolling: 'touch',
-                }}
-              >
-                {templates.map(tpl => (
-                  <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
-                    <StudioTemplateCard
-                      template={tpl}
-                      onCustomize={onCustomize}
-                      onUseAsIs={onUseAsIs}
-                    />
-                  </div>
-                ))}
-              </div>
-              {/* Swipe indicator — shown when content overflows */}
-              {templates.length > 2 && <SwipeHint />}
-            </div>
+            <ScrollRow>
+              {templates.map(tpl => (
+                <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
+                  <StudioTemplateCard
+                    template={tpl}
+                    onCustomize={onCustomize}
+                    onUseAsIs={onUseAsIs}
+                  />
+                </div>
+              ))}
+            </ScrollRow>
           )}
 
           {/* Example templates — collapsible sub-section, default CLOSED */}
@@ -112,23 +101,18 @@ export function StudioCategorySection({
               </button>
 
               {examplesExpanded && (
-                <div
-                  className="flex gap-3 overflow-x-auto pb-2 mt-3 snap-x snap-mandatory"
-                  style={{
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
-                  {exampleTemplates.map(tpl => (
-                    <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
-                      <StudioTemplateCard
-                        template={tpl}
-                        onCustomize={onCustomize}
-                        onUseAsIs={onUseAsIs}
-                      />
-                    </div>
-                  ))}
+                <div className="mt-3">
+                  <ScrollRow>
+                    {exampleTemplates.map(tpl => (
+                      <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
+                        <StudioTemplateCard
+                          template={tpl}
+                          onCustomize={onCustomize}
+                          onUseAsIs={onUseAsIs}
+                        />
+                      </div>
+                    ))}
+                  </ScrollRow>
                 </div>
               )}
             </div>
@@ -152,15 +136,65 @@ export function StudioCategorySection({
   )
 }
 
-/** Subtle swipe hint arrow for horizontal scroll areas */
-function SwipeHint() {
+/** Horizontal scroll container with circle arrow buttons for desktop + swipe hint for mobile */
+function ScrollRow({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  function scroll(dir: 'left' | 'right') {
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -280 : 280, behavior: 'smooth' })
+  }
+
   return (
-    <div
-      className="flex items-center justify-center gap-1 py-1 mt-1"
-      style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }}
-    >
-      <MoveHorizontal size={14} />
-      <span className="text-[10px]">swipe</span>
+    <div className="relative group">
+      {/* Left arrow — desktop only */}
+      <button
+        onClick={() => scroll('left')}
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 hidden md:flex items-center justify-center w-8 h-8 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: 'var(--color-bg-card)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-text-primary)',
+        }}
+        aria-label="Scroll left"
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {/* Right arrow — desktop only */}
+      <button
+        onClick={() => scroll('right')}
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 hidden md:flex items-center justify-center w-8 h-8 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: 'var(--color-bg-card)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-text-primary)',
+        }}
+        aria-label="Scroll right"
+      >
+        <ChevronRight size={16} />
+      </button>
+
+      {/* Scroll container */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
+        {children}
+      </div>
+
+      {/* Swipe hint — mobile only */}
+      <div
+        className="flex md:hidden items-center justify-center gap-1 py-1"
+        style={{ color: 'var(--color-text-secondary)', opacity: 0.35 }}
+      >
+        <MoveHorizontal size={12} />
+        <span className="text-[10px]">swipe</span>
+      </div>
     </div>
   )
 }
