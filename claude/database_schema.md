@@ -683,13 +683,21 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
-| title | TEXT | — | NO | |
-| content | TEXT | — | YES | |
+| title | TEXT | — | NO | Auto-named by LiLa or user-renamed |
+| content | TEXT | '' | NO | Tab content |
+| status | TEXT | 'active' | NO | CHECK: 'active','routed','archived' |
+| routed_to | TEXT | — | YES | Destination key when status = 'routed' |
+| routed_reference_id | UUID | — | YES | FK to created record at destination |
+| source_type | TEXT | 'manual' | NO | CHECK: 'manual','voice','edit_in_notepad','lila_optimizer' |
+| source_reference_id | UUID | — | YES | FK to source (e.g., LiLa conversation ID) |
+| is_auto_named | BOOLEAN | true | NO | False after user manually renames |
+| sort_order | INTEGER | 0 | NO | Tab display order |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
+| archived_at | TIMESTAMPTZ | — | YES | Soft delete timestamp |
 
-**RLS:** Member can manage own.
-**Indexes:** `idx_nt_family_member` ON (family_id, member_id)
+**RLS:** Member can manage own. Notepad tabs are private — mom cannot see other members' tabs.
+**Indexes:** `idx_nt_family_member` ON (family_id, member_id); `idx_nt_active` ON (member_id, status, sort_order) WHERE status = 'active'; `idx_nt_history` ON (member_id, updated_at DESC); `idx_nt_status_routed` ON (member_id, status, routed_to)
 **Triggers:** `trg_nt_updated_at`
 
 ---
@@ -700,13 +708,19 @@
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
-| tab_id | UUID | — | NO | FK notepad_tabs |
-| routing_destination | TEXT | — | NO | |
-| extracted_content | TEXT | — | NO | |
-| status | TEXT | — | NO | CHECK: 'pending','routed','dismissed' |
+| family_id | UUID | — | YES | FK families |
+| tab_id | UUID | — | NO | FK notepad_tabs (CASCADE) |
+| routing_destination | TEXT | — | NO | Original/suggested destination |
+| extracted_content | TEXT | — | NO | The extracted item text |
+| item_type | TEXT | 'general' | NO | CHECK: 'action_item','reflection','revelation','value','victory','trackable','meeting_followup','list_item','general' |
+| suggested_destination | TEXT | — | YES | AI-suggested routing destination |
+| actual_destination | TEXT | — | YES | User-confirmed destination |
+| confidence | NUMERIC(3,2) | 0.50 | NO | AI confidence score 0.00–1.00 |
+| status | TEXT | 'pending' | NO | CHECK: 'pending','routed','skipped','dismissed' |
+| routed_reference_id | UUID | — | YES | FK to created record at destination |
 | created_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Inherits from notepad_tabs.
+**RLS:** Inherits from notepad_tabs via tab_id.
 **Indexes:** `idx_nei_tab` ON tab_id; `idx_nei_status` ON status
 
 ---
@@ -719,12 +733,13 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
-| destination | TEXT | — | NO | |
-| count | INTEGER | 0 | NO | |
+| destination | TEXT | — | NO | Routing destination key |
+| count | INTEGER | 0 | NO | Usage count |
 | last_routed_at | TIMESTAMPTZ | — | YES | |
 
-**RLS:** Member can read own.
+**RLS:** Member can manage own.
 **Indexes:** `idx_nrs_family_member` ON (family_id, member_id)
+**Constraints:** UNIQUE ON (member_id, destination)
 
 ---
 

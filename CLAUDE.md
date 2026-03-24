@@ -65,6 +65,9 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 17. **PIN hashing:** All PINs are hashed server-side via `hash_member_pin` RPC (pgcrypto bcrypt). Never store plain-text PINs. Verify with `verify_member_pin` RPC.
 18. **Out of Nest members:** Stored in `out_of_nest_members` table (NOT `family_members`). They are descendants and their spouses only — below mom on the family tree. No dashboard, no PIN, no feature access. Grandparents who help are Special Adults, not Out of Nest.
 19. **Auto-provisioning:** The `auto_provision_member_resources` trigger creates an archive folder + dashboard_config for every new `family_members` insert. No manual creation needed.
+20. **Smart Notepad:** Right-drawer workspace with Supabase-backed tabs, autosave (500ms debounce), AI auto-titling (Haiku). "Send to..." grid routes content to 13 destinations via RoutingStrip. "Review & Route" extracts items via ai-parse. NotepadProvider wraps MomShell. Journal's `+` button opens Notepad — Journal is NOT a direct writing surface. "Note" routes to `journal_entries` with `entry_type = 'free_write'`.
+21. **RoutingStrip:** Universal grid component for routing items between features. Context-filtered sets (notepad_send_to, request_accept, meeting_action, review_route_card). Favorites section auto-sorted by `notepad_routing_stats`. Sub-destination drill-down for destinations with sub-types. Build once, use everywhere.
+22. **Review & Route:** Universal reusable extraction component defined in PRD-08. Other features wire in with their content as input. AI extraction → card-by-card review → per-item routing. Merciful defaults: if uncertain → Journal. Extract more rather than fewer.
 
 ## Pricing (PRD-31 Authoritative)
 

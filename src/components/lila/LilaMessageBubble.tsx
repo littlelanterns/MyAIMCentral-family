@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, FileEdit, ArrowRightLeft, ListTodo, Trophy, Check } from 'lucide-react'
 import { LilaAvatar } from './LilaAvatar'
 import { HumanInTheMix } from '@/components/HumanInTheMix'
+import { useNotepadContext } from '@/components/notepad'
 import type { LilaMessage } from '@/hooks/useLila'
 
 /**
@@ -31,6 +32,10 @@ export function LilaMessageBubble({
   const isSystem = message.role === 'system'
   const isAssistant = message.role === 'assistant'
   const [copied, setCopied] = useState(false)
+
+  // Safe notepad context access (may not be available in all shells)
+  let notepad: ReturnType<typeof useNotepadContext> | null = null
+  try { notepad = useNotepadContext() } catch { /* Not inside NotepadProvider */ }
 
   async function handleCopy() {
     await navigator.clipboard.writeText(message.content)
@@ -84,16 +89,30 @@ export function LilaMessageBubble({
             <ActionChip
               icon={FileEdit}
               label="Edit in Notepad"
-              onClick={() => {/* STUB: wires to PRD-08 */}}
-              disabled
-              title="Coming soon — wires to Smart Notepad"
+              onClick={() => {
+                notepad?.openNotepad({
+                  content: message.content,
+                  sourceType: 'edit_in_notepad',
+                  sourceReferenceId: (message as any).conversation_id,
+                })
+              }}
+              disabled={!notepad}
+              title="Open in Smart Notepad for editing"
             />
             <ActionChip
               icon={ArrowRightLeft}
               label="Review & Route"
-              onClick={() => {/* STUB: wires to PRD-08 */}}
-              disabled
-              title="Coming soon — wires to Review & Route"
+              onClick={() => {
+                notepad?.openNotepad({
+                  content: message.content,
+                  sourceType: 'edit_in_notepad',
+                  sourceReferenceId: (message as any).conversation_id,
+                })
+                // Brief delay to let the tab create, then switch to review-route view
+                setTimeout(() => notepad?.setView('review-route'), 300)
+              }}
+              disabled={!notepad}
+              title="Extract items and route to features"
             />
             <ActionChip
               icon={ListTodo}
@@ -115,7 +134,12 @@ export function LilaMessageBubble({
         {/* Human-in-the-Mix on latest assistant message */}
         {isLatestAssistant && !isStreaming && (
           <HumanInTheMix
-            onEdit={() => {/* STUB: open content in notepad for editing */}}
+            onEdit={() => {
+              notepad?.openNotepad({
+                content: message.content,
+                sourceType: 'edit_in_notepad',
+              })
+            }}
             onApprove={() => {/* Approve = no action needed, message stays */}}
             onRegenerate={() => onRegenerate?.()}
             onReject={() => {/* STUB: remove message from conversation */}}

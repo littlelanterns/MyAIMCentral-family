@@ -4,7 +4,7 @@ import { Settings } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar } from '@/components/lila'
-import { NotepadDrawer } from '@/components/notepad'
+import { NotepadDrawer, NotepadProvider } from '@/components/notepad'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { useTheme } from '@/lib/theme'
 import type { LilaConversation } from '@/hooks/useLila'
@@ -37,6 +37,7 @@ export function MomShell({ children }: MomShellProps) {
   }
 
   return (
+    <NotepadProvider>
     <div
       className="flex min-h-svh"
       style={{
@@ -120,6 +121,7 @@ export function MomShell({ children }: MomShellProps) {
       {/* Bottom navigation — mobile only */}
       <BottomNav />
     </div>
+    </NotepadProvider>
   )
 }
 

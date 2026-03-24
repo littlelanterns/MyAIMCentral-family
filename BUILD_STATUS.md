@@ -12,7 +12,7 @@
 | — | PRD-01, PRD-04, PRD-15 | Family Setup Remediation + Mobile Layout + UI Polish | Phase 06 | Complete | 2026-03-23 | 2026-03-23 |
 | 07 | PRD-06 | GuidingStars & BestIntentions | Phase 06 | Pending | | |
 | 08 | PRD-07 | InnerWorkings | Phase 06 | Pending | | |
-| 09 | PRD-08 | Journal & Smart Notepad | Phase 06 | Pending | | |
+| 09 | PRD-08 | Smart Notepad (capture + routing) | Phase 06 | Complete (Notepad) | 2026-03-23 | 2026-03-23 |
 | 10 | PRD-09A, PRD-09B | Tasks, Lists, Studio & Templates | Phase 05, 09 | Pending | | |
 | 11 | PRD-10 | Widgets, Trackers & Dashboard Layout | Phase 10 | Pending | | |
 | 12 | PRD-11, PRD-11B | Victory Recorder & Family Celebration | Phase 07, 10, 11 | Pending | | |

@@ -164,6 +164,8 @@ The app renders different layouts based on the active member's role. Each shell 
 |----------|---------|
 | `embed` | Generic embedding function (processes pgmq queue, calls OpenAI) |
 | `lila-chat` | LiLa conversation handler (context assembly, model call, stream response) |
+| `ai-parse` | Non-streaming utility AI (parsing, sorting, classifying) |
+| `whisper-transcribe` | Voice-to-text transcription via OpenAI Whisper API |
 | `mindsweep-sort` | MindSweep classification and routing |
 | `schedule-extract` | Parse schedule intent from text |
 | `blog-comment-moderate` | Haiku auto-moderation for blog comments |

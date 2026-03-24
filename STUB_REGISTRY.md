@@ -41,11 +41,11 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Privacy Filtered category | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
 | Library Vault tutorial links | PRD-05 | PRD-21A | ✅ Wired | Phase 25 |
 | Relationship tools person-context | PRD-05 | PRD-21 | ✅ Wired | Phase 24 |
-| Edit in Notepad action chip | PRD-05 (Phase 06) | PRD-08 | ⏳ Unwired (MVP) | Phase 09 |
-| Review & Route action chip | PRD-05 (Phase 06) | PRD-08 | ⏳ Unwired (MVP) | Phase 09 |
+| Edit in Notepad action chip | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
+| Review & Route action chip | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
 | Create Task action chip | PRD-05 (Phase 06) | PRD-09A | ⏳ Unwired (MVP) | Phase 10 |
 | Record Victory action chip | PRD-05 (Phase 06) | PRD-11 | ⏳ Unwired (MVP) | Phase 12 |
-| Voice input (Whisper) | PRD-05 (Phase 06) | — | ⏳ Unwired (MVP) | TBD |
+| Voice input (Whisper) | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
 | LiLa conversation summary (long convos) | PRD-05 (Phase 06) | — | 📌 Post-MVP | — |
 
 ## Personal Growth Stubs
