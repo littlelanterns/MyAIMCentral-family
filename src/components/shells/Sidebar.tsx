@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
@@ -137,6 +138,12 @@ export function Sidebar() {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Left-edge swipe to open sidebar on mobile/tablet (PRD-04)
+  useEdgeSwipe({
+    onSwipeFromEdge: () => setMobileOpen(true),
+    enabled: shell !== 'play',
+  })
 
   // In /preview mode, prefix all sidebar paths with /preview
   const isPreview = location.pathname.startsWith('/preview')
@@ -294,7 +301,51 @@ function SidebarInner({
 
   return (
     <>
-      {/* Mobile: No hamburger — BottomNav handles mobile navigation */}
+      {/* Mobile sidebar overlay — opens via left-edge swipe gesture */}
+      {_mobileOpen && (
+        <>
+          <div
+            onClick={() => setMobileOpen(false)}
+            className="fixed inset-0 z-40 md:hidden"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+            aria-hidden="true"
+          />
+          <aside
+            className="fixed inset-y-0 left-0 z-50 flex flex-col md:hidden animate-slideRight"
+            style={{
+              width: '260px',
+              backgroundColor: 'var(--color-bg-card)',
+              borderRight: '1px solid var(--color-border)',
+              boxShadow: '4px 0 20px rgba(0, 0, 0, 0.15)',
+            }}
+          >
+            <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>Menu</span>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1 rounded"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </div>
+            {sidebarContent}
+            {shell === 'mom' && <ViewAsSwitcher />}
+          </aside>
+          <style>{`
+            @keyframes slideRight {
+              from { transform: translateX(-100%); }
+              to { transform: translateX(0); }
+            }
+            .animate-slideRight {
+              animation: slideRight 0.2s ease-out;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .animate-slideRight { animation: none; }
+            }
+          `}</style>
+        </>
+      )}
 
       {/* Desktop sidebar */}
       <aside

@@ -7,8 +7,9 @@
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
-import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2 } from 'lucide-react'
-import { Button, Toggle } from '@/components/shared'
+import { useState } from 'react'
+import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles } from 'lucide-react'
+import { Button, Toggle, BulkAddWithAI } from '@/components/shared'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -342,6 +343,8 @@ interface SectionRowProps {
 }
 
 function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown, onBreakDown }: SectionRowProps) {
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
+
   const updateStep = (stepId: string, updated: RoutineStep) => {
     onChange({ ...section, steps: section.steps.map((s) => (s.id === stepId ? updated : s)) })
   }

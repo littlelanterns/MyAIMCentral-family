@@ -128,6 +128,24 @@ export function useUpdateSelfKnowledge() {
   })
 }
 
+export function useToggleSelfKnowledgeAI() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, memberId, included }: { id: string; memberId: string; included: boolean }) => {
+      const { error } = await supabase
+        .from('self_knowledge')
+        .update({ is_included_in_ai: included })
+        .eq('id', id)
+      if (error) throw error
+      return memberId
+    },
+    onSuccess: (memberId) => {
+      queryClient.invalidateQueries({ queryKey: ['self-knowledge', memberId] })
+    },
+  })
+}
+
 export function useDeleteSelfKnowledge() {
   const queryClient = useQueryClient()
 

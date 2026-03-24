@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   StickyNote, Plus, X, Mic, MicOff, Send, ArrowRightLeft,
   Maximize2, Minimize2, Clock, AlertCircle, Loader2,
@@ -6,7 +6,7 @@ import {
 import { Tooltip } from '@/components/Tooltip'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
-import { UndoToast } from '@/components/shared/UndoToast'
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import { NotepadReviewRoute } from './NotepadReviewRoute'
 import { useNotepadContext } from './NotepadContext'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
@@ -52,15 +52,24 @@ export function NotepadDrawer() {
   const [localContent, setLocalContent] = useState('')
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [showSaved, setShowSaved] = useState(false)
-  const [undoState, setUndoState] = useState<{
-    message: string
-    tab: NotepadTab
-    destination: string
-    referenceId: string | null
-  } | null>(null)
+  const routingToast = useRoutingToast()
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Swipe-right to dismiss on mobile (PRD-04)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const handleDrawerTouchStart = useCallback((e: React.TouchEvent) => {
+    swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }, [])
+  const handleDrawerTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!swipeStart.current || window.innerWidth >= 768) return
+    const dx = e.changedTouches[0].clientX - swipeStart.current.x
+    const dy = Math.abs(e.changedTouches[0].clientY - swipeStart.current.y)
+    swipeStart.current = null
+    // Swipe right > 60px, predominantly horizontal
+    if (dx > 60 && dx > dy * 1.5) closeNotepad()
+  }, [closeNotepad])
 
   // Sync local content when active tab changes
   useEffect(() => {
@@ -144,15 +153,43 @@ export function NotepadDrawer() {
     }, {
       onSuccess: (result) => {
         setView('editor')
-        setUndoState({
-          message: `"${activeTab.title}" sent to ${destination}`,
-          tab: activeTab,
-          destination: result.destination,
-          referenceId: result.referenceId,
+
+        // Capture references for undo closure
+        const routedTab = activeTab
+        const routedDest = result.destination
+        const routedRef = result.referenceId
+
+        routingToast.show({
+          message: `"${routedTab.title}" sent to ${destination}`,
+          onUndo: () => {
+            undoRoute.mutate({
+              tab: routedTab,
+              destination: routedDest,
+              referenceId: routedRef,
+            }, {
+              onSuccess: () => {
+                setActiveTabId(routedTab.id)
+                if (!isOpen) openNotepad()
+              },
+            })
+          },
+          onAlsoSendTo: () => {
+            undoRoute.mutate({
+              tab: routedTab,
+              destination: routedDest,
+              referenceId: routedRef,
+            }, {
+              onSuccess: () => {
+                setActiveTabId(routedTab.id)
+                if (!isOpen) openNotepad()
+                setView('send-to')
+              },
+            })
+          },
         })
 
         // Auto-close if no tabs remain
-        const remaining = tabs.filter(t => t.id !== activeTab.id)
+        const remaining = tabs.filter(t => t.id !== routedTab.id)
         if (remaining.length === 0) {
           closeNotepad()
         } else {
@@ -160,38 +197,6 @@ export function NotepadDrawer() {
         }
       },
     })
-  }
-
-  function handleUndo() {
-    if (!undoState) return
-    undoRoute.mutate({
-      tab: undoState.tab,
-      destination: undoState.destination,
-      referenceId: undoState.referenceId,
-    }, {
-      onSuccess: () => {
-        setActiveTabId(undoState!.tab.id)
-        if (!isOpen) openNotepad()
-      },
-    })
-    setUndoState(null)
-  }
-
-  function handleAlsoSendTo() {
-    if (!undoState) return
-    // Undo the route first, then open send-to
-    undoRoute.mutate({
-      tab: undoState.tab,
-      destination: undoState.destination,
-      referenceId: undoState.referenceId,
-    }, {
-      onSuccess: () => {
-        setActiveTabId(undoState!.tab.id)
-        if (!isOpen) openNotepad()
-        setView('send-to')
-      },
-    })
-    setUndoState(null)
   }
 
   function handleReopenHistory(tab: NotepadTab) {
@@ -293,6 +298,8 @@ export function NotepadDrawer() {
       {/* Drawer body */}
       {isOpen && (
         <div
+          onTouchStart={handleDrawerTouchStart}
+          onTouchEnd={handleDrawerTouchEnd}
           className={`fixed z-40 flex flex-col ${
             isFullPage
               ? 'inset-0 md:left-[220px]'
@@ -418,15 +425,6 @@ export function NotepadDrawer() {
         </div>
       )}
 
-      {/* Undo Toast */}
-      {undoState && (
-        <UndoToast
-          message={undoState.message}
-          onUndo={handleUndo}
-          onAlsoSendTo={handleAlsoSendTo}
-          onDismiss={() => setUndoState(null)}
-        />
-      )}
     </>
   )
 }

@@ -10,7 +10,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Inbox } from 'lucide-react'
-import { EmptyState } from '@/components/shared'
+import { EmptyState, useRoutingToast } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { QueueCard } from './QueueCard'
@@ -125,6 +125,7 @@ function DismissConfirm({ item, onConfirm, onCancel }: DismissConfirmProps) {
 export function SortTab() {
   const queryClient = useQueryClient()
   const { data: currentMember } = useFamilyMember()
+  const routingToast = useRoutingToast()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
 
   // Studio queue query
@@ -262,12 +263,33 @@ export function SortTab() {
 
   const handleSaveTask = async (_taskData: CreateTaskData) => {
     // Mark the configured item(s) as processed
-    if (batchMode === 'group' && batchItems.length > 0) {
-      for (const item of batchItems) {
-        processedMutation.mutate(item.id)
-      }
-    } else if (configItem) {
-      processedMutation.mutate(configItem.id)
+    const itemsToProcess = batchMode === 'group' && batchItems.length > 0
+      ? batchItems
+      : configItem ? [configItem] : []
+
+    for (const item of itemsToProcess) {
+      processedMutation.mutate(item.id)
+    }
+
+    // Show undo toast
+    if (itemsToProcess.length > 0) {
+      const label = itemsToProcess.length === 1
+        ? `"${itemsToProcess[0].content.slice(0, 40)}${itemsToProcess[0].content.length > 40 ? '...' : ''}" created as task`
+        : `${itemsToProcess.length} items created as tasks`
+
+      routingToast.show({
+        message: label,
+        onUndo: () => {
+          // Reverse: un-process items (set processed_at back to null)
+          for (const item of itemsToProcess) {
+            supabase
+              .from('studio_queue')
+              .update({ processed_at: null })
+              .eq('id', item.id)
+              .then(() => queryClient.invalidateQueries({ queryKey: ['studio-queue'] }))
+          }
+        },
+      })
     }
   }
 

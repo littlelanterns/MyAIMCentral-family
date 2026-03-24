@@ -81,6 +81,24 @@ export function useUpdateGuidingStar() {
   })
 }
 
+export function useToggleGuidingStarAI() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, memberId, included }: { id: string; memberId: string; included: boolean }) => {
+      const { error } = await supabase
+        .from('guiding_stars')
+        .update({ is_included_in_ai: included })
+        .eq('id', id)
+      if (error) throw error
+      return memberId
+    },
+    onSuccess: (memberId) => {
+      queryClient.invalidateQueries({ queryKey: ['guiding-stars', memberId] })
+    },
+  })
+}
+
 export function useDeleteGuidingStar() {
   const queryClient = useQueryClient()
 

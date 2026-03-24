@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type TouchEvent as ReactTouchEvent } from 'react'
 import { ChevronUp, ChevronDown, Send, X, History, Mic, Loader } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -66,6 +66,28 @@ export function LilaDrawer({
   } = useVoiceInput()
 
   const [drawerState, setDrawerState] = useState<DrawerState>('collapsed')
+
+  // Swipe up/down to control drawer height states (PRD-04)
+  const lilaSwipeStart = useRef<{ x: number; y: number } | null>(null)
+  const handleLilaTouchStart = useCallback((e: ReactTouchEvent) => {
+    lilaSwipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }, [])
+  const handleLilaTouchEnd = useCallback((e: ReactTouchEvent) => {
+    if (!lilaSwipeStart.current) return
+    const dy = e.changedTouches[0].clientY - lilaSwipeStart.current.y
+    const dx = Math.abs(e.changedTouches[0].clientX - lilaSwipeStart.current.x)
+    lilaSwipeStart.current = null
+    // Must be predominantly vertical and > 50px
+    if (Math.abs(dy) < 50 || dx > Math.abs(dy)) return
+    if (dy < 0) {
+      // Swipe up — expand
+      setDrawerState(prev => prev === 'collapsed' ? 'peek' : prev === 'peek' ? 'full' : prev)
+    } else {
+      // Swipe down — collapse
+      setDrawerState(prev => prev === 'full' ? 'peek' : prev === 'peek' ? 'collapsed' : prev)
+    }
+  }, [])
+
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
@@ -273,7 +295,11 @@ export function LilaDrawer({
   }
 
   return (
-    <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 md:left-[220px]">
+    <div
+      className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 md:left-[220px]"
+      onTouchStart={handleLilaTouchStart}
+      onTouchEnd={handleLilaTouchEnd}
+    >
       {/* Pull tab — folder tab shape with avatar, always visible above drawer */}
       <div className="flex justify-center" style={{ marginBottom: '-1px' }}>
         <button

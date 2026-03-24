@@ -19,7 +19,8 @@ import {
   useToggleListItem, useDeleteListItem, useUpdateListItem,
   useUncheckAllItems, usePromoteListItem, useArchiveList,
 } from '@/hooks/useLists'
-import { FeatureGuide, FeatureIcon } from '@/components/shared'
+import { FeatureGuide, FeatureIcon, BulkAddWithAI } from '@/components/shared'
+import { Sparkles } from 'lucide-react'
 import type { ListItem, ListType } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
 
@@ -249,6 +250,54 @@ export function ListsPage() {
   )
 }
 
+// ── Bulk Add Helpers (context-aware per list type) ────────
+
+function getBulkAddPlaceholder(listType: string): string {
+  switch (listType) {
+    case 'shopping': return 'Paste a recipe, ingredient list, or just type items one per line...'
+    case 'wishlist': return 'Paste gift ideas, product names, or links one per line...'
+    case 'expenses': return 'Paste expenses one per line. E.g.: "Groceries $45" or "Gas 32.50"...'
+    case 'packing': return 'Paste packing items one per line. Add a section name like "Clothing:" on its own line...'
+    case 'todo': return 'Paste to-do items one per line...'
+    default: return 'Paste items one per line. AI will parse them for you...'
+  }
+}
+
+function getBulkAddHint(listType: string): string {
+  switch (listType) {
+    case 'shopping': return 'Works with recipes, grocery lists, and brain dumps. AI detects quantities.'
+    case 'wishlist': return 'Paste product names, URLs, or wishlists from other apps.'
+    case 'expenses': return 'Include amounts with items. AI extracts prices automatically.'
+    case 'packing': return 'Use "Category:" headers to group items into sections.'
+    default: return 'Paste any text and AI will parse it into individual items.'
+  }
+}
+
+function getBulkAddCategories(listType: string, sections: string[]): { value: string; label: string }[] | undefined {
+  if (listType === 'shopping' || listType === 'packing') {
+    // Use existing sections as categories, plus a default
+    const cats = sections.map(s => ({ value: s, label: s }))
+    if (cats.length > 0) return cats
+  }
+  return undefined
+}
+
+function getBulkAddPrompt(listType: string): string {
+  const base = 'Parse the following text into individual list items. Return a JSON array.'
+  switch (listType) {
+    case 'shopping':
+      return `${base} Each item should be a string representing a grocery/shopping item. Extract quantities if present (e.g., "2 lbs chicken" stays as one item). If the text is a recipe, extract the ingredients only. Return ["item1", "item2", ...].`
+    case 'wishlist':
+      return `${base} Each item should be a product name or gift idea. Keep descriptions concise. Return ["item1", "item2", ...].`
+    case 'expenses':
+      return `${base} Each item should include the expense description. Return ["item1", "item2", ...].`
+    case 'packing':
+      return `${base} If section headers are detected (lines ending with ":"), use them as categories. Return [{"text": "item", "category": "section"}, ...]. If no sections detected, return ["item1", ...].`
+    default:
+      return `${base} Each item should be a discrete item from the text. Return ["item1", "item2", ...].`
+  }
+}
+
 // ── List Detail View ──────────────────────────────────────
 
 function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void }) {
@@ -270,6 +319,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   void setNewItemSection // setter available for section input field
   const [editingId, setEditingId] = useState<string | null>(null)
   const [_showAddSection, _setShowAddSection] = useState(false)
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
 
   if (!list) return null
 
@@ -456,7 +506,38 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
         >
           <Plus size={16} />
         </button>
+        <button
+          onClick={() => setShowBulkAdd(true)}
+          className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+          title="Bulk add items with AI"
+        >
+          <Sparkles size={14} />
+          <span className="hidden sm:inline">Bulk</span>
+        </button>
       </div>
+
+      {/* AI Bulk Add Modal */}
+      {showBulkAdd && (
+        <BulkAddWithAI
+          title={`Bulk Add — ${list.title}`}
+          placeholder={getBulkAddPlaceholder(list.list_type as string)}
+          hint={getBulkAddHint(list.list_type as string)}
+          categories={getBulkAddCategories(list.list_type as string, Array.from(sections.keys()))}
+          parsePrompt={getBulkAddPrompt(list.list_type as string)}
+          onSave={async (parsed) => {
+            for (const item of parsed.filter(i => i.selected)) {
+              await createItem.mutateAsync({
+                list_id: listId,
+                content: item.text,
+                section_name: item.category || undefined,
+                sort_order: items.length,
+              })
+            }
+          }}
+          onClose={() => setShowBulkAdd(false)}
+        />
+      )}
     </div>
   )
 }

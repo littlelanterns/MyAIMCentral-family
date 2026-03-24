@@ -1,8 +1,11 @@
 /**
- * Modal (PRD-03 Design System)
+ * Modal (PRD-03 Design System, PRD-04 Shell Routing)
  *
  * Portal-based modal with:
- * - Backdrop click and Escape key to close
+ * - Backdrop click to close (with dirty-state double-tap guard)
+ * - disableBackdropClose for destructive confirmation modals
+ * - persistent prop to preserve child state across close/reopen cycles
+ * - Escape key to close
  * - Four sizes: sm, md, lg, fullscreen
  * - Optional title, footer slot
  * - Fade + scale animation on open
@@ -10,9 +13,9 @@
  * - Zero hardcoded hex colors — all CSS custom properties
  */
 
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { X, AlertTriangle } from 'lucide-react'
 
 export interface ModalProps {
   open: boolean
@@ -21,6 +24,12 @@ export interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'fullscreen'
   children: ReactNode
   footer?: ReactNode
+  /** When true, backdrop click does nothing — only explicit buttons close */
+  disableBackdropClose?: boolean
+  /** Signals unsaved changes — first backdrop tap shows warning, second tap discards and closes */
+  isDirty?: boolean
+  /** When true, content stays mounted (hidden) when closed. State preserved until explicit action */
+  persistent?: boolean
 }
 
 const sizeClasses: Record<NonNullable<ModalProps['size']>, string> = {
@@ -37,25 +46,49 @@ export function Modal({
   size = 'md',
   children,
   footer,
+  disableBackdropClose,
+  isDirty,
+  persistent,
 }: ModalProps) {
   const contentRef = useRef<HTMLDivElement>(null)
+  const [showDirtyWarning, setShowDirtyWarning] = useState(false)
 
-  // Close on Escape
+  // Reset dirty warning when modal closes or dirty state clears
+  useEffect(() => {
+    if (!open || !isDirty) setShowDirtyWarning(false)
+  }, [open, isDirty])
+
+  // Handle backdrop / escape dismiss logic
+  const handleDismissAttempt = useCallback(() => {
+    if (disableBackdropClose) return
+    if (isDirty) {
+      if (showDirtyWarning) {
+        // Second attempt — close and discard
+        setShowDirtyWarning(false)
+        onClose()
+      } else {
+        // First attempt — show inline warning
+        setShowDirtyWarning(true)
+      }
+    } else {
+      onClose()
+    }
+  }, [disableBackdropClose, isDirty, showDirtyWarning, onClose])
+
+  // Close on Escape (same guard logic as backdrop)
   useEffect(() => {
     if (!open) return
-
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleDismissAttempt()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  }, [open, handleDismissAttempt])
 
   // Trap focus and prevent body scroll
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'
-      // Focus first focusable element
       requestAnimationFrame(() => {
         const focusable = contentRef.current?.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -72,9 +105,33 @@ export function Modal({
     }
   }, [open])
 
-  if (!open) return null
+  // Non-persistent modals unmount children when closed
+  if (!open && !persistent) return null
 
   const isFullscreen = size === 'fullscreen'
+  const isHidden = !open && persistent
+
+  const closeButton = (
+    <button
+      onClick={onClose}
+      aria-label="Close"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        padding: '0.25rem',
+        borderRadius: 'var(--vibe-radius-input, 8px)',
+        color: 'var(--color-text-secondary)',
+        minHeight: 'var(--touch-target-min, 44px)',
+        minWidth: '44px',
+      }}
+    >
+      <X size={20} aria-hidden />
+    </button>
+  )
 
   const content = (
     <div
@@ -82,7 +139,7 @@ export function Modal({
         position: 'fixed',
         inset: 0,
         zIndex: 50,
-        display: 'flex',
+        display: isHidden ? 'none' : 'flex',
         alignItems: isFullscreen ? 'stretch' : 'center',
         justifyContent: 'center',
         padding: isFullscreen ? 0 : '1rem',
@@ -90,15 +147,17 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
+      aria-hidden={isHidden}
     >
       {/* Backdrop */}
       <div
-        onClick={onClose}
+        onClick={handleDismissAttempt}
         style={{
           position: 'absolute',
           inset: 0,
           backgroundColor: 'var(--color-bg-overlay, rgba(0, 0, 0, 0.5))',
           animation: 'modalFadeIn 0.15s ease-out',
+          cursor: disableBackdropClose ? 'default' : 'pointer',
         }}
         aria-hidden="true"
       />
@@ -117,7 +176,28 @@ export function Modal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Dirty state warning banner */}
+        {showDirtyWarning && (
+          <div
+            className="flex-shrink-0"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))',
+              borderBottom: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)',
+              fontSize: 'var(--font-size-sm, 0.875rem)',
+              color: 'var(--color-text-primary)',
+              animation: 'modalFadeIn 0.15s ease-out',
+            }}
+          >
+            <AlertTriangle size={14} style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }} />
+            <span>You have unsaved changes. Tap outside again to discard.</span>
+          </div>
+        )}
+
+        {/* Header with title */}
         {(title !== undefined) && (
           <div
             className="flex items-center justify-between flex-shrink-0"
@@ -133,53 +213,17 @@ export function Modal({
             >
               {title}
             </h2>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                borderRadius: 'var(--vibe-radius-input, 8px)',
-                color: 'var(--color-text-secondary)',
-                minHeight: 'var(--touch-target-min, 44px)',
-                minWidth: '44px',
-              }}
-            >
-              <X size={20} aria-hidden />
-            </button>
+            {closeButton}
           </div>
         )}
 
-        {/* No title but still show close button */}
+        {/* No title — still show close button */}
         {title === undefined && (
           <div
             className="flex justify-end flex-shrink-0"
             style={{ padding: '0.75rem 0.75rem 0' }}
           >
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                borderRadius: 'var(--vibe-radius-input, 8px)',
-                color: 'var(--color-text-secondary)',
-                minHeight: 'var(--touch-target-min, 44px)',
-                minWidth: '44px',
-              }}
-            >
-              <X size={20} aria-hidden />
-            </button>
+            {closeButton}
           </div>
         )}
 

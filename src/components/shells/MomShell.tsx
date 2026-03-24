@@ -8,6 +8,7 @@ import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar } 
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { TimerProvider } from '@/features/timer'
+import { RoutingToastProvider } from '@/components/shared'
 import { ViewAsShellWrapper } from '@/features/permissions'
 import { useTheme } from '@/lib/theme'
 import type { LilaConversation } from '@/hooks/useLila'
@@ -41,6 +42,7 @@ export function MomShell({ children }: MomShellProps) {
 
   return (
     <TimerProvider>
+    <RoutingToastProvider>
     <NotepadProvider>
     <div
       className="flex min-h-svh"
@@ -133,6 +135,7 @@ export function MomShell({ children }: MomShellProps) {
       <BottomNav />
     </div>
     </NotepadProvider>
+    </RoutingToastProvider>
     </TimerProvider>
   )
 }

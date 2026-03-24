@@ -27,6 +27,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { CalendarTab } from './CalendarTab'
 import { SortTab } from './SortTab'
 import { RequestsTab } from './RequestsTab'
+import { BreathingGlow } from '@/components/ui/BreathingGlow'
 
 // ─── Tab Registry ─────────────────────────────────────────────
 
@@ -37,37 +38,10 @@ interface TabConfig {
   label: string
   icon: React.ReactNode
   component: React.ReactNode
-  /** Badge count (0 means no badge) */
+  /** Pending item count (0 = no glow) */
   count: number
   /** Lower order = rendered first */
   order: number
-}
-
-// ─── Helpers ──────────────────────────────────────────────────
-
-function TabBadge({ count }: { count: number }) {
-  if (count === 0) return null
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: 18,
-        height: 18,
-        padding: '0 5px',
-        borderRadius: '9999px',
-        backgroundColor: 'var(--color-btn-primary-bg)',
-        color: 'var(--color-text-on-primary, #fff)',
-        fontSize: 'var(--font-size-xs, 0.75rem)',
-        fontWeight: 700,
-        lineHeight: 1,
-        marginLeft: '0.3rem',
-      }}
-    >
-      {count > 99 ? '99+' : count}
-    </span>
-  )
 }
 
 // ─── AllCaughtUp ──────────────────────────────────────────────
@@ -413,9 +387,10 @@ export function UniversalQueueModal({
                       : 'none',
                   }}
                 >
-                  {tab.icon}
+                  <BreathingGlow active={tab.count > 0}>
+                    {tab.icon}
+                  </BreathingGlow>
                   {tab.label}
-                  <TabBadge count={tab.count} />
                 </button>
               )
             })}
