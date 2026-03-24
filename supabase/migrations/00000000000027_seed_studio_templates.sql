@@ -267,7 +267,7 @@ INSERT INTO public.task_templates (
 SELECT
   NULL, NULL,
   'SODAS', 'SODAS',
-  'Gold standard structured thinking from Teaching Self-Government (Nicholeen Peck). Mom fills Situation. Child works through Options (3+) → Disadvantages (each option) → Advantages (each option, including bad choices) → Solution (best and why). More honest than pros/cons because it requires acknowledging advantages in every option.',
+  'A structured thinking exercise that teaches real decision-making. Mom fills Situation. Child works through Options (3+) → Disadvantages (each option) → Advantages (each option, including bad choices) → Solution (best and why). More honest than pros/cons because it requires acknowledging advantages in every option.',
   'task', 'guided_form',
   true, true, false,
   ARRAY['Sibling conflict','What to do when angry','Spending birthday money','Friend situation'],
@@ -302,7 +302,7 @@ INSERT INTO public.task_templates (
 SELECT
   NULL, NULL,
   'What-If Game', 'What-If Game',
-  'Lighter, faster version of SODAS for pre-teaching before situations arise. Mom poses scenario, child thinks it through before they''re in the heat of the moment. From Teaching Self-Government. Works for kids as young as Guided shell age.',
+  'Lighter, faster version of SODAS for pre-teaching before situations arise. Mom poses scenario, child thinks it through before they''re in the heat of the moment. Practice handling hard situations before they happen. Works for kids as young as Guided shell age.',
   'task', 'guided_form',
   true, true, false,
   ARRAY['Friend asking to do something wrong','Someone mean at co-op','Finished work early','Feeling angry at sibling'],

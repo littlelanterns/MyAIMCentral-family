@@ -150,9 +150,9 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     id: 'ex_tsg_randomizer',
     templateType: 'randomizer',
     name: 'TSG Extra Jobs Randomizer',
-    tagline: '9 chore items (one-time) + 4 connection items (repeatable). TSG-inspired.',
+    tagline: '9 chore items (one-time) + 4 connection items (repeatable).',
     description:
-      'A Teaching Self-Government–inspired Randomizer list with 9 chore items (one-time, quick to medium) and 4 connection items (repeatable). Perfect for fair job distribution — spin to see who does what.',
+      'A Randomizer list with 9 chore items (one-time, quick to medium) and 4 connection items (repeatable). Mix real work with relationship-building moments. Perfect for fair job distribution — spin to see who does what.',
     exampleUseCases: [
       'Fold and put away laundry',
       'Empty dishwasher',
@@ -185,9 +185,9 @@ export const GUIDED_FORM_TEMPLATES_BLANK: StudioTemplate[] = [
     id: 'sys_guided_form_sodas',
     templateType: 'guided_form_sodas',
     name: 'SODAS',
-    tagline: 'Gold-standard structured thinking from Teaching Self-Government (Nicholeen Peck).',
+    tagline: 'Structured thinking exercise: Situation → Options → Disadvantages → Advantages → Solution.',
     description:
-      'Gold standard structured thinking from Teaching Self-Government (Nicholeen Peck). Mom fills Situation. Child works through Options (3+) → Disadvantages (each option) → Advantages (each option, including bad choices) → Solution (best and why). More honest than pros/cons because it requires acknowledging advantages in every option.',
+      'A structured thinking exercise that teaches real decision-making. Mom fills in the Situation. Child works through Options (3+) → Disadvantages (each option) → Advantages (each option, including bad choices) → Solution (best and why). More honest than a pros/cons list because it requires acknowledging advantages in every option.',
     exampleUseCases: [
       'Sibling conflict',
       'What to do when angry',
@@ -203,7 +203,7 @@ export const GUIDED_FORM_TEMPLATES_BLANK: StudioTemplate[] = [
     name: 'What-If Game',
     tagline: 'Lighter, faster version of SODAS for pre-teaching before situations arise.',
     description:
-      'Lighter, faster version of SODAS for pre-teaching before situations arise. Mom poses scenario, child thinks it through before they\'re in the heat of the moment. From Teaching Self-Government. Works for kids as young as Guided shell age.',
+      'Lighter, faster version of SODAS for pre-teaching before situations arise. Mom poses a scenario, child thinks it through before they\'re in the heat of the moment. Practice handling hard situations before they happen. Works for kids as young as Guided shell age.',
     exampleUseCases: [
       'Friend asking to do something wrong',
       'Someone mean at co-op',

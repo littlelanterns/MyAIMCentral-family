@@ -6,8 +6,9 @@
  * No visible scrollbars — swipe to scroll on mobile, drag on desktop.
  */
 
-import { useState, useRef } from 'react'
-import { ChevronDown, ChevronRight, ChevronLeft, MoveHorizontal } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ScrollRow } from '@/components/shared/ScrollRow'
 import { StudioTemplateCard } from './StudioTemplateCard'
 import type { StudioTemplate } from './StudioTemplateCard'
 
@@ -136,65 +137,3 @@ export function StudioCategorySection({
   )
 }
 
-/** Horizontal scroll container with circle arrow buttons for desktop + swipe hint for mobile */
-function ScrollRow({ children }: { children: React.ReactNode }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  function scroll(dir: 'left' | 'right') {
-    scrollRef.current?.scrollBy({ left: dir === 'left' ? -280 : 280, behavior: 'smooth' })
-  }
-
-  return (
-    <div className="relative group">
-      {/* Left arrow — desktop only */}
-      <button
-        onClick={() => scroll('left')}
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 hidden md:flex items-center justify-center w-8 h-8 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{
-          background: 'var(--color-bg-card)',
-          border: '1px solid var(--color-border)',
-          color: 'var(--color-text-primary)',
-        }}
-        aria-label="Scroll left"
-      >
-        <ChevronLeft size={16} />
-      </button>
-
-      {/* Right arrow — desktop only */}
-      <button
-        onClick={() => scroll('right')}
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10 hidden md:flex items-center justify-center w-8 h-8 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{
-          background: 'var(--color-bg-card)',
-          border: '1px solid var(--color-border)',
-          color: 'var(--color-text-primary)',
-        }}
-        aria-label="Scroll right"
-      >
-        <ChevronRight size={16} />
-      </button>
-
-      {/* Scroll container */}
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {children}
-      </div>
-
-      {/* Swipe hint — mobile only */}
-      <div
-        className="flex md:hidden items-center justify-center gap-1 py-1"
-        style={{ color: 'var(--color-text-secondary)', opacity: 0.35 }}
-      >
-        <MoveHorizontal size={12} />
-        <span className="text-[10px]">swipe</span>
-      </div>
-    </div>
-  )
-}
