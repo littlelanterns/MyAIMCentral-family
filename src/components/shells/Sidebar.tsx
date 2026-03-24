@@ -261,34 +261,7 @@ function SidebarInner({
 
   return (
     <>
-      {/* Mobile hamburger trigger */}
-      <button
-        className="fixed top-3 left-3 z-50 p-2 rounded-lg md:hidden"
-        style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-primary)' }}
-        onClick={() => setMobileOpen(true)}
-      >
-        <Menu size={24} />
-      </button>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-black/30" />
-          <div
-            className="absolute left-0 top-0 bottom-0 w-64"
-            style={{ backgroundColor: 'var(--color-bg-card)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4">
-              <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>Menu</span>
-              <button onClick={() => setMobileOpen(false)}>
-                <X size={20} style={{ color: 'var(--color-text-secondary)' }} />
-              </button>
-            </div>
-            {sidebarContent}
-          </div>
-        </div>
-      )}
+      {/* Mobile: No hamburger — BottomNav handles mobile navigation */}
 
       {/* Desktop sidebar */}
       <aside

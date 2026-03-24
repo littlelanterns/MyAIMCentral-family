@@ -5,10 +5,8 @@ import { Tooltip } from '@/components/Tooltip'
 /**
  * Smart Notepad — right-side pull-out drawer (PRD-08, Zone 3).
  * Always-on capture workspace with tabs.
- * Mom + Adult + Independent shells get this; Guided and Play do not.
- *
- * In preview mode (no auth), tabs are local state only.
- * When connected to Supabase, uses useNotepadTabs hook.
+ * Desktop: pull tab on right edge, slides out 320px.
+ * Mobile: pull tab positioned above bottom nav, opens full-width overlay.
  */
 
 interface NotepadTab {
@@ -58,33 +56,54 @@ export function NotepadDrawer() {
   }
 
   return (
-    <div
-      className="fixed top-0 right-0 bottom-0 z-20 hidden md:flex"
-      style={{ pointerEvents: 'none' }}
-    >
-      {/* Pull tab — icon only, right edge */}
-      <Tooltip content="Notepad">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="self-center p-2 rounded-l-lg"
-          style={{
-            pointerEvents: 'auto',
-            backgroundColor: 'var(--color-accent)',
-            color: '#ffffff',
-          }}
-        >
-          <StickyNote size={16} />
-        </button>
-      </Tooltip>
+    <>
+      {/* Pull tab — right edge. Desktop: mid-screen. Mobile: above bottom nav. */}
+      {!expanded && (
+        <Tooltip content="Notepad">
+          <button
+            onClick={() => setExpanded(true)}
+            className="fixed right-0 z-30 rounded-l-lg transition-all duration-200 hover:pr-2"
+            style={{
+              top: 'auto',
+              bottom: 'calc(56px + 24px)',   /* Above bottom nav on mobile */
+              width: '30px',
+              height: '56px',
+              backgroundColor: 'var(--color-accent, var(--color-btn-primary-bg))',
+              color: 'var(--color-btn-primary-text)',
+              border: 'none',
+              borderRight: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 'unset',
+              boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+            }}
+          >
+            <StickyNote size={16} />
+          </button>
+        </Tooltip>
+      )}
+
+      {/* Backdrop — mobile only */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-30 md:hidden animate-fadeIn"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+          onClick={() => setExpanded(false)}
+        />
+      )}
 
       {/* Drawer body */}
       <div
-        className="flex flex-col transition-all duration-300 ease-in-out overflow-hidden"
+        className="fixed top-0 right-0 bottom-0 z-40 flex flex-col"
         style={{
-          pointerEvents: expanded ? 'auto' : 'none',
-          width: expanded ? '320px' : '0px',
+          width: expanded ? 'min(320px, 85vw)' : '0px',
           backgroundColor: 'var(--color-bg-card)',
           borderLeft: expanded ? '1px solid var(--color-border)' : 'none',
+          boxShadow: expanded ? '-4px 0 20px rgba(0, 0, 0, 0.1)' : 'none',
+          transition: 'width 0.3s ease, box-shadow 0.3s ease',
+          overflow: 'hidden',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
         {/* Header */}
@@ -93,12 +112,16 @@ export function NotepadDrawer() {
           style={{ borderColor: 'var(--color-border)' }}
         >
           <div className="flex items-center gap-2">
-            <StickyNote size={16} style={{ color: 'var(--color-accent)' }} />
+            <StickyNote size={16} style={{ color: 'var(--color-accent, var(--color-btn-primary-bg))' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
               Smart Notepad
             </span>
           </div>
-          <button onClick={() => setExpanded(false)} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
+          <button
+            onClick={() => setExpanded(false)}
+            className="p-1"
+            style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+          >
             <X size={14} />
           </button>
         </div>
@@ -136,6 +159,8 @@ export function NotepadDrawer() {
                     backgroundColor: activeTabId === tab.id ? 'var(--color-bg-secondary)' : 'transparent',
                     color: activeTabId === tab.id ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
                     fontWeight: activeTabId === tab.id ? 500 : 400,
+                    background: activeTabId !== tab.id ? 'transparent' : undefined,
+                    minHeight: 'unset',
                   }}
                   title="Double-click to rename"
                 >
@@ -146,7 +171,7 @@ export function NotepadDrawer() {
                 <button
                   onClick={() => deleteTab(tab.id)}
                   className="p-0.5 ml-0.5 rounded opacity-50 hover:opacity-100"
-                  style={{ color: 'var(--color-text-secondary)' }}
+                  style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
                 >
                   <Trash2 size={10} />
                 </button>
@@ -156,7 +181,7 @@ export function NotepadDrawer() {
           <button
             onClick={addTab}
             className="p-1 rounded shrink-0"
-            style={{ color: 'var(--color-text-secondary)' }}
+            style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
             title="Add tab"
           >
             <Plus size={14} />
@@ -175,11 +200,12 @@ export function NotepadDrawer() {
               color: 'var(--color-text-primary)',
               border: 'none',
               outline: 'none',
+              minHeight: '44px',
             }}
           />
         </div>
 
-        {/* Footer — word count + Review & Route stub */}
+        {/* Footer */}
         <div
           className="flex items-center justify-between px-3 py-2 border-t text-xs shrink-0"
           style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
@@ -187,12 +213,12 @@ export function NotepadDrawer() {
           <span>
             {(activeTab?.content ?? '').split(/\s+/).filter(Boolean).length} words
           </span>
-          {/* STUB: Review & Route button — wires to PRD-08 extraction pipeline */}
           <button
             className="px-2 py-1 rounded text-xs"
             style={{
               backgroundColor: 'var(--color-bg-secondary)',
               color: 'var(--color-text-secondary)',
+              minHeight: 'unset',
             }}
             title="Extract items and route to features (coming soon)"
           >
@@ -200,6 +226,6 @@ export function NotepadDrawer() {
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }

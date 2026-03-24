@@ -75,6 +75,13 @@ export function LilaDrawer({
     }
   }, [initialMode])
 
+  // Auto-expand when a conversation is loaded (e.g., from history)
+  useEffect(() => {
+    if (conversation?.id) {
+      setDrawerState('peek')
+    }
+  }, [conversation?.id])
+
   // Load context summary
   useEffect(() => {
     if (!family?.id || !member?.id) {
@@ -215,101 +222,119 @@ export function LilaDrawer({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 md:left-[220px]">
-      {/* Pull tab — always visible, positioned ABOVE the drawer body */}
+    <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 md:left-[220px]">
+      {/* Pull tab — warm gradient pill with avatar, always visible above drawer */}
       <div className="flex justify-center" style={{ marginBottom: '-1px' }}>
         <button
           onClick={() => setDrawerState(drawerState === 'collapsed' ? 'peek' : 'collapsed')}
-          className="btn-primary flex items-center gap-1.5 px-5 py-1.5 rounded-t-xl text-xs font-semibold shadow-md hover:shadow-lg transition-all"
+          className="btn-primary flex items-center gap-2 px-5 py-2 rounded-t-2xl text-xs font-semibold transition-all duration-300 hover:shadow-lg"
           style={{
-            backgroundColor: 'var(--color-btn-primary-bg)',
+            background: 'var(--gradient-primary, var(--color-btn-primary-bg))',
             color: 'var(--color-btn-primary-text)',
+            boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.12)',
+            minHeight: 'unset',
           }}
         >
-          <LilaAvatar avatarKey={avatarKey} size={12} />
-          LiLa
-          {drawerState === 'collapsed' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          <LilaAvatar avatarKey={avatarKey} size={20} />
+          <span>LiLa</span>
+          <span className="opacity-60 text-[10px]">{modeLabel}</span>
+          {drawerState === 'collapsed' ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
       </div>
 
-      {/* Drawer body */}
+      {/* Drawer body — overflow-hidden on wrapper for height animation,
+           but children manage their own scrolling */}
       <div
-        className="flex flex-col transition-all duration-300 ease-in-out overflow-hidden"
+        className="flex flex-col transition-all duration-300 ease-in-out"
         style={{
           height: heights[drawerState],
+          overflow: 'hidden',
           backgroundColor: 'var(--color-bg-card)',
-          borderTop: drawerState !== 'collapsed' ? '2px solid var(--color-border)' : 'none',
+          boxShadow: drawerState !== 'collapsed' ? '0 -8px 32px rgba(0, 0, 0, 0.15)' : 'none',
+          borderRadius: drawerState !== 'collapsed' ? '16px 16px 0 0' : '0',
         }}
       >
-        {/* Header */}
+        {/* Header — gradient banner with avatar */}
         <div
-          className="flex items-center justify-between px-4 py-2 border-b shrink-0"
-          style={{ borderColor: 'var(--color-border)' }}
+          className="flex items-center justify-between px-4 py-3 shrink-0"
+          style={{
+            background: 'var(--gradient-primary, linear-gradient(135deg, var(--color-btn-primary-bg), var(--color-accent, #d6a461)))',
+            borderRadius: '16px 16px 0 0',
+          }}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <LilaAvatar avatarKey={avatarKey} size={16} />
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                border: '2px solid rgba(255,255,255,0.3)',
+              }}
+            >
+              <LilaAvatar avatarKey={avatarKey} size={24} />
+            </div>
 
-            {/* Mode label */}
-            <span className="text-sm font-medium shrink-0" style={{ color: 'var(--color-text-heading)' }}>
-              {modeLabel}
-            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold" style={{ color: 'var(--color-btn-primary-text, #fff)' }}>
+                  {modeLabel}
+                </span>
+                <LilaModeSwitcher
+                  currentMode={currentMode}
+                  modes={guidedModes}
+                  onModeSelect={handleModeSwitch}
+                />
+              </div>
 
-            {/* Conversation title (click to rename) */}
-            {conversation?.title && !editingTitle && (
-              <button
-                onClick={() => { setEditingTitle(true); setTitleInput(conversation.title || '') }}
-                className="text-xs truncate max-w-[150px] hover:underline"
-                style={{ color: 'var(--color-text-secondary)' }}
-                title="Click to rename"
-              >
-                {conversation.title}
-              </button>
-            )}
-            {editingTitle && (
-              <input
-                type="text"
-                value={titleInput}
-                onChange={(e) => setTitleInput(e.target.value)}
-                onBlur={handleTitleSave}
-                onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                className="text-xs px-1 py-0.5 rounded max-w-[150px]"
-                style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
-                }}
-                autoFocus
-              />
-            )}
-
-            {/* Mode switcher */}
-            <LilaModeSwitcher
-              currentMode={currentMode}
-              modes={guidedModes}
-              onModeSelect={handleModeSwitch}
-            />
+              {/* Conversation title (click to rename) */}
+              {conversation?.title && !editingTitle && (
+                <button
+                  onClick={() => { setEditingTitle(true); setTitleInput(conversation.title || '') }}
+                  className="text-xs truncate max-w-[200px] hover:underline block"
+                  style={{ color: 'rgba(255,255,255,0.7)' }}
+                  title="Click to rename"
+                >
+                  {conversation.title}
+                </button>
+              )}
+              {editingTitle && (
+                <input
+                  type="text"
+                  value={titleInput}
+                  onChange={(e) => setTitleInput(e.target.value)}
+                  onBlur={handleTitleSave}
+                  onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
+                  className="text-xs px-1.5 py-0.5 rounded max-w-[200px]"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    color: 'var(--color-btn-primary-text, #fff)',
+                  }}
+                  autoFocus
+                />
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1">
             {/* Expand/collapse toggle */}
             {drawerState === 'peek' && (
-              <button onClick={() => setDrawerState('full')} className="p-1" style={{ color: 'var(--color-text-secondary)' }} title="Expand">
+              <button onClick={() => setDrawerState('full')} className="p-1.5 rounded-full" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }} title="Expand">
                 <ChevronUp size={16} />
               </button>
             )}
             {drawerState === 'full' && (
-              <button onClick={() => setDrawerState('peek')} className="p-1" style={{ color: 'var(--color-text-secondary)' }} title="Shrink">
+              <button onClick={() => setDrawerState('peek')} className="p-1.5 rounded-full" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }} title="Shrink">
                 <ChevronDown size={16} />
               </button>
             )}
 
             {/* History button */}
-            <button onClick={onHistoryOpen} className="p-1" style={{ color: 'var(--color-text-secondary)' }} title="Conversation history">
+            <button onClick={onHistoryOpen} className="p-1.5 rounded-full" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }} title="Conversation history">
               <History size={16} />
             </button>
 
             {/* Close */}
-            <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/20 transition-colors" style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}>
               <X size={16} />
             </button>
           </div>
@@ -320,21 +345,35 @@ export function LilaDrawer({
           <FeatureGuide featureKey="lila" />
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-          {/* Opening message when no conversation — large avatar intro */}
+        {/* Messages — min-h-0 is critical for flex child scrolling */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
+          {/* Opening message when no conversation — speech bubble with avatar */}
           {messages.length === 0 && openingMessage && !isStreaming && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <LilaAvatar avatarKey={avatarKey} size={64} />
+            <div className="flex flex-col items-center gap-2 py-6 animate-fadeIn">
+              <LilaAvatar avatarKey={avatarKey} size={72} />
               <div
-                className="rounded-lg px-4 py-3 text-sm text-center max-w-[85%]"
+                className="relative rounded-2xl px-5 py-4 text-sm text-center max-w-[85%]"
                 style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-border)',
+                  background: 'var(--gradient-primary, linear-gradient(135deg, var(--color-btn-primary-bg), var(--color-accent, #d6a461)))',
+                  color: 'var(--color-btn-primary-text, #fff)',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
                 }}
               >
-                <p>{openingMessage}</p>
+                {/* Speech arrow pointing up */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 0,
+                    height: 0,
+                    borderLeft: '8px solid transparent',
+                    borderRight: '8px solid transparent',
+                    borderBottom: '8px solid var(--color-btn-primary-bg)',
+                  }}
+                />
+                <p className="leading-relaxed">{openingMessage}</p>
               </div>
             </div>
           )}
@@ -387,10 +426,16 @@ export function LilaDrawer({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input area */}
-        <div className="shrink-0 border-t" style={{ borderColor: 'var(--color-border)' }}>
+        {/* Input area — warm footer */}
+        <div
+          className="shrink-0"
+          style={{
+            background: 'linear-gradient(to top, var(--color-bg-card), rgba(255,255,255,0.5))',
+            borderTop: '1px solid var(--color-border)',
+          }}
+        >
           {/* Context indicator */}
-          <div className="px-4 pt-1">
+          <div className="px-4 pt-2">
             <LilaContextIndicator
               summary={contextSummary}
               onClick={onContextSettingsOpen}
@@ -400,8 +445,8 @@ export function LilaDrawer({
           <div className="flex items-center gap-2 px-4 py-3">
             {/* Voice input stub */}
             <button
-              className="p-2 rounded-lg opacity-30"
-              style={{ color: 'var(--color-text-secondary)' }}
+              className="p-2 rounded-full opacity-30"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
               disabled
               title="Voice input coming soon"
             >
@@ -415,7 +460,7 @@ export function LilaDrawer({
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder={placeholders[currentMode] || "What's on your mind?"}
               disabled={isStreaming}
-              className="flex-1 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 rounded-full text-sm disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--color-bg-primary)',
                 border: '1px solid var(--color-border)',
@@ -425,10 +470,11 @@ export function LilaDrawer({
             <button
               onClick={handleSend}
               disabled={!input.trim() || isStreaming}
-              className="btn-primary p-2 rounded-lg disabled:opacity-50"
+              className="btn-primary p-2.5 rounded-full disabled:opacity-50 transition-all hover:scale-105"
               style={{
                 backgroundColor: 'var(--color-btn-primary-bg)',
                 color: 'var(--color-btn-primary-text)',
+                minHeight: 'unset',
               }}
             >
               <Send size={16} />

@@ -77,19 +77,19 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
   return (
     <div
       className={`
-        relative mb-6 rounded-xl border
+        btn-primary relative mb-6 rounded-xl
         p-5 shadow-lg transition-all duration-300
         ${fading ? 'opacity-0 translate-y-[-8px]' : 'opacity-100 translate-y-0'}
       `}
       style={{
-        backgroundColor: 'var(--color-text-heading, #3d2e22)',
-        borderColor: 'var(--color-btn-primary-bg)',
+        backgroundColor: 'var(--color-btn-primary-bg, #68a395)',
+        color: 'var(--color-btn-primary-text, #fff)',
       }}
     >
       <button
         onClick={() => dismiss(false)}
         className="absolute right-3 top-3 rounded-full p-1 transition-colors"
-        style={{ color: 'var(--color-bg-secondary)', opacity: 0.6 }}
+        style={{ color: 'var(--color-btn-primary-text, #fff)', opacity: 0.6 }}
         aria-label="Dismiss guide"
       >
         <X size={16} />
@@ -98,9 +98,9 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
       <div className="flex items-start gap-3">
         <div
           className="mt-0.5 flex-shrink-0 rounded-lg p-2"
-          style={{ backgroundColor: 'var(--color-btn-primary-bg)', opacity: 0.9 }}
+          style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
         >
-          <Lightbulb size={20} style={{ color: 'var(--color-btn-primary-text)' }} />
+          <Lightbulb size={20} style={{ color: 'var(--color-btn-primary-text, #fff)' }} />
         </div>
         <div className="flex-1 min-w-0">
           <h3
@@ -111,7 +111,7 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
           </h3>
           <p
             className="text-sm leading-relaxed"
-            style={{ color: 'var(--color-bg-secondary, #d4e3d9)' }}
+            style={{ color: 'var(--color-btn-primary-text, #fff)', opacity: 0.9 }}
           >
             {displayDescription}
           </p>
@@ -121,11 +121,11 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
                 <li
                   key={i}
                   className="flex items-start gap-2 text-sm"
-                  style={{ color: 'var(--color-bg-secondary, #d4e3d9)', opacity: 0.8 }}
+                  style={{ color: 'var(--color-btn-primary-text, #fff)', opacity: 0.8 }}
                 >
                   <span
                     className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: 'var(--color-btn-primary-bg)' }}
+                    style={{ backgroundColor: 'var(--color-btn-primary-text, #fff)', opacity: 0.6 }}
                   />
                   {bullet}
                 </li>
@@ -135,15 +135,19 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
           <div className="mt-3 flex items-center gap-3">
             <button
               onClick={() => dismiss(false)}
-              className="btn-primary rounded-lg px-4 py-1.5 text-sm font-medium transition-colors"
-              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              className="rounded-lg px-4 py-1.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                color: 'var(--color-btn-primary-text, #fff)',
+                border: '1px solid rgba(255,255,255,0.3)',
+              }}
             >
               Got it
             </button>
             <button
               onClick={() => dismiss(true)}
               className="text-xs transition-colors"
-              style={{ color: 'var(--color-bg-secondary, #d4e3d9)', opacity: 0.5 }}
+              style={{ color: 'var(--color-btn-primary-text, #fff)', opacity: 0.5 }}
             >
               Don't show guides
             </button>

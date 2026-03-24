@@ -1,29 +1,51 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Users, Wand2, Check, Loader } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Users, Wand2, Check, Loader, Settings } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { FeatureGuide } from '@/components/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
+import { MEMBER_COLORS, getContrastText } from '@/config/member_colors'
 
 interface ParsedMember {
   id: string
   display_name: string
-  relationship: 'spouse' | 'child' | 'special'
-  role: 'additional_adult' | 'special_adult' | 'member'
+  relationship: 'spouse' | 'child' | 'special' | 'out_of_nest'
+  role: 'additional_adult' | 'special_adult' | 'independent' | 'guided' | 'play'
   dashboard_mode: 'adult' | 'independent' | 'guided' | 'play'
+  date_of_birth: string | null
   age: number | null
+  member_color: string
   custom_role: string | null
   in_household: boolean
 }
 
+function calculateAge(dob: string): number | null {
+  if (!dob) return null
+  const birth = new Date(dob)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  return age >= 0 ? age : null
+}
+
+function pinFromBirthday(dob: string): string {
+  if (!dob) return '0000'
+  const parts = dob.split('-')
+  if (parts.length === 3) return parts[1] + parts[2]
+  return '0000'
+}
+
 const DASHBOARD_MODE_LABELS: Record<string, string> = {
-  adult: 'Adult Experience',
-  independent: 'Independent (Teen)',
-  guided: 'Guided (Younger Child)',
-  play: 'Play (Youngest)',
+  adult: 'Adult Dashboard',
+  independent: 'Independent Mode — Full Features',
+  guided: 'Guided Mode — Guided Experience',
+  play: 'Play Mode — Fun & Gamified',
 }
 
 export function FamilySetup() {
@@ -45,36 +67,49 @@ export function FamilySetup() {
     setError('')
 
     try {
+      const currentYear = new Date().getFullYear()
       const systemPrompt = `You parse natural language descriptions of families into structured member data for a family management app.
 
 For each person mentioned (NOT the user themselves), extract:
 - display_name (string) — their first name
-- relationship (one of: "spouse", "child", "special")
+- relationship (one of: "spouse", "child", "special", "out_of_nest")
   - spouse: husband, wife, partner
-  - child: son, daughter, kid, any minor
-  - special: grandparent, babysitter, nanny, caregiver, au pair, tutor, any non-parent adult helper
-- age (number or null) — only if stated or clearly implied
+  - child: son, daughter, kid, any minor living in the household
+  - special: babysitter, nanny, caregiver, au pair, tutor — adult helpers who assist with the kids
+  - out_of_nest: adult children who moved out, children in college, son/daughter-in-law, grandchildren and their spouses — anyone below mom on the family tree who doesn't live in the household
+  - IMPORTANT: Grandparents who help with kids are "special", NOT "out_of_nest"
+- date_of_birth (string "YYYY-MM-DD" or null) — extract if any birthday info is mentioned. If only age is given, use null.
+- age (number or null) — extract if stated or clearly implied. If date_of_birth is given, calculate from that.
 - dashboard_mode (one of: "adult", "independent", "guided", "play")
-  - adult: all spouses and special adults
+  - adult: all spouses, special adults, and out_of_nest
   - independent: teens roughly 13-17
   - guided: children roughly 6-12
   - play: children roughly 0-5
   - Use age to determine if available, otherwise infer from context
-- custom_role (string or null) — for special adults only: "Grandmother", "Babysitter", "Nanny", etc.
-- in_household (boolean) — true for people who live in the home, false for caregivers who visit
+- custom_role (string or null) — for special adults: "Grandmother", "Babysitter", "Nanny", etc. For out_of_nest: "Adult Daughter", "Son-in-Law", "Grandchild", etc.
+- in_household (boolean) — true for people who live in the home, false for out_of_nest and visiting caregivers
 
-Rules:
+Birthday extraction rules:
+- The current year is ${currentYear}.
+- "Emma, age 10, birthday March 15" → date_of_birth: "${currentYear - 10}-03-15", age: 10
+- "John born 5/20/2008" → date_of_birth: "2008-05-20", calculate age from that
+- "Sarah turns 12 on December 1st" → date_of_birth: "${currentYear - 12}-12-01", age: 12
+- If only age is given with no birthday, set date_of_birth: null and age to the number
+- Always return dates as YYYY-MM-DD
+
+General rules:
 - Do NOT include the user (the person writing the description) in results
 - If someone is described as "my husband" or "my wife", they are relationship "spouse"
-- If someone is described as a grandparent, babysitter, nanny, etc., they are relationship "special"
-- All other people mentioned are relationship "child" unless clearly an adult
-- Birthday information can be noted but the primary output is the structured member data
+- If someone is "moved out", "in college", "adult daughter/son", "married" → "out_of_nest"
+- If someone is a babysitter, nanny, grandparent who helps → "special"
+- Children living at home → "child"
 
 Return ONLY a JSON array. Example:
 [
-  {"display_name": "Mark", "relationship": "spouse", "age": 38, "dashboard_mode": "adult", "custom_role": null, "in_household": true},
-  {"display_name": "Emma", "relationship": "child", "age": 14, "dashboard_mode": "independent", "custom_role": null, "in_household": true},
-  {"display_name": "Linda", "relationship": "special", "age": 65, "dashboard_mode": "adult", "custom_role": "Grandmother", "in_household": false}
+  {"display_name": "Mark", "relationship": "spouse", "date_of_birth": "1988-06-15", "age": 38, "dashboard_mode": "adult", "custom_role": null, "in_household": true},
+  {"display_name": "Emma", "relationship": "child", "date_of_birth": "2012-03-15", "age": 14, "dashboard_mode": "independent", "custom_role": null, "in_household": true},
+  {"display_name": "Sarah", "relationship": "out_of_nest", "date_of_birth": null, "age": 22, "dashboard_mode": "adult", "custom_role": "Adult Daughter", "in_household": false},
+  {"display_name": "Linda", "relationship": "special", "date_of_birth": null, "age": 65, "dashboard_mode": "adult", "custom_role": "Grandmother", "in_household": false}
 ]`
 
       const response = await sendAIMessage(
@@ -92,20 +127,46 @@ Return ONLY a JSON array. Example:
         return
       }
 
+      let colorIndex = 0
       const members: ParsedMember[] = parsed
         .filter(m => m.display_name && typeof m.display_name === 'string')
-        .map(m => ({
-          id: crypto.randomUUID(),
-          display_name: (m.display_name as string).trim(),
-          relationship: (['spouse', 'child', 'special'].includes(m.relationship as string) ? m.relationship : 'child') as ParsedMember['relationship'],
-          role: m.relationship === 'spouse' ? 'additional_adult' as const
-            : m.relationship === 'special' ? 'special_adult' as const
-            : 'member' as const,
-          dashboard_mode: (['adult', 'independent', 'guided', 'play'].includes(m.dashboard_mode as string) ? m.dashboard_mode : 'guided') as ParsedMember['dashboard_mode'],
-          age: typeof m.age === 'number' && m.age > 0 ? m.age : null,
-          custom_role: typeof m.custom_role === 'string' ? m.custom_role : null,
-          in_household: m.in_household !== false,
-        }))
+        .map(m => {
+          const dob = typeof m.date_of_birth === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.date_of_birth)
+            ? m.date_of_birth
+            : null
+          const ageFromDob = dob ? calculateAge(dob) : null
+          const age = ageFromDob ?? (typeof m.age === 'number' && m.age > 0 ? m.age : null)
+
+          const relationship = (['spouse', 'child', 'special', 'out_of_nest'].includes(m.relationship as string)
+            ? m.relationship : 'child') as ParsedMember['relationship']
+          const dashboardMode = (['adult', 'independent', 'guided', 'play'].includes(m.dashboard_mode as string)
+            ? m.dashboard_mode : 'guided') as ParsedMember['dashboard_mode']
+
+          // Role derives from relationship + dashboard_mode
+          // Children's role matches their dashboard_mode (independent/guided/play)
+          // Out of Nest members don't go in family_members, but we set a default role for the UI
+          let role: ParsedMember['role']
+          if (relationship === 'spouse') role = 'additional_adult'
+          else if (relationship === 'special') role = 'special_adult'
+          else role = dashboardMode === 'adult' ? 'additional_adult' : dashboardMode
+
+          // Auto-assign unique colors round-robin
+          const member_color = MEMBER_COLORS[colorIndex % MEMBER_COLORS.length].hex
+          colorIndex++
+
+          return {
+            id: crypto.randomUUID(),
+            display_name: (m.display_name as string).trim(),
+            relationship,
+            role,
+            dashboard_mode: dashboardMode,
+            date_of_birth: dob,
+            age,
+            member_color,
+            custom_role: typeof m.custom_role === 'string' ? m.custom_role : null,
+            in_household: relationship !== 'out_of_nest' && m.in_household !== false,
+          }
+        })
 
       if (members.length === 0) {
         setError('We couldn\'t find any family members in your description. Try being more specific with names and relationships.')
@@ -122,19 +183,24 @@ Return ONLY a JSON array. Example:
   }
 
   function addManualMember() {
-    setParsedMembers((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        display_name: '',
-        relationship: 'child',
-        role: 'member',
-        dashboard_mode: 'guided',
-        age: null,
-        custom_role: null,
-        in_household: true,
-      },
-    ])
+    setParsedMembers((prev) => {
+      const nextColor = MEMBER_COLORS[prev.length % MEMBER_COLORS.length].hex
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          display_name: '',
+          relationship: 'child' as const,
+          role: 'guided' as const,
+          dashboard_mode: 'guided' as const,
+          date_of_birth: null,
+          age: null,
+          member_color: nextColor,
+          custom_role: null,
+          in_household: true,
+        },
+      ]
+    })
     if (step === 'describe') setStep('preview')
   }
 
@@ -161,25 +227,66 @@ Return ONLY a JSON array. Example:
     }
 
     try {
-      const inserts = validMembers.map((m) => ({
-        family_id: member.family_id,
-        display_name: m.display_name.trim(),
-        role: m.role,
-        dashboard_mode: m.dashboard_mode,
-        relationship: m.relationship,
-        age: m.age,
-        custom_role: m.custom_role,
-        in_household: m.in_household,
-        dashboard_enabled: true,
-        login_method: 'pin',
-        is_active: true,
-      }))
+      // Split members into household (family_members) and out-of-nest (separate table)
+      const householdMembers = validMembers.filter((m) => m.relationship !== 'out_of_nest')
+      const outOfNestMembers = validMembers.filter((m) => m.relationship === 'out_of_nest')
 
-      const { error: insertError } = await supabase
-        .from('family_members')
-        .insert(inserts)
+      // Insert household members into family_members
+      if (householdMembers.length > 0) {
+        const inserts = householdMembers.map((m) => ({
+          family_id: member.family_id,
+          display_name: m.display_name.trim(),
+          role: m.role,
+          dashboard_mode: m.dashboard_mode,
+          relationship: m.relationship,
+          date_of_birth: m.date_of_birth,
+          age: m.date_of_birth ? calculateAge(m.date_of_birth) : m.age,
+          member_color: m.member_color,
+          custom_role: m.custom_role,
+          in_household: true,
+          dashboard_enabled: true,
+          login_method: 'pin',
+          is_active: true,
+        }))
 
-      if (insertError) throw insertError
+        const { data: insertedMembers, error: insertError } = await supabase
+          .from('family_members')
+          .insert(inserts)
+          .select('id, date_of_birth')
+
+        if (insertError) throw insertError
+
+        // Auto-generate and hash PINs for each member (MMDD from birthday, or 0000)
+        // Archive folders + dashboard_configs are auto-created by DB trigger
+        if (insertedMembers) {
+          await Promise.all(
+            insertedMembers.map((m) => {
+              const pin = pinFromBirthday(m.date_of_birth)
+              return supabase.rpc('hash_member_pin', {
+                p_member_id: m.id,
+                p_pin: pin,
+              })
+            }),
+          )
+        }
+      }
+
+      // Insert Out of Nest members into out_of_nest_members (PRD-15)
+      if (outOfNestMembers.length > 0) {
+        const oonInserts = outOfNestMembers.map((m) => ({
+          family_id: member.family_id,
+          name: m.display_name.trim(),
+          relationship: m.custom_role || 'family',
+          invited_by: member.id,
+          invitation_status: 'pending',
+        }))
+
+        const { error: oonError } = await supabase
+          .from('out_of_nest_members')
+          .insert(oonInserts)
+
+        if (oonError) throw oonError
+      }
 
       // Mark family setup as completed
       await supabase
@@ -215,7 +322,7 @@ Return ONLY a JSON array. Example:
         </h1>
         <p style={{ color: 'var(--color-text-secondary)' }}>
           {parsedMembers.length} member{parsedMembers.length !== 1 ? 's' : ''} added.
-          You can always add more or change settings later.
+          PINs were auto-set from birthdays (MMDD) — you can change them in Family Members.
         </p>
         <button
           onClick={() => navigate('/dashboard')}
@@ -232,7 +339,7 @@ Return ONLY a JSON array. Example:
     <div className="max-w-2xl mx-auto space-y-6">
       <button
         onClick={() => navigate('/dashboard')}
-        className="flex items-center gap-1 text-sm"
+        className="hidden md:flex items-center gap-1 text-sm"
         style={{ color: 'var(--color-text-secondary)' }}
       >
         <ArrowLeft size={16} /> Back to Dashboard
@@ -241,11 +348,12 @@ Return ONLY a JSON array. Example:
       <FeatureGuide
         featureKey="family_setup"
         title="Set Up Your Family"
-        description="Describe your family in your own words — who lives with you, their ages, and anyone who helps with the kids. We'll create accounts for everyone."
+        description="Describe your family in your own words — who lives with you, their ages and birthdays, and anyone who helps with the kids. We'll create accounts for everyone."
         bullets={[
-          'Dashboard mode is assigned by you, not by age',
+          'Mention birthdays and we\'ll extract them automatically',
+          'Each member gets a PIN auto-generated from their birthday (MMDD)',
+          'Dashboard style is just how it looks — you choose what fits each person',
           'Special adults (grandparents, babysitters) get a focused caregiver view',
-          'Everyone can be changed later in Settings',
         ]}
       />
 
@@ -285,7 +393,7 @@ Return ONLY a JSON array. Example:
                 border: '1px solid var(--color-border)',
                 color: 'var(--color-text-primary)',
               }}
-              placeholder={'Example: "My husband Mark, our daughter Emma (14), our son Liam (8), our youngest Sophia (3), and my mom Linda who babysits on Tuesdays."'}
+              placeholder={'Example: "My husband Mark (born June 15), our daughter Emma (14, birthday March 15), our son Liam (8), our youngest Sophia (born 4/2/2023), and my mom Linda who babysits on Tuesdays."'}
             />
           </div>
 
@@ -381,7 +489,7 @@ function MemberCard({
 }) {
   return (
     <div
-      className="p-4 rounded-xl space-y-3"
+      className="p-4 rounded-xl space-y-3 card-hover"
       style={{
         backgroundColor: 'var(--color-bg-card)',
         border: '1px solid var(--color-border)',
@@ -389,14 +497,49 @@ function MemberCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Users size={16} style={{ color: 'var(--color-sage-teal)' }} />
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+            style={{ backgroundColor: member.member_color, color: getContrastText(member.member_color) }}
+          >
+            {member.display_name ? member.display_name.charAt(0).toUpperCase() : '?'}
+          </div>
           <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-            {member.relationship === 'spouse' ? 'Partner/Spouse' : member.relationship === 'special' ? 'Special Adult' : 'Child'}
+            {member.relationship === 'spouse' ? 'Partner/Spouse'
+              : member.relationship === 'special' ? 'Special Adult'
+              : member.relationship === 'out_of_nest' ? 'Out of Nest'
+              : 'Child'}
           </span>
         </div>
         <button onClick={onRemove} className="p-1 rounded" style={{ color: 'var(--color-error, #b25a58)' }}>
           <Trash2 size={16} />
         </button>
+      </div>
+
+      {/* Color picker */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <Settings size={12} style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }} />
+          <label className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Color</label>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {MEMBER_COLORS.map((c) => (
+            <button
+              key={c.hex}
+              type="button"
+              onClick={() => onUpdate({ member_color: c.hex })}
+              className="w-6 h-6 rounded-full border-0 p-0 cursor-pointer"
+              style={{
+                backgroundColor: c.hex,
+                outline: member.member_color === c.hex ? '2px solid var(--color-text-primary)' : 'none',
+                outlineOffset: '2px',
+                transform: member.member_color === c.hex ? 'scale(1.15)' : 'scale(1)',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                boxShadow: member.member_color === c.hex ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+              }}
+              title={c.name}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -416,21 +559,43 @@ function MemberCard({
           />
         </div>
         <div>
-          <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Age (optional)</label>
+          <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            Birthday
+            {member.age != null && <span className="ml-1 opacity-70">(Age {member.age})</span>}
+          </label>
           <input
-            type="number"
-            value={member.age ?? ''}
-            onChange={(e) => onUpdate({ age: e.target.value ? parseInt(e.target.value) : null })}
+            type="date"
+            value={member.date_of_birth ?? ''}
+            onChange={(e) => {
+              const dob = e.target.value || null
+              const age = dob ? calculateAge(dob) : member.age
+              onUpdate({ date_of_birth: dob, age })
+            }}
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
             style={{
               backgroundColor: 'var(--color-bg-primary)',
               border: '1px solid var(--color-border)',
               color: 'var(--color-text-primary)',
             }}
-            placeholder="Age"
-            min={0}
-            max={120}
           />
+          {!member.date_of_birth && (
+            <div className="mt-1">
+              <input
+                type="number"
+                value={member.age ?? ''}
+                onChange={(e) => onUpdate({ age: e.target.value ? parseInt(e.target.value) : null })}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+                placeholder="Or enter age"
+                min={0}
+                max={120}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -441,9 +606,17 @@ function MemberCard({
             value={member.relationship}
             onChange={(e) => {
               const rel = e.target.value as ParsedMember['relationship']
-              const role = rel === 'spouse' ? 'additional_adult' : rel === 'special' ? 'special_adult' : 'member'
-              const mode = rel === 'spouse' || rel === 'special' ? 'adult' : member.dashboard_mode
-              onUpdate({ relationship: rel, role, dashboard_mode: mode })
+              const isAdult = rel === 'spouse' || rel === 'special'
+              const mode = isAdult ? 'adult' as const : member.dashboard_mode === 'adult' ? 'guided' as const : member.dashboard_mode
+              const role = rel === 'spouse' ? 'additional_adult' as const
+                : rel === 'special' ? 'special_adult' as const
+                : (mode === 'adult' ? 'additional_adult' as const : mode)
+              onUpdate({
+                relationship: rel,
+                role,
+                dashboard_mode: mode,
+                in_household: rel !== 'out_of_nest',
+              })
             }}
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
             style={{
@@ -453,36 +626,56 @@ function MemberCard({
             }}
           >
             <option value="spouse">Spouse / Partner</option>
-            <option value="child">Child</option>
+            <option value="child">Child (In Household)</option>
             <option value="special">Special Adult (Caregiver)</option>
+            <option value="out_of_nest">Out of Nest (Doesn't Live Here)</option>
           </select>
         </div>
         <div>
           <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-            Dashboard Mode
+            {member.relationship === 'out_of_nest' ? 'Access' : 'Dashboard Style'}
             {member.relationship !== 'child' && ' (auto)'}
           </label>
-          <select
-            value={member.dashboard_mode}
-            onChange={(e) => onUpdate({ dashboard_mode: e.target.value as ParsedMember['dashboard_mode'] })}
-            disabled={member.relationship !== 'child'}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-primary)',
-            }}
-          >
-            {Object.entries(DASHBOARD_MODE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          {member.relationship === 'out_of_nest' ? (
+            <div
+              className="w-full px-3 py-2 rounded-lg text-sm opacity-60"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              Conversation spaces only
+            </div>
+          ) : (
+            <select
+              value={member.dashboard_mode}
+              onChange={(e) => {
+                const mode = e.target.value as ParsedMember['dashboard_mode']
+                const role = mode === 'adult' ? 'additional_adult' as const : mode
+                onUpdate({ dashboard_mode: mode, role })
+              }}
+              disabled={member.relationship !== 'child'}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              {Object.entries(DASHBOARD_MODE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
-      {member.relationship === 'special' && (
+      {(member.relationship === 'special' || member.relationship === 'out_of_nest') && (
         <div>
-          <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Role Label</label>
+          <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            {member.relationship === 'out_of_nest' ? 'Relationship' : 'Role Label'}
+          </label>
           <input
             type="text"
             value={member.custom_role ?? ''}
@@ -493,7 +686,9 @@ function MemberCard({
               border: '1px solid var(--color-border)',
               color: 'var(--color-text-primary)',
             }}
-            placeholder="e.g., Grandmother, Babysitter, Tutor"
+            placeholder={member.relationship === 'out_of_nest'
+              ? 'e.g., Adult Daughter, Son-in-Law, Grandchild'
+              : 'e.g., Grandmother, Babysitter, Tutor'}
           />
         </div>
       )}

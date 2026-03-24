@@ -40,11 +40,11 @@ export function ThemeSelector() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="p-2 rounded-full"
+        className="p-2 rounded-full hover:scale-110 transition-all duration-200"
         style={{
-          backgroundColor: 'var(--color-bg-card)',
-          color: 'var(--color-text-secondary)',
-          boxShadow: 'var(--shadow-sm)',
+          background: 'transparent',
+          color: 'var(--color-btn-primary-bg, #68a395)',
+          minHeight: 'unset',
         }}
         title="Theme & appearance"
       >
@@ -144,7 +144,7 @@ export function ThemeSelector() {
                 className="w-4 h-4 rounded-full absolute top-1 transition-all"
                 style={{
                   left: gradientEnabled ? '22px' : '4px',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--color-bg-card, #fff)',
                 }}
               />
             </button>

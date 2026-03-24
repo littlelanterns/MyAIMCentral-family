@@ -84,16 +84,225 @@ button, a, input, select, textarea {
   min-height: var(--touch-target-min, 44px);
 }
 
-/* Responsive breakpoints */
+/* ============================================================
+ * Interactive Transitions & Hover Effects (v1 port)
+ * ============================================================ */
+
+/* Universal transitions on interactive elements */
+button {
+  transition: all 0.2s ease;
+}
+
+input, textarea, select {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Input focus glow */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-btn-primary-bg, #68a395) !important;
+  box-shadow: 0 0 0 3px rgba(104, 163, 149, 0.15) !important;
+}
+
+/* Theme transition (for smooth theme switching) */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+}
+
+/* Card hover lift — apply to any interactive card */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(104, 163, 149, 0.15);
+}
+.card-hover:active {
+  transform: translateY(0);
+}
+
+/* Stronger card hover for larger cards */
+.card-hover-lg {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover-lg:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.card-hover-lg:active {
+  transform: translateY(-2px);
+}
+
+/* Button lift hover (primary) */
+.btn-primary {
+  transition: all 0.2s ease;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Secondary button color shift on hover */
+.btn-secondary {
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-btn-primary-bg, #68a395) !important;
+  color: var(--color-btn-primary-text, #fff) !important;
+  transform: translateY(-1px);
+}
+
+/* Gradient button enhancements */
+.gradient-on .btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Scrollbar hover gradient */
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--color-accent, #d6a461), var(--color-btn-primary-bg, #68a395));
+}
+
+/* ============================================================
+ * Keyframe Animations
+ * ============================================================ */
+
+/* Slide down (dropdowns, menus) */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slideDown {
+  animation: slideDown 0.2s ease-out;
+}
+
+/* Slide up (entries, toasts) */
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slideUp {
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Bounce in (celebrations, new items) */
+@keyframes bounceIn {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-bounceIn {
+  animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in;
+}
+
+/* Pulse (breathing indicator) */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.animate-pulse-soft {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Wiggle (attention) */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+.animate-wiggle {
+  animation: wiggle 0.5s ease-in-out;
+}
+
+/* Glow (pending items, breathing glow) */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--color-btn-primary-bg, #68a395),
+                0 0 16px rgba(104, 163, 149, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px var(--color-accent, #d6a461),
+                0 0 24px rgba(214, 164, 97, 0.3);
+  }
+}
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Shake (error feedback) */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+  20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* ============================================================
+ * Play Mode Animations (PRD-26)
+ * ============================================================ */
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotateZ(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotateZ(720deg); opacity: 0.5; }
+}
+
+@keyframes starBurst {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translateX(100px) scale(0.5); opacity: 0; }
+}
+
+@keyframes balloonFloat {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-110vh) rotate(20deg); opacity: 0; }
+}
+
+@keyframes sparkle {
+  0% { transform: scale(0); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: scale(1) translateX(50px); opacity: 0; }
+}
+
+@keyframes rainbowRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ============================================================
+ * Accessibility: Reduced Motion
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+ * Responsive breakpoints
+ * ============================================================ */
 @media (max-width: 767px) {
-  /* Mobile: stack everything */
   .desktop-only { display: none !important; }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
-  /* Tablet */
   .mobile-only { display: none !important; }
 }
 @media (min-width: 1024px) {
-  /* Desktop */
   .mobile-only { display: none !important; }
 }

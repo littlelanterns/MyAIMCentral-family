@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon } from 'lucide-react'
+import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import { FeatureGuide } from '@/components/shared'
+import { MEMBER_COLORS } from '@/config/member_colors'
 
 /**
  * PRD-01: Family Members management page
@@ -13,11 +14,29 @@ import { FeatureGuide } from '@/components/shared'
  * generate invite links, and configure dashboard mode.
  */
 
+function calculateAge(dob: string): number | null {
+  if (!dob) return null
+  const birth = new Date(dob)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  return age >= 0 ? age : null
+}
+
+function formatBirthday(dob: string | null): string {
+  if (!dob) return ''
+  const d = new Date(dob + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 const DASHBOARD_MODE_LABELS: Record<string, string> = {
-  adult: 'Adult Experience',
-  independent: 'Independent (Teen)',
-  guided: 'Guided (Younger Child)',
-  play: 'Play (Youngest)',
+  adult: 'Adult Dashboard',
+  independent: 'Independent Mode — Full Features',
+  guided: 'Guided Mode — Guided Experience',
+  play: 'Play Mode — Fun & Gamified',
 }
 
 export function FamilyMembers() {
@@ -45,7 +64,7 @@ export function FamilyMembers() {
     <div className="max-w-2xl mx-auto space-y-6">
       <button
         onClick={() => navigate('/dashboard')}
-        className="flex items-center gap-1 text-sm"
+        className="hidden md:flex items-center gap-1 text-sm"
         style={{ color: 'var(--color-text-secondary)' }}
       >
         <ArrowLeft size={16} /> Back to Dashboard
@@ -169,7 +188,7 @@ function MemberRow({
   onOpenInvite,
   onSave,
 }: {
-  member: { id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; relationship: string | null; custom_role: string | null; login_method: string | null }
+  member: { id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; login_method: string | null }
   isEditing: boolean
   onToggleEdit: () => void
   onOpenPin: () => void
@@ -178,6 +197,8 @@ function MemberRow({
 }) {
   const [name, setName] = useState(member.display_name)
   const [mode, setMode] = useState(member.dashboard_mode || 'guided')
+  const [dob, setDob] = useState(member.date_of_birth || '')
+  const [color, setColor] = useState(member.member_color || '')
   const [saving, setSaving] = useState(false)
 
   const roleLabel = member.role === 'additional_adult' ? 'Adult'
@@ -186,7 +207,7 @@ function MemberRow({
 
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl overflow-hidden card-hover"
       style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
     >
       <div className="p-4 flex items-center gap-3">
@@ -200,9 +221,14 @@ function MemberRow({
           <p className="font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
             {member.display_name}
           </p>
-          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
             {roleLabel}
             {member.age ? ` | Age ${member.age}` : ''}
+            {member.date_of_birth && (
+              <span className="inline-flex items-center gap-0.5">
+                <Cake size={10} /> {formatBirthday(member.date_of_birth)}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -247,7 +273,7 @@ function MemberRow({
               />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Dashboard Mode</label>
+              <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Dashboard Style</label>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
@@ -260,11 +286,51 @@ function MemberRow({
               </select>
             </div>
           </div>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Birthday
+              {dob && calculateAge(dob) != null && <span className="ml-1 opacity-70">(Age {calculateAge(dob)})</span>}
+            </label>
+            <input
+              type="date"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Color</label>
+            <div className="flex flex-wrap gap-1.5">
+              {MEMBER_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  onClick={() => setColor(c.hex)}
+                  className="w-5 h-5 rounded-full transition-transform"
+                  style={{
+                    backgroundColor: c.hex,
+                    outline: color === c.hex ? '2px solid var(--color-text-primary)' : 'none',
+                    outlineOffset: '1px',
+                    transform: color === c.hex ? 'scale(1.2)' : 'scale(1)',
+                  }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={async () => {
                 setSaving(true)
-                await onSave({ display_name: name.trim(), dashboard_mode: mode })
+                const age = dob ? calculateAge(dob) : member.age
+                await onSave({
+                  display_name: name.trim(),
+                  dashboard_mode: mode,
+                  date_of_birth: dob || null,
+                  member_color: color,
+                  age,
+                })
                 setSaving(false)
               }}
               disabled={saving || !name.trim()}
@@ -299,16 +365,14 @@ function PinModal({ memberId, memberName, onClose }: { memberId: string; memberN
     setSaving(true)
     setError('')
 
-    // Store PIN hash via RPC (server-side hashing)
-    // For MVP: store as-is since verify_member_pin uses crypt().
-    // Production: always hash server-side.
-    const { error: updateError } = await supabase
-      .from('family_members')
-      .update({ pin_hash: pin, login_method: 'pin' })
-      .eq('id', memberId)
+    // Server-side PIN hashing via pgcrypto RPC — never store plain text
+    const { error: hashError } = await supabase.rpc('hash_member_pin', {
+      p_member_id: memberId,
+      p_pin: pin,
+    })
 
-    if (updateError) {
-      setError('Failed to save PIN.')
+    if (hashError) {
+      setError('Failed to save PIN. ' + (hashError.message || ''))
       setSaving(false)
       return
     }

@@ -39,26 +39,30 @@ export function LilaMessageBubble({
   }
 
   return (
-    <div className={`flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {/* Avatar for assistant messages */}
       {isAssistant && (
-        <LilaAvatar avatarKey={avatarKey} size={16} className="mt-1" />
+        <div className="mt-1 shrink-0">
+          <LilaAvatar avatarKey={avatarKey} size={24} className="" />
+        </div>
       )}
 
-      <div className={`max-w-[80%] ${isUser ? '' : 'flex-1'}`}>
+      <div className={`max-w-[85%] ${isUser ? '' : 'flex-1'}`}>
         {/* Message content */}
         <div
-          className="rounded-lg px-3 py-2 text-sm"
+          className="px-3.5 py-2.5 text-sm leading-relaxed"
           style={{
             backgroundColor: isUser
               ? 'var(--color-btn-primary-bg)'
               : isSystem
                 ? 'var(--color-bg-secondary)'
-                : 'var(--color-bg-primary)',
+                : 'var(--color-bg-card, #fff)',
             color: isUser
               ? 'var(--color-btn-primary-text)'
               : 'var(--color-text-primary)',
             border: isUser ? 'none' : '1px solid var(--color-border)',
+            borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+            boxShadow: isUser ? 'none' : '0 2px 8px rgba(0, 0, 0, 0.06)',
           }}
         >
           <p className="whitespace-pre-wrap">{message.content}</p>

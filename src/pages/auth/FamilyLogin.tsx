@@ -82,21 +82,11 @@ export function FamilyLogin() {
     setLoading(true)
     setError('')
 
-    // STUB: PIN verification will use a server-side function
-    // For now, stub the verification — full implementation in Phase 02
-    let data: boolean | null = null
-    let verifyError: { message: string } | null = null
-
-    try {
-      const result = await supabase.rpc('verify_member_pin', {
-        p_member_id: selectedMember!.member_id,
-        p_pin: pin,
-      })
-      data = result.data
-      verifyError = result.error
-    } catch {
-      verifyError = { message: 'PIN verification not yet available' }
-    }
+    // Server-side PIN verification via pgcrypto
+    const { data, error: verifyError } = await supabase.rpc('verify_member_pin', {
+      p_member_id: selectedMember!.member_id,
+      p_pin: pin,
+    })
 
     if (verifyError || !data) {
       setAttempts((a) => a + 1)
