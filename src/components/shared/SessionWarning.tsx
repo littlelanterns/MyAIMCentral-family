@@ -27,7 +27,7 @@ export function SessionWarning({ secondsRemaining, onDismiss }: SessionWarningPr
       className="fixed top-0 left-0 right-0 z-[55] flex items-center justify-center gap-2 px-4 py-2.5 cursor-pointer select-none animate-slideDown"
       style={{
         backgroundColor: 'var(--color-warning, #d97706)',
-        color: '#ffffff',
+        color: 'var(--color-text-on-primary, #fff)',
       }}
     >
       <Clock size={15} className="shrink-0" aria-hidden="true" />

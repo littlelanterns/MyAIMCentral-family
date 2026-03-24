@@ -188,7 +188,7 @@ export function ViewAsMemberPicker({ open, onClose }: ViewAsMemberPickerProps) {
               className="w-7 h-7 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'var(--color-golden-honey, #d6a461)' }}
             >
-              <span style={{ color: '#fff', fontSize: 14 }}>👁</span>
+              <span style={{ color: 'var(--color-text-on-primary, #fff)', fontSize: 14 }}>👁</span>
             </div>
             <h2
               className="text-base font-semibold"

@@ -18,7 +18,11 @@ interface Particle {
   duration: number
 }
 
-const GOLD_SHADES = ['#D4AF37', '#E8C547', '#B8942A'] as const
+const GOLD_SHADES = [
+  'var(--color-sparkle-gold, #D4AF37)',
+  'var(--color-sparkle-gold-light, #E8C547)',
+  'var(--color-sparkle-gold-dark, #B8942A)',
+] as const
 
 function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min)

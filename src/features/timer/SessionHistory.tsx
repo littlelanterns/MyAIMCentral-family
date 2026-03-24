@@ -557,7 +557,7 @@ function SessionRow({ session, isMom, onEdit, onDelete }: SessionRowProps) {
               className="rounded-md px-2 py-1 text-xs font-medium"
               style={{
                 backgroundColor: 'var(--color-error, #dc2626)',
-                color: '#fff',
+                color: 'var(--color-text-on-primary, #fff)',
                 opacity: deleting ? 0.6 : 1,
               }}
             >

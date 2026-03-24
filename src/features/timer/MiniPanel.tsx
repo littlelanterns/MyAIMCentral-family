@@ -264,7 +264,7 @@ function NewCountdownForm({ onStart, onCancel }: NewCountdownFormProps) {
           padding: '3px 10px',
           borderRadius: 'var(--vibe-radius-sm, 6px)',
           background: 'var(--color-sage-teal, #68a395)',
-          color: '#fff',
+          color: 'var(--color-text-on-primary, #fff)',
           border: 'none',
           fontSize: 12,
           fontWeight: 600,

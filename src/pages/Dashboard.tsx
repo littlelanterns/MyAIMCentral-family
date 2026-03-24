@@ -245,7 +245,7 @@ function FamilyOverviewStrip({ members, currentMemberId, familyId, onViewAs }: F
                   className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold transition-all duration-300"
                   style={{
                     backgroundColor: isSelected ? 'rgba(255,255,255,0.3)' : `color-mix(in srgb, ${color} 15%, var(--color-bg-card))`,
-                    color: isSelected ? '#fff' : color,
+                    color: isSelected ? 'var(--color-text-on-primary, #fff)' : color,
                     border: `2px solid ${isSelected ? 'rgba(255,255,255,0.5)' : color}`,
                   }}
                 >
@@ -254,7 +254,7 @@ function FamilyOverviewStrip({ members, currentMemberId, familyId, onViewAs }: F
                 <span
                   className="text-sm font-semibold whitespace-nowrap"
                   style={{
-                    color: isSelected ? '#fff' : 'var(--color-text-heading)',
+                    color: isSelected ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-heading)',
                     fontFamily: 'var(--font-heading)',
                   }}
                 >
@@ -301,7 +301,7 @@ function FamilyOverviewStrip({ members, currentMemberId, familyId, onViewAs }: F
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105"
               style={{
                 background: selectedMember.member_color || 'var(--color-btn-primary-bg)',
-                color: '#fff',
+                color: 'var(--color-text-on-primary, #fff)',
               }}
             >
               View As {selectedMember.display_name}

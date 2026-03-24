@@ -52,7 +52,7 @@ function AgeGate({ onAgeSelected }: AgeGateProps) {
           className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
           style={{ backgroundColor: 'var(--color-golden-honey, #f59e0b)', opacity: 0.9 }}
         >
-          <Clock size={32} style={{ color: '#fff' }} />
+          <Clock size={32} style={{ color: 'var(--color-text-on-primary, #fff)' }} />
         </div>
         <h2
           className="text-2xl font-bold"
@@ -282,7 +282,7 @@ function Celebration({ onReset }: CelebrationProps) {
         className="flex h-24 w-24 items-center justify-center rounded-full"
         style={{ backgroundColor: 'var(--color-golden-honey, #f59e0b)', opacity: 0.9 }}
       >
-        <PartyPopper size={40} style={{ color: '#fff' }} />
+        <PartyPopper size={40} style={{ color: 'var(--color-text-on-primary, #fff)' }} />
       </div>
 
       <div className="space-y-3">
@@ -305,7 +305,7 @@ function Celebration({ onReset }: CelebrationProps) {
         className="flex items-center gap-2 rounded-2xl px-8 py-4 text-lg font-bold transition-all active:scale-95"
         style={{
           backgroundColor: 'var(--color-golden-honey, #f59e0b)',
-          color: '#fff',
+          color: 'var(--color-text-on-primary, #fff)',
           minHeight: 56,
         }}
       >
@@ -387,7 +387,7 @@ function QuickStartScreen({
             style={{
               minHeight: 80,
               backgroundColor: 'var(--color-golden-honey, #f59e0b)',
-              color: '#fff',
+              color: 'var(--color-text-on-primary, #fff)',
               border: 'none',
             }}
           >
@@ -423,7 +423,7 @@ function QuickStartScreen({
           className="rounded-2xl px-5 py-3 font-semibold transition-all active:scale-95 disabled:opacity-40"
           style={{
             backgroundColor: 'var(--color-golden-honey, #f59e0b)',
-            color: '#fff',
+            color: 'var(--color-text-on-primary, #fff)',
             minHeight: 56,
           }}
         >

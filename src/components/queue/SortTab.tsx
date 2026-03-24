@@ -106,7 +106,7 @@ function DismissConfirm({ item, onConfirm, onCancel }: DismissConfirmProps) {
               borderRadius: 'var(--vibe-radius-input, 8px)',
               border: 'none',
               backgroundColor: 'var(--color-error, #b25a58)',
-              color: '#fff',
+              color: 'var(--color-text-on-primary, #fff)',
               fontSize: 'var(--font-size-sm, 0.875rem)',
               cursor: 'pointer',
               fontWeight: 500,

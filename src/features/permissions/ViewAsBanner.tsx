@@ -41,7 +41,7 @@ export function ViewAsBanner() {
         className="fixed top-0 left-0 right-0 z-45 flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium select-none"
         style={{
           backgroundColor: 'var(--color-golden-honey, #d6a461)',
-          color: '#ffffff',
+          color: 'var(--color-text-on-primary, #fff)',
           zIndex: 45,
         }}
       >
@@ -63,7 +63,7 @@ export function ViewAsBanner() {
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
+              color: 'var(--color-text-on-primary, #fff)',
               border: '1px solid rgba(255, 255, 255, 0.4)',
             }}
             aria-label="Switch to a different family member"
@@ -77,7 +77,7 @@ export function ViewAsBanner() {
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
+              color: 'var(--color-text-on-primary, #fff)',
               border: '1px solid rgba(255, 255, 255, 0.4)',
             }}
             aria-label="Exit View As and return to your own view"

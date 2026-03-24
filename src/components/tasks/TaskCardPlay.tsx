@@ -20,12 +20,12 @@ export interface TaskCardPlayProps {
 
 // Play shell tile colors — warm, saturated, friendly
 const TILE_COLORS = [
-  { bg: '#FFF0D9', border: '#FFBE5C', icon: '⭐' },
-  { bg: '#E8F7F0', border: '#5CC8A0', icon: '✅' },
-  { bg: '#F0E8FF', border: '#A87AEF', icon: '🎯' },
-  { bg: '#FFE8F0', border: '#F07AAF', icon: '🌸' },
-  { bg: '#E8F0FF', border: '#7AA8F0', icon: '💙' },
-  { bg: '#F7F0E8', border: '#C8A05C', icon: '🌟' },
+  { bg: 'var(--color-play-tile-1-bg, #FFF0D9)', border: 'var(--color-play-tile-1-border, #FFBE5C)', icon: '⭐' },
+  { bg: 'var(--color-play-tile-2-bg, #E8F7F0)', border: 'var(--color-play-tile-2-border, #5CC8A0)', icon: '✅' },
+  { bg: 'var(--color-play-tile-3-bg, #F0E8FF)', border: 'var(--color-play-tile-3-border, #A87AEF)', icon: '🎯' },
+  { bg: 'var(--color-play-tile-4-bg, #FFE8F0)', border: 'var(--color-play-tile-4-border, #F07AAF)', icon: '🌸' },
+  { bg: 'var(--color-play-tile-5-bg, #E8F0FF)', border: 'var(--color-play-tile-5-border, #7AA8F0)', icon: '💙' },
+  { bg: 'var(--color-play-tile-6-bg, #F7F0E8)', border: 'var(--color-play-tile-6-border, #C8A05C)', icon: '🌟' },
 ]
 
 export function TaskCardPlay({
@@ -56,8 +56,8 @@ export function TaskCardPlay({
       className="w-full text-center transition-all select-none"
       style={{
         padding: '1.25rem 1rem',
-        backgroundColor: isCompleted ? '#F0FFF4' : color.bg,
-        border: `2.5px solid ${isCompleted ? '#5CC8A0' : color.border}`,
+        backgroundColor: isCompleted ? 'var(--color-play-completed-bg, #F0FFF4)' : color.bg,
+        border: `2.5px solid ${isCompleted ? 'var(--color-play-completed-border, #5CC8A0)' : color.border}`,
         borderRadius: '1.25rem',
         minHeight: 56,
         transform: isPressed ? 'scale(0.97)' : 'scale(1)',
@@ -75,14 +75,14 @@ export function TaskCardPlay({
       <p
         className="font-semibold text-sm leading-snug"
         style={{
-          color: isCompleted ? '#3D8A5F' : '#2D2D2D',
+          color: isCompleted ? 'var(--color-play-completed-text, #3D8A5F)' : 'var(--color-play-tile-text, #2D2D2D)',
           textDecoration: isCompleted ? 'line-through' : 'none',
         }}
       >
         {task.title}
       </p>
       {isCompleted && (
-        <p className="text-xs mt-1" style={{ color: '#5CC8A0' }}>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-play-completed-border, #5CC8A0)' }}>
           Great job! 🎉
         </p>
       )}
