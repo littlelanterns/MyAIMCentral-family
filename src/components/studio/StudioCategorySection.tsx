@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, MoveHorizontal } from 'lucide-react'
 import { StudioTemplateCard } from './StudioTemplateCard'
 import type { StudioTemplate } from './StudioTemplateCard'
 
@@ -73,23 +73,27 @@ export function StudioCategorySection({
 
           {/* Blank template cards — horizontal swipe row, NO scrollbar */}
           {!plannedContent && templates.length > 0 && (
-            <div
-              className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {templates.map(tpl => (
-                <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
-                  <StudioTemplateCard
-                    template={tpl}
-                    onCustomize={onCustomize}
-                    onUseAsIs={onUseAsIs}
-                  />
-                </div>
-              ))}
+            <div className="relative">
+              <div
+                className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
+                {templates.map(tpl => (
+                  <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
+                    <StudioTemplateCard
+                      template={tpl}
+                      onCustomize={onCustomize}
+                      onUseAsIs={onUseAsIs}
+                    />
+                  </div>
+                ))}
+              </div>
+              {/* Swipe indicator — shown when content overflows */}
+              {templates.length > 2 && <SwipeHint />}
             </div>
           )}
 
@@ -144,6 +148,19 @@ export function StudioCategorySection({
         className="mt-6"
         style={{ borderBottom: '1px solid var(--color-border)', opacity: 0.5 }}
       />
+    </div>
+  )
+}
+
+/** Subtle swipe hint arrow for horizontal scroll areas */
+function SwipeHint() {
+  return (
+    <div
+      className="flex items-center justify-center gap-1 py-1 mt-1"
+      style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }}
+    >
+      <MoveHorizontal size={14} />
+      <span className="text-[10px]">swipe</span>
     </div>
   )
 }
