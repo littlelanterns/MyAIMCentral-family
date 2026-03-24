@@ -40,6 +40,25 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 @claude/feature_glossary.md
 @WIRING_STATUS.md
 @specs/studio-seed-templates.md
+@CURRENT_BUILD.md
+@claude/PRE_BUILD_PROCESS.md
+
+## Pre-Build Process (MANDATORY — NO EXCEPTIONS)
+
+**Every build session must begin with this process. No code is written until the pre-build summary is complete and founder-approved.**
+
+See `claude/PRE_BUILD_PROCESS.md` for the full ritual. The short version:
+
+1. Read the FULL PRD for the feature being built — every word, not a skim
+2. Read EVERY matching addendum in `prds/addenda/` — search for all files containing the PRD number
+3. Create a feature decision file in `claude/feature-decisions/PRD-XX-FeatureName.md`
+4. Populate `CURRENT_BUILD.md` with the complete pre-build summary
+5. Present the summary to Tenise and get explicit approval
+6. Only THEN write code
+
+This process exists because weeks of careful planning went into every PRD and addendum. Building without reading them produces wrong code. The pre-build summary is the proof the material was read — not a formality.
+
+**The PRDs ARE the minimum. "MVP" means building exactly what the PRD says — not a simpler version of it. If you find yourself thinking "for now I'll just..." — stop. Either build it right or ask Tenise first.**
 
 ## Critical Conventions (Apply to ALL Code)
 
@@ -53,15 +72,25 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 8. **`is_included_in_ai` pattern:** Every context source has this boolean (default true). Three-tier toggles control inclusion.
 9. **Feature keys:** Register in `feature_key_registry`, gate with `<PermissionGate>`, check with `useCanAccess()`.
 10. **During beta:** `useCanAccess()` returns true for everything (all tiers unlocked). Infrastructure must still be in place.
-11. **PRDs are the ONLY source of truth for building features.** Before writing ANY code for a feature, you MUST read the FULL PRD file in `prds/` AND any related addenda in `prds/addenda/`. The `claude/database_schema.md` file is a summary reference — it is NOT authoritative for schema design. If `database_schema.md` conflicts with a PRD, the PRD wins. If two PRDs conflict, the newer one wins. Every column, every enum value, every screen, every interaction, every empty state, every visibility rule in the PRD must be implemented precisely. This platform is a Rube Goldberg machine — every piece connects, and precision is non-negotiable.
+11. **PRDs are the ONLY source of truth for building features.** Before writing ANY code, follow the full Pre-Build Process above. Read the FULL PRD AND every addendum in `prds/addenda/` that matches the PRD number — there are often multiple addenda per PRD and they contain decisions that override or clarify the base PRD. The `claude/database_schema.md` file is a summary reference — it is NOT authoritative for schema design. If `database_schema.md` conflicts with a PRD, the PRD wins. If two PRDs conflict, the newer one wins. Every column, every enum value, every screen, every interaction, every empty state, every visibility rule in the PRD must be implemented precisely. This platform is a Rube Goldberg machine — every piece connects, and precision is non-negotiable.
 12. **Never modify files in `prds/`, `specs/`, or `reference/`.** These are read-only source material.
-13. **No "MVP" or placeholder implementations.** Build every feature complete and correct the first time. Never use local regex stubs, setTimeout placeholders, or "simple parsing for MVP" comments. If a feature needs AI, connect AI. If it needs streaming, stream. If it's not ready to build right, don't build it yet — ask the founder. This is a law of this codebase.
-14. **Post-phase checklist (MANDATORY after completing each build phase):** Update these files before moving to the next phase:
+13. **The PRDs ARE the minimum. There is no simpler version.** Do not suggest an "MVP approach," an "easy version for now," a "simplified implementation," or any reduction of what the PRD specifies. The PRDs were designed carefully and ARE the minimum viable product — not a ceiling to aim toward later, but the floor to build from now. Every screen, every field, every interaction, every edge case in the PRD gets built exactly as written. If something in the PRD cannot be built correctly right now (missing dependency, unclear spec, infrastructure not ready), stop and ask Tenise — do not substitute a simpler version without explicit approval. Never use local regex stubs, setTimeout placeholders, hardcoded data, or "simple parsing for now" shortcuts. If a feature needs AI, connect AI. If it needs streaming, stream. If it needs a real database query, write the real query. Build it right or don't build it yet.
+14. **Post-phase checklist (MANDATORY after completing each build phase):** Two parts — verification first, then file updates. Do not skip Part A.
+    **Part A — PRD Verification (before anything else):**
+    - Go through every requirement from the pre-build summary — every screen, every interaction, every field, every rule, every edge case
+    - Assign each a status: **Wired** (built and functional), **Stubbed** (documented placeholder in STUB_REGISTRY.md), or **Missing** (not built, not stubbed)
+    - Fill in the Post-Build Verification table in `CURRENT_BUILD.md`
+    - Present the completed table to Tenise — every requirement, every status
+    - Zero Missing items required before the build is considered complete. Any Missing must be built or explicitly approved as a stub.
+    **Part B — File updates (after Tenise confirms verification):**
     - `BUILD_STATUS.md` — mark phase complete with date
     - `claude/database_schema.md` — update any new/changed tables and columns
     - `STUB_REGISTRY.md` — add new stubs created, update wired status of existing stubs
     - `CLAUDE.md` — add any new conventions introduced by the phase
     - Add `<FeatureGuide featureKey="xxx" />` to every new page/feature
+    - Copy verification table into `claude/feature-decisions/PRD-XX.md`, get founder post-build sign-off
+    - `CURRENT_BUILD.md` — reset Status to IDLE, clear all sections
+    - `claude/feature-decisions/README.md` — add the new file to the index table
 
 15. **Member colors:** Use the 44-color AIMfM palette from `src/config/member_colors.ts`. Never hardcode hex colors — use CSS custom properties with fallbacks. Run `npm run check:colors` to verify.
 16. **Mobile layout:** BottomNav handles mobile navigation. No hamburger menu. Hide "Back to Dashboard" buttons on mobile (`hidden md:flex`). LiLa drawer sits above bottom nav (`bottom-14 md:bottom-0`).
