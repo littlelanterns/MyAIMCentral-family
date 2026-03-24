@@ -96,12 +96,12 @@ export function useCreateSequentialCollection() {
       const { data: newCollection, error: collError } = await supabase
         .from('sequential_collections')
         .insert({
+          ...collection,
           current_index: 0,
           task_ids: [],   // legacy field; actual tasks use sequential_collection_id FK
           total_items: items.length,
           active_count: collection.active_count ?? 1,
           promotion_timing: collection.promotion_timing ?? 'immediate',
-          ...collection,
         })
         .select()
         .single()

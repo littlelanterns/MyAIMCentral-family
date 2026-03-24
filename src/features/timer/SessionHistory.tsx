@@ -26,7 +26,8 @@ import {
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useTimerActions } from './useTimer'
-import type { TimeSession, TimerMode, AddManualSessionOptions } from './types'
+import type { TimeSession, TimerMode } from './types'
+import type { AddManualSessionOptions } from './useTimer'
 
 // ---------------------------------------------------------------------------
 // Props

@@ -31,7 +31,7 @@ import type { VisualTimerStyle } from './types'
 // ---------------------------------------------------------------------------
 
 const AGE_BUTTONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] as const
-type AgeOption = typeof AGE_BUTTONS[number] | '14-17' | '18+'
+// AgeOption type: typeof AGE_BUTTONS[number] | '14-17' | '18+' (reserved for future age gating)
 
 const PRESET_MINUTES = [1, 2, 5, 10, 15, 30] as const
 

@@ -22,7 +22,7 @@ export function getModelId(tier: ModelTier): string {
  * - General chat, Marriage Toolbox, Cyrano, Higgins, ThoughtSift → Sonnet
  * - Help mode (FAQ), Assist mode (guidance), task breakdown → Haiku
  */
-export function getModelForMode(modeKey: string, modelTier: ModelTier): string {
+export function getModelForMode(_modeKey: string, modelTier: ModelTier): string {
   return getModelId(modelTier)
 }
 

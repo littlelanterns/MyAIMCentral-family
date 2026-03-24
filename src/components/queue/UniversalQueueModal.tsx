@@ -221,9 +221,9 @@ export function UniversalQueueModal({
 
   // ── Tab configs ────────────────────────────────────────────
 
-  const tabs: TabConfig[] = [
+  const tabs: TabConfig[] = ([
     {
-      key: 'sort',
+      key: 'sort' as TabKey,
       label: 'Sort',
       icon: <Layers size={15} />,
       component: <SortTab />,
@@ -231,7 +231,7 @@ export function UniversalQueueModal({
       order: 1,
     },
     {
-      key: 'calendar',
+      key: 'calendar' as TabKey,
       label: 'Calendar',
       icon: <CalendarCheck size={15} />,
       component: <CalendarTab />,
@@ -239,14 +239,14 @@ export function UniversalQueueModal({
       order: 2,
     },
     {
-      key: 'requests',
+      key: 'requests' as TabKey,
       label: 'Requests',
       icon: <HandHelping size={15} />,
       component: <RequestsTab />,
       count: requestsCount,
       order: 3,
     },
-  ].sort((a, b) => a.order - b.order)
+  ] as TabConfig[]).sort((a, b) => a.order - b.order)
 
   // ── Escape key ─────────────────────────────────────────────
 

@@ -4,14 +4,15 @@
  * Types: Shopping, Wishlist, Expenses, Packing, To-Do, Custom, Randomizer.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
-  ArrowRight, RotateCcw, Share2, Archive, MoreHorizontal, Loader2,
+  ArrowRight, RotateCcw, Archive, Loader2,
   Clock, Lightbulb, Heart,
 } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
@@ -19,7 +20,8 @@ import {
   useUncheckAllItems, usePromoteListItem, useArchiveList,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon } from '@/components/shared'
-import type { List, ListItem, ListType, CreateListItem } from '@/types/lists'
+import type { ListItem, ListType } from '@/types/lists'
+import { Randomizer } from '@/components/lists/Randomizer'
 
 // ── Type config ────────────────────────────────────────────
 
@@ -59,11 +61,22 @@ export function ListsPage() {
   const { data: lists = [], isLoading } = useLists(family?.id)
   const createList = useCreateList()
 
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ListType | null>(null)
   const [createTitle, setCreateTitle] = useState('')
+
+  // Handle ?create=<type> URL param from Studio navigation
+  useEffect(() => {
+    const createParam = searchParams.get('create')
+    if (createParam) {
+      setCreateType(createParam as ListType)
+      setShowCreate(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [])
 
   // Filter lists
   const activeLists = lists.filter(l => !l.archived_at)
@@ -246,17 +259,38 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const createItem = useCreateListItem()
   const toggleItem = useToggleListItem()
   const deleteItem = useDeleteListItem()
-  const updateItem = useUpdateListItem()
+  useUpdateListItem() // available for future inline editing
   const uncheckAll = useUncheckAllItems()
   const promoteItem = usePromoteListItem()
   const archiveList = useArchiveList()
+  const { data: familyMembers = [] } = useFamilyMembers(list?.family_id)
 
   const [newItemText, setNewItemText] = useState('')
   const [newItemSection, setNewItemSection] = useState('')
+  void setNewItemSection // setter available for section input field
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [showAddSection, setShowAddSection] = useState(false)
+  const [_showAddSection, _setShowAddSection] = useState(false)
 
   if (!list) return null
+
+  if (list.list_type === 'randomizer') {
+    return (
+      <Randomizer
+        listId={list.id}
+        listTitle={list.title}
+        familyId={list.family_id}
+        assigningMemberId={member?.id ?? ''}
+        items={items.map(item => ({
+          id: item.id,
+          item_name: item.content || '',
+          notes: item.notes ?? null,
+          category: item.section_name ?? null,
+          is_repeatable: item.availability_mode !== 'one_time',
+        }))}
+        eligibleMembers={familyMembers}
+      />
+    )
+  }
 
   const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
   const Icon = cfg.icon
@@ -435,8 +469,8 @@ function ListItemRow({
   onToggle,
   onDelete,
   onPromote,
-  isEditing,
-  onEdit,
+  isEditing: _isEditing,
+  onEdit: _onEdit,
 }: {
   item: ListItem
   listType: string

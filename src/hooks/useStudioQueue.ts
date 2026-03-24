@@ -129,7 +129,7 @@ export function useProcessQueueItem() {
   return useMutation({
     mutationFn: async ({
       id,
-      familyId,
+      familyId: _familyId,
     }: {
       id: string
       familyId: string
@@ -167,16 +167,14 @@ export function useProcessQueueBatch() {
       ids: string[]
       familyId: string
     }) => {
-      if (ids.length === 0) return []
-
       const { data, error } = await supabase
         .from('studio_queue')
         .update({ processed_at: new Date().toISOString() })
-        .in('id', ids)
+        .in('id', ids.length === 0 ? [''] : ids)
         .select('id')
 
       if (error) throw error
-      return { data, familyId }
+      return { data: ids.length === 0 ? [] : (data ?? []), familyId }
     },
     onSuccess: ({ familyId }) => {
       queryClient.invalidateQueries({ queryKey: ['studio-queue', familyId] })
@@ -195,7 +193,7 @@ export function useDismissQueueItem() {
   return useMutation({
     mutationFn: async ({
       id,
-      familyId,
+      familyId: _familyId,
       dismiss_note,
     }: DismissQueueItem & { familyId: string }) => {
       const { data, error } = await supabase
@@ -212,6 +210,7 @@ export function useDismissQueueItem() {
       return data
     },
     onSuccess: (data) => {
+      // data.family_id used for cache invalidation; familyId param unused
       queryClient.invalidateQueries({ queryKey: ['studio-queue', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['studio-queue-count', data.family_id] })
     },

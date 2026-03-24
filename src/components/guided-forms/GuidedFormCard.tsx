@@ -38,9 +38,6 @@ export function GuidedFormCard({
   const [fillOpen, setFillOpen] = useState(false)
 
   const subtype = template.guided_form_subtype
-  const allSections = subtype === 'custom'
-    ? (template.config?.sections ?? [])
-    : import('./guidedFormTypes').then(() => null) as unknown as never
 
   // Calculate progress synchronously — getSubtionsForSubtype is a pure function
   // We need a synchronous import approach here, so we call dynamically at render.

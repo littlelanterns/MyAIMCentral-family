@@ -6,9 +6,8 @@
  */
 
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronRight, ExternalLink, Play, Pause, UserPlus } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Play, UserPlus } from 'lucide-react'
 import { useSequentialCollections, useSequentialCollection } from '@/hooks/useSequentialCollections'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import type { SequentialCollection, Task } from '@/types/tasks'
 

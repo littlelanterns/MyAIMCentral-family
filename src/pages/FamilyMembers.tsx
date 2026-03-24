@@ -460,7 +460,7 @@ function PinModal({ memberId, memberName, onClose }: { memberId: string; memberN
   )
 }
 
-function InviteModal({ memberId, memberName, familyId, onClose }: { memberId: string; memberName: string; familyId: string; onClose: () => void }) {
+function InviteModal({ memberId, memberName, familyId: _familyId, onClose }: { memberId: string; memberName: string; familyId: string; onClose: () => void }) {
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)

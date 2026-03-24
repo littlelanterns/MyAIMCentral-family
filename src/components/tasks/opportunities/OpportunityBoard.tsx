@@ -4,8 +4,7 @@
  * Kids see OpportunityDashboardView on their dashboard.
  */
 
-import { useState } from 'react'
-import { Plus, RefreshCw, Lock, Unlock, Trophy, Target } from 'lucide-react'
+import { Plus, RefreshCw, Lock, Trophy, Target } from 'lucide-react'
 import { useTasks } from '@/hooks/useTasks'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
@@ -18,8 +17,8 @@ interface OpportunityBoardProps {
 }
 
 export function OpportunityBoard({ familyId, onCreateOpportunity }: OpportunityBoardProps) {
-  const { data: member } = useFamilyMember()
-  const { data: allTasks = [] } = useTasks({ familyId, taskTypes: ['opportunity_repeatable', 'opportunity_claimable', 'opportunity_capped'] })
+  const { data: _member } = useFamilyMember()
+  const { data: allTasks = [] } = useTasks(familyId, { taskType: ['opportunity_repeatable', 'opportunity_claimable', 'opportunity_capped'] })
 
   const claimable = allTasks.filter(t => t.task_type === 'opportunity_claimable')
   const repeatable = allTasks.filter(t => t.task_type === 'opportunity_repeatable')
@@ -92,7 +91,7 @@ function OpportunityGroup({
   title,
   icon,
   tasks,
-  familyId,
+  familyId: _familyId,
 }: {
   title: string
   icon: React.ReactNode

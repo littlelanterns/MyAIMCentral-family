@@ -10,8 +10,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Wand2, ListChecks, Zap, ArrowRight, ChevronDown } from 'lucide-react'
-import { Button, Input, Toggle } from '@/components/shared'
+import { X, Wand2, ListChecks, Zap, ArrowRight } from 'lucide-react'
+import { Button, Input } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
 import { CollapsibleSection } from './CollapsibleSection'
 import { DurationPicker } from './DurationPicker'
@@ -91,6 +91,8 @@ interface TaskCreationModalProps {
   mode?: 'quick' | 'full'
   batchMode?: 'group' | 'sequential'
   batchItems?: StudioQueueItem[]
+  /** Pre-select task type when opening from Studio (e.g., 'routine', 'opportunity', 'sequential') */
+  initialTaskType?: string
 }
 
 // ─── Default state factory ───────────────────────────────────
@@ -365,12 +367,21 @@ export function TaskCreationModal({
   mode: initialMode = 'quick',
   batchMode,
   batchItems,
+  initialTaskType,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
 
-  const [mode, setMode] = useState<'quick' | 'full'>(initialMode)
-  const [data, setData] = useState<CreateTaskData>(() => defaultTaskData(queueItem))
+  // If opening from Studio with a specific type, force full mode and pre-select type
+  const effectiveInitialMode = initialTaskType ? 'full' : initialMode
+  const [mode, setMode] = useState<'quick' | 'full'>(effectiveInitialMode)
+  const [data, setData] = useState<CreateTaskData>(() => {
+    const d = defaultTaskData(queueItem)
+    if (initialTaskType) {
+      d.taskType = initialTaskType as any
+    }
+    return d
+  })
   const [loading, setLoading] = useState(false)
 
   // Batch sequential state

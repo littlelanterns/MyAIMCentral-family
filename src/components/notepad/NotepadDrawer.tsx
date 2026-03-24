@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
-  StickyNote, Plus, X, Trash2, Mic, MicOff, Send, ArrowRightLeft,
+  StickyNote, Plus, X, Mic, MicOff, Send, ArrowRightLeft,
   Maximize2, Minimize2, Clock, AlertCircle, Loader2,
 } from 'lucide-react'
 import { Tooltip } from '@/components/Tooltip'
@@ -8,12 +8,11 @@ import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
 import { UndoToast } from '@/components/shared/UndoToast'
 import { NotepadReviewRoute } from './NotepadReviewRoute'
-import { useNotepadContext, type NotepadView } from './NotepadContext'
+import { useNotepadContext } from './NotepadContext'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 import {
   useCreateNotepadTab,
   useUpdateNotepadTab,
-  useDeleteNotepadTab,
   useAutosave,
   useRoutingStats,
   useNotepadHistory,
@@ -35,12 +34,12 @@ export function NotepadDrawer() {
     view, setView,
     isFullPage, setFullPage,
     tabs, activeTabId, setActiveTabId,
-    isLoading, memberId, familyId,
+    isLoading: _isLoading, memberId, familyId,
   } = useNotepadContext()
 
   const createTab = useCreateNotepadTab()
   const updateTab = useUpdateNotepadTab()
-  const deleteTab = useDeleteNotepadTab()
+  // deleteTab available via useDeleteNotepadTab() when wired
   const routeContent = useRouteContent()
   const undoRoute = useUndoRoute()
   const { data: routingStats = [] } = useRoutingStats(memberId)
@@ -61,7 +60,7 @@ export function NotepadDrawer() {
   } | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout>>()
+  const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Sync local content when active tab changes
   useEffect(() => {
@@ -435,7 +434,7 @@ export function NotepadDrawer() {
 // ─── Editor View ─────────────────────────────────────────────
 
 function EditorView({
-  tabs, activeTab, activeTabId, localContent, editingTitle, wordCount, textareaRef,
+  tabs, activeTab: _activeTab, activeTabId, localContent, editingTitle, wordCount, textareaRef,
   onContentChange, onSelectTab, onAddTab, onCloseTab, onRenameTab, onStartRename,
   onSendTo, onReviewRoute,
 }: {

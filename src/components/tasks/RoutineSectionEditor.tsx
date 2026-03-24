@@ -7,9 +7,8 @@
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
-import { useState } from 'react'
 import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2 } from 'lucide-react'
-import { Button, Input, Toggle } from '@/components/shared'
+import { Button, Toggle } from '@/components/shared'
 
 // ─── Types ───────────────────────────────────────────────────
 

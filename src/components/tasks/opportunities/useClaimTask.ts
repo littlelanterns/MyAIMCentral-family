@@ -3,7 +3,6 @@
  * Uses the useTaskClaims hooks from src/hooks/useTaskClaims.ts.
  */
 
-import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { ClaimLockUnit } from '@/types/tasks'

@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import type { TaskClaim, CreateTaskClaim } from '@/types/tasks'
+import type { TaskClaim } from '@/types/tasks'
 
 // ============================================================
 // useTaskClaims — all claims for a specific task

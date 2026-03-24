@@ -96,11 +96,11 @@ export function TaskCard({
   onBreakItDown,
   onAssign,
   onDelete,
-  showAssignee = false,
+  showAssignee: _showAssignee = false,
   compact = false,
 }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
-  const [isPressed, setIsPressed] = useState(false)
+  const [isPressed, _setIsPressed] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkboxRef = useRef<HTMLButtonElement | null>(null)
 

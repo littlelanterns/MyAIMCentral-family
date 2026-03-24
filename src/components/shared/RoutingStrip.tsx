@@ -257,7 +257,7 @@ export function RoutingStrip({
                   {expanded.subOptions.map(sub => (
                     <button
                       key={sub.key}
-                      onClick={() => handleSubClick(expandedKey, sub.key)}
+                      onClick={() => handleSubClick(expandedKey!, sub.key)}
                       className="px-2 py-2 rounded-lg text-[10px] text-center transition-all hover:scale-[1.03]"
                       style={{
                         background: 'var(--color-bg-card, #fff)',

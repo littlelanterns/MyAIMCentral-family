@@ -58,12 +58,12 @@ Kids never see Studio or the library. They see their personal dashboard — toda
 - Example uses: Custom decision-making exercise, Goal reflection, Pre-trip planning form, Reading response questions
 
 **5B. SODAS** (`guided_form_subtype: 'sodas'`)
-- Description: Gold standard structured thinking from Teaching Self-Government (Nicholeen Peck). Mom fills Situation. Child works through Options (3+) → Disadvantages (each option) → Advantages (each option, including bad choices) → Solution (best and why). More honest than pros/cons because it requires acknowledging advantages in every option.
+- Description: A structured thinking exercise that teaches real decision-making. Mom fills Situation. Child works through Options (3+) → Disadvantages (each option) → Advantages (each option, including bad choices) → Solution (best and why). More honest than pros/cons because it requires acknowledging advantages in every option.
 - Sections: S (Situation, mom fills) → O (Options, child) → D (Disadvantages, child) → A (Advantages, child) → S (Solution, child)
 - Example uses: Sibling conflict, What to do when angry, Spending birthday money, Friend situation
 
 **5C. What-If Game** (`guided_form_subtype: 'what_if'`)
-- Description: Lighter, faster version of SODAS for pre-teaching before situations arise. Mom poses scenario, child thinks it through before they're in the heat of the moment. From Teaching Self-Government. Works for kids as young as Guided shell age.
+- Description: Lighter, faster version of SODAS for pre-teaching before situations arise. Mom poses scenario, child thinks it through before they're in the heat of the moment. A widely-used method for pre-teaching. Works for kids as young as Guided shell age.
 - Sections: The Scenario (mom) → My Options (child) → What Might Happen (child) → What I Would Do (child) → What I Learned (child)
 - Example uses: Friend asking to do something wrong, Someone mean at co-op, Finished work early, Feeling angry at sibling
 

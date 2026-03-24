@@ -4,7 +4,7 @@ import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
   Palette,
-  ChevronLeft, ChevronRight, Menu, X, Eye,
+  ChevronLeft, ChevronRight, Eye,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -235,7 +235,7 @@ function ViewAsSwitcher() {
 }
 
 function SidebarInner({
-  sections, collapsed, setCollapsed, mobileOpen, setMobileOpen, shell, isPreview,
+  sections, collapsed, setCollapsed, mobileOpen: _mobileOpen, setMobileOpen, shell, isPreview: _isPreview,
 }: {
   sections: NavSection[]
   collapsed: boolean

@@ -5,7 +5,7 @@
  * Produces SchedulerOutput on every state change.
  */
 
-import { useReducer, useEffect, useCallback, useRef } from 'react'
+import { useReducer, useEffect, useRef } from 'react'
 import type {
   SchedulerState, SchedulerAction, SchedulerOutput,
 } from './types'

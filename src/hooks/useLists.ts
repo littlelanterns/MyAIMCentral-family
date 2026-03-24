@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type {
-  List, ListItem, ListShare, ListTemplate, ListType, ListFilters,
-  CreateList, CreateListItem, ListItemPriority,
+  List, ListItem, ListShare, ListTemplate, ListType,
 } from '@/types/lists'
 
 // Re-export types for backward compatibility

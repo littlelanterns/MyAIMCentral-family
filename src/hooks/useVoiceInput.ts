@@ -33,7 +33,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const speechRecognitionRef = useRef<any>(null)
   const webSpeechFinalRef = useRef<string>('')
   const webSpeechInterimRef = useRef<string>('')
-  const timerRef = useRef<ReturnType<typeof setInterval>>()
+  const timerRef = useRef<number | undefined>(undefined)
   const startTimeRef = useRef<number>(0)
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)

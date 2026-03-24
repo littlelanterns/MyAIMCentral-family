@@ -7,12 +7,12 @@
 
 import { RRule, RRuleSet } from 'rrule'
 import type {
-  SchedulerState, SchedulerOutput, FrequencyType,
+  SchedulerState, SchedulerOutput,
 } from './types'
 
 // ── RRULE day constants (rrule.js uses RRule.SU=0 etc.) ─────────────────
 
-const RRULE_DAYS = [RRule.SU, RRule.MO, RRule.TU, RRule.WE, RRule.TH, RRule.FR, RRule.SA]
+// RRULE_DAYS available: [RRule.SU, RRule.MO, RRule.TU, RRule.WE, RRule.TH, RRule.FR, RRule.SA]
 const RRULE_DAY_MAP: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 }
 
 function toISODate(d: Date): string {
@@ -361,7 +361,7 @@ export function outputToState(output: SchedulerOutput): Partial<SchedulerState> 
 
   try {
     const opts = RRule.parseString(output.rrule)
-    const freq = opts.freq
+    const freq = opts.freq as number | undefined
     const interval = opts.interval ?? 1
 
     const result: Partial<SchedulerState> = {

@@ -190,7 +190,7 @@ function AdultPermissionCard({
   adult,
   children,
   familyId,
-  momId,
+  momId: _momId,
 }: {
   adult: FamilyMember
   children: FamilyMember[]
@@ -785,7 +785,7 @@ function ProfileSelectorModal({
   const suggestedLevel = SUGGESTED_DEFAULTS[roleGroup] ?? 'balanced'
   const [selected, setSelected] = useState(suggestedLevel)
   const [applying, setApplying] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
+  const [, setConfirmReset] = useState(false) // confirmReset value unused; setter wired to UI
 
   async function handleApply() {
     setApplying(true)

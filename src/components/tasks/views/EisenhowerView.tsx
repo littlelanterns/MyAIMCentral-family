@@ -7,7 +7,6 @@
  */
 
 import { useState } from 'react'
-import { TaskCard } from '../TaskCard'
 import { EmptyState } from '@/components/shared'
 import { Grid2x2, Plus } from 'lucide-react'
 import type { Task } from '@/hooks/useTasks'
@@ -15,7 +14,7 @@ import type { Task } from '@/hooks/useTasks'
 type EisenhowerQuadrant = 'do_now' | 'schedule' | 'delegate' | 'eliminate' | null
 
 interface TaskWithQuadrant extends Task {
-  eisenhower_quadrant?: EisenhowerQuadrant
+  eisenhower_quadrant: EisenhowerQuadrant
 }
 
 interface EisenhowerViewProps {
@@ -63,10 +62,10 @@ const QUADRANTS = [
 export function EisenhowerView({
   tasks,
   onToggle,
-  onEdit,
-  onFocusTimer,
-  onBreakItDown,
-  onDelete,
+  onEdit: _onEdit,
+  onFocusTimer: _onFocusTimer,
+  onBreakItDown: _onBreakItDown,
+  onDelete: _onDelete,
   onUpdateTask,
   isCompleting,
 }: EisenhowerViewProps) {
