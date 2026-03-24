@@ -222,6 +222,27 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Timer → widget data points | PRD-36 | PRD-10 | ⏳ Unwired (MVP) | Phase 11 |
 | Visual World themed timer animations | PRD-36 | PRD-24A | 📌 Post-MVP | — |
 
+## Studio & Lists Stubs (Phase 10 — PRD-09B)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Studio Browse tab (template cards) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Studio My Customized tab | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Studio [Customize] → Task types | PRD-09B | PRD-09A | ✅ Wired | Phase 10 |
+| Studio [Customize] → List types | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Studio [Customize] → Guided Forms | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Studio [Customize] → Trackers/Widgets | PRD-09B | PRD-10 | ⏳ Unwired (MVP) | Phase 11 |
+| Studio seed templates (15 in DB) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Lists full CRUD (9 types) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Lists Randomizer draw view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Lists promote-to-task | PRD-09B | PRD-09A | ✅ Wired | Phase 10 |
+| Guided Form assign modal | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Guided Form child fill view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Guided Form mom review view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Guided Form LiLa help button | PRD-09B | PRD-05 | ⏳ Unwired (MVP) | Phase 06 |
+| System list auto-provision (Backburner, Ideas) | PRD-09B | — | ⏳ Unwired (MVP) | Phase 10+ |
+| ListPicker overlay (Notepad → Lists) | PRD-09B | — | ⏳ Unwired (MVP) | Phase 10+ |
+
 ---
 
 ## Summary

@@ -14,7 +14,7 @@
 | 05 | PRD-35, PRD-36 | Universal Scheduler & Timer | Complete | 2026-03-23 |
 | 06 | PRD-05 | LiLa Core AI System | Complete | 2026-03-23 |
 | 09 | PRD-08 | Smart Notepad (capture + routing) | Complete | 2026-03-23 |
-| 10 | PRD-09A, PRD-09B, PRD-17 | Tasks, Lists, Studio Queue & Universal Queue Modal | Complete | 2026-03-24 |
+| 10 | PRD-09A, PRD-09B, PRD-17 | Tasks, Lists, Studio, Queue Modal, Guided Forms, Randomizer | Complete | 2026-03-24 |
 
 ## Remediation Passes (Complete)
 
