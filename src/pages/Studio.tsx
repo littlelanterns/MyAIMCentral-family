@@ -385,18 +385,7 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 5. Tools — PlannedExpansionCard */}
-              {!searchQuery && (
-                <StudioCategorySection
-                  title="Tools"
-                  templates={[]}
-                  plannedContent={<PlannedExpansionCard featureKey="studio_tools" />}
-                  onCustomize={handleCustomize}
-                  defaultCollapsed={true}
-                />
-              )}
-
-              {/* 6. Gamification Systems — PlannedExpansionCard */}
+              {/* 5. Gamification Systems — PlannedExpansionCard */}
               {!searchQuery && (
                 <StudioCategorySection
                   title="Gamification Systems"

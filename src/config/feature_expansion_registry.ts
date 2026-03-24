@@ -334,12 +334,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
     location_hint: 'Studio → Trackers & Widgets category',
   },
 
-  studio_tools: {
-    name: 'Tool Templates',
-    description:
-      'Meal planners, project planners, budget worksheets, homeschool unit planners, and specialized coordination tools — all as ready-to-deploy templates. Browse, customize, and add to any dashboard. Future PRDs (meal planning, project management) will add their templates here automatically.',
-    location_hint: 'Studio → Tools category',
-  },
+  // studio_tools removed — tools live in AI Vault (PRD-21A), not Studio
 
   studio_gamification: {
     name: 'Gamification System Templates',
