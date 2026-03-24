@@ -15,7 +15,7 @@ import type { Task } from '@/hooks/useTasks'
 type ImportanceLevel = 'critical_1' | 'important_3' | 'small_5' | null
 
 interface TaskWithImportance extends Task {
-  importance_level?: ImportanceLevel
+  importance_level: ImportanceLevel
 }
 
 interface OneFiveThreeViewProps {

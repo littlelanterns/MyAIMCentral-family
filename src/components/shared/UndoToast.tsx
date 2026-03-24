@@ -18,7 +18,7 @@ export function UndoToast({
 }: UndoToastProps) {
   const [progress, setProgress] = useState(100)
   const startTime = useRef(Date.now())
-  const rafRef = useRef<number>()
+  const rafRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     const animate = () => {

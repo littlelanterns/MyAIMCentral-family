@@ -283,7 +283,7 @@ export function Tooltip({
   })
 
   const triggerRef = useRef<HTMLElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
+  // tooltipRef reserved for future position calculations
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)

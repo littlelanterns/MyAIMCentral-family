@@ -5,7 +5,6 @@ import {
   useExtractContent,
   useRouteExtractedItem,
   useExtractedItems,
-  useRouteContent,
   type NotepadTab,
   type NotepadExtractedItem,
 } from '@/hooks/useNotepad'
@@ -38,7 +37,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     setHasExtracted(true)
   }
 
-  async function handleRouteItem(item: NotepadExtractedItem, destination: string, subType?: string) {
+  async function handleRouteItem(item: NotepadExtractedItem, destination: string, _subType?: string) {
     await routeItemMutation.mutateAsync({
       id: item.id,
       status: 'routed',

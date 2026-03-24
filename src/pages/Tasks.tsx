@@ -13,7 +13,7 @@
  * - Queue(N): studio_queue items waiting to be configured
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import {
   CheckSquare,
   Plus,
@@ -25,12 +25,11 @@ import {
   ArrowUpDown,
   X,
   ChevronDown,
-  Settings2,
   Layers,
-  Zap,
+  Users,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner } from '@/components/shared'
-import { useTasks, useUpdateTask } from '@/hooks/useTasks'
+import { useTasks } from '@/hooks/useTasks'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamily } from '@/hooks/useFamily'
@@ -40,7 +39,7 @@ import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
-import type { Task, TaskType } from '@/hooks/useTasks'
+import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
 
 // ─────────────────────────────────────────────
@@ -84,12 +83,10 @@ export function TasksPage() {
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)
   const { data: queueItems = [] } = useStudioQueue(family?.id, member?.id)
-  const updateTask = useUpdateTask()
-
   const [activeTab, setActiveTab] = useState<TaskTab>('my_tasks')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recently_created')
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('active')
-  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [filterMemberId, _setFilterMemberId] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -104,13 +101,6 @@ export function TasksPage() {
   })
 
   const queryClient = useQueryClient()
-
-  const handleUpdateTask = useCallback(
-    (taskId: string, updates: Partial<Task>) => {
-      updateTask.mutate({ id: taskId, ...updates })
-    },
-    [updateTask]
-  )
 
   const handleCreateTask = useCallback(
     async (data: CreateTaskData) => {
@@ -243,7 +233,6 @@ export function TasksPage() {
       case 'opportunities':
         filtered = filtered.filter(
           (t) =>
-            t.task_type === 'opportunity' ||
             t.task_type === 'opportunity_repeatable' ||
             t.task_type === 'opportunity_claimable' ||
             t.task_type === 'opportunity_capped'
@@ -466,7 +455,7 @@ interface TaskListProps {
   showType?: boolean
 }
 
-function TaskList({ tasks, onToggle, isCompleting, showType }: TaskListProps) {
+function TaskList({ tasks, onToggle, isCompleting, showType: _showType }: TaskListProps) {
   const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
   const qc = useQueryClient()
@@ -486,7 +475,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType }: TaskListProps) {
     enabled: !!ffamily?.id,
   })
 
-  async function handleDeploy(taskId: string, memberId: string, memberName: string) {
+  async function handleDeploy(taskId: string, memberId: string, _memberName: string) {
     // Update the task assignee
     await supabase.from('tasks').update({ assignee_id: memberId }).eq('id', taskId)
 
@@ -656,8 +645,8 @@ interface QueueTabProps {
 
 function QueueTab({ queueItems }: QueueTabProps) {
   const queryClient = useQueryClient()
-  const { data: member } = useFamilyMember()
-  const { data: family } = useFamily()
+  const { data: _member } = useFamilyMember()
+  const { data: _family } = useFamily()
 
   const dismissItem = async (itemId: string) => {
     await supabase
@@ -834,7 +823,7 @@ function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate }: Opportuni
   }
 
   // Group by sub-type
-  const repeatable = tasks.filter((t) => t.task_type === 'opportunity_repeatable' || t.task_type === 'opportunity')
+  const repeatable = tasks.filter((t) => t.task_type === 'opportunity_repeatable')
   const claimable = tasks.filter((t) => t.task_type === 'opportunity_claimable')
   const capped = tasks.filter((t) => t.task_type === 'opportunity_capped')
 

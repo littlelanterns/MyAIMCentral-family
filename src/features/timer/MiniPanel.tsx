@@ -30,7 +30,6 @@ import {
 import {
   Clock,
   Pause,
-  Play,
   Square,
   Plus,
   X,

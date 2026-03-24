@@ -10,8 +10,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Wand2, ListChecks, Zap, ArrowRight, ChevronDown } from 'lucide-react'
-import { Button, Input, Toggle } from '@/components/shared'
+import { X, Wand2, ListChecks, Zap, ArrowRight } from 'lucide-react'
+import { Button, Input } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
 import { CollapsibleSection } from './CollapsibleSection'
 import { DurationPicker } from './DurationPicker'

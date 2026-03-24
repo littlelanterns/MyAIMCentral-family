@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Users, Wand2, Check, Loader, Settings } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Wand2, Check, Loader, Settings } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -52,7 +52,7 @@ export function FamilySetup() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: member } = useFamilyMember()
-  const { data: family } = useFamily()
+  const { data: _family } = useFamily()
   const [step, setStep] = useState<'describe' | 'preview' | 'done'>('describe')
   const [familyDescription, setFamilyDescription] = useState('')
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([])

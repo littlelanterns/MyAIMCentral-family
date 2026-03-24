@@ -120,6 +120,7 @@ export function useCreateTaskTemplate() {
       const { data, error } = await supabase
         .from('task_templates')
         .insert({
+          ...template,
           is_system: false,
           usage_count: 0,
           default_bonus_threshold: 85,
@@ -128,7 +129,6 @@ export function useCreateTaskTemplate() {
           sequential_active_count: 1,
           sequential_promotion: 'immediate',
           display_mode: 'collapsed',
-          ...template,
           // Ensure template_name and title are consistent
           title: template.template_name ?? (template as { title?: string }).title ?? template.template_name,
           template_name: template.template_name,
@@ -332,9 +332,9 @@ export function useCreateTemplateSection() {
       const { data, error } = await supabase
         .from('task_template_sections')
         .insert({
+          ...section,
           show_until_complete: false,
           frequency_rule: 'daily',
-          ...section,
           title: section.section_name,
           section_name: section.section_name,
         })
@@ -415,9 +415,9 @@ export function useCreateTemplateStep() {
       const { data, error } = await supabase
         .from('task_template_steps')
         .insert({
+          ...stepData,
           instance_count: 1,
           require_photo: false,
-          ...stepData,
           title: stepData.step_name,
           step_name: stepData.step_name,
         })

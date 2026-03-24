@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/shared'
 import type { Task } from '@/hooks/useTasks'
 
 interface TaskWithFrogRank extends Task {
-  frog_rank?: number | null
+  frog_rank: number | null
 }
 
 interface EatTheFrogViewProps {

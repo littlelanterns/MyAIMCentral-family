@@ -526,7 +526,7 @@ function CustodyConfig({ state, dispatch, inputStyle }: {
   state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
 }) {
   const patternLen = state.custodyPattern.length
-  const weeks = Math.ceil(patternLen / 7)
+  Math.ceil(patternLen / 7) // weeks count available for future display
   const dayHeaders = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa']
 
   return (

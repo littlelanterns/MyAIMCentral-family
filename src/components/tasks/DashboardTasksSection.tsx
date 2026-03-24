@@ -6,7 +6,7 @@
  * Supports all shells with appropriate view filtering.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { ChevronDown, ChevronRight, CheckSquare } from 'lucide-react'
 import { SparkleOverlay } from '@/components/shared'
 import { ViewCarousel, type TaskViewKey } from './ViewCarousel'

@@ -42,7 +42,7 @@ import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { GuidedFormAssignModal } from '@/components/guided-forms/GuidedFormAssignModal'
 import { getSectionsForSubtype } from '@/components/guided-forms/guidedFormTypes'
-import type { GuidedFormTemplate, GuidedFormSubtype as GFSubtype } from '@/components/guided-forms/guidedFormTypes'
+import type { GuidedFormSubtype as GFSubtype } from '@/components/guided-forms/guidedFormTypes'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -505,10 +505,7 @@ export function StudioPage() {
               }
               action={
                 customizedFilter === 'all'
-                  ? {
-                      label: 'Browse Templates',
-                      onClick: () => setActiveTab('browse'),
-                    }
+                  ? <button onClick={() => setActiveTab('browse')} style={{ cursor: 'pointer' }}>Browse Templates</button>
                   : undefined
               }
             />
@@ -541,6 +538,8 @@ export function StudioPage() {
             guided_form_subtype: guidedFormSubtype as GFSubtype,
             config: { sections: getSectionsForSubtype(guidedFormSubtype as GFSubtype) },
             is_system: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }}
           familyId={family?.id ?? ''}
           assigningMemberId={member?.id ?? ''}

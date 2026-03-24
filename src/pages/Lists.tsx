@@ -4,12 +4,12 @@
  * Types: Shopping, Wishlist, Expenses, Packing, To-Do, Custom, Randomizer.
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
-  ArrowRight, RotateCcw, Share2, Archive, MoreHorizontal, Loader2,
+  ArrowRight, RotateCcw, Archive, Loader2,
   Clock, Lightbulb, Heart,
 } from 'lucide-react'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -20,9 +20,8 @@ import {
   useUncheckAllItems, usePromoteListItem, useArchiveList,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon } from '@/components/shared'
-import type { List, ListItem, ListType, CreateListItem } from '@/types/lists'
+import type { ListItem, ListType } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
-import type { RandomizerItem } from '@/components/lists/RandomizerResultCard'
 
 // ── Type config ────────────────────────────────────────────
 
@@ -260,7 +259,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const createItem = useCreateListItem()
   const toggleItem = useToggleListItem()
   const deleteItem = useDeleteListItem()
-  const updateItem = useUpdateListItem()
+  useUpdateListItem() // available for future inline editing
   const uncheckAll = useUncheckAllItems()
   const promoteItem = usePromoteListItem()
   const archiveList = useArchiveList()
@@ -268,8 +267,9 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
 
   const [newItemText, setNewItemText] = useState('')
   const [newItemSection, setNewItemSection] = useState('')
+  void setNewItemSection // setter available for section input field
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [showAddSection, setShowAddSection] = useState(false)
+  const [_showAddSection, _setShowAddSection] = useState(false)
 
   if (!list) return null
 
@@ -469,8 +469,8 @@ function ListItemRow({
   onToggle,
   onDelete,
   onPromote,
-  isEditing,
-  onEdit,
+  isEditing: _isEditing,
+  onEdit: _onEdit,
 }: {
   item: ListItem
   listType: string

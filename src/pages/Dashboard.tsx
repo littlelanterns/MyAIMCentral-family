@@ -18,8 +18,8 @@ export function Dashboard() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { data: familyMembers } = useFamilyMembers(member?.family_id)
-  const { shell } = useShell()
-  const { isViewingAs, viewingAsMember, startViewAs, stopViewAs } = useViewAs()
+  const { shell: _shell } = useShell()
+  const { isViewingAs, viewingAsMember, startViewAs, stopViewAs: _stopViewAs } = useViewAs()
   const [perspective, setPerspective] = useState<DashboardView>('personal')
 
   const greeting = (() => {

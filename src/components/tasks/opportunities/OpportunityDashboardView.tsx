@@ -5,9 +5,9 @@
  */
 
 import { useState } from 'react'
-import { Lock, RefreshCw, Target, Clock, Check } from 'lucide-react'
+import { Lock, RefreshCw, Target, Clock } from 'lucide-react'
 import { useTasks } from '@/hooks/useTasks'
-import { useActiveClaims, useMyActiveClaims } from '@/hooks/useTaskClaims'
+import { useMyActiveClaims } from '@/hooks/useTaskClaims'
 import { useClaimTask } from './useClaimTask'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import type { Task } from '@/types/tasks'
@@ -18,9 +18,8 @@ interface OpportunityDashboardViewProps {
 
 export function OpportunityDashboardView({ familyId }: OpportunityDashboardViewProps) {
   const { data: member } = useFamilyMember()
-  const { data: opportunities = [] } = useTasks({
-    familyId,
-    taskTypes: ['opportunity_repeatable', 'opportunity_claimable', 'opportunity_capped'],
+  const { data: opportunities = [] } = useTasks(familyId, {
+    taskType: ['opportunity_repeatable', 'opportunity_claimable', 'opportunity_capped'],
   })
   const { data: myClaims = [] } = useMyActiveClaims(member?.id)
 
@@ -56,7 +55,7 @@ function OpportunityDashboardCard({
   isClaimed: boolean
 }) {
   const { claimTask, isLoading: claiming } = useClaimTask()
-  const [completing, setCompleting] = useState(false)
+  const [_completing, _setCompleting] = useState(false)
 
   const isClaimable = task.task_type === 'opportunity_claimable'
   const isRepeatable = task.task_type === 'opportunity_repeatable'

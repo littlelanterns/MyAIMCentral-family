@@ -15,7 +15,7 @@ import type { Task } from '@/hooks/useTasks'
 type KanbanStatus = 'to_do' | 'in_progress' | 'done'
 
 interface TaskWithKanban extends Task {
-  kanban_status?: KanbanStatus | null
+  kanban_status: KanbanStatus | null
 }
 
 interface KanbanViewProps {

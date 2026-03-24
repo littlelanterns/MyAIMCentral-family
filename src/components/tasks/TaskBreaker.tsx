@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import {
-  Zap, ChevronDown, ChevronUp, GripVertical, X, Camera, Loader2, Check,
+  Zap, ChevronDown, ChevronUp, X, Loader2, Check,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -37,7 +37,7 @@ export function TaskBreaker({ taskTitle, taskDescription, onApply, onCancel }: T
   const [subtasks, setSubtasks] = useState<BrokenTask[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageMode, setImageMode] = useState(false)
+  const [_imageMode, _setImageMode] = useState(false)
 
   async function handleBreakDown() {
     setLoading(true)

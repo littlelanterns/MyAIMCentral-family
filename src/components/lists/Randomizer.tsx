@@ -45,8 +45,6 @@ const SPIN_DURATION_MS = 2400
 
 // ─── Category config ──────────────────────────────────────────────
 
-const KNOWN_CATEGORIES = ['quick', 'medium', 'big', 'connection']
-
 function getCategoryLabel(cat: string): string {
   switch (cat) {
     case 'quick': return 'Quick'
@@ -60,7 +58,7 @@ function getCategoryLabel(cat: string): string {
 // ─── Component ───────────────────────────────────────────────────
 
 export function Randomizer({
-  listId,
+  listId: _listId,
   listTitle,
   familyId,
   assigningMemberId,

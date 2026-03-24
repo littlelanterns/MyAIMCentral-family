@@ -69,8 +69,8 @@ export function InnerWorkingsPage() {
     ? entries
     : entries.filter(e => e.category === activeTab)
 
-  // Group by category for display
-  const grouped = SELF_KNOWLEDGE_CATEGORIES.map(cat => ({
+  // Group by category for display (available when category grouping view is implemented)
+  void SELF_KNOWLEDGE_CATEGORIES.map(cat => ({
     ...cat,
     entries: entries.filter(e => e.category === cat.value),
   }))

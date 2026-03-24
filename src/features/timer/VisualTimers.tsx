@@ -14,22 +14,6 @@ import type { VisualTimerStyle } from './types'
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function formatTime(progressFraction: number, totalSeconds = 0): string {
-  // If no totalSeconds hint is passed we show the fraction as a percentage
-  if (totalSeconds === 0) {
-    const pct = Math.round(progressFraction * 100)
-    return `${pct}%`
-  }
-  const elapsed = Math.round(progressFraction * totalSeconds)
-  const h = Math.floor(elapsed / 3600)
-  const m = Math.floor((elapsed % 3600) / 60)
-  const s = elapsed % 60
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
 // Inline <style> tag — written once per component family via React's deduplication.
 // We embed a single stylesheet at the bottom of this file and render it once.
 
@@ -198,7 +182,7 @@ function HourglassTimer({ progress, size, showNumbers }: SubTimerProps) {
 
   // Classic hourglass SVG path using bezier curves for the waist
   const w = size * 0.44
-  const h = size * 0.44
+  // h = size * 0.44 (reserved for future symmetric hourglass)
   const waist = size * 0.07
   const padTop = size * 0.05
   const capH = size * 0.04 // cap bar thickness

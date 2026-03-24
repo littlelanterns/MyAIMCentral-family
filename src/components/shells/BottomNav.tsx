@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Home, CheckSquare, BookOpen, FileText, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'

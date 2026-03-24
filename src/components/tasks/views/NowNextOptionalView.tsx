@@ -45,7 +45,6 @@ function isThisWeek(dateStr: string | null): boolean {
 
 function isOpportunity(task: Task): boolean {
   return (
-    task.task_type === 'opportunity' ||
     task.task_type === 'opportunity_repeatable' ||
     task.task_type === 'opportunity_claimable' ||
     task.task_type === 'opportunity_capped'
@@ -85,7 +84,7 @@ export function NowNextOptionalView({
   const completedTasks = tasks.filter((t) => t.status === 'completed')
 
   const isGuided = shell === 'guided'
-  const Card = isGuided ? TaskCardGuided : TaskCard
+  // Card component: isGuided ? TaskCardGuided : TaskCard (wired inline below)
 
   if (tasks.length === 0) {
     return (

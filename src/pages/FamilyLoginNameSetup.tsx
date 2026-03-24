@@ -22,7 +22,7 @@ export function FamilyLoginNameSetup() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: family } = useFamily()
-  const { data: member } = useFamilyMember()
+  const { data: _member } = useFamilyMember()
   const [loginName, setLoginName] = useState('')
   const [checking, setChecking] = useState(false)
   const [available, setAvailable] = useState<boolean | null>(null)

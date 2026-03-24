@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Palette, X, Sun, Moon, Monitor } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
-import { themes, vibes } from '@/lib/theme/tokens'
-import type { ThemeKey, VibeKey } from '@/lib/theme/tokens'
+import type { ThemeKey } from '@/lib/theme/tokens'
 
 const THEME_LIST: { key: ThemeKey; name: string; swatch: string }[] = [
   { key: 'classic', name: 'Classic MyAIM', swatch: '#68a395' },
@@ -16,13 +15,6 @@ const THEME_LIST: { key: ThemeKey; name: string; swatch: string }[] = [
   { key: 'mint_fresh', name: 'Mint Fresh', swatch: '#5aab9a' },
 ]
 
-const VIBE_LIST: { key: VibeKey; name: string }[] = [
-  { key: 'classic', name: 'Classic MyAIM' },
-  { key: 'modern', name: 'Clean & Modern' },
-  { key: 'nautical', name: 'Nautical' },
-  { key: 'cozy', name: 'Cozy Journal' },
-]
-
 const COLOR_MODES = [
   { key: 'light' as const, icon: Sun, label: 'Light' },
   { key: 'dark' as const, icon: Moon, label: 'Dark' },
@@ -32,8 +24,8 @@ const COLOR_MODES = [
 export function ThemeSelector() {
   const [open, setOpen] = useState(false)
   const {
-    theme, vibe, colorMode, gradientEnabled,
-    setTheme, setVibe, setColorMode, setGradientEnabled,
+    theme, vibe: _vibe, colorMode, gradientEnabled,
+    setTheme, setVibe: _setVibe, setColorMode, setGradientEnabled,
   } = useTheme()
 
   if (!open) {

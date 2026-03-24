@@ -7,7 +7,7 @@
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
-import { CheckSquare, List, LayoutGrid, BarChart3, Layers } from 'lucide-react'
+import { CheckSquare, List, LayoutGrid, BarChart3 } from 'lucide-react'
 import { Button, Avatar } from '@/components/shared'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
@@ -26,7 +26,7 @@ export interface StudioQueueRecord {
   created_at: string
 }
 
-type DestType = 'task' | 'list' | 'widget' | 'tracker' | string
+// DestType: 'task' | 'list' | 'widget' | 'tracker' | string (reserved for future typed routing)
 
 interface DestConfig {
   icon: typeof CheckSquare

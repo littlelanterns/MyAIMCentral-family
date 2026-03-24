@@ -12,13 +12,11 @@ import type {
   TasksByView,
   TaskViewSection,
   TaskStatus,
-  TaskType,
   TaskViewType,
   EisenhowerQuadrant,
   KanbanStatus,
   MoscowCategory,
   ImpactEffort,
-  ImportanceLevel,
   AbcdeCategory,
 } from '@/types/tasks'
 

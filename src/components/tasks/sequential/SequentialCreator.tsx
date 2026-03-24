@@ -21,7 +21,7 @@ export interface SequentialCreateData {
   activeCount: number
 }
 
-export function SequentialCreator({ familyId, onSave, onCancel }: SequentialCreatorProps) {
+export function SequentialCreator({ familyId: _familyId, onSave, onCancel }: SequentialCreatorProps) {
   const [title, setTitle] = useState('')
   const [inputMethod, setInputMethod] = useState<'manual' | 'url' | 'image'>('manual')
   const [rawText, setRawText] = useState('')

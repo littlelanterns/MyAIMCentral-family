@@ -12,7 +12,7 @@ import {
   CRISIS_RESPONSE,
   streamLilaChat,
 } from '@/hooks/useLila'
-import type { LilaConversation, LilaMessage } from '@/hooks/useLila'
+import type { LilaConversation } from '@/hooks/useLila'
 import { LilaMessageBubble } from './LilaMessageBubble'
 import { LilaModeSwitcher } from './LilaModeSwitcher'
 import { LilaAvatar, getAvatarKeyForMode, getModeDisplayName } from './LilaAvatar'
@@ -159,7 +159,8 @@ export function LilaDrawer({
     if (!conv) {
       // Assemble context snapshot for the new conversation
       const bundle = await assembleContext(family.id, member.id)
-      const snapshot = createContextSnapshot(bundle)
+      // snapshot prepared for future use when context_snapshot is wired
+      createContextSnapshot(bundle)
 
       // Determine model from guided mode
       const mode = guidedModes.find(m => m.mode_key === currentMode)

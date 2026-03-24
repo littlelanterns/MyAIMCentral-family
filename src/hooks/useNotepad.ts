@@ -401,8 +401,8 @@ Return ONLY a JSON array. No other text.`
 export function useAutosave(tab: NotepadTab | null) {
   const updateTab = useUpdateNotepadTab()
   const autoTitle = useAutoTitle()
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>()
-  const titleTimer = useRef<ReturnType<typeof setTimeout>>()
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const lastSavedContent = useRef<string>('')
 
   useEffect(() => {

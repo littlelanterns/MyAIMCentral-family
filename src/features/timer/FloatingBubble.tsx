@@ -155,7 +155,7 @@ export function FloatingBubble() {
   )
 
   const onPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
+    (_e: React.PointerEvent<HTMLButtonElement>) => {
       if (!dragging.current) return
       dragging.current = false
 
