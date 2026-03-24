@@ -378,20 +378,26 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
+| mode | TEXT | 'general' | NO | CHECK: 'general','help','assist','optimizer' |
 | guided_mode | TEXT | — | YES | FK lila_guided_modes.mode_key |
-| title | TEXT | — | YES | |
-| container_type | TEXT | — | NO | CHECK: 'drawer','modal' |
+| guided_subtype | TEXT | — | YES | Specific subtype: 'cyrano', 'higgins_say', etc. |
+| guided_mode_reference_id | UUID | — | YES | FK for person UUID, etc. |
+| model_used | TEXT | — | YES | 'sonnet' or 'haiku' |
+| context_snapshot | JSONB | '{}' | NO | Context sources when conversation started |
+| title | TEXT | — | YES | AI auto-generated, user-editable |
+| container_type | TEXT | 'drawer' | NO | CHECK: 'drawer','modal' |
 | page_context | TEXT | — | YES | |
-| is_included_in_ai | BOOLEAN | true | NO | |
 | is_safe_harbor | BOOLEAN | false | NO | PRD-20 |
 | vault_item_id | UUID | — | YES | FK vault_items; PRD-21A |
 | safety_scanned | BOOLEAN | false | NO | PRD-30 |
 | status | TEXT | 'active' | NO | CHECK: 'active','archived','deleted' |
+| message_count | INTEGER | 0 | NO | Denormalized count |
+| token_usage | JSONB | '{"input":0,"output":0}' | NO | Cumulative token usage |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Member can read/update own conversations. Parent can read children's (except safe_harbor).
-**Indexes:** `idx_lc_family_member` ON (family_id, member_id); `idx_lc_status` ON status; `idx_lc_guided` ON guided_mode; `idx_lc_vault` ON vault_item_id WHERE vault_item_id IS NOT NULL
+**Indexes:** `idx_lc_family_member` ON (family_id, member_id); `idx_lc_status` ON status; `idx_lc_guided` ON guided_mode; `idx_lc_vault` ON vault_item_id WHERE vault_item_id IS NOT NULL; `idx_lc_member_status_updated` ON (member_id, status, updated_at DESC); `idx_lc_guided_subtype` ON (member_id, guided_subtype) WHERE guided_subtype IS NOT NULL
 **Triggers:** `trg_lc_updated_at`
 
 ---
@@ -402,11 +408,11 @@
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
-| conversation_id | UUID | — | NO | FK lila_conversations |
+| conversation_id | UUID | — | NO | FK lila_conversations (ON DELETE CASCADE) |
 | role | TEXT | — | NO | CHECK: 'user','assistant','system' |
 | content | TEXT | — | NO | |
-| message_type | TEXT | — | YES | |
-| metadata | JSONB | — | YES | Persona attribution, lens info, framework info, mediation context |
+| metadata | JSONB | '{}' | NO | Action chips, context used, teaching skill, persona attribution |
+| token_count | INTEGER | — | YES | Tokens used for this message |
 | safety_scanned | BOOLEAN | false | NO | PRD-30 |
 | created_at | TIMESTAMPTZ | now() | NO | |
 
@@ -423,16 +429,21 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | mode_key | TEXT | — | NO | UNIQUE |
 | display_name | TEXT | — | NO | |
-| model_tier | TEXT | — | NO | CHECK: 'sonnet','haiku' |
-| avatar_set | TEXT | — | YES | |
-| context_sources | TEXT[] | — | YES | |
+| parent_mode | TEXT | — | YES | The guided_mode value on lila_conversations |
+| avatar_key | TEXT | 'sitting' | NO | Which avatar: 'help','assist','optimizer','sitting', or custom |
+| model_tier | TEXT | 'sonnet' | NO | CHECK: 'sonnet','haiku' |
+| context_sources | TEXT[] | '{}' | NO | Array of context type keys to load |
 | person_selector | BOOLEAN | false | NO | |
-| available_to_roles | TEXT[] | — | YES | |
+| opening_messages | JSONB | '[]' | NO | Array of opening message strings (min 2) |
+| system_prompt_key | TEXT | — | NO | Reference to system prompt additions |
+| available_to_roles | TEXT[] | '{"mom"}' | NO | |
 | requires_feature_key | TEXT | — | YES | |
+| sort_order | INTEGER | 0 | NO | Display ordering |
+| is_active | BOOLEAN | true | NO | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Public read.
-**Indexes:** `idx_lgm_key` ON mode_key (unique)
+**Indexes:** `idx_lgm_key` ON mode_key (unique); `idx_lgm_active_roles` ON (is_active, available_to_roles) WHERE is_active = true
 
 ---
 
@@ -445,13 +456,14 @@
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
 | mode_key | TEXT | — | NO | FK lila_guided_modes.mode_key |
-| is_granted | BOOLEAN | false | NO | |
-| granted_by | UUID | — | NO | FK family_members |
+| is_enabled | BOOLEAN | true | NO | |
+| context_person_ids | UUID[] | '{}' | NO | Which people's context this member can access |
+| include_family_context | BOOLEAN | false | NO | Whether family-level context is included |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Primary parent can manage. Member can read own.
-**Indexes:** `idx_ltp_family_member` ON (family_id, member_id); `idx_ltp_mode` ON mode_key
+**Indexes:** `idx_ltp_family_member` ON (family_id, member_id); `idx_ltp_mode` ON mode_key; `idx_ltp_member_mode` UNIQUE ON (family_id, member_id, mode_key)
 **Triggers:** `trg_ltp_updated_at`
 
 ---

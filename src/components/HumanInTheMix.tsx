@@ -41,7 +41,7 @@ export function HumanInTheMix({
       <button
         onClick={onApprove}
         disabled={isLoading}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+        className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
         style={{
           backgroundColor: 'var(--color-btn-primary-bg)',
           color: 'var(--color-btn-primary-text)',

@@ -52,6 +52,13 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 10. **During beta:** `useCanAccess()` returns true for everything (all tiers unlocked). Infrastructure must still be in place.
 11. **PRDs are the ONLY source of truth for building features.** Before writing ANY code for a feature, you MUST read the FULL PRD file in `prds/` AND any related addenda in `prds/addenda/`. The `claude/database_schema.md` file is a summary reference — it is NOT authoritative for schema design. If `database_schema.md` conflicts with a PRD, the PRD wins. If two PRDs conflict, the newer one wins. Every column, every enum value, every screen, every interaction, every empty state, every visibility rule in the PRD must be implemented precisely. This platform is a Rube Goldberg machine — every piece connects, and precision is non-negotiable.
 12. **Never modify files in `prds/`, `specs/`, or `reference/`.** These are read-only source material.
+13. **No "MVP" or placeholder implementations.** Build every feature complete and correct the first time. Never use local regex stubs, setTimeout placeholders, or "simple parsing for MVP" comments. If a feature needs AI, connect AI. If it needs streaming, stream. If it's not ready to build right, don't build it yet — ask the founder. This is a law of this codebase.
+14. **Post-phase checklist (MANDATORY after completing each build phase):** Update these files before moving to the next phase:
+    - `BUILD_STATUS.md` — mark phase complete with date
+    - `claude/database_schema.md` — update any new/changed tables and columns
+    - `STUB_REGISTRY.md` — add new stubs created, update wired status of existing stubs
+    - `CLAUDE.md` — add any new conventions introduced by the phase
+    - Add `<FeatureGuide featureKey="xxx" />` to every new page/feature
 
 ## Pricing (PRD-31 Authoritative)
 

@@ -1,4 +1,4 @@
-import { Trophy, Calendar, BarChart3, Compass, Users, Archive, Sun, Moon } from 'lucide-react'
+import { Trophy, Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings } from 'lucide-react'
 import { PlaceholderPage } from './PlaceholderPage'
 
 export function VictoriesPage() {
@@ -31,4 +31,8 @@ export function MorningRhythmPage() {
 
 export function EveningReviewPage() {
   return <PlaceholderPage title="Evening Review" description="Reflect on your day. Gratitude, wins, and tomorrow's intentions." icon={Moon} prd="PRD-18" />
+}
+
+export function SettingsPage() {
+  return <PlaceholderPage title="Settings" description="Account management, family settings, LiLa preferences, data export, and subscription management." icon={Settings} prd="PRD-22" />
 }

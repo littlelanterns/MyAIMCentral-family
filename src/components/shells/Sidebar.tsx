@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  ChevronLeft, ChevronRight, Menu, X,
+  ChevronLeft, ChevronRight, Menu, X, Settings, Eye,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamily } from '@/hooks/useFamily'
+import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
 
 interface NavItem {
@@ -72,11 +76,18 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
+  const settings: NavSection = {
+    title: 'System',
+    items: [
+      { label: 'Settings', path: '/settings', icon: <Settings size={20} />, tooltip: 'Account and family settings' },
+    ],
+  }
+
   switch (shell) {
     case 'mom':
-      return [home, capture, plan, grow, family, tools]
+      return [home, capture, plan, grow, family, tools, settings]
     case 'adult':
-      return [home, capture, plan, grow, family]
+      return [home, capture, plan, grow, family, settings]
     case 'independent':
       return [home, capture, plan, {
         ...grow,
@@ -117,8 +128,101 @@ export function Sidebar() {
 
   if (shell === 'play' || sections.length === 0) return null
 
+  return <SidebarInner sections={sections} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} shell={shell} isPreview={isPreview} />
+}
+
+/** ViewAs member switcher — mom only, at the bottom of the sidebar */
+function ViewAsSwitcher() {
+  const { data: member } = useFamilyMember()
+  const { data: family } = useFamily()
+  const { isViewingAs, viewingAsMember, startViewAs, stopViewAs } = useViewAs()
+  const [members, setMembers] = useState<Array<{ id: string; display_name: string; role: string }>>([])
+  const [open, setOpen] = useState(false)
+
+  // Load family members
+  useEffect(() => {
+    if (!family?.id) return
+    supabase
+      .from('family_members')
+      .select('id, display_name, role')
+      .eq('family_id', family.id)
+      .eq('is_active', true)
+      .then(({ data }) => {
+        if (data) setMembers(data as Array<{ id: string; display_name: string; role: string }>)
+      })
+  }, [family?.id])
+
+  if (!member || !family) return null
+
+  return (
+    <div className="border-t p-3 mt-auto" style={{ borderColor: 'var(--color-border)' }}>
+      {isViewingAs ? (
+        <div>
+          <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            Viewing as:
+          </p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              {viewingAsMember?.display_name}
+            </span>
+            <button
+              onClick={stopViewAs}
+              className="text-xs px-2 py-1 rounded"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}
+            >
+              Stop
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <button
+            onClick={() => setOpen(!open)}
+            className="flex items-center gap-1.5 text-xs w-full px-2 py-1.5 rounded"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <Eye size={14} />
+            View As...
+          </button>
+          {open && (
+            <div className="mt-1 space-y-0.5">
+              {members
+                .filter(m => m.id !== member.id)
+                .map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      startViewAs(m as any, member.id, family.id)
+                      setOpen(false)
+                    }}
+                    className="w-full text-left text-xs px-2 py-1 rounded hover:opacity-80"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    {m.display_name} <span style={{ color: 'var(--color-text-secondary)' }}>({m.role})</span>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SidebarInner({
+  sections, collapsed, setCollapsed, mobileOpen, setMobileOpen, shell, isPreview,
+}: {
+  sections: NavSection[]
+  collapsed: boolean
+  setCollapsed: (v: boolean) => void
+  mobileOpen: boolean
+  setMobileOpen: (v: boolean) => void
+  shell: ShellType
+  isPreview: boolean
+}) {
+
   const sidebarContent = (
-    <nav className="h-full flex flex-col overflow-y-auto py-4">
+    <nav className="flex-1 flex flex-col overflow-y-auto py-4">
       {sections.map((section) => (
         <div key={section.title} className="mb-4">
           {!collapsed && (
@@ -207,6 +311,7 @@ export function Sidebar() {
           </button>
         </div>
         {sidebarContent}
+        {shell === 'mom' && !collapsed && <ViewAsSwitcher />}
       </aside>
     </>
   )

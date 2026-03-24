@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Home, CheckSquare, BookOpen, Trophy, BarChart3, Settings } from 'lucide-react'
+import { LilaModalTrigger } from '@/components/lila'
 
 interface GuidedShellProps {
   children: ReactNode
@@ -28,9 +29,12 @@ export function GuidedShell({ children }: GuidedShellProps) {
         >
           MyAIM
         </h1>
-        <button className="p-2 rounded-full" style={{ color: 'var(--color-text-secondary)' }}>
-          <Settings size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <LilaModalTrigger modeKey="guided_communication_coach" label="LiLa" />
+          <button className="p-2 rounded-full" style={{ color: 'var(--color-text-secondary)' }}>
+            <Settings size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Main content */}

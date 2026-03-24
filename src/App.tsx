@@ -19,7 +19,7 @@ import { ListsPage } from '@/pages/Lists'
 import { DevPreview } from '@/pages/DevPreview'
 import {
   VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
-  FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage,
+  FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage, SettingsPage,
 } from '@/pages/placeholder'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
@@ -71,6 +71,7 @@ function App() {
               <Route path="/archives" element={<ProtectedRoute><ArchivesPage /></ProtectedRoute>} />
               <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
               <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Users, Wand2, Check } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Users, Wand2, Check, Loader } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { FeatureGuide } from '@/components/shared'
 import { useQueryClient } from '@tanstack/react-query'
+import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 
 interface ParsedMember {
   id: string
@@ -37,119 +38,87 @@ export function FamilySetup() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  // PRD-01: AI bulk parsing — parse natural language family description
+  // PRD-01: AI-powered family description parsing
   async function handleParse() {
     if (!familyDescription.trim()) return
     setLoading(true)
     setError('')
 
     try {
-      // For MVP: Simple parsing without AI. Production uses Sonnet via Edge Function.
-      const members = parseDescriptionLocally(familyDescription)
-      if (members.length === 0) {
-        setError('We couldn\'t find any family members in your description. Try something like: "My husband John, our kids Emma (14) and Liam (8), and my mom who babysits."')
+      const systemPrompt = `You parse natural language descriptions of families into structured member data for a family management app.
+
+For each person mentioned (NOT the user themselves), extract:
+- display_name (string) — their first name
+- relationship (one of: "spouse", "child", "special")
+  - spouse: husband, wife, partner
+  - child: son, daughter, kid, any minor
+  - special: grandparent, babysitter, nanny, caregiver, au pair, tutor, any non-parent adult helper
+- age (number or null) — only if stated or clearly implied
+- dashboard_mode (one of: "adult", "independent", "guided", "play")
+  - adult: all spouses and special adults
+  - independent: teens roughly 13-17
+  - guided: children roughly 6-12
+  - play: children roughly 0-5
+  - Use age to determine if available, otherwise infer from context
+- custom_role (string or null) — for special adults only: "Grandmother", "Babysitter", "Nanny", etc.
+- in_household (boolean) — true for people who live in the home, false for caregivers who visit
+
+Rules:
+- Do NOT include the user (the person writing the description) in results
+- If someone is described as "my husband" or "my wife", they are relationship "spouse"
+- If someone is described as a grandparent, babysitter, nanny, etc., they are relationship "special"
+- All other people mentioned are relationship "child" unless clearly an adult
+- Birthday information can be noted but the primary output is the structured member data
+
+Return ONLY a JSON array. Example:
+[
+  {"display_name": "Mark", "relationship": "spouse", "age": 38, "dashboard_mode": "adult", "custom_role": null, "in_household": true},
+  {"display_name": "Emma", "relationship": "child", "age": 14, "dashboard_mode": "independent", "custom_role": null, "in_household": true},
+  {"display_name": "Linda", "relationship": "special", "age": 65, "dashboard_mode": "adult", "custom_role": "Grandmother", "in_household": false}
+]`
+
+      const response = await sendAIMessage(
+        systemPrompt,
+        [{ role: 'user', content: familyDescription.trim() }],
+        2048,
+        'haiku',
+      )
+
+      const parsed = extractJSON<Array<Record<string, unknown>>>(response)
+
+      if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+        setError('We couldn\'t find any family members in your description. Try something like: "My husband Mark, our daughter Emma (14), our son Liam (8), and my mom Linda who babysits."')
         setLoading(false)
         return
       }
+
+      const members: ParsedMember[] = parsed
+        .filter(m => m.display_name && typeof m.display_name === 'string')
+        .map(m => ({
+          id: crypto.randomUUID(),
+          display_name: (m.display_name as string).trim(),
+          relationship: (['spouse', 'child', 'special'].includes(m.relationship as string) ? m.relationship : 'child') as ParsedMember['relationship'],
+          role: m.relationship === 'spouse' ? 'additional_adult' as const
+            : m.relationship === 'special' ? 'special_adult' as const
+            : 'member' as const,
+          dashboard_mode: (['adult', 'independent', 'guided', 'play'].includes(m.dashboard_mode as string) ? m.dashboard_mode : 'guided') as ParsedMember['dashboard_mode'],
+          age: typeof m.age === 'number' && m.age > 0 ? m.age : null,
+          custom_role: typeof m.custom_role === 'string' ? m.custom_role : null,
+          in_household: m.in_household !== false,
+        }))
+
+      if (members.length === 0) {
+        setError('We couldn\'t find any family members in your description. Try being more specific with names and relationships.')
+        setLoading(false)
+        return
+      }
+
       setParsedMembers(members)
       setStep('preview')
-    } catch {
-      setError('Something went wrong parsing your description. Try adding members manually instead.')
+    } catch (err) {
+      setError(`Something went wrong: ${err instanceof Error ? err.message : 'Please try again.'}`)
     }
     setLoading(false)
-  }
-
-  // Simple local parsing for MVP (replaces AI call)
-  function parseDescriptionLocally(text: string): ParsedMember[] {
-    const members: ParsedMember[] = []
-    // Split on common delimiters
-    const segments = text.split(/[,;.&]|\band\b/i).map((s) => s.trim()).filter(Boolean)
-
-    for (const segment of segments) {
-      const member = parseSegment(segment)
-      if (member) members.push(member)
-    }
-    return members
-  }
-
-  function parseSegment(text: string): ParsedMember | null {
-    const lower = text.toLowerCase().trim()
-    if (!lower || lower.length < 2) return null
-
-    // Extract age if present
-    const ageMatch = lower.match(/\((\d{1,2})\)|\bage[d]?\s*(\d{1,2})\b|(\d{1,2})\s*(?:years?\s*old|yr|yo)/i)
-    const age = ageMatch ? parseInt(ageMatch[1] || ageMatch[2] || ageMatch[3]) : null
-
-    // Extract name — first capitalized word or word after relationship indicator
-    const nameMatch = text.match(/(?:my\s+)?(?:husband|wife|spouse|partner|son|daughter|child|kid|mom|dad|mother|father|grandma|grandmother|grandpa|grandfather|babysitter|nanny|sitter|caregiver|au pair)?\s*,?\s*([A-Z][a-z]+)/i)
-    const name = nameMatch?.[1] || text.split(/\s+/)[0]?.replace(/[^a-zA-Z]/g, '') || 'Family Member'
-
-    // Determine relationship and role
-    const isSpouse = /husband|wife|spouse|partner/i.test(lower)
-    const isCaregiver = /babysit|nanny|sitter|caregiver|au pair|grandma|grandmother|grandpa|grandfather|mom(?!\s)|dad(?!\s)|mother|father/i.test(lower) && !isSpouse
-    const isChild = /son|daughter|child|kid|boy|girl|teen|toddler|baby|infant/i.test(lower) || (age !== null && age < 18)
-
-    if (isSpouse) {
-      return {
-        id: crypto.randomUUID(),
-        display_name: name,
-        relationship: 'spouse',
-        role: 'additional_adult',
-        dashboard_mode: 'adult',
-        age,
-        custom_role: null,
-        in_household: true,
-      }
-    }
-
-    if (isCaregiver) {
-      const roleLabel = lower.match(/grandma|grandmother/i) ? 'Grandmother'
-        : lower.match(/grandpa|grandfather/i) ? 'Grandfather'
-        : lower.match(/nanny/i) ? 'Nanny'
-        : lower.match(/babysit|sitter/i) ? 'Babysitter'
-        : 'Caregiver'
-      return {
-        id: crypto.randomUUID(),
-        display_name: name,
-        relationship: 'special',
-        role: 'special_adult',
-        dashboard_mode: 'adult',
-        age: null,
-        custom_role: roleLabel,
-        in_household: false,
-      }
-    }
-
-    if (isChild || (age !== null && age < 18)) {
-      const mode = age !== null
-        ? age >= 13 ? 'independent' : age >= 6 ? 'guided' : 'play'
-        : /teen/i.test(lower) ? 'independent'
-        : /toddler|baby|infant/i.test(lower) ? 'play'
-        : 'guided'
-
-      return {
-        id: crypto.randomUUID(),
-        display_name: name,
-        relationship: 'child',
-        role: 'member',
-        dashboard_mode: mode,
-        age,
-        custom_role: null,
-        in_household: true,
-      }
-    }
-
-    // Default to household member
-    return {
-      id: crypto.randomUUID(),
-      display_name: name.charAt(0).toUpperCase() + name.slice(1),
-      relationship: 'child',
-      role: 'member',
-      dashboard_mode: 'guided',
-      age,
-      custom_role: null,
-      in_household: true,
-    }
   }
 
   function addManualMember() {
@@ -327,8 +296,8 @@ export function FamilySetup() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }}
             >
-              <Wand2 size={16} />
-              {loading ? 'Parsing...' : 'Parse & Preview'}
+              {loading ? <Loader size={16} className="animate-spin" /> : <Wand2 size={16} />}
+              {loading ? 'Processing with AI...' : 'Parse & Preview'}
             </button>
             <button
               onClick={addManualMember}
