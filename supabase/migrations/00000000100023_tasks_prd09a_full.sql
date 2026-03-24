@@ -53,25 +53,32 @@ ALTER TABLE public.task_templates
   CHECK (task_type IN ('task','routine','opportunity','habit'));
 
 ALTER TABLE public.task_templates
+  DROP CONSTRAINT IF EXISTS task_templates_template_type_check;
+ALTER TABLE public.task_templates
   ADD CONSTRAINT task_templates_template_type_check
   CHECK (template_type IN ('task','routine','opportunity_repeatable','opportunity_claimable','opportunity_capped','sequential','habit'));
 
+ALTER TABLE public.task_templates DROP CONSTRAINT IF EXISTS task_templates_incomplete_action_check;
 ALTER TABLE public.task_templates
   ADD CONSTRAINT task_templates_incomplete_action_check
   CHECK (incomplete_action IN ('fresh_reset','auto_reschedule','drop_after_date','reassign_until_complete','require_decision','escalate_to_parent'));
 
+ALTER TABLE public.task_templates DROP CONSTRAINT IF EXISTS task_templates_sequential_promotion_check;
 ALTER TABLE public.task_templates
   ADD CONSTRAINT task_templates_sequential_promotion_check
   CHECK (sequential_promotion IN ('immediate','next_day','manual'));
 
+ALTER TABLE public.task_templates DROP CONSTRAINT IF EXISTS task_templates_display_mode_check;
 ALTER TABLE public.task_templates
   ADD CONSTRAINT task_templates_display_mode_check
   CHECK (display_mode IN ('collapsed','expanded'));
 
+ALTER TABLE public.task_templates DROP CONSTRAINT IF EXISTS task_templates_claim_lock_unit_check;
 ALTER TABLE public.task_templates
   ADD CONSTRAINT task_templates_claim_lock_unit_check
   CHECK (claim_lock_unit IS NULL OR claim_lock_unit IN ('hours','days','weeks'));
 
+ALTER TABLE public.task_templates DROP CONSTRAINT IF EXISTS task_templates_duration_estimate_check;
 ALTER TABLE public.task_templates
   ADD CONSTRAINT task_templates_duration_estimate_check
   CHECK (duration_estimate IS NULL OR duration_estimate IN ('5min','10min','15min','30min','45min','1hr','1.5hr','2hr','half_day','full_day','custom'));
@@ -99,6 +106,7 @@ ALTER TABLE public.task_template_sections
 UPDATE public.task_template_sections SET section_name = title WHERE section_name IS NULL;
 ALTER TABLE public.task_template_sections ALTER COLUMN section_name SET NOT NULL;
 
+ALTER TABLE public.task_template_sections DROP CONSTRAINT IF EXISTS tts_frequency_rule_check;
 ALTER TABLE public.task_template_sections
   ADD CONSTRAINT tts_frequency_rule_check
   CHECK (frequency_rule IN ('daily','weekdays','weekly','monthly','custom'));
@@ -396,6 +404,7 @@ UPDATE public.sequential_collections
   SET total_items = array_length(task_ids, 1)
   WHERE total_items = 0 AND task_ids IS NOT NULL;
 
+ALTER TABLE public.sequential_collections DROP CONSTRAINT IF EXISTS sc_promotion_timing_check;
 ALTER TABLE public.sequential_collections
   ADD CONSTRAINT sc_promotion_timing_check
   CHECK (promotion_timing IN ('immediate','next_day','manual'));

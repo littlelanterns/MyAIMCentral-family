@@ -20,6 +20,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Palette, Filter, ArrowUpDown } from 'lucide-react'
 import { Tabs, PlannedExpansionCard, FeatureGuide, FeatureIcon, EmptyState, LoadingSpinner } from '@/components/shared'
 import { StudioCategorySection } from '@/components/studio/StudioCategorySection'
@@ -39,7 +40,11 @@ import {
 } from '@/components/studio/studio-seed-data'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
+import { GuidedFormAssignModal } from '@/components/guided-forms/GuidedFormAssignModal'
+import { getSectionsForSubtype } from '@/components/guided-forms/guidedFormTypes'
+import type { GuidedFormTemplate, GuidedFormSubtype as GFSubtype } from '@/components/guided-forms/guidedFormTypes'
 import { useFamily } from '@/hooks/useFamily'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -136,8 +141,10 @@ type CustomizedFilter = 'all' | 'assigned' | 'unassigned'
 // ─────────────────────────────────────────────
 
 export function StudioPage() {
-  const { data: _member } = useFamilyMember() // reserved for future member-scoped features
+  const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
+  const { data: familyMembers = [] } = useFamilyMembers(family?.id)
+  const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState<'browse' | 'customized'>('browse')
   const [searchQuery, setSearchQuery] = useState('')
@@ -148,6 +155,10 @@ export function StudioPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalInitialType, setModalInitialType] = useState<string>('task')
 
+  // GuidedFormAssignModal state
+  const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
+  const [guidedFormSubtype, setGuidedFormSubtype] = useState<string>('custom')
+
   const {
     data: customizedTemplates = [],
     isLoading: customizedLoading,
@@ -156,17 +167,42 @@ export function StudioPage() {
   // ── Customize handler ────────────────────────────────────────
 
   const handleCustomize = useCallback((template: StudioTemplate) => {
+    // Guided Forms → open GuidedFormAssignModal
+    if (template.templateType.startsWith('guided_form')) {
+      const subtypeMap: Record<string, string> = {
+        guided_form: 'custom',
+        guided_form_sodas: 'sodas',
+        guided_form_what_if: 'what_if',
+        guided_form_apology_reflection: 'apology_reflection',
+      }
+      setGuidedFormSubtype(subtypeMap[template.templateType] ?? 'custom')
+      setGuidedFormModalOpen(true)
+      return
+    }
+
+    // List types → navigate to Lists page with the create modal pre-triggered
+    if (template.templateType.startsWith('list_') || template.templateType === 'randomizer') {
+      const listTypeMap: Record<string, string> = {
+        list_shopping: 'shopping',
+        list_wishlist: 'wishlist',
+        list_packing: 'packing',
+        list_expenses: 'expenses',
+        list_todo: 'todo',
+        list_custom: 'custom',
+        randomizer: 'randomizer',
+      }
+      const listType = listTypeMap[template.templateType] ?? 'custom'
+      navigate(`/lists?create=${listType}`)
+      return
+    }
+
+    // Task types → open TaskCreationModal
     const taskType = studioTypeToTaskType(template.templateType)
     if (taskType) {
       setModalInitialType(taskType)
       setModalOpen(true)
-    } else {
-      // List types — ListCreationModal not yet implemented
-      console.info('[Studio] List creation flow not yet implemented. Opening default.')
-      setModalInitialType('task')
-      setModalOpen(true)
     }
-  }, [])
+  }, [navigate])
 
   const handleUseAsIs = useCallback((template: StudioTemplate) => {
     handleCustomize(template)
@@ -432,21 +468,34 @@ export function StudioPage() {
                   key={tpl.id}
                   template={tpl}
                   onDeploy={(t) => {
-                    // TODO: open deploy flow
-                    console.info('[Studio] Deploy template:', t.id)
-                  }}
-                  onEdit={(t) => {
-                    const taskType = mapDbTypeToStudioType(t.templateType as unknown as string)
-                    setModalInitialType(taskType as string || 'task')
+                    // Open TaskCreationModal pre-filled from this template
+                    setModalInitialType(t.templateType as string || 'task')
                     setModalOpen(true)
                   }}
-                  onDuplicate={(t) => {
-                    // TODO: duplicate template
-                    console.info('[Studio] Duplicate template:', t.id)
+                  onEdit={(t) => {
+                    setModalInitialType(t.templateType as string || 'task')
+                    setModalOpen(true)
                   }}
-                  onArchive={(t) => {
-                    // TODO: archive template
-                    console.info('[Studio] Archive template:', t.id)
+                  onDuplicate={async (t) => {
+                    // Duplicate: copy the template record with a new name
+                    const { error } = await supabase.from('task_templates').insert({
+                      family_id: family?.id,
+                      created_by: member?.id,
+                      title: `${t.name} (copy)`,
+                      task_type: t.templateType,
+                      is_system: false,
+                    })
+                    if (!error) {
+                      // Refresh the customized list
+                      window.location.reload()
+                    }
+                  }}
+                  onArchive={async (t) => {
+                    await supabase
+                      .from('task_templates')
+                      .update({ archived_at: new Date().toISOString() })
+                      .eq('id', t.id)
+                    window.location.reload()
                   }}
                 />
               ))}
@@ -483,6 +532,28 @@ export function StudioPage() {
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
           onSave={handleTaskSaved}
+        />
+      )}
+
+      {/* ── Guided Form Assign Modal ──────────────────────────── */}
+      {guidedFormModalOpen && (
+        <GuidedFormAssignModal
+          open={guidedFormModalOpen}
+          onClose={() => setGuidedFormModalOpen(false)}
+          template={{
+            id: `studio_${guidedFormSubtype}`,
+            family_id: null,
+            created_by: null,
+            title: guidedFormSubtype === 'sodas' ? 'SODAS' : guidedFormSubtype === 'what_if' ? 'What-If Game' : guidedFormSubtype === 'apology_reflection' ? 'Apology Reflection' : 'Guided Form',
+            description: null,
+            template_type: 'guided_form',
+            guided_form_subtype: guidedFormSubtype as GFSubtype,
+            config: { sections: getSectionsForSubtype(guidedFormSubtype as GFSubtype) },
+            is_system: true,
+          }}
+          familyId={family?.id ?? ''}
+          assigningMemberId={member?.id ?? ''}
+          eligibleChildren={familyMembers.filter(m => m.id !== member?.id)}
         />
       )}
     </div>

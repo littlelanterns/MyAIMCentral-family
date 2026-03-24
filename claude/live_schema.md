@@ -357,15 +357,73 @@
 
 ## `task_templates`
 
-*(empty table — columns exist but no sample row)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `created_by` |
+| 4 | `title` |
+| 5 | `description` |
+| 6 | `task_type` |
+| 7 | `config` |
+| 8 | `is_system` |
+| 9 | `created_at` |
+| 10 | `updated_at` |
+| 11 | `template_name` |
+| 12 | `template_type` |
+| 13 | `duration_estimate` |
+| 14 | `life_area_tag` |
+| 15 | `default_reward_type` |
+| 16 | `default_reward_amount` |
+| 17 | `default_bonus_threshold` |
+| 18 | `require_approval` |
+| 19 | `incomplete_action` |
+| 20 | `image_url` |
+| 21 | `max_completions` |
+| 22 | `claim_lock_duration` |
+| 23 | `claim_lock_unit` |
+| 24 | `sequential_active_count` |
+| 25 | `sequential_promotion` |
+| 26 | `display_mode` |
+| 27 | `usage_count` |
+| 28 | `last_deployed_at` |
+| 29 | `archived_at` |
+| 30 | `is_system_template` |
+| 31 | `is_example` |
+| 32 | `example_use_cases` |
+| 33 | `category_label` |
+| 34 | `guided_form_subtype` |
+| 35 | `guided_form_sections` |
 
 ## `task_template_sections`
 
-*(empty table — columns exist but no sample row)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `template_id` |
+| 3 | `title` |
+| 4 | `sort_order` |
+| 5 | `created_at` |
+| 6 | `section_name` |
+| 7 | `frequency_rule` |
+| 8 | `frequency_days` |
+| 9 | `show_until_complete` |
+| 10 | `updated_at` |
 
 ## `task_template_steps`
 
-*(empty table — columns exist but no sample row)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `section_id` |
+| 3 | `title` |
+| 4 | `sort_order` |
+| 5 | `created_at` |
+| 6 | `step_name` |
+| 7 | `step_notes` |
+| 8 | `instance_count` |
+| 9 | `require_photo` |
+| 10 | `updated_at` |
 
 ## `tasks`
 
@@ -490,7 +548,39 @@
 
 ## `list_items`
 
-*(empty table — columns exist but no sample row)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `list_id` |
+| 3 | `content` |
+| 4 | `checked` |
+| 5 | `section_name` |
+| 6 | `notes` |
+| 7 | `availability_mode` |
+| 8 | `max_instances` |
+| 9 | `completed_instances` |
+| 10 | `recurrence_config` |
+| 11 | `next_available_at` |
+| 12 | `sort_order` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+| 15 | `item_name` |
+| 16 | `checked_by` |
+| 17 | `checked_at` |
+| 18 | `url` |
+| 19 | `quantity` |
+| 20 | `quantity_unit` |
+| 21 | `price` |
+| 22 | `currency` |
+| 23 | `category` |
+| 24 | `item_date` |
+| 25 | `priority` |
+| 26 | `gift_for` |
+| 27 | `promoted_to_task` |
+| 28 | `promoted_task_id` |
+| 29 | `is_repeatable` |
+| 30 | `is_available` |
+| 31 | `parent_item_id` |
 
 ## `list_shares`
 
@@ -514,6 +604,10 @@
 | 12 | `last_deployed_at` |
 | 13 | `archived_at` |
 | 14 | `updated_at` |
+| 15 | `is_system_template` |
+| 16 | `is_example` |
+| 17 | `example_use_cases` |
+| 18 | `category_label` |
 
 ## `guided_form_responses`
 
@@ -617,4 +711,8 @@
 | 10 | `tags` |
 | 11 | `vibe_compatibility` |
 | 12 | `created_at` |
+| 13 | `display_name` |
+| 14 | `embedding` |
+| 15 | `assigned_to` |
+| 16 | `status` |
 
