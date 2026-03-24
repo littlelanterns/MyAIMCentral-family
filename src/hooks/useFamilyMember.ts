@@ -7,11 +7,26 @@ export interface FamilyMember {
   family_id: string
   user_id: string | null
   display_name: string
-  role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'independent' | 'guided' | 'play'
+  role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'
+  dashboard_mode: 'adult' | 'independent' | 'guided' | 'play' | null
   avatar_url: string | null
   login_method: string | null
   member_color: string | null
+  calendar_color: string | null
+  assigned_color: string | null
+  nicknames: string[]
+  relationship: 'self' | 'spouse' | 'child' | 'special' | null
+  custom_role: string | null
+  age: number | null
+  date_of_birth: string | null
+  in_household: boolean
+  dashboard_enabled: boolean
+  out_of_nest: boolean
+  onboarding_completed: boolean
   is_active: boolean
+  theme_preferences: Record<string, unknown>
+  layout_preferences: Record<string, unknown>
+  preferences: Record<string, unknown>
   created_at: string
 }
 

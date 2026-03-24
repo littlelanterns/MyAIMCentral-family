@@ -228,7 +228,7 @@ Master build sequence. Each phase includes PRD references, tables created, depen
 
 ## Phase 28: BookShelf
 - **PRDs:** PRD-23
-- **Tables:** bookshelf_items, bookshelf_chapters, bookshelf_chunks, bookshelf_summaries, bookshelf_principles, bookshelf_declarations, bookshelf_action_steps, bookshelf_questions, bookshelf_discussions, bookshelf_discussion_messages, bookshelf_collections, bookshelf_collection_items, journal_prompts, bookshelf_member_settings, platform_intelligence.book_cache
+- **Tables:** bookshelf_items, bookshelf_chapters, bookshelf_chunks, bookshelf_summaries, bookshelf_insights, bookshelf_declarations, bookshelf_action_steps, bookshelf_questions, bookshelf_discussions, bookshelf_discussion_messages, bookshelf_collections, bookshelf_collection_items, journal_prompts, bookshelf_member_settings, platform_intelligence.book_cache
 - **Dependencies:** Phase 06, 13, 25
 - **Complexity:** Very Large
 - **Extraction Pull:** Yes — StewardShip book extraction data for seed content

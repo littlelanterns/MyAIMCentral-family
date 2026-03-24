@@ -87,7 +87,7 @@
 | PRD-21B | AI Vault Admin | (uses `vault_items`, `staff_permissions`) | `vault_admin` | Admin | MVP |
 | PRD-21C | AI Vault Engagement & Community | `vault_engagement`, `vault_comments`, `vault_comment_reports`, `vault_moderation_log`, `vault_satisfaction_signals`, `vault_engagement_config` | `vault_engagement_hearts`, `vault_engagement_comments` | Essential | MVP |
 | PRD-22 | Settings | `member_emails`, `lila_member_preferences`, `data_exports`, `account_deletions` | `settings_basic`, `settings_family_management`, `settings_data_export`, `settings_multi_email` | Essential-Enhanced | MVP |
-| PRD-23 | BookShelf | `bookshelf_items`, `bookshelf_chapters`, `bookshelf_chunks`, `bookshelf_summaries`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `bookshelf_discussions`, `bookshelf_discussion_messages`, `bookshelf_collections`, `bookshelf_collection_items`, `journal_prompts`, `bookshelf_member_settings`, `platform_intelligence.book_cache` | `bookshelf_browse`, `bookshelf_upload`, `bookshelf_extract`, `bookshelf_discuss`, `bookshelf_export` | Essential-Full Magic | MVP |
+| PRD-23 | BookShelf | `bookshelf_items`, `bookshelf_chapters`, `bookshelf_chunks`, `bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `bookshelf_discussions`, `bookshelf_discussion_messages`, `bookshelf_collections`, `bookshelf_collection_items`, `journal_prompts`, `bookshelf_member_settings`, `platform_intelligence.book_cache` | `bookshelf_browse`, `bookshelf_upload`, `bookshelf_extract`, `bookshelf_discuss`, `bookshelf_export` | Essential-Full Magic | MVP |
 
 ---
 

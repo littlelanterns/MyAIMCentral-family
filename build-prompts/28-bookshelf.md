@@ -22,7 +22,7 @@ Create tables:
 - `bookshelf_chapters` — Chapter breakdown per book with ordering and title
 - `bookshelf_chunks` — Text chunks with embeddings for RAG retrieval
 - `bookshelf_summaries` — AI-generated summaries per chapter/book
-- `bookshelf_principles` — Extracted principles with source chapter reference
+- `bookshelf_insights` — Extracted insights (principles, frameworks, mental models, etc.) with source chapter reference
 - `bookshelf_declarations` — Extracted declarations (I will / I am statements)
 - `bookshelf_action_steps` — Extracted actionable steps with optional task linkage
 - `bookshelf_questions` — Extracted reflection/discussion questions

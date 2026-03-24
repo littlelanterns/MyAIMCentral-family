@@ -5,6 +5,8 @@ import type { FamilyMember } from '@/hooks/useFamilyMember'
 interface ViewAsContextType {
   isViewingAs: boolean
   viewingAsMember: FamilyMember | null
+  /** The real viewer's member ID (mom or dad who initiated View As) */
+  realViewerId: string | null
   startViewAs: (member: FamilyMember, viewerId: string, familyId: string) => Promise<void>
   stopViewAs: () => Promise<void>
   switchViewAs: (member: FamilyMember) => Promise<void>
@@ -13,6 +15,7 @@ interface ViewAsContextType {
 const ViewAsContext = createContext<ViewAsContextType>({
   isViewingAs: false,
   viewingAsMember: null,
+  realViewerId: null,
   startViewAs: async () => {},
   stopViewAs: async () => {},
   switchViewAs: async () => {},
@@ -29,6 +32,8 @@ interface ViewAsProviderProps {
 export function ViewAsProvider({ children }: ViewAsProviderProps) {
   const [viewingAsMember, setViewingAsMember] = useState<FamilyMember | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [realViewerId, setRealViewerId] = useState<string | null>(null)
+  const [realFamilyId, setRealFamilyId] = useState<string | null>(null)
 
   const startViewAs = useCallback(async (member: FamilyMember, viewerId: string, familyId: string) => {
     const { data } = await supabase
@@ -44,6 +49,8 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
     if (data) {
       setSessionId(data.id)
       setViewingAsMember(member)
+      setRealViewerId(viewerId)
+      setRealFamilyId(familyId)
     }
   }, [])
 
@@ -57,6 +64,8 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
 
     setViewingAsMember(null)
     setSessionId(null)
+    setRealViewerId(null)
+    setRealFamilyId(null)
   }, [sessionId])
 
   const switchViewAs = useCallback(async (member: FamilyMember) => {
@@ -68,12 +77,18 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
         .eq('id', sessionId)
     }
 
-    // Start new session (reuse family_id from the member)
+    // Start new session — viewer_id is always the REAL viewer (mom), never the viewed member
+    // Safety: if realViewerId is null (shouldn't happen), abort rather than insert bad data
+    if (!realViewerId || !realFamilyId) {
+      console.error('ViewAs switchViewAs called without an active session. Use startViewAs first.')
+      return
+    }
+
     const { data } = await supabase
       .from('view_as_sessions')
       .insert({
-        family_id: member.family_id,
-        viewer_id: sessionId ? viewingAsMember?.id : member.id,
+        family_id: realFamilyId,
+        viewer_id: realViewerId,
         viewing_as_id: member.id,
       })
       .select('id')
@@ -83,13 +98,14 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
       setSessionId(data.id)
       setViewingAsMember(member)
     }
-  }, [sessionId, viewingAsMember])
+  }, [sessionId, realViewerId, realFamilyId])
 
   return (
     <ViewAsContext.Provider
       value={{
         isViewingAs: viewingAsMember !== null,
         viewingAsMember,
+        realViewerId,
         startViewAs,
         stopViewAs,
         switchViewAs,

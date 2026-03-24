@@ -9,6 +9,8 @@ interface LoginMember {
   display_name: string
   avatar_url: string | null
   login_method: string | null
+  member_color: string | null
+  dashboard_mode: string | null
 }
 
 type Step = 'family-name' | 'member-select' | 'pin-entry'
@@ -191,15 +193,23 @@ export function FamilyLogin() {
                     border: '1px solid var(--theme-border)',
                   }}
                 >
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-medium"
-                    style={{
-                      backgroundColor: 'var(--theme-primary)',
-                      color: 'white',
-                    }}
-                  >
-                    {member.display_name.charAt(0).toUpperCase()}
-                  </div>
+                  {member.avatar_url ? (
+                    <img
+                      src={member.avatar_url}
+                      alt={member.display_name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-medium"
+                      style={{
+                        backgroundColor: member.member_color || 'var(--theme-primary)',
+                        color: 'white',
+                      }}
+                    >
+                      {member.display_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <span className="text-sm font-medium" style={{ color: 'var(--theme-text)' }}>
                     {member.display_name}
                   </span>

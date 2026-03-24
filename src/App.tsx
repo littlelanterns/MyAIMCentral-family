@@ -6,6 +6,10 @@ import { SignIn } from '@/pages/auth/SignIn'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { FamilyLogin } from '@/pages/auth/FamilyLogin'
 import { Dashboard } from '@/pages/Dashboard'
+import { FamilySetup } from '@/pages/FamilySetup'
+import { FamilyLoginNameSetup } from '@/pages/FamilyLoginNameSetup'
+import { FamilyMembers } from '@/pages/FamilyMembers'
+import { PermissionHub } from '@/pages/PermissionHub'
 import { GuidingStarsPage } from '@/pages/GuidingStars'
 import { BestIntentionsPage } from '@/pages/BestIntentions'
 import { InnerWorkingsPage } from '@/pages/InnerWorkings'
@@ -49,6 +53,10 @@ function App() {
 
               {/* Protected routes — AuthGuard + ShellProvider + RoleRouter */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/family-setup" element={<ProtectedRoute><FamilySetup /></ProtectedRoute>} />
+              <Route path="/family-login-name" element={<ProtectedRoute><FamilyLoginNameSetup /></ProtectedRoute>} />
+              <Route path="/family-members" element={<ProtectedRoute><FamilyMembers /></ProtectedRoute>} />
+              <Route path="/permissions" element={<ProtectedRoute><PermissionHub /></ProtectedRoute>} />
               <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />
               <Route path="/best-intentions" element={<ProtectedRoute><BestIntentionsPage /></ProtectedRoute>} />
               <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />

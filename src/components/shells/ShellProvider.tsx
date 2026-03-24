@@ -20,16 +20,19 @@ export function useShell() {
   return useContext(ShellContext)
 }
 
-function getShellForRole(role: string): ShellType {
-  switch (role) {
-    case 'primary_parent': return 'mom'
-    case 'additional_adult': return 'adult'
-    case 'special_adult': return 'adult'
-    case 'independent': return 'independent'
-    case 'guided': return 'guided'
-    case 'play': return 'play'
-    default: return 'mom'
-  }
+/**
+ * Shell routing: PRD-01 Founder Ruling
+ * Role = structural identity (4 values). Dashboard mode = experience shell.
+ * primary_parent always gets MomShell (no dashboard_mode needed).
+ * All others use dashboard_mode to determine shell.
+ */
+function getShellForMember(role: string, dashboardMode: string | null): ShellType {
+  if (role === 'primary_parent') return 'mom'
+  if (dashboardMode === 'independent') return 'independent'
+  if (dashboardMode === 'guided') return 'guided'
+  if (dashboardMode === 'play') return 'play'
+  // additional_adult, special_adult, or member with 'adult' dashboard_mode
+  return 'adult'
 }
 
 interface ShellProviderProps {
@@ -39,7 +42,7 @@ interface ShellProviderProps {
 export function ShellProvider({ children }: ShellProviderProps) {
   const { data: member } = useFamilyMember()
 
-  const shell = member ? getShellForRole(member.role) : 'mom'
+  const shell = member ? getShellForMember(member.role, member.dashboard_mode) : 'mom'
 
   return (
     <ShellContext.Provider

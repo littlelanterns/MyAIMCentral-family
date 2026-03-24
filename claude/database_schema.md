@@ -2,7 +2,7 @@
 
 > **Generated for Family Platform v2**
 > Total: ~165 tables across public and platform_intelligence schemas.
-> All audit rulings applied: `self_knowledge`, `reveal_type`, `access_schedules`, `dashboard_background_key`, `bookshelf_principles`, PRD-15 messaging, PRD-17+17B `studio_queue`.
+> All audit rulings applied: `self_knowledge`, `reveal_type`, `access_schedules`, `dashboard_background_key`, `bookshelf_insights`, PRD-15 messaging, PRD-17+17B `studio_queue`.
 
 ---
 
@@ -2899,7 +2899,7 @@
 
 ---
 
-### `bookshelf_principles`
+### `bookshelf_insights`
 **PRD:** PRD-23 | **Domain:** bookshelf
 
 | Column | Type | Default | Nullable | Notes |
@@ -2907,7 +2907,7 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | bookshelf_item_id | UUID | — | NO | FK bookshelf_items |
 | chapter_id | UUID | — | YES | FK bookshelf_chapters |
-| principle_type | TEXT | — | NO | CHECK: 'principle','mental_model','framework','process','strategy' |
+| content_type | TEXT | — | NO | CHECK: 'principle','framework','mental_model','process','strategy','concept','system','tool_set' |
 | text | TEXT | — | NO | |
 | is_hearted | BOOLEAN | false | NO | |
 | user_note | TEXT | — | YES | |
@@ -2915,7 +2915,7 @@
 | created_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** User can manage own. Family can read shared.
-**Indexes:** `idx_bp_item` ON bookshelf_item_id; `idx_bp_user` ON user_id; `idx_bp_type` ON principle_type
+**Indexes:** `idx_bi_item` ON bookshelf_item_id; `idx_bi_user` ON user_id; `idx_bi_type` ON content_type
 
 ---
 
@@ -4583,6 +4583,6 @@ Tables with `embedding vector(1536)` use pgvector with IVFFlat indexes for simil
 | Animation/reveal naming | `reveal_type` | `animation_template` |
 | Schedule table | `access_schedules` | `shift_schedules` |
 | Dashboard visual key | `dashboard_background_key` | `visual_world_theme` |
-| Book wisdom table | `bookshelf_principles` | `bookshelf_frameworks` |
+| Book wisdom table | `bookshelf_insights` | `bookshelf_frameworks`, `bookshelf_principles` |
 | Messaging system | PRD-15 `messages` | PRD-08 `family_messages` |
 | Studio queue authority | PRD-17 + PRD-17B `studio_queue` | conflicting definitions |

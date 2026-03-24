@@ -13,11 +13,11 @@ BookShelf is the family's book and document knowledge system — a place where m
 
 > **Mom experience goal:** BookShelf should feel like having a brilliant librarian who's read every book you own and can instantly find the passage, the principle, or the declaration that's relevant to whatever you're dealing with today — and who can help you discuss what you've read with your family.
 
-When a member uploads a book, BookShelf extracts its structure, discovers its chapters, and — when the member is ready — produces five types of structured content: summaries of key concepts, principles and frameworks for living, honest declarations that resonate with the reader's identity, concrete action steps they can take, and questions that invite deeper reflection. Members curate this extracted wisdom by hearting the items that matter most, adding personal notes, and routing the best pieces to other features — a declaration becomes a Guiding Star, an action step becomes a task, a question becomes a journal prompt for a quiet moment later, a discussion insight flows through Smart Notepad to wherever it belongs.
+When a member uploads a book, BookShelf extracts its structure, discovers its chapters, and — when the member is ready — produces five types of structured content: summaries of key concepts, insights for living, honest declarations that resonate with the reader's identity, concrete action steps they can take, and questions that invite deeper reflection. Members curate this extracted wisdom by hearting the items that matter most, adding personal notes, and routing the best pieces to other features — a declaration becomes a Guiding Star, an action step becomes a task, a question becomes a journal prompt for a quiet moment later, a discussion insight flows through Smart Notepad to wherever it belongs.
 
 BookShelf is a **family-level resource**. Uploads go to the family's shared BookShelf, and mom controls which members can access which books and extractions. A teenager who uploads a book contributes to the family library. Mom can assign books or collections as tasks. Each member's curation — hearts, notes, deleted items — is entirely their own, even when they're reading the same book.
 
-At the platform level, BookShelf participates in a shared intelligence layer. When a book is uploaded that another family has already processed, the system silently serves cached extractions — saving significant AI cost while delivering an identical experience. Approved frameworks feed into LiLa's synthesized wisdom, where principles from multiple books converge into universal guidance that LiLa applies naturally in conversation, never citing a single source.
+At the platform level, BookShelf participates in a shared intelligence layer. When a book is uploaded that another family has already processed, the system silently serves cached extractions — saving significant AI cost while delivering an identical experience. Approved insights feed into LiLa's synthesized wisdom, where insights from multiple books converge into universal guidance that LiLa applies naturally in conversation, never citing a single source.
 
 > **Decision rationale:** BookShelf is distinct from the AI Vault (PRD-21A/B/C). The Vault is the admin-curated public content storefront — tutorials, tools, and resources published by Tenise. BookShelf is the family's private knowledge base — their own uploaded books and documents. They connect through LiLa context assembly: both can feed LiLa's knowledge during conversations.
 
@@ -35,7 +35,7 @@ At the platform level, BookShelf participates in a shared intelligence layer. Wh
 ### Extraction & Curation
 
 - As a member, I want to select which chapters to extract so I can focus on the parts that matter to me.
-- As a member, I want to heart the principles that resonate with me so I can find them easily later.
+- As a member, I want to heart the insights that resonate with me so I can find them easily later.
 - As a member, I want to add personal notes to extractions so I can capture how they connect to my life.
 - As a member, I want to "Go Deeper" on a chapter to get more insights when the first pass didn't capture everything.
 - As a member, I want to re-run an extraction tab when I want a fresh perspective.
@@ -70,7 +70,7 @@ At the platform level, BookShelf participates in a shared intelligence layer. Wh
 ### Export
 
 - As a member, I want to export my hearted items as an EPUB so I can read them on my Kindle.
-- As a member, I want to export a book's principles as a document so I can reference them offline.
+- As a member, I want to export a book's insights as a document so I can reference them offline.
 
 ---
 
@@ -134,7 +134,7 @@ Full-page view for a single book, organized in tabs.
 **Tab bar:**
 - **About** — metadata, table of contents, processing info
 - **Summaries** — extracted key concepts, stories, quotes, insights
-- **Principles & Frameworks** — structured wisdom: principles, mental models, frameworks, processes, strategies
+- **Insights** — structured wisdom: principles, frameworks, mental models, processes, strategies, concepts, systems, tool sets
 - **Declarations** — honest identity declarations in varied styles and richness
 - **Action Steps** — exercises, practices, habits, conversation starters (strictly actions, not questions)
 - **Questions** — reflection prompts, implementation questions, discussion starters, scenarios
@@ -148,22 +148,22 @@ Full-page view for a single book, organized in tabs.
 - Processing details: chunk count, extraction status
 - "Re-classify" button (re-runs AI classification)
 
-**Extraction tabs (Summaries, Principles & Frameworks, Declarations, Action Steps, Questions):**
+**Extraction tabs (Summaries, Insights, Declarations, Action Steps, Questions):**
 
 If extraction has not been run:
 - Section discovery button: "Discover Chapters" — runs Haiku to identify document structure
 - After discovery: chapter list with checkboxes. User selects which chapters to extract.
 - **Extraction type selector** — five checkboxes, all checked by default:
   - ✓ Summaries
-  - ✓ Principles & Frameworks
+  - ✓ Insights
   - ✓ Declarations
   - ✓ Action Steps
   - ✓ Questions
-  - User can uncheck any types they don't want for this book (e.g., uncheck all except Principles & Frameworks to pull just the frameworks)
+  - User can uncheck any types they don't want for this book (e.g., uncheck all except Insights to pull just the insights)
 - "Merge Short Sections" toggle (combines small sections for better extraction quality)
 - "Extract Selected" button → begins parallel extraction across only the checked tabs for the checked chapters
 
-> **Decision rationale:** Building the tab selector from day one avoids a "tacked on" feel later. Many books warrant only one or two extraction types — a leadership framework book may only need Principles, a devotional may only need Declarations and Questions. Skipping unchecked types saves Sonnet tokens and reduces noise. Users can always run additional types later via per-tab "Extract" buttons on empty tabs.
+> **Decision rationale:** Building the tab selector from day one avoids a "tacked on" feel later. Many books warrant only one or two extraction types — a leadership book may only need Insights, a devotional may only need Declarations and Questions. Skipping unchecked types saves Sonnet tokens and reduces noise. Users can always run additional types later via per-tab "Extract" buttons on empty tabs.
 
 If extraction is partially complete (some tabs extracted, others not):
 - Extracted tabs show their content normally
@@ -192,7 +192,7 @@ If extraction is complete:
 
 **Inline note editing:** Tap any extraction item text → textarea appears below → save on blur, Escape cancels. Note appears in a distinct visual style below the extracted text.
 
-> **Decision rationale:** Four extraction tabs kept from StewardShip because they serve distinct purposes and route to distinct features. Summaries = reference. Principles & Frameworks = LiLa intelligence feed. Declarations = Guiding Stars. Action Steps = Tasks. Collapsing them would lose routing clarity.
+> **Decision rationale:** Four extraction tabs kept from StewardShip because they serve distinct purposes and route to distinct features. Summaries = reference. Insights = LiLa intelligence feed. Declarations = Guiding Stars. Action Steps = Tasks. Collapsing them would lose routing clarity.
 
 **Interactions:**
 - Heart an item → toggles `is_hearted`, fill animation
@@ -206,7 +206,7 @@ If extraction is complete:
 - "Assign as Task" → opens task creation modal pre-filled with book reference
 
 **Data created/updated:**
-- `bookshelf_summaries`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps` — created during extraction, updated on heart/delete/note
+- `bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps` — created during extraction, updated on heart/delete/note
 - `bookshelf_items` — updated on metadata edits
 
 ### Screen 3: Upload Flow
@@ -279,7 +279,7 @@ Cross-book view of all hearted items, accessible from the sidebar "Hearted Items
 
 - Grouped by book (collapsible sections)
 - Each book section shows the book title as a header with a count of hearted items
-- Within each book: items organized by tab type (Summaries, Principles, Declarations, Action Steps, Questions)
+- Within each book: items organized by tab type (Summaries, Insights, Declarations, Action Steps, Questions)
 - Each item shows its content, content type badge, chapter attribution, and user note (if present)
 - View modes: By Book (default), By Tab Type, Notes Only
 - Export button → Screen 7 (Export Dialog) in "Hearted Items" mode
@@ -348,7 +348,7 @@ Modal dialog with export configuration.
 
 **Tab selection** (checkboxes — which extraction types to include):
 - Summaries ✓
-- Principles & Frameworks ✓
+- Insights ✓
 - Declarations ✓
 - Action Steps ✓
 - Questions ✓
@@ -445,9 +445,9 @@ Accessed from the sidebar or from the "Add to Collection" action on book cards.
 Accessible from a gear icon on the BookShelf main page.
 
 **Book Knowledge in LiLa** (dropdown):
-- "Hearted items only" (default) — only hearted summaries, principles, and declarations load into LiLa context
+- "Hearted items only" (default) — only hearted summaries, insights, and declarations load into LiLa context
 - "All extracted content" — everything non-deleted loads
-- "Principles & Frameworks only" — only active principles
+- "Insights only" — only active insights
 - "None" — BookShelf content doesn't feed LiLa
 
 > **Decision rationale:** This setting lives in BookShelf settings, not global LiLa settings, because it's about how much of the user's reading feeds their AI experience. It respects the three-tier `is_included_in_ai` toggle from PRD-13 — an item must pass both this BookShelf-level setting AND the item-level toggle to enter LiLa context.
@@ -616,9 +616,9 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 
 **Embeddable text formula:** `text`
 
-### Table: `bookshelf_frameworks`
+### Table: `bookshelf_insights`
 
-**Purpose:** Parent record for principles & frameworks extraction. One per book per member.
+**Purpose:** Extracted insights — principles, frameworks, mental models, processes, strategies, concepts, systems, and tool sets. Flat structure matching all other extraction tabs (no parent-child relationships).
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -626,33 +626,10 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 | family_id | UUID | | NOT NULL | FK → families |
 | family_member_id | UUID | | NOT NULL | FK → family_members |
 | bookshelf_item_id | UUID | | NOT NULL | FK → bookshelf_items (ON DELETE CASCADE) |
-| name | TEXT | | NOT NULL | Framework display name |
-| is_active | BOOLEAN | true | NOT NULL | Whether loaded into AI context |
-| tags | TEXT[] | '{}' | NOT NULL | GIN-indexed topic tags (auto-generated by Haiku) |
-| archived_at | TIMESTAMPTZ | null | NULL | Soft delete |
-| created_at | TIMESTAMPTZ | now() | NOT NULL | |
-| updated_at | TIMESTAMPTZ | now() | NOT NULL | Auto-trigger |
-
-**RLS Policy:** Members can CRUD their own frameworks. Mom can read all family members' frameworks.
-
-**Indexes:**
-- `family_member_id, bookshelf_item_id` (per-member, per-book)
-- `family_member_id, is_active` (active frameworks query)
-- `tags` (GIN index)
-
-### Table: `bookshelf_principles`
-
-**Purpose:** Individual principles, frameworks, mental models, processes, and strategies within a framework.
-
-| Column | Type | Default | Nullable | Notes |
-|--------|------|---------|----------|-------|
-| id | UUID | gen_random_uuid() | NOT NULL | PK |
-| family_id | UUID | | NOT NULL | FK → families |
-| family_member_id | UUID | | NOT NULL | FK → family_members |
-| framework_id | UUID | | NOT NULL | FK → bookshelf_frameworks (ON DELETE CASCADE) |
-| content_type | TEXT | 'principle' | NOT NULL | CHECK: 'principle', 'framework', 'mental_model', 'process', 'strategy' |
-| text | TEXT | | NOT NULL | The principle statement |
 | section_title | TEXT | null | NULL | Chapter grouping |
+| section_index | INTEGER | null | NULL | Section order |
+| content_type | TEXT | 'principle' | NOT NULL | CHECK: 'principle', 'framework', 'mental_model', 'process', 'strategy', 'concept', 'system', 'tool_set' |
+| text | TEXT | | NOT NULL | The insight statement |
 | sort_order | INTEGER | 0 | NOT NULL | |
 | is_user_added | BOOLEAN | false | NOT NULL | Manual vs AI-extracted |
 | is_hearted | BOOLEAN | false | NOT NULL | User-favorited |
@@ -664,10 +641,10 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 | created_at | TIMESTAMPTZ | now() | NOT NULL | |
 | updated_at | TIMESTAMPTZ | now() | NOT NULL | Auto-trigger |
 
-**RLS Policy:** Members can CRUD their own principles. Mom can read all.
+**RLS Policy:** Members can CRUD their own insights. Mom can read all.
 
 **Indexes:**
-- `framework_id, is_deleted, sort_order` (ordered principles per framework)
+- `family_member_id, bookshelf_item_id, is_deleted` (per-member, per-book query)
 - `family_member_id, is_hearted, is_deleted` (hearted items)
 - HNSW index on `embedding` with `halfvec_cosine_ops`
 
@@ -927,7 +904,7 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 | id | UUID | gen_random_uuid() | NOT NULL | PK |
 | family_id | UUID | | NOT NULL | FK → families |
 | family_member_id | UUID | | NOT NULL | FK → family_members (UNIQUE) |
-| book_knowledge_access | TEXT | 'hearted_only' | NOT NULL | CHECK: 'hearted_only', 'all_extracted', 'framework_only', 'none' |
+| book_knowledge_access | TEXT | 'hearted_only' | NOT NULL | CHECK: 'hearted_only', 'all_extracted', 'insights_only', 'none' |
 | created_at | TIMESTAMPTZ | now() | NOT NULL | |
 | updated_at | TIMESTAMPTZ | now() | NOT NULL | Auto-trigger |
 
@@ -969,7 +946,7 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 | Smart Notepad (PRD-08) | Discussion action chip "Send to Notepad" routes discussion insights. Notepad's Review & Route handles downstream routing. |
 | InnerWorkings (PRD-07) | Content extraction path: user selects "Inform InnerWorkings" on relevant extracted content → AI extracts personality-relevant insights → saves with `source_type = 'content_extraction'`. Wires the existing PRD-07 stub. |
 | LiLa context assembly (PRD-05) | Extracted content (filtered by book_knowledge_access setting + is_included_in_ai toggles) feeds LiLa's system prompt via semantic search. |
-| Platform Intelligence (Pipeline v2) | New book uploads → book_cache. Extractions → book_extraction_cache. Frameworks → ethics filter → synthesized_principles. |
+| Platform Intelligence (Pipeline v2) | New book uploads → book_cache. Extractions → book_extraction_cache. Insights → ethics filter → synthesized_principles. |
 | Victory Recorder (PRD-11) | Book completion can be recorded as a victory (source = 'bookshelf'). |
 | Rhythms (PRD-18) | Morning/evening rhythms can pull devotional content from BookShelf via semantic search. Journal Prompts can also surface as morning reflection prompts. |
 
@@ -985,7 +962,7 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 | `library_ask` | Ask Your Library | Sonnet | RAG chunks (all books), semantic search on all extracted content, Guiding Stars, InnerWorkings | No | Mom, Adult, Independent | `bookshelf_discussions` |
 
 **Opening messages (book_discuss, 3 variants):**
-1. "I've immersed myself in [book title]. What would you like to explore? I can discuss themes, help you apply principles, or connect ideas to your life."
+1. "I've immersed myself in [book title]. What would you like to explore? I can discuss themes, help you apply insights, or connect ideas to your life."
 2. "Ready to dig into [book title] with you. Ask me anything — about a specific chapter, a concept that caught your attention, or how this connects to what matters most to you."
 3. "Let's talk about [book title]. I have the full text and all extracted content ready. Where would you like to start?"
 
@@ -1003,7 +980,7 @@ FOR EACH ROW EXECUTE FUNCTION util.queue_embedding_job();
 
 **Extraction (Sonnet, genre-aware):**
 - Per section, per extraction type
-- Genre-aware prompts customize extraction behavior (e.g., fiction emphasizes character insights and themes; workbooks emphasize exercises and reflection prompts; scriptures emphasize declarations and principles)
+- Genre-aware prompts customize extraction behavior (e.g., fiction emphasizes character insights and themes; workbooks emphasize exercises and reflection prompts; scriptures emphasize declarations and insights)
 - Go Deeper: existing items sent as context so AI extracts non-duplicate supplementary content
 
 **Declaration Extraction Prompt Guidance:**
@@ -1017,13 +994,16 @@ The extraction prompt for declarations must follow The Art of Honest Declaration
 
 > **Depends on:** The Art of Honest Declarations document in project knowledge. Build prompts should reference this for extraction prompt crafting.
 
-**Principles & Frameworks Extraction Prompt Guidance:**
+**Insights Extraction Prompt Guidance:**
 The extraction prompt for this tab should pull structured wisdom in multiple sub-types:
 - `principle` — actionable truth statements that can guide behavior
 - `framework` — named models or systems for thinking about a topic
 - `mental_model` — conceptual lenses for understanding situations
 - `process` — step-by-step approaches described in the book
 - `strategy` — specific techniques or tactics recommended
+- `concept` — key ideas or abstractions that illuminate a topic
+- `system` — interconnected elements that work together as described in the book
+- `tool_set` — collections of practical tools or methods presented together
 
 If the book describes specific steps or frameworks, extract them as-is. If the book implies principles without stating them explicitly, generate clear principle statements grounded in the book's content.
 
@@ -1066,15 +1046,11 @@ On upload completion, Haiku processes the first ~2000 characters of extracted te
 - Suggests a folder/category
 - Generates a 2-4 sentence summary
 
-### Framework Tag Generation (Haiku)
-
-After framework principles are saved, Haiku generates topic tags for the framework based on the framework name and principle texts. Tags are used for browsing and filtering.
-
 ### System Prompt Notes for Book Discussions
 
 When `book_discuss` or `library_ask` mode is active:
 - LiLa references book titles and chapter names naturally when drawing from RAG content
-- LiLa weaves extracted content (summaries, principles, declarations) into responses without mechanically listing them
+- LiLa weaves extracted content (summaries, insights, declarations) into responses without mechanically listing them
 - When semantic search surfaces connections across books, LiLa highlights the convergence
 - LiLa connects book insights to the user's Guiding Stars and InnerWorkings where relevant
 - Audience setting shapes tone: `personal` = reflective and direct; `family` = practical application; `teen` = engaging and age-appropriate; `spouse` = relationship-focused; `children` = simple language and story-focused
@@ -1084,10 +1060,10 @@ When `book_discuss` or `library_ask` mode is active:
 
 BookShelf extraction tables are registered with the shared `match_by_embedding` infrastructure (Semantic Context Infrastructure Addendum). This means:
 
-1. `bookshelf_summaries`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, and `bookshelf_questions` are all searchable via per-turn semantic context refresh (P9 pattern)
+1. `bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, and `bookshelf_questions` are all searchable via per-turn semantic context refresh (P9 pattern)
 2. When a user's message in any LiLa conversation is semantically relevant to extracted book content, that content surfaces automatically — no special wiring needed
-3. The `book_knowledge_access` setting (hearted_only / all_extracted / framework_only / none) filters what's eligible for semantic search
-4. Active frameworks (`bookshelf_frameworks.is_active = true`) are loaded into LiLa's system prompt alongside Guiding Stars when relevant
+3. The `book_knowledge_access` setting (hearted_only / all_extracted / insights_only / none) filters what's eligible for semantic search
+4. Hearted insights (`bookshelf_insights.is_hearted = true`) are loaded into LiLa's system prompt alongside Guiding Stars when relevant
 
 > **Decision rationale:** BookShelf feeds LiLa through the same infrastructure as every other context source — no special per-feature wiring. This keeps the architecture clean and means BookShelf content is automatically available in every LiLa mode, not just book discussions.
 
@@ -1114,7 +1090,7 @@ BookShelf extraction tables are registered with the shared `match_by_embedding` 
 
 ### Ethics Gate for Platform Intelligence
 
-- Books that fail the Layer 1 ethics gate (Haiku pre-screen) still work fully for the user's personal BookShelf. They can extract, curate, discuss, export — everything. The ethics gate only controls whether the book's frameworks enter the LiLa training pipeline.
+- Books that fail the Layer 1 ethics gate (Haiku pre-screen) still work fully for the user's personal BookShelf. They can extract, curate, discuss, export — everything. The ethics gate only controls whether the book's insights enter the LiLa training pipeline.
 - Books that fail are flagged in `platform_intelligence.book_cache` with `ethics_gate_status = 'failed'`. If another family uploads the same book, they get the cached personal extractions but the book remains excluded from LiLa training.
 - The user never knows about the ethics gate. It's entirely backend.
 
@@ -1187,9 +1163,9 @@ All keys return true during beta.
 | Stub | Created By | How It's Wired |
 |------|-----------|----------------|
 | Content extraction input path to InnerWorkings (`source_type = 'content_extraction'`) | PRD-07 | "Inform InnerWorkings" action on relevant extracted content → AI extracts personality-relevant insights → saves to `self_knowledge` with `source_type = 'content_extraction'`, `source_reference_id` → extraction item ID. |
-| Knowledge Base / Manifest context source in LiLa | PRD-05, Semantic Context Addendum | BookShelf extraction tables registered with `match_by_embedding`. Active frameworks loaded into LiLa context. RAG chunks available in `book_discuss` and `library_ask` modes. |
+| Knowledge Base / Manifest context source in LiLa | PRD-05, Semantic Context Addendum | BookShelf extraction tables registered with `match_by_embedding`. Hearted insights loaded into LiLa context. RAG chunks available in `book_discuss` and `library_ask` modes. |
 | `knowledge_base_chunks` future table reference in Semantic Context Addendum | Semantic Context Addendum | Replaced by `bookshelf_chunks` at the platform level. The addendum's forward note about "Knowledge Base PRD adding a table to the pipeline" is fulfilled by this PRD. |
-| Channel E (Book Knowledge Library) in Platform Intelligence Pipeline | Platform Intelligence Pipeline v2 | Book upload → book_cache check → extraction caching → ethics filter → synthesized principles. Full pipeline wired. |
+| Channel E (Book Knowledge Library) in Platform Intelligence Pipeline | Platform Intelligence Pipeline v2 | Book upload → book_cache check → extraction caching → ethics filter → synthesized insights. Full pipeline wired. |
 | Book knowledge as context source for Rhythms (morning/evening readings) | PRD-18 | BookShelf content available via semantic search during rhythm content selection. LiLa can pull devotional/inspirational content from the user's BookShelf for morning reflection prompts. |
 
 ---
@@ -1198,7 +1174,7 @@ All keys return true during beta.
 
 ### MVP (Must Have)
 
-- [ ] All tables created with RLS policies: `bookshelf_items`, `bookshelf_chunks`, `bookshelf_summaries`, `bookshelf_frameworks`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `journal_prompts`, `bookshelf_discussions`, `bookshelf_discussion_messages`, `bookshelf_collections`, `bookshelf_collection_items`, `bookshelf_shares`, `bookshelf_member_settings`
+- [ ] All tables created with RLS policies: `bookshelf_items`, `bookshelf_chunks`, `bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `journal_prompts`, `bookshelf_discussions`, `bookshelf_discussion_messages`, `bookshelf_collections`, `bookshelf_collection_items`, `bookshelf_shares`, `bookshelf_member_settings`
 - [ ] Supabase Storage bucket `bookshelf-files` created with 75 MB limit and family_id path isolation
 - [ ] File upload flow: PDF, EPUB, DOCX, TXT, MD, image support with real-time processing status
 - [ ] Text extraction pipeline: format-specific extraction with cascading fallback (client → server → AI vision)
@@ -1207,7 +1183,7 @@ All keys return true during beta.
 - [ ] AI classification (Haiku): title, author, summary, genres, tags, folder — with Human-in-the-Mix review
 - [ ] Platform book cache check after classification: title+author embedding similarity matching against `platform_intelligence.book_cache`
 - [ ] Section discovery (Haiku): chapter/section identification from document structure
-- [ ] Extraction pipeline (Sonnet, genre-aware): all 5 tabs — Summaries, Principles & Frameworks, Declarations, Action Steps, Questions — running in parallel
+- [ ] Extraction pipeline (Sonnet, genre-aware): all 5 tabs — Summaries, Insights, Declarations, Action Steps, Questions — running in parallel
 - [ ] Extraction type selector: five checkboxes (all default checked), user can uncheck any combination. Only checked types run. Empty tabs show per-tab "Extract" button for on-demand later extraction.
 - [ ] Declaration extraction follows Art of Honest Declarations: five voices, three richness levels, varied openings, honesty test
 - [ ] Questions extraction: six content types (reflection, implementation, recognition, self_examination, discussion, scenario), stand-alone and timeless, genre-weighted
@@ -1228,9 +1204,9 @@ All keys return true during beta.
 - [ ] BookShelf settings: book_knowledge_access dropdown
 - [ ] `book_discuss` and `library_ask` guided modes registered in LiLa guided mode registry
 - [ ] BookShelf extraction tables (including bookshelf_questions) registered with `match_by_embedding` for per-turn semantic context
-- [ ] Active frameworks loaded into LiLa context assembly
+- [ ] Hearted insights loaded into LiLa context assembly
 - [ ] Platform intelligence: book_cache entry created on new book. Extractions cached to book_extraction_cache.
-- [ ] Ethics pipeline: Layer 1 (Haiku gate) runs on new cache entries. Layer 2 (Sonnet scan) on frameworks. Results logged to framework_ethics_log. Admin review queue populated for flagged items.
+- [ ] Ethics pipeline: Layer 1 (Haiku gate) runs on new cache entries. Layer 2 (Sonnet scan) on insights. Results logged to framework_ethics_log. Admin review queue populated for flagged items.
 - [ ] All `useCanAccess()` hooks wired, PermissionGate on all member-scoped UI
 - [ ] RLS verification: members can only see their own curation; mom can see all family books; shared books visible to recipients; chunks accessible for any book in member's BookShelf
 - [ ] Teen uploads auto-appear in family BookShelf; mom can archive
@@ -1264,7 +1240,7 @@ All keys return true during beta.
 - [ ] All BookShelf embedding uses text-embedding-3-small via the shared pgmq queue (Semantic Context Infrastructure Addendum). No separate embedding model for RAG vs. semantic search.
 - [ ] BookShelf extraction tables are registered with `match_by_embedding` for automatic per-turn semantic context. No special per-feature wiring needed.
 - [ ] Declaration extraction must follow The Art of Honest Declarations: five voices (Choosing & Committing, Recognizing & Awakening, Claiming & Stepping Into, Learning & Striving, Resolute & Unashamed), three richness levels (rich/medium/concise), varied openings. The honesty test applies: every declaration must be something the reader can affirm as true right now.
-- [ ] Principles & Frameworks extraction pulls five sub-types: principle, framework, mental_model, process, strategy.
+- [ ] Insights extraction pulls eight sub-types: principle, framework, mental_model, process, strategy, concept, system, tool_set.
 - [ ] Platform book cache: always check `platform_intelligence.book_cache` by title+author embedding similarity (threshold ≥ 0.9) before running extraction. Clone cached chapters; extract only uncached ones.
 - [ ] Ethics pipeline runs on book_cache entries, NOT on individual family uploads. Personal BookShelf is never restricted by ethics gate — only the LiLa training pipeline is.
 - [ ] BookShelf discussions use dual search: RAG chunks for full-text similarity + semantic search on extracted content for meaning-based discovery. Both searches run per user message.
@@ -1285,8 +1261,7 @@ All keys return true during beta.
 - `bookshelf_items` — book/document metadata per family
 - `bookshelf_chunks` — platform-level RAG text chunks
 - `bookshelf_summaries` — extracted summary items per member
-- `bookshelf_frameworks` — parent framework records per member per book
-- `bookshelf_principles` — individual principles within frameworks per member
+- `bookshelf_insights` — extracted insights (principles, frameworks, mental models, etc.) per member
 - `bookshelf_declarations` — honest identity declarations per member
 - `bookshelf_action_steps` — actionable exercises and practices per member
 - `bookshelf_questions` — extracted reflection questions and prompts per member (5th extraction tab)
@@ -1301,7 +1276,7 @@ All keys return true during beta.
 **Enums updated:** None (all use TEXT CHECK constraints)
 
 **Triggers added:**
-- `queue_embedding_on_change` on `bookshelf_summaries.text`, `bookshelf_principles.text`, `bookshelf_declarations.declaration_text`, `bookshelf_action_steps.text`, `bookshelf_questions.text` → `util.queue_embedding_job()`
+- `queue_embedding_on_change` on `bookshelf_summaries.text`, `bookshelf_insights.text`, `bookshelf_declarations.declaration_text`, `bookshelf_action_steps.text`, `bookshelf_questions.text` → `util.queue_embedding_job()`
 - `updated_at` auto-update triggers on all tables with `updated_at` column
 
 **Storage:** `bookshelf-files` bucket (private, 75 MB limit, family_id path isolation)
@@ -1324,9 +1299,9 @@ All keys return true during beta.
 | 8 | **Family-level BookShelf with per-member curation** | All uploads go to the family library. Mom controls distribution. Each member's hearts, notes, and deletions are strictly personal. |
 | 9 | **Teen uploads auto-appear in family library** | Teens are often the ones who know how to get books in the right format. Mom can archive if needed. Platform cache retained on archive. |
 | 10 | **Guided children: mom-assigned access only** | No independent browsing. Only books/collections mom explicitly shares or assigns appear for Guided children. |
-| 11 | **Five extraction tabs with renamed/enriched content** | Summaries, Principles & Frameworks (broadened), Declarations (richened), Action Steps (tightened — actions only), Questions (new — reflective/introspective content). Each serves distinct cross-feature routing. |
+| 11 | **Five extraction tabs with renamed/enriched content** | Summaries, Insights (broadened to 8 sub-types, flat structure), Declarations (richened), Action Steps (tightened — actions only), Questions (new — reflective/introspective content). Each serves distinct cross-feature routing. |
 | 12 | **Rich declarations with variety** | Mix of richness levels (~1/3 rich, ~1/3 medium, ~1/3 concise). Five voices from Art of Honest Declarations. UI encourages personal editing. |
-| 13 | **Principles & Frameworks: five sub-types** | principle, framework, mental_model, process, strategy. Broader than StewardShip's "actionable principles only." |
+| 13 | **Insights: eight sub-types, flat structure** | principle, framework, mental_model, process, strategy, concept, system, tool_set. Broader than StewardShip's "actionable principles only." No parent-child relationship — all 5 extraction tabs now have identical flat structure. |
 | 14 | **Action chips on discussion messages** | P5 on-demand pattern. No pre-generation. Each chip triggers a focused call only when tapped. More flexible than StewardShip's discussion types. |
 | 15 | **Two guided modes: `book_discuss` and `library_ask`** | Single-book deep dive vs. cross-library search. Both registered in LiLa guided mode registry. |
 | 16 | **Five export formats** | Markdown, plain text, DOCX, EPUB (Kindle-friendly with navigable TOC), PDF. |
