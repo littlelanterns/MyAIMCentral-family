@@ -1,12 +1,9 @@
 /**
  * StudioCategorySection (PRD-09B Screen 1)
  *
- * Collapsible section with heading + horizontal-scrollable row of StudioTemplateCards.
- * Handles:
- * - Category heading with item count
- * - Collapse/expand toggle
- * - "Example Templates" subsection below blank templates when examples exist
- * - Optional PlannedExpansionCard override for future PRD categories
+ * Collapsible section with heading + horizontal-swipeable row of StudioTemplateCards.
+ * Example templates are in a collapsed sub-accordion (default closed).
+ * No visible scrollbars — swipe to scroll on mobile, drag on desktop.
  */
 
 import { useState } from 'react'
@@ -16,11 +13,8 @@ import type { StudioTemplate } from './StudioTemplateCard'
 
 interface StudioCategorySectionProps {
   title: string
-  /** Blank/system templates for this category */
   templates: StudioTemplate[]
-  /** Example templates (shown in a sub-section below) */
   exampleTemplates?: StudioTemplate[]
-  /** When provided, renders this node instead of template cards (for PlannedExpansionCard categories) */
   plannedContent?: React.ReactNode
   onCustomize: (template: StudioTemplate) => void
   onUseAsIs?: (template: StudioTemplate) => void
@@ -37,8 +31,9 @@ export function StudioCategorySection({
   defaultCollapsed = false,
 }: StudioCategorySectionProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [examplesExpanded, setExamplesExpanded] = useState(false)
 
-  const totalCount = templates.length + exampleTemplates.length
+  const blankCount = templates.length
 
   return (
     <div className="mb-8">
@@ -54,7 +49,7 @@ export function StudioCategorySection({
           >
             {title}
           </h2>
-          {totalCount > 0 && (
+          {blankCount > 0 && (
             <span
               className="text-xs px-2 py-0.5 rounded-full"
               style={{
@@ -62,7 +57,7 @@ export function StudioCategorySection({
                 color: 'var(--color-text-secondary)',
               }}
             >
-              {totalCount}
+              {blankCount}
             </span>
           )}
         </div>
@@ -72,60 +67,72 @@ export function StudioCategorySection({
       </button>
 
       {!collapsed && (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Planned content (for future PRD categories) */}
-          {plannedContent && (
-            <div>{plannedContent}</div>
-          )}
+          {plannedContent && <div>{plannedContent}</div>}
 
-          {/* Blank template cards — horizontal scroll row */}
+          {/* Blank template cards — horizontal swipe row, NO scrollbar */}
           {!plannedContent && templates.length > 0 && (
             <div
-              className="flex gap-4 overflow-x-auto pb-2"
-              style={{ scrollbarWidth: 'thin' }}
+              className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+              }}
             >
               {templates.map(tpl => (
-                <StudioTemplateCard
-                  key={tpl.id}
-                  template={tpl}
-                  onCustomize={onCustomize}
-                  onUseAsIs={onUseAsIs}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Example templates sub-section */}
-          {!plannedContent && exampleTemplates.length > 0 && (
-            <div>
-              <p
-                className="text-xs font-semibold uppercase tracking-wider mb-3"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                Example Templates
-              </p>
-              <div
-                className="flex gap-4 overflow-x-auto pb-2"
-                style={{ scrollbarWidth: 'thin' }}
-              >
-                {exampleTemplates.map(tpl => (
+                <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
                   <StudioTemplateCard
-                    key={tpl.id}
                     template={tpl}
                     onCustomize={onCustomize}
                     onUseAsIs={onUseAsIs}
                   />
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Example templates — collapsible sub-section, default CLOSED */}
+          {!plannedContent && exampleTemplates.length > 0 && (
+            <div>
+              <button
+                onClick={() => setExamplesExpanded(e => !e)}
+                className="flex items-center gap-2 text-xs font-medium transition-colors"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {examplesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <span className="uppercase tracking-wider">
+                  Example Templates ({exampleTemplates.length})
+                </span>
+              </button>
+
+              {examplesExpanded && (
+                <div
+                  className="flex gap-3 overflow-x-auto pb-2 mt-3 snap-x snap-mandatory"
+                  style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
+                >
+                  {exampleTemplates.map(tpl => (
+                    <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
+                      <StudioTemplateCard
+                        template={tpl}
+                        onCustomize={onCustomize}
+                        onUseAsIs={onUseAsIs}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Empty state */}
           {!plannedContent && templates.length === 0 && exampleTemplates.length === 0 && (
-            <p
-              className="text-sm"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               No templates in this category yet.
             </p>
           )}

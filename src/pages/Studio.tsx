@@ -279,11 +279,12 @@ export function StudioPage() {
   // ── Tab items ────────────────────────────────────────────────
 
   const tabs: TabItem[] = [
-    { id: 'browse', label: 'Browse Templates' },
+    { key: 'browse', label: 'Browse Templates' },
     {
-      id: 'customized',
-      label: 'My Customized',
-      badge: customizedTemplates.length > 0 ? String(customizedTemplates.length) : undefined,
+      key: 'customized',
+      label: customizedTemplates.length > 0
+        ? `My Customized (${customizedTemplates.length})`
+        : 'My Customized',
     },
   ]
 
@@ -317,9 +318,9 @@ export function StudioPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="flex-1">
           <Tabs
-            items={tabs}
-            activeId={activeTab}
-            onChange={id => setActiveTab(id as 'browse' | 'customized')}
+            tabs={tabs}
+            activeKey={activeTab}
+            onChange={key => setActiveTab(key as 'browse' | 'customized')}
           />
         </div>
         {activeTab === 'browse' && (
@@ -532,6 +533,7 @@ export function StudioPage() {
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
           onSave={handleTaskSaved}
+          initialTaskType={modalInitialType}
         />
       )}
 
