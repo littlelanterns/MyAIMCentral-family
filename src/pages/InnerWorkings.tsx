@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Heart, Plus, Pencil, Trash2 } from 'lucide-react'
+import { FeatureIcon } from '@/components/shared'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
@@ -78,7 +79,7 @@ export function InnerWorkingsPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Heart size={24} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <FeatureIcon featureKey="my_foundation" fallback={<Heart size={32} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={32} />
           <h1
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}

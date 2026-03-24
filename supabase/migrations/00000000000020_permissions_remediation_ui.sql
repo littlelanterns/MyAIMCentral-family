@@ -12,6 +12,8 @@ ALTER TABLE public.family_members
 -- ── Replace verify_member_pin with JSONB-returning version ────────────
 -- Old: returned BOOLEAN
 -- New: returns JSONB with success/reason/attempts_remaining/locked_until
+-- Must DROP first because return type changed
+DROP FUNCTION IF EXISTS public.verify_member_pin(UUID, TEXT);
 
 CREATE OR REPLACE FUNCTION public.verify_member_pin(p_member_id UUID, p_pin TEXT)
 RETURNS JSONB AS $$

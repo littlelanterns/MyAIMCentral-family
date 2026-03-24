@@ -11,11 +11,13 @@
  * Future: auto-sort by usage frequency from notepad_routing_stats.
  */
 
-import { useState, createContext, useContext, type ReactNode } from 'react'
+import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
+import { useTheme } from '@/lib/theme'
+import { getFeatureIcons } from '@/lib/assets'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -25,6 +27,7 @@ interface QuickAction {
   key: string
   label: string
   icon: LucideIcon
+  featureKey: string
   kind: QuickActionKind
   /** Populated when kind === 'path' */
   path?: string
@@ -37,6 +40,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     key: 'add_task',
     label: 'Add Task',
     icon: Plus,
+    featureKey: 'tasks',
     kind: 'path',
     path: '/tasks?new=1',
   },
@@ -44,6 +48,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     key: 'journal_entry',
     label: 'Journal',
     icon: BookOpen,
+    featureKey: 'journal',
     kind: 'path',
     path: '/journal?new=1',
   },
@@ -51,12 +56,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     key: 'quick_note',
     label: 'Quick Note',
     icon: FileText,
+    featureKey: 'notepad_basic',
     kind: 'notepad',
   },
   {
     key: 'log_victory',
     label: 'Victory',
     icon: Trophy,
+    featureKey: 'victories',
     kind: 'path',
     path: '/victories?new=1',
   },
@@ -64,6 +71,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     key: 'calendar',
     label: 'Calendar',
     icon: Calendar,
+    featureKey: 'calendar',
     kind: 'path',
     path: '/calendar',
   },
@@ -71,6 +79,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     key: 'mind_sweep',
     label: 'MindSweep',
     icon: Brain,
+    featureKey: 'mindsweep',
     kind: 'path',
     path: '/sweep',
   },
@@ -122,10 +131,28 @@ const ALLOWED_SHELLS = new Set(['mom', 'adult', 'independent'])
 
 // ─── Component ───────────────────────────────────────────────
 
+/** Batch-fetch illustrated icons for quick action pills */
+function useQuickActionIcons() {
+  const { vibe } = useTheme()
+  const [iconUrls, setIconUrls] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    const keys = QUICK_ACTIONS.map(a => a.featureKey)
+    getFeatureIcons(keys, vibe, 'A', 128).then(urls => {
+      if (!cancelled) setIconUrls(urls)
+    })
+    return () => { cancelled = true }
+  }, [vibe])
+
+  return iconUrls
+}
+
 export function QuickTasks() {
   const { shell } = useShell()
   const navigate = useNavigate()
   const notepadBridge = useContext(QuickTasksNotepadCtx)
+  const iconUrls = useQuickActionIcons()
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -220,7 +247,7 @@ export function QuickTasks() {
         <style>{`.qt-row::-webkit-scrollbar { display: none; }`}</style>
 
         {QUICK_ACTIONS.map((item) => (
-          <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} />
+          <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
         ))}
       </div>
 
@@ -248,7 +275,7 @@ export function QuickTasks() {
 
 // ─── Individual Pill ─────────────────────────────────────────
 
-function QuickPill({ item, onAction }: { item: QuickAction; onAction: () => void }) {
+function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAction: () => void; illustratedUrl: string | null }) {
   const [hovered, setHovered] = useState(false)
   const Icon = item.icon
 
@@ -257,7 +284,7 @@ function QuickPill({ item, onAction }: { item: QuickAction; onAction: () => void
       onClick={onAction}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="flex-shrink-0 flex items-center gap-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap"
+      className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap"
       style={{
         padding: '6px 12px',
         backgroundColor: hovered
@@ -271,7 +298,11 @@ function QuickPill({ item, onAction }: { item: QuickAction; onAction: () => void
         lineHeight: 1.2,
       }}
     >
-      <Icon size={16} />
+      {illustratedUrl ? (
+        <img src={illustratedUrl} alt="" width={16} height={16} className="shrink-0 rounded-sm" />
+      ) : (
+        <Icon size={16} />
+      )}
       {item.label}
     </button>
   )

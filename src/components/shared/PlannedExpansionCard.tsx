@@ -16,6 +16,8 @@ import { FEATURE_EXPANSION_REGISTRY } from '@/config/feature_expansion_registry'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useTheme } from '@/lib/theme'
+import { getFeatureIcon } from '@/lib/assets'
 import { FeatureGuide } from './FeatureGuide'
 
 interface PlannedExpansionCardProps {
@@ -27,6 +29,8 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
   const { isViewingAs, realViewerId } = useViewAs()
   const entry = FEATURE_EXPANSION_REGISTRY[featureKey]
 
+  const { vibe } = useTheme()
+  const [heroUrl, setHeroUrl] = useState<string | null>(null)
   const [vote, setVote] = useState<boolean | null>(null)
   const [note, setNote] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -34,6 +38,15 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
   const [previousVote, setPreviousVote] = useState<boolean | null>(null)
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [notifySubmitted, setNotifySubmitted] = useState(false)
+
+  // Fetch illustrated hero image for this feature
+  useEffect(() => {
+    let cancelled = false
+    getFeatureIcon(featureKey, vibe, 'A', 128).then(url => {
+      if (!cancelled) setHeroUrl(url)
+    })
+    return () => { cancelled = true }
+  }, [featureKey, vibe])
 
   // Silent no-op if feature key not in registry
   if (!entry) return null
@@ -160,15 +173,24 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
           borderRadius: 'var(--vibe-radius-card, 0.75rem)',
         }}
       >
+        {/* ── Hero image (illustrated vibes only) ── */}
+        {heroUrl && (
+          <div className="flex justify-center py-4" style={{ backgroundColor: 'var(--color-soft-gold, #F4DCB7)', opacity: 0.35 }}>
+            <img src={heroUrl} alt={entry.name} width={128} height={128} className="rounded-lg" />
+          </div>
+        )}
+
         {/* ── Section 1: Vision Description ── */}
         <div className="p-5 pb-4">
           <div className="flex items-start gap-3">
-            <div
-              className="mt-0.5 flex-shrink-0 rounded-lg p-2"
-              style={{ backgroundColor: 'var(--color-golden-honey, #D6A461)', opacity: 0.15 }}
-            >
-              <Sparkles size={20} style={{ color: 'var(--color-golden-honey, #D6A461)' }} />
-            </div>
+            {!heroUrl && (
+              <div
+                className="mt-0.5 shrink-0 rounded-lg p-2"
+                style={{ backgroundColor: 'var(--color-golden-honey, #D6A461)', opacity: 0.15 }}
+              >
+                <Sparkles size={20} style={{ color: 'var(--color-golden-honey, #D6A461)' }} />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1.5">
                 <h3 className="text-base font-semibold" style={{ color: 'var(--color-warm-earth, #6B4E3D)' }}>

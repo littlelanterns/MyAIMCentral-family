@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase/client'
 
 export type AssetCategory =
@@ -73,19 +74,80 @@ export async function findAssetByTags(
   return data[sizeKey] as string
 }
 
-// Get illustrated icon for current vibe.
-// Returns null if vibe does not use illustrated icons — caller falls back to Lucide.
+// Vibes that use illustrated paper craft icons
+const ILLUSTRATED_VIBES = ['classic']
+
+// Get illustrated icon for current vibe
+// Returns null if vibe doesn't use illustrated icons — caller falls back to Lucide
 export async function getFeatureIcon(
   featureKey: string,
   currentVibe: string,
   preferredVariant: 'A' | 'B' | 'C' = 'A',
   size: AssetSize = 128
 ): Promise<string | null> {
-  const illustratedVibes = ['classic_myaim']
-
-  if (!illustratedVibes.includes(currentVibe)) {
+  if (!ILLUSTRATED_VIBES.includes(currentVibe)) {
     return null
   }
 
   return getAsset(featureKey, 'app_icon', preferredVariant, size)
+}
+
+// Batch-fetch illustrated icons for multiple feature keys at once.
+// Returns a map of featureKey → URL (or null if missing).
+// Used by sidebar/nav to avoid N+1 queries on mount.
+export async function getFeatureIcons(
+  featureKeys: string[],
+  currentVibe: string,
+  preferredVariant: 'A' | 'B' | 'C' = 'A',
+  size: AssetSize = 128
+): Promise<Record<string, string | null>> {
+  const result: Record<string, string | null> = {}
+  for (const key of featureKeys) {
+    result[key] = null
+  }
+
+  if (!ILLUSTRATED_VIBES.includes(currentVibe)) {
+    return result
+  }
+
+  const { data } = await supabase
+    .from('platform_assets')
+    .select('feature_key, size_512_url, size_128_url, size_32_url')
+    .eq('category', 'app_icon')
+    .eq('variant', preferredVariant)
+    .in('feature_key', featureKeys)
+
+  if (!data) return result
+
+  const sizeKey = `size_${size}_url` as 'size_512_url' | 'size_128_url' | 'size_32_url'
+  for (const row of data) {
+    result[row.feature_key] = (row[sizeKey] as string) || null
+  }
+
+  return result
+}
+
+// ─── React Hook ─────────────────────────────────────────────
+// Single-feature hook for page headers, cards, etc.
+// Returns the illustrated URL or null (caller renders Lucide fallback).
+// Requires ThemeProvider in the tree — import { useTheme } from '@/lib/theme'.
+
+import { useTheme } from './theme'
+
+export function useFeatureIcon(
+  featureKey: string,
+  size: AssetSize = 128
+): string | null {
+  const { vibe } = useTheme()
+  const [url, setUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getFeatureIcon(featureKey, vibe, 'A', size).then(result => {
+      if (!cancelled) setUrl(result)
+    })
+    return () => { cancelled = true }
+  }, [featureKey, vibe, size])
+
+  return url
 }

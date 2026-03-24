@@ -65,7 +65,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Relationship tools person-context | PRD-05 | PRD-21 | ✅ Wired | Phase 24 |
 | Edit in Notepad action chip | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
 | Review & Route action chip | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
-| Create Task action chip | PRD-05 (Phase 06) | PRD-09A | ⏳ Unwired (MVP) | Phase 10 |
+| Create Task action chip | PRD-05 (Phase 06) | PRD-09A | ✅ Wired | Phase 10 |
 | Record Victory action chip | PRD-05 (Phase 06) | PRD-11 | ⏳ Unwired (MVP) | Phase 12 |
 | Voice input (Whisper) | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
 | LiLa conversation summary (long convos) | PRD-05 (Phase 06) | — | 📌 Post-MVP | — |
@@ -218,7 +218,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | PWA entry points | PRD-04 | PRD-33 | 📌 Post-MVP | — |
 | Timer idle reminders | PRD-36 | PRD-15 | ⏳ Unwired (MVP) | Phase 16 |
 | Timer → homeschool time logs | PRD-36 | PRD-28 | ⏳ Unwired (MVP) | Phase 32 |
-| Timer → task completion threshold | PRD-36 | PRD-09A | ⏳ Unwired (MVP) | Phase 10 |
+| Timer → task completion threshold | PRD-36 | PRD-09A | ✅ Wired | Phase 10 |
 | Timer → widget data points | PRD-36 | PRD-10 | ⏳ Unwired (MVP) | Phase 11 |
 | Visual World themed timer animations | PRD-36 | PRD-24A | 📌 Post-MVP | — |
 

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
+  Palette,
   ChevronLeft, ChevronRight, Menu, X, Eye,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -10,11 +11,14 @@ import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
+import { useTheme } from '@/lib/theme'
+import { getFeatureIcons } from '@/lib/assets'
 import type { ShellType } from '@/lib/theme'
 
 interface NavItem {
   label: string
   path: string
+  featureKey: string
   icon: React.ReactNode
   tooltip: string
 }
@@ -28,51 +32,52 @@ function getSidebarSections(shell: ShellType): NavSection[] {
   const home: NavSection = {
     title: 'Home',
     items: [
-      { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, tooltip: 'Your personal space' },
+      { label: 'Dashboard', path: '/dashboard', featureKey: 'dashboard', icon: <LayoutDashboard size={20} />, tooltip: 'Your personal space' },
     ],
   }
 
   const capture: NavSection = {
     title: 'Capture & Reflect',
     items: [
-      { label: 'Journal', path: '/journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
-      { label: 'Morning Rhythm', path: '/rhythms/morning', icon: <Sun size={20} />, tooltip: 'Start your day with intention' },
-      { label: 'Evening Review', path: '/rhythms/evening', icon: <MoonIcon size={20} />, tooltip: 'Reflect on your day' },
+      { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
+      { label: 'Morning Rhythm', path: '/rhythms/morning', featureKey: 'morning_rhythm', icon: <Sun size={20} />, tooltip: 'Start your day with intention' },
+      { label: 'Evening Review', path: '/rhythms/evening', featureKey: 'evening_review', icon: <MoonIcon size={20} />, tooltip: 'Reflect on your day' },
     ],
   }
 
   const plan: NavSection = {
     title: 'Plan & Do',
     items: [
-      { label: 'Tasks', path: '/tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
-      { label: 'Calendar', path: '/calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
-      { label: 'Trackers', path: '/trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
-      { label: 'Lists', path: '/lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
+      { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
+      { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
+      { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
+      { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
+      { label: 'Studio', path: '/studio', featureKey: 'studio', icon: <Palette size={20} />, tooltip: 'Template workshop' },
     ],
   }
 
   const grow: NavSection = {
     title: 'Grow',
     items: [
-      { label: 'Guiding Stars', path: '/guiding-stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
-      { label: 'BestIntentions', path: '/best-intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
-      { label: 'InnerWorkings', path: '/inner-workings', icon: <Heart size={20} />, tooltip: 'Self-knowledge and growth' },
-      { label: 'Victories', path: '/victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
-      { label: 'LifeLantern', path: '/life-lantern', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
+      { label: 'Guiding Stars', path: '/guiding-stars', featureKey: 'guiding_stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
+      { label: 'BestIntentions', path: '/best-intentions', featureKey: 'best_intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
+      { label: 'InnerWorkings', path: '/inner-workings', featureKey: 'my_foundation', icon: <Heart size={20} />, tooltip: 'Self-knowledge and growth' },
+      { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
+      { label: 'LifeLantern', path: '/life-lantern', featureKey: 'lifelantern', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
     ],
   }
 
   const family: NavSection = {
     title: 'Family',
     items: [
-      { label: 'People', path: '/family-context', icon: <Users size={20} />, tooltip: 'People and relationships' },
+      { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
     ],
   }
 
   const tools: NavSection = {
     title: 'AI & Tools',
     items: [
-      { label: 'Archives', path: '/archives', icon: <Archive size={20} />, tooltip: 'Context and documents' },
+      { label: 'Archives', path: '/archives', featureKey: 'archives', icon: <Archive size={20} />, tooltip: 'Context and documents' },
     ],
   }
 
@@ -90,14 +95,41 @@ function getSidebarSections(shell: ShellType): NavSection[] {
       return [home, {
         title: 'My Day',
         items: [
-          { label: 'Tasks', path: '/tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
-          { label: 'Journal', path: '/journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
-          { label: 'Victories', path: '/victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
+          { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
+          { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
+          { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
         ],
       }]
     case 'play':
       return [] // Play shell has no sidebar
   }
+}
+
+/** Batch-fetch illustrated icons for all nav items, cached by vibe */
+function useNavIcons(sections: NavSection[]) {
+  const { vibe } = useTheme()
+  const [iconUrls, setIconUrls] = useState<Record<string, string | null>>({})
+  const vibeRef = useRef(vibe)
+  const sectionsRef = useRef(sections)
+
+  // Track sections reference for stable comparison
+  const sectionKeys = sections.flatMap(s => s.items.map(i => i.featureKey)).join(',')
+
+  useEffect(() => {
+    const featureKeys = sections.flatMap(s => s.items.map(i => i.featureKey))
+    if (featureKeys.length === 0) return
+
+    let cancelled = false
+    getFeatureIcons(featureKeys, vibe, 'A', 128).then(urls => {
+      if (!cancelled) setIconUrls(urls)
+    })
+    vibeRef.current = vibe
+    sectionsRef.current = sections
+
+    return () => { cancelled = true }
+  }, [vibe, sectionKeys])
+
+  return iconUrls
 }
 
 export function Sidebar() {
@@ -213,6 +245,7 @@ function SidebarInner({
   shell: ShellType
   isPreview: boolean
 }) {
+  const iconUrls = useNavIcons(sections)
 
   const sidebarContent = (
     <nav className="flex-1 flex flex-col overflow-y-auto py-4">
@@ -226,27 +259,34 @@ function SidebarInner({
               {section.title}
             </p>
           )}
-          {section.items.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={collapsed ? `${item.label} — ${item.tooltip}` : item.tooltip}
-              onClick={() => setMobileOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-colors ${
-                  isActive ? 'font-medium' : ''
-                }`
-              }
-              style={({ isActive }) => ({
-                backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
-                color: isActive ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
-                borderRight: isActive ? '3px solid var(--color-btn-primary-bg)' : '3px solid transparent',
-              })}
-            >
-              {item.icon}
-              {!collapsed && <span>{item.label}</span>}
-            </NavLink>
-          ))}
+          {section.items.map((item) => {
+            const illustratedUrl = iconUrls[item.featureKey]
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={collapsed ? `${item.label} — ${item.tooltip}` : item.tooltip}
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-colors ${
+                    isActive ? 'font-medium' : ''
+                  }`
+                }
+                style={({ isActive }) => ({
+                  backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
+                  color: isActive ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
+                  borderRight: isActive ? '3px solid var(--color-btn-primary-bg)' : '3px solid transparent',
+                })}
+              >
+                {illustratedUrl ? (
+                  <img src={illustratedUrl} alt="" width={20} height={20} className="shrink-0 rounded-sm" />
+                ) : (
+                  item.icon
+                )}
+                {!collapsed && <span>{item.label}</span>}
+              </NavLink>
+            )
+          })}
         </div>
       ))}
     </nav>

@@ -834,21 +834,52 @@
 | template_id | UUID | — | YES | FK task_templates |
 | title | TEXT | — | NO | |
 | description | TEXT | — | YES | |
-| task_type | TEXT | — | NO | CHECK: 'task','routine','opportunity','habit' |
-| status | TEXT | — | NO | CHECK: 'pending','in_progress','completed','cancelled','paused' |
+| task_type | TEXT | — | NO | CHECK: 'task','routine','opportunity_repeatable','opportunity_claimable','opportunity_capped','sequential','habit' |
+| status | TEXT | — | NO | CHECK: 'pending','in_progress','completed','pending_approval','cancelled','paused' |
 | priority | TEXT | — | YES | CHECK: 'now','next','optional','someday' |
 | due_date | DATE | — | YES | |
 | due_time | TIME | — | YES | |
 | life_area_tag | TEXT | — | YES | |
+| duration_estimate | TEXT | — | YES | |
+| incomplete_action | TEXT | 'auto_reschedule' | NO | CHECK: 'fresh_reset','auto_reschedule','drop_after_date','reassign_until_complete','require_decision','escalate_to_parent' |
+| require_approval | BOOLEAN | false | NO | |
+| is_shared | BOOLEAN | false | NO | |
+| parent_task_id | UUID | — | YES | FK tasks (self-ref for Task Breaker subtasks) |
+| task_breaker_level | TEXT | — | YES | CHECK: 'quick','detailed','granular' |
+| sequential_collection_id | UUID | — | YES | FK sequential_collections |
+| sequential_position | INTEGER | — | YES | |
+| sequential_is_active | BOOLEAN | false | NO | |
+| max_completions | INTEGER | — | YES | For capped opportunities |
+| claim_lock_duration | INTEGER | — | YES | |
+| claim_lock_unit | TEXT | — | YES | CHECK: 'hours','days','weeks' |
+| recurrence_rule | TEXT | — | YES | |
+| recurrence_details | JSONB | — | YES | RRULE format; PRD-35 |
+| eisenhower_quadrant | TEXT | — | YES | View metadata |
+| frog_rank | INTEGER | — | YES | View metadata |
+| importance_level | TEXT | — | YES | View metadata |
+| big_rock | BOOLEAN | false | NO | View metadata |
+| ivy_lee_rank | INTEGER | — | YES | View metadata |
+| abcde_category | TEXT | — | YES | View metadata |
+| moscow_category | TEXT | — | YES | View metadata |
+| impact_effort | TEXT | — | YES | View metadata |
+| kanban_status | TEXT | 'to_do' | YES | View metadata |
+| sort_order | INTEGER | 0 | NO | |
+| image_url | TEXT | — | YES | |
+| victory_flagged | BOOLEAN | false | NO | |
+| completion_note | TEXT | — | YES | |
+| completed_at | TIMESTAMPTZ | — | YES | |
+| source | TEXT | 'manual' | NO | CHECK: 'manual','template_deployed','lila_conversation','notepad_routed','review_route','meeting_action','goal_decomposition','project_planner','member_request','sequential_promoted','recurring_generated' |
+| source_reference_id | UUID | — | YES | |
 | points_override | INTEGER | — | YES | PRD-24 |
 | related_plan_id | UUID | — | YES | FK plans; PRD-29 |
-| source | TEXT | 'manual' | NO | |
-| recurrence_details | JSONB | — | YES | RRULE format; PRD-35 |
+| related_intention_id | UUID | — | YES | FK best_intentions; PRD-06 |
+| focus_time_seconds | INTEGER | 0 | NO | Accumulated timer time |
+| archived_at | TIMESTAMPTZ | — | YES | Soft delete |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Family members can read own family. Assignee and creator can update. Adults can manage all.
-**Indexes:** `idx_tasks_family` ON family_id; `idx_tasks_assignee` ON assignee_id; `idx_tasks_status` ON status; `idx_tasks_due` ON due_date WHERE due_date IS NOT NULL; `idx_tasks_plan` ON related_plan_id WHERE related_plan_id IS NOT NULL
+**RLS:** Family-scoped. Mom reads all. Dad reads own + permitted kids'. Teens read own. Special Adults read assigned kids' during shift.
+**Indexes:** `idx_tasks_family` ON family_id; `idx_tasks_assignee` ON assignee_id; `idx_tasks_status` ON status; `idx_tasks_due` ON due_date; `idx_tasks_plan` ON related_plan_id; `idx_tasks_type` ON (family_id, task_type); `idx_tasks_parent` ON parent_task_id; `idx_tasks_sequential` ON (sequential_collection_id, sequential_position); `idx_tasks_source` ON (family_id, source); `idx_tasks_archived` ON (family_id, archived_at)
 **Triggers:** `trg_tasks_updated_at`
 
 ---
@@ -861,11 +892,19 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | task_id | UUID | — | NO | FK tasks |
 | member_id | UUID | — | NO | FK family_members |
+| family_member_id | UUID | — | YES | FK family_members (PRD-09A) |
 | assigned_by | UUID | — | NO | FK family_members |
+| assigned_at | TIMESTAMPTZ | now() | NO | |
+| start_date | DATE | — | YES | When assignment becomes active |
+| end_date | DATE | — | YES | When assignment ends (NULL=indefinite) |
+| rotation_position | INTEGER | — | YES | Position in rotation cycle |
+| is_active | BOOLEAN | true | NO | |
 | created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Inherits from tasks.
-**Indexes:** `idx_ta_task` ON task_id; `idx_ta_member` ON member_id
+**RLS:** Family-scoped via task_id. Members read own assignments. Mom reads all.
+**Indexes:** `idx_ta_task` ON task_id; `idx_ta_member` ON member_id; `idx_ta_active` ON (task_id, is_active); `idx_ta_member_active` ON (family_member_id, is_active)
+**Triggers:** `trg_ta_updated_at`
 
 ---
 

@@ -246,15 +246,16 @@ UPDATE public.family_members
 SET dashboard_mode = 'adult'
 WHERE role = 'additional_adult' AND (dashboard_mode IS NULL OR dashboard_mode = '');
 
--- Step 2: Consolidate child roles → 'member'
+-- Step 2: Drop old CHECK constraint FIRST (before updating roles)
+ALTER TABLE public.family_members
+  DROP CONSTRAINT IF EXISTS family_members_role_check;
+
+-- Step 3: Consolidate child roles → 'member'
 UPDATE public.family_members
 SET role = 'member'
 WHERE role IN ('independent', 'guided', 'play');
 
--- Step 3: Drop old CHECK constraint, add new one with 4 values
-ALTER TABLE public.family_members
-  DROP CONSTRAINT IF EXISTS family_members_role_check;
-
+-- Step 4: Add new CHECK constraint with 4 values
 ALTER TABLE public.family_members
   ADD CONSTRAINT family_members_role_check
   CHECK (role IN ('primary_parent', 'additional_adult', 'special_adult', 'member'));
@@ -282,6 +283,8 @@ ALTER TABLE public.families
 -- ============================================================================
 
 -- Fix get_family_login_members to sort by role + dashboard_mode
+-- Must DROP first because return type changed
+DROP FUNCTION IF EXISTS public.get_family_login_members(UUID);
 CREATE OR REPLACE FUNCTION public.get_family_login_members(p_family_id UUID)
 RETURNS TABLE(
   member_id UUID,
@@ -431,6 +434,7 @@ CREATE TABLE IF NOT EXISTS public.permission_presets (
 CREATE INDEX IF NOT EXISTS idx_pp_family_role
   ON public.permission_presets(family_id, target_role);
 
+DROP TRIGGER IF EXISTS trg_pp_updated_at ON public.permission_presets;
 CREATE TRIGGER trg_pp_updated_at
   BEFORE UPDATE ON public.permission_presets
   FOR EACH ROW EXECUTE FUNCTION util.set_updated_at();
@@ -447,6 +451,10 @@ CREATE POLICY "pp_manage_primary_parent" ON public.permission_presets
   FOR ALL USING (
     family_id IN (SELECT id FROM public.families WHERE primary_parent_id = auth.uid())
   );
+
+-- Allow NULL family_id for system presets
+ALTER TABLE public.permission_presets ALTER COLUMN family_id DROP NOT NULL;
+ALTER TABLE public.permission_presets ALTER COLUMN created_by DROP NOT NULL;
 
 -- Seed 6 system presets (PRD-02)
 INSERT INTO public.permission_presets (preset_name, target_role, permissions_config, is_system_preset)

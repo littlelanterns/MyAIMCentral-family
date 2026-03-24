@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Calendar, CheckSquare, List, BookOpen, Star, Heart, Trophy,
   BarChart3, MessageCircle, ListChecks, Brain, Wand2, StickyNote,
-  ThumbsUp, SkipForward,
+  ThumbsUp, SkipForward, Clock, Lightbulb,
 } from 'lucide-react'
+import { useTheme } from '@/lib/theme'
+import { getFeatureIcons } from '@/lib/assets'
 import type { NotepadRoutingStat } from '@/hooks/useNotepad'
 
 // ─── Types ───────────────────────────────────────────────────
@@ -14,6 +16,7 @@ export interface RoutingDestinationConfig {
   key: string
   label: string
   icon: typeof Calendar
+  featureKey: string
   accent: DestAccent
   subOptions?: { key: string; label: string }[]
 }
@@ -65,18 +68,18 @@ const ACCENT_COLORS: Record<DestAccent, { icon: string; label: string; tileBg: s
 }
 
 const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
-  { key: 'calendar', label: 'Calendar', icon: Calendar, accent: 'teal' },
+  { key: 'calendar', label: 'Calendar', icon: Calendar, featureKey: 'calendar', accent: 'teal' },
   {
-    key: 'tasks', label: 'Tasks', icon: CheckSquare, accent: 'warm',
+    key: 'tasks', label: 'Tasks', icon: CheckSquare, featureKey: 'tasks', accent: 'warm',
     subOptions: [
       { key: 'single', label: 'Single task' },
       { key: 'individual', label: 'Individual' },
       { key: 'ai_sort', label: 'AI sort' },
     ],
   },
-  { key: 'list', label: 'List', icon: List, accent: 'muted' },
+  { key: 'list', label: 'List', icon: List, featureKey: 'lists', accent: 'muted' },
   {
-    key: 'journal', label: 'Journal', icon: BookOpen, accent: 'teal',
+    key: 'journal', label: 'Journal', icon: BookOpen, featureKey: 'journal', accent: 'teal',
     subOptions: [
       { key: 'free_write', label: 'Free write' },
       { key: 'daily_reflection', label: 'Reflection' },
@@ -86,14 +89,14 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
       { key: 'dream', label: 'Dreams' },
     ],
   },
-  { key: 'guiding_stars', label: 'Guiding Stars', icon: Star, accent: 'warm' },
-  { key: 'best_intentions', label: 'Best Intentions', icon: Heart, accent: 'rose' },
-  { key: 'victory', label: 'Victory', icon: Trophy, accent: 'warm' },
-  { key: 'track', label: 'Track', icon: BarChart3, accent: 'teal' },
-  { key: 'message', label: 'Message', icon: MessageCircle, accent: 'rose' },
-  { key: 'agenda', label: 'Agenda', icon: ListChecks, accent: 'rose' },
+  { key: 'guiding_stars', label: 'Guiding Stars', icon: Star, featureKey: 'guiding_stars', accent: 'warm' },
+  { key: 'best_intentions', label: 'Best Intentions', icon: Heart, featureKey: 'my_foundation', accent: 'rose' },
+  { key: 'victory', label: 'Victory', icon: Trophy, featureKey: 'victories', accent: 'warm' },
+  { key: 'track', label: 'Track', icon: BarChart3, featureKey: 'widgets_trackers', accent: 'teal' },
+  { key: 'message', label: 'Message', icon: MessageCircle, featureKey: 'messages', accent: 'rose' },
+  { key: 'agenda', label: 'Agenda', icon: ListChecks, featureKey: 'meetings', accent: 'rose' },
   {
-    key: 'innerworkings', label: 'InnerWorkings', icon: Brain, accent: 'teal',
+    key: 'innerworkings', label: 'InnerWorkings', icon: Brain, featureKey: 'my_foundation', accent: 'teal',
     subOptions: [
       { key: 'personality', label: 'Personality' },
       { key: 'strengths', label: 'Strengths' },
@@ -102,10 +105,12 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
       { key: 'how_i_work', label: 'How I work' },
     ],
   },
-  { key: 'optimizer', label: 'Optimizer', icon: Wand2, accent: 'teal' },
-  { key: 'note', label: 'Note', icon: StickyNote, accent: 'muted' },
-  { key: 'acknowledge', label: 'Acknowledge', icon: ThumbsUp, accent: 'muted' },
-  { key: 'skip', label: 'Skip', icon: SkipForward, accent: 'muted' },
+  { key: 'optimizer', label: 'Optimizer', icon: Wand2, featureKey: 'lila_chat', accent: 'teal' },
+  { key: 'ideas', label: 'Ideas', icon: Lightbulb, featureKey: 'lists', accent: 'warm' },
+  { key: 'backburner', label: 'Backburner', icon: Clock, featureKey: 'lists', accent: 'muted' },
+  { key: 'note', label: 'Note', icon: StickyNote, featureKey: 'notepad_basic', accent: 'muted' },
+  { key: 'acknowledge', label: 'Acknowledge', icon: ThumbsUp, featureKey: 'notifications_basic', accent: 'muted' },
+  { key: 'skip', label: 'Skip', icon: SkipForward, featureKey: 'skip', accent: 'muted' },
 ]
 
 // ─── Context Filters ─────────────────────────────────────────
@@ -113,17 +118,34 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
 const CONTEXT_FILTERS: Record<RoutingContext, string[]> = {
   notepad_send_to: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'agenda', 'innerworkings', 'optimizer', 'note',
+    'victory', 'track', 'message', 'agenda', 'innerworkings', 'optimizer', 'ideas', 'backburner', 'note',
   ],
   request_accept: ['calendar', 'tasks', 'list', 'acknowledge'],
-  meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'skip'],
+  meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'backburner', 'skip'],
   review_route_card: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'note',
+    'victory', 'track', 'message', 'ideas', 'backburner', 'note',
   ],
 }
 
 // ─── Component ───────────────────────────────────────────────
+
+/** Batch-fetch illustrated icons for routing destinations */
+function useRoutingIcons() {
+  const { vibe } = useTheme()
+  const [iconUrls, setIconUrls] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    const keys = ALL_DESTINATIONS.map(d => d.featureKey)
+    getFeatureIcons(keys, vibe, 'A', 128).then(urls => {
+      if (!cancelled) setIconUrls(urls)
+    })
+    return () => { cancelled = true }
+  }, [vibe])
+
+  return iconUrls
+}
 
 export function RoutingStrip({
   context,
@@ -134,6 +156,7 @@ export function RoutingStrip({
   onReviewRoute,
 }: RoutingStripProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const iconUrls = useRoutingIcons()
 
   const allowedKeys = CONTEXT_FILTERS[context]
   const destinations = ALL_DESTINATIONS.filter(d => allowedKeys.includes(d.key))
@@ -190,6 +213,7 @@ export function RoutingStrip({
                 dest={dest}
                 onClick={() => handleTileClick(dest)}
                 isExpanded={expandedKey === dest.key}
+                illustratedUrl={iconUrls[dest.featureKey] ?? null}
               />
             ))}
           </div>
@@ -213,6 +237,7 @@ export function RoutingStrip({
                 <DestinationTile
                   key={dest.key}
                   dest={dest}
+                  illustratedUrl={iconUrls[dest.featureKey] ?? null}
                   onClick={() => handleTileClick(dest)}
                   isActive={expandedKey === dest.key}
                 />
@@ -284,10 +309,11 @@ export function RoutingStrip({
 
 // ─── Sub-components ──────────────────────────────────────────
 
-function FavoriteTile({ dest, onClick, isExpanded }: {
+function FavoriteTile({ dest, onClick, isExpanded, illustratedUrl }: {
   dest: RoutingDestinationConfig
   onClick: () => void
   isExpanded: boolean
+  illustratedUrl: string | null
 }) {
   const Icon = dest.icon
   const accent = ACCENT_COLORS[dest.accent]
@@ -303,7 +329,11 @@ function FavoriteTile({ dest, onClick, isExpanded }: {
         minHeight: 'unset',
       }}
     >
-      <Icon size={22} style={{ color: isExpanded ? 'var(--color-btn-primary-text)' : accent.icon }} />
+      {illustratedUrl ? (
+        <img src={illustratedUrl} alt="" width={22} height={22} className="shrink-0 rounded-sm" />
+      ) : (
+        <Icon size={22} style={{ color: isExpanded ? 'var(--color-btn-primary-text)' : accent.icon }} />
+      )}
       <span
         className="text-xs font-medium"
         style={{ color: isExpanded ? 'var(--color-btn-primary-text)' : accent.label }}
@@ -322,10 +352,11 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks
 }
 
-function DestinationTile({ dest, onClick, isActive }: {
+function DestinationTile({ dest, onClick, isActive, illustratedUrl }: {
   dest: RoutingDestinationConfig
   onClick: () => void
   isActive: boolean
+  illustratedUrl: string | null
 }) {
   const Icon = dest.icon
   const accent = ACCENT_COLORS[dest.accent]
@@ -342,7 +373,11 @@ function DestinationTile({ dest, onClick, isActive }: {
         borderRadius: 'var(--vibe-radius-input, 8px)',
       }}
     >
-      <Icon size={20} style={{ color: isActive ? 'var(--color-btn-primary-text)' : accent.icon }} />
+      {illustratedUrl ? (
+        <img src={illustratedUrl} alt="" width={20} height={20} className="shrink-0 rounded-sm" />
+      ) : (
+        <Icon size={20} style={{ color: isActive ? 'var(--color-btn-primary-text)' : accent.icon }} />
+      )}
       <span
         className="text-[11px]"
         style={{ color: isActive ? 'var(--color-btn-primary-text)' : accent.label }}

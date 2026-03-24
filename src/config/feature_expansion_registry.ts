@@ -324,4 +324,71 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
       'Deep relationship mapping — document how family members interact, what works and what doesn\'t, communication styles, and relationship strengths. Upload IEPs, medical records, and school documents. Monthly data aggregation creates trend reports. Guided interviews with 35+ structured questions build comprehensive family profiles.',
     location_hint: 'Archives section, LiLa context',
   },
+
+  // ── Studio Planned Categories ────────────────────────────────────
+
+  studio_trackers_widgets: {
+    name: 'Trackers & Widgets Templates',
+    description:
+      'Browse and deploy tracker and widget templates directly from Studio. Choose from 19 tracker types with 75+ visual variants — habits, moods, water intake, reading progress, fitness goals. Pick a widget template, customize the visual style and target, and deploy it to any family member\'s dashboard in seconds. Kids get special visual trackers that unveil coloring images as they make progress.',
+    location_hint: 'Studio → Trackers & Widgets category',
+  },
+
+  studio_tools: {
+    name: 'Tool Templates',
+    description:
+      'Meal planners, project planners, budget worksheets, homeschool unit planners, and specialized coordination tools — all as ready-to-deploy templates. Browse, customize, and add to any dashboard. Future PRDs (meal planning, project management) will add their templates here automatically.',
+    location_hint: 'Studio → Tools category',
+  },
+
+  studio_gamification: {
+    name: 'Gamification System Templates',
+    description:
+      'Choose a visual world theme for each child and customize it before deploying to their dashboard. Dragon Academy, Garden Growth, Ocean Explorer, Space Station, and more. Configure point systems, streak celebrations, treasure box animations, and reward store — all as a cohesive gamification template you can reuse and reassign as your family grows.',
+    location_hint: 'Studio → Gamification Systems category',
+  },
+
+  // ── Task Prioritization Views (planned) ──────────────────────────
+
+  task_view_big_rocks: {
+    name: 'Big Rocks View',
+    description:
+      'Put the big rocks in first. Stephen Covey\'s time management classic — see your 2-3 major priorities (Big Rocks) visually emphasized above everything else (Gravel). Never let gravel fill your day before the important work is done.',
+    location_hint: 'Tasks section, view carousel',
+  },
+
+  task_view_ivy_lee: {
+    name: 'Ivy Lee Method',
+    description:
+      'The $25,000 method that transformed industry. Write your 6 most important tasks in priority order. Work on #1 until done, then #2. Move what\'s unfinished to tomorrow. Strict ranked focus with no multitasking allowed — one of the most effective productivity methods ever discovered.',
+    location_hint: 'Tasks section, view carousel',
+  },
+
+  task_view_abcde: {
+    name: 'ABCDE Priority Method',
+    description:
+      'Brian Tracy\'s five-tier system: A tasks must happen (serious consequences), B tasks should happen (mild consequences), C tasks are nice-to-do, D tasks get delegated (with smart family member suggestions), E tasks get eliminated entirely. Brutal clarity on what actually matters.',
+    location_hint: 'Tasks section, view carousel',
+  },
+
+  task_view_moscow: {
+    name: 'MoSCoW Method',
+    description:
+      'Project management\'s classic framework adapted for family life: Must Do, Should Do, Could Do, Won\'t Do this cycle. Perfect for curriculum planning, family projects, and any situation where trade-offs need to be clear and explicit. Great for weekly family council planning.',
+    location_hint: 'Tasks section, view carousel',
+  },
+
+  task_view_impact_effort: {
+    name: 'Impact / Effort Matrix',
+    description:
+      'A 2×2 grid that tells you where to focus your energy. Quick Wins (high impact, low effort) go first. Major Projects get scheduled. Fill-Ins get batched. Thankless Tasks get questioned. See at a glance where your time is actually going — and where it shouldn\'t.',
+    location_hint: 'Tasks section, view carousel',
+  },
+
+  task_view_by_member: {
+    name: 'By Member View',
+    description:
+      'The family command center view. See every family member\'s tasks in their own column — instantly spot who\'s overloaded, who needs more to do, and how the distribution looks. Drag tasks between members to rebalance. Only available on the Family Overview for mom and permitted adults.',
+    location_hint: 'Tasks section, Family Overview',
+  },
 }

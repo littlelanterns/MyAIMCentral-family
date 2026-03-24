@@ -34,9 +34,12 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 
 @claude/architecture.md
 @claude/database_schema.md
+@claude/live_schema.md
 @claude/conventions.md
 @claude/ai_patterns.md
 @claude/feature_glossary.md
+@WIRING_STATUS.md
+@specs/studio-seed-templates.md
 
 ## Critical Conventions (Apply to ALL Code)
 
@@ -148,3 +151,18 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 
 62. **Accept-invite flow** at `/auth/accept-invite?token=xxx`. Validates token against `family_members.invite_token`, supports new account creation or existing account linking. `accept_family_invite` RPC (SECURITY DEFINER) handles the DB update atomically.
 63. **Session duration per role:** adult=24h, independent=4h, guided=1h, play=30m. `useSessionTimeout` hook in ShellProvider tracks inactivity (mouse/key/touch/scroll), throttled to 30s resets. Warning banner 2 minutes before expiry. Auto-signout on timeout.
+
+## Tasks System (PRD-09A, PRD-17)
+
+65. **`studio_queue` is the universal task intake.** There is NO `task_queue` table. PRD-17 supersedes PRD-09A's `task_queue` with `studio_queue`. Items arrive with `destination='task'` from Notepad, LiLa, meetings, and requests.
+66. **Universal Queue Modal** has 3 tabs: Calendar, Sort, Requests. The Sort tab processes `studio_queue` items. It is the central decision inbox — one modal, everything waiting for mom's attention.
+67. **Task Creation Modal** has Quick Mode (name + assignee + date) and Full Mode (7 collapsible sections). Quick Mode is default from Sort tab; Full Mode is default for batch/template operations.
+68. **13 prioritization views** show the same tasks through different lenses. View metadata fields (`eisenhower_quadrant`, `frog_rank`, `importance_level`, etc.) stored on each task. Auto-sync between views (Eisenhower "Do Now" → ABCDE "A") but never overwrite explicit user values.
+69. **Fresh Reset is the DEFAULT incomplete action for routines.** No carry-forward guilt. History recorded but each period starts clean.
+70. **Opportunities** have 3 sub-types: `opportunity_repeatable` (unlimited earnings), `opportunity_claimable` (lock for duration, release on expiry), `opportunity_capped` (max completions). Claim locks are first-claim-wins with configurable duration.
+71. **Sequential Collections** drip-feed tasks one at a time. On completion, next item auto-promotes (immediate/next_day/manual). Reusable across years by reassigning.
+72. **Task Breaker AI** decomposes tasks into subtasks at 3 levels (quick/detailed/granular). Child tasks link via `parent_task_id`. Image mode available at Full Magic tier.
+
+## Build Prompts Ban
+
+73. **Old build prompts are BANNED.** The 42 files in `archive/old-build-prompts/` were generated from a bad schema summary and are POISONED. Never reference, read, or use them. For every remaining feature, read the FULL PRD in `prds/` (and any addenda in `prds/addenda/`) before writing any code. This supersedes any workflow that previously relied on build prompt files.
