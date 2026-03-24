@@ -9,6 +9,7 @@
 | 04 | PRD-04 | Shell Routing & Layouts | Phase 02, 03 | Complete | 2026-03-23 | 2026-03-23 |
 | 05 | PRD-35, PRD-36 | Universal Scheduler & Timer | Phase 04 | Complete | 2026-03-23 | 2026-03-23 |
 | 06 | PRD-05 | LiLa Core AI System | Phase 04 | Complete | 2026-03-23 | 2026-03-23 |
+| — | PRD-01, PRD-04, PRD-15 | Family Setup Remediation + Mobile Layout + UI Polish | Phase 06 | Complete | 2026-03-23 | 2026-03-23 |
 | 07 | PRD-06 | GuidingStars & BestIntentions | Phase 06 | Pending | | |
 | 08 | PRD-07 | InnerWorkings | Phase 06 | Pending | | |
 | 09 | PRD-08 | Journal & Smart Notepad | Phase 06 | Pending | | |

@@ -60,6 +60,12 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
     - `CLAUDE.md` — add any new conventions introduced by the phase
     - Add `<FeatureGuide featureKey="xxx" />` to every new page/feature
 
+15. **Member colors:** Use the 44-color AIMfM palette from `src/config/member_colors.ts`. Never hardcode hex colors — use CSS custom properties with fallbacks. Run `npm run check:colors` to verify.
+16. **Mobile layout:** BottomNav handles mobile navigation. No hamburger menu. Hide "Back to Dashboard" buttons on mobile (`hidden md:flex`). LiLa drawer sits above bottom nav (`bottom-14 md:bottom-0`).
+17. **PIN hashing:** All PINs are hashed server-side via `hash_member_pin` RPC (pgcrypto bcrypt). Never store plain-text PINs. Verify with `verify_member_pin` RPC.
+18. **Out of Nest members:** Stored in `out_of_nest_members` table (NOT `family_members`). They are descendants and their spouses only — below mom on the family tree. No dashboard, no PIN, no feature access. Grandparents who help are Special Adults, not Out of Nest.
+19. **Auto-provisioning:** The `auto_provision_member_resources` trigger creates an archive folder + dashboard_config for every new `family_members` insert. No manual creation needed.
+
 ## Pricing (PRD-31 Authoritative)
 
 | Tier | Monthly | Founding Rate |

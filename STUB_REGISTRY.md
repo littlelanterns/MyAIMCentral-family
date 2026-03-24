@@ -15,6 +15,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
+| PIN verification (FamilyLogin) | PRD-01 (Phase 01) | Remediation | ✅ Wired | Remediation |
 | Family device hub widgets | PRD-01 | PRD-14D | ✅ Wired | Phase 15 |
 | Tablet hub timeout config | PRD-01 | PRD-22 | ✅ Wired | Phase 27 |
 | Permission hub UI | PRD-02 | PRD-22 | ✅ Wired | Phase 27 |
