@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Tooltip } from '@/components/Tooltip'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
+import { PullTab } from '@/components/shared/PullTab'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import { NotepadReviewRoute } from './NotepadReviewRoute'
@@ -235,54 +236,23 @@ export function NotepadDrawer() {
         <>
           {/* Desktop pull tab — manila folder tab shape (vertical, right edge) */}
           <Tooltip content="Smart Notepad">
-            <button
-              onClick={() => openNotepad()}
-              className="fixed right-0 z-30 hidden md:block transition-all duration-200 group"
-              style={{
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: '42px',
-                height: '100px',
-                background: 'transparent',
-                border: 'none',
-                minHeight: 'unset',
-                padding: 0,
-              }}
-            >
-              {/* Tab shape: straight right edge (flush with screen), rounded left protrusion */}
-              <svg viewBox="0 0 42 100" fill="none" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(-2px 0 6px rgba(0,0,0,0.12))' }}>
-                <path
-                  d="M42 8 L42 0 L42 8 C42 8, 42 8, 42 8 L42 8 L18 8 C8 8, 2 16, 2 26 L2 74 C2 84, 8 92, 18 92 L42 92 L42 100 L42 92 Z"
-                  fill="var(--color-btn-primary-bg)"
-                />
-              </svg>
-              <StickyNote size={16} className="relative z-10" style={{ color: 'var(--color-btn-primary-text)', marginLeft: '12px' }} />
-            </button>
+            {/* Desktop pull tab — vibe-aware side tab */}
+            <div className="fixed right-0 z-30 hidden md:block" style={{ top: '50%', transform: 'translateY(-50%)' }}>
+              <PullTab orientation="side" onClick={() => openNotepad()}>
+                <StickyNote size={16} />
+              </PullTab>
+            </div>
           </Tooltip>
 
-          {/* Mobile pull tab — folder tab, above bottom nav */}
-          <button
-            onClick={() => openNotepad()}
-            className="fixed right-0 z-30 md:hidden block transition-all duration-200 group"
-            style={{
-              top: 'auto',
-              bottom: 'calc(56px + 24px)',
-              width: '34px',
-              height: '80px',
-              background: 'transparent',
-              border: 'none',
-              minHeight: 'unset',
-              padding: 0,
-            }}
+          {/* Mobile pull tab — vibe-aware side tab, above bottom nav */}
+          <div
+            className="fixed right-0 z-30 md:hidden block"
+            style={{ bottom: 'calc(56px + 24px)' }}
           >
-            <svg viewBox="0 0 34 80" fill="none" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(-2px 0 4px rgba(0,0,0,0.12))' }}>
-              <path
-                d="M34 6 L14 6 C6 6, 2 13, 2 20 L2 60 C2 67, 6 74, 14 74 L34 74 L34 80 L34 74 Z M34 6 L34 0 Z"
-                fill="var(--color-btn-primary-bg)"
-              />
-            </svg>
-            <StickyNote size={14} className="relative z-10" style={{ color: 'var(--color-btn-primary-text)', marginLeft: '9px' }} />
-          </button>
+            <PullTab orientation="side" onClick={() => openNotepad()} height={70}>
+              <StickyNote size={14} />
+            </PullTab>
+          </div>
         </>
       )}
 

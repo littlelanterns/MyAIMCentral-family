@@ -21,6 +21,7 @@ import { assembleContext, getContextSummary, createContextSnapshot } from '@/lib
 import { matchHelpPattern } from '@/lib/ai/help-patterns'
 import { supabase } from '@/lib/supabase/client'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
+import { PullTab } from '@/components/shared/PullTab'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 
 type DrawerState = 'collapsed' | 'peek' | 'full'
@@ -300,40 +301,19 @@ export function LilaDrawer({
       onTouchStart={handleLilaTouchStart}
       onTouchEnd={handleLilaTouchEnd}
     >
-      {/* Pull tab — folder tab shape with avatar, always visible above drawer */}
+      {/* Pull tab — vibe-aware, always visible above drawer */}
       <div className="flex justify-center" style={{ marginBottom: '-1px' }}>
-        <button
+        <PullTab
+          orientation="bottom"
           onClick={() => setDrawerState(drawerState === 'collapsed' ? 'peek' : 'collapsed')}
-          className="relative flex items-center gap-2 text-xs font-semibold transition-all duration-300 hover:brightness-110 group"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            minHeight: 'unset',
-            padding: '0',
-            width: '180px',
-            height: '40px',
-          }}
         >
-          {/* Folder tab SVG — straight top, rounded bottom corners into drawer */}
-          <svg
-            viewBox="0 0 180 40"
-            fill="none"
-            className="absolute inset-0 w-full h-full"
-            style={{ filter: 'drop-shadow(0 -3px 6px rgba(0,0,0,0.12))' }}
-            preserveAspectRatio="none"
-          >
-            <path
-              d="M10 0 L170 0 C176 0, 180 4, 180 10 L180 40 L0 40 L0 10 C0 4, 4 0, 10 0 Z"
-              fill="var(--color-btn-primary-bg)"
-            />
-          </svg>
-          <div className="relative z-10 flex items-center gap-2 justify-center w-full" style={{ color: 'var(--color-btn-primary-text)', paddingBottom: '4px' }}>
+          <div className="flex items-center gap-2 text-xs font-semibold">
             <LilaAvatar avatarKey={avatarKey} size={18} />
             <span>LiLa</span>
             <span className="opacity-60 text-[10px]">{modeLabel}</span>
             {drawerState === 'collapsed' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </div>
-        </button>
+        </PullTab>
       </div>
 
       {/* Drawer body — overflow-hidden on wrapper for height animation,
