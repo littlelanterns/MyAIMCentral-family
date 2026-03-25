@@ -255,7 +255,7 @@ function SidebarInner({
   const iconUrls = useNavIcons(sections)
 
   const sidebarContent = (
-    <nav className="flex-1 flex flex-col overflow-y-auto py-4">
+    <nav className="flex-1 flex flex-col overflow-y-auto py-4 scrollbar-card">
       {sections.map((section) => (
         <div key={section.title} className="mb-4">
           {!collapsed && (
@@ -286,7 +286,7 @@ function SidebarInner({
                 })}
               >
                 {illustratedUrl ? (
-                  <img src={illustratedUrl} alt="" width={20} height={20} className="shrink-0 rounded-sm" />
+                  <img src={illustratedUrl} alt="" width={26} height={26} className="shrink-0 rounded-sm" />
                 ) : (
                   item.icon
                 )}
