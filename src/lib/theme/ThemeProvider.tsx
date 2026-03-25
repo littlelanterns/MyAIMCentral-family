@@ -163,15 +163,9 @@ function applyTokens(
   if (fontScale === 'large') root.classList.add('font-scale-large')
   if (fontScale === 'extra-large') root.classList.add('font-scale-extra-large')
 
-  // Scrollbar theming — gradient-aware
+  // Scrollbar theming — diagonal gradient of theme colors
   root.style.setProperty('--scrollbar-track', colors.bgSecondary)
-  if (gradientEnabled) {
-    root.style.setProperty('--scrollbar-thumb', colors.btnPrimaryBg)
-    root.style.setProperty('--scrollbar-thumb-hover', colors.accent)
-  } else {
-    root.style.setProperty('--scrollbar-thumb', colors.border)
-    root.style.setProperty('--scrollbar-thumb-hover', colors.btnPrimaryBg)
-  }
+  root.style.setProperty('--scrollbar-thumb', `linear-gradient(135deg, ${colors.btnPrimaryBg}, ${colors.accent})`)
 
   // Layout tokens
   root.style.setProperty('--spacing-xs', '0.25rem')
