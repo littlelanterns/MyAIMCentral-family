@@ -4,15 +4,15 @@ import { useTheme } from '@/lib/theme'
 import { themes } from '@/lib/theme/tokens'
 import type { ThemeKey, VibeKey } from '@/lib/theme/tokens'
 
-// Theme category structure
 interface ThemeCategory {
   name: string
+  short: string
   themes: { key: ThemeKey; name: string }[]
 }
 
 const THEME_CATEGORIES: ThemeCategory[] = [
   {
-    name: 'Original',
+    name: 'Original', short: 'Original',
     themes: [
       { key: 'classic', name: 'Classic MyAIM' },
       { key: 'sage_garden', name: 'Sage Garden' },
@@ -26,7 +26,7 @@ const THEME_CATEGORIES: ThemeCategory[] = [
     ],
   },
   {
-    name: 'Warm & Cozy',
+    name: 'Warm & Cozy', short: 'Warm',
     themes: [
       { key: 'honey_linen', name: 'Honey Linen' },
       { key: 'warm_sunset', name: 'Warm Sunset' },
@@ -38,7 +38,7 @@ const THEME_CATEGORIES: ThemeCategory[] = [
     ],
   },
   {
-    name: 'Cool & Calm',
+    name: 'Cool & Calm', short: 'Cool',
     themes: [
       { key: 'ocean_breeze', name: 'Ocean Breeze' },
       { key: 'forest_calm', name: 'Forest Calm' },
@@ -50,7 +50,7 @@ const THEME_CATEGORIES: ThemeCategory[] = [
     ],
   },
   {
-    name: 'Bold & Rich',
+    name: 'Bold & Rich', short: 'Bold',
     themes: [
       { key: 'captains_quarters', name: "Captain's Quarters" },
       { key: 'inkwell_bronze', name: 'Inkwell Bronze' },
@@ -61,7 +61,7 @@ const THEME_CATEGORIES: ThemeCategory[] = [
     ],
   },
   {
-    name: 'Soft & Light',
+    name: 'Soft & Light', short: 'Soft',
     themes: [
       { key: 'peach_garden', name: 'Peach Garden' },
       { key: 'berry_soft', name: 'Berry Soft' },
@@ -71,7 +71,7 @@ const THEME_CATEGORIES: ThemeCategory[] = [
     ],
   },
   {
-    name: 'Bright & Fun',
+    name: 'Bright & Fun', short: 'Bright',
     themes: [
       { key: 'sunshine_day', name: 'Sunshine Day' },
       { key: 'garden_party', name: 'Garden Party' },
@@ -82,7 +82,7 @@ const THEME_CATEGORIES: ThemeCategory[] = [
     ],
   },
   {
-    name: 'Seasonal',
+    name: 'Seasonal', short: 'Seasonal',
     themes: [
       { key: 'fresh_spring', name: 'Fresh Spring' },
       { key: 'sunny_summer', name: 'Sunny Summer' },
@@ -104,7 +104,7 @@ const VIBE_OPTIONS: { key: VibeKey; name: string }[] = [
 const COLOR_MODES = [
   { key: 'light' as const, icon: Sun, label: 'Light' },
   { key: 'dark' as const, icon: Moon, label: 'Dark' },
-  { key: 'system' as const, icon: Monitor, label: 'System' },
+  { key: 'system' as const, icon: Monitor, label: 'Auto' },
 ]
 
 const FONT_SCALES = [
@@ -114,18 +114,19 @@ const FONT_SCALES = [
   { key: 'extra-large' as const, label: 'XL' },
 ]
 
-function ThemeSwatch({ themeKey, gradientEnabled }: { themeKey: ThemeKey; gradientEnabled: boolean }) {
+function ThemeSwatch({ themeKey, gradientEnabled, size = 28 }: { themeKey: ThemeKey; gradientEnabled: boolean; size?: number }) {
   const colors = themes[themeKey].light
   const c1 = colors.bgPrimary
   const c2 = colors.btnPrimaryBg
   const c3 = colors.accent
 
   if (gradientEnabled) {
-    // Smooth color wheel — colors sweep around the edge, no center cone
     return (
       <div
-        className="w-8 h-8 flex-shrink-0"
+        className="flex-shrink-0"
         style={{
+          width: size,
+          height: size,
           borderRadius: '50%',
           overflow: 'hidden',
           background: `conic-gradient(from 0deg at 50% 50%, ${c1} 0deg, ${c2} 120deg, ${c3} 240deg, ${c1} 360deg)`,
@@ -134,10 +135,8 @@ function ThemeSwatch({ themeKey, gradientEnabled }: { themeKey: ThemeKey; gradie
     )
   }
 
-  // Solid 3-segment circle — no lines converging at center
-  // Each segment is a 120° arc filled with a flat color
   return (
-    <svg width="32" height="32" viewBox="0 0 32 32" className="flex-shrink-0">
+    <svg width={size} height={size} viewBox="0 0 32 32" className="flex-shrink-0">
       <path d="M16,16 L16,0 A16,16 0 0,1 29.86,24 Z" fill={c1} />
       <path d="M16,16 L29.86,24 A16,16 0 0,1 2.14,24 Z" fill={c2} />
       <path d="M16,16 L2.14,24 A16,16 0 0,1 16,0 Z" fill={c3} />
@@ -147,9 +146,7 @@ function ThemeSwatch({ themeKey, gradientEnabled }: { themeKey: ThemeKey; gradie
 
 function findCategoryForTheme(themeKey: ThemeKey): string {
   for (const cat of THEME_CATEGORIES) {
-    if (cat.themes.some(t => t.key === themeKey)) {
-      return cat.name
-    }
+    if (cat.themes.some(t => t.key === themeKey)) return cat.name
   }
   return THEME_CATEGORIES[0].name
 }
@@ -170,16 +167,12 @@ export function ThemeSelector() {
   const toggleCategory = (name: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev)
-      if (next.has(name)) {
-        next.delete(name)
-      } else {
-        next.add(name)
-      }
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
       return next
     })
   }
 
-  // When theme changes externally, ensure its category is expanded
   useMemo(() => {
     setExpandedCategories(prev => {
       if (prev.has(activeCategory)) return prev
@@ -210,7 +203,7 @@ export function ThemeSelector() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-80 max-h-[80vh] overflow-y-auto rounded-lg mt-12 mr-2"
+        className="w-80 max-h-[90vh] overflow-y-auto rounded-lg mt-10 mr-2"
         style={{
           backgroundColor: 'var(--color-bg-card)',
           border: '1px solid var(--color-border)',
@@ -220,78 +213,99 @@ export function ThemeSelector() {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b"
+          className="flex items-center justify-between px-3 py-2 border-b"
           style={{ borderColor: 'var(--color-border)' }}
         >
           <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
             Appearance
           </span>
           <button onClick={() => setOpen(false)} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 
-        <div className="p-4 space-y-5">
-          {/* Color Mode */}
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
-              Mode
-            </p>
-            <div className="flex gap-2">
-              {COLOR_MODES.map(mode => (
-                <button
-                  key={mode.key}
-                  onClick={() => setColorMode(mode.key)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs"
+        <div className="px-3 py-2.5 space-y-3">
+          {/* Row 1: Mode + Gradient side by side */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+                Mode
+              </p>
+              <div className="flex gap-1">
+                {COLOR_MODES.map(mode => (
+                  <button
+                    key={mode.key}
+                    onClick={() => setColorMode(mode.key)}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px]"
+                    style={{
+                      background: colorMode === mode.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
+                      color: colorMode === mode.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                    }}
+                  >
+                    <mode.icon size={12} />
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pb-0.5">
+              <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Gradient</span>
+              <button
+                onClick={() => setGradientEnabled(!gradientEnabled)}
+                className="w-9 h-5 rounded-full relative transition-colors flex-shrink-0"
+                style={{
+                  backgroundColor: gradientEnabled ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
+                }}
+              >
+                <div
+                  className="w-3.5 h-3.5 rounded-full absolute transition-all"
                   style={{
-                    background: colorMode === mode.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
-                    color: colorMode === mode.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                    top: '3px',
+                    left: gradientEnabled ? '19px' : '3px',
+                    backgroundColor: 'var(--color-bg-card, #fff)',
                   }}
-                >
-                  <mode.icon size={14} />
-                  {mode.label}
-                </button>
-              ))}
+                />
+              </button>
             </div>
           </div>
 
-          {/* Color Theme - Collapsible Categories */}
+          {/* Color Theme — 2-column category grid */}
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
               Color Theme
             </p>
-            <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-x-1 gap-y-0.5">
               {THEME_CATEGORIES.map(category => {
                 const isExpanded = expandedCategories.has(category.name)
                 const hasActiveTheme = category.themes.some(t => t.key === theme)
                 return (
-                  <div key={category.name}>
+                  <div key={category.name} className={isExpanded ? 'col-span-2' : ''}>
                     <button
                       onClick={() => toggleCategory(category.name)}
-                      className="w-full flex items-center justify-between py-2 px-2 rounded-md text-xs font-medium"
+                      className="w-full flex items-center justify-between py-1 px-1.5 rounded text-[11px] font-medium"
                       style={{
                         color: hasActiveTheme ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
                         backgroundColor: hasActiveTheme ? 'var(--color-bg-secondary)' : 'transparent',
                       }}
                     >
-                      <span>{category.name} ({category.themes.length})</span>
-                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      <span>{category.short} ({category.themes.length})</span>
+                      {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
                     </button>
                     {isExpanded && (
-                      <div className="grid grid-cols-3 gap-2 py-2 px-1">
+                      <div className="grid grid-cols-4 gap-1 py-1.5 px-0.5">
                         {category.themes.map(t => (
                           <button
                             key={t.key}
                             onClick={() => setTheme(t.key)}
-                            className="flex flex-col items-center gap-1.5 p-2 rounded-lg text-xs"
+                            className="flex flex-col items-center gap-1 p-1 rounded text-[9px]"
                             style={{
                               backgroundColor: theme === t.key ? 'var(--color-bg-secondary)' : 'transparent',
                               border: theme === t.key ? '2px solid var(--color-btn-primary-bg)' : '2px solid transparent',
                               color: 'var(--color-text-primary)',
                             }}
                           >
-                            <ThemeSwatch themeKey={t.key} gradientEnabled={gradientEnabled} />
-                            <span className="text-center leading-tight">{t.name}</span>
+                            <ThemeSwatch themeKey={t.key} gradientEnabled={gradientEnabled} size={24} />
+                            <span className="text-center leading-none truncate w-full">{t.name}</span>
                           </button>
                         ))}
                       </div>
@@ -302,20 +316,20 @@ export function ThemeSelector() {
             </div>
           </div>
 
-          {/* Vibe Selector */}
+          {/* Vibe — 4 compact pills in a row */}
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+            <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
               Vibe
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1">
               {VIBE_OPTIONS.map(v => (
                 <button
                   key={v.key}
                   onClick={() => setVibe(v.key)}
-                  className="py-2.5 px-3 rounded-lg text-xs font-medium text-center"
+                  className="py-1.5 px-2 rounded-md text-[11px] font-medium text-center"
                   style={{
                     backgroundColor: vibe === v.key ? 'var(--color-bg-secondary)' : 'transparent',
-                    border: vibe === v.key ? '2px solid var(--color-btn-primary-bg)' : '2px solid var(--color-border)',
+                    border: vibe === v.key ? '1.5px solid var(--color-btn-primary-bg)' : '1.5px solid var(--color-border)',
                     color: vibe === v.key ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
                   }}
                 >
@@ -325,40 +339,20 @@ export function ThemeSelector() {
             </div>
           </div>
 
-          {/* Gradient Toggle */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Gradient background</span>
-            <button
-              onClick={() => setGradientEnabled(!gradientEnabled)}
-              className="w-10 h-6 rounded-full relative transition-colors"
-              style={{
-                backgroundColor: gradientEnabled ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
-              }}
-            >
-              <div
-                className="w-4 h-4 rounded-full absolute top-1 transition-all"
-                style={{
-                  left: gradientEnabled ? '22px' : '4px',
-                  backgroundColor: 'var(--color-bg-card, #fff)',
-                }}
-              />
-            </button>
-          </div>
-
-          {/* Font Size */}
-          <div>
-            <div className="flex items-center gap-1.5 mb-2">
-              <Type size={14} style={{ color: 'var(--color-text-secondary)' }} />
-              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-                Font Size
-              </p>
+          {/* Font Size — inline row */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Type size={12} style={{ color: 'var(--color-text-secondary)' }} />
+              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+                Size
+              </span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 flex-1">
               {FONT_SCALES.map(fs => (
                 <button
                   key={fs.key}
                   onClick={() => setFontScale(fs.key)}
-                  className="flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-medium"
+                  className="flex-1 flex items-center justify-center py-1 rounded-md text-[11px] font-medium"
                   style={{
                     background: fontScale === fs.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
                     color: fontScale === fs.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
