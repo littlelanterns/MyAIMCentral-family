@@ -105,17 +105,8 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get API key
-    const { data: settings } = await supabase
-      .from('user_settings')
-      .select('ai_api_key_encrypted, ai_model')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    let apiKey = Deno.env.get('OPENROUTER_API_KEY') || '';
-    if (settings?.ai_api_key_encrypted) {
-      apiKey = settings.ai_api_key_encrypted;
-    }
+    // Get API key from environment
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY') || '';
 
     if (!apiKey) {
       return new Response(
