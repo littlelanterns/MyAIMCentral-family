@@ -102,7 +102,7 @@ export interface ContextSection {
 }
 
 export interface ContextBundle {
-  guidingStars: Array<{ id: string; content: string; category?: string }>
+  guidingStars: Array<{ id: string; content: string; category?: string; entry_type?: string }>
   bestIntentions: Array<{ id: string; statement: string }>
   selfKnowledge: Array<{ id: string; content: string; category: string }>
   journalRecent: Array<{ id: string; content: string; entry_type: string }>
@@ -234,7 +234,7 @@ export async function assembleContext(
     // Guiding Stars
     supabase
       .from('guiding_stars')
-      .select('id, content, category, is_included_in_ai')
+      .select('id, content, category, entry_type, is_included_in_ai')
       .eq('family_id', familyId)
       .eq('member_id', memberId),
 
@@ -291,7 +291,7 @@ export async function assembleContext(
     bundle.totalInsights += guidingStarsRes.data.length
     const active = guidingStarsRes.data.filter(g => g.is_included_in_ai)
     bundle.activeInsights += active.length
-    bundle.guidingStars = active.map(g => ({ id: g.id, content: g.content, category: g.category }))
+    bundle.guidingStars = active.map(g => ({ id: g.id, content: g.content, category: g.category, entry_type: g.entry_type }))
   }
 
   // Process Best Intentions
