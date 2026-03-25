@@ -96,8 +96,8 @@ export const vibes: Record<VibeKey, VibeConfig> = {
   },
   cozy: {
     name: 'Cozy Journal',
-    fontHeading: "'Caveat', 'Comic Sans MS', cursive",
-    fontBody: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontHeading: "'Amatic SC', 'Comic Sans MS', cursive",
+    fontBody: "'Indie Flower', 'Comic Sans MS', cursive",
     radiusCard: '18px',
     radiusInput: '10px',
     radiusModal: '20px',
