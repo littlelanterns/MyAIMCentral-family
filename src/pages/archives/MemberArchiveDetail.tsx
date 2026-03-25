@@ -6,7 +6,7 @@
  * source sections (InnerWorkings, Guiding Stars, Best Intentions).
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -37,6 +37,7 @@ import {
   FeatureGuide,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
+import { getOptimalColumnCount } from '@/lib/utils/gridColumns'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
@@ -581,6 +582,90 @@ function AggregatedSourceSection({ group }: { group: AggregatedSourceGroup }) {
 }
 
 // ---------------------------------------------------------------------------
+// FolderGridWrapper — desktop 3-col grid, mobile single column
+// ---------------------------------------------------------------------------
+
+function FolderGridWrapper({
+  system,
+  custom,
+  familyId,
+  memberId,
+  lilaFilter,
+}: {
+  system: ArchiveFolderNode[]
+  custom: ArchiveFolderNode[]
+  familyId: string
+  memberId: string
+  lilaFilter: boolean
+}) {
+  const allFolders = [...system, ...custom]
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)
+
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const isDesktop = width >= 1024
+  const cols = isDesktop ? getOptimalColumnCount(allFolders.length, 3) : 1
+
+  if (!isDesktop) {
+    // Single column — original layout
+    return (
+      <div className="space-y-1">
+        {system.map((folder) => (
+          <FolderGroup
+            key={folder.id}
+            folder={folder}
+            familyId={familyId}
+            memberId={memberId}
+            depth={0}
+            childFolders={folder.children}
+            lilaFilterActive={lilaFilter}
+          />
+        ))}
+        {custom.map((folder) => (
+          <FolderGroup
+            key={folder.id}
+            folder={folder}
+            familyId={familyId}
+            memberId={memberId}
+            depth={0}
+            childFolders={folder.children}
+            lilaFilterActive={lilaFilter}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  // Desktop grid
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: '12px',
+        alignItems: 'start',
+      }}
+    >
+      {allFolders.map((folder) => (
+        <FolderGroup
+          key={folder.id}
+          folder={folder}
+          familyId={familyId}
+          memberId={memberId}
+          depth={0}
+          childFolders={folder.children}
+          lilaFilterActive={lilaFilter}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -882,33 +967,13 @@ export function MemberArchiveDetail() {
               description="Create a folder to start organizing context."
             />
           ) : (
-            <div className="space-y-1">
-              {/* System folders first */}
-              {rootFolders.system.map((folder) => (
-                <FolderGroup
-                  key={folder.id}
-                  folder={folder}
-                  familyId={familyId!}
-                  memberId={memberId!}
-                  depth={0}
-                  childFolders={folder.children}
-                  lilaFilterActive={lilaFilter}
-                />
-              ))}
-
-              {/* Custom folders */}
-              {rootFolders.custom.map((folder) => (
-                <FolderGroup
-                  key={folder.id}
-                  folder={folder}
-                  familyId={familyId!}
-                  memberId={memberId!}
-                  depth={0}
-                  childFolders={folder.children}
-                  lilaFilterActive={lilaFilter}
-                />
-              ))}
-            </div>
+            <FolderGridWrapper
+              system={rootFolders.system}
+              custom={rootFolders.custom}
+              familyId={familyId!}
+              memberId={memberId!}
+              lilaFilter={lilaFilter}
+            />
           )}
         </div>
 

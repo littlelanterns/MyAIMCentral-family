@@ -1,12 +1,12 @@
 /**
- * ArchivesPage — PRD-13
+ * ArchivesPage — PRD-13 + PRD-13B
  * Main Archives landing page (Screen 1).
- * Shows family overview card, per-member archive cards with
- * person-level heart toggles, Out of Nest section, and
- * Privacy Filtered summary.
+ * Grid view (default on desktop): Bublup-style square cards.
+ * List view (default on mobile): Existing card layout.
+ * Expanded FAB: Add for a Person, Voice Dump, Bulk Add & Sort.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -21,16 +21,37 @@ import {
   Clock,
   Compass,
   BookHeart,
+  LayoutGrid,
+  List,
+  Mic,
+  FileText,
+  UserPlus,
+  X,
 } from 'lucide-react'
-import { FeatureGuide, Card, Badge, Avatar, RoleBadge, LoadingSpinner, EmptyState } from '@/components/shared'
+import {
+  FeatureGuide,
+  Card,
+  Badge,
+  Avatar,
+  RoleBadge,
+  LoadingSpinner,
+  EmptyState,
+} from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useAvatarUpload } from '@/hooks/useAvatarUpload'
+import { useToggleMemberPersonLevel } from '@/hooks/useArchives'
 import { supabase } from '@/lib/supabase/client'
+import { getOptimalColumnCount } from '@/lib/utils/gridColumns'
+import { ArchiveMemberCard } from '@/components/archives/ArchiveMemberCard'
+import { VoiceDumpModal } from '@/components/archives/VoiceDumpModal'
+import { BulkAddSortModal } from '@/components/archives/BulkAddSortModal'
+import { CropPreviewModal } from '@/components/archives/CropPreviewModal'
 
 // ---------------------------------------------------------------------------
-// Hooks — archive data queries
+// Hooks — archive data queries (kept from original)
 // ---------------------------------------------------------------------------
 
 interface ArchiveOverview {
@@ -47,7 +68,6 @@ function useFamilyOverview(familyId: string | undefined) {
     queryFn: async (): Promise<ArchiveOverview> => {
       if (!familyId) return { totalItems: 0, familyPersonality: 0, rhythmsRoutines: 0, currentFocus: 0, faithValues: 0 }
 
-      // Get family folders first
       const { data: folders } = await supabase
         .from('archive_folders')
         .select('id')
@@ -56,7 +76,6 @@ function useFamilyOverview(familyId: string | undefined) {
 
       const folderIds = folders?.map(f => f.id) ?? []
 
-      // Count archive context items in family-level folders
       let totalItems = 0
       if (folderIds.length > 0) {
         const { count } = await supabase
@@ -68,7 +87,6 @@ function useFamilyOverview(familyId: string | undefined) {
         totalItems = count ?? 0
       }
 
-      // Check faith preferences
       const { data: faithData } = await supabase
         .from('faith_preferences')
         .select('id')
@@ -91,7 +109,7 @@ interface MemberArchiveStats {
   memberId: string
   totalInsights: number
   includedInsights: number
-  folderCounts: Record<string, number>
+  isIncludedInAI: boolean
 }
 
 function useArchiveMemberStats(familyId: string | undefined, memberIds: string[]) {
@@ -100,10 +118,19 @@ function useArchiveMemberStats(familyId: string | undefined, memberIds: string[]
     queryFn: async (): Promise<MemberArchiveStats[]> => {
       if (!familyId || memberIds.length === 0) return []
 
+      // Fetch member settings for person-level AI toggle
+      const { data: settings } = await supabase
+        .from('archive_member_settings')
+        .select('member_id, is_included_in_ai')
+        .eq('family_id', familyId)
+
+      const settingsMap = new Map(
+        (settings ?? []).map((s: { member_id: string; is_included_in_ai: boolean }) => [s.member_id, s.is_included_in_ai]),
+      )
+
       const stats: MemberArchiveStats[] = []
 
       for (const memberId of memberIds) {
-        // Count self_knowledge entries
         const { count: totalSK } = await supabase
           .from('self_knowledge')
           .select('id', { count: 'exact', head: true })
@@ -119,28 +146,12 @@ function useArchiveMemberStats(familyId: string | undefined, memberIds: string[]
           .eq('is_included_in_ai', true)
           .is('archived_at', null)
 
-        // Count guiding stars
         const { count: totalGS } = await supabase
           .from('guiding_stars')
           .select('id', { count: 'exact', head: true })
           .eq('family_id', familyId)
           .eq('member_id', memberId)
           .is('archived_at', null)
-
-        // Count archive folders
-        const { data: folders } = await supabase
-          .from('archive_folders')
-          .select('id, folder_type')
-          .eq('family_id', familyId)
-          .eq('member_id', memberId)
-
-        const folderCounts: Record<string, number> = {}
-        if (folders) {
-          for (const f of folders) {
-            const type = f.folder_type || 'general'
-            folderCounts[type] = (folderCounts[type] || 0) + 1
-          }
-        }
 
         const total = (totalSK ?? 0) + (totalGS ?? 0)
         const included = (includedSK ?? 0) + (totalGS ?? 0)
@@ -149,7 +160,7 @@ function useArchiveMemberStats(familyId: string | undefined, memberIds: string[]
           memberId,
           totalInsights: total,
           includedInsights: included,
-          folderCounts,
+          isIncludedInAI: settingsMap.get(memberId) ?? true,
         })
       }
 
@@ -164,13 +175,11 @@ function useOutOfNestMembers(familyId: string | undefined) {
     queryKey: ['out-of-nest-members', familyId],
     queryFn: async () => {
       if (!familyId) return []
-
       const { data, error } = await supabase
         .from('out_of_nest_members')
         .select('*')
         .eq('family_id', familyId)
         .order('created_at')
-
       if (error) throw error
       return data ?? []
     },
@@ -183,15 +192,12 @@ function usePrivacyFilteredCount(familyId: string | undefined) {
     queryKey: ['privacy-filtered-count', familyId],
     queryFn: async () => {
       if (!familyId) return 0
-
-      // Count archive_context_items with is_privacy_filtered = true
       const { count } = await supabase
         .from('archive_context_items')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', familyId)
         .eq('is_privacy_filtered', true)
         .is('archived_at', null)
-
       return count ?? 0
     },
     enabled: !!familyId,
@@ -199,11 +205,111 @@ function usePrivacyFilteredCount(familyId: string | undefined) {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// View mode hook
 // ---------------------------------------------------------------------------
 
-/** Family Overview preview card */
-function FamilyOverviewCard({
+type ViewMode = 'grid' | 'list'
+const STORAGE_KEY = 'archives-view-mode'
+
+function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
+  const [mode, setMode] = useState<ViewMode>(() => {
+    try {
+      return (localStorage.getItem(STORAGE_KEY) as ViewMode) || 'grid'
+    } catch {
+      return 'grid'
+    }
+  })
+
+  const set = useCallback((newMode: ViewMode) => {
+    setMode(newMode)
+    try {
+      localStorage.setItem(STORAGE_KEY, newMode)
+    } catch { /* noop */ }
+  }, [])
+
+  return [mode, set]
+}
+
+// ---------------------------------------------------------------------------
+// Responsive column count
+// ---------------------------------------------------------------------------
+
+function useResponsiveColumns(totalCards: number) {
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)
+
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const maxCols = width >= 1024 ? 5 : width >= 768 ? 3 : 2
+  const isMobile = width < 768
+
+  return {
+    columns: getOptimalColumnCount(totalCards, maxCols),
+    isMobile,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// List view sub-components (from original ArchivesPage)
+// ---------------------------------------------------------------------------
+
+function MemberArchiveListCard({
+  member,
+  stats,
+  onNavigate,
+  onToggleAI,
+}: {
+  member: FamilyMember
+  stats: MemberArchiveStats | undefined
+  onNavigate: () => void
+  onToggleAI: () => void
+}) {
+  const totalInsights = stats?.totalInsights ?? 0
+  const includedInsights = stats?.includedInsights ?? 0
+  const isIncluded = stats?.isIncludedInAI ?? true
+
+  return (
+    <Card variant="interactive" padding="md" onClick={onNavigate}>
+      <div className="flex items-start gap-3">
+        <Avatar
+          name={member.display_name}
+          src={member.avatar_url}
+          color={member.assigned_color || member.member_color || undefined}
+          size="md"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <h3
+              className="text-sm font-semibold truncate"
+              style={{ color: 'var(--color-text-heading)' }}
+            >
+              {member.display_name}
+            </h3>
+            <RoleBadge role={member.role} size="sm" />
+          </div>
+          <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+            {totalInsights > 0
+              ? `Gleaning context from ${includedInsights} of ${totalInsights} insights`
+              : 'No context items yet'}
+          </p>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleAI() }}
+          className="p-1.5 rounded transition-colors flex-shrink-0"
+          title={isIncluded ? 'Included in AI context — click to exclude' : 'Excluded from AI context — click to include'}
+          style={{ color: isIncluded ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+        >
+          {isIncluded ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function FamilyOverviewListCard({
   familyName,
   overview,
   onClick,
@@ -241,7 +347,6 @@ function FamilyOverviewCard({
             <Users size={20} style={{ color: 'var(--color-btn-primary-bg)' }} />
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-2">
           {sections.map((section) => {
             const Icon = section.icon
@@ -269,104 +374,6 @@ function FamilyOverviewCard({
   )
 }
 
-/** Member archive card */
-function MemberArchiveCard({
-  member,
-  stats,
-  onNavigate,
-  onToggleAI,
-}: {
-  member: FamilyMember
-  stats: MemberArchiveStats | undefined
-  onNavigate: () => void
-  onToggleAI: () => void
-}) {
-  const totalInsights = stats?.totalInsights ?? 0
-  const includedInsights = stats?.includedInsights ?? 0
-  const folderTypes = stats?.folderCounts ?? {}
-  const folderPreview = Object.entries(folderTypes).slice(0, 3)
-
-  // Person-level AI inclusion — for now derived from whether they have included items
-  const isIncluded = includedInsights > 0
-
-  return (
-    <Card variant="interactive" padding="md" onClick={onNavigate}>
-      <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <Avatar
-          name={member.display_name}
-          src={member.avatar_url}
-          color={member.assigned_color || member.member_color || undefined}
-          size="md"
-        />
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <h3
-              className="text-sm font-semibold truncate"
-              style={{ color: 'var(--color-text-heading)' }}
-            >
-              {member.display_name}
-            </h3>
-            <RoleBadge role={member.role} size="sm" />
-          </div>
-
-          <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
-            {totalInsights > 0
-              ? `Gleaning context from ${includedInsights} of ${totalInsights} insights`
-              : 'No context items yet'}
-          </p>
-
-          {/* Folder category previews */}
-          {folderPreview.length > 0 && (
-            <div className="flex gap-1.5 mt-2 flex-wrap">
-              {folderPreview.map(([type, count]) => (
-                <span
-                  key={type}
-                  className="inline-flex items-center px-2 py-0.5 rounded text-[10px]"
-                  style={{
-                    backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
-                    color: 'var(--color-text-secondary)',
-                  }}
-                >
-                  {type} ({count})
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Heart toggle — stop propagation so card click does not fire */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleAI()
-          }}
-          className="p-1.5 rounded transition-colors flex-shrink-0"
-          title={
-            isIncluded
-              ? 'Included in AI context — click to exclude'
-              : 'Excluded from AI context — click to include'
-          }
-          style={{
-            color: isIncluded
-              ? 'var(--color-btn-primary-bg)'
-              : 'var(--color-text-secondary)',
-          }}
-        >
-          {isIncluded ? (
-            <Heart size={18} fill="currentColor" />
-          ) : (
-            <HeartOff size={18} />
-          )}
-        </button>
-      </div>
-    </Card>
-  )
-}
-
-/** Out of Nest member card (simpler) */
 function OutOfNestCard({
   member,
   onClick,
@@ -398,40 +405,104 @@ function OutOfNestCard({
 
 export function ArchivesPage() {
   const navigate = useNavigate()
-  const { isLoading: memberLoading } = useFamilyMember()
+  const { data: currentMember, isLoading: memberLoading } = useFamilyMember()
   const { data: family, isLoading: familyLoading } = useFamily()
   const familyId = family?.id
 
   const { data: allMembers = [], isLoading: membersLoading } = useFamilyMembers(familyId)
   const { data: oonMembers = [] } = useOutOfNestMembers(familyId)
   const { data: privacyCount = 0 } = usePrivacyFilteredCount(familyId)
+  const { data: overview } = useFamilyOverview(familyId)
 
-  // Filter in-household members (not out_of_nest)
   const householdMembers = useMemo(
     () => allMembers.filter((m) => m.is_active && m.in_household !== false && !m.out_of_nest),
     [allMembers],
   )
-
   const memberIds = useMemo(() => householdMembers.map((m) => m.id), [householdMembers])
-
-  const { data: overview } = useFamilyOverview(familyId)
   const { data: memberStats = [] } = useArchiveMemberStats(familyId, memberIds)
+
+  // View mode
+  const [viewMode, setViewMode] = useViewMode()
+
+  // Responsive columns: +1 for Family Overview card
+  const totalGridCards = householdMembers.length + 1
+  const { columns, isMobile } = useResponsiveColumns(totalGridCards)
+  const oonColumns = useResponsiveColumns(oonMembers.length)
+
+  // Avatar upload + crop state
+  const avatarUpload = useAvatarUpload(familyId)
+  const [uploadingMemberId, setUploadingMemberId] = useState<string | null>(null)
+  const [uploadingFamily, setUploadingFamily] = useState(false)
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropTargetMemberId, setCropTargetMemberId] = useState<string | null>(null) // null = family photo
+  const [cropMemberName, setCropMemberName] = useState('')
+
+  // Person-level AI toggle
+  const togglePersonLevel = useToggleMemberPersonLevel()
 
   // OON section collapse
   const [oonExpanded, setOonExpanded] = useState(false)
 
+  // FAB state
+  const [fabExpanded, setFabExpanded] = useState(false)
+  const [voiceDumpOpen, setVoiceDumpOpen] = useState(false)
+  const [bulkAddOpen, setBulkAddOpen] = useState(false)
+  const [bulkAddInitialText, setBulkAddInitialText] = useState('')
+
   const isLoading = memberLoading || familyLoading || membersLoading
 
-  // Stat lookup helper
   function getStats(memberId: string) {
     return memberStats.find((s) => s.memberId === memberId)
   }
 
-  // Person-level AI toggle — STUB: full implementation needs a per-member toggle on archive_member_settings
-  function handleToggleMemberAI(_memberId: string) {
-    // STUB: Toggle is_included_in_ai at person level — wires to PRD-13
-    // Will update archive_member_settings or a dedicated toggle column
+  function handleToggleMemberAI(memberId: string) {
+    if (!familyId) return
+    const stats = getStats(memberId)
+    const current = stats?.isIncludedInAI ?? true
+    togglePersonLevel.mutate({ familyId, memberId, included: !current })
   }
+
+  // File select → open crop modal (not direct upload)
+  function handleMemberFileSelect(memberId: string, memberName: string, file: File) {
+    setCropTargetMemberId(memberId)
+    setCropMemberName(memberName)
+    setCropFile(file)
+    setCropModalOpen(true)
+  }
+
+  function handleFamilyFileSelect(file: File) {
+    setCropTargetMemberId(null) // null = family
+    setCropMemberName(family?.family_name ?? 'Family')
+    setCropFile(file)
+    setCropModalOpen(true)
+  }
+
+  // Called when crop is confirmed
+  async function handleCropConfirm(croppedBlob: Blob) {
+    const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' })
+
+    if (cropTargetMemberId) {
+      setUploadingMemberId(cropTargetMemberId)
+      await avatarUpload.uploadMemberAvatar(cropTargetMemberId, file)
+      setUploadingMemberId(null)
+    } else {
+      setUploadingFamily(true)
+      await avatarUpload.uploadFamilyPhoto(file)
+      setUploadingFamily(false)
+    }
+
+    setCropModalOpen(false)
+    setCropFile(null)
+  }
+
+  function handleVoiceTranscript(text: string) {
+    setBulkAddInitialText(text)
+    setBulkAddOpen(true)
+  }
+
+  // The effective view mode: mobile always uses list
+  const effectiveView = isMobile ? 'list' : viewMode
 
   if (isLoading) {
     return (
@@ -444,7 +515,6 @@ export function ArchivesPage() {
   return (
     <PermissionGate featureKey="archives_browse">
       <div className="max-w-3xl mx-auto space-y-6 pb-24">
-        {/* FeatureGuide */}
         <FeatureGuide featureKey="archives" />
 
         {/* Header */}
@@ -461,84 +531,235 @@ export function ArchivesPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => navigate('/archives/export')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              color: 'var(--color-btn-primary-bg)',
-              border: '1px solid var(--color-border)',
-            }}
-            title="Export Context"
-          >
-            <Download size={14} />
-            <span className="hidden sm:inline">Export</span>
-          </button>
-        </div>
-
-        {/* Family Overview Card */}
-        {family && overview && (
-          <FamilyOverviewCard
-            familyName={family.family_name}
-            overview={overview}
-            onClick={() => navigate('/archives/family-overview')}
-          />
-        )}
-
-        {/* Member Archive Cards */}
-        <div>
-          <h2
-            className="text-base font-semibold mb-3"
-            style={{ color: 'var(--color-text-heading)' }}
-          >
-            Family Members
-          </h2>
-
-          {householdMembers.length === 0 ? (
-            <EmptyState
-              icon={<Users size={32} />}
-              title="No family members yet"
-              description="Add family members to start building their context archive."
-            />
-          ) : (
-            <div className="space-y-3">
-              {householdMembers.map((m) => (
-                <MemberArchiveCard
-                  key={m.id}
-                  member={m}
-                  stats={getStats(m.id)}
-                  onNavigate={() => navigate(`/archives/member/${m.id}`)}
-                  onToggleAI={() => handleToggleMemberAI(m.id)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Out of Nest Section */}
-        {oonMembers.length > 0 && (
-          <div>
-            <button
-              onClick={() => setOonExpanded((v) => !v)}
-              className="flex items-center gap-2 text-sm font-medium w-full"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {oonExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              Out of Nest ({oonMembers.length})
-            </button>
-
-            {oonExpanded && (
-              <div className="mt-3 space-y-2">
-                {oonMembers.map((m) => (
-                  <OutOfNestCard
-                    key={m.id}
-                    member={m}
-                    onClick={() => navigate(`/archives/out-of-nest/${m.id}`)}
-                  />
-                ))}
+          <div className="flex items-center gap-2">
+            {/* Grid/List toggle — hidden on mobile */}
+            {!isMobile && (
+              <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className="p-2 transition-colors"
+                  style={{
+                    backgroundColor: effectiveView === 'grid' ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)' : 'transparent',
+                    color: effectiveView === 'grid' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                  }}
+                  title="Grid view"
+                >
+                  <LayoutGrid size={16} />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className="p-2 transition-colors"
+                  style={{
+                    backgroundColor: effectiveView === 'list' ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)' : 'transparent',
+                    color: effectiveView === 'list' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                  }}
+                  title="List view"
+                >
+                  <List size={16} />
+                </button>
               </div>
             )}
+
+            <button
+              onClick={() => navigate('/archives/export')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px solid var(--color-border)',
+              }}
+              title="Export Context"
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">Export</span>
+            </button>
           </div>
+        </div>
+
+        {/* ============================================================= */}
+        {/* GRID VIEW */}
+        {/* ============================================================= */}
+        {effectiveView === 'grid' && (
+          <>
+            {/* Member grid */}
+            <div>
+              <h2
+                className="text-base font-semibold mb-3"
+                style={{ color: 'var(--color-text-heading)' }}
+              >
+                Family Members
+              </h2>
+
+              {householdMembers.length === 0 ? (
+                <EmptyState
+                  icon={<Users size={32} />}
+                  title="No family members yet"
+                  description="Add family members to start building their context archive."
+                />
+              ) : (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                    gap: isMobile ? '8px' : '12px',
+                  }}
+                >
+                  {/* Family Overview — always first */}
+                  {family && overview && (
+                    <ArchiveMemberCard
+                      name={family.family_name}
+                      avatarUrl={(family as Record<string, unknown>).family_photo_url as string | null}
+                      memberColor={undefined}
+                      isFamilyOverview
+                      label="Family Overview"
+                      insightLabel={`${overview.totalItems} items active`}
+                      includedInsights={overview.totalItems}
+                      totalInsights={overview.totalItems}
+                      isIncludedInAI={true}
+                      onNavigate={() => navigate('/archives/family-overview')}
+                      onToggleAI={() => {}}
+                      onFileSelect={(file) => handleFamilyFileSelect(file)}
+                      uploading={uploadingFamily}
+                    />
+                  )}
+
+                  {/* Member cards */}
+                  {householdMembers.map((m) => {
+                    const stats = getStats(m.id)
+                    return (
+                      <ArchiveMemberCard
+                        key={m.id}
+                        name={m.display_name}
+                        avatarUrl={m.avatar_url}
+                        memberColor={m.assigned_color || m.member_color || undefined}
+                        role={m.role}
+                        includedInsights={stats?.includedInsights ?? 0}
+                        totalInsights={stats?.totalInsights ?? 0}
+                        isIncludedInAI={stats?.isIncludedInAI ?? true}
+                        onNavigate={() => navigate(`/archives/member/${m.id}`)}
+                        onToggleAI={() => handleToggleMemberAI(m.id)}
+                        onFileSelect={(file) => handleMemberFileSelect(m.id, m.display_name, file)}
+                        uploading={uploadingMemberId === m.id}
+                      />
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Out of Nest grid */}
+            {oonMembers.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setOonExpanded((v) => !v)}
+                  className="flex items-center gap-2 text-sm font-medium w-full"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {oonExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  Out of Nest ({oonMembers.length})
+                </button>
+
+                {oonExpanded && (
+                  <div
+                    className="mt-3"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${oonColumns.columns}, 1fr)`,
+                      gap: isMobile ? '8px' : '12px',
+                    }}
+                  >
+                    {oonMembers.map((m) => (
+                      <ArchiveMemberCard
+                        key={m.id}
+                        name={m.name}
+                        avatarUrl={m.avatar_url}
+                        memberColor={undefined}
+                        includedInsights={0}
+                        totalInsights={0}
+                        isIncludedInAI={false}
+                        isFamilyOverview={false}
+                        insightLabel={m.relationship}
+                        onNavigate={() => navigate(`/archives/out-of-nest/${m.id}`)}
+                        onToggleAI={() => {}}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ============================================================= */}
+        {/* LIST VIEW */}
+        {/* ============================================================= */}
+        {effectiveView === 'list' && (
+          <>
+            {/* Family Overview Card */}
+            {family && overview && (
+              <FamilyOverviewListCard
+                familyName={family.family_name}
+                overview={overview}
+                onClick={() => navigate('/archives/family-overview')}
+              />
+            )}
+
+            {/* Member Archive Cards */}
+            <div>
+              <h2
+                className="text-base font-semibold mb-3"
+                style={{ color: 'var(--color-text-heading)' }}
+              >
+                Family Members
+              </h2>
+
+              {householdMembers.length === 0 ? (
+                <EmptyState
+                  icon={<Users size={32} />}
+                  title="No family members yet"
+                  description="Add family members to start building their context archive."
+                />
+              ) : (
+                <div className="space-y-3">
+                  {householdMembers.map((m) => (
+                    <MemberArchiveListCard
+                      key={m.id}
+                      member={m}
+                      stats={getStats(m.id)}
+                      onNavigate={() => navigate(`/archives/member/${m.id}`)}
+                      onToggleAI={() => handleToggleMemberAI(m.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Out of Nest Section */}
+            {oonMembers.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setOonExpanded((v) => !v)}
+                  className="flex items-center gap-2 text-sm font-medium w-full"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {oonExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  Out of Nest ({oonMembers.length})
+                </button>
+
+                {oonExpanded && (
+                  <div className="mt-3 space-y-2">
+                    {oonMembers.map((m) => (
+                      <OutOfNestCard
+                        key={m.id}
+                        member={m}
+                        onClick={() => navigate(`/archives/out-of-nest/${m.id}`)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* Privacy Filtered Section */}
@@ -577,18 +798,144 @@ export function ArchivesPage() {
           </div>
         </div>
 
-        {/* FAB — Add Context */}
+        {/* ============================================================= */}
+        {/* EXPANDED FAB */}
+        {/* ============================================================= */}
+
+        {/* Backdrop when FAB expanded */}
+        {fabExpanded && (
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            onClick={() => setFabExpanded(false)}
+          />
+        )}
+
+        {/* FAB options (shown when expanded) */}
+        {fabExpanded && (
+          <div className="fixed bottom-36 right-4 md:bottom-22 md:right-6 z-50 flex flex-col items-end gap-2.5">
+            {/* Option A: Add for a Person */}
+            <button
+              onClick={() => {
+                setFabExpanded(false)
+                navigate('/archives/add')
+              }}
+              className="flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-card, #ffffff)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <span>Add for a Person</span>
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                <UserPlus size={18} />
+              </div>
+            </button>
+
+            {/* Option B: Voice Dump */}
+            <button
+              onClick={() => {
+                setFabExpanded(false)
+                setVoiceDumpOpen(true)
+              }}
+              className="flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-card, #ffffff)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <span>Voice Dump</span>
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                <Mic size={18} />
+              </div>
+            </button>
+
+            {/* Option C: Bulk Add & Sort */}
+            <button
+              onClick={() => {
+                setFabExpanded(false)
+                setBulkAddInitialText('')
+                setBulkAddOpen(true)
+              }}
+              className="flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-card, #ffffff)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <span>Bulk Add & Sort</span>
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                <FileText size={18} />
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Main FAB button */}
         <button
-          onClick={() => navigate('/archives/add')}
-          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95"
+          onClick={() => setFabExpanded(!fabExpanded)}
+          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{
             background: 'var(--surface-primary, var(--color-btn-primary-bg))',
             color: 'var(--color-btn-primary-text)',
           }}
-          aria-label="Add context item"
+          aria-label={fabExpanded ? 'Close menu' : 'Add context'}
         >
-          <Plus size={24} />
+          {fabExpanded ? <X size={24} /> : <Plus size={24} />}
         </button>
+
+        {/* Voice Dump Modal */}
+        <VoiceDumpModal
+          open={voiceDumpOpen}
+          onClose={() => setVoiceDumpOpen(false)}
+          onTranscriptReady={handleVoiceTranscript}
+        />
+
+        {/* Bulk Add & Sort Modal */}
+        {familyId && currentMember && (
+          <BulkAddSortModal
+            open={bulkAddOpen}
+            onClose={() => { setBulkAddOpen(false); setBulkAddInitialText('') }}
+            familyId={familyId}
+            momMemberId={currentMember.id}
+            familyMembers={householdMembers.map((m) => ({
+              id: m.id,
+              display_name: m.display_name,
+              role: m.role,
+            }))}
+            initialText={bulkAddInitialText}
+          />
+        )}
+
+        {/* Crop Preview Modal */}
+        <CropPreviewModal
+          open={cropModalOpen}
+          onClose={() => { setCropModalOpen(false); setCropFile(null) }}
+          imageFile={cropFile}
+          onCropConfirm={handleCropConfirm}
+          memberName={cropMemberName}
+          uploading={!!uploadingMemberId || uploadingFamily}
+        />
       </div>
     </PermissionGate>
   )

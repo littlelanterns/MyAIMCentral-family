@@ -1,12 +1,15 @@
 /**
  * Avatar (PRD-03 Design System)
  *
- * Shows image if src is provided; otherwise shows first letter of name
- * on a colored background.
- * color prop: uses provided color or falls back to var(--color-btn-primary-bg).
+ * Shows image if src is provided; otherwise shows initials
+ * on a colored background using the member's assigned color.
+ * color prop: uses provided hex color with proper contrast text,
+ * or falls back to var(--color-btn-primary-bg).
  * Three sizes: sm (32px), md (40px), lg (56px).
- * Zero hardcoded hex colors — all CSS custom properties.
+ * Zero grey placeholders — always member color + initials.
  */
+
+import { getContrastText } from '@/config/member_colors'
 
 export interface AvatarProps {
   src?: string | null
@@ -28,6 +31,15 @@ const fontSizes: Record<NonNullable<AvatarProps['size']>, string> = {
   lg: '1.25rem',
 }
 
+/** Get 1-2 letter initials from a display name */
+export function getInitials(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return displayName.slice(0, 2).toUpperCase() || '?'
+}
+
 export function Avatar({
   src,
   name,
@@ -36,8 +48,12 @@ export function Avatar({
   className = '',
 }: AvatarProps) {
   const px = sizePx[size]
-  const initial = name.trim().charAt(0).toUpperCase() || '?'
+  const initials = getInitials(name)
   const bgColor = color || 'var(--color-btn-primary-bg)'
+  // Use contrast-aware text color when a hex color is provided
+  const textColor = color && color.startsWith('#')
+    ? getContrastText(color)
+    : 'var(--color-btn-primary-text, #ffffff)'
 
   const baseStyle: React.CSSProperties = {
     width: px,
@@ -72,12 +88,13 @@ export function Avatar({
       style={{
         ...baseStyle,
         backgroundColor: bgColor,
-        color: 'var(--color-btn-primary-text, #ffffff)',
+        color: textColor,
         fontSize: fontSizes[size],
         fontWeight: 600,
+        letterSpacing: '0.02em',
       }}
     >
-      {initial}
+      {initials}
     </span>
   )
 }
