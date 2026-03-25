@@ -163,8 +163,8 @@ function applyTokens(
   if (fontScale === 'large') root.classList.add('font-scale-large')
   if (fontScale === 'extra-large') root.classList.add('font-scale-extra-large')
 
-  // Scrollbar theming — same gradient as all primary surfaces
-  root.style.setProperty('--scrollbar-track', colors.bgSecondary)
+  // Scrollbar colors derive from --color-bg-secondary, --color-btn-primary-bg,
+  // --gradient-primary, and --color-accent — all already set above. No extra vars needed.
 
   // Layout tokens
   root.style.setProperty('--spacing-xs', '0.25rem')

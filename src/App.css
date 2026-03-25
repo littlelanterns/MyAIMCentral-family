@@ -319,20 +319,24 @@ h1, h2, h3, h4, h5, h6,
  * Firefox scrollbar theming (PRD-03)
  * ============================================================ */
 * {
-  /* Firefox: scrollbar-color only supports solid colors */
-  scrollbar-color: var(--color-btn-primary-bg, #68a395) var(--scrollbar-track, #f2f5f3);
+  scrollbar-color: var(--color-btn-primary-bg, #68a395) var(--color-bg-secondary, #d4e3d9);
   scrollbar-width: thin;
 }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--scrollbar-track, #f2f5f3); border-radius: 4px; }
+::-webkit-scrollbar-track { background: var(--color-bg-secondary, #d4e3d9); }
 ::-webkit-scrollbar-thumb {
-  background: var(--surface-primary, var(--color-btn-primary-bg));
+  background: var(--color-btn-primary-bg, #68a395);
   border-radius: 4px;
+}
+.gradient-on ::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary, var(--color-btn-primary-bg));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--color-accent, #d6a461), var(--color-btn-primary-bg, #68a395));
 }
 
 /* Panel scrollbar — matches card background instead of page background */
 .scrollbar-card::-webkit-scrollbar-track { background: var(--color-bg-card, #fff); }
-.scrollbar-card::-webkit-scrollbar-thumb { background: var(--surface-primary, var(--color-btn-primary-bg)); }
 
 /* ============================================================
  * Responsive breakpoints
