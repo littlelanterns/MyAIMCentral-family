@@ -140,7 +140,6 @@ export function useArchiveContextItems(folderId: string | undefined) {
         .select('*')
         .eq('folder_id', folderId)
         .is('archived_at', null)
-        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -862,7 +861,7 @@ export function useContextExport(familyId: string | undefined) {
         .select('context_field, context_value, context_type, is_included_in_ai')
         .eq('folder_id', folderId)
         .is('archived_at', null)
-        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false })
 
       if (itemsError) throw itemsError
 
