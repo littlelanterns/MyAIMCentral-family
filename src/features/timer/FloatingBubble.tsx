@@ -41,7 +41,8 @@ interface Position {
 }
 
 /** Size of the bubble in pixels. */
-function bubbleSize(isPlay: boolean): number {
+function bubbleSize(isPlay: boolean, isResting: boolean): number {
+  if (isResting) return 36
   return isPlay ? 56 : 48
 }
 
@@ -78,6 +79,12 @@ function defaultPosition(size: number, isMobile: boolean): Position {
   }
 }
 
+/** Velocity threshold (px/ms) for swipe-away gesture. */
+const SWIPE_VELOCITY_THRESHOLD = 0.8
+
+/** Long press duration in ms. */
+const LONG_PRESS_MS = 500
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -87,7 +94,8 @@ export function FloatingBubble() {
   const { activeTimers, showPanel, setShowPanel } = useTimerContext()
 
   const isPlay    = shell === 'play'
-  const size      = bubbleSize(isPlay)
+  const isResting = activeTimers.length === 0
+  const size      = bubbleSize(isPlay, isResting)
   const isMobile  = typeof window !== 'undefined' && window.innerWidth < 768
 
   // Position state — lazily initialised from window dimensions.
@@ -97,10 +105,17 @@ export function FloatingBubble() {
       : { x: 0, y: 0 }
   )
 
+  // Swipe-away hidden state: when true, show tiny restore dot instead of bubble.
+  const [hidden, setHidden] = useState(false)
+
   // Dragging state kept in a ref so event handlers don't stale-close over it.
   const dragging = useRef(false)
-  const dragStart = useRef<{ pointerX: number; pointerY: number; posX: number; posY: number } | null>(null)
+  const dragStart = useRef<{ pointerX: number; pointerY: number; posX: number; posY: number; time: number } | null>(null)
   const moved = useRef(false)
+
+  // Long press timer ref
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTriggered = useRef(false)
 
   // Re-snap to edge when window resizes (orientation change, etc.)
   useEffect(() => {
@@ -111,9 +126,23 @@ export function FloatingBubble() {
     return () => window.removeEventListener('resize', onResize)
   }, [size])
 
+  // When timers become active again, restore bubble if it was swiped away.
+  useEffect(() => {
+    if (activeTimers.length > 0 && hidden) {
+      setHidden(false)
+    }
+  }, [activeTimers.length, hidden])
+
   // -------------------------------------------------------------------
   // Pointer-based drag (works for mouse and touch via pointer events)
   // -------------------------------------------------------------------
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }, [])
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -123,14 +152,25 @@ export function FloatingBubble() {
       e.currentTarget.setPointerCapture(e.pointerId)
       dragging.current = true
       moved.current = false
+      longPressTriggered.current = false
       dragStart.current = {
         pointerX: e.clientX,
         pointerY: e.clientY,
         posX: pos.x,
         posY: pos.y,
+        time: Date.now(),
       }
+
+      // Start long press timer
+      clearLongPress()
+      longPressTimer.current = setTimeout(() => {
+        if (!moved.current) {
+          longPressTriggered.current = true
+          setShowPanel(true)
+        }
+      }, LONG_PRESS_MS)
     },
-    [pos]
+    [pos, clearLongPress, setShowPanel]
   )
 
   const onPointerMove = useCallback(
@@ -143,40 +183,89 @@ export function FloatingBubble() {
       // Only start moving after 4px threshold to distinguish tap from drag
       if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
       moved.current = true
+      clearLongPress()
 
       const vw = window.innerWidth
       const vh = window.innerHeight
       setPos({
-        x: Math.max(0, Math.min(vw - size, dragStart.current.posX + dx)),
-        y: Math.max(0, Math.min(vh - size, dragStart.current.posY + dy)),
+        x: Math.max(-size / 2, Math.min(vw - size / 2, dragStart.current.posX + dx)),
+        y: Math.max(-size / 2, Math.min(vh - size / 2, dragStart.current.posY + dy)),
       })
     },
-    [size]
+    [size, clearLongPress]
   )
 
   const onPointerUp = useCallback(
-    (_e: React.PointerEvent<HTMLButtonElement>) => {
+    (e: React.PointerEvent<HTMLButtonElement>) => {
       if (!dragging.current) return
       dragging.current = false
+      clearLongPress()
 
-      if (moved.current) {
-        // Snap to nearest edge
-        setPos((prev) => snapToEdge(prev, size))
-      } else {
-        // It was a tap — toggle the panel
+      if (moved.current && dragStart.current) {
+        // Check for swipe-away: fast velocity or past screen edge
+        const dt = Math.max(1, Date.now() - dragStart.current.time)
+        const dx = e.clientX - dragStart.current.pointerX
+        const dy = e.clientY - dragStart.current.pointerY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const velocity = dist / dt
+
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const currentX = dragStart.current.posX + dx
+        const currentY = dragStart.current.posY + dy
+        const pastEdge = currentX < -size / 4 || currentX > vw - size / 4 ||
+                         currentY < -size / 4 || currentY > vh - size / 4
+
+        if (velocity > SWIPE_VELOCITY_THRESHOLD || pastEdge) {
+          // Swipe away — hide the bubble
+          setHidden(true)
+          // Reset position for when it comes back
+          setPos(defaultPosition(size, isMobile))
+        } else {
+          // Normal drag — snap to nearest edge
+          setPos((prev) => snapToEdge(prev, size))
+        }
+      } else if (!longPressTriggered.current) {
+        // It was a tap (not long press) — toggle the panel
         setShowPanel(!showPanel)
       }
 
       dragStart.current = null
     },
-    [size, showPanel, setShowPanel]
+    [size, isMobile, showPanel, setShowPanel, clearLongPress]
   )
 
   // -------------------------------------------------------------------
-  // Render — hidden when no active timers
+  // Render — swiped-away restore dot
   // -------------------------------------------------------------------
 
-  if (activeTimers.length === 0) return null
+  if (hidden) {
+    return (
+      <button
+        onClick={() => setHidden(false)}
+        aria-label="Restore timer bubble"
+        style={{
+          position: 'fixed',
+          right: 4,
+          bottom: isMobile ? 72 : 12,
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
+          background: 'var(--color-sage-teal, #68a395)',
+          border: 'none',
+          opacity: 0.6,
+          cursor: 'pointer',
+          zIndex: 35,
+          padding: 0,
+          touchAction: 'none',
+        }}
+      />
+    )
+  }
+
+  // -------------------------------------------------------------------
+  // Render — resting state (no active timers) or active state
+  // -------------------------------------------------------------------
 
   const isRunning = activeTimers.length > 0
 
@@ -187,7 +276,11 @@ export function FloatingBubble() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        aria-label={`Timer — ${activeTimers.length} active. Tap to ${showPanel ? 'close' : 'open'} panel.`}
+        aria-label={
+          isResting
+            ? 'Timer — no timers running. Tap to start a timer.'
+            : `Timer — ${activeTimers.length} active. Tap to ${showPanel ? 'close' : 'open'} panel.`
+        }
         style={{
           position: 'fixed',
           left: pos.x,
@@ -203,18 +296,19 @@ export function FloatingBubble() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 35,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.22)',
+          boxShadow: isResting ? '0 2px 8px rgba(0,0,0,0.12)' : '0 4px 16px rgba(0,0,0,0.22)',
+          opacity: isResting ? 0.5 : 1,
           touchAction: 'none',   // prevent scroll-hijack during drag
           userSelect: 'none',
           WebkitUserSelect: 'none',
-          transition: dragging.current ? 'none' : 'box-shadow 0.2s ease',
+          transition: dragging.current ? 'none' : 'box-shadow 0.2s ease, opacity 0.2s ease, width 0.2s ease, height 0.2s ease',
           animation: isRunning ? 'timerBubblePulse 2.4s ease-in-out infinite' : 'none',
         }}
       >
-        <Clock size={isPlay ? 24 : 20} strokeWidth={2} />
+        <Clock size={isResting ? 16 : isPlay ? 24 : 20} strokeWidth={2} />
 
-        {/* Badge: active timer count */}
-        {activeTimers.length > 0 && (
+        {/* Badge: active timer count — only when timers are running */}
+        {isRunning && (
           <span
             aria-hidden
             style={{

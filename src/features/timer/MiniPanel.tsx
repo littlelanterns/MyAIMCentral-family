@@ -27,9 +27,11 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Clock,
   Pause,
+  Play,
   Square,
   Plus,
   X,
@@ -84,14 +86,57 @@ function ModeIcon({ mode, size = 14 }: { mode: string; size?: number }) {
 interface TimerRowProps {
   timer: ActiveTimer
   isPlay: boolean
+  breakEnforced: boolean
   onPause: (id: string) => void
   onStop: (id: string) => void
+  onResume: (taskId: string | null) => void
+  onNavigateToTask: () => void
 }
 
-function TimerRow({ timer, isPlay, onPause, onStop }: TimerRowProps) {
+function TimerRow({ timer, isPlay, breakEnforced, onPause, onStop, onResume, onNavigateToTask }: TimerRowProps) {
   const { session, elapsed, remaining, label } = timer
   const displaySeconds = remaining !== null ? remaining : elapsed
   const isCountdown    = remaining !== null
+  const isAutoPaused   = session.auto_paused === true
+
+  // Task-linked labels are tappable — navigate to /tasks
+  const labelElement = session.task_id ? (
+    <button
+      onClick={onNavigateToTask}
+      style={{
+        fontSize: 13,
+        fontWeight: 500,
+        color: 'var(--color-sage-teal, #68a395)',
+        maxWidth: 140,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        textDecoration: 'underline',
+        textDecorationStyle: 'dotted' as const,
+        textUnderlineOffset: '2px',
+      }}
+    >
+      {label}
+    </button>
+  ) : (
+    <span
+      style={{
+        fontSize: 13,
+        fontWeight: 500,
+        color: 'var(--color-text-primary)',
+        maxWidth: 140,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </span>
+  )
 
   return (
     <div
@@ -109,19 +154,20 @@ function TimerRow({ timer, isPlay, onPause, onStop }: TimerRowProps) {
           <span style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }}>
             <ModeIcon mode={session.timer_mode} size={13} />
           </span>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--color-text-primary)',
-              maxWidth: 140,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {label}
-          </span>
+          {labelElement}
+          {isAutoPaused && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: 'var(--color-status-warning, #e07a5f)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              paused
+            </span>
+          )}
         </div>
 
         {/* Time display */}
@@ -166,52 +212,82 @@ function TimerRow({ timer, isPlay, onPause, onStop }: TimerRowProps) {
         </div>
       )}
 
-      {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button
-          onClick={() => onPause(session.id)}
-          aria-label="Pause timer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '3px 10px',
-            borderRadius: 'var(--vibe-radius-sm, 6px)',
-            border: '1px solid var(--color-border)',
-            background: 'var(--color-bg-secondary)',
-            color: 'var(--color-text-secondary)',
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-        >
-          <Pause size={11} />
-          Pause
-        </button>
+      {/* Action buttons — hidden during enforced Pomodoro breaks (Guided/Play) */}
+      {breakEnforced ? (
+        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontStyle: 'italic', paddingTop: 2 }}>
+          Break time — relax until it ends!
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 6 }}>
+          {isAutoPaused ? (
+            <button
+              onClick={() => onResume(session.task_id)}
+              aria-label="Resume timer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '3px 10px',
+                borderRadius: 'var(--vibe-radius-sm, 6px)',
+                border: '1px solid var(--color-sage-teal, #68a395)',
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-sage-teal, #68a395)',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+            >
+              <Play size={11} />
+              Resume
+            </button>
+          ) : (
+            <button
+              onClick={() => onPause(session.id)}
+              aria-label="Pause timer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '3px 10px',
+                borderRadius: 'var(--vibe-radius-sm, 6px)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-secondary)',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+            >
+              <Pause size={11} />
+              Pause
+            </button>
+          )}
 
-        <button
-          onClick={() => onStop(session.id)}
-          aria-label="Stop timer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '3px 10px',
-            borderRadius: 'var(--vibe-radius-sm, 6px)',
-            border: '1px solid var(--color-border)',
-            background: 'var(--color-bg-secondary)',
-            color: 'var(--color-status-error, #e07a5f)',
-            fontSize: 11,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'background 0.15s',
-          }}
-        >
-          <Square size={11} />
-          Stop
-        </button>
-      </div>
+          <button
+            onClick={() => onStop(session.id)}
+            aria-label="Stop timer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '3px 10px',
+              borderRadius: 'var(--vibe-radius-sm, 6px)',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-status-error, #e07a5f)',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+          >
+            <Square size={11} />
+            Stop
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -303,8 +379,9 @@ interface MiniPanelProps {
 
 export function MiniPanel({ bubblePos, bubbleSize, onClose }: MiniPanelProps) {
   const { shell } = useShell()
-  const { activeTimers, startTimer, stopTimer, pauseTimer } = useTimerContext()
+  const { activeTimers, startTimer, stopTimer, pauseTimer, isBreakEnforced } = useTimerContext()
   const [showCountdownForm, setShowCountdownForm] = useState(false)
+  const navigate = useNavigate()
 
   const isPlay = shell === 'play'
 
@@ -337,6 +414,23 @@ export function MiniPanel({ bubblePos, bubbleSize, onClose }: MiniPanelProps) {
     (id: string) => { stopTimer(id).catch(console.error) },
     [stopTimer]
   )
+
+  const handleResume = useCallback(
+    (taskId: string | null) => {
+      // Resume creates a new session with the same task linkage
+      startTimer({
+        mode: 'clock',
+        taskId: taskId ?? undefined,
+        isStandalone: !taskId,
+      }).catch(console.error)
+    },
+    [startTimer]
+  )
+
+  const handleNavigateToTask = useCallback(() => {
+    onClose()
+    navigate('/tasks')
+  }, [navigate, onClose])
 
   const handleNewStopwatch = useCallback(() => {
     startTimer({ mode: 'stopwatch', isStandalone: true }).catch(console.error)
@@ -451,8 +545,11 @@ export function MiniPanel({ bubblePos, bubbleSize, onClose }: MiniPanelProps) {
                 key={timer.session.id}
                 timer={timer}
                 isPlay={isPlay}
+                breakEnforced={isBreakEnforced(timer.session.id)}
                 onPause={handlePause}
                 onStop={handleStop}
+                onResume={handleResume}
+                onNavigateToTask={handleNavigateToTask}
               />
             ))
           )}

@@ -30,8 +30,12 @@ import {
   Briefcase,
   BookOpen,
   ChevronRight,
+  Play,
+  Square,
 } from 'lucide-react'
 import { Badge } from '@/components/shared'
+import { useTimerContext } from '@/features/timer'
+import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import type { Task } from '@/hooks/useTasks'
 
 export interface TaskCardProps {
@@ -103,6 +107,16 @@ export function TaskCard({
   const [isPressed, _setIsPressed] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkboxRef = useRef<HTMLButtonElement | null>(null)
+
+  // Timer integration (PRD-36)
+  const timerCtx = useTimerContext()
+  const { allowed: canUseClock } = useCanAccess('timer_basic')
+  const { allowed: canUsePomodoro } = useCanAccess('timer_advanced')
+
+  const hasTimeTracking = !!(task as Record<string, unknown>).time_tracking_enabled
+  const activeTimerForTask = hasTimeTracking
+    ? timerCtx.activeTimers.find((t) => t.session.task_id === task.id)
+    : undefined
 
   const isCompleted = task.status === 'completed'
   const isPendingApproval = task.status === 'pending_approval'
@@ -301,6 +315,19 @@ export function TaskCard({
               </span>
             )}
           </div>
+
+          {/* Inline timer controls (PRD-36) — only when time_tracking_enabled */}
+          {hasTimeTracking && !isCompleted && (
+            <TaskTimerControls
+              taskId={task.id}
+              activeTimer={activeTimerForTask}
+              canUseClock={canUseClock}
+              canUsePomodoro={canUsePomodoro}
+              startTimer={timerCtx.startTimer}
+              pauseTimer={timerCtx.pauseTimer}
+              stopTimer={timerCtx.stopTimer}
+            />
+          )}
         </div>
 
         {/* Context menu trigger */}
@@ -406,6 +433,143 @@ function ContextMenuItem({ icon, label, onClick, destructive = false }: ContextM
       {icon}
       {label}
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TaskTimerControls — inline timer pill buttons (PRD-36)
+// ---------------------------------------------------------------------------
+
+/** Format seconds as H:MM:SS or MM:SS. */
+function formatElapsed(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds))
+  const h  = Math.floor(s / 3600)
+  const m  = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  const mm = String(m).padStart(2, '0')
+  const sStr = String(ss).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${sStr}` : `${mm}:${sStr}`
+}
+
+const timerPillStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: '2px 8px',
+  borderRadius: 'var(--vibe-radius-sm, 6px)',
+  border: '1px solid var(--color-border)',
+  background: 'var(--color-bg-secondary)',
+  fontSize: 11,
+  fontWeight: 600,
+  cursor: 'pointer',
+  transition: 'background 0.15s, border-color 0.15s',
+  lineHeight: 1.4,
+}
+
+interface TaskTimerControlsProps {
+  taskId: string
+  activeTimer: import('@/features/timer').ActiveTimer | undefined
+  canUseClock: boolean
+  canUsePomodoro: boolean
+  startTimer: (opts: import('@/features/timer').StartTimerOptions) => Promise<unknown>
+  pauseTimer: (sessionId: string) => Promise<void>
+  stopTimer: (sessionId: string) => Promise<void>
+}
+
+function TaskTimerControls({
+  taskId,
+  activeTimer,
+  canUseClock,
+  canUsePomodoro,
+  startTimer,
+  pauseTimer,
+  stopTimer,
+}: TaskTimerControlsProps) {
+  const handleClockIn = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    startTimer({ mode: 'clock', taskId }).catch(console.error)
+  }
+
+  const handlePomodoro = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    startTimer({ mode: 'pomodoro_focus', taskId }).catch(console.error)
+  }
+
+  const handlePause = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (activeTimer) pauseTimer(activeTimer.session.id).catch(console.error)
+  }
+
+  const handleDone = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (activeTimer) stopTimer(activeTimer.session.id).catch(console.error)
+  }
+
+  // Timer IS running for this task
+  if (activeTimer) {
+    return (
+      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+        {/* Elapsed time display */}
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            color: 'var(--color-text-heading)',
+            marginRight: 2,
+          }}
+        >
+          {formatElapsed(activeTimer.elapsed)}
+        </span>
+        <button
+          onClick={handlePause}
+          style={{ ...timerPillStyle, color: 'var(--color-text-secondary)' }}
+          aria-label="Pause timer"
+        >
+          <Pause size={10} />
+          Pause
+        </button>
+        <button
+          onClick={handleDone}
+          style={{ ...timerPillStyle, color: 'var(--color-status-error, #e07a5f)' }}
+          aria-label="Stop timer"
+        >
+          <Square size={10} />
+          Done
+        </button>
+      </div>
+    )
+  }
+
+  // No timer running — show start buttons
+  const showClock = canUseClock
+  const showPomodoro = canUsePomodoro
+
+  if (!showClock && !showPomodoro) return null
+
+  return (
+    <div className="flex items-center gap-1.5 mt-2">
+      {showClock && (
+        <button
+          onClick={handleClockIn}
+          style={{ ...timerPillStyle, color: 'var(--color-text-secondary)' }}
+          aria-label="Clock in"
+        >
+          <Play size={10} />
+          Clock In
+        </button>
+      )}
+      {showPomodoro && (
+        <button
+          onClick={handlePomodoro}
+          style={{ ...timerPillStyle, color: 'var(--color-text-secondary)' }}
+          aria-label="Start pomodoro"
+        >
+          <Timer size={10} />
+          Pomodoro
+        </button>
+      )}
+    </div>
   )
 }
 

@@ -190,13 +190,40 @@ export function useTimerActions(): TimerActions {
   // ---- stopTimer ---------------------------------------------------------
 
   const stopTimer = async (sessionId: string): Promise<void> => {
+    // Fetch session before stopping so we can compute duration and include
+    // task_id / member_id in the completion event.
+    const { data: session, error: fetchError } = await supabase
+      .from('time_sessions')
+      .select('started_at, task_id, family_member_id')
+      .eq('id', sessionId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    const endedAt = new Date().toISOString()
+
     const { error } = await supabase
       .from('time_sessions')
-      .update({ ended_at: new Date().toISOString() })
+      .update({ ended_at: endedAt })
       .eq('id', sessionId)
 
     if (error) throw error
     invalidateActive()
+
+    // Dispatch completion event for cross-feature listeners (gamification, etc.)
+    const durationMinutes = Math.round(
+      (new Date(endedAt).getTime() - new Date(session.started_at).getTime()) / 60_000
+    )
+    window.dispatchEvent(
+      new CustomEvent('time_session_completed', {
+        detail: {
+          sessionId,
+          taskId: session.task_id,
+          memberId: session.family_member_id,
+          durationMinutes,
+        },
+      })
+    )
   }
 
   // ---- pauseTimer --------------------------------------------------------
@@ -239,6 +266,15 @@ export function useTimerActions(): TimerActions {
         ended_at: string
       })
 
+    // Also fetch task_id and member_id for the modification event.
+    const { data: sessionMeta, error: metaError } = await supabase
+      .from('time_sessions')
+      .select('task_id, family_member_id')
+      .eq('id', sessionId)
+      .single()
+
+    if (metaError) throw metaError
+
     const { error: updateError } = await supabase
       .from('time_sessions')
       .update({
@@ -252,11 +288,32 @@ export function useTimerActions(): TimerActions {
 
     if (updateError) throw updateError
     invalidateActive()
+
+    // Dispatch modification event for cross-feature listeners.
+    window.dispatchEvent(
+      new CustomEvent('time_session_modified', {
+        detail: {
+          sessionId,
+          taskId: sessionMeta.task_id,
+          memberId: sessionMeta.family_member_id,
+          action: 'edit' as const,
+        },
+      })
+    )
   }
 
   // ---- deleteSession -----------------------------------------------------
 
   const deleteSession = async (sessionId: string): Promise<void> => {
+    // Fetch task_id and member_id before soft-deleting for the event.
+    const { data: sessionMeta, error: fetchError } = await supabase
+      .from('time_sessions')
+      .select('task_id, family_member_id')
+      .eq('id', sessionId)
+      .single()
+
+    if (fetchError) throw fetchError
+
     const { error } = await supabase
       .from('time_sessions')
       .update({ deleted_at: new Date().toISOString() })
@@ -264,6 +321,18 @@ export function useTimerActions(): TimerActions {
 
     if (error) throw error
     invalidateActive()
+
+    // Dispatch modification event for cross-feature listeners.
+    window.dispatchEvent(
+      new CustomEvent('time_session_modified', {
+        detail: {
+          sessionId,
+          taskId: sessionMeta.task_id,
+          memberId: sessionMeta.family_member_id,
+          action: 'delete' as const,
+        },
+      })
+    )
   }
 
   // ---- addManualSession --------------------------------------------------

@@ -1,8 +1,9 @@
 /**
  * Universal Scheduler Component (PRD-35)
  *
- * Reusable scheduling component embedded in Tasks, Calendar, Meetings, Permissions.
- * Progressive disclosure: Quick Picks → Custom → More Options.
+ * Compact scheduling component embedded in Tasks, Calendar, Meetings, Permissions.
+ * Default state: toggle between one-time date picker and weekly day chips.
+ * "More options" reveals all advanced scheduling patterns inline.
  * Output is RRULE JSONB stored in the consuming feature's column.
  */
 
@@ -22,15 +23,6 @@ import { useSchedulerState } from './useSchedulerState'
 import { WeekdayCircles } from './WeekdayCircles'
 import { CalendarPreview } from './CalendarPreview'
 
-const ALL_FREQUENCIES: { value: FrequencyType; label: string }[] = [
-  { value: 'one_time', label: 'One-time' },
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'yearly', label: 'Yearly' },
-  { value: 'custom', label: 'Custom' },
-]
-
 export function UniversalScheduler({
   value,
   onChange,
@@ -41,12 +33,17 @@ export function UniversalScheduler({
 }: UniversalSchedulerProps) {
   const stableOnChange = useCallback((v: SchedulerOutput) => onChange(v), [onChange])
   const { state, dispatch, output } = useSchedulerState(value, stableOnChange, showTimeDefault, timezone)
-  const [showAdvanced, setShowAdvanced] = useState(!!state.advancedMode)
+  const [showMoreOptions, setShowMoreOptions] = useState(
+    !!state.advancedMode ||
+    state.frequency === 'monthly' ||
+    state.frequency === 'yearly' ||
+    state.frequency === 'custom' ||
+    state.frequency === 'daily'
+  )
   const [showCalendar, setShowCalendar] = useState(false)
 
-  const frequencies = allowedFrequencies
-    ? ALL_FREQUENCIES.filter(f => allowedFrequencies.includes(f.value))
-    : ALL_FREQUENCIES
+  // Derive the toggle state: NO = one_time, YES = any repeating frequency
+  const repeats = state.frequency !== 'one_time'
 
   // ─── Compact Mode: day-of-week circles only ───────────────────
   if (compactMode) {
@@ -61,137 +58,226 @@ export function UniversalScheduler({
     )
   }
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     backgroundColor: 'var(--color-bg-primary)',
     border: '1px solid var(--color-border)',
     color: 'var(--color-text-primary)',
   }
 
+  const handleRepeatToggle = (wantsRepeat: boolean) => {
+    if (wantsRepeat && !repeats) {
+      // Switch to weekly as default repeating frequency
+      dispatch({ type: 'SET_FREQUENCY', frequency: 'weekly' })
+    } else if (!wantsRepeat && repeats) {
+      dispatch({ type: 'SET_FREQUENCY', frequency: 'one_time' })
+      setShowMoreOptions(false)
+    }
+  }
+
+  // Check if current frequency needs "more options" to be visible
+  const isAdvancedFrequency =
+    state.frequency === 'monthly' ||
+    state.frequency === 'yearly' ||
+    state.frequency === 'custom' ||
+    state.frequency === 'daily' ||
+    !!state.advancedMode
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <FeatureGuide
         featureKey="scheduler_basic"
-        title="Schedule & Recurrence"
-        description="Set when this repeats. Pick a quick option or customize with advanced patterns."
+        title="Schedule"
+        description="Set when this happens. Toggle repeating, pick your days, and you're done."
         bullets={[
-          'Tap days to select, add time if needed',
+          'Tap days to select which ones this repeats on',
+          'Use "More options" for monthly, yearly, or rotation patterns',
           'View your schedule on the calendar preview',
-          'Skip specific dates with exceptions',
         ]}
       />
 
-      {/* ── Frequency Picker ── */}
+      {/* ── Repeat Toggle ── */}
       <div>
-        <div className="text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-          How often?
+        <div
+          className="text-xs font-medium mb-2 uppercase tracking-wider"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Does this repeat?
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {frequencies.map(f => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => dispatch({ type: 'SET_FREQUENCY', frequency: f.value })}
-              className="px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: state.frequency === f.value ? 'var(--color-sage-teal, #68a395)' : 'transparent',
-                color: state.frequency === f.value ? 'white' : 'var(--color-dark-teal, #2a5a4e)',
-                border: `1.5px solid var(--color-sage-teal, #68a395)`,
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Frequency-Specific Config ── */}
-      <FrequencyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-
-      {/* ── Time Picker ── */}
-      <div>
-        {state.showTime ? (
-          <div className="flex items-center gap-2">
-            <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
-            <input
-              type="time"
-              value={state.time}
-              onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })}
-              className="px-3 py-1.5 rounded-lg text-sm outline-none"
-              style={inputStyle}
-            />
-            <button type="button" onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
-              className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              remove
-            </button>
-          </div>
-        ) : (
+        <div className="flex rounded-lg overflow-hidden" style={{ border: '1.5px solid var(--color-border)' }}>
           <button
             type="button"
-            onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
-            style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
+            onClick={() => handleRepeatToggle(false)}
+            className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: !repeats ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+              color: !repeats ? 'var(--color-text-on-primary, white)' : 'var(--color-text-secondary)',
+            }}
           >
-            <Plus size={14} /> Add time
+            No
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => handleRepeatToggle(true)}
+            className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: repeats ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+              color: repeats ? 'var(--color-text-on-primary, white)' : 'var(--color-text-secondary)',
+              borderLeft: '1.5px solid var(--color-border)',
+            }}
+          >
+            Yes
+          </button>
+        </div>
       </div>
 
-      {/* ── Schedule Until ── */}
-      {state.frequency !== 'one_time' && (
-        <div>
-          <div className="text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-            Schedule until
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={state.untilMode}
-              onChange={(e) => dispatch({ type: 'SET_UNTIL_MODE', mode: e.target.value as 'ongoing' | 'date' | 'count' })}
-              className="px-3 py-1.5 rounded-lg text-sm outline-none"
-              style={inputStyle}
-            >
-              <option value="ongoing">Ongoing</option>
-              <option value="date">Specific date</option>
-              <option value="count">After X times</option>
-            </select>
-            {state.untilMode === 'date' && (
-              <input type="date" value={state.untilDate}
-                onChange={(e) => dispatch({ type: 'SET_UNTIL_DATE', date: e.target.value })}
-                className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+      {/* ── One-Time: Date + optional time ── */}
+      {!repeats && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="date"
+            value={state.oneTimeDate}
+            onChange={(e) => dispatch({ type: 'SET_ONE_TIME_DATE', date: e.target.value })}
+            className="px-3 py-1.5 rounded-lg text-sm outline-none"
+            style={inputStyle}
+          />
+          {state.showTime ? (
+            <>
+              <input
+                type="time"
+                value={state.time}
+                onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })}
+                className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                style={inputStyle}
               />
-            )}
-            {state.untilMode === 'count' && (
-              <div className="flex items-center gap-1">
-                <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>After</span>
-                <input type="number" min={1} value={state.untilCount}
-                  onChange={(e) => dispatch({ type: 'SET_UNTIL_COUNT', count: parseInt(e.target.value) || 1 })}
-                  className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none" style={inputStyle}
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
+                className="text-xs"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                remove time
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs"
+              style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
+            >
+              <Clock size={12} /> Add time
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Repeating: Default compact view (day chips + time) ── */}
+      {repeats && (
+        <>
+          {/* Day chips — show for weekly or custom with day-based units */}
+          {(state.frequency === 'weekly' ||
+            (state.frequency === 'custom' && !state.advancedMode && (state.customUnit === 'days' || state.customUnit === 'weeks'))) && (
+            <WeekdayCircles
+              selected={state.selectedDays}
+              onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
+              label="Repeats on"
+            />
+          )}
+
+          {/* Show frequency-specific config when in advanced frequencies */}
+          {state.frequency === 'daily' && showMoreOptions && (
+            <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Repeats every day
+            </div>
+          )}
+
+          {state.frequency === 'monthly' && showMoreOptions && (
+            <MonthlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+          )}
+
+          {state.frequency === 'yearly' && showMoreOptions && (
+            <YearlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+          )}
+
+          {state.frequency === 'custom' && !state.advancedMode && showMoreOptions && (
+            <CustomConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+          )}
+
+          {/* Advanced mode config (alternating, custody, seasonal, completion) */}
+          {state.advancedMode && showMoreOptions && (
+            <AdvancedModeConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+          )}
+
+          {/* Time picker */}
+          <div>
+            {state.showTime ? (
+              <div className="flex items-center gap-2">
+                <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                <input
+                  type="time"
+                  value={state.time}
+                  onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })}
+                  className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                  style={inputStyle}
                 />
-                <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>times</span>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
+                  className="text-xs"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  remove
+                </button>
               </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
+                style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                <Plus size={14} /> Add time
+              </button>
             )}
           </div>
-        </div>
-      )}
 
-      {/* ── Advanced Options (under Custom) ── */}
-      {state.frequency === 'custom' && (
-        <div>
+          {/* ── More options link ── */}
           <button
             type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1.5 text-sm font-medium w-full"
-            style={{ color: 'var(--color-dark-teal, #2a5a4e)' }}
+            onClick={() => setShowMoreOptions(!showMoreOptions)}
+            className="flex items-center gap-1.5 text-sm w-full"
+            style={{ color: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
           >
-            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            More scheduling options
+            {showMoreOptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {showMoreOptions ? 'Fewer options' : 'More options'}
           </button>
-          {showAdvanced && <AdvancedSection state={state} dispatch={dispatch} inputStyle={inputStyle} />}
-        </div>
-      )}
 
-      {/* ── Exceptions ── */}
-      {state.frequency !== 'one_time' && (
-        <ExceptionSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
+          {/* ── Expanded "More options" section ── */}
+          {showMoreOptions && (
+            <div
+              className="space-y-4 pt-2 pl-3 border-l-2"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              {/* Frequency refinement — only show if not already in a specific mode */}
+              {!isAdvancedFrequency && state.frequency === 'weekly' && (
+                <RepeatFrequencyPicker state={state} dispatch={dispatch} inputStyle={inputStyle} />
+              )}
+
+              {/* Switch to other repeat patterns */}
+              <RepeatPatternSelector
+                state={state}
+                dispatch={dispatch}
+                inputStyle={inputStyle}
+              />
+
+              {/* Schedule until */}
+              <ScheduleUntilSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
+
+              {/* Exceptions */}
+              <ExceptionSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Calendar Preview Toggle ── */}
@@ -199,7 +285,7 @@ export function UniversalScheduler({
         type="button"
         onClick={() => setShowCalendar(!showCalendar)}
         className="flex items-center gap-1.5 text-sm font-medium w-full"
-        style={{ color: 'var(--color-dark-teal, #2a5a4e)' }}
+        style={{ color: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
       >
         {showCalendar ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         <CalendarIcon size={14} />
@@ -212,45 +298,256 @@ export function UniversalScheduler({
   )
 }
 
-// ─── Frequency-Specific Configuration ───────────────────────────────────
+// ─── Repeat Frequency Picker (every X weeks) ─────────────────────────────
 
-function FrequencyConfig({ state, dispatch, inputStyle }: {
+function RepeatFrequencyPicker({ state, dispatch, inputStyle }: {
   state: ReturnType<typeof useSchedulerState>['state']
   dispatch: React.Dispatch<any>
   inputStyle: React.CSSProperties
 }) {
-  switch (state.frequency) {
-    case 'one_time':
-      return (
-        <div>
-          <input type="date" value={state.oneTimeDate}
-            onChange={(e) => dispatch({ type: 'SET_ONE_TIME_DATE', date: e.target.value })}
-            className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+  // If user sets interval > 1, switch to custom with weeks unit
+  const currentInterval = state.frequency === 'custom' && state.customUnit === 'weeks'
+    ? state.customInterval
+    : 1
+
+  const handleIntervalChange = (val: number) => {
+    if (val > 1) {
+      dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+      dispatch({ type: 'SET_CUSTOM_UNIT', unit: 'weeks' })
+      dispatch({ type: 'SET_CUSTOM_INTERVAL', interval: val })
+    } else {
+      dispatch({ type: 'SET_FREQUENCY', frequency: 'weekly' })
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Repeats every</span>
+      <input
+        type="number"
+        min={1}
+        value={currentInterval}
+        onChange={(e) => handleIntervalChange(parseInt(e.target.value) || 1)}
+        className="w-14 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+        style={inputStyle}
+      />
+      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        {currentInterval === 1 ? 'week' : 'weeks'}
+      </span>
+    </div>
+  )
+}
+
+// ─── Repeat Pattern Selector (switch between pattern types) ──────────────
+
+function RepeatPatternSelector({ state, dispatch, inputStyle }: {
+  state: any
+  dispatch: React.Dispatch<any>
+  inputStyle: React.CSSProperties
+}) {
+  type PatternOption = {
+    key: string
+    label: string
+    description: string
+    isActive: boolean
+    onSelect: () => void
+  }
+
+  const patterns: PatternOption[] = [
+    {
+      key: 'daily',
+      label: 'Every day',
+      description: 'Repeats daily',
+      isActive: state.frequency === 'daily',
+      onSelect: () => dispatch({ type: 'SET_FREQUENCY', frequency: 'daily' }),
+    },
+    {
+      key: 'monthly',
+      label: 'Monthly',
+      description: 'On a specific date or weekday each month',
+      isActive: state.frequency === 'monthly',
+      onSelect: () => dispatch({ type: 'SET_FREQUENCY', frequency: 'monthly' }),
+    },
+    {
+      key: 'yearly',
+      label: 'Yearly',
+      description: 'On specific months and dates each year',
+      isActive: state.frequency === 'yearly',
+      onSelect: () => dispatch({ type: 'SET_FREQUENCY', frequency: 'yearly' }),
+    },
+    {
+      key: 'custom_interval',
+      label: 'Custom interval',
+      description: 'Every X days, weeks, or months',
+      isActive: state.frequency === 'custom' && !state.advancedMode,
+      onSelect: () => {
+        dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+        dispatch({ type: 'SET_ADVANCED_MODE', mode: null })
+      },
+    },
+    {
+      key: 'alternating',
+      label: 'Every other week',
+      description: 'Different days on Week A and Week B',
+      isActive: state.advancedMode === 'alternating',
+      onSelect: () => {
+        dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+        dispatch({ type: 'SET_ADVANCED_MODE', mode: 'alternating' })
+      },
+    },
+    {
+      key: 'custody',
+      label: 'Rotation schedule',
+      description: 'Multi-week patterns (like shared parenting schedules)',
+      isActive: state.advancedMode === 'custody',
+      onSelect: () => {
+        dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+        dispatch({ type: 'SET_ADVANCED_MODE', mode: 'custody' })
+      },
+    },
+    {
+      key: 'seasonal',
+      label: 'Seasonal / date range',
+      description: 'Only active during specific date ranges',
+      isActive: state.advancedMode === 'seasonal',
+      onSelect: () => {
+        dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+        dispatch({ type: 'SET_ADVANCED_MODE', mode: 'seasonal' })
+      },
+    },
+    {
+      key: 'completion',
+      label: 'After completion',
+      description: 'Next one appears X days after you finish this one',
+      isActive: state.advancedMode === 'completion_dependent',
+      onSelect: () => {
+        dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+        dispatch({ type: 'SET_ADVANCED_MODE', mode: 'completion_dependent' })
+      },
+    },
+  ]
+
+  // Only show patterns that are NOT the currently-active default weekly view
+  // Always show them if the user is already in an advanced mode
+  const showablePatterns = patterns.filter(p => {
+    // If weekly is active (the default repeat), show all patterns as switchable options
+    if (state.frequency === 'weekly') return true
+    // Otherwise always show
+    return true
+  })
+
+  return (
+    <div>
+      <div
+        className="text-xs font-medium mb-2 uppercase tracking-wider"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        Repeat pattern
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {/* Weekly is always the first option */}
+        <button
+          type="button"
+          onClick={() => {
+            dispatch({ type: 'SET_FREQUENCY', frequency: 'weekly' })
+            dispatch({ type: 'SET_ADVANCED_MODE', mode: null })
+          }}
+          className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+          style={{
+            backgroundColor: state.frequency === 'weekly' ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+            color: state.frequency === 'weekly' ? 'var(--color-text-on-primary, white)' : 'var(--color-text-primary)',
+            border: `1.5px solid ${state.frequency === 'weekly' ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'var(--color-border)'}`,
+          }}
+        >
+          Weekly
+        </button>
+        {showablePatterns.map(p => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={p.onSelect}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+            title={p.description}
+            style={{
+              backgroundColor: p.isActive ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+              color: p.isActive ? 'var(--color-text-on-primary, white)' : 'var(--color-text-primary)',
+              border: `1.5px solid ${p.isActive ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'var(--color-border)'}`,
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Schedule Until ──────────────────────────────────────────────────────
+
+function ScheduleUntilSection({ state, dispatch, inputStyle }: {
+  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
+}) {
+  return (
+    <div>
+      <div
+        className="text-xs font-medium mb-1.5 uppercase tracking-wider"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        Ends
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={state.untilMode}
+          onChange={(e) => dispatch({ type: 'SET_UNTIL_MODE', mode: e.target.value as 'ongoing' | 'date' | 'count' })}
+          className="px-3 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
+        >
+          <option value="ongoing">Never (ongoing)</option>
+          <option value="date">On a specific date</option>
+          <option value="count">After a number of times</option>
+        </select>
+        {state.untilMode === 'date' && (
+          <input
+            type="date"
+            value={state.untilDate}
+            onChange={(e) => dispatch({ type: 'SET_UNTIL_DATE', date: e.target.value })}
+            className="px-3 py-1.5 rounded-lg text-sm outline-none"
+            style={inputStyle}
           />
-        </div>
-      )
+        )}
+        {state.untilMode === 'count' && (
+          <div className="flex items-center gap-1">
+            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>After</span>
+            <input
+              type="number"
+              min={1}
+              value={state.untilCount}
+              onChange={(e) => dispatch({ type: 'SET_UNTIL_COUNT', count: parseInt(e.target.value) || 1 })}
+              className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+              style={inputStyle}
+            />
+            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>times</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
-    case 'daily':
-      return null // Daily is daily — no extra config
+// ─── Advanced Mode Config (renders the active advanced sub-config) ───────
 
-    case 'weekly':
-      return (
-        <WeekdayCircles
-          selected={state.selectedDays}
-          onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
-          label="Repeat on"
-        />
-      )
-
-    case 'monthly':
-      return <MonthlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-
-    case 'yearly':
-      return <YearlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-
-    case 'custom':
-      return <CustomConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-
+function AdvancedModeConfig({ state, dispatch, inputStyle }: {
+  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
+}) {
+  switch (state.advancedMode) {
+    case 'alternating':
+      return <AlternatingConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+    case 'custody':
+      return <CustodyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+    case 'seasonal':
+      return <SeasonalConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+    case 'completion_dependent':
+      return <CompletionConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
     default:
       return null
   }
@@ -264,15 +561,27 @@ function MonthlyConfig({ state, dispatch, inputStyle }: {
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="radio" checked={state.monthlyMode === 'weekday'}
+        <label
+          className="flex items-center gap-1.5 text-sm cursor-pointer"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          <input
+            type="radio"
+            checked={state.monthlyMode === 'weekday'}
             onChange={() => dispatch({ type: 'SET_MONTHLY_MODE', mode: 'weekday' })}
-          /> Recurring weekday
+          />
+          On a weekday
         </label>
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-          <input type="radio" checked={state.monthlyMode === 'date'}
+        <label
+          className="flex items-center gap-1.5 text-sm cursor-pointer"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          <input
+            type="radio"
+            checked={state.monthlyMode === 'date'}
             onChange={() => dispatch({ type: 'SET_MONTHLY_MODE', mode: 'date' })}
-          /> Recurring date
+          />
+          On a date
         </label>
       </div>
 
@@ -280,27 +589,45 @@ function MonthlyConfig({ state, dispatch, inputStyle }: {
         <div className="space-y-2">
           {state.monthlyWeekdays.map((row: any) => (
             <div key={row.id} className="flex items-center gap-2">
-              <select value={row.ordinal}
+              <select
+                value={row.ordinal}
                 onChange={(e) => dispatch({ type: 'UPDATE_MONTHLY_WEEKDAY', id: row.id, ordinal: parseInt(e.target.value) })}
-                className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}>
-                {ORDINAL_VALUES.map((v, i) => <option key={v} value={v}>{ORDINAL_LABELS[i]}</option>)}
+                className="px-2 py-1.5 rounded-lg text-sm outline-none"
+                style={inputStyle}
+              >
+                {ORDINAL_VALUES.map((v, i) => (
+                  <option key={v} value={v}>{ORDINAL_LABELS[i]}</option>
+                ))}
               </select>
-              <select value={row.weekday}
+              <select
+                value={row.weekday}
                 onChange={(e) => dispatch({ type: 'UPDATE_MONTHLY_WEEKDAY', id: row.id, weekday: parseInt(e.target.value) })}
-                className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}>
-                {DAY_LABELS_FULL.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                className="px-2 py-1.5 rounded-lg text-sm outline-none"
+                style={inputStyle}
+              >
+                {DAY_LABELS_FULL.map((d, i) => (
+                  <option key={i} value={i}>{d}</option>
+                ))}
               </select>
               {state.monthlyWeekdays.length > 1 && (
-                <button type="button" onClick={() => dispatch({ type: 'REMOVE_MONTHLY_WEEKDAY', id: row.id })}
-                  className="p-1 rounded" style={{ color: 'var(--color-error, #b25a58)' }}>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'REMOVE_MONTHLY_WEEKDAY', id: row.id })}
+                  className="p-1 rounded"
+                  style={{ color: 'var(--color-error, #b25a58)' }}
+                >
                   <X size={14} />
                 </button>
               )}
             </div>
           ))}
-          <button type="button" onClick={() => dispatch({ type: 'ADD_MONTHLY_WEEKDAY' })}
-            className="flex items-center gap-1 text-sm" style={{ color: 'var(--color-sage-teal, #68a395)' }}>
-            <Plus size={14} /> Add another weekday
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'ADD_MONTHLY_WEEKDAY' })}
+            className="flex items-center gap-1 text-sm"
+            style={{ color: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
+          >
+            <Plus size={14} /> Add another
           </button>
         </div>
       )}
@@ -309,14 +636,19 @@ function MonthlyConfig({ state, dispatch, inputStyle }: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">
             {Array.from({ length: 31 }, (_, i) => i + 1).concat([-1]).map(d => (
-              <button key={d} type="button"
+              <button
+                key={d}
+                type="button"
                 onClick={() => dispatch({ type: 'TOGGLE_MONTHLY_DATE', date: d })}
                 className="w-9 h-9 rounded-lg text-xs font-medium transition-colors flex items-center justify-center"
                 style={{
-                  backgroundColor: state.monthlyDates.includes(d) ? 'var(--color-sage-teal, #68a395)' : 'transparent',
-                  color: state.monthlyDates.includes(d) ? 'white' : 'var(--color-text-primary)',
-                  border: state.monthlyDates.includes(d) ? '1.5px solid var(--color-sage-teal, #68a395)' : '1.5px solid var(--color-border)',
-                }}>
+                  backgroundColor: state.monthlyDates.includes(d) ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+                  color: state.monthlyDates.includes(d) ? 'var(--color-text-on-primary, white)' : 'var(--color-text-primary)',
+                  border: state.monthlyDates.includes(d)
+                    ? '1.5px solid var(--color-accent, var(--color-sage-teal, #68a395))'
+                    : '1.5px solid var(--color-border)',
+                }}
+              >
                 {d === -1 ? 'Last' : d}
               </button>
             ))}
@@ -335,22 +667,28 @@ function YearlyConfig({ state, dispatch, inputStyle }: {
   return (
     <div className="space-y-3">
       <div>
-        <div className="text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-          In which months?
+        <div
+          className="text-xs font-medium mb-1.5 uppercase tracking-wider"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Which months?
         </div>
         <div className="flex flex-wrap gap-1.5">
           {MONTH_LABELS.map((label, i) => {
             const month = i + 1
             const active = state.selectedMonths.includes(month)
             return (
-              <button key={month} type="button"
+              <button
+                key={month}
+                type="button"
                 onClick={() => dispatch({ type: 'TOGGLE_MONTH', month })}
                 className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                 style={{
-                  backgroundColor: active ? 'var(--color-sage-teal, #68a395)' : 'transparent',
-                  color: active ? 'white' : 'var(--color-text-primary)',
-                  border: `1.5px solid ${active ? 'var(--color-sage-teal, #68a395)' : 'var(--color-border)'}`,
-                }}>
+                  backgroundColor: active ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+                  color: active ? 'var(--color-text-on-primary, white)' : 'var(--color-text-primary)',
+                  border: `1.5px solid ${active ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'var(--color-border)'}`,
+                }}
+              >
                 {label}
               </button>
             )
@@ -359,31 +697,53 @@ function YearlyConfig({ state, dispatch, inputStyle }: {
       </div>
 
       <div>
-        <div className="text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-          On which day?
+        <div
+          className="text-xs font-medium mb-1.5 uppercase tracking-wider"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Which day?
         </div>
         <div className="flex gap-3 mb-2">
-          <label className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-            <input type="radio" checked={state.yearlyMode === 'date'}
-              onChange={() => dispatch({ type: 'SET_YEARLY_MODE', mode: 'date' })} /> Specific date
+          <label
+            className="flex items-center gap-1.5 text-sm cursor-pointer"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            <input
+              type="radio"
+              checked={state.yearlyMode === 'date'}
+              onChange={() => dispatch({ type: 'SET_YEARLY_MODE', mode: 'date' })}
+            />
+            A specific date
           </label>
-          <label className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-            <input type="radio" checked={state.yearlyMode === 'weekday'}
-              onChange={() => dispatch({ type: 'SET_YEARLY_MODE', mode: 'weekday' })} /> Specific weekday
+          <label
+            className="flex items-center gap-1.5 text-sm cursor-pointer"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            <input
+              type="radio"
+              checked={state.yearlyMode === 'weekday'}
+              onChange={() => dispatch({ type: 'SET_YEARLY_MODE', mode: 'weekday' })}
+            />
+            A specific weekday
           </label>
         </div>
 
         {state.yearlyMode === 'date' && (
           <div className="flex flex-wrap gap-1.5">
             {Array.from({ length: 31 }, (_, i) => i + 1).concat([-1]).map(d => (
-              <button key={d} type="button"
+              <button
+                key={d}
+                type="button"
                 onClick={() => dispatch({ type: 'TOGGLE_YEARLY_DATE', date: d })}
                 className="w-8 h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center"
                 style={{
-                  backgroundColor: state.yearlyDates.includes(d) ? 'var(--color-sage-teal, #68a395)' : 'transparent',
-                  color: state.yearlyDates.includes(d) ? 'white' : 'var(--color-text-primary)',
-                  border: state.yearlyDates.includes(d) ? '1.5px solid var(--color-sage-teal, #68a395)' : '1.5px solid var(--color-border)',
-                }}>
+                  backgroundColor: state.yearlyDates.includes(d) ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
+                  color: state.yearlyDates.includes(d) ? 'var(--color-text-on-primary, white)' : 'var(--color-text-primary)',
+                  border: state.yearlyDates.includes(d)
+                    ? '1.5px solid var(--color-accent, var(--color-sage-teal, #68a395))'
+                    : '1.5px solid var(--color-border)',
+                }}
+              >
                 {d === -1 ? 'Last' : d}
               </button>
             ))}
@@ -394,27 +754,45 @@ function YearlyConfig({ state, dispatch, inputStyle }: {
           <div className="space-y-2">
             {state.yearlyWeekdays.map((row: any) => (
               <div key={row.id} className="flex items-center gap-2">
-                <select value={row.ordinal}
+                <select
+                  value={row.ordinal}
                   onChange={(e) => dispatch({ type: 'UPDATE_YEARLY_WEEKDAY', id: row.id, ordinal: parseInt(e.target.value) })}
-                  className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}>
-                  {ORDINAL_VALUES.map((v, i) => <option key={v} value={v}>{ORDINAL_LABELS[i]}</option>)}
+                  className="px-2 py-1.5 rounded-lg text-sm outline-none"
+                  style={inputStyle}
+                >
+                  {ORDINAL_VALUES.map((v, i) => (
+                    <option key={v} value={v}>{ORDINAL_LABELS[i]}</option>
+                  ))}
                 </select>
-                <select value={row.weekday}
+                <select
+                  value={row.weekday}
                   onChange={(e) => dispatch({ type: 'UPDATE_YEARLY_WEEKDAY', id: row.id, weekday: parseInt(e.target.value) })}
-                  className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}>
-                  {DAY_LABELS_FULL.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                  className="px-2 py-1.5 rounded-lg text-sm outline-none"
+                  style={inputStyle}
+                >
+                  {DAY_LABELS_FULL.map((d, i) => (
+                    <option key={i} value={i}>{d}</option>
+                  ))}
                 </select>
                 {state.yearlyWeekdays.length > 1 && (
-                  <button type="button" onClick={() => dispatch({ type: 'REMOVE_YEARLY_WEEKDAY', id: row.id })}
-                    className="p-1 rounded" style={{ color: 'var(--color-error, #b25a58)' }}>
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ type: 'REMOVE_YEARLY_WEEKDAY', id: row.id })}
+                    className="p-1 rounded"
+                    style={{ color: 'var(--color-error, #b25a58)' }}
+                  >
                     <X size={14} />
                   </button>
                 )}
               </div>
             ))}
-            <button type="button" onClick={() => dispatch({ type: 'ADD_YEARLY_WEEKDAY' })}
-              className="flex items-center gap-1 text-sm" style={{ color: 'var(--color-sage-teal, #68a395)' }}>
-              <Plus size={14} /> Add another weekday
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'ADD_YEARLY_WEEKDAY' })}
+              className="flex items-center gap-1 text-sm"
+              style={{ color: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
+            >
+              <Plus size={14} /> Add another
             </button>
           </div>
         )}
@@ -428,20 +806,26 @@ function YearlyConfig({ state, dispatch, inputStyle }: {
 function CustomConfig({ state, dispatch, inputStyle }: {
   state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
 }) {
-  // Skip custom config if an advanced mode is active — it handles its own UI
   if (state.advancedMode) return null
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Every</span>
-        <input type="number" min={1} value={state.customInterval}
+        <input
+          type="number"
+          min={1}
+          value={state.customInterval}
           onChange={(e) => dispatch({ type: 'SET_CUSTOM_INTERVAL', interval: parseInt(e.target.value) || 1 })}
-          className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none" style={inputStyle}
+          className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+          style={inputStyle}
         />
-        <select value={state.customUnit}
+        <select
+          value={state.customUnit}
           onChange={(e) => dispatch({ type: 'SET_CUSTOM_UNIT', unit: e.target.value })}
-          className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}>
+          className="px-2 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
+        >
           <option value="days">days</option>
           <option value="weeks">weeks</option>
           <option value="months">months</option>
@@ -464,42 +848,7 @@ function CustomConfig({ state, dispatch, inputStyle }: {
   )
 }
 
-// ─── Advanced Options Section ───────────────────────────────────────────
-
-function AdvancedSection({ state, dispatch, inputStyle }: {
-  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
-}) {
-  const modes = [
-    { value: 'alternating' as const, label: 'Alternating weeks' },
-    { value: 'custody' as const, label: 'Multi-week pattern' },
-    { value: 'seasonal' as const, label: 'Seasonal / date range' },
-    { value: 'completion_dependent' as const, label: 'Completion-dependent' },
-  ]
-
-  return (
-    <div className="mt-3 space-y-3 pl-2 border-l-2" style={{ borderColor: 'var(--color-border)' }}>
-      {modes.map(m => (
-        <div key={m.value}>
-          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-            <input type="radio" name="advanced_mode"
-              checked={state.advancedMode === m.value}
-              onChange={() => dispatch({ type: 'SET_ADVANCED_MODE', mode: state.advancedMode === m.value ? null : m.value })}
-            />
-            {m.label}
-          </label>
-          {state.advancedMode === m.value && (
-            <div className="mt-2 ml-6">
-              {m.value === 'alternating' && <AlternatingConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />}
-              {m.value === 'custody' && <CustodyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />}
-              {m.value === 'seasonal' && <SeasonalConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />}
-              {m.value === 'completion_dependent' && <CompletionConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
+// ─── Alternating Weeks Config ───────────────────────────────────────────
 
 function AlternatingConfig({ state, dispatch, inputStyle }: {
   state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
@@ -507,51 +856,67 @@ function AlternatingConfig({ state, dispatch, inputStyle }: {
   return (
     <div className="space-y-3">
       <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        Set which days belong to Week A vs Week B. Repeats every 2 weeks from the anchor date.
+        Pick which days belong to Week A and Week B. The pattern alternates every two weeks.
       </p>
       <div className="flex items-center gap-2">
         <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Starts</span>
-        <input type="date" value={state.alternatingAnchor}
+        <input
+          type="date"
+          value={state.alternatingAnchor}
           onChange={(e) => dispatch({ type: 'SET_ALTERNATING_ANCHOR', date: e.target.value })}
-          className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+          className="px-2 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
         />
       </div>
-      <WeekdayCircles selected={state.weekADays} onToggle={(d) => dispatch({ type: 'TOGGLE_WEEK_A_DAY', day: d })} label="Week A" />
-      <WeekdayCircles selected={state.weekBDays} onToggle={(d) => dispatch({ type: 'TOGGLE_WEEK_B_DAY', day: d })} label="Week B" />
+      <WeekdayCircles
+        selected={state.weekADays}
+        onToggle={(d) => dispatch({ type: 'TOGGLE_WEEK_A_DAY', day: d })}
+        label="Week A"
+      />
+      <WeekdayCircles
+        selected={state.weekBDays}
+        onToggle={(d) => dispatch({ type: 'TOGGLE_WEEK_B_DAY', day: d })}
+        label="Week B"
+      />
     </div>
   )
 }
 
+// ─── Custody / Rotation Config ──────────────────────────────────────────
+
 function CustodyConfig({ state, dispatch, inputStyle }: {
   state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
 }) {
-  const patternLen = state.custodyPattern.length
-  Math.ceil(patternLen / 7) // weeks count available for future display
   const dayHeaders = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa']
 
   return (
     <div className="space-y-3">
       <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        For custody schedules and complex rotations. Pick a preset or tap days to switch.
+        Build a multi-week rotation pattern. Pick a preset or tap days to switch sides.
       </p>
 
       {/* Presets */}
       <div className="flex flex-wrap gap-1.5">
         {Object.entries(CUSTODY_PRESETS).map(([key, pattern]) => (
-          <button key={key} type="button"
+          <button
+            key={key}
+            type="button"
             onClick={() => dispatch({ type: 'SET_CUSTODY_PATTERN', pattern })}
             className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
             style={{
               backgroundColor: 'var(--color-golden-honey, #d4a843)',
               color: 'white',
-            }}>
-            {key === 'week_on_off' ? 'Week on/off' : key}
+            }}
+          >
+            {key === 'week_on_off' ? 'Week on / week off' : key}
           </button>
         ))}
-        <button type="button"
+        <button
+          type="button"
           onClick={() => dispatch({ type: 'SET_CUSTODY_PATTERN', pattern: Array(14).fill('A') })}
           className="px-3 py-1 rounded-full text-xs font-medium"
-          style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+          style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+        >
           Build my own
         </button>
       </div>
@@ -560,16 +925,27 @@ function CustodyConfig({ state, dispatch, inputStyle }: {
       <div className="overflow-x-auto">
         <div className="inline-grid gap-0.5" style={{ gridTemplateColumns: 'repeat(7, 2.25rem)' }}>
           {dayHeaders.map(d => (
-            <div key={d} className="text-center text-xs font-medium py-1" style={{ color: 'var(--color-text-secondary)' }}>{d}</div>
+            <div
+              key={d}
+              className="text-center text-xs font-medium py-1"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              {d}
+            </div>
           ))}
           {state.custodyPattern.map((side: string, idx: number) => (
-            <button key={idx} type="button"
+            <button
+              key={idx}
+              type="button"
               onClick={() => dispatch({ type: 'TOGGLE_CUSTODY_DAY', index: idx })}
               className="h-9 rounded text-xs font-medium transition-colors flex items-center justify-center"
               style={{
-                backgroundColor: side === 'A' ? 'var(--color-sage-teal, #68a395)' : 'var(--color-vintage-plum, #8b5e7e)',
+                backgroundColor: side === 'A'
+                  ? 'var(--color-accent, var(--color-sage-teal, #68a395))'
+                  : 'var(--color-vintage-plum, #8b5e7e)',
                 color: 'white',
-              }}>
+              }}
+            >
               {side === 'A' ? state.custodyLabels.A.slice(0, 3) : state.custodyLabels.B.slice(0, 2)}
             </button>
           ))}
@@ -579,25 +955,36 @@ function CustodyConfig({ state, dispatch, inputStyle }: {
       {/* Legend */}
       <div className="flex gap-4 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }} />
+          <span
+            className="w-3 h-3 rounded"
+            style={{ backgroundColor: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
+          />
           {state.custodyLabels.A}
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded" style={{ backgroundColor: 'var(--color-vintage-plum, #8b5e7e)' }} />
+          <span
+            className="w-3 h-3 rounded"
+            style={{ backgroundColor: 'var(--color-vintage-plum, #8b5e7e)' }}
+          />
           {state.custodyLabels.B}
         </span>
       </div>
 
       <div className="flex items-center gap-2">
         <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Pattern starts</span>
-        <input type="date" value={state.custodyAnchor}
+        <input
+          type="date"
+          value={state.custodyAnchor}
           onChange={(e) => dispatch({ type: 'SET_CUSTODY_ANCHOR', date: e.target.value })}
-          className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+          className="px-2 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
         />
       </div>
     </div>
   )
 }
+
+// ─── Seasonal Config ────────────────────────────────────────────────────
 
 function SeasonalConfig({ state, dispatch, inputStyle }: {
   state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
@@ -607,33 +994,57 @@ function SeasonalConfig({ state, dispatch, inputStyle }: {
       {state.seasonalRanges.map((range: any) => (
         <div key={range.id} className="flex items-center gap-2 flex-wrap">
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>From</span>
-          <input type="date" value={range.from}
+          <input
+            type="date"
+            value={range.from}
             onChange={(e) => dispatch({ type: 'UPDATE_SEASONAL_RANGE', id: range.id, field: 'from', value: e.target.value })}
-            className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+            className="px-2 py-1.5 rounded-lg text-sm outline-none"
+            style={inputStyle}
           />
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>to</span>
-          <input type="date" value={range.to}
+          <input
+            type="date"
+            value={range.to}
             onChange={(e) => dispatch({ type: 'UPDATE_SEASONAL_RANGE', id: range.id, field: 'to', value: e.target.value })}
-            className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+            className="px-2 py-1.5 rounded-lg text-sm outline-none"
+            style={inputStyle}
           />
-          <label className="flex items-center gap-1 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
-            <input type="checkbox" checked={range.yearly}
+          <label
+            className="flex items-center gap-1 text-xs cursor-pointer"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <input
+              type="checkbox"
+              checked={range.yearly}
               onChange={(e) => dispatch({ type: 'UPDATE_SEASONAL_RANGE', id: range.id, field: 'yearly', value: e.target.checked })}
-            /> Yearly
+            />
+            Repeats yearly
           </label>
           {state.seasonalRanges.length > 1 && (
-            <button type="button" onClick={() => dispatch({ type: 'REMOVE_SEASONAL_RANGE', id: range.id })}
-              className="p-1 rounded" style={{ color: 'var(--color-error, #b25a58)' }}><X size={14} /></button>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'REMOVE_SEASONAL_RANGE', id: range.id })}
+              className="p-1 rounded"
+              style={{ color: 'var(--color-error, #b25a58)' }}
+            >
+              <X size={14} />
+            </button>
           )}
         </div>
       ))}
-      <button type="button" onClick={() => dispatch({ type: 'ADD_SEASONAL_RANGE' })}
-        className="flex items-center gap-1 text-sm" style={{ color: 'var(--color-sage-teal, #68a395)' }}>
+      <button
+        type="button"
+        onClick={() => dispatch({ type: 'ADD_SEASONAL_RANGE' })}
+        className="flex items-center gap-1 text-sm"
+        style={{ color: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
+      >
         <Plus size={14} /> Add another range
       </button>
     </div>
   )
 }
+
+// ─── Completion-Dependent Config ────────────────────────────────────────
 
 function CompletionConfig({ state, dispatch, inputStyle }: {
   state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
@@ -641,51 +1052,75 @@ function CompletionConfig({ state, dispatch, inputStyle }: {
   return (
     <div className="space-y-3">
       <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-        Next occurrence calculated from when you actually complete this item, not a fixed calendar date.
+        The next one appears based on when you finish this one, not a fixed calendar date.
       </p>
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Every</span>
-        <input type="number" min={1} value={state.completionInterval}
+        <input
+          type="number"
+          min={1}
+          value={state.completionInterval}
           onChange={(e) => dispatch({ type: 'SET_COMPLETION_INTERVAL', interval: parseInt(e.target.value) || 1 })}
-          className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none" style={inputStyle}
+          className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+          style={inputStyle}
         />
-        <select value={state.completionUnit}
+        <select
+          value={state.completionUnit}
           onChange={(e) => dispatch({ type: 'SET_COMPLETION_UNIT', unit: e.target.value })}
-          className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}>
+          className="px-2 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
+        >
           <option value="days">days</option>
           <option value="weeks">weeks</option>
           <option value="months">months</option>
         </select>
-        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>after last completion</span>
+        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>after finishing</span>
       </div>
 
-      <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-        <input type="checkbox" checked={state.completionWindowEnabled}
+      <label
+        className="flex items-center gap-2 text-sm cursor-pointer"
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        <input
+          type="checkbox"
+          checked={state.completionWindowEnabled}
           onChange={() => dispatch({ type: 'TOGGLE_COMPLETION_WINDOW' })}
-        /> Allow a due window
+        />
+        Allow a due window
       </label>
 
       {state.completionWindowEnabled && (
         <div className="flex items-center gap-2 flex-wrap ml-6">
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Due between</span>
-          <input type="number" min={1} value={state.completionWindowStart}
+          <input
+            type="number"
+            min={1}
+            value={state.completionWindowStart}
             onChange={(e) => dispatch({ type: 'SET_COMPLETION_WINDOW_START', value: parseInt(e.target.value) || 1 })}
-            className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none" style={inputStyle}
+            className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+            style={inputStyle}
           />
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>and</span>
-          <input type="number" min={1} value={state.completionWindowEnd}
+          <input
+            type="number"
+            min={1}
+            value={state.completionWindowEnd}
             onChange={(e) => dispatch({ type: 'SET_COMPLETION_WINDOW_END', value: parseInt(e.target.value) || 1 })}
-            className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none" style={inputStyle}
+            className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+            style={inputStyle}
           />
           <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{state.completionUnit}</span>
         </div>
       )}
 
       <div className="flex items-center gap-2">
-        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>First occurrence from</span>
-        <input type="date" value={state.completionAnchor}
+        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>First one starts from</span>
+        <input
+          type="date"
+          value={state.completionAnchor}
           onChange={(e) => dispatch({ type: 'SET_COMPLETION_ANCHOR', date: e.target.value })}
-          className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+          className="px-2 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
         />
       </div>
     </div>
@@ -701,25 +1136,42 @@ function ExceptionSection({ state, dispatch, inputStyle }: {
 
   return (
     <div className="space-y-2">
-      <div className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-        Exceptions
+      <div
+        className="text-xs font-medium uppercase tracking-wider"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        Skip specific dates
       </div>
       <div className="flex items-center gap-2">
-        <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)}
-          className="px-2 py-1.5 rounded-lg text-sm outline-none" style={inputStyle}
+        <input
+          type="date"
+          value={newDate}
+          onChange={(e) => setNewDate(e.target.value)}
+          className="px-2 py-1.5 rounded-lg text-sm outline-none"
+          style={inputStyle}
         />
-        <button type="button"
-          onClick={() => { if (newDate) { dispatch({ type: 'ADD_EXDATE', date: newDate }); setNewDate('') } }}
+        <button
+          type="button"
+          onClick={() => {
+            if (newDate) {
+              dispatch({ type: 'ADD_EXDATE', date: newDate })
+              setNewDate('')
+            }
+          }}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm"
-          style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}>
-          <Plus size={14} /> Skip date
+          style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
+        >
+          <Plus size={14} /> Skip this date
         </button>
       </div>
       {state.exdates.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {state.exdates.map((d: string) => (
-            <span key={d} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
-              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}>
+            <span
+              key={d}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
+            >
               {d}
               <button type="button" onClick={() => dispatch({ type: 'REMOVE_EXDATE', date: d })}>
                 <X size={12} />
@@ -728,10 +1180,16 @@ function ExceptionSection({ state, dispatch, inputStyle }: {
           ))}
         </div>
       )}
-      <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-        <input type="checkbox" checked={state.schoolYearOnly}
+      <label
+        className="flex items-center gap-2 text-sm cursor-pointer"
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        <input
+          type="checkbox"
+          checked={state.schoolYearOnly}
           onChange={() => dispatch({ type: 'TOGGLE_SCHOOL_YEAR_ONLY' })}
-        /> School-year only
+        />
+        School-year only
       </label>
     </div>
   )

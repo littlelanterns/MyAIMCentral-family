@@ -11,6 +11,8 @@ export {
   useTimerActions,
   useTimerTick,
 } from './useTimer'
+export type { StartTimerOptions } from './useTimer'
+export type { IdleReminder } from './TimerProvider'
 export type {
   TimeSession,
   TimerConfig,
