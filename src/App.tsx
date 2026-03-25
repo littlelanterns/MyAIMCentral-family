@@ -21,8 +21,13 @@ import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
 import {
   VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
-  FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage,
+  FamilyContextPage, MorningRhythmPage, EveningReviewPage,
 } from '@/pages/placeholder'
+import { ArchivesPage } from '@/pages/archives/ArchivesPage'
+import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
+import { FamilyOverviewDetail } from '@/pages/archives/FamilyOverviewDetail'
+import { PrivacyFilteredPage } from '@/pages/archives/PrivacyFilteredPage'
+import { ContextExportPage } from '@/pages/archives/ContextExportPage'
 import { HubPage } from '@/pages/Hub'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
@@ -83,6 +88,10 @@ function App() {
               <Route path="/life-lantern" element={<ProtectedRoute><LifeLanternPage /></ProtectedRoute>} />
               <Route path="/family-context" element={<ProtectedRoute><FamilyContextPage /></ProtectedRoute>} />
               <Route path="/archives" element={<ProtectedRoute><ArchivesPage /></ProtectedRoute>} />
+              <Route path="/archives/member/:memberId" element={<ProtectedRoute><MemberArchiveDetail /></ProtectedRoute>} />
+              <Route path="/archives/family-overview" element={<ProtectedRoute><FamilyOverviewDetail /></ProtectedRoute>} />
+              <Route path="/archives/privacy-filtered" element={<ProtectedRoute><PrivacyFilteredPage /></ProtectedRoute>} />
+              <Route path="/archives/export" element={<ProtectedRoute><ContextExportPage /></ProtectedRoute>} />
               <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
               <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
               {/* Catch-all */}

@@ -56,7 +56,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Review & Route pipeline | PRD-05 | PRD-08 | ✅ Wired | Phase 09 |
 | Long conversation summarization | PRD-05 | — | 📌 Post-MVP | — |
 | Mode auto-routing mid-conversation | PRD-05 | — | ⏳ Unwired (MVP) | Phase 07+ |
-| Archive context loading | PRD-05 | PRD-13 | ⏳ Unwired (MVP) | Phase 13 |
+| Archive context loading | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
 | BookShelf RAG context | PRD-05 | PRD-23 | ⏳ Unwired (MVP) | Phase 28 |
 | Tool permission management UI | PRD-05 | PRD-22 | ⏳ Unwired (MVP) | Phase 27 |
 | Victory detection/recording | PRD-05 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
@@ -99,7 +99,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Streak tracker visualization — tracker_style column exists, UI shows "Enhanced" badge | PRD-06 | best_intentions_tracker_views feature key | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | "Discover with LiLa" (self_discovery guided mode) — button exists, stub behavior | PRD-07 | PRD-05 (lila_guided_modes seed + system prompt) | ⏳ Unwired (MVP) | Phase 06 |
 | Teen privacy indicator — UI badge showing visibility status | PRD-07 | PRD-02 (teen visibility setting) | ⏳ Unwired (MVP) | Phase 02+ |
-| Archives "checked somewhere, checked everywhere" — sharing state single-source-of-truth | PRD-07 | PRD-13 (Archives) | ⏳ Unwired (MVP) | Phase 13 |
+| Archives "checked somewhere, checked everywhere" — sharing state single-source-of-truth | PRD-07 | PRD-13 (Archives) | ✅ Wired | Phase 13 |
 | Content extraction from Knowledge Base — upload to KB, extract IW entries | PRD-07 | Knowledge Base PRD | ⏳ Unwired (MVP) | TBD |
 | Messaging notifications | PRD-08 | PRD-15 | ✅ Wired | Phase 16 |
 | Review & Route routing UI | PRD-08 | PRD-08 | ✅ Wired | Phase 09 |
@@ -114,6 +114,29 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Complex goal → Project Planner | PRD-12A | PRD-29 | ✅ Wired | Phase 33 |
 | Family Vision Quest discussions | PRD-12B | PRD-12B | 🔗 Partial (audio stub) | Phase 22 |
 | Context export for external AI | PRD-13 | PRD-13 | ✅ Wired | Phase 13 |
+
+## Archives & Context Stubs (PRD-13)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| LifeLantern aggregation in Archives | PRD-13 | PRD-12A | ⏳ Unwired (MVP) | Phase 22 (PRD-12A) |
+| Family Vision Statement in Family Overview | PRD-13 | PRD-12B | ⏳ Unwired (MVP) | Phase 22 (PRD-12B) |
+| Family Meeting Notes structured routing | PRD-13 | PRD-16 | ⏳ Unwired (MVP) | Phase 17 (Meetings) |
+| Partner Profile aggregation in Archives | PRD-13 | PRD-19 | ⏳ Unwired (MVP) | Phase 20 (PRD-19) |
+| Shared Lists aggregation in Archives | PRD-13 | — | ⏳ Unwired (MVP) | Share with Archive UI |
+| Journal entries aggregation in Archives | PRD-13 | PRD-08 | ⏳ Unwired (MVP) | Verify PRD-08 tables, wire display |
+| My Circle folder type — non-family contacts | PRD-13 | — | 📌 Post-MVP | People & Relationships PRD |
+| Monthly victory auto-archive | PRD-13 | PRD-11 | 📌 Post-MVP | PRD-11 enhancement |
+| Seasonal Family Overview prompts | PRD-13 | PRD-18 | 📌 Post-MVP | Rhythm PRD |
+| Archive full-text search | PRD-13 | — | 📌 Post-MVP | — |
+| Dad edit access in Archives | PRD-13 | — | 📌 Post-MVP | Read-only at MVP |
+| Context staleness indicators | PRD-13 | — | 📌 Post-MVP | — |
+| Haiku overview card generation (AI call) | PRD-13 | — | 📌 Post-MVP | Card renders, generation call is stub |
+| Context presets / smart modes | PRD-13 | PRD-05C | 📌 Post-MVP | PRD-05C enhancement |
+| "Open in Notepad" from Context Export | PRD-13 | PRD-08 | 📌 Post-MVP | Notepad bridge not wired |
+| Usage count display in Archives UI | PRD-13 | — | 📌 Post-MVP | DB columns wired, no analytics surface |
+
+---
 
 ## Communication Stubs
 
@@ -320,9 +343,9 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Status | Count |
 |--------|-------|
-| ✅ Wired | ~65 |
+| ✅ Wired | ~67 |
 | 🔗 Partially Wired | ~3 |
-| ⏳ Unwired (MVP) | ~17 |
-| 📌 Post-MVP | ~45 |
+| ⏳ Unwired (MVP) | ~21 |
+| 📌 Post-MVP | ~55 |
 | ❌ Superseded | ~3 |
-| **Total** | ~133 |
+| **Total** | ~149 |

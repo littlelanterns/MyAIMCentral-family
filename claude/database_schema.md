@@ -1061,7 +1061,7 @@
 ---
 
 ### `lists`
-**PRD:** PRD-09B | **Domain:** lists
+**PRD:** PRD-09B + PRD-13 | **Domain:** lists
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -1073,6 +1073,9 @@
 | reveal_type | TEXT | — | YES | PRD-24B |
 | max_respins_per_period | INTEGER | — | YES | |
 | respin_period | TEXT | — | YES | |
+| is_shared_to_archive | BOOLEAN | false | NO | PRD-13: share list contents to member's archive |
+| archive_member_id | UUID | — | YES | FK family_members; PRD-13: which member's archive |
+| archive_folder_id | UUID | — | YES | FK archive_folders; PRD-13: target archive folder |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
@@ -1532,67 +1535,71 @@
 | member_id | UUID | — | YES | FK family_members |
 | folder_name | TEXT | — | NO | |
 | parent_folder_id | UUID | — | YES | FK archive_folders (self-referencing) |
-| folder_type | TEXT | — | YES | |
+| folder_type | TEXT | — | YES | CHECK: 'member_root','family_overview','system_category','wishlist','custom' |
+| icon | TEXT | — | YES | |
+| color_hex | TEXT | — | YES | |
+| description | TEXT | — | YES | |
+| is_system | BOOLEAN | false | NO | |
+| is_included_in_ai | BOOLEAN | true | NO | |
+| sort_order | INTEGER | 0 | NO | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Family members can read own family. Adults can manage.
 **Indexes:** `idx_af_family` ON family_id; `idx_af_parent` ON parent_folder_id; `idx_af_member` ON member_id
-**Triggers:** `trg_af_updated_at`
+**Triggers:** `trg_af_updated_at`; `auto_provision_member_resources` — Creates member_root + 7 system category subfolders + wishlist + archive_member_settings on family_members INSERT; `auto_provision_family_overview` — Creates Family Overview folder + 4 section subfolders on families INSERT
 
 ---
 
 ### `archive_context_items`
-**PRD:** PRD-13 + PRD-19 | **Domain:** archive
+**PRD:** PRD-13 | **Domain:** archive
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
+| family_id | UUID | — | NO | FK families |
 | folder_id | UUID | — | NO | FK archive_folders |
-| source_table | TEXT | — | NO | |
-| source_id | UUID | — | NO | |
+| member_id | UUID | — | YES | FK family_members |
 | context_field | TEXT | — | YES | |
-| context_value | TEXT | — | YES | |
-| visibility | TEXT | — | NO | CHECK: 'private','shared_parents','family' |
-| is_pinned | BOOLEAN | false | NO | |
-| is_private_note | BOOLEAN | false | NO | PRD-19 |
-| is_shared_with_spouse | BOOLEAN | false | NO | PRD-19 |
-| share_with_family | BOOLEAN | false | NO | PRD-19 |
-| sort_order | INTEGER | 0 | NO | PRD-19 |
-| document_id | UUID | — | YES | PRD-19 |
+| context_value | TEXT | — | NO | |
+| context_type | TEXT | — | YES | CHECK: 'preference','schedule','personality','interest','academic','medical','wishlist_item','family_personality','family_rhythm','family_focus','faith_context','meeting_note','general' |
 | is_included_in_ai | BOOLEAN | true | NO | |
-| use_alias_for_external | BOOLEAN | false | NO | |
-| embedding | vector(1536) | — | YES | |
+| is_privacy_filtered | BOOLEAN | false | NO | |
+| source | TEXT | 'manual' | NO | CHECK: 'manual','lila_detected','review_route','list_shared' |
+| source_conversation_id | UUID | — | YES | FK lila_conversations |
+| source_reference_id | UUID | — | YES | |
+| added_by | UUID | — | YES | FK family_members |
+| usage_count | INTEGER | 0 | NO | |
+| last_used_at | TIMESTAMPTZ | — | YES | |
+| link_url | TEXT | — | YES | |
+| price_range | TEXT | — | YES | |
+| archived_at | TIMESTAMPTZ | — | YES | Soft delete |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Visibility-based access. Private: author only. Shared_parents: adults. Family: all.
-**Indexes:** `idx_aci_folder` ON folder_id; `idx_aci_source` ON (source_table, source_id); `idx_aci_pinned` ON (folder_id) WHERE is_pinned = true; `idx_aci_embedding` USING ivfflat ON embedding WHERE embedding IS NOT NULL
+**RLS:** Family members can read own family. Primary parent can manage.
+**Indexes:** `idx_aci_folder` ON folder_id; `idx_aci_member` ON member_id; `idx_aci_family` ON family_id; `idx_aci_source` ON source; `idx_aci_privacy` ON (family_id) WHERE is_privacy_filtered = true; `idx_aci_included` ON (family_id) WHERE is_included_in_ai = true AND archived_at IS NULL
 **Triggers:** `trg_aci_updated_at`
 
 ---
 
 ### `archive_member_settings`
-**PRD:** PRD-13 + PRD-19 + PRD-21A | **Domain:** archive
+**PRD:** PRD-13 | **Domain:** archive
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
-| display_name_aliases | TEXT[] | '{}' | NO | PRD-19 |
-| external_alias | TEXT | — | YES | PRD-19 |
-| use_alias_for_external | BOOLEAN | false | NO | PRD-19 |
-| primary_alias | TEXT | — | YES | PRD-19 |
-| physical_description | TEXT | — | YES | PRD-21A |
-| reference_photos | TEXT[] | '{}' | NO | PRD-21A |
-| guided_interview_progress | JSONB | — | YES | PRD-19 |
+| is_included_in_ai | BOOLEAN | true | NO | Person-level AI context toggle |
+| overview_card_content | TEXT | — | YES | Custom overview card text |
+| overview_card_updated_at | TIMESTAMPTZ | — | YES | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Primary parent can manage. Member can read own.
+**RLS:** Primary parent can manage. Family can read. Member can read own.
 **Indexes:** `idx_ams_family_member` UNIQUE ON (family_id, member_id)
-**Triggers:** `trg_ams_updated_at`
+**Triggers:** `trg_ams_updated_at`; auto-created by `auto_provision_member_resources` trigger on family_members INSERT
 
 ---
 
@@ -1602,15 +1609,24 @@
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
-| family_id | UUID | — | NO | FK families |
-| tradition | TEXT | — | YES | |
+| family_id | UUID | — | NO | FK families, UNIQUE |
+| faith_tradition | TEXT | — | YES | |
 | denomination | TEXT | — | YES | |
 | observances | TEXT[] | '{}' | NO | |
 | sacred_texts | TEXT[] | '{}' | NO | |
-| response_approach | TEXT | 'prioritize_tradition' | NO | CHECK: 'prioritize_tradition','comparative','secular','educational_only' |
-| tone_settings | JSONB | — | YES | |
+| prioritize_tradition | BOOLEAN | false | NO | Response approach: prioritize family tradition |
+| include_comparative | BOOLEAN | false | NO | Response approach: include comparative perspectives |
+| include_secular | BOOLEAN | false | NO | Response approach: include secular perspectives |
+| educational_only | BOOLEAN | false | NO | Response approach: educational only |
+| use_our_terminology | BOOLEAN | false | NO | Tone: use family's faith terminology |
+| respect_but_dont_assume | BOOLEAN | true | NO | Tone: respect but don't assume beliefs |
+| avoid_conflicting | BOOLEAN | true | NO | Tone: avoid conflicting guidance |
+| acknowledge_diversity | BOOLEAN | false | NO | Tone: acknowledge diversity of views |
+| minority_views | BOOLEAN | false | NO | Tone: include minority/alternative views |
+| diversity_notes | TEXT | — | YES | Additional notes on diversity preferences |
 | special_instructions | TEXT | — | YES | |
-| relevance_setting | TEXT | 'automatic' | NO | CHECK: 'automatic','always_include','manual_only' |
+| relevance_setting | TEXT | 'automatic' | NO | CHECK: 'automatic','always','manual' |
+| is_included_in_ai | BOOLEAN | true | NO | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
@@ -1627,12 +1643,12 @@
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
-| member_id | UUID | — | NO | FK family_members |
-| suggestion_hash | TEXT | — | NO | |
+| content_hash | TEXT | — | NO | Hash of dismissed suggestion content |
+| conversation_id | UUID | — | YES | FK lila_conversations |
 | dismissed_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Member can manage own.
-**Indexes:** `idx_cld_family_member` ON (family_id, member_id); `idx_cld_hash` ON suggestion_hash
+**RLS:** Primary parent can manage.
+**Indexes:** `idx_cld_family` ON family_id; `idx_cld_hash` ON content_hash
 
 ---
 

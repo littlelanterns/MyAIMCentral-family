@@ -111,7 +111,6 @@ export interface ContextBundle {
   faithPreferences: {
     tradition?: string
     denomination?: string
-    response_approach?: string
     special_instructions?: string
   } | null
   // Stub sections — empty until their PRD phases are built
@@ -133,10 +132,166 @@ export interface ContextBundle {
 // corresponding PRD phase wires in the real query.
 // ---------------------------------------------------------------------------
 
-/** STUB: Archive context items (PRD-13) — returns empty until Phase 13 */
-async function loadArchiveContext(_familyId: string, _memberId: string): Promise<ContextSection> {
-  // STUB: PRD-13 — wires to archive_context_items table
-  return { label: 'Archives', items: [] }
+// ---------------------------------------------------------------------------
+// Archive context loading — PRD-13
+// Uses name detection from StewardShip's contextLoader.ts pattern:
+// detect family member names in the user's message and auto-load their
+// Archive context. This makes LiLa feel like she "knows" the family.
+// ---------------------------------------------------------------------------
+
+const FAITH_KEYWORDS = /faith|spiritual|religion|pray|church|scripture|bible|torah|quran|god|worship|sabbath|lent|ramadan|fasting|devotion|denomination|beliefs?|values?|moral|ethic/i
+
+/**
+ * Detect which family members are mentioned in a message by name.
+ * Returns an array of member IDs whose names appear in the text.
+ * Uses word-boundary regex matching (StewardShip pattern).
+ */
+export function detectMentionedMembers(
+  message: string,
+  members: Array<{ id: string; display_name: string }>,
+): string[] {
+  if (!message || members.length === 0) return []
+  const mentioned: string[] = []
+  for (const m of members) {
+    // Escape regex special chars in name, then word-boundary match
+    const escaped = m.display_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const nameRegex = new RegExp(`\\b${escaped}\\b`, 'i')
+    if (nameRegex.test(message)) {
+      mentioned.push(m.id)
+    }
+  }
+  return mentioned
+}
+
+/**
+ * Should faith context be included based on relevance_setting and message content?
+ */
+export function shouldIncludeFaithContext(
+  relevanceSetting: string | undefined,
+  message: string,
+): boolean {
+  if (!relevanceSetting || relevanceSetting === 'always') return true
+  if (relevanceSetting === 'manual') return false
+  // 'automatic' — check if message touches faith/values topics
+  return FAITH_KEYWORDS.test(message)
+}
+
+/**
+ * Load archive context for specific member IDs.
+ * Applies three-tier toggle filtering: person → folder → item.
+ * Excludes privacy-filtered items for non-mom members.
+ */
+async function loadArchiveContext(
+  familyId: string,
+  memberIds: string[],
+  isMom: boolean,
+): Promise<ContextSection> {
+  if (memberIds.length === 0) return { label: 'Archives', items: [] }
+
+  // Step 1: Check person-level toggles
+  const { data: memberSettings } = await supabase
+    .from('archive_member_settings')
+    .select('member_id, is_included_in_ai')
+    .eq('family_id', familyId)
+    .in('member_id', memberIds)
+
+  const enabledMembers = (memberSettings ?? [])
+    .filter(s => s.is_included_in_ai)
+    .map(s => s.member_id)
+
+  if (enabledMembers.length === 0) return { label: 'Archives', items: [] }
+
+  // Step 2: Load folders with their toggle state (category level)
+  const { data: folders } = await supabase
+    .from('archive_folders')
+    .select('id, member_id, folder_name, is_included_in_ai')
+    .eq('family_id', familyId)
+    .in('member_id', enabledMembers)
+    .eq('is_included_in_ai', true)
+
+  if (!folders || folders.length === 0) return { label: 'Archives', items: [] }
+
+  const enabledFolderIds = folders.map(f => f.id)
+
+  // Step 3: Load items from enabled folders (item level)
+  let query = supabase
+    .from('archive_context_items')
+    .select('id, context_value, folder_id, member_id, is_included_in_ai, is_privacy_filtered, visibility')
+    .eq('family_id', familyId)
+    .in('folder_id', enabledFolderIds)
+    .eq('is_included_in_ai', true)
+    .is('archived_at', null)
+
+  // Privacy Filtered: hard exclusion for non-mom
+  if (!isMom) {
+    query = query.eq('is_privacy_filtered', false)
+  }
+
+  const { data: items } = await query
+
+  if (!items || items.length === 0) return { label: 'Archives', items: [] }
+
+  // Build a folder name lookup
+  const folderMap = new Map(folders.map(f => [f.id, f.folder_name]))
+
+  return {
+    label: 'Archives',
+    items: items.map(item => ({
+      content: `[${folderMap.get(item.folder_id) ?? 'Archive'}] ${item.context_value}`,
+      source: 'archive',
+      visibility: item.is_privacy_filtered ? 'private' : undefined,
+      belongsToOtherMember: false,
+    })),
+  }
+}
+
+/**
+ * Load family overview context (family-level items).
+ */
+async function loadFamilyOverviewContext(familyId: string): Promise<ContextSection> {
+  // Get family overview folders
+  const { data: folders } = await supabase
+    .from('archive_folders')
+    .select('id, folder_name, is_included_in_ai')
+    .eq('family_id', familyId)
+    .eq('folder_type', 'family_overview')
+    .eq('is_included_in_ai', true)
+
+  if (!folders || folders.length === 0) return { label: 'Family Context', items: [] }
+
+  // Get subfolders
+  const { data: subfolders } = await supabase
+    .from('archive_folders')
+    .select('id, folder_name, is_included_in_ai')
+    .in('parent_folder_id', folders.map(f => f.id))
+    .eq('is_included_in_ai', true)
+
+  const allFolderIds = [
+    ...folders.map(f => f.id),
+    ...(subfolders ?? []).map(f => f.id),
+  ]
+
+  const { data: items } = await supabase
+    .from('archive_context_items')
+    .select('id, context_value, folder_id, is_included_in_ai')
+    .in('folder_id', allFolderIds)
+    .eq('is_included_in_ai', true)
+    .is('archived_at', null)
+
+  if (!items || items.length === 0) return { label: 'Family Context', items: [] }
+
+  const folderMap = new Map([
+    ...folders.map(f => [f.id, f.folder_name] as const),
+    ...(subfolders ?? []).map(f => [f.id, f.folder_name] as const),
+  ])
+
+  return {
+    label: 'Family Context',
+    items: items.map(item => ({
+      content: `[${folderMap.get(item.folder_id) ?? 'Family'}] ${item.context_value}`,
+      source: 'family_overview',
+    })),
+  }
 }
 
 /** STUB: LifeLantern assessments (PRD-12A) — returns empty until Phase 22 */
@@ -181,17 +336,25 @@ async function loadRecentTasksContext(_familyId: string, _memberId: string): Pro
  * Applies permission filtering for non-mom members (Step 5) and privacy
  * filtering (Step 6) per the PRD-05 context assembly pipeline.
  *
- * @param familyId   The family to load context for.
- * @param memberId   The member whose conversation this is.
- * @param memberRole The role of the member (used for permission/privacy steps).
- * @param pageContext Current page pathname for Step 7 (pass window.location.pathname).
+ * PRD-13: Now includes Archive context with name detection —
+ * mentions of family member names in the message auto-load their Archive context.
+ *
+ * @param familyId    The family to load context for.
+ * @param memberId    The member whose conversation this is.
+ * @param memberRole  The role of the member (used for permission/privacy steps).
+ * @param pageContext  Current page pathname for Step 7 (pass window.location.pathname).
+ * @param message      The user's current message (used for name detection + faith relevance).
  */
 export async function assembleContext(
   familyId: string,
   memberId: string,
   memberRole?: string,
   pageContext?: string,
+  message?: string,
 ): Promise<ContextBundle> {
+  const isMom = memberRole === 'primary_parent'
+  const userMessage = message ?? ''
+
   const bundle: ContextBundle = {
     guidingStars: [],
     bestIntentions: [],
@@ -200,7 +363,7 @@ export async function assembleContext(
     archiveItems: [],
     familyMembers: [],
     faithPreferences: null,
-    // Stub sections
+    // Context sections
     archiveContext: { label: 'Archives', items: [] },
     lifeLanternContext: { label: 'LifeLantern', items: [] },
     partnerContext: { label: 'Partner Context', items: [] },
@@ -214,16 +377,44 @@ export async function assembleContext(
     activeInsights: 0,
   }
 
-  // Run all queries in parallel for performance
+  // ---------------------------------------------------------------------------
+  // Phase 1: Load family members first (needed for name detection)
+  // ---------------------------------------------------------------------------
+  const { data: membersData } = await supabase
+    .from('family_members')
+    .select('id, display_name, role')
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+
+  if (membersData) {
+    bundle.familyMembers = membersData.map(m => ({
+      id: m.id,
+      display_name: m.display_name,
+      role: m.role,
+    }))
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 2: Name detection — which members are mentioned in the message?
+  // Always include the conversation owner. Add any mentioned members.
+  // This is the StewardShip contextLoader.ts pattern.
+  // ---------------------------------------------------------------------------
+  const mentionedIds = detectMentionedMembers(userMessage, bundle.familyMembers)
+  const archiveMemberIds = [...new Set([memberId, ...mentionedIds])]
+
+  // ---------------------------------------------------------------------------
+  // Phase 3: Run all queries in parallel for performance
+  // ---------------------------------------------------------------------------
   const [
     guidingStarsRes,
     bestIntentionsRes,
     selfKnowledgeRes,
     journalRes,
-    membersRes,
     faithRes,
-    // Stub loaders — all resolve to empty ContextSections until their phases land
+    // PRD-13: Real archive context loading with three-tier filtering
     archiveContextRes,
+    familyOverviewRes,
+    // Stub loaders — empty until their phases land
     lifeLanternContextRes,
     partnerContextRes,
     bookShelfContextRes,
@@ -262,22 +453,20 @@ export async function assembleContext(
       .order('created_at', { ascending: false })
       .limit(10),
 
-    // Family members (for context awareness)
-    supabase
-      .from('family_members')
-      .select('id, display_name, role')
-      .eq('family_id', familyId)
-      .eq('is_active', true),
-
-    // Faith preferences
+    // Faith preferences (PRD-13 column names)
     supabase
       .from('faith_preferences')
-      .select('tradition, denomination, response_approach, special_instructions')
+      .select('faith_tradition, denomination, relevance_setting, special_instructions, prioritize_tradition, include_comparative, include_secular, educational_only, is_included_in_ai')
       .eq('family_id', familyId)
       .maybeSingle(),
 
+    // PRD-13: Archive context for mentioned members (three-tier filtered)
+    loadArchiveContext(familyId, archiveMemberIds, isMom),
+
+    // PRD-13: Family overview context
+    loadFamilyOverviewContext(familyId),
+
     // Stub loaders
-    loadArchiveContext(familyId, memberId),
     loadLifeLanternContext(familyId, memberId),
     loadPartnerContext(familyId, memberId),
     loadBookShelfContext(familyId, memberId),
@@ -319,22 +508,35 @@ export async function assembleContext(
     }))
   }
 
-  // Family members
-  if (membersRes.data) {
-    bundle.familyMembers = membersRes.data.map(m => ({
-      id: m.id,
-      display_name: m.display_name,
-      role: m.role,
-    }))
+  // Faith preferences — respect relevance_setting (PRD-13)
+  if (faithRes.data && faithRes.data.is_included_in_ai) {
+    const shouldInclude = shouldIncludeFaithContext(
+      faithRes.data.relevance_setting,
+      userMessage,
+    )
+    if (shouldInclude) {
+      bundle.faithPreferences = {
+        tradition: faithRes.data.faith_tradition ?? undefined,
+        denomination: faithRes.data.denomination ?? undefined,
+        special_instructions: faithRes.data.special_instructions ?? undefined,
+      }
+    }
   }
 
-  // Faith preferences
-  if (faithRes.data) {
-    bundle.faithPreferences = faithRes.data
-  }
-
-  // Stub sections — wired into bundle so the architecture is in place
+  // PRD-13: Archive context (real data, three-tier filtered)
   bundle.archiveContext = archiveContextRes
+  bundle.totalInsights += archiveContextRes.items.length
+  bundle.activeInsights += archiveContextRes.items.length
+
+  // PRD-13: Family overview context merged into archiveContext
+  if (familyOverviewRes.items.length > 0) {
+    bundle.archiveContext = {
+      label: 'Archives',
+      items: [...archiveContextRes.items, ...familyOverviewRes.items],
+    }
+  }
+
+  // Stub sections
   bundle.lifeLanternContext = lifeLanternContextRes
   bundle.partnerContext = partnerContextRes
   bundle.bookShelfContext = bookShelfContextRes
@@ -347,10 +549,8 @@ export async function assembleContext(
   // Non-mom members only see their OWN context. Full per-member permission
   // checks via member_permissions table wire in during Phase 20 (PRD-19).
   // ---------------------------------------------------------------------------
-  const isMom = memberRole === 'primary_parent'
   if (!isMom) {
-    // Stub sections: filter out any items marked as belonging to another member
-    const stubSections: ContextSection[] = [
+    const allSections: ContextSection[] = [
       bundle.archiveContext,
       bundle.lifeLanternContext,
       bundle.partnerContext,
@@ -359,7 +559,7 @@ export async function assembleContext(
       bundle.personalVisionContext,
       bundle.recentTasksContext,
     ]
-    for (const section of stubSections) {
+    for (const section of allSections) {
       section.items = section.items.filter(item => !item.belongsToOtherMember)
     }
   }
@@ -367,9 +567,10 @@ export async function assembleContext(
   // ---------------------------------------------------------------------------
   // Step 6: Privacy Filtered exclusion
   // Items with visibility = 'private' are NEVER included for non-mom members.
+  // This is a HARD system constraint (PRD-13).
   // ---------------------------------------------------------------------------
   if (!isMom) {
-    const stubSections: ContextSection[] = [
+    const allSections: ContextSection[] = [
       bundle.archiveContext,
       bundle.lifeLanternContext,
       bundle.partnerContext,
@@ -378,7 +579,7 @@ export async function assembleContext(
       bundle.personalVisionContext,
       bundle.recentTasksContext,
     ]
-    for (const section of stubSections) {
+    for (const section of allSections) {
       section.items = section.items.filter(item => item.visibility !== 'private')
     }
   }
