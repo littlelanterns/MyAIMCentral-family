@@ -80,10 +80,11 @@ export function MomShell({ children }: MomShellProps) {
           </button>
         </div>
 
+        {/* Spacer for fixed FAB bar on mobile */}
+        <div className="h-12 md:h-0" />
+
         {/* QuickTasks strip — wired to NotepadProvider via bridge */}
-        <div className="mt-0 pt-0">
-          <NotepadBridgedQuickTasks />
-        </div>
+        <NotepadBridgedQuickTasks />
 
         {/* Main content — padding-bottom accounts for bottom nav on mobile + LiLa drawer */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-16">
