@@ -164,23 +164,14 @@ export function ArchiveMemberCard({
         </div>
       )}
 
-      {/* Bottom scrim — gradient-aware, respects theme toggle */}
-      {gradientEnabled ? (
+      {/* Bottom text scrim — photo cards only, no overlay on color cards */}
+      {hasPhoto && (
         <div
           className="absolute inset-0"
           style={{
-            background: hasPhoto
-              ? 'linear-gradient(to top, color-mix(in srgb, var(--color-accent-deep) 85%, black) 0%, color-mix(in srgb, var(--color-accent-deep) 30%, transparent) 40%, transparent 65%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 35%, transparent 55%)',
-          }}
-        />
-      ) : (
-        <div
-          className="absolute inset-0"
-          style={{
-            background: hasPhoto
-              ? 'linear-gradient(to top, var(--color-accent-deep) 0%, color-mix(in srgb, var(--color-accent-deep) 40%, transparent) 35%, transparent 55%)'
-              : 'linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 45%)',
+            background: gradientEnabled
+              ? 'linear-gradient(to top, color-mix(in srgb, var(--color-accent-deep) 80%, transparent) 0%, color-mix(in srgb, var(--color-accent-deep) 20%, transparent) 35%, transparent 55%)'
+              : 'linear-gradient(to top, color-mix(in srgb, var(--color-accent-deep) 70%, transparent) 0%, transparent 40%)',
           }}
         />
       )}
