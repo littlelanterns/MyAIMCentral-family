@@ -62,3 +62,6 @@ decided and why at build time. Do not delete them after a feature ships.
 | PRD-04-repair.md | PRD-04 | 2026-03-25 | Complete (11 wired, 0 stubbed) |
 | PRD-05-repair.md | PRD-35 + PRD-36 | 2026-03-25 | Complete (14 wired, 0 stubbed) |
 | PRD-05-LiLa-repair.md | PRD-05 | 2026-03-25 | Complete (10 wired, 0 stubbed, 1 N/A) |
+| PRD-06-Guiding-Stars-Best-Intentions.md | PRD-06 | 2026-03-25 | Complete (42 wired, 11 stubbed) |
+| PRD-07-InnerWorkings-repair.md | PRD-07 | 2026-03-25 | Complete (19 wired, 4 stubbed) |
+| PRD-10-Widgets-Trackers-Dashboard-Layout.md | PRD-10 | 2026-03-25 | Complete |

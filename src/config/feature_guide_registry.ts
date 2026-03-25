@@ -18,7 +18,7 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
     bullets: [
       'Add values, declarations, scripture, or vision statements',
       'LiLa uses these as context for every conversation',
-      'Toggle AI inclusion per entry with the toggle switch',
+      'Heart entries to include them in LiLa conversations',
     ],
   },
   best_intentions: {
@@ -38,7 +38,7 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
     bullets: [
       'Enter insights manually or upload assessment results',
       'Discover more about yourself with LiLa\'s guided exploration',
-      '"Growth Areas" — never weaknesses. Language matters here.',
+      '"Growth Areas" — always strength-based framing. Language matters here.',
     ],
   },
   journal: {

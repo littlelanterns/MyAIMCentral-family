@@ -1,47 +1,238 @@
 /**
  * GuidingStars Page — PRD-06
- * Adapted from StewardShip's Mast pattern.
- * Values, declarations, priorities with is_included_in_ai toggle per entry.
+ * Values, declarations, scriptures/quotes, and vision statements.
+ * Grouped by entry_type with drag-to-reorder, heart/unheart toggles,
+ * and soft-archive workflow.
  */
 
-import { useState } from 'react'
-import { Star, Plus, Pencil, Trash2, Sparkles, Eye, EyeOff, BookOpen } from 'lucide-react'
-import { FeatureGuide, FeatureIcon, Modal, BulkAddWithAI } from '@/components/shared'
-// The Art of Honest Declarations article — loaded as raw text via Vite
+import { useState, useMemo } from 'react'
+import {
+  Heart,
+  HeartOff,
+  Plus,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Sparkles,
+  GripVertical,
+  Star,
+  BookOpen,
+  MessageCircle,
+} from 'lucide-react'
+import { FeatureGuide, FeatureIcon, Modal, BulkAddWithAI, CollapsibleGroup } from '@/components/shared'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import declarationsArticle from '../../reference/The-Art-of-Honest-Declarations.md?raw'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useGuidingStars,
+  useArchivedGuidingStars,
   useCreateGuidingStar,
   useUpdateGuidingStar,
   useDeleteGuidingStar,
+  useRestoreGuidingStar,
   useToggleGuidingStarAI,
+  useBatchToggleGuidingStarAI,
+  useReorderGuidingStars,
+  GUIDING_STAR_TYPES,
 } from '@/hooks/useGuidingStars'
-import type { GuidingStar } from '@/hooks/useGuidingStars'
+import type { GuidingStar, GuidingStarEntryType } from '@/hooks/useGuidingStars'
 
-const CATEGORIES = [
-  'Value', 'Declaration', 'Scripture', 'Vision', 'Priority', 'Principle', 'Custom',
-]
+// ---------------------------------------------------------------------------
+// Sortable star card
+// ---------------------------------------------------------------------------
+
+function SortableStarCard({
+  star,
+  onEdit,
+  onArchive,
+  onToggleAI,
+}: {
+  star: GuidingStar
+  onEdit: (star: GuidingStar) => void
+  onArchive: (star: GuidingStar) => void
+  onToggleAI: (star: GuidingStar) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: star.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : star.is_included_in_ai ? 1 : 0.65,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-start gap-2 p-3 rounded-lg mb-1.5 transition-colors"
+      {...attributes}
+    >
+      {/* Drag handle */}
+      <button
+        {...listeners}
+        className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+        style={{ color: 'var(--color-text-secondary)' }}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={16} />
+      </button>
+
+      {/* Heart toggle */}
+      <button
+        onClick={() => onToggleAI(star)}
+        className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
+        title={
+          star.is_included_in_ai
+            ? 'Included in AI context — click to exclude'
+            : 'Excluded from AI context — click to include'
+        }
+        style={{
+          color: star.is_included_in_ai
+            ? 'var(--color-btn-primary-bg)'
+            : 'var(--color-text-secondary)',
+        }}
+      >
+        {star.is_included_in_ai ? (
+          <Heart size={16} fill="currentColor" />
+        ) : (
+          <HeartOff size={16} />
+        )}
+      </button>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <p
+          className="font-medium text-sm"
+          style={{ color: 'var(--color-text-heading)' }}
+        >
+          {star.content}
+        </p>
+        {star.description && (
+          <p
+            className="mt-0.5 text-xs"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            {star.description}
+          </p>
+        )}
+        {star.category && (
+          <span
+            className="inline-block mt-1 px-2 py-0.5 rounded text-[10px]"
+            style={{
+              backgroundColor:
+                'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+              color: 'var(--color-btn-primary-bg)',
+            }}
+          >
+            {star.category}
+          </span>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-0.5 flex-shrink-0">
+        <button
+          onClick={() => onEdit(star)}
+          className="p-1.5 rounded hover:opacity-70"
+          style={{ color: 'var(--color-text-secondary)' }}
+          title="Edit"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          onClick={() => onArchive(star)}
+          className="p-1.5 rounded hover:opacity-70"
+          style={{ color: 'var(--color-text-secondary)' }}
+          title="Archive"
+        >
+          <Archive size={14} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
 
 export function GuidingStarsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { data: stars = [], isLoading } = useGuidingStars(member?.id)
+  const { data: archivedStars = [] } = useArchivedGuidingStars(member?.id)
   const createStar = useCreateGuidingStar()
   const updateStar = useUpdateGuidingStar()
   const deleteStar = useDeleteGuidingStar()
+  const restoreStar = useRestoreGuidingStar()
   const toggleAI = useToggleGuidingStarAI()
+  const batchToggleAI = useBatchToggleGuidingStarAI()
+  const reorderStars = useReorderGuidingStars()
 
+  // Form state
   const [showCreate, setShowCreate] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [editingStar, setEditingStar] = useState<GuidingStar | null>(null)
   const [formContent, setFormContent] = useState('')
+  const [formEntryType, setFormEntryType] = useState<GuidingStarEntryType>('value')
   const [formCategory, setFormCategory] = useState('')
   const [formDescription, setFormDescription] = useState('')
+  const [showInspiration, setShowInspiration] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  // Group stars by entry_type
+  const grouped = useMemo(() => {
+    const map: Record<GuidingStarEntryType, GuidingStar[]> = {
+      value: [],
+      declaration: [],
+      scripture_quote: [],
+      vision: [],
+    }
+    for (const s of stars) {
+      const t = s.entry_type || 'value'
+      if (map[t]) map[t].push(s)
+      else map.value.push(s)
+    }
+    return map
+  }, [stars])
+
+  const includedCount = stars.filter((s) => s.is_included_in_ai).length
+
+  // -----------------------------------------------------------------------
+  // Helpers
+  // -----------------------------------------------------------------------
 
   function resetForm() {
     setFormContent('')
+    setFormEntryType('value')
     setFormCategory('')
     setFormDescription('')
     setShowCreate(false)
@@ -54,6 +245,7 @@ export function GuidingStarsPage() {
       family_id: family.id,
       member_id: member.id,
       content: formContent.trim(),
+      entry_type: formEntryType,
       category: formCategory.trim() || undefined,
       description: formDescription.trim() || undefined,
     })
@@ -65,15 +257,21 @@ export function GuidingStarsPage() {
     await updateStar.mutateAsync({
       id: editingStar.id,
       content: formContent.trim(),
+      entry_type: formEntryType,
       category: formCategory.trim() || null,
       description: formDescription.trim() || null,
     })
     resetForm()
   }
 
-  async function handleDelete(star: GuidingStar) {
-    if (!member || !confirm('Remove this guiding star?')) return
+  async function handleArchive(star: GuidingStar) {
+    if (!member) return
     await deleteStar.mutateAsync({ id: star.id, memberId: member.id })
+  }
+
+  async function handleRestore(star: GuidingStar) {
+    if (!member) return
+    await restoreStar.mutateAsync({ id: star.id, memberId: member.id })
   }
 
   async function handleToggleAI(star: GuidingStar) {
@@ -85,15 +283,44 @@ export function GuidingStarsPage() {
     })
   }
 
+  async function handleBatchToggle(entryType: GuidingStarEntryType, included: boolean) {
+    if (!member) return
+    await batchToggleAI.mutateAsync({
+      memberId: member.id,
+      entryType,
+      included,
+    })
+  }
+
   function startEdit(star: GuidingStar) {
     setEditingStar(star)
     setFormContent(star.content)
+    setFormEntryType(star.entry_type || 'value')
     setFormCategory(star.category ?? '')
     setFormDescription(star.description ?? '')
   }
 
-  const [showInspiration, setShowInspiration] = useState(false)
-  const includedCount = stars.filter(s => s.is_included_in_ai).length
+  function handleDragEnd(entryType: GuidingStarEntryType) {
+    return (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id || !member) return
+
+      const group = grouped[entryType]
+      const oldIndex = group.findIndex((s) => s.id === active.id)
+      const newIndex = group.findIndex((s) => s.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+
+      const reordered = arrayMove(group, oldIndex, newIndex)
+      reorderStars.mutate({
+        memberId: member.id,
+        orderedIds: reordered.map((s) => s.id),
+      })
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------------
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -102,26 +329,72 @@ export function GuidingStarsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="guiding_stars" fallback={<Star size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <FeatureIcon
+            featureKey="guiding_stars"
+            fallback={
+              <Star
+                size={40}
+                style={{ color: 'var(--color-btn-primary-bg)' }}
+              />
+            }
+            size={40}
+            className="!w-10 !h-10 md:!w-36 md:!h-36"
+            assetSize={512}
+          />
           <div>
             <h1
               className="text-2xl font-bold"
-              style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
+              style={{
+                color: 'var(--color-text-heading)',
+                fontFamily: 'var(--font-heading)',
+              }}
             >
               Guiding Stars
             </h1>
+            <p
+              className="text-xs"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Who you are choosing to be.
+            </p>
             {stars.length > 0 && (
-              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                {includedCount} of {stars.length} included in AI context
+              <p
+                className="text-[10px] mt-0.5"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                LiLa is drawing from {includedCount} of {stars.length} stars
               </p>
             )}
           </div>
         </div>
+
+        {/* Actions */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              // STUB: Craft with LiLa — PRD-06
+              // eslint-disable-next-line no-alert
+              alert('Coming soon — Craft with LiLa will help you discover your guiding stars.')
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-btn-primary-bg)',
+              border: '1px solid var(--color-border)',
+            }}
+            title="Craft with LiLa"
+          >
+            <MessageCircle size={14} />
+            <span className="hidden sm:inline">Craft</span>
+          </button>
           <button
             onClick={() => setShowBulkAdd(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-btn-primary-bg)',
+              border: '1px solid var(--color-border)',
+            }}
             title="Bulk add guiding stars with AI"
           >
             <Sparkles size={14} />
@@ -141,20 +414,26 @@ export function GuidingStarsPage() {
         </div>
       </div>
 
+      {/* Bulk Add */}
       {showBulkAdd && member && family && (
         <BulkAddWithAI
           title="Bulk Add Guiding Stars"
-          placeholder={'Paste or type multiple guiding stars, one per line. E.g.:\nI lead with kindness in every interaction\nFamily meals together matter more than perfection\nGrowth over comfort — always learning'}
-          hint="AI will parse and categorize each entry as a Value, Declaration, Vision, Priority, Principle, or Scripture."
-          categories={CATEGORIES.map(c => ({ value: c.toLowerCase(), label: c }))}
-          parsePrompt='Parse the following text into individual guiding star entries. Each should be a meaningful value, declaration, priority, vision, principle, or scripture. Categorize each with one of: value, declaration, scripture, vision, priority, principle, custom. Return JSON: [{"text": "entry text", "category": "value"}, ...].'
+          placeholder={
+            'Paste or type multiple guiding stars, one per line. E.g.:\nI lead with kindness in every interaction\nFamily meals together matter more than perfection\nGrowth over comfort — always learning'
+          }
+          hint="AI will parse and categorize each entry as a Value, Declaration, Scripture/Quote, or Vision."
+          categories={GUIDING_STAR_TYPES.map((t) => ({
+            value: t.value,
+            label: t.label,
+          }))}
+          parsePrompt='Parse the following text into individual guiding star entries. Each should be a meaningful value, declaration, scripture/quote, or vision. Categorize each with one of: value, declaration, scripture_quote, vision. Return JSON: [{"text": "entry text", "category": "value"}, ...].'
           onSave={async (parsed) => {
-            for (const item of parsed.filter(i => i.selected)) {
+            for (const item of parsed.filter((i) => i.selected)) {
               await createStar.mutateAsync({
                 family_id: family.id,
                 member_id: member.id,
                 content: item.text,
-                category: item.category || undefined,
+                entry_type: (item.category as GuidingStarEntryType) || 'value',
               })
             }
           }}
@@ -166,19 +445,84 @@ export function GuidingStarsPage() {
       {(showCreate || editingStar) && (
         <div
           className="p-4 rounded-xl space-y-3"
-          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border)',
+          }}
         >
-          <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+          <h2
+            className="text-base font-semibold"
+            style={{ color: 'var(--color-text-heading)' }}
+          >
             {editingStar ? 'Edit Guiding Star' : 'New Guiding Star'}
           </h2>
 
           <textarea
             placeholder="What guides you? A value, declaration, scripture, or vision statement..."
             value={formContent}
-            onChange={e => setFormContent(e.target.value)}
+            onChange={(e) => setFormContent(e.target.value)}
             rows={3}
             autoFocus
             className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+          />
+
+          {/* Entry type chips */}
+          <div>
+            <label
+              className="block text-xs mb-1.5 font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Type
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {GUIDING_STAR_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => setFormEntryType(t.value)}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor:
+                      formEntryType === t.value
+                        ? 'var(--color-btn-primary-bg)'
+                        : 'var(--color-bg-secondary)',
+                    color:
+                      formEntryType === t.value
+                        ? 'var(--color-btn-primary-text)'
+                        : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Optional description */}
+          <textarea
+            placeholder="Why does this matter to you? (optional)"
+            value={formDescription}
+            onChange={(e) => setFormDescription(e.target.value)}
+            rows={2}
+            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+          />
+
+          {/* Optional category tag */}
+          <input
+            type="text"
+            placeholder="Category tag (optional, e.g. Faith, Motherhood, Career)"
+            value={formCategory}
+            onChange={(e) => setFormCategory(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg text-sm"
             style={{
               backgroundColor: 'var(--color-bg-primary)',
               border: '1px solid var(--color-border)',
@@ -193,47 +537,25 @@ export function GuidingStarsPage() {
             style={{ color: 'var(--color-btn-primary-bg)' }}
           >
             <BookOpen size={14} />
-            For inspiration, read "The Art of Honest Declarations"
+            For inspiration, read &ldquo;The Art of Honest Declarations&rdquo;
           </button>
 
-          <div className="flex gap-2 flex-wrap">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFormCategory(formCategory === cat ? '' : cat)}
-                className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: formCategory === cat ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
-                  color: formCategory === cat ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <textarea
-            placeholder="Why does this matter to you? (optional)"
-            value={formDescription}
-            onChange={e => setFormDescription(e.target.value)}
-            rows={2}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-            style={{
-              backgroundColor: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-primary)',
-            }}
-          />
-
           <div className="flex gap-2 justify-end">
-            <button onClick={resetForm} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <button
+              onClick={resetForm}
+              className="px-3 py-1.5 rounded-lg text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               Cancel
             </button>
             <button
               onClick={editingStar ? handleUpdate : handleCreate}
               disabled={!formContent.trim()}
               className="px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              style={{
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                color: 'var(--color-btn-primary-text)',
+              }}
             >
               {editingStar ? 'Save' : 'Create'}
             </button>
@@ -241,74 +563,187 @@ export function GuidingStarsPage() {
         </div>
       )}
 
-      {/* Star List */}
+      {/* Star groups */}
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-spin w-6 h-6 border-2 rounded-full" style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-btn-primary-bg)' }} />
+          <div
+            className="animate-spin w-6 h-6 border-2 rounded-full"
+            style={{
+              borderColor: 'var(--color-border)',
+              borderTopColor: 'var(--color-btn-primary-bg)',
+            }}
+          />
         </div>
       ) : stars.length === 0 ? (
-        <div className="p-8 rounded-xl text-center" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-          <Sparkles size={32} className="mx-auto mb-3" style={{ color: 'var(--color-btn-primary-bg)' }} />
-          <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>No guiding stars yet</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            Add your values, declarations, scriptures, or vision statements — they anchor everything LiLa does for you.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {stars.map(star => (
-            <div
-              key={star.id}
-              className="p-4 rounded-xl transition-all"
+        /* Empty state */
+        <div
+          className="p-8 rounded-xl text-center space-y-4"
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          <Star
+            size={36}
+            className="mx-auto"
+            style={{ color: 'var(--color-btn-primary-bg)' }}
+          />
+          <div>
+            <p
+              className="font-medium"
+              style={{ color: 'var(--color-text-heading)' }}
+            >
+              Your Guiding Stars
+            </p>
+            <p
+              className="text-sm mt-2 max-w-md mx-auto"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Your Guiding Stars are the values, commitments, and vision that
+              define who you&apos;re choosing to be. They anchor everything LiLa
+              does for you — every suggestion, every reflection, every
+              celebration connects back to what matters most.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
               style={{
-                backgroundColor: 'var(--color-bg-card)',
-                border: `1px solid ${star.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                opacity: star.is_included_in_ai ? 1 : 0.7,
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                color: 'var(--color-btn-primary-text)',
               }}
             >
-              <div className="flex items-start gap-3">
-                {/* AI context toggle */}
-                <button
-                  onClick={() => handleToggleAI(star)}
-                  className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
-                  title={star.is_included_in_ai ? 'Included in AI context — click to exclude' : 'Excluded from AI context — click to include'}
+              <Plus size={16} />
+              Write My First Star
+            </button>
+            <button
+              onClick={() => {
+                // STUB: Craft with LiLa — PRD-06
+                // eslint-disable-next-line no-alert
+                alert(
+                  'Coming soon — Craft with LiLa will help you discover your guiding stars.'
+                )
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <MessageCircle size={16} />
+              Let LiLa Help Me Discover Mine
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {GUIDING_STAR_TYPES.map((typeInfo) => {
+            const group = grouped[typeInfo.value]
+            const heartedCount = group.filter((s) => s.is_included_in_ai).length
+
+            return (
+              <CollapsibleGroup
+                key={typeInfo.value}
+                label={typeInfo.label}
+                count={group.length}
+                heartedCount={heartedCount}
+                defaultOpen={group.length > 0}
+                onToggleAll={(included) =>
+                  handleBatchToggle(typeInfo.value, included)
+                }
+              >
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd(typeInfo.value)}
+                >
+                  <SortableContext
+                    items={group.map((s) => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {group.map((star) => (
+                      <SortableStarCard
+                        key={star.id}
+                        star={star}
+                        onEdit={startEdit}
+                        onArchive={handleArchive}
+                        onToggleAI={handleToggleAI}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </CollapsibleGroup>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Archived section */}
+      {archivedStars.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className="flex items-center gap-2 text-sm font-medium"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <Archive size={14} />
+            {showArchived ? 'Hide' : 'View'} Archived ({archivedStars.length})
+          </button>
+
+          {showArchived && (
+            <div className="mt-3 space-y-1.5">
+              {archivedStars.map((star) => (
+                <div
+                  key={star.id}
+                  className="flex items-start gap-3 p-3 rounded-lg"
                   style={{
-                    color: star.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    border: '1px solid var(--color-border)',
+                    opacity: 0.6,
                   }}
                 >
-                  {star.is_included_in_ai ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
-
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
-                    {star.content}
-                  </p>
-                  {star.category && (
-                    <span
-                      className="inline-block mt-1 px-2 py-0.5 rounded text-xs"
-                      style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)', color: 'var(--color-btn-primary-bg)' }}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm"
+                      style={{ color: 'var(--color-text-primary)' }}
                     >
-                      {star.category}
-                    </span>
-                  )}
-                  {star.description && (
-                    <p className="mt-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                      {star.description}
+                      {star.content}
                     </p>
-                  )}
-                </div>
-
-                <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => startEdit(star)} className="p-1.5 rounded hover:opacity-70" style={{ color: 'var(--color-text-secondary)' }}>
-                    <Pencil size={14} />
+                    {star.description && (
+                      <p
+                        className="text-xs mt-0.5"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {star.description}
+                      </p>
+                    )}
+                    <span
+                      className="inline-block mt-1 text-[10px]"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      {GUIDING_STAR_TYPES.find(
+                        (t) => t.value === star.entry_type
+                      )?.label ?? 'Value'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleRestore(star)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                    style={{
+                      color: 'var(--color-btn-primary-bg)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                    }}
+                    title="Restore"
+                  >
+                    <ArchiveRestore size={12} />
+                    Restore
                   </button>
-                  <button onClick={() => handleDelete(star)} className="p-1.5 rounded hover:opacity-70" style={{ color: 'var(--color-text-secondary)' }}>
-                    <Trash2 size={14} />
-                  </button>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -328,14 +763,90 @@ export function GuidingStarsPage() {
           }}
         >
           {declarationsArticle.split('\n').map((line, i) => {
-            if (line.startsWith('# ')) return <h1 key={i} style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)', fontSize: '1.25rem', marginTop: '1.5rem' }}>{line.slice(2)}</h1>
-            if (line.startsWith('## ')) return <h2 key={i} style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)', fontSize: '1.1rem', marginTop: '1.25rem' }}>{line.slice(3)}</h2>
-            if (line.startsWith('### ')) return <h3 key={i} style={{ color: 'var(--color-text-heading)', fontSize: '1rem', marginTop: '1rem' }}>{line.slice(4)}</h3>
-            if (line.startsWith('---')) return <hr key={i} style={{ borderColor: 'var(--color-border)', margin: '1rem 0' }} />
-            if (line.startsWith('*') && line.endsWith('*')) return <p key={i} style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>{line.slice(1, -1)}</p>
-            if (line.startsWith('> ')) return <blockquote key={i} style={{ borderLeft: '3px solid var(--color-btn-primary-bg)', paddingLeft: '0.75rem', color: 'var(--color-text-secondary)', fontStyle: 'italic', margin: '0.75rem 0' }}>{line.slice(2)}</blockquote>
+            if (line.startsWith('# '))
+              return (
+                <h1
+                  key={i}
+                  style={{
+                    color: 'var(--color-text-heading)',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.25rem',
+                    marginTop: '1.5rem',
+                  }}
+                >
+                  {line.slice(2)}
+                </h1>
+              )
+            if (line.startsWith('## '))
+              return (
+                <h2
+                  key={i}
+                  style={{
+                    color: 'var(--color-text-heading)',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.1rem',
+                    marginTop: '1.25rem',
+                  }}
+                >
+                  {line.slice(3)}
+                </h2>
+              )
+            if (line.startsWith('### '))
+              return (
+                <h3
+                  key={i}
+                  style={{
+                    color: 'var(--color-text-heading)',
+                    fontSize: '1rem',
+                    marginTop: '1rem',
+                  }}
+                >
+                  {line.slice(4)}
+                </h3>
+              )
+            if (line.startsWith('---'))
+              return (
+                <hr
+                  key={i}
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    margin: '1rem 0',
+                  }}
+                />
+              )
+            if (line.startsWith('*') && line.endsWith('*'))
+              return (
+                <p
+                  key={i}
+                  style={{
+                    fontStyle: 'italic',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  {line.slice(1, -1)}
+                </p>
+              )
+            if (line.startsWith('> '))
+              return (
+                <blockquote
+                  key={i}
+                  style={{
+                    borderLeft: '3px solid var(--color-btn-primary-bg)',
+                    paddingLeft: '0.75rem',
+                    color: 'var(--color-text-secondary)',
+                    fontStyle: 'italic',
+                    margin: '0.75rem 0',
+                  }}
+                >
+                  {line.slice(2)}
+                </blockquote>
+              )
             if (line.trim() === '') return <br key={i} />
-            return <p key={i} style={{ margin: '0.5rem 0' }}>{line}</p>
+            return (
+              <p key={i} style={{ margin: '0.5rem 0' }}>
+                {line}
+              </p>
+            )
           })}
         </div>
       </Modal>

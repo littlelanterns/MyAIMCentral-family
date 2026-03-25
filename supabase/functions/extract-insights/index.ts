@@ -44,15 +44,17 @@ const KEEL_PROMPT = `You are analyzing a document about the user's personality, 
 
 Return a JSON array: [{ "text": "...", "category": "...", "confidence": 0.0-1.0, "source_label": "..." }]
 
-Valid categories: personality_assessment, trait_tendency, strength, growth_area, you_inc, general
+Valid categories: personality_type, trait_tendency, strength, growth_area, general
 
 Extraction guidelines:
 - The source_label should identify the assessment or source (e.g., "Enneagram Type 3", "MBTI ENFP", "StrengthsFinder").
 - Extract specific individual traits/insights, not one large summary.
-- For personality assessments, extract EVERY distinct trait, tendency, strength, and growth area mentioned. Aim for 10-25 insights from a typical assessment.
+- For personality assessments (MBTI, Enneagram, StrengthsFinder, etc.), extract the type identifier as personality_type and each associated trait as trait_tendency.
+- Extract EVERY distinct trait, tendency, strength, and growth area mentioned. Aim for 10-25 insights from a typical assessment.
 - Break complex descriptions into atomic insights (one trait/tendency per item).
-- Include behavioral patterns ("Tends to take charge in group settings"), cognitive patterns ("Processes information by talking it through"), and emotional patterns ("Feels energized by social interaction").
-- For professional assessments, categorize career-relevant insights as "you_inc".
+- Include behavioral patterns ("Tends to take charge in group settings"), cognitive patterns ("Processes information by talking it through"), and emotional patterns ("Feels energized by social interaction") as trait_tendency.
+- Professional/work-style insights should be categorized as general.
+- NEVER label growth areas as "weaknesses" — always use growth_area category.
 - Confidence: 0.9+ for directly stated results, 0.7-0.9 for derived insights, 0.5-0.7 for weaker signals.`;
 
 const MAST_PROMPT = `You are analyzing a document to extract guiding principles, values, declarations, scriptures, quotes, and vision statements. Extract individual principles and categorize each one. Return ONLY valid JSON — no markdown, no explanation.

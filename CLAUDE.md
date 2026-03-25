@@ -60,6 +60,15 @@ This process exists because weeks of careful planning went into every PRD and ad
 
 **The PRDs ARE the minimum. "MVP" means building exactly what the PRD says — not a simpler version of it. If you find yourself thinking "for now I'll just..." — stop. Either build it right or ask Tenise first.**
 
+## Icon Semantics (Non-Negotiable)
+
+- **Eye / EyeOff** = show/hide sensitive text — PASSWORDS ONLY
+- **Heart / HeartOff** = include/exclude from LiLa context (`is_included_in_ai` toggle — used on EVERY context-eligible item across the entire platform)
+- These two icons must never be swapped or used interchangeably. Ever.
+- Filled Heart = LiLa can use this item. HeartOff = exists but not in LiLa context.
+- Summary indicator on every context-source page: "LiLa is drawing from X/Y [feature-specific noun]"
+- Per-group "heart all / unheart all" toggle on grouped pages (collapsible category groups)
+
 ## Critical Conventions (Apply to ALL Code)
 
 1. **Database tables:** snake_case. No nautical names. No exceptions.
@@ -97,7 +106,7 @@ This process exists because weeks of careful planning went into every PRD and ad
 17. **PIN hashing:** All PINs are hashed server-side via `hash_member_pin` RPC (pgcrypto bcrypt). Never store plain-text PINs. Verify with `verify_member_pin` RPC.
 18. **Out of Nest members:** Stored in `out_of_nest_members` table (NOT `family_members`). They are descendants and their spouses only — below mom on the family tree. No dashboard, no PIN, no feature access. Grandparents who help are Special Adults, not Out of Nest.
 19. **Auto-provisioning:** The `auto_provision_member_resources` trigger creates an archive folder + dashboard_config for every new `family_members` insert. No manual creation needed.
-20. **Smart Notepad:** Right-drawer workspace with Supabase-backed tabs, autosave (500ms debounce), AI auto-titling (Haiku). "Send to..." grid routes content to 13 destinations via RoutingStrip. "Review & Route" extracts items via ai-parse. NotepadProvider wraps MomShell. Journal's `+` button opens Notepad — Journal is NOT a direct writing surface. "Note" routes to `journal_entries` with `entry_type = 'free_write'`.
+20. **Smart Notepad:** Right-drawer workspace with Supabase-backed tabs, autosave (500ms debounce), AI auto-titling (Haiku), light rich text editor (bold/italic/bullets via tiptap). "Send to..." grid routes content to 14 destinations via RoutingStrip. "Review & Route" extracts items via ai-parse with inline editing, "Edit in Notepad", and "Save Only" options. NotepadProvider wraps MomShell. Journal's `+` button opens Notepad — Journal is NOT a direct writing surface. "Quick Note" destination routes to `journal_entries` with `entry_type = 'quick_note'`. Journal entry types follow PRD-08: `journal_entry`, `gratitude`, `reflection`, `quick_note`, `commonplace`, `kid_quips`, `meeting_notes`, `transcript`, `lila_conversation`, `brain_dump`, `custom`. Note: `learning_capture` is NOT a journal type — homeschool learning capture lives in `family_moments` (PRD-37) and `homeschool_time_logs` (PRD-28).
 21. **RoutingStrip:** Universal grid component for routing items between features. Context-filtered sets (notepad_send_to, request_accept, meeting_action, review_route_card). Favorites section auto-sorted by `notepad_routing_stats`. Sub-destination drill-down for destinations with sub-types. Build once, use everywhere.
 22. **Review & Route:** Universal reusable extraction component defined in PRD-08. Other features wire in with their content as input. AI extraction → card-by-card review → per-item routing. Merciful defaults: if uncertain → Journal. Extract more rather than fewer.
 

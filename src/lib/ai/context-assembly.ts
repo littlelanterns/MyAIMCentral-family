@@ -17,6 +17,84 @@
 
 import { supabase } from '@/lib/supabase/client'
 
+// ---------------------------------------------------------------------------
+// Conditional context loading — PRD-06/07
+// Neither Guiding Stars nor InnerWorkings loads on every conversation.
+// Load only when the topic warrants it.
+// ---------------------------------------------------------------------------
+
+const IDENTITY_KEYWORDS = /values?|identity|declaration|vision|purpose|meaning|who i am|choosing to be|guiding star|character|principle|faith|spiritual|believe|conviction|legacy/i
+const GROWTH_KEYWORDS = /personality|trait|strength|growth|self.?know|introvert|extrovert|enneagram|mbti|processing|communication style|love language|trigger|how i work|inner.?work|temperament/i
+const RELATIONAL_KEYWORDS = /relationship|marriage|spouse|partner|parenting|parent|child|conflict|communication|family dynamic|sibling|co.?parent|divorce|boundary|repair/i
+const EMOTIONAL_KEYWORDS = /stress|anxious|overwhelm|emotion|feeling|burnout|self.?care|mental health|depression|anger|grief|loss|struggle|cope|heal/i
+const INTENTION_KEYWORDS = /intention|mindful|practice|habit|trying to|want to be|working on|choosing to|committed to|striving|actively/i
+
+const PRACTICAL_PAGE_CONTEXTS = new Set([
+  'calendar', 'timer', 'tasks', 'lists', 'studio', 'meetings',
+  'caregiver', 'homeschool_time', 'allowance', 'shopping',
+])
+
+const IDENTITY_PAGE_CONTEXTS = new Set([
+  'guiding_stars', 'inner_workings', 'best_intentions', 'journal',
+  'life_lantern', 'family_vision', 'victories', 'safe_harbor',
+  'bigplans', 'thoughtsift', 'settings',
+])
+
+export function shouldLoadGuidingStars(
+  message: string,
+  pageContext?: string,
+  guidedMode?: string,
+): boolean {
+  // Always load on identity-related pages
+  if (pageContext && IDENTITY_PAGE_CONTEXTS.has(pageContext)) return true
+  // Never load for purely practical contexts (unless message content overrides)
+  if (pageContext && PRACTICAL_PAGE_CONTEXTS.has(pageContext) && !IDENTITY_KEYWORDS.test(message)) return false
+  // Load for guided modes that benefit from identity context
+  if (guidedMode && ['self_discovery', 'craft_with_lila', 'life_lantern', 'family_vision_quest', 'bigplans_planning', 'board_of_directors', 'perspective_shifter', 'decision_guide', 'mediator', 'safe_harbor'].includes(guidedMode)) return true
+  // Keyword detection in message content
+  if (IDENTITY_KEYWORDS.test(message)) return true
+  if (RELATIONAL_KEYWORDS.test(message)) return true
+  if (EMOTIONAL_KEYWORDS.test(message)) return true
+  return false
+}
+
+export function shouldLoadSelfKnowledge(
+  message: string,
+  pageContext?: string,
+  guidedMode?: string,
+): boolean {
+  // Always load on self-knowledge-related pages
+  if (pageContext && IDENTITY_PAGE_CONTEXTS.has(pageContext)) return true
+  // Never load for purely practical contexts (unless message content overrides)
+  if (pageContext && PRACTICAL_PAGE_CONTEXTS.has(pageContext) && !GROWTH_KEYWORDS.test(message)) return false
+  // Load for guided modes that need personality/self-knowledge context
+  if (guidedMode && ['self_discovery', 'cyrano', 'higgins_say', 'higgins_navigate', 'quality_time', 'gifts', 'observe_serve', 'words_affirmation', 'gratitude', 'safe_harbor', 'board_of_directors', 'mediator', 'life_lantern', 'bigplans_planning'].includes(guidedMode)) return true
+  // Keyword detection
+  if (GROWTH_KEYWORDS.test(message)) return true
+  if (RELATIONAL_KEYWORDS.test(message)) return true
+  if (EMOTIONAL_KEYWORDS.test(message)) return true
+  return false
+}
+
+export function shouldLoadBestIntentions(
+  message: string,
+  pageContext?: string,
+  guidedMode?: string,
+): boolean {
+  // Always load on relevant pages
+  if (pageContext === 'best_intentions' || pageContext === 'guiding_stars' || pageContext === 'journal') return true
+  // Never load for purely practical contexts (unless message content overrides)
+  if (pageContext && PRACTICAL_PAGE_CONTEXTS.has(pageContext) && !INTENTION_KEYWORDS.test(message)) return false
+  // Load for growth-oriented guided modes
+  if (guidedMode && ['life_lantern', 'bigplans_planning', 'safe_harbor', 'board_of_directors'].includes(guidedMode)) return true
+  // Keyword detection
+  if (INTENTION_KEYWORDS.test(message)) return true
+  if (RELATIONAL_KEYWORDS.test(message)) return true
+  return false
+}
+
+// ---------------------------------------------------------------------------
+
 /** A named group of context items from a single source domain. */
 export interface ContextSection {
   label: string

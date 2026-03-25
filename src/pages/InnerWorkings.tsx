@@ -1,26 +1,31 @@
 /**
  * InnerWorkings Page — PRD-07
- * Adapted from StewardShip's Keel pattern.
- * Self-knowledge entries by category tabs.
- * Document upload for personality test extraction.
- * BulkAdd with AI for manual multi-entry.
+ * Self-knowledge entries organized by collapsible category groups.
+ * Features: drag-to-reorder, heart toggle, upload extraction, bulk add, archive/restore.
  */
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import {
-  Brain, Plus, Pencil, Trash2, Eye, EyeOff, Upload, Users,
-  Loader2, ChevronDown, Check, Sparkles,
+  Heart, HeartOff, Plus, Pencil, Archive, Upload, Loader2,
+  ChevronDown, Check, Sparkles, GripVertical, Brain, MessageCircle, Users, RotateCcw,
 } from 'lucide-react'
-import { FeatureGuide, FeatureIcon, BulkAddWithAI } from '@/components/shared'
+import { FeatureGuide, FeatureIcon, BulkAddWithAI, CollapsibleGroup } from '@/components/shared'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
 import {
   useSelfKnowledge,
+  useArchivedSelfKnowledge,
   useCreateSelfKnowledge,
   useUpdateSelfKnowledge,
   useDeleteSelfKnowledge,
   useToggleSelfKnowledgeAI,
+  useBatchToggleSelfKnowledgeAI,
+  useRestoreSelfKnowledge,
+  useReorderSelfKnowledge,
   SELF_KNOWLEDGE_CATEGORIES,
 } from '@/hooks/useSelfKnowledge'
 import type { SelfKnowledgeEntry, SelfKnowledgeCategory } from '@/hooks/useSelfKnowledge'
@@ -35,29 +40,42 @@ interface ExtractedInsight {
   selected: boolean
 }
 
-type PageMode = 'list' | 'create' | 'edit' | 'upload' | 'review' | 'bulk'
+type PageMode = 'list' | 'create' | 'edit' | 'review' | 'bulk'
 
 export function InnerWorkingsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { data: entries = [], isLoading } = useSelfKnowledge(member?.id)
+  const { data: archivedEntries = [] } = useArchivedSelfKnowledge(member?.id)
   const createEntry = useCreateSelfKnowledge()
   const updateEntry = useUpdateSelfKnowledge()
   const deleteEntry = useDeleteSelfKnowledge()
   const toggleAI = useToggleSelfKnowledgeAI()
+  const batchToggleAI = useBatchToggleSelfKnowledgeAI()
+  const restoreEntry = useRestoreSelfKnowledge()
+  const reorderEntries = useReorderSelfKnowledge()
 
-  const [activeCategory, setActiveCategory] = useState<SelfKnowledgeCategory>('personality')
   const [mode, setMode] = useState<PageMode>('list')
   const [editing, setEditing] = useState<SelfKnowledgeEntry | null>(null)
   const [formContent, setFormContent] = useState('')
+  const [formCategory, setFormCategory] = useState<SelfKnowledgeCategory>('general')
+  const [formSource, setFormSource] = useState('')
   const [formShareDad, setFormShareDad] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   // Upload state
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [extractedInsights, setExtractedInsights] = useState<ExtractedInsight[]>([])
   const [uploadFileName, setUploadFileName] = useState('')
+  const [showLowConfidence, setShowLowConfidence] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
 
   const byCategory = useMemo(() => {
     const map: Record<string, SelfKnowledgeEntry[]> = {}
@@ -67,11 +85,17 @@ export function InnerWorkingsPage() {
     return map
   }, [entries])
 
-  const activeEntries = byCategory[activeCategory] ?? []
   const totalIncluded = entries.filter(e => e.is_included_in_ai).length
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3000)
+  }
 
   function resetForm() {
     setFormContent('')
+    setFormCategory('general')
+    setFormSource('')
     setFormShareDad(false)
     setMode('list')
     setEditing(null)
@@ -82,9 +106,10 @@ export function InnerWorkingsPage() {
     await createEntry.mutateAsync({
       family_id: family.id,
       member_id: member.id,
-      category: activeCategory,
+      category: formCategory,
       content: formContent.trim(),
       source_type: 'manual',
+      source: formSource.trim() || null,
       share_with_dad: formShareDad,
     })
     resetForm()
@@ -95,14 +120,21 @@ export function InnerWorkingsPage() {
     await updateEntry.mutateAsync({
       id: editing.id,
       content: formContent.trim(),
+      category: formCategory,
+      source: formSource.trim() || null,
       share_with_dad: formShareDad,
     })
     resetForm()
   }
 
-  async function handleDelete(entry: SelfKnowledgeEntry) {
-    if (!member || !confirm('Remove this entry?')) return
+  async function handleArchive(entry: SelfKnowledgeEntry) {
+    if (!member) return
     await deleteEntry.mutateAsync({ id: entry.id, memberId: member.id })
+  }
+
+  async function handleRestore(entry: SelfKnowledgeEntry) {
+    if (!member) return
+    await restoreEntry.mutateAsync({ id: entry.id, memberId: member.id })
   }
 
   async function handleToggleAI(entry: SelfKnowledgeEntry) {
@@ -110,12 +142,40 @@ export function InnerWorkingsPage() {
     await toggleAI.mutateAsync({ id: entry.id, memberId: member.id, included: !entry.is_included_in_ai })
   }
 
+  async function handleBatchToggleAI(category: SelfKnowledgeCategory, included: boolean) {
+    if (!member) return
+    await batchToggleAI.mutateAsync({ memberId: member.id, category, included })
+  }
+
   function startEdit(entry: SelfKnowledgeEntry) {
     setEditing(entry)
     setFormContent(entry.content)
+    setFormCategory(entry.category)
+    setFormSource(entry.source ?? '')
     setFormShareDad(entry.share_with_dad)
     setMode('edit')
   }
+
+  function startCreate() {
+    resetForm()
+    setMode('create')
+  }
+
+  const handleDragEnd = useCallback((event: DragEndEvent, category: SelfKnowledgeCategory) => {
+    const { active, over } = event
+    if (!over || active.id === over.id || !member) return
+
+    const catEntries = byCategory[category] ?? []
+    const oldIndex = catEntries.findIndex(e => e.id === active.id)
+    const newIndex = catEntries.findIndex(e => e.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = arrayMove(catEntries, oldIndex, newIndex)
+    reorderEntries.mutate({
+      memberId: member.id,
+      reorderedIds: reordered.map(e => e.id),
+    })
+  }, [byCategory, member, reorderEntries])
 
   // ── Document Upload Flow ──────────────────────────────────
 
@@ -128,14 +188,12 @@ export function InnerWorkingsPage() {
     setUploadFileName(file.name)
 
     try {
-      // Step 1: Upload to Supabase Storage
       const path = `${member.id}/innerworkings/${Date.now()}_${file.name}`
       const { error: uploadErr } = await supabase.storage
         .from('manifest-files')
         .upload(path, file)
 
       if (uploadErr) {
-        // If bucket doesn't exist, show a helpful message
         if (uploadErr.message?.includes('not found') || uploadErr.message?.includes('Bucket')) {
           setUploadError('Storage not configured yet. The manifest-files bucket needs to be created in Supabase Storage.')
           setUploading(false)
@@ -144,12 +202,11 @@ export function InnerWorkingsPage() {
         throw uploadErr
       }
 
-      // Step 2: Call extract-insights Edge Function
       const { data, error: fnErr } = await supabase.functions.invoke('extract-insights', {
         body: {
           file_storage_path: path,
           file_type: file.type || file.name.split('.').pop(),
-          extraction_target: 'keel', // same as StewardShip
+          extraction_target: 'keel',
         },
       })
 
@@ -159,7 +216,6 @@ export function InnerWorkingsPage() {
         return
       }
 
-      // Step 3: Process results
       const insights: ExtractedInsight[] = (data?.insights ?? []).map((i: any) => ({
         text: i.text ?? '',
         category: mapKeelCategory(i.category),
@@ -180,22 +236,25 @@ export function InnerWorkingsPage() {
       setUploadError(err?.message ?? 'Upload failed. Please try again.')
     } finally {
       setUploading(false)
-      // Reset file input
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  // Map StewardShip Keel categories to MyAIM InnerWorkings categories
   function mapKeelCategory(cat: string): string {
     const map: Record<string, string> = {
-      personality_assessment: 'personality',
-      trait_tendency: 'personality',
-      strength: 'strengths',
-      growth_area: 'growth_areas',
-      you_inc: 'how_i_work',
-      general: 'personality',
+      personality_assessment: 'personality_type',
+      personality: 'personality_type',
+      trait_tendency: 'trait_tendency',
+      strength: 'strength',
+      strengths: 'strength',
+      growth_area: 'growth_area',
+      growth_areas: 'growth_area',
+      communication_style: 'trait_tendency',
+      how_i_work: 'general',
+      you_inc: 'general',
+      general: 'general',
     }
-    return map[cat] ?? cat
+    return map[cat] ?? 'general'
   }
 
   function toggleInsight(idx: number) {
@@ -214,6 +273,7 @@ export function InnerWorkingsPage() {
     if (!member || !family) return
     setUploading(true)
 
+    const batchId = crypto.randomUUID()
     const selected = extractedInsights.filter(i => i.selected && i.text.trim())
     for (const insight of selected) {
       await createEntry.mutateAsync({
@@ -221,7 +281,10 @@ export function InnerWorkingsPage() {
         member_id: member.id,
         category: insight.category as SelfKnowledgeCategory,
         content: insight.text.trim(),
-        source_type: 'upload',
+        source_type: 'file_upload',
+        source: uploadFileName || null,
+        source_reference_id: batchId,
+        file_storage_path: `${member.id}/innerworkings/${uploadFileName}`,
       })
     }
 
@@ -231,10 +294,82 @@ export function InnerWorkingsPage() {
     setUploading(false)
   }
 
-  const categoryLabel = SELF_KNOWLEDGE_CATEGORIES.find(c => c.value === activeCategory)?.label ?? ''
   const highConfidence = extractedInsights.filter(i => i.confidence >= 0.5)
   const lowConfidence = extractedInsights.filter(i => i.confidence < 0.5)
-  const [showLowConfidence, setShowLowConfidence] = useState(false)
+
+  // ── Empty state (zero entries) ──
+  if (!isLoading && entries.length === 0 && mode === 'list') {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <FeatureGuide featureKey="inner_workings" />
+
+        <div className="flex items-center gap-3">
+          <FeatureIcon featureKey="my_foundation" fallback={<Brain size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
+              InnerWorkings
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Who you are right now.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-8 rounded-xl text-center space-y-4" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+          <Brain size={48} className="mx-auto" style={{ color: 'var(--color-btn-primary-bg)', opacity: 0.6 }} />
+          <div>
+            <p className="font-semibold text-lg" style={{ color: 'var(--color-text-heading)' }}>
+              Start building your self-knowledge
+            </p>
+            <p className="text-sm mt-1 max-w-md mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
+              The more LiLa knows about how you work, the better she can help. Add personality types, strengths, growth areas, and anything else that makes you, you.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <button
+              onClick={startCreate}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', minHeight: '44px' }}
+            >
+              <Pencil size={16} />
+              Write Something About Myself
+            </button>
+            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.png,.jpg,.jpeg,.webp" onChange={handleFileSelect} className="hidden" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: '44px' }}
+            >
+              <Upload size={16} />
+              Upload Assessment Results
+            </button>
+            <button
+              onClick={() => showToast('Coming soon — LiLa Discovery mode is not available yet.')}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: '44px' }}
+            >
+              <MessageCircle size={16} />
+              Let LiLa Help Me Discover
+            </button>
+          </div>
+        </div>
+
+        {uploadError && (
+          <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #e55) 10%, var(--color-bg-card))', color: 'var(--color-error, #e55)' }}>
+            {uploadError}
+            <button onClick={() => setUploadError(null)} className="ml-2 underline">Dismiss</button>
+          </div>
+        )}
+
+        {toast && (
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-sm shadow-lg" style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+            {toast}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -248,62 +383,63 @@ export function InnerWorkingsPage() {
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
               InnerWorkings
             </h1>
+            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              Who you are right now.
+            </p>
             {entries.length > 0 && (
-              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                {totalIncluded} of {entries.length} included in AI context
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                LiLa is drawing from {totalIncluded} of {entries.length} insights
               </p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setMode('bulk')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
-            title="Bulk add with AI"
-          >
-            <Sparkles size={14} />
-            <span className="hidden sm:inline">Bulk</span>
-          </button>
-          <button
-            onClick={() => setMode('create')}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-          >
-            <Plus size={16} />
-            Add
-          </button>
-        </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-        {SELF_KNOWLEDGE_CATEGORIES.map(cat => {
-          const count = byCategory[cat.value]?.length ?? 0
-          const isActive = activeCategory === cat.value
-          return (
-            <button
-              key={cat.value}
-              onClick={() => setActiveCategory(cat.value)}
-              className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5"
-              style={{
-                backgroundColor: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
-                color: isActive ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                border: `1px solid ${isActive ? 'transparent' : 'var(--color-border)'}`,
-              }}
-            >
-              {cat.label}
-              {count > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px]" style={{
-                  backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : 'var(--color-bg-secondary)',
-                }}>
-                  {count}
-                </span>
-              )}
-            </button>
-          )
-        })}
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={startCreate}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
+          style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', minHeight: '44px' }}
+        >
+          <Plus size={16} />
+          Add
+        </button>
+        <button
+          onClick={() => setMode('bulk')}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: '44px' }}
+        >
+          <Sparkles size={14} />
+          Bulk
+        </button>
+        <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,.docx,.png,.jpg,.jpeg,.webp" onChange={handleFileSelect} className="hidden" />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: '44px' }}
+        >
+          {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          Upload
+        </button>
+        <button
+          onClick={() => showToast('Coming soon — LiLa Discovery mode is not available yet.')}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: '44px' }}
+        >
+          <MessageCircle size={14} />
+          <span className="hidden sm:inline">Discover with LiLa</span>
+          <span className="sm:hidden">LiLa</span>
+        </button>
       </div>
+
+      {uploadError && (
+        <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #e55) 10%, var(--color-bg-card))', color: 'var(--color-error, #e55)' }}>
+          {uploadError}
+          <button onClick={() => setUploadError(null)} className="ml-2 underline">Dismiss</button>
+        </div>
+      )}
 
       {/* ── Bulk Add Mode ── */}
       {mode === 'bulk' && member && family && (
@@ -312,13 +448,13 @@ export function InnerWorkingsPage() {
           placeholder={'Paste or type multiple entries, one per line. E.g.:\nI am an ENFP\nI recharge by being around people\nI struggle with follow-through on long projects'}
           hint="AI will parse and categorize each entry into the right InnerWorkings category."
           categories={SELF_KNOWLEDGE_CATEGORIES.map(c => ({ value: c.value, label: c.label }))}
-          parsePrompt="Parse the following text into individual self-knowledge entries. Categorize each with one of: personality, strengths, growth_areas, communication_style, how_i_work. Return JSON array."
+          parsePrompt="Parse the following text into individual self-knowledge entries. Categorize each with one of: personality_type, trait_tendency, strength, growth_area, general. Return JSON array."
           onSave={async (parsed: any[]) => {
             for (const item of parsed.filter((i: any) => i.selected)) {
               await createEntry.mutateAsync({
                 family_id: family.id,
                 member_id: member.id,
-                category: (item.category || activeCategory) as SelfKnowledgeCategory,
+                category: (item.category || 'general') as SelfKnowledgeCategory,
                 content: item.text,
                 source_type: 'bulk_add',
               })
@@ -332,10 +468,10 @@ export function InnerWorkingsPage() {
       {(mode === 'create' || mode === 'edit') && (
         <div className="p-4 rounded-xl space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
           <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-heading)' }}>
-            {mode === 'edit' ? `Edit ${categoryLabel} Entry` : `New ${categoryLabel} Entry`}
+            {mode === 'edit' ? 'Edit Entry' : 'New Entry'}
           </h2>
           <textarea
-            placeholder={`What do you know about your ${categoryLabel.toLowerCase()}?`}
+            placeholder="What do you know about yourself?"
             value={formContent}
             onChange={e => setFormContent(e.target.value)}
             rows={3}
@@ -343,64 +479,48 @@ export function InnerWorkingsPage() {
             className="w-full px-3 py-2 rounded-lg text-sm resize-none"
             style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
           />
-          <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Category</label>
+              <select
+                value={formCategory}
+                onChange={e => setFormCategory(e.target.value as SelfKnowledgeCategory)}
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', minHeight: '44px' }}
+              >
+                {SELF_KNOWLEDGE_CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--color-text-secondary)' }}>Source (optional)</label>
+              <input
+                type="text"
+                placeholder="Where does this come from?"
+                value={formSource}
+                onChange={e => setFormSource(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', minHeight: '44px' }}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>
             <input type="checkbox" checked={formShareDad} onChange={e => setFormShareDad(e.target.checked)} className="rounded" />
             <Users size={14} />
             Share with spouse (helps Cyrano & relationship tools)
           </label>
           <div className="flex gap-2 justify-end">
-            <button onClick={resetForm} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+            <button onClick={resetForm} className="px-3 py-2 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>Cancel</button>
             <button
               onClick={mode === 'edit' ? handleUpdate : handleCreate}
               disabled={!formContent.trim()}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', minHeight: '44px' }}
             >
               {mode === 'edit' ? 'Save' : 'Add Entry'}
             </button>
           </div>
-        </div>
-      )}
-
-      {/* ── Document Upload ── */}
-      {mode === 'list' && (
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.txt,.md,.docx,.png,.jpg,.jpeg,.webp"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl text-sm transition-colors"
-            style={{
-              backgroundColor: 'var(--color-bg-card)',
-              border: '2px dashed var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            {uploading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Extracting insights from {uploadFileName}...
-              </>
-            ) : (
-              <>
-                <Upload size={18} />
-                Upload personality test or assessment
-              </>
-            )}
-          </button>
-        </div>
-      )}
-
-      {uploadError && (
-        <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #e55) 10%, var(--color-bg-card))', color: 'var(--color-error, #e55)' }}>
-          {uploadError}
-          <button onClick={() => setUploadError(null)} className="ml-2 underline">Dismiss</button>
         </div>
       )}
 
@@ -416,7 +536,6 @@ export function InnerWorkingsPage() {
             </p>
           </div>
 
-          {/* High confidence insights */}
           <div className="space-y-2">
             {highConfidence.map((insight) => {
               const realIdx = extractedInsights.indexOf(insight)
@@ -432,14 +551,13 @@ export function InnerWorkingsPage() {
             })}
           </div>
 
-          {/* Low confidence toggle */}
           {lowConfidence.length > 0 && (
             <button
               onClick={() => setShowLowConfidence(!showLowConfidence)}
               className="flex items-center gap-1.5 text-xs"
-              style={{ color: 'var(--color-text-secondary)' }}
+              style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}
             >
-              <ChevronDown size={14} className={showLowConfidence ? 'rotate-180' : ''} />
+              <ChevronDown size={14} className={`transition-transform ${showLowConfidence ? 'rotate-180' : ''}`} />
               {showLowConfidence ? 'Hide' : 'Show'} {lowConfidence.length} lower-confidence insights
             </button>
           )}
@@ -462,14 +580,14 @@ export function InnerWorkingsPage() {
           )}
 
           <div className="flex gap-2 justify-end">
-            <button onClick={() => { setMode('list'); setExtractedInsights([]) }} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <button onClick={() => { setMode('list'); setExtractedInsights([]) }} className="px-3 py-2 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>
               Cancel
             </button>
             <button
               onClick={handleSaveExtracted}
               disabled={uploading || extractedInsights.filter(i => i.selected).length === 0}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', minHeight: '44px' }}
             >
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
               Save {extractedInsights.filter(i => i.selected).length} Entries
@@ -478,67 +596,219 @@ export function InnerWorkingsPage() {
         </div>
       )}
 
-      {/* ── Entries List ── */}
+      {/* ── Category Groups ── */}
       {mode === 'list' && (
         <>
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 size={24} className="animate-spin" style={{ color: 'var(--color-btn-primary-bg)' }} />
             </div>
-          ) : activeEntries.length === 0 ? (
-            <div className="p-8 rounded-xl text-center" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-              <Brain size={32} className="mx-auto mb-3" style={{ color: 'var(--color-btn-primary-bg)' }} />
-              <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>No {categoryLabel.toLowerCase()} entries yet</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                Add what you know — or upload a personality test for AI extraction.
-              </p>
-            </div>
           ) : (
-            <div className="space-y-2">
-              {activeEntries.map(entry => (
-                <div
-                  key={entry.id}
-                  className="p-4 rounded-xl transition-all"
-                  style={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    border: `1px solid ${entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                    opacity: entry.is_included_in_ai ? 1 : 0.7,
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <button
-                      onClick={() => handleToggleAI(entry)}
-                      className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
-                      style={{ color: entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+            <div className="space-y-3">
+              {SELF_KNOWLEDGE_CATEGORIES.map(cat => {
+                const catEntries = byCategory[cat.value] ?? []
+                const heartedCount = catEntries.filter(e => e.is_included_in_ai).length
+
+                return (
+                  <CollapsibleGroup
+                    key={cat.value}
+                    label={cat.label}
+                    count={catEntries.length}
+                    heartedCount={heartedCount}
+                    description={cat.description}
+                    defaultOpen={catEntries.length > 0}
+                    onToggleAll={(included) => handleBatchToggleAI(cat.value, included)}
+                  >
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(event) => handleDragEnd(event, cat.value)}
                     >
-                      {entry.is_included_in_ai ? <Eye size={16} /> : <EyeOff size={16} />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{entry.content}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {entry.source_type !== 'manual' && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}>
-                            {entry.source_type === 'upload' ? 'From upload' : entry.source_type === 'bulk_add' ? 'Bulk add' : entry.source_type}
-                          </span>
-                        )}
-                        {entry.share_with_dad && (
-                          <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                            <Users size={10} /> Shared
-                          </span>
-                        )}
+                      <SortableContext items={catEntries.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-1.5">
+                          {catEntries.map(entry => (
+                            <SortableEntryCard
+                              key={entry.id}
+                              entry={entry}
+                              onToggleAI={() => handleToggleAI(entry)}
+                              onEdit={() => startEdit(entry)}
+                              onArchive={() => handleArchive(entry)}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  </CollapsibleGroup>
+                )
+              })}
+            </div>
+          )}
+
+          {/* ── Archived Section ── */}
+          {archivedEntries.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className="flex items-center gap-1.5 text-xs font-medium"
+                style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}
+              >
+                <ChevronDown size={14} className={`transition-transform ${showArchived ? 'rotate-180' : ''}`} />
+                View Archived ({archivedEntries.length})
+              </button>
+              {showArchived && (
+                <div className="mt-2 space-y-1.5">
+                  {archivedEntries.map(entry => (
+                    <div
+                      key={entry.id}
+                      className="flex items-start gap-3 p-3 rounded-lg"
+                      style={{
+                        backgroundColor: 'var(--color-bg-card)',
+                        border: '1px solid var(--color-border)',
+                        opacity: 0.6,
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{entry.content}</p>
+                        <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                          {SELF_KNOWLEDGE_CATEGORIES.find(c => c.value === entry.category)?.label ?? entry.category}
+                        </p>
                       </div>
+                      <button
+                        onClick={() => handleRestore(entry)}
+                        className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium flex-shrink-0"
+                        style={{ color: 'var(--color-btn-primary-bg)', minHeight: '44px' }}
+                        title="Restore"
+                      >
+                        <RotateCcw size={14} />
+                        Restore
+                      </button>
                     </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <button onClick={() => startEdit(entry)} className="p-1.5 rounded hover:opacity-70" style={{ color: 'var(--color-text-secondary)' }}><Pencil size={14} /></button>
-                      <button onClick={() => handleDelete(entry)} className="p-1.5 rounded hover:opacity-70" style={{ color: 'var(--color-text-secondary)' }}><Trash2 size={14} /></button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </>
       )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg text-sm shadow-lg" style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Sortable Entry Card ──────────────────────────────────
+
+function SortableEntryCard({
+  entry,
+  onToggleAI,
+  onEdit,
+  onArchive,
+}: {
+  entry: SelfKnowledgeEntry
+  onToggleAI: () => void
+  onEdit: () => void
+  onArchive: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  const sourceLabel = (() => {
+    switch (entry.source_type) {
+      case 'file_upload': return 'From upload'
+      case 'bulk_add': return 'Bulk add'
+      case 'lila_discovery': return 'LiLa discovery'
+      case 'content_extraction': return 'Extracted'
+      case 'log_routed': return 'Routed'
+      default: return null
+    }
+  })()
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-start gap-2 p-3 rounded-lg transition-all"
+      {...attributes}
+    >
+      {/* Drag handle */}
+      <button
+        {...listeners}
+        className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+        style={{ color: 'var(--color-text-secondary)', minWidth: '28px', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        title="Drag to reorder"
+      >
+        <GripVertical size={14} />
+      </button>
+
+      {/* Heart toggle */}
+      <button
+        onClick={onToggleAI}
+        className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
+        style={{ color: entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)', minWidth: '28px', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        title={entry.is_included_in_ai ? 'Exclude from AI context' : 'Include in AI context'}
+      >
+        {entry.is_included_in_ai ? <Heart size={16} fill="currentColor" /> : <HeartOff size={16} />}
+      </button>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{entry.content}</p>
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {sourceLabel && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}>
+              {sourceLabel}
+            </span>
+          )}
+          {entry.source && (
+            <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+              {entry.source}
+            </span>
+          )}
+          {entry.share_with_dad && (
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+              <Users size={10} /> Shared
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-0.5 flex-shrink-0">
+        <button
+          onClick={onEdit}
+          className="p-1.5 rounded hover:opacity-70"
+          style={{ color: 'var(--color-text-secondary)', minWidth: '32px', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          title="Edit"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          onClick={onArchive}
+          className="p-1.5 rounded hover:opacity-70"
+          style={{ color: 'var(--color-text-secondary)', minWidth: '32px', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          title="Archive"
+        >
+          <Archive size={14} />
+        </button>
+      </div>
     </div>
   )
 }
@@ -570,6 +840,7 @@ function InsightCard({
         checked={insight.selected}
         onChange={onToggle}
         className="mt-1 rounded"
+        style={{ minWidth: '20px', minHeight: '20px' }}
       />
       <div className="flex-1 space-y-1.5">
         <textarea
@@ -583,8 +854,8 @@ function InsightCard({
           <select
             value={insight.category}
             onChange={e => onCategoryChange(e.target.value)}
-            className="text-xs px-2 py-0.5 rounded border outline-none"
-            style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+            className="text-xs px-2 py-1 rounded border outline-none"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', minHeight: '32px' }}
           >
             {SELF_KNOWLEDGE_CATEGORIES.map(c => (
               <option key={c.value} value={c.value}>{c.label}</option>

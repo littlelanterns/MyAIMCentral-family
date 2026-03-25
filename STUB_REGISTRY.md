@@ -86,6 +86,21 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Victory Recorder logging from intentions | PRD-06 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
 | InnerWorkings context in LiLa | PRD-07 | PRD-13 | ✅ Wired | Phase 13 |
 | LiLa self-discovery guided mode | PRD-07 | PRD-07 | ✅ Wired | Phase 08 |
+| "Craft with LiLa" — pre-primed conversation for GS crafting (button exists, shows stub alert) | PRD-06 | PRD-05 (LiLa integration) | ⏳ Unwired (MVP) | Phase 06 |
+| "Extract from Content" — upload content, extract GS entries | PRD-06 | Knowledge Base PRD | ⏳ Unwired (MVP) | TBD |
+| Family-level Guiding Stars creation — owner_type='family' column exists, creation flow deferred | PRD-06 | PRD-12 (LifeLantern) | ⏳ Unwired (MVP) | Phase 22 |
+| Dashboard widget for GS rotation — widget config defined | PRD-06 | PRD-10 (Widgets) | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Morning/Evening Review GS integration — data contracts defined | PRD-06 | PRD-18 (Rhythms) | ⏳ Unwired (MVP) | Phase 19 |
+| Victory Recorder GS thread detection — celebration checks GS for connections | PRD-06 | PRD-11 (Victory Recorder) | ⏳ Unwired (MVP) | Phase 12 |
+| Declaration language coaching — LiLa guides toward honest commitment language | PRD-06 | PRD-05 (LiLa crafting flow) | ⏳ Unwired (MVP) | Phase 06 |
+| Victory Recorder daily intention summary — intention_iterations consumed by Victory Recorder | PRD-06 | PRD-11 (Victory Recorder) | ⏳ Unwired (MVP) | Phase 12 |
+| Dashboard widget for BI celebration — widget config defined | PRD-06 | PRD-10 (Widgets) | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Bar graph tracker visualization — tracker_style column exists, UI shows "Enhanced" badge | PRD-06 | best_intentions_tracker_views feature key | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Streak tracker visualization — tracker_style column exists, UI shows "Enhanced" badge | PRD-06 | best_intentions_tracker_views feature key | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| "Discover with LiLa" (self_discovery guided mode) — button exists, stub behavior | PRD-07 | PRD-05 (lila_guided_modes seed + system prompt) | ⏳ Unwired (MVP) | Phase 06 |
+| Teen privacy indicator — UI badge showing visibility status | PRD-07 | PRD-02 (teen visibility setting) | ⏳ Unwired (MVP) | Phase 02+ |
+| Archives "checked somewhere, checked everywhere" — sharing state single-source-of-truth | PRD-07 | PRD-13 (Archives) | ⏳ Unwired (MVP) | Phase 13 |
+| Content extraction from Knowledge Base — upload to KB, extract IW entries | PRD-07 | Knowledge Base PRD | ⏳ Unwired (MVP) | TBD |
 | Messaging notifications | PRD-08 | PRD-15 | ✅ Wired | Phase 16 |
 | Review & Route routing UI | PRD-08 | PRD-08 | ✅ Wired | Phase 09 |
 | Send to Person (messaging) | PRD-08 | PRD-15 | ✅ Wired | Phase 16 |
@@ -307,7 +322,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 |--------|-------|
 | ✅ Wired | ~65 |
 | 🔗 Partially Wired | ~3 |
-| ⏳ Unwired (MVP) | ~2 |
+| ⏳ Unwired (MVP) | ~17 |
 | 📌 Post-MVP | ~45 |
 | ❌ Superseded | ~3 |
-| **Total** | ~118 |
+| **Total** | ~133 |

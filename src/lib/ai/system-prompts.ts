@@ -195,18 +195,34 @@ export function buildContextSection(contextData: {
   }
 
   if (contextData.guidingStars?.length) {
-    sections.push(`## Guiding Stars\n${contextData.guidingStars
-      .map(g => `- ${g.content}${g.category ? ` [${g.category}]` : ''}`)
-      .join('\n')}`)
+    const typeLabels: Record<string, string> = {
+      value: 'VALUES', declaration: 'DECLARATIONS',
+      scripture_quote: 'SCRIPTURES & QUOTES', vision: 'VISION',
+    }
+    const byType = new Map<string, string[]>()
+    for (const g of contextData.guidingStars) {
+      const type = g.entry_type || 'value'
+      const list = byType.get(type) || []
+      list.push(g.content)
+      byType.set(type, list)
+    }
+    const formatted = Array.from(byType.entries())
+      .map(([type, items]) => `${typeLabels[type] || type.toUpperCase()}:\n${items.map(i => `- ${i}`).join('\n')}`)
+      .join('\n\n')
+    sections.push(`## Guiding Stars\n${formatted}`)
   }
 
   if (contextData.bestIntentions?.length) {
-    sections.push(`## Best Intentions\n${contextData.bestIntentions
-      .map(b => `- ${b.statement}`)
+    sections.push(`## Active Intentions (relevant to this conversation)\n${contextData.bestIntentions
+      .map(b => `- "${b.statement}"`)
       .join('\n')}`)
   }
 
   if (contextData.selfKnowledge?.length) {
+    const catLabels: Record<string, string> = {
+      personality_type: 'PERSONALITY TYPES', trait_tendency: 'TRAITS & TENDENCIES',
+      strength: 'STRENGTHS', growth_area: 'GROWTH AREAS', general: 'GENERAL',
+    }
     const byCategory = new Map<string, string[]>()
     for (const sk of contextData.selfKnowledge) {
       const list = byCategory.get(sk.category) || []
@@ -214,8 +230,8 @@ export function buildContextSection(contextData: {
       byCategory.set(sk.category, list)
     }
     const formatted = Array.from(byCategory.entries())
-      .map(([cat, items]) => `### ${cat}\n${items.map(i => `- ${i}`).join('\n')}`)
-      .join('\n')
+      .map(([cat, items]) => `${catLabels[cat] || cat.toUpperCase()}:\n${items.map(i => `- ${i}`).join('\n')}`)
+      .join('\n\n')
     sections.push(`## Self-Knowledge (InnerWorkings)\n${formatted}`)
   }
 

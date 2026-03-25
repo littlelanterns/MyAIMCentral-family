@@ -617,14 +617,22 @@
 | content | TEXT | — | NO | |
 | category | TEXT | — | YES | |
 | description | TEXT | — | YES | |
+| entry_type | TEXT | — | YES | CHECK: 'value','declaration','scripture_quote','vision' |
+| owner_type | TEXT | 'member' | NO | CHECK: 'member','family' |
+| title | TEXT | — | YES | |
 | source | TEXT | 'manual' | NO | Also 'bookshelf' per PRD-23 |
+| source_reference_id | UUID | — | YES | |
 | is_included_in_ai | BOOLEAN | true | NO | |
+| is_private | BOOLEAN | false | NO | |
+| is_shared_with_partner | BOOLEAN | false | NO | |
+| sort_order | INTEGER | 0 | NO | |
 | embedding | vector(1536) | — | YES | |
+| archived_at | TIMESTAMPTZ | — | YES | Soft delete |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Member can manage own. Parent can read children's.
-**Indexes:** `idx_gs_family_member` ON (family_id, member_id); `idx_gs_embedding` USING ivfflat ON embedding WHERE embedding IS NOT NULL
+**Indexes:** `idx_gs_family_member` ON (family_id, member_id); `idx_gs_entry_type` ON (family_id, member_id, entry_type, archived_at); `idx_gs_owner_type` ON (family_id, owner_type, archived_at); `idx_gs_context` ON (family_id, is_included_in_ai, archived_at); `idx_gs_sort` ON (family_id, member_id, entry_type, sort_order); `idx_gs_embedding` USING ivfflat ON embedding WHERE embedding IS NOT NULL
 **Triggers:** `trg_gs_updated_at`
 
 ---
@@ -638,18 +646,27 @@
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
 | statement | TEXT | — | NO | |
+| description | TEXT | — | YES | |
 | tags | TEXT[] | — | YES | |
 | source | TEXT | 'manual' | NO | Also 'bigplans' per PRD-29 |
+| source_reference_id | UUID | — | YES | |
+| related_member_ids | UUID[] | — | YES | |
+| tracker_style | TEXT | 'counter' | NO | CHECK: 'counter','bar_graph','streak' |
 | celebration_count | INTEGER | 0 | NO | |
 | iteration_count | INTEGER | 0 | NO | |
+| is_active | BOOLEAN | true | NO | |
 | is_included_in_ai | BOOLEAN | true | NO | |
+| is_private | BOOLEAN | false | NO | |
+| is_shared_with_partner | BOOLEAN | false | NO | |
 | embedding | vector(1536) | — | YES | |
+| sort_order | INTEGER | 0 | NO | |
 | last_reset_at | TIMESTAMPTZ | — | YES | |
+| archived_at | TIMESTAMPTZ | — | YES | Soft delete |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Member can manage own. Parent can read children's.
-**Indexes:** `idx_bi_family_member` ON (family_id, member_id); `idx_bi_embedding` USING ivfflat ON embedding WHERE embedding IS NOT NULL
+**Indexes:** `idx_bi_family_member` ON (family_id, member_id); `idx_bi_active` ON (family_id, member_id, is_active, archived_at); `idx_bi_context` ON (family_id, is_included_in_ai, is_active, archived_at); `idx_bi_sort` ON (family_id, member_id, sort_order); `idx_bi_embedding` USING ivfflat ON embedding WHERE embedding IS NOT NULL
 **Triggers:** `trg_bi_updated_at`
 
 ---
@@ -661,11 +678,15 @@
 |--------|------|---------|----------|-------|
 | id | UUID | gen_random_uuid() | NO | PK |
 | intention_id | UUID | — | NO | FK best_intentions |
+| family_id | UUID | — | NO | FK families |
+| member_id | UUID | — | NO | FK family_members |
 | victory_reference | UUID | — | YES | FK victories |
+| recorded_at | TIMESTAMPTZ | now() | NO | |
+| day_date | DATE | CURRENT_DATE | NO | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Inherits from best_intentions.
-**Indexes:** `idx_ii_intention` ON intention_id
+**Indexes:** `idx_ii_intention` ON intention_id; `idx_ii_daily` ON (intention_id, day_date); `idx_ii_member_day` ON (member_id, day_date); `idx_ii_time` ON (intention_id, recorded_at)
 
 ---
 
@@ -677,7 +698,7 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
-| category | TEXT | — | NO | CHECK: 'personality','strengths','growth_areas','communication_style','how_i_work' |
+| category | TEXT | — | NO | CHECK: 'personality_type','trait_tendency','strength','growth_area','general' |
 | content | TEXT | — | NO | |
 | source_type | TEXT | — | NO | CHECK: 'manual','upload','lila_guided','bulk_add' |
 | share_with_mom | BOOLEAN | true | NO | |
@@ -701,7 +722,7 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | family_id | UUID | — | NO | FK families |
 | member_id | UUID | — | NO | FK family_members |
-| entry_type | TEXT | — | NO | CHECK: 'daily_reflection','gratitude','learning_capture','prayer','letter','memory','goal_check_in','dream','observation','free_write','reflection_response' |
+| entry_type | TEXT | — | NO | CHECK: 'journal_entry','gratitude','reflection','quick_note','commonplace','kid_quips','meeting_notes','transcript','lila_conversation','brain_dump','custom' (PRD-08 authoritative) |
 | content | TEXT | — | NO | |
 | tags | TEXT[] | '{}' | NO | PRD-18 |
 | visibility | TEXT | — | NO | CHECK: 'private','shared_parents','family' |
