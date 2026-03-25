@@ -501,8 +501,8 @@ export function ArchivesPage() {
     setBulkAddOpen(true)
   }
 
-  // The effective view mode: mobile always uses list
-  const effectiveView = isMobile ? 'list' : viewMode
+  // View mode — grid everywhere by default, toggle always available
+  const effectiveView = viewMode
 
   if (isLoading) {
     return (
@@ -533,8 +533,7 @@ export function ArchivesPage() {
 
           <div className="flex items-center gap-2">
             {/* Grid/List toggle — hidden on mobile */}
-            {!isMobile && (
-              <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
                 <button
                   onClick={() => setViewMode('grid')}
                   className="p-2 transition-colors"
@@ -558,7 +557,6 @@ export function ArchivesPage() {
                   <List size={16} />
                 </button>
               </div>
-            )}
 
             <button
               onClick={() => navigate('/archives/export')}
