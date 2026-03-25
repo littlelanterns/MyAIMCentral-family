@@ -8,7 +8,7 @@
 
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   Heart,
   HeartOff,
@@ -17,9 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  Archive,
   Users,
-  Fingerprint,
   Clock,
   Compass,
   BookHeart,
@@ -400,7 +398,7 @@ function OutOfNestCard({
 
 export function ArchivesPage() {
   const navigate = useNavigate()
-  const { data: member, isLoading: memberLoading } = useFamilyMember()
+  const { isLoading: memberLoading } = useFamilyMember()
   const { data: family, isLoading: familyLoading } = useFamily()
   const familyId = family?.id
 

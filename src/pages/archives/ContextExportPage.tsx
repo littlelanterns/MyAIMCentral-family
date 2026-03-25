@@ -20,7 +20,6 @@ import {
   Card,
   Badge,
   LoadingSpinner,
-  EmptyState,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -40,7 +39,7 @@ type ExportScope = 'everything' | 'people' | 'folders'
 
 export function ContextExportPage() {
   const navigate = useNavigate()
-  const { data: member, isLoading: memberLoading } = useFamilyMember()
+  const { isLoading: memberLoading } = useFamilyMember()
   const { data: family, isLoading: familyLoading } = useFamily()
   const familyId = family?.id
 

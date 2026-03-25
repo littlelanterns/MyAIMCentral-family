@@ -461,7 +461,7 @@ function GuidingStarRow({
           {star.content}
         </p>
         {star.entry_type && (
-          <Badge variant="flat" size="sm" className="mt-0.5">
+          <Badge variant="default" size="sm" className="mt-0.5">
             {star.entry_type.replace(/_/g, ' ')}
           </Badge>
         )}
@@ -681,7 +681,7 @@ export function FamilyOverviewDetail() {
                 Family Vision Quest — coming soon
               </p>
             </div>
-            <Badge variant="flat" size="sm">Planned</Badge>
+            <Badge variant="default" size="sm">Planned</Badge>
           </div>
         </Card>
 
@@ -702,7 +702,7 @@ export function FamilyOverviewDetail() {
                 Meeting Notes routing — coming soon
               </p>
             </div>
-            <Badge variant="flat" size="sm">Planned</Badge>
+            <Badge variant="default" size="sm">Planned</Badge>
           </div>
         </Card>
 
