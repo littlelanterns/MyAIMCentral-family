@@ -322,6 +322,10 @@ html.font-scale-extra-large { font-size: 20px; }
 }
 ::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
 
+/* Panel scrollbar — matches card background instead of page background */
+.scrollbar-card::-webkit-scrollbar-track { background: var(--color-bg-card, #fff); }
+.scrollbar-card::-webkit-scrollbar-thumb { background: var(--color-border, #d4e3d9); }
+
 /* ============================================================
  * Responsive breakpoints
  * ============================================================ */

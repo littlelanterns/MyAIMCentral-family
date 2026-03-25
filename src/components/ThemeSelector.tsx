@@ -203,11 +203,12 @@ export function ThemeSelector() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-80 max-h-[90vh] overflow-y-auto rounded-lg mt-10 mr-2"
+        className="w-80 max-h-[90vh] overflow-y-auto rounded-lg mt-10 mr-2 scrollbar-card"
         style={{
           backgroundColor: 'var(--color-bg-card)',
           border: '1px solid var(--color-border)',
           boxShadow: 'var(--shadow-lg)',
+          scrollbarColor: 'var(--color-border) var(--color-bg-card)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
