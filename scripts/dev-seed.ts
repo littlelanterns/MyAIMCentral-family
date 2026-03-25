@@ -118,7 +118,7 @@ async function seed() {
         user_id: userId,
         display_name: TEST_DISPLAY_NAME,
         role: 'primary_parent',
-        login_method: 'email',
+        auth_method: 'full_login',
         is_active: true,
       })
 

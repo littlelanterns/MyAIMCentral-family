@@ -8,7 +8,7 @@ interface LoginMember {
   member_id: string
   display_name: string
   avatar_url: string | null
-  login_method: string | null
+  auth_method: string | null
   member_color: string | null
   dashboard_mode: string | null
 }
@@ -22,7 +22,13 @@ interface PinVerifyResult {
   remaining_seconds?: number
 }
 
-type Step = 'family-name' | 'member-select' | 'pin-entry'
+interface VisualPasswordImage {
+  id: string
+  display_name: string
+  url: string
+}
+
+type Step = 'family-name' | 'member-select' | 'pin-entry' | 'visual-password'
 
 export function FamilyLogin() {
   const navigate = useNavigate()
@@ -35,6 +41,10 @@ export function FamilyLogin() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Visual password state
+  const [visualImages, setVisualImages] = useState<VisualPasswordImage[]>([])
+  const [visualSequence, setVisualSequence] = useState<string[]>([])
 
   // Lockout state
   const [isLocked, setIsLocked] = useState(false)
@@ -112,14 +122,87 @@ export function FamilyLogin() {
     setLockoutSecondsRemaining(0)
     if (countdownRef.current) clearInterval(countdownRef.current)
 
-    if (member.login_method === 'none') {
+    if (member.auth_method === 'none') {
       // No auth needed — go directly to dashboard
       // STUB: In full implementation, this creates a session
       navigate('/dashboard')
       return
     }
 
+    if (member.auth_method === 'visual_password') {
+      // Load visual password images from platform_assets
+      loadVisualImages()
+      setVisualSequence([])
+      setStep('visual-password')
+      return
+    }
+
     setStep('pin-entry')
+  }
+
+  async function loadVisualImages() {
+    const { data } = await supabase
+      .from('platform_assets')
+      .select('id, display_name, size_128_url')
+      .eq('category', 'login_avatar')
+      .eq('status', 'active')
+      .order('display_name')
+
+    if (data && data.length > 0) {
+      setVisualImages(
+        data.map((a) => ({
+          id: a.id,
+          display_name: a.display_name || 'Image',
+          url: a.size_128_url || a.size_128_url,
+        })),
+      )
+    }
+  }
+
+  function handleVisualImageTap(imageId: string) {
+    setVisualSequence((prev) => {
+      const next = [...prev, imageId]
+      // Visual passwords are typically 4 images
+      if (next.length >= 4) {
+        verifyVisualPassword(next)
+      }
+      return next
+    })
+    setError('')
+  }
+
+  async function verifyVisualPassword(sequence: string[]) {
+    if (!selectedMember) return
+    setLoading(true)
+    setError('')
+
+    // Fetch the member's visual_password_config to compare
+    const { data: memberData } = await supabase
+      .from('family_members')
+      .select('visual_password_config')
+      .eq('id', selectedMember.member_id)
+      .single()
+
+    setLoading(false)
+
+    if (!memberData?.visual_password_config) {
+      setError('Visual password is not set up yet. Ask mom to set it up for you.')
+      setVisualSequence([])
+      return
+    }
+
+    const config = memberData.visual_password_config as { sequence: string[] }
+    const correctSequence = config.sequence || []
+
+    if (
+      sequence.length === correctSequence.length &&
+      sequence.every((id, i) => id === correctSequence[i])
+    ) {
+      navigate('/dashboard')
+    } else {
+      setError('That wasn\'t right. Try tapping the pictures in the right order!')
+      setVisualSequence([])
+    }
   }
 
   async function handlePinSubmit(e: React.FormEvent) {
@@ -158,32 +241,26 @@ export function FamilyLogin() {
     }
 
     if (result.reason === 'invalid') {
-      const remaining = result.attempts_remaining ?? 0
-      if (remaining === 1) {
-        setError(`Incorrect PIN. 1 attempt remaining before lockout.`)
-      } else if (remaining === 0) {
-        // Server will lock on the next attempt — show lockout preemptively
-        setError('Incorrect PIN. Your account is now locked.')
-      } else {
-        setError(`Incorrect PIN. ${remaining} attempts remaining.`)
-      }
+      // PRD-01: child-friendly language
+      setError('Incorrect PIN. Please try again, or ask mom to reset it.')
       return
     }
 
     if (result.reason === 'not_found') {
-      setError('Member not found. Please try again.')
+      setError('Something went wrong. Please go back and try again.')
       return
     }
 
-    setError('Incorrect PIN. Please try again.')
+    setError('Incorrect PIN. Please try again, or ask mom to reset it.')
   }
 
   function goBack() {
     if (countdownRef.current) clearInterval(countdownRef.current)
-    if (step === 'pin-entry') {
+    if (step === 'pin-entry' || step === 'visual-password') {
       setStep('member-select')
       setSelectedMember(null)
       setPin('')
+      setVisualSequence([])
       setError('')
       setIsLocked(false)
       setLockoutSecondsRemaining(0)
@@ -228,16 +305,16 @@ export function FamilyLogin() {
               color: 'var(--theme-warning-text, #92400e)',
             }}
           >
-            <p className="font-medium">Too many incorrect attempts.</p>
+            <p className="font-medium">Too many tries!</p>
             <p>
-              Try again in{' '}
+              You can try again in{' '}
               <span className="font-semibold tabular-nums">
                 {formatLockoutTime(lockoutSecondsRemaining)}
               </span>
               .
             </p>
             <p className="text-xs" style={{ opacity: 0.75 }}>
-              Ask mom to reset your PIN if you need access sooner.
+              Ask mom to reset your PIN if you need help getting in.
             </p>
           </div>
         )}
@@ -381,6 +458,95 @@ export function FamilyLogin() {
               Forgot your PIN? Ask mom to reset it.
             </p>
           </form>
+        )}
+
+        {/* ── Step: Visual Password ── */}
+        {step === 'visual-password' && selectedMember && (
+          <div className="space-y-4">
+            <p className="text-center" style={{ color: 'var(--theme-text)' }}>
+              Hi, {selectedMember.display_name}!
+            </p>
+            <p
+              className="text-center text-sm"
+              style={{ color: 'var(--theme-text-muted)' }}
+            >
+              Tap your pictures in the right order
+            </p>
+
+            {/* Selected sequence indicator */}
+            <div className="flex justify-center gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-8 h-8 rounded-full border-2 flex items-center justify-center"
+                  style={{
+                    borderColor: visualSequence[i]
+                      ? 'var(--theme-primary)'
+                      : 'var(--theme-border)',
+                    backgroundColor: visualSequence[i]
+                      ? 'var(--theme-primary)'
+                      : 'transparent',
+                  }}
+                >
+                  {visualSequence[i] && (
+                    <span className="text-white text-xs font-bold">{i + 1}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Image grid */}
+            {visualImages.length > 0 ? (
+              <div className="grid grid-cols-3 gap-3">
+                {visualImages.map((img) => (
+                  <button
+                    key={img.id}
+                    onClick={() => handleVisualImageTap(img.id)}
+                    disabled={loading || visualSequence.length >= 4}
+                    className="aspect-square rounded-xl overflow-hidden transition-transform active:scale-95 disabled:opacity-40"
+                    style={{
+                      border: visualSequence.includes(img.id)
+                        ? '3px solid var(--theme-primary)'
+                        : '2px solid var(--theme-border)',
+                      backgroundColor: 'var(--theme-surface)',
+                    }}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.display_name}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p
+                className="text-center text-sm py-4"
+                style={{ color: 'var(--theme-text-muted)' }}
+              >
+                Visual password images are not available yet. Ask mom to set them up.
+              </p>
+            )}
+
+            <button
+              onClick={() => setVisualSequence([])}
+              disabled={visualSequence.length === 0}
+              className="w-full py-2 rounded-lg text-sm font-medium disabled:opacity-30"
+              style={{
+                backgroundColor: 'var(--theme-surface)',
+                border: '1px solid var(--theme-border)',
+                color: 'var(--theme-text)',
+              }}
+            >
+              Start Over
+            </button>
+            <p
+              className="text-xs text-center"
+              style={{ color: 'var(--theme-text-muted)' }}
+            >
+              Can't remember? Ask mom to reset your picture password.
+            </p>
+          </div>
         )}
 
         <p className="text-center text-sm">

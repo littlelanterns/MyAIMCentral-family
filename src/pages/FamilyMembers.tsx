@@ -7,6 +7,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import { FeatureGuide } from '@/components/shared'
 import { MEMBER_COLORS } from '@/config/member_colors'
+import { QRCodeSVG } from 'qrcode.react'
 
 /**
  * PRD-01: Family Members management page
@@ -188,7 +189,7 @@ function MemberRow({
   onOpenInvite,
   onSave,
 }: {
-  member: { id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; login_method: string | null }
+  member: { id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null }
   isEditing: boolean
   onToggleEdit: () => void
   onOpenPin: () => void
@@ -508,6 +509,19 @@ function InviteModal({ memberId, memberName, familyId: _familyId, onClose }: { m
 
         {inviteLink ? (
           <div className="space-y-3">
+            {/* PRD-01: QR code display for invite links */}
+            <div className="flex justify-center py-2">
+              <QRCodeSVG
+                value={inviteLink}
+                size={160}
+                level="M"
+                bgColor="transparent"
+                fgColor="var(--color-text-primary)"
+              />
+            </div>
+            <p className="text-xs text-center" style={{ color: 'var(--color-text-secondary)' }}>
+              Show this QR code or share the link below
+            </p>
             <div
               className="p-3 rounded-lg text-xs break-all"
               style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
@@ -520,7 +534,7 @@ function InviteModal({ memberId, memberName, familyId: _familyId, onClose }: { m
               style={{ backgroundColor: 'var(--color-sage-teal)' }}
             >
               <LinkIcon size={16} />
-              {copied ? 'Copied!' : 'Copy Link'}
+              {copied ? 'Copied!' : 'Copy Link to Share'}
             </button>
             <p className="text-xs text-center" style={{ color: 'var(--color-text-secondary)' }}>
               Link expires in 7 days.

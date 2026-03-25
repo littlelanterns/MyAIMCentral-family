@@ -10,7 +10,7 @@ export interface FamilyMember {
   role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'
   dashboard_mode: 'adult' | 'independent' | 'guided' | 'play' | null
   avatar_url: string | null
-  login_method: string | null
+  auth_method: 'full_login' | 'pin' | 'visual_password' | 'none' | null
   member_color: string | null
   calendar_color: string | null
   assigned_color: string | null

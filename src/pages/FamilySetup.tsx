@@ -20,6 +20,8 @@ interface ParsedMember {
   member_color: string
   custom_role: string | null
   in_household: boolean
+  selected: boolean          // PRD-01: include/exclude checkbox
+  isDuplicate: boolean       // PRD-01: duplicate detection flag
 }
 
 function calculateAge(dob: string): number | null {
@@ -127,6 +129,19 @@ Return ONLY a JSON array. Example:
         return
       }
 
+      // PRD-01: Fetch existing family members for duplicate detection
+      let existingNames: string[] = []
+      if (member?.family_id) {
+        const { data: existing } = await supabase
+          .from('family_members')
+          .select('display_name')
+          .eq('family_id', member.family_id)
+          .eq('is_active', true)
+        if (existing) {
+          existingNames = existing.map((m) => m.display_name.toLowerCase().trim())
+        }
+      }
+
       let colorIndex = 0
       const members: ParsedMember[] = parsed
         .filter(m => m.display_name && typeof m.display_name === 'string')
@@ -153,9 +168,14 @@ Return ONLY a JSON array. Example:
           const member_color = MEMBER_COLORS[colorIndex % MEMBER_COLORS.length].hex
           colorIndex++
 
+          const displayName = (m.display_name as string).trim()
+
+          // PRD-01: Duplicate detection
+          const isDuplicate = existingNames.includes(displayName.toLowerCase())
+
           return {
             id: crypto.randomUUID(),
-            display_name: (m.display_name as string).trim(),
+            display_name: displayName,
             relationship,
             role,
             dashboard_mode: dashboardMode,
@@ -164,6 +184,8 @@ Return ONLY a JSON array. Example:
             member_color,
             custom_role: typeof m.custom_role === 'string' ? m.custom_role : null,
             in_household: relationship !== 'out_of_nest' && m.in_household !== false,
+            selected: !isDuplicate, // PRD-01: auto-deselect duplicates
+            isDuplicate,
           }
         })
 
@@ -197,6 +219,8 @@ Return ONLY a JSON array. Example:
           member_color: nextColor,
           custom_role: null,
           in_household: true,
+          selected: true,
+          isDuplicate: false,
         },
       ]
     })
@@ -218,9 +242,10 @@ Return ONLY a JSON array. Example:
     setSaving(true)
     setError('')
 
-    const validMembers = parsedMembers.filter((m) => m.display_name.trim())
+    // PRD-01: Only save selected members with names
+    const validMembers = parsedMembers.filter((m) => m.selected && m.display_name.trim())
     if (validMembers.length === 0) {
-      setError('Please enter a name for at least one family member.')
+      setError('Please select at least one family member to add.')
       setSaving(false)
       return
     }
@@ -244,7 +269,7 @@ Return ONLY a JSON array. Example:
           custom_role: m.custom_role,
           in_household: true,
           dashboard_enabled: true,
-          login_method: 'pin',
+          auth_method: 'pin',
           is_active: true,
         }))
 
@@ -305,6 +330,7 @@ Return ONLY a JSON array. Example:
   }
 
   if (step === 'done') {
+    const addedCount = parsedMembers.filter((m) => m.selected).length
     return (
       <div className="max-w-2xl mx-auto text-center space-y-6 py-12">
         <div
@@ -320,15 +346,36 @@ Return ONLY a JSON array. Example:
           Your family is set up!
         </h1>
         <p style={{ color: 'var(--color-text-secondary)' }}>
-          {parsedMembers.length} member{parsedMembers.length !== 1 ? 's' : ''} added.
+          {addedCount} member{addedCount !== 1 ? 's' : ''} added.
           PINs were auto-set from birthdays (MMDD) — you can change them in Family Members.
         </p>
+
+        {/* PRD-01: Prompt to set up Family Login Name after bulk add */}
+        <div
+          className="p-4 rounded-xl space-y-3"
+          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+        >
+          <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
+            Set up your Family Login Name
+          </p>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            This is the fun name your family types when logging in from a shared device. Make it memorable!
+          </p>
+          <button
+            onClick={() => navigate('/family-login-name')}
+            className="w-full py-3 rounded-lg font-medium text-white"
+            style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }}
+          >
+            Set Up Family Login Name
+          </button>
+        </div>
+
         <button
           onClick={() => navigate('/dashboard')}
-          className="px-6 py-3 rounded-lg font-medium text-white"
-          style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }}
+          className="text-sm underline"
+          style={{ color: 'var(--color-text-secondary)' }}
         >
-          Go to Dashboard
+          Skip for now
         </button>
       </div>
     )
@@ -457,7 +504,7 @@ Return ONLY a JSON array. Example:
               className="flex-1 py-3 rounded-lg font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }}
             >
-              {saving ? 'Saving...' : `Confirm & Add ${parsedMembers.length} Member${parsedMembers.length !== 1 ? 's' : ''}`}
+              {saving ? 'Saving...' : `Confirm & Add ${parsedMembers.filter(m => m.selected).length} Member${parsedMembers.filter(m => m.selected).length !== 1 ? 's' : ''}`}
             </button>
             <button
               onClick={() => { setStep('describe'); setParsedMembers([]) }}
@@ -491,11 +538,36 @@ function MemberCard({
       className="p-4 rounded-xl space-y-3 card-hover"
       style={{
         backgroundColor: 'var(--color-bg-card)',
-        border: '1px solid var(--color-border)',
+        border: member.isDuplicate
+          ? '2px solid var(--color-warning, #f59e0b)'
+          : '1px solid var(--color-border)',
+        opacity: member.selected ? 1 : 0.5,
       }}
     >
+      {/* PRD-01: Duplicate warning banner */}
+      {member.isDuplicate && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+          style={{
+            backgroundColor: 'var(--color-warning-surface, #fef3c7)',
+            color: 'var(--color-warning-text, #92400e)',
+          }}
+        >
+          A member named &quot;{member.display_name}&quot; already exists. This may be a duplicate.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
+          {/* PRD-01: Include/exclude checkbox */}
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={member.selected}
+              onChange={(e) => onUpdate({ selected: e.target.checked })}
+              className="w-4 h-4 rounded accent-current"
+              style={{ accentColor: 'var(--color-sage-teal, #68a395)' }}
+            />
+          </label>
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
             style={{ backgroundColor: member.member_color, color: getContrastText(member.member_color) }}

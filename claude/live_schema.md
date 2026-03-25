@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase instance on 2026-03-24
+> Auto-generated from live Supabase instance on 2026-03-25
 > Regenerate: `node scripts/dump-schema.js`
 > Tables found: 66 / 67
 
@@ -41,8 +41,8 @@
 | 5 | `role` |
 | 6 | `avatar_url` |
 | 7 | `pin_hash` |
-| 8 | `visual_password` |
-| 9 | `login_method` |
+| 8 | `visual_password_config` |
+| 9 | `auth_method` |
 | 10 | `member_color` |
 | 11 | `calendar_color` |
 | 12 | `gamification_points` |
@@ -321,7 +321,26 @@
 
 ## `self_knowledge`
 
-*(empty table — columns exist but no sample row)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `category` |
+| 5 | `content` |
+| 6 | `source_type` |
+| 7 | `share_with_mom` |
+| 8 | `share_with_dad` |
+| 9 | `is_included_in_ai` |
+| 10 | `embedding` |
+| 11 | `created_at` |
+| 12 | `updated_at` |
+| 13 | `source` |
+| 14 | `source_reference_id` |
+| 15 | `file_storage_path` |
+| 16 | `is_private` |
+| 17 | `sort_order` |
+| 18 | `archived_at` |
 
 ## `journal_entries`
 

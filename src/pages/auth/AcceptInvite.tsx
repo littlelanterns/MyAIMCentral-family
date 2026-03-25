@@ -39,7 +39,7 @@
  *   UPDATE public.family_members
  *   SET user_id        = auth.uid(),
  *       invite_status  = 'accepted',
- *       login_method   = 'email',
+ *       auth_method    = 'full_login',
  *       invite_token   = NULL
  *   WHERE id = v_member.id;
  *
