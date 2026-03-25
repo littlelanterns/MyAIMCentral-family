@@ -83,7 +83,7 @@ export const vibes: Record<VibeKey, VibeConfig> = {
     decorationLevel: 'none',
   },
   nautical: {
-    name: 'Nautical',
+    name: 'Professional',
     fontHeading: "Georgia, 'Times New Roman', serif",
     fontBody: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
     radiusCard: '10px',
@@ -114,13 +114,13 @@ export type ThemeKey =
   | 'classic' | 'sage_garden' | 'rose_gold' | 'ocean_depth'
   | 'golden_hour' | 'lavender_fields' | 'earth_tones' | 'sunset_coral'
   | 'mint_fresh'
-  // Warm & Cozy (8 new)
+  // Warm & Cozy (7)
   | 'honey_linen' | 'warm_sunset' | 'dusty_blush' | 'earthy_comfort'
   | 'champagne' | 'hearthstone' | 'timber_iron'
   // Cool & Calm (7)
   | 'ocean_breeze' | 'forest_calm' | 'sage_cream' | 'pine_stone'
   | 'coastal_slate' | 'teal_storm' | 'lavender_dreams'
-  // Bold & Rich (7)
+  // Bold & Rich (6)
   | 'captains_quarters' | 'inkwell_bronze' | 'evening_indigo'
   | 'plum_electric' | 'midnight_berry' | 'sunset_blaze'
   // Soft & Light (5)
@@ -128,6 +128,9 @@ export type ThemeKey =
   // Bright & Fun (6)
   | 'sunshine_day' | 'garden_party' | 'ocean_adventure'
   | 'berry_bright' | 'minty_fresh' | 'peachy_keen'
+  // Seasonal (6)
+  | 'fresh_spring' | 'sunny_summer' | 'cozy_autumn'
+  | 'winter_wonderland' | 'christmas_joy' | 'fall_fun'
 
 export interface ThemeColors {
   name: string
@@ -995,6 +998,129 @@ export const themes: Record<ThemeKey, ThemeColors> = {
       btnPrimaryHover: '#cc7844', btnSecondaryBg: 'transparent', btnSecondaryText: '#f4dece',
       btnSecondaryBorder: '#4a3828', border: '#4a3828', borderFocus: '#b86432', accent: '#b25a58',
       accentDeep: '#8e3e3c', textOnPrimary: '#ffffff', borderDefault: '#5a4838',
+    },
+  },
+
+  // ─── Seasonal (6 themes) ───
+
+  fresh_spring: {
+    name: 'Fresh Spring',
+    family: 'Seasonal',
+    light: {
+      bgPrimary: '#dcefe3', bgSecondary: '#fff6d5', bgCard: '#ffffff', bgNav: '#4b7c66',
+      bgInput: '#ffffff', textPrimary: '#2d3a32', textSecondary: '#5e7164',
+      textHeading: '#355f50', btnPrimaryBg: '#b2d3c0', btnPrimaryText: '#2d3a32',
+      btnPrimaryHover: '#8fc0a8', btnSecondaryBg: 'transparent', btnSecondaryText: '#2d3a32',
+      btnSecondaryBorder: '#b2d3c0', border: '#c8e2d4', borderFocus: '#4b7c66', accent: '#fce8e3',
+      accentDeep: '#d69a84', textOnPrimary: '#2d3a32', borderDefault: '#b8d8c8',
+    },
+    dark: {
+      bgPrimary: '#101c14', bgSecondary: '#1e2a1c', bgCard: '#243028', bgNav: '#162418',
+      bgInput: '#1e2a1c', textPrimary: '#d4e8dc', textSecondary: '#8ab8a0',
+      textHeading: '#b2d3c0', btnPrimaryBg: '#4b7c66', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#5e9478', btnSecondaryBg: 'transparent', btnSecondaryText: '#d4e8dc',
+      btnSecondaryBorder: '#2c4a36', border: '#2c4a36', borderFocus: '#4b7c66', accent: '#fce8e3',
+      accentDeep: '#d69a84', textOnPrimary: '#ffffff', borderDefault: '#3c5a46',
+    },
+  },
+  sunny_summer: {
+    name: 'Sunny Summer',
+    family: 'Seasonal',
+    light: {
+      bgPrimary: '#fff6d5', bgSecondary: '#f9c396', bgCard: '#ffffff', bgNav: '#8c6b3f',
+      bgInput: '#ffffff', textPrimary: '#4a3a20', textSecondary: '#8c6b3f',
+      textHeading: '#6a5030', btnPrimaryBg: '#b99c34', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#9a8028', btnSecondaryBg: 'transparent', btnSecondaryText: '#4a3a20',
+      btnSecondaryBorder: '#f3d188', border: '#f3d188', borderFocus: '#b99c34', accent: '#a8cfc8',
+      accentDeep: '#68a395', textOnPrimary: '#ffffff', borderDefault: '#e8d4a4',
+    },
+    dark: {
+      bgPrimary: '#1a1610', bgSecondary: '#2a2418', bgCard: '#322c1e', bgNav: '#2a2010',
+      bgInput: '#2a2418', textPrimary: '#f4e8d0', textSecondary: '#c4a878',
+      textHeading: '#f3d188', btnPrimaryBg: '#b99c34', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#d0b440', btnSecondaryBg: 'transparent', btnSecondaryText: '#f4e8d0',
+      btnSecondaryBorder: '#4a4030', border: '#4a4030', borderFocus: '#b99c34', accent: '#a8cfc8',
+      accentDeep: '#68a395', textOnPrimary: '#ffffff', borderDefault: '#5a5040',
+    },
+  },
+  cozy_autumn: {
+    name: 'Cozy Autumn',
+    family: 'Seasonal',
+    light: {
+      bgPrimary: '#fde3c7', bgSecondary: '#c8ad9d', bgCard: '#ffffff', bgNav: '#6a3a1e',
+      bgInput: '#ffffff', textPrimary: '#402010', textSecondary: '#8a5a3a',
+      textHeading: '#6a3a1e', btnPrimaryBg: '#b86432', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#9a5028', btnSecondaryBg: 'transparent', btnSecondaryText: '#402010',
+      btnSecondaryBorder: '#c8ad9d', border: '#d8c4b0', borderFocus: '#b86432', accent: '#b25a58',
+      accentDeep: '#8e3e3c', textOnPrimary: '#ffffff', borderDefault: '#ccb4a0',
+    },
+    dark: {
+      bgPrimary: '#1a1410', bgSecondary: '#2a2018', bgCard: '#342a1e', bgNav: '#2c1a0e',
+      bgInput: '#2a2018', textPrimary: '#f0dcc8', textSecondary: '#c89878',
+      textHeading: '#f9c396', btnPrimaryBg: '#b86432', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#cc7844', btnSecondaryBg: 'transparent', btnSecondaryText: '#f0dcc8',
+      btnSecondaryBorder: '#4a3828', border: '#4a3828', borderFocus: '#b86432', accent: '#b25a58',
+      accentDeep: '#8e3e3c', textOnPrimary: '#ffffff', borderDefault: '#5a4838',
+    },
+  },
+  winter_wonderland: {
+    name: 'Winter Wonderland',
+    family: 'Seasonal',
+    light: {
+      bgPrimary: '#c8d1d6', bgSecondary: '#d4e3d9', bgCard: '#ffffff', bgNav: '#5d3e60',
+      bgInput: '#ffffff', textPrimary: '#2a2440', textSecondary: '#5d3e60',
+      textHeading: '#4a3050', btnPrimaryBg: '#805a82', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#6a4a6c', btnSecondaryBg: 'transparent', btnSecondaryText: '#2a2440',
+      btnSecondaryBorder: '#a88aac', border: '#bcc8cc', borderFocus: '#805a82', accent: '#d4e3d9',
+      accentDeep: '#68a395', textOnPrimary: '#ffffff', borderDefault: '#b0bcc0',
+    },
+    dark: {
+      bgPrimary: '#141418', bgSecondary: '#1e2026', bgCard: '#282a30', bgNav: '#1e1a24',
+      bgInput: '#1e2026', textPrimary: '#d8dce0', textSecondary: '#9a8eac',
+      textHeading: '#c8b4cc', btnPrimaryBg: '#805a82', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#9a7a9c', btnSecondaryBg: 'transparent', btnSecondaryText: '#d8dce0',
+      btnSecondaryBorder: '#3c3848', border: '#3c3848', borderFocus: '#805a82', accent: '#d4e3d9',
+      accentDeep: '#68a395', textOnPrimary: '#ffffff', borderDefault: '#4c4858',
+    },
+  },
+  christmas_joy: {
+    name: 'Christmas Joy',
+    family: 'Seasonal',
+    light: {
+      bgPrimary: '#f8d6d0', bgSecondary: '#dcefe3', bgCard: '#ffffff', bgNav: '#4b7c66',
+      bgInput: '#ffffff', textPrimary: '#2d2018', textSecondary: '#6a4a3a',
+      textHeading: '#8e3e3c', btnPrimaryBg: '#b25a58', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#8e3e3c', btnSecondaryBg: 'transparent', btnSecondaryText: '#2d2018',
+      btnSecondaryBorder: '#4b7c66', border: '#e8c8c4', borderFocus: '#b25a58', accent: '#fae49b',
+      accentDeep: '#b99c34', textOnPrimary: '#ffffff', borderDefault: '#dcc0b8',
+    },
+    dark: {
+      bgPrimary: '#18100e', bgSecondary: '#281a18', bgCard: '#302220', bgNav: '#162418',
+      bgInput: '#281a18', textPrimary: '#f4dcd8', textSecondary: '#c09080',
+      textHeading: '#f3a6a0', btnPrimaryBg: '#b25a58', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#c46e6c', btnSecondaryBg: 'transparent', btnSecondaryText: '#f4dcd8',
+      btnSecondaryBorder: '#2c4a36', border: '#483028', borderFocus: '#b25a58', accent: '#fae49b',
+      accentDeep: '#b99c34', textOnPrimary: '#ffffff', borderDefault: '#584038',
+    },
+  },
+  fall_fun: {
+    name: 'Fall Fun',
+    family: 'Seasonal',
+    light: {
+      bgPrimary: '#fde3c7', bgSecondary: '#e9daec', bgCard: '#ffffff', bgNav: '#6a3a1e',
+      bgInput: '#ffffff', textPrimary: '#3a2020', textSecondary: '#805a82',
+      textHeading: '#6a3a1e', btnPrimaryBg: '#b86432', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#9a5028', btnSecondaryBg: 'transparent', btnSecondaryText: '#3a2020',
+      btnSecondaryBorder: '#805a82', border: '#d8c4b0', borderFocus: '#b86432', accent: '#b99c34',
+      accentDeep: '#8c6b3f', textOnPrimary: '#ffffff', borderDefault: '#ccb4a0',
+    },
+    dark: {
+      bgPrimary: '#1a1410', bgSecondary: '#241e26', bgCard: '#2e2620', bgNav: '#2c1a0e',
+      bgInput: '#241e26', textPrimary: '#f0dcc8', textSecondary: '#a88aac',
+      textHeading: '#f9c396', btnPrimaryBg: '#b86432', btnPrimaryText: '#ffffff',
+      btnPrimaryHover: '#cc7844', btnSecondaryBg: 'transparent', btnSecondaryText: '#f0dcc8',
+      btnSecondaryBorder: '#3c3848', border: '#4a3828', borderFocus: '#b86432', accent: '#b99c34',
+      accentDeep: '#8c6b3f', textOnPrimary: '#ffffff', borderDefault: '#5a4838',
     },
   },
 }

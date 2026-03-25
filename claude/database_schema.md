@@ -61,6 +61,7 @@
 | longest_streak | INTEGER | 0 | NO | PRD-24 |
 | last_task_completion_date | DATE | — | YES | PRD-24 |
 | is_active | BOOLEAN | true | NO | |
+| emergency_locked | BOOLEAN | false | NO | PRD-02 repair: immediate all-access revocation |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
@@ -136,6 +137,22 @@
 
 **RLS:** Primary parent only.
 **Indexes:** `idx_vas_family` ON family_id; `idx_vas_viewer` ON viewer_id; `idx_vas_active` ON (viewer_id) WHERE ended_at IS NULL
+
+---
+
+### `view_as_feature_exclusions`
+**PRD:** PRD-02 | **Domain:** auth_family
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| session_id | UUID | — | NO | FK view_as_sessions |
+| feature_key | TEXT | — | NO | |
+| created_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Primary parent only (via view_as_sessions join).
+**Indexes:** `idx_vafe_session` ON session_id
+**Constraints:** UNIQUE (session_id, feature_key)
 
 ---
 

@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, ChevronDown, ChevronRight, Eye, EyeOff, Users, UserCog, Zap, Layers, Crown } from 'lucide-react'
+import {
+  ArrowLeft, Shield, ChevronDown, ChevronRight, Eye, EyeOff, Users, UserCog,
+  Zap, Layers, Crown, AlertTriangle, Lock, Unlock, Clock, ClipboardList,
+  Globe, BookOpen, StopCircle, AlertCircle,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
@@ -16,7 +20,8 @@ import { FeatureGuide } from '@/components/shared'
  * Mom-only access. Full configuration of who sees what.
  */
 
-// Feature categories for the permission grid
+// ─── Feature categories for the permission grid ───────────────────────────────
+
 const PERMISSION_CATEGORIES = [
   {
     label: 'Daily Life',
@@ -55,6 +60,17 @@ const PERMISSION_CATEGORIES = [
   },
 ]
 
+// Dad's personal features (Issue 7) — separate from per-kid permissions
+const DAD_PERSONAL_FEATURES = [
+  { key: 'journal_basic', label: 'Journal' },
+  { key: 'notepad_basic', label: 'Notepad' },
+  { key: 'guiding_stars_basic', label: 'Guiding Stars' },
+  { key: 'best_intentions', label: 'Best Intentions' },
+  { key: 'innerworkings_basic', label: 'InnerWorkings' },
+  { key: 'rhythms_basic', label: 'Rhythms' },
+  { key: 'safe_harbor', label: 'Safe Harbor' },
+]
+
 const ACCESS_LEVELS = ['none', 'view', 'contribute', 'manage'] as const
 const ACCESS_LEVEL_LABELS: Record<string, string> = {
   none: 'No Access',
@@ -69,10 +85,13 @@ const ACCESS_LEVEL_COLORS: Record<string, string> = {
   manage: 'var(--color-success, #4b7c66)',
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function PermissionHub() {
   const navigate = useNavigate()
   const { data: member } = useFamilyMember()
   const { data: allMembers } = useFamilyMembers(member?.family_id)
+  const [activeTab, setActiveTab] = useState<'overview' | 'shifts'>('overview')
 
   if (member?.role !== 'primary_parent') {
     return (
@@ -92,7 +111,7 @@ export function PermissionHub() {
     <div className="max-w-3xl mx-auto space-y-6">
       <button
         onClick={() => navigate('/dashboard')}
-        className="flex items-center gap-1 text-sm"
+        className="hidden md:flex items-center gap-1 text-sm"
         style={{ color: 'var(--color-text-secondary)' }}
       >
         <ArrowLeft size={16} /> Back to Dashboard
@@ -117,80 +136,273 @@ export function PermissionHub() {
         Permission Hub
       </h1>
 
-      {/* Additional Adults Section */}
-      {adults.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
-              style={{ color: 'var(--color-text-secondary)' }}>
-            <Users size={16} /> Additional Adults
-          </h2>
-          {adults.map((adult) => (
-            <AdultPermissionCard
-              key={adult.id}
-              adult={adult}
-              children={children}
-              familyId={member!.family_id}
-              momId={member!.id}
-            />
-          ))}
-        </section>
-      )}
+      {/* Tab bar — Overview / Shift Log (Issue 12) */}
+      <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+        {(['overview', 'shifts'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: activeTab === tab ? 'var(--color-bg-card)' : 'transparent',
+              color: activeTab === tab ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
+            }}
+          >
+            {tab === 'overview' ? 'Permissions' : 'Shift Log'}
+          </button>
+        ))}
+      </div>
 
-      {/* Special Adults Section */}
-      {specialAdults.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
-              style={{ color: 'var(--color-text-secondary)' }}>
-            <UserCog size={16} /> Special Adults / Caregivers
-          </h2>
-          {specialAdults.map((sa) => (
-            <SpecialAdultCard key={sa.id} specialAdult={sa} familyId={member!.family_id} />
-          ))}
-        </section>
-      )}
+      {activeTab === 'overview' ? (
+        <>
+          {/* Issue 8: Global Permissions Section */}
+          <GlobalPermissionsSection familyId={member!.family_id} />
 
-      {/* Teen Transparency Section */}
-      {teens.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
-              style={{ color: 'var(--color-text-secondary)' }}>
-            <Eye size={16} /> Teen Visibility
-          </h2>
-          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            Teens see a "What's Shared" panel in their settings showing what you can see of their data.
-            When you increase visibility, they're notified. When you decrease it, they're not.
-          </p>
-          {teens.map((teen) => (
-            <MomSelfRestrictionCard key={teen.id} teen={teen} momId={member!.id} familyId={member!.family_id} />
-          ))}
-        </section>
-      )}
+          {/* Additional Adults Section */}
+          {adults.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
+                  style={{ color: 'var(--color-text-secondary)' }}>
+                <Users size={16} /> Additional Adults
+              </h2>
+              {adults.map((adult) => (
+                <AdultPermissionCard
+                  key={adult.id}
+                  adult={adult}
+                  children={children}
+                  familyId={member!.family_id}
+                  momId={member!.id}
+                />
+              ))}
+            </section>
+          )}
 
-      {/* Empty state */}
-      {adults.length === 0 && specialAdults.length === 0 && teens.length === 0 && (
+          {/* Special Adults Section */}
+          {specialAdults.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
+                  style={{ color: 'var(--color-text-secondary)' }}>
+                <UserCog size={16} /> Special Adults / Caregivers
+              </h2>
+              {specialAdults.map((sa) => (
+                <SpecialAdultCard key={sa.id} specialAdult={sa} familyId={member!.family_id} />
+              ))}
+            </section>
+          )}
+
+          {/* Teen Transparency Section */}
+          {teens.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
+                  style={{ color: 'var(--color-text-secondary)' }}>
+                <Eye size={16} /> Teen Visibility
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Teens see a "What's Shared" panel in their settings showing what you can see of their data.
+                When you increase visibility, they're notified. When you decrease it, they're not.
+              </p>
+              {teens.map((teen) => (
+                <MomSelfRestrictionCard key={teen.id} teen={teen} momId={member!.id} familyId={member!.family_id} />
+              ))}
+            </section>
+          )}
+
+          {/* Empty state */}
+          {adults.length === 0 && specialAdults.length === 0 && teens.length === 0 && (
+            <div
+              className="p-8 rounded-xl text-center"
+              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px dashed var(--color-border)' }}
+            >
+              <Shield size={32} className="mx-auto mb-3" style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+              <p style={{ color: 'var(--color-text-secondary)' }}>
+                Add family members first to configure permissions.
+              </p>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Issue 12: Shift Log Tab */
+        <ShiftLogSection familyId={member!.family_id} />
+      )}
+    </div>
+  )
+}
+
+// ─── Issue 8: Global Permissions Section ──────────────────────────────────────
+
+function GlobalPermissionsSection({ familyId }: { familyId: string }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 flex items-center gap-3 text-left"
+      >
         <div
-          className="p-8 rounded-xl text-center"
-          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px dashed var(--color-border)' }}
+          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--color-sage-teal) 15%, transparent)' }}
         >
-          <Shield size={32} className="mx-auto mb-3" style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
-          <p style={{ color: 'var(--color-text-secondary)' }}>
-            Add family members first to configure permissions.
+          <Globe size={18} style={{ color: 'var(--color-sage-teal)' }} />
+        </div>
+        <div className="flex-1">
+          <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>Family-Wide Rules</p>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            Settings that apply across the whole family
           </p>
+        </div>
+        {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t space-y-3" style={{ borderColor: 'var(--color-border)' }}>
+          <p className="text-xs pt-2" style={{ color: 'var(--color-text-secondary)' }}>
+            These rules set the baseline for the whole family. Individual member settings override these.
+          </p>
+          <div className="space-y-2">
+            <GlobalToggleRow
+              label="Teens can message each other"
+              description="Allow independent teens to send direct messages to each other"
+              familyId={familyId}
+              settingKey="teens_can_message_peers"
+            />
+            <GlobalToggleRow
+              label="Adults can see Family Feed"
+              description="Additional adults can view and post to the family feed"
+              familyId={familyId}
+              settingKey="adults_see_family_feed"
+            />
+            <GlobalToggleRow
+              label="Require approval for calendar events"
+              description="Children's calendar events need mom's approval before appearing"
+              familyId={familyId}
+              settingKey="require_calendar_approval"
+            />
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-/**
- * PRD-02 Screen 2: Additional Adult permission detail
- * Per-kid expandable cards with per-feature access level controls
- */
+function GlobalToggleRow({
+  label,
+  description,
+  familyId: _familyId,
+  settingKey: _settingKey,
+}: {
+  label: string
+  description: string
+  familyId: string
+  settingKey: string
+}) {
+  // Global settings stored in families.hub_config JSONB or a dedicated table
+  // For now, these are client-side toggles — will wire to DB when global settings table exists
+  const [enabled, setEnabled] = useState(true)
+
+  return (
+    <button
+      onClick={() => setEnabled(!enabled)}
+      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-left"
+      style={{
+        backgroundColor: enabled ? 'color-mix(in srgb, var(--color-sage-teal) 8%, transparent)' : 'var(--color-bg-primary)',
+        border: `1px solid ${enabled ? 'color-mix(in srgb, var(--color-sage-teal) 25%, transparent)' : 'var(--color-border)'}`,
+      }}
+    >
+      <div className="flex-1">
+        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{description}</p>
+      </div>
+      <div
+        className="w-10 h-6 rounded-full flex items-center px-0.5 transition-colors flex-shrink-0 ml-3"
+        style={{ backgroundColor: enabled ? 'var(--color-sage-teal)' : 'var(--color-border)' }}
+      >
+        <div
+          className="w-5 h-5 rounded-full bg-white transition-transform"
+          style={{ transform: enabled ? 'translateX(16px)' : 'translateX(0)' }}
+        />
+      </div>
+    </button>
+  )
+}
+
+// ─── Issue 5: Emergency Lockout Toggle ────────────────────────────────────────
+
+function EmergencyLockoutToggle({
+  member,
+}: {
+  member: FamilyMember
+}) {
+  const queryClient = useQueryClient()
+  const [confirming, setConfirming] = useState(false)
+  const isLocked = (member as FamilyMember & { emergency_locked?: boolean }).emergency_locked ?? false
+
+  async function toggleLockout() {
+    if (!isLocked && !confirming) {
+      setConfirming(true)
+      return
+    }
+
+    await supabase
+      .from('family_members')
+      .update({ emergency_locked: !isLocked })
+      .eq('id', member.id)
+
+    setConfirming(false)
+    queryClient.invalidateQueries({ queryKey: ['family-members'] })
+    queryClient.invalidateQueries({ queryKey: ['can-access'] })
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={toggleLockout}
+          className="px-2 py-1 rounded text-xs font-medium text-white"
+          style={{ backgroundColor: 'var(--color-error, #dc2626)' }}
+        >
+          Confirm Lock
+        </button>
+        <button
+          onClick={() => setConfirming(false)}
+          className="px-2 py-1 rounded text-xs"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={toggleLockout}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors"
+      style={{
+        backgroundColor: isLocked
+          ? 'color-mix(in srgb, var(--color-error, #dc2626) 12%, transparent)'
+          : 'color-mix(in srgb, var(--color-text-secondary) 8%, transparent)',
+        color: isLocked ? 'var(--color-error, #dc2626)' : 'var(--color-text-secondary)',
+        border: `1px solid ${isLocked ? 'color-mix(in srgb, var(--color-error, #dc2626) 30%, transparent)' : 'transparent'}`,
+      }}
+      title={isLocked ? 'Unlock member access' : 'Emergency: lock all access immediately'}
+    >
+      {isLocked ? <Unlock size={12} /> : <Lock size={12} />}
+      {isLocked ? 'Unlock' : 'Emergency Lock'}
+    </button>
+  )
+}
+
+// ─── PRD-02 Screen 2: Additional Adult permission detail ──────────────────────
+
 function AdultPermissionCard({
   adult,
   children,
   familyId,
-  momId: _momId,
+  momId,
 }: {
   adult: FamilyMember
   children: FamilyMember[]
@@ -202,7 +414,6 @@ function AdultPermissionCard({
   const [expandedKid, setExpandedKid] = useState<string | null>(null)
   const [showProfileSelector, setShowProfileSelector] = useState(false)
 
-  // Check if member has any toggles (to determine if profile selector should auto-show)
   const { data: existingToggles } = useQuery({
     queryKey: ['member-toggles-count', adult.id],
     queryFn: async () => {
@@ -231,19 +442,23 @@ function AdultPermissionCard({
         >
           {adult.display_name.charAt(0)}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>{adult.display_name}</p>
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             {children.length} child{children.length !== 1 ? 'ren' : ''} to configure
             {existingToggles === 0 && ' — needs access level setup'}
           </p>
         </div>
+        {/* Issue 5: Emergency lockout toggle */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <EmergencyLockoutToggle member={adult} />
+        </div>
         {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 space-y-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
-          {/* Profile selector button */}
+        <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          {/* Profile selector button + Issue 14: confirmation */}
           <div className="pt-2 flex items-center justify-between">
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {existingToggles === 0 ? 'Set an access level to get started' : 'Access level configured'}
@@ -261,21 +476,40 @@ function AdultPermissionCard({
             </button>
           </div>
 
+          {/* Issue 7: Dad's personal features section */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"
+               style={{ color: 'var(--color-text-secondary)' }}>
+              <BookOpen size={12} /> {adult.display_name}'s Personal Features
+            </p>
+            <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              These are {adult.display_name}'s own tools — separate from what they see about kids.
+            </p>
+            <DadPersonalFeatures adultId={adult.id} familyId={familyId} />
+          </div>
+
+          {/* Per-kid permission grids */}
           {children.length === 0 ? (
             <p className="text-sm py-2" style={{ color: 'var(--color-text-secondary)' }}>
               No children to configure. Add family members first.
             </p>
           ) : (
-            children.map((kid) => (
-              <KidPermissionBlock
-                key={kid.id}
-                adult={adult}
-                kid={kid}
-                familyId={familyId}
-                expanded={expandedKid === kid.id}
-                onToggle={() => setExpandedKid(expandedKid === kid.id ? null : kid.id)}
-              />
-            ))
+            <>
+              <p className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
+                 style={{ color: 'var(--color-text-secondary)' }}>
+                <Users size={12} /> Per-Child Permissions
+              </p>
+              {children.map((kid) => (
+                <KidPermissionBlock
+                  key={kid.id}
+                  adult={adult}
+                  kid={kid}
+                  familyId={familyId}
+                  expanded={expandedKid === kid.id}
+                  onToggle={() => setExpandedKid(expandedKid === kid.id ? null : kid.id)}
+                />
+              ))}
+            </>
           )}
         </div>
       )}
@@ -286,12 +520,16 @@ function AdultPermissionCard({
           roleGroup={roleGroup}
           familyId={familyId}
           memberId={adult.id}
+          momId={momId}
+          hasExistingPermissions={(existingToggles ?? 0) > 0}
           onClose={() => setShowProfileSelector(false)}
           onApplied={() => {
             setShowProfileSelector(false)
             queryClient.invalidateQueries({ queryKey: ['member-toggles-count', adult.id] })
             queryClient.invalidateQueries({ queryKey: ['can-access'] })
             queryClient.invalidateQueries({ queryKey: ['permission'] })
+            queryClient.invalidateQueries({ queryKey: ['member-permissions'] })
+            queryClient.invalidateQueries({ queryKey: ['dad-personal-toggles'] })
           }}
         />
       )}
@@ -299,9 +537,80 @@ function AdultPermissionCard({
   )
 }
 
-/**
- * Per-kid permission grid for an additional adult
- */
+// ─── Issue 7: Dad's personal features section ─────────────────────────────────
+
+function DadPersonalFeatures({ adultId, familyId }: { adultId: string; familyId: string }) {
+  const queryClient = useQueryClient()
+
+  const { data: toggles } = useQuery({
+    queryKey: ['dad-personal-toggles', adultId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('member_feature_toggles')
+        .select('feature_key, enabled, is_disabled')
+        .eq('member_id', adultId)
+        .eq('family_id', familyId)
+      return data ?? []
+    },
+  })
+
+  function isEnabled(featureKey: string): boolean {
+    const toggle = toggles?.find((t) => t.feature_key === featureKey)
+    if (!toggle) return false // No toggle = not configured yet
+    return toggle.enabled === true && toggle.is_disabled === false
+  }
+
+  async function toggleFeature(featureKey: string) {
+    const currentlyEnabled = isEnabled(featureKey)
+    const existing = toggles?.find((t) => t.feature_key === featureKey)
+
+    if (existing) {
+      await supabase
+        .from('member_feature_toggles')
+        .update({ enabled: !currentlyEnabled, is_disabled: currentlyEnabled })
+        .eq('member_id', adultId)
+        .eq('feature_key', featureKey)
+    } else {
+      await supabase.from('member_feature_toggles').insert({
+        family_id: familyId,
+        member_id: adultId,
+        feature_key: featureKey,
+        enabled: true,
+        is_disabled: false,
+        disabled_by: adultId,
+      })
+    }
+    queryClient.invalidateQueries({ queryKey: ['dad-personal-toggles', adultId] })
+    queryClient.invalidateQueries({ queryKey: ['can-access'] })
+  }
+
+  return (
+    <div className="space-y-1">
+      {DAD_PERSONAL_FEATURES.map(({ key, label }) => {
+        const enabled = isEnabled(key)
+        return (
+          <button
+            key={key}
+            onClick={() => toggleFeature(key)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors"
+            style={{
+              backgroundColor: enabled ? 'color-mix(in srgb, var(--color-sage-teal) 6%, transparent)' : 'var(--color-bg-primary)',
+              border: `1px solid ${enabled ? 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)' : 'var(--color-border)'}`,
+            }}
+          >
+            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+            <span className="text-xs font-medium" style={{ color: enabled ? 'var(--color-sage-teal)' : 'var(--color-text-secondary)' }}>
+              {enabled ? 'On' : 'Off'}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Per-kid permission grid ──────────────────────────────────────────────────
+
 function KidPermissionBlock({
   adult,
   kid,
@@ -317,7 +626,6 @@ function KidPermissionBlock({
 }) {
   const queryClient = useQueryClient()
 
-  // Load current permissions for this adult + kid
   const { data: permissions } = useQuery({
     queryKey: ['member-permissions', adult.id, kid.id],
     queryFn: async () => {
@@ -327,15 +635,25 @@ function KidPermissionBlock({
         .eq('family_id', familyId)
         .eq('granted_to', adult.id)
         .eq('target_member_id', kid.id)
+      return data ?? []
+    },
+  })
 
+  // Issue 17: Load feature_access_v2 to show never/tier-locked states
+  const roleGroup = adult.role === 'additional_adult' ? 'dad_adults' : 'special_adults'
+  const { data: featureAccess } = useQuery({
+    queryKey: ['feature-access', roleGroup],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('feature_access_v2')
+        .select('feature_key, is_enabled, minimum_tier_id')
+        .eq('role_group', roleGroup)
       return data ?? []
     },
   })
 
   async function setPermission(featureKey: string, level: string) {
-    // Upsert: find existing or create new
     const existing = permissions?.find((p) => p.permission_key === featureKey)
-
     if (existing) {
       await supabase
         .from('member_permissions')
@@ -346,7 +664,7 @@ function KidPermissionBlock({
         .from('member_permissions')
         .insert({
           family_id: familyId,
-          granting_member_id: adult.id, // legacy column
+          granting_member_id: adult.id,
           granted_to: adult.id,
           target_member_id: kid.id,
           permission_key: featureKey,
@@ -354,7 +672,6 @@ function KidPermissionBlock({
           access_level: level,
         })
     }
-
     queryClient.invalidateQueries({ queryKey: ['member-permissions', adult.id, kid.id] })
     queryClient.invalidateQueries({ queryKey: ['permission'] })
   }
@@ -364,9 +681,18 @@ function KidPermissionBlock({
     return perm?.access_level || 'none'
   }
 
+  // Issue 17: Check if feature is never-available or tier-locked for this role
+  function getFeatureState(featureKey: string): 'available' | 'never' | 'tier_locked' {
+    const access = featureAccess?.find((a) => a.feature_key === featureKey)
+    if (!access) return 'never' // No record = not available for this role
+    if (!access.is_enabled) return 'never'
+    // Could check tier here but during beta all tiers are unlocked
+    return 'available'
+  }
+
   return (
     <div
-      className="rounded-lg overflow-hidden mt-2"
+      className="rounded-lg overflow-hidden"
       style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)' }}
     >
       <button
@@ -394,16 +720,42 @@ function KidPermissionBlock({
                 {category.label}
               </p>
               <div className="space-y-1">
-                {category.keys.map(({ key, label }) => (
-                  <div key={key} className="flex items-center justify-between py-1">
-                    <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
-                    <AccessLevelPicker
-                      value={getLevel(key)}
-                      onChange={(level) => setPermission(key, level)}
-                      maxLevel="manage"
-                    />
-                  </div>
-                ))}
+                {category.keys.map(({ key, label }) => {
+                  const state = getFeatureState(key)
+
+                  // Issue 17: Never-available shows de-emphasized non-interactive
+                  if (state === 'never') {
+                    return (
+                      <div key={key} className="flex items-center justify-between py-1 opacity-40">
+                        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{label}</span>
+                        <span className="text-xs px-2" style={{ color: 'var(--color-text-secondary)' }}>···</span>
+                      </div>
+                    )
+                  }
+
+                  // Issue 17: Tier-locked shows lock icon
+                  if (state === 'tier_locked') {
+                    return (
+                      <div key={key} className="flex items-center justify-between py-1">
+                        <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+                        <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-golden-honey)' }}>
+                          <Lock size={11} /> Upgrade
+                        </span>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div key={key} className="flex items-center justify-between py-1">
+                      <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+                      <AccessLevelPicker
+                        value={getLevel(key)}
+                        onChange={(level) => setPermission(key, level)}
+                        maxLevel="manage"
+                      />
+                    </div>
+                  )
+                })}
               </div>
             </div>
           ))}
@@ -413,9 +765,8 @@ function KidPermissionBlock({
   )
 }
 
-/**
- * Compact access level selector
- */
+// ─── Access level picker ──────────────────────────────────────────────────────
+
 function AccessLevelPicker({
   value,
   onChange,
@@ -451,10 +802,8 @@ function AccessLevelPicker({
   )
 }
 
-/**
- * PRD-02 Screen 3: Special Adult permission card
- * Shows assigned kids + feature access (max: contribute, never manage)
- */
+// ─── PRD-02 Screen 3: Special Adult card ──────────────────────────────────────
+
 function SpecialAdultCard({
   specialAdult,
   familyId,
@@ -462,9 +811,9 @@ function SpecialAdultCard({
   specialAdult: FamilyMember
   familyId: string
 }) {
+  const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(false)
 
-  // Load assignments
   const { data: assignments } = useQuery({
     queryKey: ['sa-assignments', specialAdult.id],
     queryFn: async () => {
@@ -472,10 +821,44 @@ function SpecialAdultCard({
         .from('special_adult_assignments')
         .select('*, child:child_id(id, display_name, member_color)')
         .eq('special_adult_id', specialAdult.id)
-
       return data ?? []
     },
   })
+
+  // Issue 9 + 18: Check active shift
+  const { data: activeShift } = useQuery({
+    queryKey: ['active-shift', specialAdult.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('shift_sessions')
+        .select('id, started_at')
+        .eq('special_adult_id', specialAdult.id)
+        .is('ended_at', null)
+        .limit(1)
+        .maybeSingle()
+      return data
+    },
+    refetchInterval: 60000, // Refresh every minute for shift duration display
+  })
+
+  // Issue 18: Calculate shift duration for long-shift indicator
+  const shiftHours = activeShift
+    ? (Date.now() - new Date(activeShift.started_at).getTime()) / (1000 * 60 * 60)
+    : 0
+  const isLongShift = shiftHours > 12
+
+  // Issue 9: Remote shift end
+  async function handleRemoteShiftEnd() {
+    if (!activeShift) return
+    await supabase
+      .from('shift_sessions')
+      .update({ ended_at: new Date().toISOString(), ended_by: 'mom' })
+      .eq('id', activeShift.id)
+    queryClient.invalidateQueries({ queryKey: ['active-shift', specialAdult.id] })
+    // Issue 11: Stub — trigger post-shift summary compilation
+    // STUB: LiLa API call to compile shift summary from activity_log_entries
+    // Would call: supabase.functions.invoke('lila-chat', { body: { mode: 'shift_summary', shift_id: activeShift.id } })
+  }
 
   return (
     <div
@@ -492,13 +875,32 @@ function SpecialAdultCard({
         >
           {specialAdult.display_name.charAt(0)}
         </div>
-        <div className="flex-1">
-          <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
-            {specialAdult.display_name}
-          </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              {specialAdult.display_name}
+            </p>
+            {activeShift && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                style={{
+                  backgroundColor: isLongShift
+                    ? 'color-mix(in srgb, var(--color-golden-honey) 20%, transparent)'
+                    : 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)',
+                  color: isLongShift ? 'var(--color-golden-honey)' : 'var(--color-sage-teal)',
+                }}
+              >
+                {isLongShift && '⚠ '}{Math.floor(shiftHours)}h active
+              </span>
+            )}
+          </div>
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             {specialAdult.custom_role || 'Special Adult'} | {assignments?.length ?? 0} assigned child{(assignments?.length ?? 0) !== 1 ? 'ren' : ''}
           </p>
+        </div>
+        {/* Issue 5: Emergency lockout */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <EmergencyLockoutToggle member={specialAdult} />
         </div>
         {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
       </button>
@@ -508,6 +910,38 @@ function SpecialAdultCard({
           <p className="text-xs pt-2" style={{ color: 'var(--color-text-secondary)' }}>
             Special adults can only access features during an active shift. Maximum access level: Contribute (never Manage).
           </p>
+
+          {/* Issue 9: Remote shift end button */}
+          {activeShift && (
+            <div
+              className="flex items-center justify-between p-3 rounded-lg"
+              style={{
+                backgroundColor: isLongShift
+                  ? 'color-mix(in srgb, var(--color-golden-honey) 10%, transparent)'
+                  : 'color-mix(in srgb, var(--color-sage-teal) 8%, transparent)',
+                border: `1px solid ${isLongShift ? 'color-mix(in srgb, var(--color-golden-honey) 25%, transparent)' : 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)'}`,
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Clock size={14} style={{ color: isLongShift ? 'var(--color-golden-honey)' : 'var(--color-sage-teal)' }} />
+                <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                  Shift started {new Date(activeShift.started_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  {isLongShift && (
+                    <span className="text-xs ml-1" style={{ color: 'var(--color-golden-honey)' }}>
+                      ({Math.floor(shiftHours)}+ hours — may be forgotten)
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button
+                onClick={handleRemoteShiftEnd}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: 'var(--color-error, #dc2626)' }}
+              >
+                <StopCircle size={12} /> End Shift
+              </button>
+            </div>
+          )}
 
           {(!assignments || assignments.length === 0) ? (
             <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -556,7 +990,6 @@ function SpecialAdultKidPerms({
         .from('special_adult_permissions')
         .select('*')
         .eq('assignment_id', assignmentId)
-
       return data ?? []
     },
   })
@@ -606,10 +1039,8 @@ function SpecialAdultKidPerms({
   )
 }
 
-/**
- * PRD-02 Screen 4 (mom's view): Self-restriction controls for teen privacy
- * Mom can restrict her OWN visibility into a teen's features
- */
+// ─── PRD-02 Screen 4 (mom's view): Teen self-restriction ─────────────────────
+
 function MomSelfRestrictionCard({
   teen,
   momId,
@@ -638,7 +1069,6 @@ function MomSelfRestrictionCard({
         .eq('family_id', familyId)
         .eq('primary_parent_id', momId)
         .eq('target_member_id', teen.id)
-
       return data ?? []
     },
   })
@@ -646,10 +1076,8 @@ function MomSelfRestrictionCard({
   async function toggleRestriction(featureKey: string) {
     const existing = restrictions?.find((r) => r.feature_key === featureKey)
     if (existing) {
-      // Remove restriction — mom CAN see this feature for this teen
       await supabase.from('mom_self_restrictions').delete().eq('id', existing.id)
     } else {
-      // Add restriction — mom CANNOT see this feature for this teen
       await supabase.from('mom_self_restrictions').insert({
         family_id: familyId,
         primary_parent_id: momId,
@@ -699,8 +1127,8 @@ function MomSelfRestrictionCard({
                 onClick={() => toggleRestriction(key)}
                 className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors"
                 style={{
-                  backgroundColor: restricted ? 'var(--color-bg-primary)' : 'var(--color-sage-teal)10',
-                  border: `1px solid ${restricted ? 'var(--color-border)' : 'var(--color-sage-teal)30'}`,
+                  backgroundColor: restricted ? 'var(--color-bg-primary)' : 'color-mix(in srgb, var(--color-sage-teal) 6%, transparent)',
+                  border: `1px solid ${restricted ? 'var(--color-border)' : 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)'}`,
                 }}
               >
                 <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
@@ -726,10 +1154,112 @@ function MomSelfRestrictionCard({
   )
 }
 
-/**
- * PRD-31 Permission Matrix Addendum: Profile Selector Modal
- * Light / Balanced / Maximum access level selection
- */
+// ─── Issue 12: Shift Log Section ──────────────────────────────────────────────
+
+function ShiftLogSection({ familyId }: { familyId: string }) {
+  const { data: shifts, isLoading } = useQuery({
+    queryKey: ['shift-log', familyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('shift_sessions')
+        .select('*, caregiver:special_adult_id(display_name, member_color)')
+        .eq('family_id', familyId)
+        .order('started_at', { ascending: false })
+        .limit(50)
+      return data ?? []
+    },
+  })
+
+  if (isLoading) {
+    return <p className="text-sm py-8 text-center" style={{ color: 'var(--color-text-secondary)' }}>Loading shift history...</p>
+  }
+
+  if (!shifts || shifts.length === 0) {
+    return (
+      <div
+        className="p-8 rounded-xl text-center"
+        style={{ backgroundColor: 'var(--color-bg-card)', border: '1px dashed var(--color-border)' }}
+      >
+        <ClipboardList size={32} className="mx-auto mb-3" style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+        <p style={{ color: 'var(--color-text-secondary)' }}>No shifts recorded yet.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {shifts.map((shift: {
+        id: string
+        started_at: string
+        ended_at: string | null
+        started_by: string
+        ended_by: string | null
+        summary_text: string | null
+        is_co_parent_session: boolean
+        caregiver: { display_name: string; member_color: string | null } | null
+      }) => {
+        const startDate = new Date(shift.started_at)
+        const endDate = shift.ended_at ? new Date(shift.ended_at) : null
+        const isActive = !shift.ended_at
+        const durationMs = endDate ? endDate.getTime() - startDate.getTime() : Date.now() - startDate.getTime()
+        const durationHours = Math.floor(durationMs / (1000 * 60 * 60))
+        const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+
+        return (
+          <div
+            key={shift.id}
+            className="p-3 rounded-lg"
+            style={{
+              backgroundColor: isActive ? 'color-mix(in srgb, var(--color-sage-teal) 6%, transparent)' : 'var(--color-bg-card)',
+              border: `1px solid ${isActive ? 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)' : 'var(--color-border)'}`,
+            }}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
+                  style={{ backgroundColor: shift.caregiver?.member_color || 'var(--color-golden-honey)' }}
+                >
+                  {shift.caregiver?.display_name?.charAt(0) ?? '?'}
+                </div>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                  {shift.caregiver?.display_name ?? 'Unknown'}
+                </span>
+                {isActive && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)', color: 'var(--color-sage-teal)' }}>
+                    Active
+                  </span>
+                )}
+                {shift.is_co_parent_session && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-info) 15%, transparent)', color: 'var(--color-info)' }}>
+                    Co-Parent
+                  </span>
+                )}
+              </div>
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                {durationHours > 0 ? `${durationHours}h ` : ''}{durationMins}m
+              </span>
+            </div>
+            <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              {startDate.toLocaleDateString()} {startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              {endDate && ` — ${endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+              {shift.ended_by && ` (ended by ${shift.ended_by})`}
+            </div>
+            {shift.summary_text && (
+              <p className="text-xs mt-2 p-2 rounded" style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
+                {shift.summary_text}
+              </p>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Profile Selector Modal (Issues 13, 14) ──────────────────────────────────
 
 const PROFILE_OPTIONS = [
   {
@@ -772,6 +1302,8 @@ function ProfileSelectorModal({
   roleGroup,
   familyId,
   memberId,
+  momId: _momId,
+  hasExistingPermissions,
   onClose,
   onApplied,
 }: {
@@ -779,24 +1311,31 @@ function ProfileSelectorModal({
   roleGroup: string
   familyId: string
   memberId: string
+  momId: string
+  hasExistingPermissions: boolean
   onClose: () => void
   onApplied: () => void
 }) {
   const suggestedLevel = SUGGESTED_DEFAULTS[roleGroup] ?? 'balanced'
   const [selected, setSelected] = useState(suggestedLevel)
   const [applying, setApplying] = useState(false)
-  const [, setConfirmReset] = useState(false) // confirmReset value unused; setter wired to UI
+  // Issue 14: Confirmation when changing existing permissions
+  const [showConfirm, setShowConfirm] = useState(false)
 
   async function handleApply() {
-    setApplying(true)
+    // Issue 14: If there are existing permissions, require confirmation
+    if (hasExistingPermissions && !showConfirm) {
+      setShowConfirm(true)
+      return
+    }
 
+    setApplying(true)
     await supabase.rpc('apply_permission_profile', {
       p_family_id: familyId,
       p_member_id: memberId,
       p_role_group: roleGroup,
       p_level: selected,
     })
-
     setApplying(false)
     onApplied()
   }
@@ -826,7 +1365,7 @@ function ProfileSelectorModal({
             return (
               <button
                 key={option.level}
-                onClick={() => { setSelected(option.level); setConfirmReset(false) }}
+                onClick={() => { setSelected(option.level); setShowConfirm(false) }}
                 className="w-full p-4 rounded-xl text-left transition-all"
                 style={{
                   backgroundColor: isSelected ? option.color + '12' : 'var(--color-bg-primary)',
@@ -875,14 +1414,34 @@ function ProfileSelectorModal({
           })}
         </div>
 
+        {/* Issue 14: Confirmation warning when changing existing permissions */}
+        {showConfirm && (
+          <div
+            className="flex items-start gap-2 p-3 rounded-lg text-xs"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-golden-honey) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--color-golden-honey) 30%, transparent)',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-golden-honey)' }} />
+            <div>
+              <p className="font-medium">This will reset all of {memberName}'s permissions</p>
+              <p className="mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                Current per-child settings will be replaced with the {selected} profile defaults. You can adjust individual features after.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <button
             onClick={handleApply}
             disabled={applying}
             className="w-full py-3 rounded-xl font-medium text-white disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }}
+            style={{ backgroundColor: showConfirm ? 'var(--color-golden-honey, #d6a461)' : 'var(--color-sage-teal, #68a395)' }}
           >
-            {applying ? 'Applying...' : 'Apply'}
+            {applying ? 'Applying...' : showConfirm ? 'Yes, Reset & Apply' : 'Apply'}
           </button>
           <p className="text-xs text-center" style={{ color: 'var(--color-text-secondary)' }}>
             You can adjust individual features after applying.

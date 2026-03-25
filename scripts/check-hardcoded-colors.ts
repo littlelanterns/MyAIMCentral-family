@@ -30,6 +30,8 @@ const ALLOWED_FILES = [
   'lib/theme/ThemeProvider.tsx',
   'config/feature_guide_registry.ts',
   'components/ThemeSelector.tsx', // Theme swatches are by definition color constants
+  'lib/member-color-assignment.ts', // Color assignment references palette hex values
+  'components/shared/ColorPicker.tsx', // ColorPicker uses brand hex values from tokens
 ]
 
 // Hex color pattern: #rgb, #rrggbb, #rrggbbaa — NOT inside var() fallback

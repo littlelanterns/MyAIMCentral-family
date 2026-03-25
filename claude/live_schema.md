@@ -75,6 +75,7 @@
 | 39 | `preferences` |
 | 40 | `pin_failed_attempts` |
 | 41 | `pin_locked_until` |
+| 42 | `emergency_locked` |
 
 ## `special_adult_assignments`
 

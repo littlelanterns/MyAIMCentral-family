@@ -21,15 +21,21 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Inactivity warning banner | PRD-01 | PRD-01 | ✅ Wired | Remediation |
 | Family device hub widgets | PRD-01 | PRD-14D | ✅ Wired | Phase 15 |
 | Tablet hub timeout config | PRD-01 | PRD-22 | ✅ Wired | Phase 27 |
-| Permission hub UI | PRD-02 | PRD-22 | ✅ Wired | Phase 27 |
+| Permission hub UI | PRD-02 | PRD-02 Repair | ✅ Wired | Repair 2026-03-25 |
 | Transparency panel (mom side) | PRD-02 | PRD-02 | ✅ Wired | Phase 02 |
 | Teen transparency panel (teen side) | PRD-02 | PRD-02 | ✅ Wired | Remediation |
 | View As sessions | PRD-02 | PRD-02 | ✅ Wired | Phase 02 |
 | View As full-shell mode + banner | PRD-02 | PRD-02 | ✅ Wired | Remediation |
+| View As feature exclusions | PRD-02 | PRD-02 Repair | ✅ Wired | Repair 2026-03-25 |
 | Special Adult Shift View | PRD-02 | PRD-02 | ✅ Wired | Remediation |
 | Shift schedule config | PRD-02 | PRD-35 (access_schedules) | ✅ Wired | Phase 05 |
 | PIN lockout (server-side) | PRD-01 | PRD-02 | ✅ Wired | Remediation |
 | Default permission auto-creation | PRD-02 | PRD-02 | ✅ Wired | Remediation |
+| Emergency lockout toggle | PRD-02 | PRD-02 Repair | ✅ Wired | Repair 2026-03-25 |
+| Permission profiles → Layer 3 | PRD-02/PRD-31 | PRD-02 Repair | ✅ Wired | Repair 2026-03-25 |
+| Post-shift LiLa summary compilation | PRD-02 | — | ⏳ Unwired (MVP) | Phase 06+ (LiLa) |
+| Recalculate tier blocks Edge Function | PRD-02/PRD-31 | — | ⏳ Unwired (MVP) | Phase 38 (Stripe) |
+| SA Log Activity form during shifts | PRD-02 | PRD-27 | ⏳ Unwired (MVP) | Phase 31 |
 | Admin user management | PRD-02 | PRD-32 | ✅ Wired | Phase 39 |
 
 ## LiLa AI Stubs

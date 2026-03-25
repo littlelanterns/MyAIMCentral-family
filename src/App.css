@@ -111,33 +111,34 @@ select:focus {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
 }
 
-/* Card hover lift — apply to any interactive card */
+/* Card hover lift — signature MyAIM interaction (PRD-03) */
 .card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(104, 163, 149, 0.15);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(104, 163, 149, 0.2);
 }
 .card-hover:active {
-  transform: translateY(0);
+  transform: translateY(-2px) scale(1);
 }
 
 /* Stronger card hover for larger cards */
 .card-hover-lg {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .card-hover-lg:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
 }
 .card-hover-lg:active {
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(1);
 }
 
-/* Button lift hover (primary) */
+/* Button lift hover (primary) — gradient toggle via --surface-primary */
 .btn-primary {
   transition: all 0.2s ease;
+  background: var(--surface-primary, var(--color-btn-primary-bg)) !important;
 }
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
@@ -152,7 +153,7 @@ select:focus {
   transition: all 0.2s ease;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: var(--color-btn-primary-bg, #68a395) !important;
+  background: var(--surface-primary, var(--color-btn-primary-bg)) !important;
   color: var(--color-btn-primary-text, #fff) !important;
   transform: translateY(-1px);
 }
@@ -292,7 +293,34 @@ select:focus {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .card-hover:hover,
+  .card-hover-lg:hover {
+    transform: none !important;
+  }
 }
+
+/* ============================================================
+ * Font scale classes (PRD-03)
+ * ============================================================ */
+html.font-scale-small { font-size: 14px; }
+/* html default is 16px (Medium) */
+html.font-scale-large { font-size: 18px; }
+html.font-scale-extra-large { font-size: 20px; }
+
+/* ============================================================
+ * Firefox scrollbar theming (PRD-03)
+ * ============================================================ */
+* {
+  scrollbar-color: var(--scrollbar-thumb, #c4d4cc) var(--scrollbar-track, #f2f5f3);
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track, #f2f5f3); }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #c4d4cc);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
 
 /* ============================================================
  * Responsive breakpoints

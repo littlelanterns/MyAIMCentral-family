@@ -26,10 +26,6 @@
 ---
 
 ## Founder Approval
-<!--
-  Founder reviews this summary before code begins.
-  Check each box only after confirming.
--->
 - [ ] Pre-build summary reviewed and accurate
 - [ ] All addenda have been read and captured above
 - [ ] Stubs are clearly identified — nothing extra will be built
@@ -40,19 +36,6 @@
 ---
 
 ## Post-Build PRD Verification
-
-<!--
-  Filled in AFTER the build is complete, BEFORE declaring it done.
-  Go through every requirement from the pre-build summary above.
-  Every item must be Wired or Stubbed. Zero Missing = build complete.
-
-  Status options:
-    Wired   = built and functional
-    Stubbed = documented placeholder, in STUB_REGISTRY.md
-    Missing = not built, not stubbed — build is NOT complete
-
-  Present this table to Tenise as the handoff report.
--->
 
 | Requirement | Source | Status | Notes |
 |---|---|---|---|

@@ -63,7 +63,7 @@ export function Button({
 
   const variantStyles: Record<ButtonProps['variant'], React.CSSProperties> = {
     primary: {
-      backgroundColor: 'var(--color-btn-primary-bg)',
+      background: 'var(--surface-primary, var(--color-btn-primary-bg))',
       color: 'var(--color-btn-primary-text)',
     },
     secondary: {

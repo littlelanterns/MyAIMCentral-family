@@ -57,4 +57,5 @@ decided and why at build time. Do not delete them after a feature ships.
 
 | File | PRD | Build Date | Status |
 |---|---|---|---|
-| *(none yet — created during pre-build ritual for each phase)* | | | |
+| PRD-02-repair.md | PRD-02 | 2026-03-25 | Complete (18 wired, 3 stubbed) |
+| PRD-03-repair.md | PRD-03 | 2026-03-25 | Complete (19 wired, 0 stubbed) |

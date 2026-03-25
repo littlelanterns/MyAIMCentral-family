@@ -107,9 +107,9 @@ export function TeenTransparencyPanel() {
   const { data: member } = useFamilyMember()
   const { data: allMembers } = useFamilyMembers(member?.family_id)
 
-  // Only renders for independent-dashboard members (teens)
+  // Only renders for independent-dashboard teens
   if (!member) return null
-  if (member.dashboard_mode !== 'independent' && member.role !== 'member') return null
+  if (member.dashboard_mode !== 'independent') return null
 
   // Find dad/additional adult in the family (first one for now; a family may have one)
   const dad = allMembers?.find((m) => m.role === 'additional_adult') ?? null
@@ -248,7 +248,7 @@ function TransparencyGrid({
         .from('teen_sharing_overrides')
         .select('id, feature_key')
         .eq('family_id', familyId)
-        .eq('teen_id', teenId)
+        .eq('member_id', teenId)
 
       // Table may not exist yet — treat as empty rather than crashing
       if (error) {
@@ -287,8 +287,9 @@ function TransparencyGrid({
     try {
       await supabase.from('teen_sharing_overrides').insert({
         family_id: familyId,
-        teen_id: teenId,
+        member_id: teenId,
         feature_key: featureKey,
+        // resource_id, original_visibility, new_visibility now nullable with defaults
       })
       queryClient.invalidateQueries({ queryKey: ['teen-sharing-overrides', teenId] })
     } finally {

@@ -1,18 +1,104 @@
-import { useState } from 'react'
-import { Palette, X, Sun, Moon, Monitor } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Palette, X, Sun, Moon, Monitor, ChevronDown, ChevronUp, Type } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
-import type { ThemeKey } from '@/lib/theme/tokens'
+import { themes } from '@/lib/theme/tokens'
+import type { ThemeKey, VibeKey } from '@/lib/theme/tokens'
 
-const THEME_LIST: { key: ThemeKey; name: string; swatch: string }[] = [
-  { key: 'classic', name: 'Classic MyAIM', swatch: '#68a395' },
-  { key: 'sage_garden', name: 'Sage Garden', swatch: '#4b7c66' },
-  { key: 'rose_gold', name: 'Rose Gold', swatch: '#c48b7a' },
-  { key: 'ocean_depth', name: 'Ocean Depth', swatch: '#2c5d60' },
-  { key: 'golden_hour', name: 'Golden Hour', swatch: '#d6a461' },
-  { key: 'lavender_fields', name: 'Lavender Fields', swatch: '#8b7bb5' },
-  { key: 'earth_tones', name: 'Earth Tones', swatch: '#8b6f47' },
-  { key: 'sunset_coral', name: 'Sunset Coral', swatch: '#d69a84' },
-  { key: 'mint_fresh', name: 'Mint Fresh', swatch: '#5aab9a' },
+// Theme category structure
+interface ThemeCategory {
+  name: string
+  themes: { key: ThemeKey; name: string }[]
+}
+
+const THEME_CATEGORIES: ThemeCategory[] = [
+  {
+    name: 'Original',
+    themes: [
+      { key: 'classic', name: 'Classic MyAIM' },
+      { key: 'sage_garden', name: 'Sage Garden' },
+      { key: 'rose_gold', name: 'Rose Gold' },
+      { key: 'ocean_depth', name: 'Ocean Depth' },
+      { key: 'golden_hour', name: 'Golden Hour' },
+      { key: 'lavender_fields', name: 'Lavender Fields' },
+      { key: 'earth_tones', name: 'Earth Tones' },
+      { key: 'sunset_coral', name: 'Sunset Coral' },
+      { key: 'mint_fresh', name: 'Mint Fresh' },
+    ],
+  },
+  {
+    name: 'Warm & Cozy',
+    themes: [
+      { key: 'honey_linen', name: 'Honey Linen' },
+      { key: 'warm_sunset', name: 'Warm Sunset' },
+      { key: 'dusty_blush', name: 'Dusty Blush' },
+      { key: 'earthy_comfort', name: 'Earthy Comfort' },
+      { key: 'champagne', name: 'Champagne' },
+      { key: 'hearthstone', name: 'Hearthstone' },
+      { key: 'timber_iron', name: 'Timber & Iron' },
+    ],
+  },
+  {
+    name: 'Cool & Calm',
+    themes: [
+      { key: 'ocean_breeze', name: 'Ocean Breeze' },
+      { key: 'forest_calm', name: 'Forest Calm' },
+      { key: 'sage_cream', name: 'Sage & Cream' },
+      { key: 'pine_stone', name: 'Pine Stone' },
+      { key: 'coastal_slate', name: 'Coastal Slate' },
+      { key: 'teal_storm', name: 'Teal Storm' },
+      { key: 'lavender_dreams', name: 'Lavender Dreams' },
+    ],
+  },
+  {
+    name: 'Bold & Rich',
+    themes: [
+      { key: 'captains_quarters', name: "Captain's Quarters" },
+      { key: 'inkwell_bronze', name: 'Inkwell Bronze' },
+      { key: 'evening_indigo', name: 'Evening Indigo' },
+      { key: 'plum_electric', name: 'Plum Electric' },
+      { key: 'midnight_berry', name: 'Midnight Berry' },
+      { key: 'sunset_blaze', name: 'Sunset Blaze' },
+    ],
+  },
+  {
+    name: 'Soft & Light',
+    themes: [
+      { key: 'peach_garden', name: 'Peach Garden' },
+      { key: 'berry_soft', name: 'Berry Soft' },
+      { key: 'morning_mist', name: 'Morning Mist' },
+      { key: 'petal_honey', name: 'Petal Honey' },
+      { key: 'cloud_nine', name: 'Cloud Nine' },
+    ],
+  },
+  {
+    name: 'Bright & Fun',
+    themes: [
+      { key: 'sunshine_day', name: 'Sunshine Day' },
+      { key: 'garden_party', name: 'Garden Party' },
+      { key: 'ocean_adventure', name: 'Ocean Adventure' },
+      { key: 'berry_bright', name: 'Berry Bright' },
+      { key: 'minty_fresh', name: 'Minty Fresh' },
+      { key: 'peachy_keen', name: 'Peachy Keen' },
+    ],
+  },
+  {
+    name: 'Seasonal',
+    themes: [
+      { key: 'fresh_spring', name: 'Fresh Spring' },
+      { key: 'sunny_summer', name: 'Sunny Summer' },
+      { key: 'cozy_autumn', name: 'Cozy Autumn' },
+      { key: 'winter_wonderland', name: 'Winter Wonderland' },
+      { key: 'christmas_joy', name: 'Christmas Joy' },
+      { key: 'fall_fun', name: 'Fall Fun' },
+    ],
+  },
+]
+
+const VIBE_OPTIONS: { key: VibeKey; name: string }[] = [
+  { key: 'classic', name: 'Classic MyAIM' },
+  { key: 'modern', name: 'Clean & Modern' },
+  { key: 'nautical', name: 'Professional' },
+  { key: 'cozy', name: 'Cozy Journal' },
 ]
 
 const COLOR_MODES = [
@@ -21,12 +107,85 @@ const COLOR_MODES = [
   { key: 'system' as const, icon: Monitor, label: 'System' },
 ]
 
+const FONT_SCALES = [
+  { key: 'small' as const, label: 'S' },
+  { key: 'default' as const, label: 'M' },
+  { key: 'large' as const, label: 'L' },
+  { key: 'extra-large' as const, label: 'XL' },
+]
+
+function ThemeSwatch({ themeKey, gradientEnabled }: { themeKey: ThemeKey; gradientEnabled: boolean }) {
+  const colors = themes[themeKey].light
+  const c1 = colors.bgPrimary
+  const c2 = colors.btnPrimaryBg
+  const c3 = colors.accent
+
+  if (gradientEnabled) {
+    // Smooth color wheel — colors sweep around the edge, no center cone
+    return (
+      <div
+        className="w-8 h-8 flex-shrink-0"
+        style={{
+          borderRadius: '50%',
+          overflow: 'hidden',
+          background: `conic-gradient(from 0deg at 50% 50%, ${c1} 0deg, ${c2} 120deg, ${c3} 240deg, ${c1} 360deg)`,
+        }}
+      />
+    )
+  }
+
+  // Solid 3-segment circle — no lines converging at center
+  // Each segment is a 120° arc filled with a flat color
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" className="flex-shrink-0">
+      <path d="M16,16 L16,0 A16,16 0 0,1 29.86,24 Z" fill={c1} />
+      <path d="M16,16 L29.86,24 A16,16 0 0,1 2.14,24 Z" fill={c2} />
+      <path d="M16,16 L2.14,24 A16,16 0 0,1 16,0 Z" fill={c3} />
+    </svg>
+  )
+}
+
+function findCategoryForTheme(themeKey: ThemeKey): string {
+  for (const cat of THEME_CATEGORIES) {
+    if (cat.themes.some(t => t.key === themeKey)) {
+      return cat.name
+    }
+  }
+  return THEME_CATEGORIES[0].name
+}
+
 export function ThemeSelector() {
   const [open, setOpen] = useState(false)
   const {
-    theme, vibe: _vibe, colorMode, gradientEnabled,
-    setTheme, setVibe: _setVibe, setColorMode, setGradientEnabled,
+    theme, vibe, colorMode, gradientEnabled, fontScale,
+    setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale,
   } = useTheme()
+
+  const activeCategory = useMemo(() => findCategoryForTheme(theme), [theme])
+
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
+    return new Set([activeCategory])
+  })
+
+  const toggleCategory = (name: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) {
+        next.delete(name)
+      } else {
+        next.add(name)
+      }
+      return next
+    })
+  }
+
+  // When theme changes externally, ensure its category is expanded
+  useMemo(() => {
+    setExpandedCategories(prev => {
+      if (prev.has(activeCategory)) return prev
+      return new Set([...prev, activeCategory])
+    })
+  }, [activeCategory])
 
   if (!open) {
     return (
@@ -60,7 +219,10 @@ export function ThemeSelector() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
           <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
             Appearance
           </span>
@@ -82,7 +244,7 @@ export function ThemeSelector() {
                   onClick={() => setColorMode(mode.key)}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs"
                   style={{
-                    backgroundColor: colorMode === mode.key ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
+                    background: colorMode === mode.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
                     color: colorMode === mode.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
                   }}
                 >
@@ -93,34 +255,75 @@ export function ThemeSelector() {
             </div>
           </div>
 
-          {/* Theme Colors */}
+          {/* Color Theme - Collapsible Categories */}
           <div>
             <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
               Color Theme
             </p>
-            <div className="grid grid-cols-3 gap-2">
-              {THEME_LIST.map(t => (
+            <div className="space-y-1">
+              {THEME_CATEGORIES.map(category => {
+                const isExpanded = expandedCategories.has(category.name)
+                const hasActiveTheme = category.themes.some(t => t.key === theme)
+                return (
+                  <div key={category.name}>
+                    <button
+                      onClick={() => toggleCategory(category.name)}
+                      className="w-full flex items-center justify-between py-2 px-2 rounded-md text-xs font-medium"
+                      style={{
+                        color: hasActiveTheme ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                        backgroundColor: hasActiveTheme ? 'var(--color-bg-secondary)' : 'transparent',
+                      }}
+                    >
+                      <span>{category.name} ({category.themes.length})</span>
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                    {isExpanded && (
+                      <div className="grid grid-cols-3 gap-2 py-2 px-1">
+                        {category.themes.map(t => (
+                          <button
+                            key={t.key}
+                            onClick={() => setTheme(t.key)}
+                            className="flex flex-col items-center gap-1.5 p-2 rounded-lg text-xs"
+                            style={{
+                              backgroundColor: theme === t.key ? 'var(--color-bg-secondary)' : 'transparent',
+                              border: theme === t.key ? '2px solid var(--color-btn-primary-bg)' : '2px solid transparent',
+                              color: 'var(--color-text-primary)',
+                            }}
+                          >
+                            <ThemeSwatch themeKey={t.key} gradientEnabled={gradientEnabled} />
+                            <span className="text-center leading-tight">{t.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Vibe Selector */}
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              Vibe
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {VIBE_OPTIONS.map(v => (
                 <button
-                  key={t.key}
-                  onClick={() => setTheme(t.key)}
-                  className="flex flex-col items-center gap-1.5 p-2 rounded-lg text-xs"
+                  key={v.key}
+                  onClick={() => setVibe(v.key)}
+                  className="py-2.5 px-3 rounded-lg text-xs font-medium text-center"
                   style={{
-                    backgroundColor: theme === t.key ? 'var(--color-bg-secondary)' : 'transparent',
-                    border: theme === t.key ? '2px solid var(--color-btn-primary-bg)' : '2px solid transparent',
-                    color: 'var(--color-text-primary)',
+                    backgroundColor: vibe === v.key ? 'var(--color-bg-secondary)' : 'transparent',
+                    border: vibe === v.key ? '2px solid var(--color-btn-primary-bg)' : '2px solid var(--color-border)',
+                    color: vibe === v.key ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
                   }}
                 >
-                  <div
-                    className="w-8 h-8 rounded-full"
-                    style={{ backgroundColor: t.swatch }}
-                  />
-                  <span className="text-center leading-tight">{t.name}</span>
+                  {v.name}
                 </button>
               ))}
             </div>
           </div>
-
-          {/* Vibe selector hidden for Vibeathon — only Classic MyAIM active */}
 
           {/* Gradient Toggle */}
           <div className="flex items-center justify-between">
@@ -140,6 +343,31 @@ export function ThemeSelector() {
                 }}
               />
             </button>
+          </div>
+
+          {/* Font Size */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Type size={14} style={{ color: 'var(--color-text-secondary)' }} />
+              <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+                Font Size
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {FONT_SCALES.map(fs => (
+                <button
+                  key={fs.key}
+                  onClick={() => setFontScale(fs.key)}
+                  className="flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-medium"
+                  style={{
+                    background: fontScale === fs.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
+                    color: fontScale === fs.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                  }}
+                >
+                  {fs.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

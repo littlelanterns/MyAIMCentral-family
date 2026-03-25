@@ -352,7 +352,7 @@ export function LilaDrawer({
         <div
           className="flex items-center justify-between px-4 py-3 shrink-0"
           style={{
-            background: 'var(--gradient-primary, linear-gradient(135deg, var(--color-btn-primary-bg), var(--color-accent, #d6a461)))',
+            background: 'var(--surface-primary, var(--color-btn-primary-bg))',
             borderRadius: '16px 16px 0 0',
           }}
         >
@@ -470,7 +470,7 @@ export function LilaDrawer({
               <div
                 className="relative rounded-2xl px-5 py-4 text-sm text-center max-w-[85%]"
                 style={{
-                  background: 'var(--gradient-primary, linear-gradient(135deg, var(--color-btn-primary-bg), var(--color-accent, #d6a461)))',
+                  background: 'var(--surface-primary, var(--color-btn-primary-bg))',
                   color: 'var(--color-btn-primary-text, #fff)',
                   boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
                 }}
@@ -625,7 +625,7 @@ export function LilaDrawer({
               disabled={!input.trim() || isStreaming}
               className="btn-primary p-2.5 rounded-full disabled:opacity-50 transition-all hover:scale-105"
               style={{
-                backgroundColor: 'var(--color-btn-primary-bg)',
+                background: 'var(--surface-primary, var(--color-btn-primary-bg))',
                 color: 'var(--color-btn-primary-text)',
                 minHeight: 'unset',
               }}

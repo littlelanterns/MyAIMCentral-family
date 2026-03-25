@@ -139,6 +139,22 @@ If anything is Missing, it must be built or explicitly approved as a stub before
 
 ---
 
+## Visual Verification Standard
+
+Before marking any UI item as "Wired" in the verification table:
+
+1. Open the browser
+2. Hard reload (Ctrl+Shift+R)
+3. Visually confirm the change is rendering correctly
+4. "I wrote the code" is NOT sufficient — only visual confirmation counts
+
+If the item cannot be visually verified (e.g. requires specific data
+or a user flow to trigger), note exactly how to reproduce it in the
+Notes column of the verification table. Never mark visual items
+Wired without eyes-on confirmation.
+
+---
+
 ## Step 7: Post-Build File Checklist (Convention #14)
 
 After verification is complete and Tenise has confirmed:

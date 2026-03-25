@@ -195,7 +195,7 @@ export function BottomNav() {
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium"
                     style={{
-                      backgroundColor: 'var(--color-btn-primary-bg)',
+                      background: 'var(--surface-primary, var(--color-btn-primary-bg))',
                       color: 'var(--color-btn-primary-text)',
                     }}
                   >

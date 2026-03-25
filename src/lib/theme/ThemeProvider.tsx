@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { themes, vibes, status, shellScaling } from './tokens'
+import { themes, vibes, brand, status, shellScaling } from './tokens'
 import type { ThemeKey, VibeKey, ShellType, ThemeColors, VibeConfig } from './tokens'
 import { applyShellTokens } from './shellTokens'
 
 type ColorMode = 'light' | 'dark' | 'system'
-type FontScale = 'default' | 'large' | 'extra-large'
+type FontScale = 'small' | 'default' | 'large' | 'extra-large'
 
 interface ThemeContextType {
   theme: ThemeKey
@@ -110,25 +110,61 @@ function applyTokens(
   root.style.setProperty('--font-heading', vibe.fontHeading)
   root.style.setProperty('--font-body', vibe.fontBody)
 
-  // Gradient tokens
+  // Gradient tokens + --surface-primary for consistent gradient toggle
+  // Rule: buttons, nav, active chips, selected states use --surface-primary
+  // Cards, inputs, backgrounds: never gradient (too noisy)
   if (gradientEnabled) {
-    root.style.setProperty('--gradient-primary', `linear-gradient(135deg, ${colors.btnPrimaryBg} 0%, ${colors.accent} 100%)`)
+    const gradientPrimary = `linear-gradient(135deg, ${colors.btnPrimaryBg} 0%, ${colors.accent} 100%)`
+    root.style.setProperty('--gradient-primary', gradientPrimary)
     root.style.setProperty('--gradient-background', `linear-gradient(135deg, ${colors.bgPrimary} 0%, ${colors.bgSecondary} 100%)`)
     root.style.setProperty('--gradient-card', `linear-gradient(135deg, ${colors.bgCard} 0%, ${colors.bgSecondary} 100%)`)
+    root.style.setProperty('--surface-primary', gradientPrimary)
+    root.style.setProperty('--surface-nav', `linear-gradient(135deg, ${colors.bgNav} 0%, ${colors.btnPrimaryBg} 100%)`)
     root.classList.add('gradient-on')
     root.classList.remove('gradient-off')
   } else {
     root.style.removeProperty('--gradient-primary')
     root.style.removeProperty('--gradient-background')
     root.style.removeProperty('--gradient-card')
+    root.style.setProperty('--surface-primary', colors.btnPrimaryBg)
+    root.style.setProperty('--surface-nav', colors.bgNav)
     root.classList.add('gradient-off')
     root.classList.remove('gradient-on')
   }
 
+  // Brand color tokens
+  root.style.setProperty('--color-sage-teal', brand.sageTeal)
+  root.style.setProperty('--color-warm-earth', brand.warmEarth)
+  root.style.setProperty('--color-golden-honey', brand.goldenHoney)
+  root.style.setProperty('--color-dusty-rose', brand.dustyRose)
+  root.style.setProperty('--color-soft-sage', brand.softSage)
+  root.style.setProperty('--color-warm-cream', brand.warmCream)
+  root.style.setProperty('--color-deep-ocean', brand.deepOcean)
+  root.style.setProperty('--color-soft-gold', brand.softGold)
+
+  // Transition tokens
+  root.style.setProperty('--transition-fast', '150ms ease')
+  root.style.setProperty('--transition-normal', '250ms ease')
+  root.style.setProperty('--transition-slow', '400ms ease')
+
+  // Radius tokens (resolved from vibe + shell)
+  root.style.setProperty('--radius-card', `calc(${vibe.radiusCard} * ${scale.radiusMultiplier})`)
+  root.style.setProperty('--radius-input', `calc(${vibe.radiusInput} * ${scale.radiusMultiplier})`)
+  root.style.setProperty('--radius-modal', `calc(${vibe.radiusModal} * ${scale.radiusMultiplier})`)
+
+  // Font family tokens
+  root.style.setProperty('--font-heading', vibe.fontHeading)
+  root.style.setProperty('--font-body', vibe.fontBody)
+
   // Font scale
-  root.classList.remove('font-scale-large', 'font-scale-extra-large')
+  root.classList.remove('font-scale-small', 'font-scale-large', 'font-scale-extra-large')
+  if (fontScale === 'small') root.classList.add('font-scale-small')
   if (fontScale === 'large') root.classList.add('font-scale-large')
   if (fontScale === 'extra-large') root.classList.add('font-scale-extra-large')
+
+  // Firefox scrollbar theming
+  root.style.setProperty('--scrollbar-track', colors.bgSecondary)
+  root.style.setProperty('--scrollbar-thumb', colors.border)
 
   // Layout tokens
   root.style.setProperty('--spacing-xs', '0.25rem')

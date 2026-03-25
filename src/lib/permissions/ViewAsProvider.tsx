@@ -7,18 +7,24 @@ interface ViewAsContextType {
   viewingAsMember: FamilyMember | null
   /** The real viewer's member ID (mom or dad who initiated View As) */
   realViewerId: string | null
+  /** Issue 6: Feature keys excluded from the current View As session */
+  excludedFeatures: string[]
   startViewAs: (member: FamilyMember, viewerId: string, familyId: string) => Promise<void>
   stopViewAs: () => Promise<void>
   switchViewAs: (member: FamilyMember) => Promise<void>
+  /** Issue 6: Set feature exclusions for current View As session */
+  setFeatureExclusions: (featureKeys: string[]) => Promise<void>
 }
 
 const ViewAsContext = createContext<ViewAsContextType>({
   isViewingAs: false,
   viewingAsMember: null,
   realViewerId: null,
+  excludedFeatures: [],
   startViewAs: async () => {},
   stopViewAs: async () => {},
   switchViewAs: async () => {},
+  setFeatureExclusions: async () => {},
 })
 
 export function useViewAs() {
@@ -34,6 +40,7 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [realViewerId, setRealViewerId] = useState<string | null>(null)
   const [realFamilyId, setRealFamilyId] = useState<string | null>(null)
+  const [excludedFeatures, setExcludedFeatures] = useState<string[]>([])
 
   const startViewAs = useCallback(async (member: FamilyMember, viewerId: string, familyId: string) => {
     const { data } = await supabase
@@ -66,6 +73,7 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
     setSessionId(null)
     setRealViewerId(null)
     setRealFamilyId(null)
+    setExcludedFeatures([])
   }, [sessionId])
 
   const switchViewAs = useCallback(async (member: FamilyMember) => {
@@ -100,15 +108,35 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
     }
   }, [sessionId, realViewerId, realFamilyId])
 
+  // Issue 6: Set feature exclusions and persist to view_as_feature_exclusions
+  const setFeatureExclusions = useCallback(async (featureKeys: string[]) => {
+    setExcludedFeatures(featureKeys)
+    if (sessionId) {
+      // Clear existing exclusions for this session
+      await supabase
+        .from('view_as_feature_exclusions')
+        .delete()
+        .eq('session_id', sessionId)
+      // Insert new exclusions
+      if (featureKeys.length > 0) {
+        await supabase
+          .from('view_as_feature_exclusions')
+          .insert(featureKeys.map((key) => ({ session_id: sessionId, feature_key: key })))
+      }
+    }
+  }, [sessionId])
+
   return (
     <ViewAsContext.Provider
       value={{
         isViewingAs: viewingAsMember !== null,
         viewingAsMember,
         realViewerId,
+        excludedFeatures,
         startViewAs,
         stopViewAs,
         switchViewAs,
+        setFeatureExclusions,
       }}
     >
       {children}

@@ -481,7 +481,7 @@ function EditorView({
           onClick={onAddTab}
           className="btn-primary px-4 py-2 rounded-lg text-sm"
           style={{
-            backgroundColor: 'var(--color-btn-primary-bg)',
+            background: 'var(--surface-primary, var(--color-btn-primary-bg))',
             color: 'var(--color-btn-primary-text)',
           }}
         >
@@ -659,7 +659,7 @@ function EditorView({
             disabled={!hasContent}
             className="btn-primary flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40"
             style={{
-              backgroundColor: 'var(--color-btn-primary-bg)',
+              background: 'var(--surface-primary, var(--color-btn-primary-bg))',
               color: 'var(--color-btn-primary-text)',
               minHeight: 'unset',
             }}
