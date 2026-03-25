@@ -98,6 +98,27 @@
   .gloss-term { font-size: 13px; font-weight: 700; color: var(--charcoal); margin-bottom: 4px; }
   .gloss-def { font-size: 13px; color: var(--mid-gray); margin: 0; line-height: 1.5; }
 
+
+  /* POSTMORTEM */
+  .postmortem-block { background: var(--charcoal); color: white; border-radius: 16px; padding: 36px 40px; margin: 32px 0; }
+  .postmortem-block .pm-label { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--honey-light); margin-bottom: 12px; }
+  .postmortem-block h3 { font-family: var(--font-serif); font-size: clamp(18px, 2.5vw, 26px); color: white; font-weight: normal; margin-bottom: 16px; line-height: 1.3; }
+  .postmortem-block p { color: rgba(255,255,255,0.82); font-size: 15px; line-height: 1.75; margin-bottom: 14px; }
+  .postmortem-block p:last-child { margin-bottom: 0; }
+  .postmortem-block strong { color: white; }
+  .pm-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+  .pm-table th { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); padding: 10px 14px; text-align: left; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
+  .pm-table td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); vertical-align: top; }
+  .pm-table td:first-child { color: white; font-weight: 500; }
+  .pm-steps { list-style: none; margin: 16px 0; }
+  .pm-steps li { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); align-items: flex-start; }
+  .pm-steps li:last-child { border-bottom: none; }
+  .pm-step-num { flex-shrink: 0; width: 28px; height: 28px; background: var(--honey); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+  .pm-step-content h4 { font-size: 14px; font-weight: 600; color: white; margin-bottom: 3px; }
+  .pm-step-content p { font-size: 13px; color: rgba(255,255,255,0.7); margin: 0; line-height: 1.5; }
+  .pm-link { display: inline-block; margin-top: 20px; color: var(--honey-light); font-size: 14px; font-weight: 600; text-decoration: none; border-bottom: 1px solid rgba(200,134,74,0.4); padding-bottom: 2px; transition: border-color 0.2s; }
+  .pm-link:hover { border-color: var(--honey-light); }
+
   /* STACK CARDS */
   .stack-list { list-style: none; margin: 20px 0; }
   .stack-item { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--light-gray); align-items: flex-start; }
@@ -679,6 +700,46 @@ For each item, tell me the status and flag anything that needs to be fixed befor
         <div class="gloss-term">Deployment</div>
         <div class="gloss-def">Putting your code on the internet so real people can use it.</div>
       </div>
+    </div>
+  </div>
+
+  <!-- POSTMORTEM SECTION -->
+  <div class="section">
+    <div class="section-label">A Hard-Won Lesson</div>
+    <h2>The thing nobody tells you until you have already learned it the hard way.</h2>
+    <p>Here is something I want to be honest with you about, because I wish someone had told me before I spent 40 hours of a competition building the same thing three times.</p>
+    <p>It was 4:00 AM. I had a baby asleep on my lap. I was staring at a scrollbar on my screen that was decidedly <em>not</em> scrolling. For the last hour, my AI coding tool had been confidently telling me it had fixed the scrollbar issue. I would paste in the code. The scrollbar would not move. I would ask again. It would tell me it had definitely found the issue this time. Paste. Nothing.</p>
+    <p>I was burning through API usage limits during a double-usage window, and I was building exactly nothing. I had an opportunity to grow grit and resilience. We will call it a win, though I was definitely calling it something else at 4:00 AM.</p>
+    <div class="postmortem-block">
+      <div class="pm-label">The Postmortem</div>
+      <h3>I built 8 phases of a complex app. Then I ran an audit and found 578 failures.</h3>
+      <p>The root cause was not that the AI was bad at coding. The code quality was fine. <strong>The root cause was that the AI was building the wrong thing correctly.</strong></p>
+      <p>Here is how it happened: The AI was reading a summary of my database schema instead of my actual PRDs. A summary captures the shape of a feature, not the intent. Column names do not tell you which fields are required on which screens, what the empty states should say, or what the edge cases are. My PRDs had all of that. The summary had none of it.</p>
+      <p>The AI also kept suggesting shortcuts. Each one seemed reasonable. Across 8 build phases, hundreds of small reductions meant the built product was fundamentally different from the designed product. And there was no verification step. Code was written, it compiled, it rendered something on screen, and the phase was marked complete. Nobody checked it against the PRD.</p>
+      <p>Those 578 failures took <strong>10 remediation phases</strong> to fix. More time than the original build.</p>
+      <table class="pm-table">
+        <thead><tr><th>Metric</th><th>Before the Fix</th><th>After the Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Failures per phase</td><td>~72 average</td><td>Near zero</td></tr>
+          <tr><td>Rework phases needed</td><td>10</td><td>0</td></tr>
+          <tr><td>Features matching spec</td><td>60-70%</td><td>98-100%</td></tr>
+          <tr><td>Founder surprises at review</td><td>Frequent</td><td>Rare</td></tr>
+        </tbody>
+      </table>
+      <p>The fix was a mandatory 8-step process that runs before any code is written:</p>
+      <ol class="pm-steps">
+        <li><div class="pm-step-num">1</div><div class="pm-step-content"><h4>Read the full PRD</h4><p>Not a skim. Not a summary. The actual document, every word.</p></div></li>
+        <li><div class="pm-step-num">2</div><div class="pm-step-content"><h4>Read every matching addendum</h4><p>Decisions made after the PRD was written often override it. Missing one means building against outdated specs.</p></div></li>
+        <li><div class="pm-step-num">3</div><div class="pm-step-content"><h4>Create a feature decision file</h4><p>Every screen, interaction, edge case, and explicit stub written out before code starts.</p></div></li>
+        <li><div class="pm-step-num">4</div><div class="pm-step-content"><h4>Populate the build context file</h4><p>Auto-loaded into every AI session so the full context is always present.</p></div></li>
+        <li><div class="pm-step-num">5</div><div class="pm-step-content"><h4>Founder review before code</h4><p>The AI tells you what it is going to build before it builds it. You confirm. No code until you say go.</p></div></li>
+        <li><div class="pm-step-num">6</div><div class="pm-step-content"><h4>Build with full context loaded</h4><p>PRD, addenda, and feature decision file all in context. No improvisation.</p></div></li>
+        <li><div class="pm-step-num">7</div><div class="pm-step-content"><h4>Post-build verification</h4><p>Every requirement gets a status: Wired, Stubbed, or Missing. Zero Missing items required.</p></div></li>
+        <li><div class="pm-step-num">8</div><div class="pm-step-content"><h4>Update documentation</h4><p>Schema docs, stub registry, build status. Updated before moving on.</p></div></li>
+      </ol>
+      <p>The AI is an extraordinary builder. But it builds confidently from whatever context it has. If that context is incomplete, the build is confidently wrong, and it looks right until you audit it.</p>
+      <p>Do not spend an hour fighting a scrollbar at 4:00 AM. Build the guard rails first.</p>
+      <a href="#" class="pm-link">Read the full postmortem: I Broke It. Here is What I Learned. &rarr;</a>
     </div>
   </div>
 
