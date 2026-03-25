@@ -179,7 +179,7 @@ Never disparage any belief system. Respect all traditions.`
 // ============================================================
 
 export function buildContextSection(contextData: {
-  guidingStars?: Array<{ content: string; category?: string }>
+  guidingStars?: Array<{ content: string; category?: string; entry_type?: string }>
   bestIntentions?: Array<{ statement: string }>
   selfKnowledge?: Array<{ content: string; category: string }>
   journalRecent?: Array<{ content: string; entry_type: string }>
