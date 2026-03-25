@@ -148,7 +148,11 @@ export function ArchiveMemberCard({
       ) : (
         <div
           className="absolute inset-0 flex items-center justify-center"
-          style={{ backgroundColor: bgColor }}
+          style={{
+            background: gradientEnabled && memberColor && memberColor.startsWith('#')
+              ? `linear-gradient(160deg, color-mix(in srgb, ${memberColor} 50%, white) 0%, ${memberColor} 100%)`
+              : bgColor,
+          }}
         >
           <span
             style={{
