@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type TouchEvent as ReactTouchEvent } from 'react'
 import { ChevronUp, ChevronDown, Send, X, History, Mic, Loader } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
@@ -56,6 +57,7 @@ export function LilaDrawer({
   const createConversation = useCreateConversation()
   const renameConversation = useRenameConversation()
   const queryClient = useQueryClient()
+  const location = useLocation()
 
   const {
     state: voiceState,
@@ -142,6 +144,7 @@ export function LilaDrawer({
   }, [family?.id, member?.id])
 
   // Select random opening message when mode changes and no messages yet
+  // Includes empty-context acknowledgment for guided modes (PRD-05 §Edge Cases)
   useEffect(() => {
     if (messages.length > 0 || !guidedModes.length) {
       setOpeningMessage(null)
@@ -149,12 +152,22 @@ export function LilaDrawer({
     }
     const mode = guidedModes.find(m => m.mode_key === currentMode)
     const openers = mode?.opening_messages || []
+
+    let opener: string
     if (openers.length > 0) {
-      setOpeningMessage(openers[Math.floor(Math.random() * openers.length)])
+      opener = openers[Math.floor(Math.random() * openers.length)]
     } else {
-      setOpeningMessage("Hey. What's on your mind?")
+      opener = "Hey. What's on your mind?"
     }
-  }, [currentMode, guidedModes, messages.length])
+
+    // Empty-context acknowledgment: if this is a guided mode that uses context
+    // but we have very little, append a gentle note
+    if (mode && mode.context_sources.length > 0 && contextSummary === 'No context loaded') {
+      opener += "\n\nI don't have much family context loaded right now. I'll do my best with what I know — and anything you share, I can help you save for next time."
+    }
+
+    setOpeningMessage(opener)
+  }, [currentMode, guidedModes, messages.length, contextSummary])
 
   const handleVoiceMic = useCallback(async () => {
     if (voiceState === 'recording') {
@@ -181,9 +194,8 @@ export function LilaDrawer({
     let conv = conversation
     if (!conv) {
       // Assemble context snapshot for the new conversation
-      const bundle = await assembleContext(family.id, member.id)
-      // snapshot prepared for future use when context_snapshot is wired
-      createContextSnapshot(bundle)
+      const bundle = await assembleContext(family.id, member.id, member.role, location.pathname)
+      const snapshot = createContextSnapshot(bundle)
 
       // Determine model from guided mode
       const mode = guidedModes.find(m => m.mode_key === currentMode)
@@ -198,10 +210,15 @@ export function LilaDrawer({
         guided_mode: currentMode !== 'general' ? currentMode : undefined,
         container_type: 'drawer',
         model_used: modelUsed,
+        page_context: location.pathname,
       })
 
-      // Update context_snapshot via separate call (since insert doesn't support jsonb well in some cases)
-      // The Edge Function handles the actual context assembly server-side
+      // Save context_snapshot to the conversation record (PRD-05: context snapshot stored on creation)
+      await supabase
+        .from('lila_conversations')
+        .update({ context_snapshot: snapshot })
+        .eq('id', conv.id)
+
       onConversationCreated(conv)
     }
 
@@ -257,14 +274,71 @@ export function LilaDrawer({
     )
   }, [input, member, family, isStreaming, conversation, currentMode, guidedModes, createConversation, onConversationCreated])
 
+  /** Delete the assistant message and re-send the last user message (PRD-05 HumanInTheMix) */
+  const handleRegenerate = useCallback(
+    async (messageId: string) => {
+      if (!conversation || isStreaming) return
+
+      const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
+      if (!lastUserMessage) return
+
+      await supabase.from('lila_messages').delete().eq('id', messageId)
+      queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+
+      setIsStreaming(true)
+      setStreamingContent('')
+
+      await streamLilaChat(
+        conversation.id,
+        lastUserMessage.content + '\n\n[Please try a different approach.]',
+        (chunk) => setStreamingContent(prev => prev + chunk),
+        () => {
+          setIsStreaming(false)
+          setStreamingContent('')
+          queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+        },
+        (error) => {
+          console.error('LiLa drawer regenerate error:', error)
+          setIsStreaming(false)
+          setStreamingContent('I had trouble with that. Want to try again?')
+        },
+      )
+    },
+    [conversation, messages, isStreaming, queryClient],
+  )
+
+  /** Delete the assistant message (PRD-05 HumanInTheMix Reject) */
+  const handleReject = useCallback(
+    async (messageId: string) => {
+      if (!conversation) return
+      await supabase.from('lila_messages').delete().eq('id', messageId)
+      queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+    },
+    [conversation, queryClient],
+  )
+
+  const [pendingModeSwitch, setPendingModeSwitch] = useState<string | null>(null)
+
   function handleModeSwitch(modeKey: string) {
     if (modeKey === currentMode) return
 
-    // If there's an active conversation, start a new one in the new mode
+    // If there's an active conversation with messages, show confirmation (PRD-05 Mode Conflict)
     if (conversation && messages.length > 0) {
-      onConversationCreated(null as unknown as LilaConversation) // Reset conversation
+      setPendingModeSwitch(modeKey)
+      return
     }
     setCurrentMode(modeKey)
+  }
+
+  function confirmModeSwitch() {
+    if (!pendingModeSwitch) return
+    onConversationCreated(null as unknown as LilaConversation)
+    setCurrentMode(pendingModeSwitch)
+    setPendingModeSwitch(null)
+  }
+
+  function cancelModeSwitch() {
+    setPendingModeSwitch(null)
   }
 
   function handleTitleSave() {
@@ -482,9 +556,8 @@ export function LilaDrawer({
                 message={msg}
                 avatarKey={avatarKey}
                 isLatestAssistant={isLatestAssistant}
-                onRegenerate={() => {
-                  // STUB: re-send the last user message
-                }}
+                onRegenerate={() => handleRegenerate(msg.id)}
+                onReject={() => handleReject(msg.id)}
               />
             )
           })}
@@ -615,6 +688,44 @@ export function LilaDrawer({
           </div>
         </div>
       </div>
+
+      {/* Mode conflict confirmation dialog (PRD-05 §Mode Conflict) */}
+      {pendingModeSwitch && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+          onClick={cancelModeSwitch}
+        >
+          <div
+            className="mx-4 max-w-sm w-full rounded-xl p-5 shadow-xl"
+            style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-heading)' }}>
+              Switch modes?
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+              Switching modes will start a new conversation. Your current conversation will be saved.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={cancelModeSwitch}
+                className="px-3 py-1.5 rounded-lg text-sm"
+                style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-secondary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmModeSwitch}
+                className="btn-primary px-3 py-1.5 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

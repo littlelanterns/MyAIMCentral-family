@@ -61,3 +61,4 @@ decided and why at build time. Do not delete them after a feature ships.
 | PRD-03-repair.md | PRD-03 | 2026-03-25 | Complete (19 wired, 0 stubbed) |
 | PRD-04-repair.md | PRD-04 | 2026-03-25 | Complete (11 wired, 0 stubbed) |
 | PRD-05-repair.md | PRD-35 + PRD-36 | 2026-03-25 | Complete (14 wired, 0 stubbed) |
+| PRD-05-LiLa-repair.md | PRD-05 | 2026-03-25 | Complete (10 wired, 0 stubbed, 1 N/A) |

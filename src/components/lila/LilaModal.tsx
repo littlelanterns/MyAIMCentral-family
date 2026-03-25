@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Send, Mic, Loader } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -36,7 +36,9 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { data: mode } = useGuidedMode(modeKey)
+  const { data: familyMembers = [] } = useFamilyMembers(family?.id)
   const [conversation, setConversation] = useState<LilaConversation | null>(existingConversation || null)
+  const [selectedPersonId, setSelectedPersonId] = useState<string | undefined>(referenceId)
   const { data: messages = [] } = useLilaMessages(conversation?.id)
   const createConversation = useCreateConversation()
   const queryClient = useQueryClient()
@@ -114,7 +116,7 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
         mode: 'general',
         guided_mode: modeKey,
         guided_subtype: modeKey,
-        guided_mode_reference_id: referenceId,
+        guided_mode_reference_id: selectedPersonId || referenceId,
         container_type: 'modal',
         model_used: mode?.model_tier || 'sonnet',
       })
@@ -240,6 +242,39 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
             <X size={18} />
           </button>
         </div>
+
+        {/* Person selector — shows when guided mode has person_selector: true (PRD-05 §Guided Mode Registry) */}
+        {mode?.person_selector && !conversation && familyMembers.length > 0 && (
+          <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <p className="text-xs mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+              Who is this about?
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {familyMembers
+                .filter(fm => fm.id !== member?.id)
+                .map(fm => (
+                  <button
+                    key={fm.id}
+                    onClick={() => setSelectedPersonId(fm.id)}
+                    className="px-3 py-1.5 rounded-full text-xs transition-all"
+                    style={{
+                      backgroundColor: selectedPersonId === fm.id
+                        ? 'var(--color-btn-primary-bg)'
+                        : 'var(--color-bg-secondary)',
+                      color: selectedPersonId === fm.id
+                        ? 'var(--color-btn-primary-text)'
+                        : 'var(--color-text-primary)',
+                      border: selectedPersonId === fm.id
+                        ? '1px solid var(--color-btn-primary-bg)'
+                        : '1px solid var(--color-border)',
+                    }}
+                  >
+                    {fm.display_name}
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">

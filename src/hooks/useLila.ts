@@ -205,6 +205,36 @@ export function useConversationHistory(memberId: string | undefined, filters?: {
   })
 }
 
+/**
+ * Family conversations visible to mom (PRD-05 §Visibility).
+ * Mom can see guided members' conversations by default.
+ * Excludes safe_harbor conversations and mom's own conversations.
+ */
+export function useFamilyConversations(familyId: string | undefined, memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['lila-family-conversations', familyId, memberId],
+    queryFn: async () => {
+      if (!familyId || !memberId) return []
+
+      const { data, error } = await supabase
+        .from('lila_conversations')
+        .select('*, family_members!lila_conversations_member_id_fkey(display_name, role, dashboard_mode)')
+        .eq('family_id', familyId)
+        .neq('member_id', memberId)
+        .neq('status', 'deleted')
+        .eq('is_safe_harbor', false)
+        .order('updated_at', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+      return (data || []) as Array<LilaConversation & {
+        family_members: { display_name: string; role: string; dashboard_mode: string | null }
+      }>
+    },
+    enabled: !!familyId && !!memberId,
+  })
+}
+
 export function useLilaMessages(conversationId: string | undefined) {
   return useQuery({
     queryKey: ['lila-messages', conversationId],

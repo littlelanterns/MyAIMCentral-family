@@ -20,15 +20,18 @@ interface ContextSource {
 
 interface LilaContextSettingsProps {
   onClose: () => void
+  hasActiveConversation?: boolean
+  onRefreshContext?: () => void
 }
 
-export function LilaContextSettings({ onClose }: LilaContextSettingsProps) {
+export function LilaContextSettings({ onClose, hasActiveConversation, onRefreshContext }: LilaContextSettingsProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { data: familyMembers = [] } = useFamilyMembers(family?.id)
   const [sources, setSources] = useState<ContextSource[]>([])
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [togglesChanged, setTogglesChanged] = useState(false)
 
   useEffect(() => {
     if (!family?.id || !member?.id) return
@@ -75,6 +78,7 @@ export function LilaContextSettings({ onClose }: LilaContextSettingsProps) {
     setSources(prev =>
       prev.map(s => s.id === source.id ? { ...s, is_included_in_ai: !s.is_included_in_ai } : s)
     )
+    setTogglesChanged(true)
 
     const { error } = await supabase
       .from(source.table)
@@ -96,6 +100,7 @@ export function LilaContextSettings({ onClose }: LilaContextSettingsProps) {
     setSources(prev =>
       prev.map(s => `${s.table}-${s.category}` === sectionKey ? { ...s, is_included_in_ai: included } : s)
     )
+    setTogglesChanged(true)
 
     // Update all items in the section
     const ids = sectionItems.map(s => s.id)
@@ -258,6 +263,22 @@ export function LilaContextSettings({ onClose }: LilaContextSettingsProps) {
           </p>
         </div>
       </div>
+
+      {/* Refresh Context button — appears when toggles changed during active conversation (PRD-05 §Context Staleness) */}
+      {hasActiveConversation && togglesChanged && onRefreshContext && (
+        <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+          <button
+            onClick={() => {
+              onRefreshContext()
+              setTogglesChanged(false)
+            }}
+            className="w-full btn-primary px-3 py-2 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            Refresh Context for Current Conversation
+          </button>
+        </div>
+      )}
 
       {/* Tooltip hint */}
       <div className="px-4 py-2 border-t text-center" style={{ borderColor: 'var(--color-border)' }}>

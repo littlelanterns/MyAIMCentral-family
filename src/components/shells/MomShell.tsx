@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useCallback, type ReactNode } from 'react'
 import { Settings } from 'lucide-react'
 import { useAutoCollapse } from '@/hooks/useAutoCollapse'
 import { Sidebar } from './Sidebar'
@@ -13,6 +13,10 @@ import { ViewAsShellWrapper } from '@/features/permissions'
 import { useTheme } from '@/lib/theme'
 import { useSettings } from '@/components/settings'
 import type { LilaConversation } from '@/hooks/useLila'
+import { assembleContext, createContextSnapshot } from '@/lib/ai/context-assembly'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamily } from '@/hooks/useFamily'
+import { supabase } from '@/lib/supabase/client'
 
 interface MomShellProps {
   children: ReactNode
@@ -27,6 +31,18 @@ export function MomShell({ children }: MomShellProps) {
   const { gradientEnabled } = useTheme()
   const { openSettings } = useSettings()
   const { mainRef, quickTasksAutoCollapsed } = useAutoCollapse()
+  const { data: currentMember } = useFamilyMember()
+  const { data: currentFamily } = useFamily()
+
+  const handleRefreshContext = useCallback(async () => {
+    if (!currentFamily?.id || !currentMember?.id || !activeConversation?.id) return
+    const bundle = await assembleContext(currentFamily.id, currentMember.id, currentMember.role)
+    const snapshot = createContextSnapshot(bundle)
+    await supabase
+      .from('lila_conversations')
+      .update({ context_snapshot: snapshot })
+      .eq('id', activeConversation.id)
+  }, [currentFamily?.id, currentMember?.id, currentMember?.role, activeConversation?.id])
 
   function handleFloatingButton(mode: string) {
     setLilaMode(mode)
@@ -125,7 +141,11 @@ export function MomShell({ children }: MomShellProps) {
             className="fixed bottom-14 md:bottom-0 left-0 right-0 z-30 md:left-[220px]"
             style={{ height: 'min(70vh, 500px)', backgroundColor: 'var(--color-bg-card)', borderTop: '2px solid var(--color-border)' }}
           >
-            <LilaContextSettings onClose={() => setShowContextSettings(false)} />
+            <LilaContextSettings
+              onClose={() => setShowContextSettings(false)}
+              hasActiveConversation={!!activeConversation}
+              onRefreshContext={handleRefreshContext}
+            />
           </div>
         )}
       </div>
