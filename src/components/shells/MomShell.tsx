@@ -58,11 +58,11 @@ export function MomShell({ children }: MomShellProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Floating buttons (top-right) — desktop: full row, mobile: icons only */}
         <div className="fixed top-3 right-3 md:right-12 z-30 flex items-center gap-1.5 md:gap-2">
-          {/* LiLa mode buttons — hidden on mobile, shown on desktop */}
-          <div className="hidden md:flex items-center gap-2">
-            <FloatingLilaButton avatarKey="happy_to_help" label="Help" tooltip="Customer support, troubleshooting, and FAQ" onClick={() => handleFloatingButton('help')} />
-            <FloatingLilaButton avatarKey="your_guide" label="Assist" tooltip="Feature guidance, tips, and onboarding" onClick={() => handleFloatingButton('assist')} />
-            <FloatingLilaButton avatarKey="smart_ai" label="Optimizer" tooltip="Craft better prompts for any AI tool" onClick={() => handleFloatingButton('optimizer')} />
+          {/* LiLa mode buttons — icon-only circles, always visible */}
+          <div className="flex items-center gap-1.5">
+            <FloatingLilaButton avatarKey="happy_to_help" label="Help" tooltip="Customer support & troubleshooting" onClick={() => handleFloatingButton('help')} />
+            <FloatingLilaButton avatarKey="your_guide" label="Assist" tooltip="Feature guidance & onboarding" onClick={() => handleFloatingButton('assist')} />
+            <FloatingLilaButton avatarKey="smart_ai" label="Optimizer" tooltip="Craft better prompts for any AI" onClick={() => handleFloatingButton('optimizer')} />
           </div>
           {/* Theme + Settings — always visible, compact on mobile */}
           <ThemeSelector />
@@ -174,28 +174,31 @@ function FloatingLilaButton({
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
+        className="flex items-center justify-center rounded-full shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200"
         style={{
-          backgroundColor: 'var(--color-btn-primary-bg)',
-          color: 'var(--color-btn-primary-text)',
+          width: '36px',
+          height: '36px',
+          background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+          border: 'none',
           minHeight: 'unset',
+          padding: 0,
         }}
+        aria-label={`${label} — ${tooltip}`}
+        title={label}
       >
-        <LilaAvatar avatarKey={avatarKey} size={18} />
-        {label}
+        <LilaAvatar avatarKey={avatarKey} size={22} />
       </button>
 
-      {/* Speech bubble tooltip on hover */}
+      {/* Speech bubble tooltip on hover — desktop only */}
       {hovered && (
         <div
-          className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-2 rounded-lg text-xs whitespace-nowrap z-50 animate-fadeIn"
+          className="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-3 py-2 rounded-lg text-xs whitespace-nowrap z-50 animate-fadeIn pointer-events-none"
           style={{
-            background: 'var(--gradient-primary, var(--color-btn-primary-bg))',
+            background: 'var(--surface-primary, var(--color-btn-primary-bg))',
             color: 'var(--color-btn-primary-text, #fff)',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
           }}
         >
-          {/* Arrow pointing up */}
           <div
             style={{
               position: 'absolute',
@@ -209,7 +212,8 @@ function FloatingLilaButton({
               borderBottom: '6px solid var(--color-btn-primary-bg)',
             }}
           />
-          {tooltip}
+          <span className="font-semibold">{label}</span>
+          <span className="opacity-75"> — {tooltip}</span>
         </div>
       )}
     </div>
