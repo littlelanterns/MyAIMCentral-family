@@ -255,7 +255,9 @@ export function ThemeSelector() {
                 onClick={() => setGradientEnabled(!gradientEnabled)}
                 className="w-9 h-5 rounded-full relative transition-colors flex-shrink-0"
                 style={{
-                  backgroundColor: gradientEnabled ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
+                  background: gradientEnabled
+                    ? 'linear-gradient(135deg, var(--color-btn-primary-bg), var(--color-accent))'
+                    : 'var(--color-bg-secondary)',
                 }}
               >
                 <div

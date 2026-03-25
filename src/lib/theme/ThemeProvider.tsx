@@ -109,6 +109,7 @@ function applyTokens(
   // Font tokens
   root.style.setProperty('--font-heading', vibe.fontHeading)
   root.style.setProperty('--font-body', vibe.fontBody)
+  root.style.setProperty('--heading-scale', String(vibe.headingScale))
 
   // Gradient tokens + --surface-primary for consistent gradient toggle
   // Rule: buttons, nav, active chips, selected states use --surface-primary

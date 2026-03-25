@@ -48,6 +48,7 @@ export interface VibeConfig {
   name: string
   fontHeading: string
   fontBody: string
+  headingScale: number
   radiusCard: string
   radiusInput: string
   radiusModal: string
@@ -62,6 +63,7 @@ export const vibes: Record<VibeKey, VibeConfig> = {
     name: 'Classic MyAIM',
     fontHeading: "'The Seasons', Georgia, serif",
     fontBody: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    headingScale: 1,
     radiusCard: '12px',
     radiusInput: '8px',
     radiusModal: '16px',
@@ -74,6 +76,7 @@ export const vibes: Record<VibeKey, VibeConfig> = {
     name: 'Clean & Modern',
     fontHeading: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     fontBody: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    headingScale: 1,
     radiusCard: '8px',
     radiusInput: '4px',
     radiusModal: '8px',
@@ -86,6 +89,7 @@ export const vibes: Record<VibeKey, VibeConfig> = {
     name: 'Professional',
     fontHeading: "Georgia, 'Times New Roman', serif",
     fontBody: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
+    headingScale: 1,
     radiusCard: '10px',
     radiusInput: '6px',
     radiusModal: '12px',
@@ -98,6 +102,7 @@ export const vibes: Record<VibeKey, VibeConfig> = {
     name: 'Cozy Journal',
     fontHeading: "'Amatic SC', 'Comic Sans MS', cursive",
     fontBody: "'Indie Flower', 'Comic Sans MS', cursive",
+    headingScale: 1.5,
     radiusCard: '18px',
     radiusInput: '10px',
     radiusModal: '20px',

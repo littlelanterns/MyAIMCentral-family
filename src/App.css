@@ -307,6 +307,14 @@ html.font-scale-small { font-size: 14px; }
 html.font-scale-large { font-size: 18px; }
 html.font-scale-extra-large { font-size: 20px; }
 
+/* Heading scale — vibes like Cozy Journal (Amatic SC) need larger headings */
+h1, h2, h3, h4, h5, h6,
+[class*="text-heading"],
+[style*="--color-text-heading"] {
+  font-family: var(--font-heading);
+  font-size: calc(1em * var(--heading-scale, 1));
+}
+
 /* ============================================================
  * Firefox scrollbar theming (PRD-03)
  * ============================================================ */
