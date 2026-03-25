@@ -327,7 +327,7 @@ export function FaithPreferencesModal({ open, onClose, familyId }: FaithPreferen
   // Sync form from DB when data loads
   useEffect(() => {
     if (!isLoading && !initialized) {
-      setForm(fromDbToForm(faithData))
+      setForm(fromDbToForm(faithData ?? null))
       setInitialized(true)
     }
   }, [faithData, isLoading, initialized])

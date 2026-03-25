@@ -17,12 +17,10 @@ import {
   HeartOff,
   Plus,
   ArrowRightFromLine,
-  FileText,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
 import {
-  Card,
   Badge,
   LoadingSpinner,
   EmptyState,
@@ -36,7 +34,6 @@ import {
   usePrivacyFiltered,
   useMoveToArchive,
   useToggleArchiveItemAI,
-  useArchiveFolders,
   useCreateArchiveContextItem,
   type PrivacyFilteredGroup,
 } from '@/hooks/useArchives'
@@ -379,7 +376,7 @@ function ConfirmMoveModal({
 
 export function PrivacyFilteredPage() {
   const navigate = useNavigate()
-  const { data: member, isLoading: memberLoading } = useFamilyMember()
+  const { isLoading: memberLoading } = useFamilyMember()
   const { data: family, isLoading: familyLoading } = useFamily()
   const familyId = family?.id
 

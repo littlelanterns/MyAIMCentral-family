@@ -37,8 +37,7 @@ import {
   FeatureGuide,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
-import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
-import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useArchiveFolders,
@@ -588,8 +587,6 @@ function AggregatedSourceSection({ group }: { group: AggregatedSourceGroup }) {
 export function MemberArchiveDetail() {
   const { memberId } = useParams<{ memberId: string }>()
   const navigate = useNavigate()
-  // Current logged-in member
-  const { data: currentMember } = useFamilyMember()
   const { data: family } = useFamily()
   const familyId = family?.id
 

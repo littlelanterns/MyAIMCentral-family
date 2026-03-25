@@ -41,7 +41,6 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import {
   useFamilyOverview,
   useFaithPreferences,
-  useArchiveContextItems,
   useCreateArchiveContextItem,
   useUpdateArchiveContextItem,
   useArchiveContextItem,
@@ -50,7 +49,6 @@ import {
   useUpdateArchiveFolder,
 } from '@/hooks/useArchives'
 import type { ArchiveContextItem, FamilyOverviewSection } from '@/types/archives'
-import { FAMILY_OVERVIEW_SECTIONS } from '@/types/archives'
 import { FaithPreferencesModal } from './FaithPreferencesModal'
 
 // ---------------------------------------------------------------------------
@@ -269,7 +267,7 @@ function OverviewSection({
   }, [isFaithSection, faithPrefs.data])
 
   return (
-    <Card variant="default" padding="none">
+    <Card variant="flat" padding="none">
       {/* Section header */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -463,7 +461,7 @@ function GuidingStarRow({
           {star.content}
         </p>
         {star.entry_type && (
-          <Badge variant="default" size="sm" className="mt-0.5">
+          <Badge variant="flat" size="sm" className="mt-0.5">
             {star.entry_type.replace(/_/g, ' ')}
           </Badge>
         )}
@@ -553,7 +551,7 @@ export function FamilyOverviewDetail() {
         </div>
 
         {/* Family name card */}
-        <Card variant="default" padding="lg">
+        <Card variant="flat" padding="lg">
           <div className="flex items-center gap-3">
             <div
               className="p-3 rounded-xl"
@@ -624,7 +622,7 @@ export function FamilyOverviewDetail() {
           </div>
 
           {familyStars.length === 0 ? (
-            <Card variant="default" padding="md">
+            <Card variant="flat" padding="md">
               <div className="text-center py-4">
                 <Star
                   size={24}
@@ -647,7 +645,7 @@ export function FamilyOverviewDetail() {
               </div>
             </Card>
           ) : (
-            <Card variant="default" padding="md">
+            <Card variant="flat" padding="md">
               {familyStars.map((star: { id: string; content: string; entry_type: string | null; is_included_in_ai: boolean }) => (
                 <GuidingStarRow
                   key={star.id}
@@ -667,7 +665,7 @@ export function FamilyOverviewDetail() {
         </div>
 
         {/* Family Vision Statement — STUB */}
-        <Card variant="default" padding="md">
+        <Card variant="flat" padding="md">
           <div className="flex items-center gap-3 py-2">
             <div
               className="p-2 rounded-lg"
@@ -683,12 +681,12 @@ export function FamilyOverviewDetail() {
                 Family Vision Quest — coming soon
               </p>
             </div>
-            <Badge variant="default" size="sm">Planned</Badge>
+            <Badge variant="flat" size="sm">Planned</Badge>
           </div>
         </Card>
 
         {/* Family Meeting Notes — STUB */}
-        <Card variant="default" padding="md">
+        <Card variant="flat" padding="md">
           <div className="flex items-center gap-3 py-2">
             <div
               className="p-2 rounded-lg"
@@ -704,7 +702,7 @@ export function FamilyOverviewDetail() {
                 Meeting Notes routing — coming soon
               </p>
             </div>
-            <Badge variant="default" size="sm">Planned</Badge>
+            <Badge variant="flat" size="sm">Planned</Badge>
           </div>
         </Card>
 
