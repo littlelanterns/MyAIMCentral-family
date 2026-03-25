@@ -136,18 +136,19 @@ import { useTheme } from './theme'
 
 export function useFeatureIcon(
   featureKey: string,
-  size: AssetSize = 128
+  size: AssetSize = 128,
+  variant: 'A' | 'B' | 'C' = 'A'
 ): string | null {
   const { vibe } = useTheme()
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    getFeatureIcon(featureKey, vibe, 'A', size).then(result => {
+    getFeatureIcon(featureKey, vibe, variant, size).then(result => {
       if (!cancelled) setUrl(result)
     })
     return () => { cancelled = true }
-  }, [featureKey, vibe, size])
+  }, [featureKey, vibe, variant, size])
 
   return url
 }

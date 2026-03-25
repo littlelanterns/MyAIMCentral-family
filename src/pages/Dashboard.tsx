@@ -53,11 +53,6 @@ export function Dashboard() {
           >
             {greeting}, {displayMember?.display_name ?? 'there'}
           </h1>
-          {family && (
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {family.family_name}
-            </p>
-          )}
         </div>
         {!isViewingAs && (
           <button
@@ -355,7 +350,7 @@ function NavCard({
         color: textColor || color,
       }}
     >
-      <FeatureIcon featureKey={featureKey} fallback={icon} size={40} />
+      <FeatureIcon featureKey={featureKey} fallback={icon} size={48} />
       <span className="text-sm font-medium">{label}</span>
     </Link>
   )

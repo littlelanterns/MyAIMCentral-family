@@ -243,7 +243,7 @@ export function InnerWorkingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="innerworkings_basic" fallback={<Brain size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={28} />
+          <FeatureIcon featureKey="my_foundation" fallback={<Brain size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
               InnerWorkings

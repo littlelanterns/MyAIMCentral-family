@@ -102,7 +102,7 @@ export function GuidingStarsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="guiding_stars_basic" fallback={<Star size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={28} />
+          <FeatureIcon featureKey="guiding_stars" fallback={<Star size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
           <div>
             <h1
               className="text-2xl font-bold"

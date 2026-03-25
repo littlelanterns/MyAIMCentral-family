@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Settings, PartyPopper } from 'lucide-react'
 import { TimerProvider } from '@/features/timer'
+import { useSettings } from '@/components/settings'
 
 interface PlayShellProps {
   children: ReactNode
@@ -16,6 +17,7 @@ const navItems = [
 
 export function PlayShell({ children }: PlayShellProps) {
   const navigate = useNavigate()
+  const { openSettings } = useSettings()
 
   return (
     <TimerProvider>
@@ -26,8 +28,9 @@ export function PlayShell({ children }: PlayShellProps) {
       {/* Simple header with parent-locked Settings */}
       <header className="flex items-center justify-end px-4 py-2">
         <button
+          onClick={openSettings}
           className="p-2 rounded-full min-h-[56px] min-w-[56px] flex items-center justify-center"
-          style={{ color: 'var(--color-text-secondary)' }}
+          style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none' }}
           title="Settings (parent only)"
         >
           <Settings size={24} />

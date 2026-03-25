@@ -21,11 +21,13 @@ import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
 import {
   VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
-  FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage, SettingsPage,
+  FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage,
 } from '@/pages/placeholder'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { HubPage } from '@/pages/Hub'
+import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
+import { SettingsProvider } from '@/components/settings'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +43,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ViewAsProvider>
+          <SettingsProvider>
           <BrowserRouter>
             <Routes>
               {/* Public routes */}
@@ -50,6 +53,9 @@ function App() {
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth/family-login" element={<FamilyLogin />} />
               <Route path="/auth/accept-invite" element={<AcceptInvite />} />
+
+              {/* Hub — standalone tablet/family display (no shell chrome) */}
+              <Route path="/hub" element={<ProtectedRouteNoShell><HubPage /></ProtectedRouteNoShell>} />
 
               {/* Dev preview — browse without auth */}
               <Route path="/preview/*" element={<DevPreview />} />
@@ -64,6 +70,10 @@ function App() {
               <Route path="/best-intentions" element={<ProtectedRoute><BestIntentionsPage /></ProtectedRoute>} />
               <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />
               <Route path="/journal" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
+              <Route path="/journal/reflections" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
+              <Route path="/journal/commonplace" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
+              <Route path="/journal/gratitude" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
+              <Route path="/journal/kid-quips" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
               <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
               <Route path="/studio" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
@@ -75,12 +85,11 @@ function App() {
               <Route path="/archives" element={<ProtectedRoute><ArchivesPage /></ProtectedRoute>} />
               <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
               <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
             </Routes>
           </BrowserRouter>
+          </SettingsProvider>
         </ViewAsProvider>
       </ThemeProvider>
     </QueryClientProvider>

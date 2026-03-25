@@ -22,3 +22,15 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     </AuthGuard>
   )
 }
+
+/**
+ * Auth-only wrapper — no shell chrome. Used for standalone layouts
+ * like the Tablet Hub (/hub) that need auth but render their own layout.
+ */
+export function ProtectedRouteNoShell({ children }: ProtectedRouteProps) {
+  return (
+    <AuthGuard>
+      {children}
+    </AuthGuard>
+  )
+}

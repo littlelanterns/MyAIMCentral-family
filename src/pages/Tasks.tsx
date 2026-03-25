@@ -294,7 +294,7 @@ export function TasksPage() {
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between pb-4">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="tasks" fallback={<CheckSquare size={32} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={32} />
+          <FeatureIcon featureKey="tasks" fallback={<CheckSquare size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
           <h1
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}

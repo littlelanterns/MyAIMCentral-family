@@ -220,7 +220,9 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Guided shell personalized header | PRD-04 | PRD-04 | ✅ Wired | Remediation |
 | Notepad in Adult/Independent shells | PRD-04 | PRD-04 | ✅ Wired | Remediation |
 | Settings removed from Sidebar | PRD-04 | PRD-04 | ✅ Wired | Remediation |
-| Guided lightweight notepad | PRD-04 | PRD-08 | ⏳ Unwired (MVP) | Phase 09 |
+| Guided lightweight notepad | PRD-04 | PRD-04 Repair | ✅ Wired | PRD-04 Repair 2026-03-25 |
+| Settings overlay (full UI) | PRD-04 Repair | PRD-22 | ⏳ Unwired (MVP) | Phase 27 |
+| Hub widget content (real widgets) | PRD-04 Repair | PRD-10/PRD-14D | ⏳ Unwired (MVP) | Phase 11/15 |
 | PWA entry points | PRD-04 | PRD-33 | 📌 Post-MVP | — |
 | Timer idle reminders | PRD-36 | PRD-15 | ⏳ Unwired (MVP) | Phase 16 |
 | Timer → homeschool time logs | PRD-36 | PRD-28 | ⏳ Unwired (MVP) | Phase 32 |

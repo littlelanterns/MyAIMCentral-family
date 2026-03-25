@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Settings } from 'lucide-react'
+import { useAutoCollapse } from '@/hooks/useAutoCollapse'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
@@ -11,6 +11,7 @@ import { TimerProvider } from '@/features/timer'
 import { RoutingToastProvider } from '@/components/shared'
 import { ViewAsShellWrapper } from '@/features/permissions'
 import { useTheme } from '@/lib/theme'
+import { useSettings } from '@/components/settings'
 import type { LilaConversation } from '@/hooks/useLila'
 
 interface MomShellProps {
@@ -23,8 +24,9 @@ export function MomShell({ children }: MomShellProps) {
   const [lilaMode, setLilaMode] = useState<string | undefined>(undefined)
   const [showHistory, setShowHistory] = useState(false)
   const [showContextSettings, setShowContextSettings] = useState(false)
-  const navigate = useNavigate()
   const { gradientEnabled } = useTheme()
+  const { openSettings } = useSettings()
+  const { mainRef, quickTasksAutoCollapsed } = useAutoCollapse()
 
   function handleFloatingButton(mode: string) {
     setLilaMode(mode)
@@ -55,7 +57,7 @@ export function MomShell({ children }: MomShellProps) {
       <Sidebar />
 
       <ViewAsShellWrapper>
-      <div className="flex-1 flex flex-col min-w-0">
+      <div ref={mainRef} className="flex-1 flex flex-col min-w-0">
         {/* Floating buttons (top-right) — desktop: full row, mobile: icons only */}
         <div className="fixed top-3 right-3 md:right-12 z-30 flex items-center gap-1.5 md:gap-2">
           {/* LiLa mode buttons — icon-only circles, always visible */}
@@ -67,14 +69,14 @@ export function MomShell({ children }: MomShellProps) {
           {/* Theme + Settings — always visible, compact on mobile */}
           <ThemeSelector />
           <button
-            onClick={() => navigate('/family-members')}
+            onClick={openSettings}
             className="p-2 rounded-full hover:scale-110 transition-all duration-200"
             style={{
               background: 'transparent',
               color: 'var(--color-btn-primary-bg, #68a395)',
               minHeight: 'unset',
             }}
-            title="Family settings"
+            title="Settings"
           >
             <Settings size={20} />
           </button>
@@ -84,7 +86,7 @@ export function MomShell({ children }: MomShellProps) {
         <div className="h-12 md:h-0" />
 
         {/* QuickTasks strip — wired to NotepadProvider via bridge */}
-        <NotepadBridgedQuickTasks />
+        <NotepadBridgedQuickTasks forceCollapsed={quickTasksAutoCollapsed} />
 
         {/* Main content — padding-bottom accounts for bottom nav on mobile + LiLa drawer */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-16">
@@ -147,11 +149,11 @@ export function MomShell({ children }: MomShellProps) {
  * Lives inside NotepadProvider's tree so it can call useNotepadContext()
  * safely, then passes openNotepad down to QuickTasks via the bridge provider.
  */
-function NotepadBridgedQuickTasks() {
+function NotepadBridgedQuickTasks({ forceCollapsed }: { forceCollapsed?: boolean }) {
   const { openNotepad } = useNotepadContext()
   return (
     <QuickTasksNotepadBridgeProvider openNotepad={openNotepad}>
-      <QuickTasks />
+      <QuickTasks forceCollapsed={forceCollapsed} />
     </QuickTasksNotepadBridgeProvider>
   )
 }

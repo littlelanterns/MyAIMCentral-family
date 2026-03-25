@@ -16,6 +16,8 @@ interface FeatureIconProps {
   size?: number
   /** Asset resolution to fetch — 32, 128, or 512 (default 128) */
   assetSize?: AssetSize
+  /** Preferred variant — A, B, or C (default A) */
+  variant?: 'A' | 'B' | 'C'
   className?: string
 }
 
@@ -24,9 +26,10 @@ export function FeatureIcon({
   fallback,
   size = 24,
   assetSize = 128,
+  variant,
   className = '',
 }: FeatureIconProps) {
-  const url = useFeatureIcon(featureKey, assetSize)
+  const url = useFeatureIcon(featureKey, assetSize, variant)
 
   if (url) {
     return (

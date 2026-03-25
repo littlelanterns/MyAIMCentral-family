@@ -86,7 +86,7 @@ export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwi
                 minHeight: 'unset',
                 border: 'none',
                 backgroundColor: isActive
-                  ? 'var(--color-btn-primary-bg)'
+                  ? 'var(--surface-primary, var(--color-btn-primary-bg))'
                   : 'transparent',
                 color: isActive
                   ? 'var(--color-btn-primary-text)'

@@ -5,6 +5,7 @@ import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
+import { useSettings } from '@/components/settings'
 
 interface AdultShellProps {
   children: ReactNode
@@ -15,6 +16,8 @@ interface AdultShellProps {
  * Dad/additional adults get permission-gated LiLa modal access (no drawer).
  */
 export function AdultShell({ children }: AdultShellProps) {
+  const { openSettings } = useSettings()
+
   return (
     <TimerProvider>
     <NotepadProvider>
@@ -25,6 +28,7 @@ export function AdultShell({ children }: AdultShellProps) {
         <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
           <LilaModalTrigger modeKey="higgins_say" label="LiLa" />
           <button
+            onClick={openSettings}
             className="p-2 rounded-full"
             style={{
               backgroundColor: 'var(--color-bg-card)',

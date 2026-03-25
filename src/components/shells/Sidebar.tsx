@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  Palette,
+  Palette, Lock,
   ChevronLeft, ChevronRight, Eye,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -133,10 +133,57 @@ function useNavIcons(sections: NavSection[]) {
   return iconUrls
 }
 
+/**
+ * Hook to persist sidebar collapsed state to family_members.layout_preferences.
+ * Loads initial state from Supabase, saves on change.
+ */
+function useSidebarPersistence(memberId: string | null) {
+  const [collapsed, setCollapsedState] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    if (!memberId) return
+    supabase
+      .from('family_members')
+      .select('layout_preferences')
+      .eq('id', memberId)
+      .single()
+      .then(({ data }) => {
+        if (data?.layout_preferences?.sidebar_open === false) {
+          setCollapsedState(true)
+        }
+        setLoaded(true)
+      })
+  }, [memberId])
+
+  const setCollapsed = useCallback((next: boolean) => {
+    setCollapsedState(next)
+    if (memberId) {
+      supabase
+        .from('family_members')
+        .select('layout_preferences')
+        .eq('id', memberId)
+        .single()
+        .then(({ data }) => {
+          const prefs = (data?.layout_preferences as Record<string, unknown>) || {}
+          supabase
+            .from('family_members')
+            .update({ layout_preferences: { ...prefs, sidebar_open: !next } })
+            .eq('id', memberId)
+            .then(() => {})
+        })
+    }
+  }, [memberId])
+
+  return { collapsed, setCollapsed, loaded }
+}
+
 export function Sidebar() {
   const { shell } = useShell()
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
+  const { data: member } = useFamilyMember()
+  const { collapsed, setCollapsed } = useSidebarPersistence(member?.id ?? null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   // Left-edge swipe to open sidebar on mobile/tablet (PRD-04)
@@ -168,19 +215,19 @@ function ViewAsSwitcher() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { isViewingAs, viewingAsMember, startViewAs, stopViewAs } = useViewAs()
-  const [members, setMembers] = useState<Array<{ id: string; display_name: string; role: string }>>([])
+  const [members, setMembers] = useState<Array<{ id: string; display_name: string; role: string; dashboard_mode: string | null; theme_preferences: Record<string, unknown> | null }>>([])
   const [open, setOpen] = useState(false)
 
-  // Load family members
+  // Load family members — include dashboard_mode and theme_preferences for View As shell switching
   useEffect(() => {
     if (!family?.id) return
     supabase
       .from('family_members')
-      .select('id, display_name, role')
+      .select('id, display_name, role, dashboard_mode, theme_preferences')
       .eq('family_id', family.id)
       .eq('is_active', true)
       .then(({ data }) => {
-        if (data) setMembers(data as Array<{ id: string; display_name: string; role: string }>)
+        if (data) setMembers(data as typeof members)
       })
   }, [family?.id])
 
@@ -268,29 +315,51 @@ function SidebarInner({
           )}
           {section.items.map((item) => {
             const illustratedUrl = iconUrls[item.featureKey]
+            // Tier-locking: during beta useCanAccess returns true for all.
+            // When tiers are enforced: mom sees greyed/blurred, others hidden.
+            // For now, always show all items (beta behavior).
+            const tierLocked = false // Will be: !useCanAccess(item.featureKey)
+            const isMom = shell === 'mom'
+
+            // Non-mom: hide tier-locked items entirely
+            if (tierLocked && !isMom) return null
+
             return (
               <NavLink
                 key={item.path}
-                to={item.path}
+                to={tierLocked ? '#' : item.path}
                 title={collapsed ? `${item.label} — ${item.tooltip}` : item.tooltip}
-                onClick={() => setMobileOpen(false)}
+                onClick={(e) => {
+                  if (tierLocked) { e.preventDefault(); return }
+                  setMobileOpen(false)
+                }}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-colors ${
-                    isActive ? 'font-medium' : ''
+                    isActive && !tierLocked ? 'font-medium' : ''
                   }`
                 }
                 style={({ isActive }) => ({
-                  backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
-                  color: isActive ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
-                  borderRight: isActive ? '3px solid var(--color-btn-primary-bg)' : '3px solid transparent',
+                  backgroundColor: isActive && !tierLocked ? 'var(--surface-primary, var(--color-bg-secondary))' : 'transparent',
+                  color: tierLocked
+                    ? 'var(--color-text-secondary)'
+                    : isActive ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
+                  borderRight: isActive && !tierLocked ? '3px solid var(--surface-primary, var(--color-btn-primary-bg))' : '3px solid transparent',
+                  opacity: tierLocked ? 0.45 : 1,
+                  filter: tierLocked ? 'blur(0.5px)' : 'none',
+                  cursor: tierLocked ? 'not-allowed' : 'pointer',
                 })}
               >
                 {illustratedUrl ? (
-                  <img src={illustratedUrl} alt="" width={26} height={26} className="shrink-0 rounded-sm" />
+                  <img src={illustratedUrl} alt="" width={26} height={26} className="shrink-0 rounded-sm" style={tierLocked ? { filter: 'grayscale(1)' } : undefined} />
                 ) : (
                   item.icon
                 )}
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && (
+                  <>
+                    <span>{item.label}</span>
+                    {tierLocked && <Lock size={12} className="ml-auto shrink-0" />}
+                  </>
+                )}
               </NavLink>
             )
           })}

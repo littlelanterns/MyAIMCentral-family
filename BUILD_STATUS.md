@@ -32,6 +32,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | PRD-05 | LiLa AI: HumanInTheMix wired, FAQ patterns, context stubs, permission/privacy filtering, voice, opening messages, page context | 2026-03-24 |
 | PRD-01 | Auth Gaps: Accept-invite flow + RPC, session duration per role, inactivity warning banner | 2026-03-24 |
 | PRD-02 | Permissions Repair: 21 audit findings — RPC role mapping, trigger defaults, teen panel column fix, Permission Hub UI (emergency lockout, global permissions, dad personal features, shift log, View As exclusions, profile Layer 3) | 2026-03-25 |
+| PRD-04 | Shell Routing Repair: 11 audit findings — Settings overlay stub, Hub layout, sidebar persistence, auto-collapse, tier-locking, Guided notepad, journal sub-routes, QuickTasks auto-sort, View As full shell+theme, gradient consistency | 2026-03-25 |
 
 ## Feature Phases (Pending)
 

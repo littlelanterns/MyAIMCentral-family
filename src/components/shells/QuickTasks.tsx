@@ -86,6 +86,34 @@ const QUICK_ACTIONS: QuickAction[] = [
 ]
 
 const STORAGE_KEY = 'myaim-quicktasks-collapsed'
+const USAGE_KEY = 'myaim-quicktasks-usage'
+
+/** Get usage counts from localStorage */
+function getUsageCounts(): Record<string, number> {
+  try {
+    const stored = localStorage.getItem(USAGE_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch { return {} }
+}
+
+/** Increment usage count for a quick action key */
+function incrementUsage(key: string) {
+  try {
+    const counts = getUsageCounts()
+    counts[key] = (counts[key] || 0) + 1
+    localStorage.setItem(USAGE_KEY, JSON.stringify(counts))
+  } catch { /* Non-critical */ }
+}
+
+/** Sort actions by usage frequency (most-used first), preserving original order as tiebreaker */
+function sortByUsage(actions: QuickAction[]): QuickAction[] {
+  const counts = getUsageCounts()
+  return [...actions].sort((a, b) => {
+    const countA = counts[a.key] || 0
+    const countB = counts[b.key] || 0
+    return countB - countA // Higher count first
+  })
+}
 
 // ─── NotepadOpener bridge ────────────────────────────────────
 // QuickTasks cannot safely import useNotepadContext directly because
@@ -148,7 +176,7 @@ function useQuickActionIcons() {
   return iconUrls
 }
 
-export function QuickTasks() {
+export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}) {
   const { shell } = useShell()
   const navigate = useNavigate()
   const notepadBridge = useContext(QuickTasksNotepadCtx)
@@ -167,6 +195,9 @@ export function QuickTasks() {
 
   if (!ALLOWED_SHELLS.has(shell)) return null
 
+  // Auto-collapse override from ResizeObserver (PRD-04 auto-collapse logic)
+  const effectiveCollapsed = forceCollapsed || collapsed
+
   function persistCollapsed(next: boolean) {
     setCollapsed(next)
     try {
@@ -177,6 +208,7 @@ export function QuickTasks() {
   }
 
   function handleAction(action: QuickAction) {
+    incrementUsage(action.key) // Track usage for auto-sort (PRD-04)
     if (action.kind === 'path' && action.path) {
       navigate(action.path)
     } else {
@@ -190,7 +222,10 @@ export function QuickTasks() {
     }
   }
 
-  if (collapsed) {
+  // Auto-sort by usage frequency (PRD-04)
+  const sortedActions = sortByUsage(QUICK_ACTIONS)
+
+  if (effectiveCollapsed) {
     return (
       <div
         className="flex items-center justify-between px-3"
@@ -229,7 +264,7 @@ export function QuickTasks() {
   return (
     <div
       style={{
-        backgroundColor: 'var(--color-bg-card)',
+        backgroundColor: 'var(--surface-nav, var(--color-bg-card))',
         borderBottom: '1px solid var(--color-border)',
         position: 'relative',
       }}
@@ -246,7 +281,7 @@ export function QuickTasks() {
       >
         <style>{`.qt-row::-webkit-scrollbar { display: none; }`}</style>
 
-        {QUICK_ACTIONS.map((item) => (
+        {sortedActions.map((item) => (
           <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
         ))}
       </div>

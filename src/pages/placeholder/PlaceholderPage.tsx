@@ -19,7 +19,7 @@ export function PlaceholderPage({ title, description, icon: Icon, prd, featureKe
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         {featureKey ? (
-          <FeatureIcon featureKey={featureKey} fallback={<Icon size={32} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={32} />
+          <FeatureIcon featureKey={featureKey} fallback={<Icon size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} />
         ) : (
           <Icon size={24} style={{ color: 'var(--color-btn-primary-bg)' }} />
         )}
@@ -37,7 +37,7 @@ export function PlaceholderPage({ title, description, icon: Icon, prd, featureKe
       >
         {featureKey ? (
           <div className="mx-auto w-fit">
-            <FeatureIcon featureKey={featureKey} fallback={<Icon size={48} style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }} />} size={48} />
+            <FeatureIcon featureKey={featureKey} fallback={<Icon size={56} style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }} />} size={56} />
           </div>
         ) : (
           <Icon size={48} className="mx-auto" style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }} />

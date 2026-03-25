@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { BookOpen, Plus, Pencil, Trash2, Eye, EyeOff, Lock } from 'lucide-react'
 import { FeatureIcon } from '@/components/shared'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -31,7 +32,25 @@ export function JournalPage() {
   const [formType, setFormType] = useState<JournalEntryType>('free_write')
   const [formContent, setFormContent] = useState('')
   const [formVisibility, setFormVisibility] = useState<JournalVisibility>('private')
-  const [filterType, setFilterType] = useState<JournalEntryType | 'all'>('all')
+  const location = useLocation()
+
+  // Map sub-routes to filter types (PRD-04 journal container routes)
+  const routeFilterMap: Record<string, JournalEntryType | 'all'> = {
+    '/journal': 'all',
+    '/journal/reflections': 'daily_reflection',
+    '/journal/commonplace': 'observation',
+    '/journal/gratitude': 'gratitude',
+    '/journal/kid-quips': 'observation', // kid quips are observations
+  }
+  const initialFilter = routeFilterMap[location.pathname] || 'all'
+
+  const [filterType, setFilterType] = useState<JournalEntryType | 'all'>(initialFilter)
+
+  // Sync filter when URL changes
+  useEffect(() => {
+    const mapped = routeFilterMap[location.pathname]
+    if (mapped !== undefined) setFilterType(mapped)
+  }, [location.pathname])
 
   function resetForm() {
     setFormType('free_write')
@@ -84,7 +103,7 @@ export function JournalPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="journal" fallback={<BookOpen size={32} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={32} />
+          <FeatureIcon featureKey="journal" fallback={<BookOpen size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
           <h1
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}

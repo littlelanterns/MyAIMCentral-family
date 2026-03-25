@@ -132,7 +132,7 @@ export function BottomNav() {
               to={item.path}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
               style={{
-                color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
                 textDecoration: 'none',
                 transition: 'color 0.2s ease',
               }}
