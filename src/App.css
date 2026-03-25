@@ -48,14 +48,13 @@ a:hover {
   outline-offset: 2px;
 }
 
-/* Scrollbar theming */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Scrollbar theming — matches buttons: solid or gradient depending on toggle */
+* {
+  scrollbar-color: var(--color-btn-primary-bg, #68a395) var(--color-bg-secondary, #d4e3d9);
+  scrollbar-width: thin;
 }
-::-webkit-scrollbar-track {
-  background: var(--color-bg-secondary, #d4e3d9);
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--color-bg-secondary, #d4e3d9); }
 ::-webkit-scrollbar-thumb {
   background: var(--color-btn-primary-bg, #68a395);
   border-radius: 4px;
@@ -164,10 +163,6 @@ select:focus {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
-/* Scrollbar hover gradient */
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--color-accent, #d6a461), var(--color-btn-primary-bg, #68a395));
-}
 
 /* ============================================================
  * Keyframe Animations
@@ -313,26 +308,6 @@ h1, h2, h3, h4, h5, h6,
 [style*="--color-text-heading"] {
   font-family: var(--font-heading);
   font-size: calc(1em * var(--heading-scale, 1));
-}
-
-/* ============================================================
- * Firefox scrollbar theming (PRD-03)
- * ============================================================ */
-* {
-  scrollbar-color: var(--color-btn-primary-bg, #68a395) var(--color-bg-secondary, #d4e3d9);
-  scrollbar-width: thin;
-}
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--color-bg-secondary, #d4e3d9); }
-::-webkit-scrollbar-thumb {
-  background: var(--color-btn-primary-bg, #68a395);
-  border-radius: 4px;
-}
-.gradient-on ::-webkit-scrollbar-thumb {
-  background: var(--gradient-primary, var(--color-btn-primary-bg));
-}
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--color-accent, #d6a461), var(--color-btn-primary-bg, #68a395));
 }
 
 /* Panel scrollbar — matches card background instead of page background */
