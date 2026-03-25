@@ -163,9 +163,9 @@ function applyTokens(
   if (fontScale === 'large') root.classList.add('font-scale-large')
   if (fontScale === 'extra-large') root.classList.add('font-scale-extra-large')
 
-  // Scrollbar theming — diagonal gradient of theme colors
+  // Scrollbar theming — brand diagonal gradient (sage teal → golden honey)
   root.style.setProperty('--scrollbar-track', colors.bgSecondary)
-  root.style.setProperty('--scrollbar-thumb', `linear-gradient(135deg, ${colors.btnPrimaryBg}, ${colors.accent})`)
+  root.style.setProperty('--scrollbar-thumb', `linear-gradient(135deg, ${brand.sageTeal}, ${brand.goldenHoney})`)
 
   // Layout tokens
   root.style.setProperty('--spacing-xs', '0.25rem')

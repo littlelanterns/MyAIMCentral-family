@@ -319,8 +319,8 @@ h1, h2, h3, h4, h5, h6,
  * Firefox scrollbar theming (PRD-03)
  * ============================================================ */
 * {
-  /* Firefox: scrollbar-color only supports solid colors, uses primary as fallback */
-  scrollbar-color: var(--color-btn-primary-bg, #68a395) var(--scrollbar-track, #f2f5f3);
+  /* Firefox: scrollbar-color only supports solid colors, uses sage teal as fallback */
+  scrollbar-color: #68a395 var(--scrollbar-track, #f2f5f3);
   scrollbar-width: thin;
 }
 ::-webkit-scrollbar { width: 8px; height: 8px; }

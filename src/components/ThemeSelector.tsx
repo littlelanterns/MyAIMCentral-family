@@ -208,7 +208,7 @@ export function ThemeSelector() {
           backgroundColor: 'var(--color-bg-card)',
           border: '1px solid var(--color-border)',
           boxShadow: 'var(--shadow-lg)',
-          scrollbarColor: 'var(--color-btn-primary-bg) var(--color-bg-card)',
+          scrollbarColor: '#68a395 var(--color-bg-card)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
