@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
-import { Search, Archive, Trash2, Pencil, X, Users } from 'lucide-react'
+import { Search, Archive, Trash2, Pencil, Users } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {

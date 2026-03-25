@@ -287,6 +287,63 @@ export function useListTemplates() {
   })
 }
 
+export function useReorderListItems() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (items: { id: string; sort_order: number }[]) => {
+      const updates = items.map(({ id, sort_order }) =>
+        supabase.from('list_items').update({ sort_order }).eq('id', id)
+      )
+      await Promise.all(updates)
+      return items
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['list-items'] })
+    },
+  })
+}
+
+export function useSaveListAsTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      familyId,
+      createdBy,
+      title,
+      listType,
+      items,
+    }: {
+      familyId: string
+      createdBy: string
+      title: string
+      listType: string
+      items: ListItem[]
+    }) => {
+      const { data, error } = await supabase
+        .from('list_templates')
+        .insert({
+          family_id: familyId,
+          created_by: createdBy,
+          title: `${title} (Template)`,
+          list_type: listType,
+          default_items: items.map((i) => ({
+            content: i.content || i.item_name || '',
+            section_name: i.section_name || null,
+            notes: i.notes || null,
+          })),
+          is_system: false,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['list-templates'] })
+    },
+  })
+}
+
 export function useUncheckAllItems() {
   const queryClient = useQueryClient()
   return useMutation({

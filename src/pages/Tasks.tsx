@@ -27,9 +27,11 @@ import {
   ChevronDown,
   Layers,
   Users,
+  Check,
+  Clock,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner } from '@/components/shared'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion } from '@/hooks/useTasks'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamily } from '@/hooks/useFamily'
@@ -45,19 +47,27 @@ import type { TabItem } from '@/components/shared'
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
 // ─────────────────────────────────────────────
-function useStudioQueue(familyId: string | undefined, memberId: string | undefined) {
+function useStudioQueue(familyId: string | undefined, memberId: string | undefined, role?: string) {
   return useQuery({
-    queryKey: ['studio_queue', familyId, memberId],
+    queryKey: ['studio_queue', familyId, memberId, role],
     queryFn: async () => {
       if (!familyId || !memberId) return []
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('studio_queue')
         .select('*')
         .eq('family_id', familyId)
-        .eq('owner_id', memberId)
         .is('processed_at', null)
         .is('dismissed_at', null)
         .order('created_at', { ascending: false })
+
+      // Role-based scoping: mom (primary_parent) sees all, others see own items
+      if (role === 'member' || role === 'additional_adult' || role === 'special_adult') {
+        query = query.eq('owner_id', memberId)
+      }
+      // primary_parent sees all — no owner filter
+
+      const { data, error } = await query
       if (error) throw error
       return data ?? []
     },
@@ -82,7 +92,8 @@ export function TasksPage() {
   const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)
-  const { data: queueItems = [] } = useStudioQueue(family?.id, member?.id)
+  const { data: pendingApprovalTasks = [] } = useTasksWithPendingApprovals(family?.id)
+  const { data: queueItems = [] } = useStudioQueue(family?.id, member?.id, member?.role)
   const [activeTab, setActiveTab] = useState<TaskTab>('my_tasks')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recently_created')
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('active')
@@ -329,6 +340,15 @@ export function TasksPage() {
         activeKey={activeTab}
         onChange={(key) => setActiveTab(key as TaskTab)}
       />
+
+      {/* ── Pending Approvals ── */}
+      {pendingApprovalTasks.length > 0 && (
+        <PendingApprovalsSection
+          tasks={pendingApprovalTasks}
+          familyMembers={familyMembers ?? []}
+          approverId={member?.id ?? ''}
+        />
+      )}
 
       {/* ── Filter bar (below tabs) ── */}
       {activeTab !== 'queue' && (
@@ -875,6 +895,156 @@ function OpportunityGroup({ label, tasks, onToggle, isCompleting }: OpportunityG
             compact
           />
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// PendingApprovalsSection sub-component
+// ─────────────────────────────────────────────
+interface PendingApprovalsSectionProps {
+  tasks: Task[]
+  familyMembers: { id: string; display_name: string }[]
+  approverId: string
+}
+
+function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingApprovalsSectionProps) {
+  const approveCompletion = useApproveTaskCompletion()
+  const rejectCompletion = useRejectTaskCompletion()
+  const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null)
+  const [rejectionNote, setRejectionNote] = useState('')
+
+  // Fetch pending completions for these tasks
+  const taskIds = tasks.map(t => t.id)
+  const { data: pendingCompletions = [] } = useQuery({
+    queryKey: ['pending-completions', taskIds],
+    queryFn: async () => {
+      if (taskIds.length === 0) return []
+      const { data, error } = await supabase
+        .from('task_completions')
+        .select('id, task_id, member_id, completed_at, approval_status')
+        .in('task_id', taskIds)
+        .eq('approval_status', 'pending')
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: taskIds.length > 0,
+  })
+
+  const memberName = (id: string | null | undefined) => {
+    if (!id) return 'Unknown'
+    return familyMembers.find(m => m.id === id)?.display_name ?? 'Unknown'
+  }
+
+  async function handleApprove(task: Task) {
+    const completion = pendingCompletions.find(c => c.task_id === task.id)
+    if (!completion) return
+
+    await approveCompletion.mutateAsync({
+      completionId: completion.id,
+      taskId: task.id,
+      approvedById: approverId,
+    })
+  }
+
+  async function handleReject(task: Task) {
+    const completion = pendingCompletions.find(c => c.task_id === task.id)
+    if (!completion) return
+
+    await rejectCompletion.mutateAsync({
+      completionId: completion.id,
+      taskId: task.id,
+      rejectionNote: rejectionNote || null,
+    })
+    setRejectingTaskId(null)
+    setRejectionNote('')
+  }
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden my-3"
+      style={{ border: '2px solid var(--color-warning, var(--color-btn-primary-bg))', backgroundColor: 'var(--color-bg-card)' }}
+    >
+      <div
+        className="px-4 py-2.5 flex items-center gap-2"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--color-warning, var(--color-btn-primary-bg)) 10%, var(--color-bg-card))', borderBottom: '1px solid var(--color-border)' }}
+      >
+        <Clock size={16} style={{ color: 'var(--color-warning, var(--color-btn-primary-bg))' }} />
+        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+          Pending Approvals ({tasks.length})
+        </span>
+      </div>
+      <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+        {tasks.map((task) => {
+          const completion = pendingCompletions.find(c => c.task_id === task.id)
+          const completedBy = completion ? memberName(completion.member_id) : null
+          const completedAt = completion ? new Date(completion.completed_at).toLocaleDateString() : null
+
+          return (
+            <div key={task.id} className="px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
+                  {task.title}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  {completedBy && `Completed by ${completedBy}`}
+                  {completedAt && ` · ${completedAt}`}
+                </p>
+              </div>
+
+              {rejectingTaskId === task.id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={rejectionNote}
+                    onChange={e => setRejectionNote(e.target.value)}
+                    placeholder="Reason (optional)"
+                    className="px-2 py-1 rounded text-xs w-36"
+                    style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                    autoFocus
+                    onKeyDown={e => e.key === 'Enter' && handleReject(task)}
+                  />
+                  <button
+                    onClick={() => handleReject(task)}
+                    className="p-1.5 rounded-lg"
+                    style={{ backgroundColor: 'var(--color-error, #ef4444)', color: '#fff' }}
+                    disabled={rejectCompletion.isPending}
+                  >
+                    <X size={14} />
+                  </button>
+                  <button
+                    onClick={() => { setRejectingTaskId(null); setRejectionNote('') }}
+                    className="text-xs px-2 py-1"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleApprove(task)}
+                    disabled={approveCompletion.isPending}
+                    className="p-1.5 rounded-lg"
+                    style={{ backgroundColor: 'var(--color-success, #22c55e)', color: '#fff' }}
+                    title="Approve"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    onClick={() => setRejectingTaskId(task.id)}
+                    className="p-1.5 rounded-lg"
+                    style={{ backgroundColor: 'var(--color-error, #ef4444)', color: '#fff' }}
+                    title="Reject"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

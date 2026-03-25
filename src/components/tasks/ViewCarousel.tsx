@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { HScrollArrows } from '@/components/shared/HScrollArrows'
 import type { ShellType } from '@/lib/theme'
 
 export type TaskViewKey =
@@ -191,45 +192,48 @@ export function ViewCarousel({ shell, activeView, onViewChange }: ViewCarouselPr
   if (sorted.length === 0) return null
 
   return (
-    <div
-      className="flex gap-2 overflow-x-auto pb-1"
-      style={{ scrollbarWidth: 'none' }}
-      role="tablist"
-      aria-label="Task view options"
-    >
-      {sorted.map((view) => {
-        const isActive = view.key === activeView
-        return (
-          <button
-            key={view.key}
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => handleSelect(view.key)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all"
-            style={{
-              backgroundColor: isActive
-                ? 'var(--color-btn-primary-bg)'
-                : 'var(--color-bg-card)',
-              color: isActive
-                ? 'var(--color-btn-primary-text)'
-                : view.isPlanned
-                ? 'var(--color-text-secondary)'
-                : 'var(--color-text-primary)',
-              border: isActive
-                ? '1px solid var(--color-btn-primary-bg)'
-                : '1px solid var(--color-border)',
-              fontWeight: isActive ? 600 : 400,
-              opacity: view.isPlanned && !isActive ? 0.7 : 1,
-            }}
-            title={view.description}
-          >
-            {view.label}
-            {view.isPlanned && !isActive && (
-              <span className="ml-1 text-xs opacity-60">Soon</span>
-            )}
-          </button>
-        )
-      })}
-    </div>
+    <HScrollArrows>
+      <div
+        className="flex gap-2 overflow-x-auto pb-1"
+        data-hscroll
+        style={{ scrollbarWidth: 'none' }}
+        role="tablist"
+        aria-label="Task view options"
+      >
+        {sorted.map((view) => {
+          const isActive = view.key === activeView
+          return (
+            <button
+              key={view.key}
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => handleSelect(view.key)}
+              className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all"
+              style={{
+                backgroundColor: isActive
+                  ? 'var(--color-btn-primary-bg)'
+                  : 'var(--color-bg-card)',
+                color: isActive
+                  ? 'var(--color-btn-primary-text)'
+                  : view.isPlanned
+                  ? 'var(--color-text-secondary)'
+                  : 'var(--color-text-primary)',
+                border: isActive
+                  ? '1px solid var(--color-btn-primary-bg)'
+                  : '1px solid var(--color-border)',
+                fontWeight: isActive ? 600 : 400,
+                opacity: view.isPlanned && !isActive ? 0.7 : 1,
+              }}
+              title={view.description}
+            >
+              {view.label}
+              {view.isPlanned && !isActive && (
+                <span className="ml-1 text-xs opacity-60">Soon</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </HScrollArrows>
   )
 }

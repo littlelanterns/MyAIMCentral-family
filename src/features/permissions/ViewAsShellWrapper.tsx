@@ -34,7 +34,7 @@ function memberToShell(role: string, dashboardMode: string | null): ShellType {
  */
 export function ViewAsShellWrapper({ children }: ViewAsShellWrapperProps) {
   const { isViewingAs, viewingAsMember } = useViewAs()
-  const { setShell, setTheme, theme: currentTheme, shell: currentShell } = useTheme()
+  const { setShell, setTheme } = useTheme()
 
   // When View As starts, apply the target member's theme and shell tokens.
   // When View As ends, the theme persistence hook will restore mom's theme.

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
 import type {
-  UniversalSchedulerProps, FrequencyType, SchedulerOutput,
+  UniversalSchedulerProps, SchedulerOutput,
 } from './types'
 import {
   DAY_LABELS_FULL, ORDINAL_LABELS, ORDINAL_VALUES,
@@ -28,7 +28,7 @@ export function UniversalScheduler({
   onChange,
   showTimeDefault = false,
   compactMode = false,
-  allowedFrequencies,
+  allowedFrequencies: _allowedFrequencies,
   timezone = 'America/Chicago',
 }: UniversalSchedulerProps) {
   const stableOnChange = useCallback((v: SchedulerOutput) => onChange(v), [onChange])
@@ -340,7 +340,7 @@ function RepeatFrequencyPicker({ state, dispatch, inputStyle }: {
 
 // ─── Repeat Pattern Selector (switch between pattern types) ──────────────
 
-function RepeatPatternSelector({ state, dispatch, inputStyle }: {
+function RepeatPatternSelector({ state, dispatch, inputStyle: _inputStyle }: {
   state: any
   dispatch: React.Dispatch<any>
   inputStyle: React.CSSProperties
@@ -429,7 +429,7 @@ function RepeatPatternSelector({ state, dispatch, inputStyle }: {
 
   // Only show patterns that are NOT the currently-active default weekly view
   // Always show them if the user is already in an advanced mode
-  const showablePatterns = patterns.filter(p => {
+  const showablePatterns = patterns.filter(_p => {
     // If weekly is active (the default repeat), show all patterns as switchable options
     if (state.frequency === 'weekly') return true
     // Otherwise always show

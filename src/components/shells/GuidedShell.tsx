@@ -127,7 +127,7 @@ function GuidedNotepad({ memberId, onClose }: { memberId?: string; onClose: () =
         await supabase.from('journal_entries').insert({
           family_id: member.family_id,
           member_id: memberId,
-          entry_type: 'free_write',
+          entry_type: 'journal_entry',
           content: content.trim(),
           visibility: 'shared_parents',
           is_included_in_ai: true,

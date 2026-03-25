@@ -14,7 +14,7 @@ export type NotepadView = 'editor' | 'send-to' | 'review-route' | 'history'
 interface NotepadContextValue {
   // Drawer state
   isOpen: boolean
-  openNotepad: (opts?: { content?: string; sourceType?: NotepadTab['source_type']; sourceReferenceId?: string }) => void
+  openNotepad: (opts?: { content?: string; title?: string; sourceType?: NotepadTab['source_type']; sourceReferenceId?: string }) => void
   closeNotepad: () => void
   toggleNotepad: () => void
 
@@ -62,6 +62,7 @@ export function NotepadProvider({ children }: { children: ReactNode }) {
 
   const openNotepad = useCallback((opts?: {
     content?: string
+    title?: string
     sourceType?: NotepadTab['source_type']
     sourceReferenceId?: string
   }) => {
@@ -69,12 +70,13 @@ export function NotepadProvider({ children }: { children: ReactNode }) {
     setView('editor')
 
     if (opts?.content && memberId && familyId) {
-      // Create a new tab with the provided content (e.g., "Edit in Notepad" from LiLa)
+      // Create a new tab with the provided content (e.g., "Edit in Notepad" from LiLa/Journal)
       createTab.mutate({
         family_id: familyId,
         member_id: memberId,
         content: opts.content,
-        source_type: opts.sourceType || 'manual',
+        title: opts.title,
+        source_type: opts.sourceType || 'edit_in_notepad',
         source_reference_id: opts.sourceReferenceId,
       }, {
         onSuccess: (newTab) => setActiveTabId(newTab.id),

@@ -202,7 +202,12 @@ export function TimerProvider({ children }: TimerProviderProps) {
 
     // Clean up stale reminders for sessions that no longer exist
     const activeIds = new Set(activeTimers.map((t) => t.session.id))
-    setIdleReminders((prev) => prev.filter((r) => activeIds.has(r.sessionId)))
+    setIdleReminders((prev) => {
+      const filtered = prev.filter((r) => activeIds.has(r.sessionId))
+      // Only return a new array if something was actually removed — avoids
+      // infinite re-render loops when prev is already empty / unchanged.
+      return filtered.length === prev.length ? prev : filtered
+    })
 
     // Clean up auto-pause tracking for sessions that ended
     for (const sid of autoPausedRef.current) {

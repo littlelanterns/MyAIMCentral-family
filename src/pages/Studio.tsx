@@ -48,6 +48,11 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { useWidgetStarterConfigs } from '@/hooks/useWidgets'
+import { WidgetPicker } from '@/components/widgets/WidgetPicker'
+import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
+import { useCreateWidget } from '@/hooks/useWidgets'
+import type { WidgetStarterConfig, CreateWidget } from '@/types/widgets'
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -158,6 +163,25 @@ export function StudioPage() {
   // GuidedFormAssignModal state
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
   const [guidedFormSubtype, setGuidedFormSubtype] = useState<string>('custom')
+
+  // Widget / Tracker state (PRD-10)
+  const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
+  const [widgetConfigOpen, setWidgetConfigOpen] = useState(false)
+  const [selectedStarterConfig, setSelectedStarterConfig] = useState<WidgetStarterConfig | null>(null)
+  const { data: starterConfigs = [] } = useWidgetStarterConfigs()
+  const createWidget = useCreateWidget()
+
+  const handleSelectStarterConfig = useCallback((config: WidgetStarterConfig) => {
+    setSelectedStarterConfig(config)
+    setWidgetPickerOpen(false)
+    setWidgetConfigOpen(true)
+  }, [])
+
+  const handleDeployWidget = useCallback((widget: CreateWidget) => {
+    createWidget.mutate(widget)
+    setWidgetConfigOpen(false)
+    setSelectedStarterConfig(null)
+  }, [createWidget])
 
   const {
     data: customizedTemplates = [],
@@ -374,13 +398,24 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 4. Trackers & Widgets — PlannedExpansionCard */}
+              {/* 4. Trackers & Widgets — PRD-10 real starter configs */}
               {!searchQuery && (
                 <StudioCategorySection
                   title="Trackers & Widgets"
-                  templates={[]}
-                  plannedContent={<PlannedExpansionCard featureKey="studio_trackers_widgets" />}
-                  onCustomize={handleCustomize}
+                  templates={starterConfigs.map(sc => ({
+                    id: sc.id,
+                    name: sc.config_name,
+                    tagline: sc.description?.slice(0, 80) ?? '',
+                    description: sc.description ?? '',
+                    templateType: `widget_${sc.tracker_type}` as any,
+                    isExample: sc.is_example,
+                    exampleUseCases: [],
+                    categoryLabel: sc.category ?? 'Trackers & Widgets',
+                  }))}
+                  onCustomize={(t) => {
+                    const config = starterConfigs.find(sc => sc.id === t.id)
+                    if (config) handleSelectStarterConfig(config)
+                  }}
                   defaultCollapsed={false}
                 />
               )}
@@ -546,6 +581,25 @@ export function StudioPage() {
           eligibleChildren={familyMembers.filter(m => m.id !== member?.id)}
         />
       )}
+
+      {/* ── Widget Picker Modal (PRD-10) ────────────────────────── */}
+      <WidgetPicker
+        isOpen={widgetPickerOpen}
+        onClose={() => setWidgetPickerOpen(false)}
+        starterConfigs={starterConfigs}
+        onSelectStarterConfig={handleSelectStarterConfig}
+      />
+
+      {/* ── Widget Configuration Modal (PRD-10) ─────────────────── */}
+      <WidgetConfiguration
+        isOpen={widgetConfigOpen}
+        onClose={() => { setWidgetConfigOpen(false); setSelectedStarterConfig(null) }}
+        starterConfig={selectedStarterConfig}
+        familyId={family?.id ?? ''}
+        memberId={member?.id ?? ''}
+        familyMembers={familyMembers.map(m => ({ id: m.id, display_name: m.display_name }))}
+        onDeploy={handleDeployWidget}
+      />
     </div>
   )
 }

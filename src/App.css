@@ -48,6 +48,11 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* PRD-10: Dashboard grid responsive columns */
+:root { --grid-cols: 2; }
+@media (min-width: 768px) { :root { --grid-cols: 3; } }
+@media (min-width: 1024px) { :root { --grid-cols: 4; } }
+
 /* Scrollbar theming */
 ::-webkit-scrollbar {
   width: 8px;
@@ -320,6 +325,50 @@ h1, h2, h3, h4, h5, h6,
 .scrollbar-card::-webkit-scrollbar-track { background: var(--color-bg-card, #fff); }
 
 /* ============================================================
+ * Tiptap Rich Text Editor — Smart Notepad (PRD-08)
+ * ============================================================ */
+.notepad-editor-content {
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  outline: none;
+  min-height: 44px;
+}
+
+.notepad-editor-content p {
+  margin: 0 0 0.25rem;
+}
+
+.notepad-editor-content ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.notepad-editor-content li {
+  margin: 0.125rem 0;
+}
+
+.notepad-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Placeholder on the editor wrapper level */
+.notepad-editor-content:empty::before,
+.notepad-editor-content.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ============================================================
  * Responsive breakpoints
  * ============================================================ */
 @media (max-width: 767px) {
@@ -330,4 +379,61 @@ h1, h2, h3, h4, h5, h6,
 }
 @media (min-width: 1024px) {
   .mobile-only { display: none !important; }
+}
+
+/* ============================================================
+ * Print Styles — Guided Forms / SODAS worksheets (PRD-09B)
+ * ============================================================ */
+@media print {
+  /* Hide all nav, shell chrome, buttons, drawers */
+  nav,
+  header,
+  aside,
+  footer,
+  [role="navigation"],
+  [data-shell-sidebar],
+  [data-bottom-nav],
+  [data-notepad-drawer],
+  [data-lila-drawer],
+  [data-quick-tasks] {
+    display: none !important;
+  }
+
+  /* Hide interactive controls */
+  button:not(.print-keep),
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Clean white background, no shadows */
+  body {
+    background: white !important;
+    color: #333 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  * {
+    box-shadow: none !important;
+    border-color: #ddd !important;
+  }
+
+  /* Make the guided form fill the page */
+  [style*="position: fixed"] {
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Show all content, no scroll constraints */
+  .overflow-y-auto,
+  .overflow-x-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Clean page margins */
+  @page {
+    margin: 1.5cm;
+  }
 }

@@ -1,0 +1,77 @@
+// PRD-10: Widget Renderer — dispatches to correct tracker type component
+// Widgets are portable: render identically regardless of host dashboard.
+// Props: themeTokens via CSS vars, widgetConfig, dataSource.
+
+import type { DashboardWidget, WidgetDataPoint } from '@/types/widgets'
+import { TallyTracker } from './trackers/TallyTracker'
+import { StreakTracker } from './trackers/StreakTracker'
+import { PercentageTracker } from './trackers/PercentageTracker'
+import { ChecklistTracker } from './trackers/ChecklistTracker'
+import { HabitGridTracker } from './trackers/HabitGridTracker'
+import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
+
+interface WidgetRendererProps {
+  widget: DashboardWidget
+  dataPoints: WidgetDataPoint[]
+  onRecordData?: (value: number, metadata?: Record<string, unknown>) => void
+  isCompact?: boolean // true when rendered in folder or small size
+}
+
+export function WidgetRenderer({ widget, dataPoints, onRecordData, isCompact }: WidgetRendererProps) {
+  const variant = widget.visual_variant ?? undefined
+
+  switch (widget.template_type) {
+    case 'tally':
+      return (
+        <TallyTracker
+          widget={widget}
+          dataPoints={dataPoints}
+          onRecordData={onRecordData}
+          variant={variant}
+          isCompact={isCompact}
+        />
+      )
+    case 'streak':
+      return (
+        <StreakTracker
+          widget={widget}
+          dataPoints={dataPoints}
+          onRecordData={onRecordData}
+          variant={variant}
+          isCompact={isCompact}
+        />
+      )
+    case 'percentage':
+      return (
+        <PercentageTracker
+          widget={widget}
+          dataPoints={dataPoints}
+          onRecordData={onRecordData}
+          variant={variant}
+          isCompact={isCompact}
+        />
+      )
+    case 'checklist':
+      return (
+        <ChecklistTracker
+          widget={widget}
+          dataPoints={dataPoints}
+          onRecordData={onRecordData}
+          variant={variant}
+          isCompact={isCompact}
+        />
+      )
+    case 'multi_habit_grid':
+      return (
+        <HabitGridTracker
+          widget={widget}
+          dataPoints={dataPoints}
+          onRecordData={onRecordData}
+          variant={variant}
+          isCompact={isCompact}
+        />
+      )
+    default:
+      return <PlannedTrackerStub trackerType={widget.template_type} />
+  }
+}

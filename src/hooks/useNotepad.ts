@@ -62,7 +62,7 @@ export const ROUTING_DESTINATIONS = [
   { key: 'agenda', label: 'Agenda', icon: 'ListChecks' },
   { key: 'innerworkings', label: 'InnerWorkings', icon: 'Brain' },
   { key: 'optimizer', label: 'Optimizer', icon: 'Wand2' },
-  { key: 'note', label: 'Note', icon: 'StickyNote' },
+  { key: 'quick_note', label: 'Quick Note', icon: 'StickyNote' },
 ] as const
 
 export type RoutingDestination = typeof ROUTING_DESTINATIONS[number]['key']
@@ -346,7 +346,7 @@ export function useExtractContent() {
 For each item, return a JSON array of objects with:
 - "text": the extracted text (clean, complete sentence)
 - "type": one of: action_item, reflection, revelation, value, victory, trackable, meeting_followup, list_item, general
-- "destination": suggested routing destination, one of: tasks, journal, best_intentions, victory, calendar, innerworkings, guiding_stars, note, list, track, agenda, message, optimizer
+- "destination": suggested routing destination, one of: tasks, journal, best_intentions, victory, calendar, innerworkings, guiding_stars, quick_note, list, track, agenda, message, optimizer
 - "confidence": number 0.00-1.00 indicating how certain you are
 
 Rules:
@@ -458,7 +458,7 @@ export function useRouteContent() {
       // Route to the appropriate table based on destination
       switch (destination) {
         case 'journal': {
-          const entryType = subType || 'free_write'
+          const entryType = subType || 'journal_entry'
           const { data, error } = await supabase
             .from('journal_entries')
             .insert({
@@ -475,14 +475,14 @@ export function useRouteContent() {
           referenceId = data.id
           break
         }
-        case 'note': {
-          // Note → journal_entries with entry_type = 'free_write' (closest to quick_note)
+        case 'quick_note': {
+          // Quick Note → journal_entries with entry_type = 'quick_note' (PRD-08 #9)
           const { data, error } = await supabase
             .from('journal_entries')
             .insert({
               family_id: familyId,
               member_id: tab.member_id,
-              entry_type: 'free_write',
+              entry_type: 'quick_note',
               content,
               visibility: 'private',
               tags: [],
@@ -639,7 +639,7 @@ export function useUndoRoute() {
       if (referenceId) {
         const tableMap: Record<string, string> = {
           journal: 'journal_entries',
-          note: 'journal_entries',
+          quick_note: 'journal_entries',
           best_intentions: 'best_intentions',
           victory: 'victories',
           guiding_stars: 'guiding_stars',

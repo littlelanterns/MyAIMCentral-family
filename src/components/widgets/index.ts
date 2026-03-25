@@ -1,0 +1,8 @@
+// PRD-10: Widget system barrel exports
+export { DashboardGrid } from './DashboardGrid'
+export { WidgetCard } from './WidgetCard'
+export { WidgetRenderer } from './WidgetRenderer'
+export { WidgetPicker } from './WidgetPicker'
+export { WidgetConfiguration } from './WidgetConfiguration'
+export { WidgetDetailView } from './WidgetDetailView'
+export { WidgetFolderCard } from './WidgetFolderCard'

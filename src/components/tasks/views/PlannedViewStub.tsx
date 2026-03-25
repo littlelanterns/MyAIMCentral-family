@@ -25,22 +25,22 @@ const VIEW_DESCRIPTIONS: Record<string, { title: string; description: string }> 
   big_rocks: {
     title: 'Big Rocks View',
     description:
-      'Inspired by Stephen Covey\'s time management principle: put the big rocks in first. See your tasks split into 2-3 major priorities (Big Rocks) and everything else (Gravel). Big rocks get full visual emphasis. Never let gravel crowd out what actually matters.',
+      'Put the big rocks in first. See your tasks split into 2-3 major priorities (Big Rocks) and everything else (Gravel). Big rocks get full visual emphasis. Never let gravel crowd out what actually matters.',
   },
   ivy_lee: {
     title: 'Ivy Lee Method',
     description:
-      'The $25,000 method that transformed the steel industry. At the end of each day, write your 6 most important tasks for tomorrow in order of priority. Work on #1 until done, then #2. Move what\'s unfinished to tomorrow\'s list. Ruthless focus. Remarkable results.',
+      'At the end of each day, write your 6 most important tasks for tomorrow in order of priority. Work on #1 until done, then #2. Move what\'s unfinished to tomorrow\'s list. Ruthless focus. Remarkable results.',
   },
   abcde: {
     title: 'ABCDE Priority Method',
     description:
-      'Brian Tracy\'s A-B-C-D-E system: A tasks must be done (serious consequences if skipped), B tasks should be done (mild consequences), C tasks are nice to do, D tasks get delegated, E tasks get eliminated entirely. The "D" category even suggests which family member might take it.',
+      'A tasks must be done (serious consequences if skipped), B tasks should be done (mild consequences), C tasks are nice to do, D tasks get delegated, E tasks get eliminated entirely. The "D" category even suggests which family member might take it.',
   },
   moscow: {
     title: 'MoSCoW Prioritization',
     description:
-      'Project management\'s classic framework adapted for family life: Must Do, Should Do, Could Do, Won\'t Do (this cycle). Excellent for planning curriculum weeks, family projects, and anything where trade-offs need to be explicit.',
+      'Adapted for family life: Must Do, Should Do, Could Do, Won\'t Do (this cycle). Excellent for planning curriculum weeks, family projects, and anything where trade-offs need to be explicit.',
   },
   impact_effort: {
     title: 'Impact / Effort Matrix',

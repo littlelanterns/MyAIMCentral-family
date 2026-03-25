@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react'
+import { Target } from 'lucide-react'
 import { TaskCard } from '../TaskCard'
 import { EmptyState } from '@/components/shared'
 import type { Task } from '@/hooks/useTasks'
@@ -63,7 +64,7 @@ export function EatTheFrogView({
   if (tasks.length === 0) {
     return (
       <EmptyState
-        icon={<span style={{ fontSize: 36 }}>🐸</span>}
+        icon={<Target size={36} style={{ color: 'var(--color-btn-primary-bg)' }} />}
         title="No frogs today"
         description="Add tasks to identify your most important one."
       />
@@ -76,7 +77,7 @@ export function EatTheFrogView({
       {frog && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span style={{ fontSize: 20 }}>🐸</span>
+            <Target size={20} style={{ color: 'var(--color-btn-primary-bg)' }} />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
               Eat This Frog First
             </h3>
@@ -138,7 +139,7 @@ export function EatTheFrogView({
                   }}
                   title="Make this the frog"
                 >
-                  🐸
+                  <Target size={14} />
                 </button>
               </div>
             ))}

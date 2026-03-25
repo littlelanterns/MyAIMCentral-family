@@ -13,11 +13,14 @@
 
 import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, Inbox } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
+import { useFamily } from '@/hooks/useFamily'
+import { useStudioQueueCount } from '@/hooks/useStudioQueue'
+import { BreathingGlow } from '@/components/ui/BreathingGlow'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -87,6 +90,23 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 const STORAGE_KEY = 'myaim-quicktasks-collapsed'
 const USAGE_KEY = 'myaim-quicktasks-usage'
+const INDICATOR_MODE_KEY = 'myaim-indicator-mode'
+
+type IndicatorMode = 'glow' | 'numeric'
+
+function getIndicatorMode(): IndicatorMode {
+  try {
+    const stored = localStorage.getItem(INDICATOR_MODE_KEY)
+    if (stored === 'glow' || stored === 'numeric') return stored
+  } catch { /* non-critical */ }
+  return 'glow'
+}
+
+function setIndicatorMode(mode: IndicatorMode) {
+  try {
+    localStorage.setItem(INDICATOR_MODE_KEY, mode)
+  } catch { /* non-critical */ }
+}
 
 /** Get usage counts from localStorage */
 function getUsageCounts(): Record<string, number> {
@@ -181,6 +201,15 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
   const navigate = useNavigate()
   const notepadBridge = useContext(QuickTasksNotepadCtx)
   const iconUrls = useQuickActionIcons()
+  const { data: family } = useFamily()
+  const { data: queueCount = 0 } = useStudioQueueCount(family?.id)
+  const [indicatorMode, setIndicatorModeState] = useState<IndicatorMode>(getIndicatorMode)
+
+  function toggleIndicatorMode() {
+    const next: IndicatorMode = indicatorMode === 'glow' ? 'numeric' : 'glow'
+    setIndicatorModeState(next)
+    setIndicatorMode(next)
+  }
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -285,6 +314,39 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
           <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
         ))}
       </div>
+
+      {/* Queue indicator — shows pending items */}
+      {queueCount > 0 && (
+        <button
+          onClick={toggleIndicatorMode}
+          className="absolute right-9 top-1/2 flex items-center justify-center rounded-full transition-colors"
+          style={{
+            transform: 'translateY(-50%)',
+            minHeight: 'unset',
+            cursor: 'pointer',
+          }}
+          title={`${queueCount} pending queue item${queueCount !== 1 ? 's' : ''} — tap to toggle indicator style`}
+        >
+          {indicatorMode === 'glow' ? (
+            <BreathingGlow active={true}>
+              <Inbox size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
+            </BreathingGlow>
+          ) : (
+            <span className="relative inline-flex">
+              <Inbox size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
+              <span
+                className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[10px] font-bold leading-none px-1"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                {queueCount}
+              </span>
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Collapse toggle — overlaid at right edge */}
       <button

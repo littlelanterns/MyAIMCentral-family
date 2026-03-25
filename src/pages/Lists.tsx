@@ -9,15 +9,19 @@ import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
-  ArrowRight, RotateCcw, Archive, Loader2,
-  Clock, Lightbulb, Heart,
+  ArrowRight, ArrowUpRight, RotateCcw, Archive, Loader2, Save,
+  Clock, Lightbulb, Heart, GripVertical,
 } from 'lucide-react'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
   useToggleListItem, useDeleteListItem, useUpdateListItem,
   useUncheckAllItems, usePromoteListItem, useArchiveList,
+  useReorderListItems, useSaveListAsTemplate,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI } from '@/components/shared'
 import { Sparkles } from 'lucide-react'
@@ -312,7 +316,12 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const uncheckAll = useUncheckAllItems()
   const promoteItem = usePromoteListItem()
   const archiveList = useArchiveList()
+  const reorderItems = useReorderListItems()
+  const saveAsTemplate = useSaveListAsTemplate()
+  const [savedAsTemplate, setSavedAsTemplate] = useState(false)
   const { data: familyMembers = [] } = useFamilyMembers(list?.family_id)
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   const [newItemText, setNewItemText] = useState('')
   const [newItemSection, setNewItemSection] = useState('')
@@ -320,6 +329,16 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const [editingId, setEditingId] = useState<string | null>(null)
   const [_showAddSection, _setShowAddSection] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
+  const [localItems, setLocalItems] = useState<ListItem[] | null>(null)
+
+  // Sync local items when server items change (and no drag in progress)
+  useEffect(() => {
+    if (items.length > 0 || localItems !== null) {
+      setLocalItems(items)
+    }
+  }, [items])
+
+  const displayItems = localItems ?? items
 
   if (!list) return null
 
@@ -348,7 +367,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   // Group items by section
   const sections = new Map<string, ListItem[]>()
   const unsectioned: ListItem[] = []
-  items.forEach(item => {
+  displayItems.forEach(item => {
     if (item.section_name) {
       if (!sections.has(item.section_name)) sections.set(item.section_name, [])
       sections.get(item.section_name)!.push(item)
@@ -383,6 +402,35 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     })
   }
 
+  function handleDragEnd(event: DragEndEvent, scopedItems: ListItem[]) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = scopedItems.findIndex(i => i.id === active.id)
+    const newIndex = scopedItems.findIndex(i => i.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = arrayMove(scopedItems, oldIndex, newIndex)
+
+    // Optimistic update: replace items in local state
+    setLocalItems(prev => {
+      if (!prev) return prev
+      const updated = [...prev]
+      reordered.forEach((item, idx) => {
+        const globalIdx = updated.findIndex(i => i.id === item.id)
+        if (globalIdx !== -1) {
+          updated[globalIdx] = { ...updated[globalIdx], sort_order: idx }
+        }
+      })
+      return updated
+    })
+
+    // Persist to DB
+    reorderItems.mutate(
+      reordered.map((item, idx) => ({ id: item.id, sort_order: idx }))
+    )
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       {/* Header */}
@@ -395,6 +443,26 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           {list.title}
         </h1>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={async () => {
+              if (!family || !member || !list || savedAsTemplate) return
+              await saveAsTemplate.mutateAsync({
+                familyId: family.id,
+                createdBy: member.id,
+                title: list.title,
+                listType: list.list_type,
+                items,
+              })
+              setSavedAsTemplate(true)
+              setTimeout(() => setSavedAsTemplate(false), 3000)
+            }}
+            disabled={saveAsTemplate.isPending || savedAsTemplate}
+            className="p-1.5 rounded-lg text-xs"
+            style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+            title={savedAsTemplate ? 'Saved!' : 'Save as template'}
+          >
+            <Save size={16} />
+          </button>
           <button
             onClick={() => uncheckAll.mutate(listId)}
             className="p-1.5 rounded-lg text-xs"
@@ -437,45 +505,59 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
       )}
 
       {/* Items by section */}
-      {Array.from(sections.entries()).map(([sectionName, sectionItems]) => (
-        <div key={sectionName}>
-          <p className="text-xs font-semibold uppercase tracking-wider px-1 pb-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {sectionName}
-          </p>
-          <div className="space-y-1">
-            {sectionItems.sort((a, b) => a.sort_order - b.sort_order).map(item => (
-              <ListItemRow
-                key={item.id}
-                item={item}
-                listType={list.list_type}
-                onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
-                onDelete={() => deleteItem.mutate({ id: item.id, listId })}
-                onPromote={() => handlePromote(item)}
-                isEditing={editingId === item.id}
-                onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
-              />
-            ))}
+      {Array.from(sections.entries()).map(([sectionName, sectionItems]) => {
+        const sorted = sectionItems.sort((a, b) => a.sort_order - b.sort_order)
+        return (
+          <div key={sectionName}>
+            <p className="text-xs font-semibold uppercase tracking-wider px-1 pb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              {sectionName}
+            </p>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, sorted)}>
+              <SortableContext items={sorted.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1">
+                  {sorted.map(item => (
+                    <SortableListItemRow
+                      key={item.id}
+                      item={item}
+                      listType={list.list_type}
+                      onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
+                      onDelete={() => deleteItem.mutate({ id: item.id, listId })}
+                      onPromote={() => handlePromote(item)}
+                      isEditing={editingId === item.id}
+                      onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* Unsectioned items */}
-      {unsectioned.length > 0 && (
-        <div className="space-y-1">
-          {unsectioned.sort((a, b) => a.sort_order - b.sort_order).map(item => (
-            <ListItemRow
-              key={item.id}
-              item={item}
-              listType={list.list_type}
-              onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
-              onDelete={() => deleteItem.mutate({ id: item.id, listId })}
-              onPromote={() => handlePromote(item)}
-              isEditing={editingId === item.id}
-              onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
-            />
-          ))}
-        </div>
-      )}
+      {unsectioned.length > 0 && (() => {
+        const sorted = unsectioned.sort((a, b) => a.sort_order - b.sort_order)
+        return (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, sorted)}>
+            <SortableContext items={sorted.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {sorted.map(item => (
+                  <SortableListItemRow
+                    key={item.id}
+                    item={item}
+                    listType={list.list_type}
+                    onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
+                    onDelete={() => deleteItem.mutate({ id: item.id, listId })}
+                    onPromote={() => handlePromote(item)}
+                    isEditing={editingId === item.id}
+                    onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )
+      })()}
 
       {/* Empty state */}
       {items.length === 0 && !isLoading && (
@@ -542,6 +624,44 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   )
 }
 
+// ── Sortable List Item Row (wrapper) ──────────────────────
+
+interface ListItemRowProps {
+  item: ListItem
+  listType: string
+  onToggle: () => void
+  onDelete: () => void
+  onPromote: () => void
+  isEditing: boolean
+  onEdit: () => void
+  dragHandleProps?: Record<string, unknown>
+}
+
+function SortableListItemRow(props: Omit<ListItemRowProps, 'dragHandleProps'>) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: 'relative' as const,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ListItemRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  )
+}
+
 // ── List Item Row ──────────────────────────────────────────
 
 function ListItemRow({
@@ -552,15 +672,8 @@ function ListItemRow({
   onPromote,
   isEditing: _isEditing,
   onEdit: _onEdit,
-}: {
-  item: ListItem
-  listType: string
-  onToggle: () => void
-  onDelete: () => void
-  onPromote: () => void
-  isEditing: boolean
-  onEdit: () => void
-}) {
+  dragHandleProps,
+}: ListItemRowProps) {
   const isTodo = listType === 'todo'
   const isWishlist = listType === 'wishlist'
   const isExpense = listType === 'expenses'
@@ -575,6 +688,17 @@ function ListItemRow({
         opacity: item.checked ? 0.6 : 1,
       }}
     >
+      {/* Drag handle */}
+      {dragHandleProps && (
+        <button
+          {...dragHandleProps}
+          className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          <GripVertical size={16} />
+        </button>
+      )}
+
       {/* Checkbox */}
       <button onClick={onToggle} className="mt-0.5 flex-shrink-0">
         <div
@@ -627,7 +751,14 @@ function ListItemRow({
             </span>
           )}
           {item.promoted_to_task && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)', color: 'var(--color-btn-primary-bg)' }}>
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+                color: 'var(--color-btn-primary-bg)',
+              }}
+            >
+              <ArrowUpRight size={10} />
               Promoted
             </span>
           )}

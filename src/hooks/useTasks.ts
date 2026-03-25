@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { computeViewSync } from '@/utils/computeViewSync'
 import type {
   Task,
   CreateTask,
@@ -243,6 +244,84 @@ export function useCompleteTask() {
       queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', task.id] })
       queryClient.invalidateQueries({ queryKey: ['task-completions', task.id] })
+    },
+  })
+}
+
+// ============================================================
+// useUncompleteTask — reverse a task completion
+// ============================================================
+
+export function useUncompleteTask() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      memberId,
+      completionId,
+    }: {
+      taskId: string
+      memberId: string
+      completionId?: string
+    }) => {
+      // 1. Delete the specific completion record, or the most recent one
+      if (completionId) {
+        await supabase.from('task_completions').delete().eq('id', completionId)
+      } else {
+        const { data: completions } = await supabase
+          .from('task_completions')
+          .select('id')
+          .eq('task_id', taskId)
+          .order('completed_at', { ascending: false })
+          .limit(1)
+
+        if (completions && completions.length > 0) {
+          await supabase.from('task_completions').delete().eq('id', completions[0].id)
+        }
+      }
+
+      // 2. Reset task status back to pending
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({ status: 'pending', completed_at: null })
+        .eq('id', taskId)
+        .select('id, family_id')
+        .single()
+
+      if (error) throw error
+
+      // 3. Log the unmarking in activity_log_entries (fire and forget)
+      if (data) {
+        supabase
+          .from('activity_log_entries')
+          .insert({
+            family_id: data.family_id,
+            member_id: memberId,
+            event_type: 'task_unmarked',
+            source_table: 'tasks',
+            source_id: taskId,
+            metadata: { action: 'unmark_completion' },
+          })
+          .then(({ error: logError }) => {
+            if (logError) console.warn('activity log insert failed:', logError.message)
+          })
+      }
+
+      // STUB: Reverse gamification reward/streak — wires when PRD-24 is built
+      // When PRD-24 gamification is wired, this should:
+      // - Reverse any points awarded for this completion
+      // - Recalculate streak if the unmarked completion broke continuity
+      // - Remove any achievement triggered by this completion
+
+      return data
+    },
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
+        queryClient.invalidateQueries({ queryKey: ['task', data.id] })
+        queryClient.invalidateQueries({ queryKey: ['task-completions', data.id] })
+      }
     },
   })
 }
@@ -684,6 +763,7 @@ export function useUpdateTaskViewMetadata() {
     mutationFn: async ({
       taskId,
       metadata,
+      currentViewFields,
     }: {
       taskId: string
       metadata: Partial<Pick<Task,
@@ -698,10 +778,26 @@ export function useUpdateTaskViewMetadata() {
         | 'kanban_status'
         | 'sort_order'
       >>
+      /** Current task view fields — enables cross-view sync suggestions */
+      currentViewFields?: Partial<Pick<Task,
+        | 'eisenhower_quadrant'
+        | 'frog_rank'
+        | 'importance_level'
+        | 'big_rock'
+        | 'ivy_lee_rank'
+        | 'abcde_category'
+        | 'moscow_category'
+        | 'impact_effort'
+      >>
     }) => {
+      // Compute cross-view sync suggestions (only fills null/undefined fields)
+      const sync = currentViewFields ? computeViewSync(currentViewFields, metadata) : {}
+      // Merge: explicit updates always win over suggestions
+      const merged = { ...sync, ...metadata }
+
       const { data, error } = await supabase
         .from('tasks')
-        .update(metadata)
+        .update(merged)
         .eq('id', taskId)
         .select('id, family_id')
         .single()

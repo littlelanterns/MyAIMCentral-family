@@ -2,9 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
 export type JournalEntryType =
-  | 'daily_reflection' | 'gratitude' | 'learning_capture' | 'prayer'
-  | 'letter' | 'memory' | 'goal_check_in' | 'dream'
-  | 'observation' | 'free_write' | 'reflection_response'
+  | 'journal_entry' | 'gratitude' | 'reflection' | 'quick_note'
+  | 'commonplace' | 'kid_quips' | 'meeting_notes' | 'transcript'
+  | 'lila_conversation' | 'brain_dump' | 'custom'
 
 export type JournalVisibility = 'private' | 'shared_parents' | 'family'
 
@@ -23,17 +23,17 @@ export interface JournalEntry {
 }
 
 export const JOURNAL_ENTRY_TYPES: { value: JournalEntryType; label: string }[] = [
-  { value: 'free_write', label: 'Free Write' },
-  { value: 'daily_reflection', label: 'Daily Reflection' },
+  { value: 'journal_entry', label: 'Journal Entry' },
   { value: 'gratitude', label: 'Gratitude' },
-  { value: 'learning_capture', label: 'Learning Capture' },
-  { value: 'prayer', label: 'Prayer' },
-  { value: 'letter', label: 'Letter' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'goal_check_in', label: 'Goal Check-In' },
-  { value: 'dream', label: 'Dream' },
-  { value: 'observation', label: 'Observation' },
-  { value: 'reflection_response', label: 'Reflection Response' },
+  { value: 'reflection', label: 'Reflection' },
+  { value: 'quick_note', label: 'Quick Note' },
+  { value: 'commonplace', label: 'Commonplace' },
+  { value: 'kid_quips', label: 'Kid Quips' },
+  { value: 'meeting_notes', label: 'Meeting Notes' },
+  { value: 'transcript', label: 'Transcript' },
+  { value: 'lila_conversation', label: 'LiLa Conversation' },
+  { value: 'brain_dump', label: 'Brain Dump' },
+  { value: 'custom', label: 'Custom' },
 ]
 
 export function useJournalEntries(memberId: string | undefined) {

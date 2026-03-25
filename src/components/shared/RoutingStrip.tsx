@@ -81,12 +81,17 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
   {
     key: 'journal', label: 'Journal', icon: BookOpen, featureKey: 'journal', accent: 'teal',
     subOptions: [
-      { key: 'free_write', label: 'Free write' },
-      { key: 'daily_reflection', label: 'Reflection' },
-      { key: 'learning_capture', label: 'Commonplace' },
+      { key: 'journal_entry', label: 'Journal Entry' },
       { key: 'gratitude', label: 'Gratitude' },
-      { key: 'prayer', label: 'Prayer' },
-      { key: 'dream', label: 'Dreams' },
+      { key: 'reflection', label: 'Reflection' },
+      { key: 'quick_note', label: 'Quick Note' },
+      { key: 'commonplace', label: 'Commonplace' },
+      { key: 'kid_quips', label: 'Kid Quips' },
+      { key: 'meeting_notes', label: 'Meeting Notes' },
+      { key: 'transcript', label: 'Transcript' },
+      { key: 'lila_conversation', label: 'LiLa Conversation' },
+      { key: 'brain_dump', label: 'Brain Dump' },
+      { key: 'custom', label: 'Custom' },
     ],
   },
   { key: 'guiding_stars', label: 'Guiding Stars', icon: Star, featureKey: 'guiding_stars', accent: 'warm' },
@@ -108,7 +113,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
   { key: 'optimizer', label: 'Optimizer', icon: Wand2, featureKey: 'lila_chat', accent: 'teal' },
   { key: 'ideas', label: 'Ideas', icon: Lightbulb, featureKey: 'lists', accent: 'warm' },
   { key: 'backburner', label: 'Backburner', icon: Clock, featureKey: 'lists', accent: 'muted' },
-  { key: 'note', label: 'Note', icon: StickyNote, featureKey: 'notepad_basic', accent: 'muted' },
+  { key: 'quick_note', label: 'Quick Note', icon: StickyNote, featureKey: 'notepad_basic', accent: 'muted' },
   { key: 'acknowledge', label: 'Acknowledge', icon: ThumbsUp, featureKey: 'notifications_basic', accent: 'muted' },
   { key: 'skip', label: 'Skip', icon: SkipForward, featureKey: 'skip', accent: 'muted' },
 ]
@@ -118,13 +123,13 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
 const CONTEXT_FILTERS: Record<RoutingContext, string[]> = {
   notepad_send_to: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'agenda', 'innerworkings', 'optimizer', 'ideas', 'backburner', 'note',
+    'victory', 'track', 'message', 'agenda', 'innerworkings', 'optimizer', 'ideas', 'backburner', 'quick_note',
   ],
   request_accept: ['calendar', 'tasks', 'list', 'acknowledge'],
   meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'backburner', 'skip'],
   review_route_card: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'ideas', 'backburner', 'note',
+    'victory', 'track', 'message', 'ideas', 'backburner', 'quick_note',
   ],
 }
 

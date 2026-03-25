@@ -32,16 +32,18 @@ import {
   ChevronRight,
   Play,
   Square,
+  GripVertical,
 } from 'lucide-react'
 import { Badge } from '@/components/shared'
 import { useTimerContext } from '@/features/timer'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
+import { TaskCompletionExpander } from './TaskCompletionExpander'
 import type { Task } from '@/hooks/useTasks'
 
 export interface TaskCardProps {
   task: Task
   isCompleting?: boolean
-  onToggle: (task: Task, origin?: { x: number; y: number }) => void
+  onToggle: (task: Task, origin?: { x: number; y: number }, extras?: { completionNote?: string | null; photoUrl?: string | null }) => void
   onEdit?: (task: Task) => void
   onFocusTimer?: (task: Task) => void
   onBreakItDown?: (task: Task) => void
@@ -51,6 +53,8 @@ export interface TaskCardProps {
   showAssignee?: boolean
   /** Compact layout for list views */
   compact?: boolean
+  /** Props from @dnd-kit useSortable for drag handle — renders GripVertical icon */
+  dragHandleProps?: Record<string, unknown>
 }
 
 const TASK_TYPE_ICONS: Record<string, typeof Circle> = {
@@ -102,9 +106,12 @@ export function TaskCard({
   onDelete,
   showAssignee: _showAssignee = false,
   compact = false,
+  dragHandleProps,
 }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [isPressed, _setIsPressed] = useState(false)
+  const [showExpander, setShowExpander] = useState(false)
+  const [pendingOrigin, setPendingOrigin] = useState<{ x: number; y: number } | undefined>()
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkboxRef = useRef<HTMLButtonElement | null>(null)
 
@@ -113,7 +120,7 @@ export function TaskCard({
   const { allowed: canUseClock } = useCanAccess('timer_basic')
   const { allowed: canUsePomodoro } = useCanAccess('timer_advanced')
 
-  const hasTimeTracking = !!(task as Record<string, unknown>).time_tracking_enabled
+  const hasTimeTracking = !!(task as unknown as Record<string, unknown>).time_tracking_enabled
   const activeTimerForTask = hasTimeTracking
     ? timerCtx.activeTimers.find((t) => t.session.task_id === task.id)
     : undefined
@@ -140,11 +147,39 @@ export function TaskCard({
   const handleCheckboxClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     if (isCompleting) return
+
     const rect = e.currentTarget.getBoundingClientRect()
-    onToggle(task, {
+    const origin = {
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
-    })
+    }
+
+    // If uncompleting, toggle immediately
+    if (isCompleted) {
+      onToggle(task, origin)
+      return
+    }
+
+    // For tasks requiring approval, always show the expander
+    if (task.require_approval) {
+      setPendingOrigin(origin)
+      setShowExpander(true)
+      return
+    }
+
+    // For normal tasks, show the expander for optional details
+    setPendingOrigin(origin)
+    setShowExpander(true)
+  }
+
+  const handleExpanderConfirm = (extras: { completionNote?: string | null; photoUrl?: string | null }) => {
+    setShowExpander(false)
+    onToggle(task, pendingOrigin, extras)
+  }
+
+  const handleExpanderCancel = () => {
+    setShowExpander(false)
+    setPendingOrigin(undefined)
   }
 
   const handleMenuAction = (action: () => void) => {
@@ -190,6 +225,24 @@ export function TaskCard({
           borderRadius: 'var(--vibe-radius-card, 0.5rem)',
         }}
       >
+        {/* Drag handle — only rendered when dragHandleProps is provided */}
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps}
+            className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing touch-none"
+            style={{
+              color: 'var(--color-text-secondary)',
+              opacity: 0.4,
+              padding: 0,
+              background: 'none',
+              border: 'none',
+            }}
+            aria-label="Drag to reorder"
+          >
+            <GripVertical size={16} />
+          </button>
+        )}
+
         {/* Checkbox */}
         <button
           ref={checkboxRef}
@@ -243,6 +296,18 @@ export function TaskCard({
               {task.title}
             </p>
           </div>
+
+          {/* Routine step indicator — shows when task_type is routine */}
+          {task.task_type === 'routine' && !isCompleted && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] mt-0.5 font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              <Repeat size={10} />
+              Routine
+              {task.template_id && ' — check steps'}
+            </span>
+          )}
 
           {/* Description snippet */}
           {!compact && task.description && (
@@ -401,6 +466,16 @@ export function TaskCard({
             )}
           </div>
         </>
+      )}
+
+      {/* Completion Evidence Expander — PRD-09A photo + note */}
+      {showExpander && !isCompleted && (
+        <TaskCompletionExpander
+          taskId={task.id}
+          requireApproval={!!task.require_approval}
+          onConfirm={handleExpanderConfirm}
+          onCancel={handleExpanderCancel}
+        />
       )}
     </div>
   )

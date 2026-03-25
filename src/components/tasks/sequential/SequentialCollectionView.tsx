@@ -3,11 +3,18 @@
  * Shows all sequential collections with progress tracking.
  * Management view (mom): full list, reorder, reassign, deploy.
  * Kid's view: single active task card.
+ * Completion flow: Restart for another student or Archive.
  */
 
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronRight, Play, UserPlus } from 'lucide-react'
-import { useSequentialCollections, useSequentialCollection } from '@/hooks/useSequentialCollections'
+import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2 } from 'lucide-react'
+import {
+  useSequentialCollections,
+  useSequentialCollection,
+  useRedeploySequentialCollection,
+} from '@/hooks/useSequentialCollections'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { supabase } from '@/lib/supabase/client'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import type { SequentialCollection, Task } from '@/types/tasks'
 
@@ -63,17 +70,53 @@ export function SequentialCollectionView({ familyId, onCreateCollection }: Seque
 
 function SequentialCollectionCard({ collection }: { collection: SequentialCollection }) {
   const [expanded, setExpanded] = useState(false)
+  const [showRedeployPicker, setShowRedeployPicker] = useState(false)
+  const [archiving, setArchiving] = useState(false)
   const { data: detail } = useSequentialCollection(expanded ? collection.id : undefined)
+  const redeploy = useRedeploySequentialCollection()
+  const { data: familyMembers = [] } = useFamilyMembers(collection.family_id)
 
   const completedCount = detail?.tasks?.filter((t: Task) => t.status === 'completed').length ?? 0
   const totalCount = collection.total_items ?? 0
   const progressPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+  const isAllComplete = totalCount > 0 && completedCount === totalCount
+
+  const handleRestart = async (newAssigneeId: string, createdBy: string) => {
+    await redeploy.mutateAsync({
+      collectionId: collection.id,
+      newAssigneeId,
+      familyId: collection.family_id,
+      createdBy,
+    })
+    setShowRedeployPicker(false)
+    // prompt auto-hides when state resets
+  }
+
+  const handleArchive = async () => {
+    setArchiving(true)
+    try {
+      await supabase
+        .from('sequential_collections')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', collection.id)
+      // Soft-archive all tasks in the collection
+      await supabase
+        .from('tasks')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('sequential_collection_id', collection.id)
+    } finally {
+      setArchiving(false)
+      // prompt auto-hides when state resets
+    }
+  }
 
   return (
     <div
       className="rounded-xl overflow-hidden"
       style={{
-        border: '1px solid var(--color-border)',
+        border: isAllComplete
+          ? '1.5px solid var(--color-success, #22c55e)'
+          : '1px solid var(--color-border)',
         background: 'var(--color-bg-card)',
       }}
     >
@@ -89,9 +132,14 @@ function SequentialCollectionCard({ collection }: { collection: SequentialCollec
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-heading)' }}>
-            {collection.title}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-heading)' }}>
+              {collection.title}
+            </p>
+            {isAllComplete && (
+              <CheckCircle2 size={14} style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }} />
+            )}
+          </div>
           {collection.life_area_tag && (
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {collection.life_area_tag}
@@ -102,8 +150,12 @@ function SequentialCollectionCard({ collection }: { collection: SequentialCollec
         <span
           className="text-sm font-medium px-2 py-0.5 rounded"
           style={{
-            background: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
-            color: 'var(--color-btn-primary-bg)',
+            background: isAllComplete
+              ? 'color-mix(in srgb, var(--color-success, #22c55e) 10%, transparent)'
+              : 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+            color: isAllComplete
+              ? 'var(--color-success, #22c55e)'
+              : 'var(--color-btn-primary-bg)',
           }}
         >
           {completedCount}/{totalCount}
@@ -120,11 +172,88 @@ function SequentialCollectionCard({ collection }: { collection: SequentialCollec
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${progressPct}%`,
-              background: 'var(--color-btn-primary-bg)',
+              background: isAllComplete
+                ? 'var(--color-success, #22c55e)'
+                : 'var(--color-btn-primary-bg)',
             }}
           />
         </div>
       </div>
+
+      {/* Completion prompt — shown when all items are done */}
+      {isAllComplete && expanded && (
+        <div
+          className="mx-4 mb-3 p-3 rounded-lg"
+          style={{
+            background: 'color-mix(in srgb, var(--color-success, #22c55e) 8%, var(--color-bg-card))',
+            border: '1px solid color-mix(in srgb, var(--color-success, #22c55e) 20%, transparent)',
+          }}
+        >
+          {showRedeployPicker ? (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                Restart for which student?
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {familyMembers.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => handleRestart(m.id, m.id)}
+                    disabled={redeploy.isPending}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    {m.display_name}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowRedeployPicker(false)}
+                className="text-xs"
+                style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-heading)' }}>
+                All items complete!
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowRedeployPicker(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{
+                    background: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-text)',
+                  }}
+                >
+                  <RotateCcw size={12} />
+                  Restart for another student
+                </button>
+                <button
+                  onClick={handleArchive}
+                  disabled={archiving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <Archive size={12} />
+                  Archive
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Expanded: full item list */}
       {expanded && detail?.tasks && (
@@ -174,28 +303,30 @@ function SequentialCollectionCard({ collection }: { collection: SequentialCollec
               ))}
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 mt-3 pb-1">
-            <button
-              className="text-xs px-3 py-1.5 rounded-lg"
-              style={{
-                background: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              Edit
-            </button>
-            <button
-              className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
-              style={{
-                background: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              <UserPlus size={12} />
-              Reassign
-            </button>
-          </div>
+          {/* Actions — hide when collection is complete (completion prompt shows instead) */}
+          {!isAllComplete && (
+            <div className="flex gap-2 mt-3 pb-1">
+              <button
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                Edit
+              </button>
+              <button
+                className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                <UserPlus size={12} />
+                Reassign
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

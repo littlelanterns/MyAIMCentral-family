@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 
 interface UndoToastProps {
   message: string
+  /** Optional path to navigate to when tapping the destination link */
+  destinationPath?: string
   duration?: number
   onUndo: () => void
   onAlsoSendTo?: () => void
@@ -11,14 +14,18 @@ interface UndoToastProps {
 
 export function UndoToast({
   message,
+  destinationPath,
   duration = 5000,
   onUndo,
   onAlsoSendTo,
   onDismiss,
 }: UndoToastProps) {
+  const navigate = useNavigate()
   const [progress, setProgress] = useState(100)
   const startTime = useRef(Date.now())
   const rafRef = useRef<number | undefined>(undefined)
+  const onDismissRef = useRef(onDismiss)
+  onDismissRef.current = onDismiss
 
   useEffect(() => {
     const animate = () => {
@@ -28,14 +35,14 @@ export function UndoToast({
       if (remaining > 0) {
         rafRef.current = requestAnimationFrame(animate)
       } else {
-        onDismiss()
+        onDismissRef.current()
       }
     }
     rafRef.current = requestAnimationFrame(animate)
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [duration, onDismiss])
+  }, [duration])
 
   return (
     <div
@@ -46,7 +53,17 @@ export function UndoToast({
         color: 'var(--color-text-primary)',
       }}
     >
-      <span className="text-sm flex-1 min-w-0 truncate">{message}</span>
+      {destinationPath ? (
+        <button
+          onClick={() => { navigate(destinationPath); onDismiss() }}
+          className="text-sm flex-1 min-w-0 truncate text-left underline"
+          style={{ color: 'var(--color-btn-primary-bg)', background: 'transparent', minHeight: 'unset' }}
+        >
+          {message}
+        </button>
+      ) : (
+        <span className="text-sm flex-1 min-w-0 truncate">{message}</span>
+      )}
 
       <button
         onClick={onUndo}

@@ -30,6 +30,23 @@ interface CompletionResult {
   error?: string
 }
 
+/**
+ * Upload a completion evidence photo to Supabase Storage.
+ * Returns the public URL of the uploaded image.
+ */
+export async function uploadCompletionPhoto(file: File, taskId: string): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${taskId}/${Date.now()}.${ext}`
+  const { error } = await supabase.storage
+    .from('task-evidence')
+    .upload(path, file, { cacheControl: '3600', upsert: false })
+  if (error) throw error
+  const { data: urlData } = supabase.storage
+    .from('task-evidence')
+    .getPublicUrl(path)
+  return urlData.publicUrl
+}
+
 export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskCompletionOptions) {
   const queryClient = useQueryClient()
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
@@ -38,9 +55,13 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
     mutationFn: async ({
       task,
       origin,
+      completionNote,
+      photoUrl,
     }: {
       task: Task
       origin?: { x: number; y: number }
+      completionNote?: string | null
+      photoUrl?: string | null
     }): Promise<CompletionResult> => {
       // Step 1 & 2: Update task status to completed
       const { error: updateError } = await supabase
@@ -59,6 +80,8 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
         .insert({
           task_id: task.id,
           member_id: memberId,
+          completion_note: completionNote ?? null,
+          photo_url: photoUrl ?? null,
         })
 
       if (completionError) {
@@ -83,7 +106,12 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
           event_type: 'task_completed',
           source_table: 'tasks',
           source_id: task.id,
-          metadata: { task_title: task.title, task_type: task.task_type },
+          metadata: {
+            task_title: task.title,
+            task_type: task.task_type,
+            has_photo: !!photoUrl,
+            has_note: !!completionNote,
+          },
         })
         .then(({ error }) => {
           if (error) console.warn('activity log insert failed:', error.message)
@@ -105,11 +133,13 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
+      queryClient.invalidateQueries({ queryKey: ['task-completions'] })
     },
   })
 
   const uncompleteTask = useMutation({
     mutationFn: async (taskId: string): Promise<CompletionResult> => {
+      // 1. Reset task status back to pending
       const { error } = await supabase
         .from('tasks')
         .update({
@@ -120,7 +150,7 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
 
       if (error) return { success: false, error: error.message }
 
-      // Remove the most recent completion record
+      // 2. Remove the most recent completion record
       const { data: latestCompletion } = await supabase
         .from('task_completions')
         .select('id')
@@ -136,17 +166,36 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
           .eq('id', latestCompletion[0].id)
       }
 
+      // 3. Log the unmarking (fire and forget)
+      supabase
+        .from('activity_log_entries')
+        .insert({
+          family_id: familyId,
+          member_id: memberId,
+          event_type: 'task_unmarked',
+          source_table: 'tasks',
+          source_id: taskId,
+          metadata: { action: 'unmark_completion' },
+        })
+        .then(({ error: logError }) => {
+          if (logError) console.warn('activity log insert failed:', logError.message)
+        })
+
+      // STUB: Reverse gamification reward/streak — wires when PRD-24 is built
+
       return { success: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
+      queryClient.invalidateQueries({ queryKey: ['task-completions'] })
     },
   })
 
   const toggle = useCallback(
     async (
       task: Task,
-      origin?: { x: number; y: number }
+      origin?: { x: number; y: number },
+      extras?: { completionNote?: string | null; photoUrl?: string | null },
     ) => {
       if (completingIds.has(task.id)) return
 
@@ -155,7 +204,12 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
         if (task.status === 'completed') {
           await uncompleteTask.mutateAsync(task.id)
         } else {
-          await completeTask.mutateAsync({ task, origin })
+          await completeTask.mutateAsync({
+            task,
+            origin,
+            completionNote: extras?.completionNote,
+            photoUrl: extras?.photoUrl,
+          })
         }
       } finally {
         setCompletingIds((prev) => {

@@ -1,28 +1,22 @@
 /**
  * TaskCreationModal (PRD-09A Screen 3, PRD-17 Screen 7 & 8)
  *
- * Full-screen (mobile) / large centered (desktop) modal with 7 collapsible sections.
- * Supports Quick Mode (3 fields) and Full Mode (all 7 sections).
- * Pre-populates from studio_queue items per PRD-17 Screen 8 source-adaptive table.
+ * REDESIGNED: Compact two-column layout. No Quick/Full toggle.
+ * No collapsible accordion sections. Everything above the fold.
+ * Feels like filling out a sticky note, not completing a form.
  *
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Wand2, ListChecks, Zap, ArrowRight } from 'lucide-react'
-import { Button, Input } from '@/components/shared'
+import { X, ChevronDown } from 'lucide-react'
+import { Button } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
-import { CollapsibleSection } from './CollapsibleSection'
+import { RoutineSectionEditor } from './RoutineSectionEditor'
 import { DurationPicker } from './DurationPicker'
 import { LifeAreaTagPicker } from './LifeAreaTagPicker'
-import { TaskTypeSelector } from './TaskTypeSelector'
-import { AssignmentSelector } from './AssignmentSelector'
-import { IncompleteActionSelector } from './IncompleteActionSelector'
-import { RewardConfig } from './RewardConfig'
-import { TemplateOptions } from './TemplateOptions'
-import { RoutineSectionEditor } from './RoutineSectionEditor'
-import type { TaskType, OpportunitySubType } from './TaskTypeSelector'
+import type { TaskType } from './TaskTypeSelector'
 import type { IncompleteAction } from './IncompleteActionSelector'
 import type { RewardConfigData, RewardType } from './RewardConfig'
 import type { MemberAssignment } from './AssignmentSelector'
@@ -47,7 +41,6 @@ export interface StudioQueueItem {
 }
 
 export interface CreateTaskData {
-  // Section 1
   title: string
   description: string
   durationEstimate: string
@@ -55,29 +48,21 @@ export interface CreateTaskData {
   lifeAreaTag: string
   customLifeArea: string
   imageUrl?: string
-  // Section 2
   taskType: TaskType
-  opportunitySubType?: OpportunitySubType
+  opportunitySubType?: string
   maxCompletions?: string
   claimLockDuration?: string
   claimLockUnit?: string
-  // Routine sections
   routineSections?: RoutineSection[]
-  // Section 3
   assignments: MemberAssignment[]
   wholeFamily: boolean
   rotationEnabled: boolean
   rotationFrequency: string
-  // Section 4
   schedule: SchedulerOutput | null
-  // Section 5
   incompleteAction: IncompleteAction
-  // Section 6
   reward: RewardConfigData
-  // Section 7
   saveAsTemplate: boolean
   templateName: string
-  // Source tracing
   sourceQueueItemId?: string
   sourceBatchIds?: string[]
 }
@@ -86,16 +71,14 @@ interface TaskCreationModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (task: CreateTaskData) => void
-  /** Pre-population from studio queue */
   queueItem?: StudioQueueItem
   mode?: 'quick' | 'full'
   batchMode?: 'group' | 'sequential'
   batchItems?: StudioQueueItem[]
-  /** Pre-select task type when opening from Studio (e.g., 'routine', 'opportunity', 'sequential') */
   initialTaskType?: string
 }
 
-// ─── Default state factory ───────────────────────────────────
+// ─── Defaults ────────────────────────────────────────────────
 
 function defaultReward(): RewardConfigData {
   return {
@@ -134,237 +117,197 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
   }
 }
 
-// ─── Quick Mode component ────────────────────────────────────
+const TASK_TYPES: { key: TaskType; label: string }[] = [
+  { key: 'task', label: 'Task' },
+  { key: 'routine', label: 'Routine' },
+  { key: 'opportunity' as TaskType, label: 'Opportunity' },
+  { key: 'habit', label: 'Habit' },
+]
 
-interface QuickModeProps {
-  data: CreateTaskData
-  onChange: (d: CreateTaskData) => void
-  familyMembers: Array<{ id: string; display_name: string }>
-  onSwitchFull: () => void
-  onSave: () => void
-  loading: boolean
-  queueItem?: StudioQueueItem
+const INCOMPLETE_OPTIONS: { key: IncompleteAction; label: string }[] = [
+  { key: 'auto_reschedule', label: 'Auto-reschedule' },
+  { key: 'fresh_reset', label: 'Fresh reset' },
+  { key: 'drop_after_date', label: 'Drop after date' },
+  { key: 'reassign_until_complete', label: 'Reassign until done' },
+  { key: 'require_decision', label: 'Ask me' },
+  { key: 'escalate_to_parent', label: 'Escalate' },
+]
+
+// ─── Inline "More" expandable ───────────────────────────────
+
+function MoreSection({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-sm flex items-center gap-1"
+        style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
+        {label} <ChevronDown size={14} />
+      </button>
+    )
+  }
+  return <div className="space-y-3 pt-1">{children}</div>
 }
 
-function QuickMode({ data, onChange, familyMembers, onSwitchFull, onSave, loading, queueItem }: QuickModeProps) {
-  const [useRecurring, setUseRecurring] = useState(false)
-  const [oneTimeDate, setOneTimeDate] = useState('')
-  const [recurringDays, setRecurringDays] = useState<number[]>([])
-  const DAY_LABELS = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa']
+// ─── Source label ────────────────────────────────────────────
 
-  const sourceLabel =
-    queueItem?.source === 'member_request'
-      ? `Request from member`
-      : queueItem?.source === 'meeting_action'
-      ? 'From meeting'
-      : queueItem?.source === 'notepad_routed'
-      ? 'From Notepad'
-      : queueItem?.source
-        ? `From: ${queueItem.source}`
-        : null
+function sourceLabel(source?: string): string | null {
+  if (!source) return null
+  if (source === 'member_request') return 'Request from member'
+  if (source === 'meeting_action') return 'From meeting'
+  if (source === 'notepad_routed') return 'From Notepad'
+  if (source === 'review_route') return 'From Review & Route'
+  if (source === 'lila_conversation') return 'From LiLa'
+  if (source === 'goal_decomposition') return 'From goal breakdown'
+  return `From: ${source}`
+}
 
+// ─── Compact pill selector ──────────────────────────────────
+
+function PillSelect<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { key: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
   return (
-    <div className="space-y-4">
-      {sourceLabel && (
-        <p style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)' }}>
-          {sourceLabel}
-        </p>
-      )}
-
-      {/* Task name */}
-      <Input
-        label="Task name"
-        value={data.title}
-        onChange={(e) => onChange({ ...data, title: e.target.value })}
-        placeholder="What needs to be done?"
-        required
-        autoFocus
-      />
-
-      {/* Assign to */}
-      <div>
-        <label
-          style={{
-            display: 'block',
-            fontSize: 'var(--font-size-sm, 0.875rem)',
-            fontWeight: 500,
-            color: 'var(--color-text-primary)',
-            marginBottom: '0.375rem',
-          }}
-        >
-          Assign to
-        </label>
-        <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1">
+      {options.map((opt) => {
+        const active = opt.key === value
+        return (
           <button
+            key={opt.key}
             type="button"
-            onClick={() => onChange({ ...data, wholeFamily: !data.wholeFamily, assignments: [] })}
+            onClick={() => onChange(opt.key)}
+            className="px-2.5 py-1 rounded-full text-xs whitespace-nowrap transition-all"
             style={{
-              padding: '0.3rem 0.75rem',
-              borderRadius: '9999px',
-              fontSize: 'var(--font-size-sm, 0.875rem)',
-              border: `1px solid ${data.wholeFamily ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-              backgroundColor: data.wholeFamily
+              border: `1px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+              backgroundColor: active
                 ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
                 : 'var(--color-bg-secondary)',
-              color: data.wholeFamily ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              fontWeight: active ? 600 : 400,
               cursor: 'pointer',
-              fontWeight: data.wholeFamily ? 600 : 400,
             }}
           >
-            Whole family
+            {opt.label}
           </button>
-          {familyMembers.map((m) => {
-            const selected = data.assignments.some((a) => a.memberId === m.id)
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  const next = selected
-                    ? data.assignments.filter((a) => a.memberId !== m.id)
-                    : [...data.assignments, { memberId: m.id, copyMode: 'individual' as const }]
-                  onChange({ ...data, assignments: next, wholeFamily: false })
-                }}
-                style={{
-                  padding: '0.3rem 0.75rem',
-                  borderRadius: '9999px',
-                  fontSize: 'var(--font-size-sm, 0.875rem)',
-                  border: `1px solid ${selected ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                  backgroundColor: selected
-                    ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
-                    : 'var(--color-bg-secondary)',
-                  color: selected ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-                  cursor: 'pointer',
-                  fontWeight: selected ? 600 : 400,
-                }}
-              >
-                {m.display_name}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* When */}
-      <div>
-        <label
-          style={{
-            display: 'block',
-            fontSize: 'var(--font-size-sm, 0.875rem)',
-            fontWeight: 500,
-            color: 'var(--color-text-primary)',
-            marginBottom: '0.375rem',
-          }}
-        >
-          When
-        </label>
-        <div className="flex gap-2 mb-2">
-          {(['one-time', 'recurring'] as const).map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setUseRecurring(opt === 'recurring')}
-              style={{
-                padding: '0.3rem 0.75rem',
-                borderRadius: '9999px',
-                fontSize: 'var(--font-size-sm, 0.875rem)',
-                border: `1px solid ${(opt === 'recurring') === useRecurring ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                backgroundColor: (opt === 'recurring') === useRecurring
-                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
-                  : 'var(--color-bg-secondary)',
-                color: (opt === 'recurring') === useRecurring ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-                cursor: 'pointer',
-                fontWeight: (opt === 'recurring') === useRecurring ? 600 : 400,
-                textTransform: 'capitalize',
-              }}
-            >
-              {opt === 'one-time' ? 'One-time' : 'Recurring'}
-            </button>
-          ))}
-        </div>
-
-        {!useRecurring ? (
-          <input
-            type="date"
-            value={oneTimeDate}
-            onChange={(e) => setOneTimeDate(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.5rem 0.75rem',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--vibe-radius-input, 8px)',
-              backgroundColor: 'var(--color-bg-input)',
-              color: 'var(--color-text-primary)',
-              fontSize: 'var(--font-size-sm, 0.875rem)',
-              minHeight: '44px',
-              cursor: 'pointer',
-            }}
-          />
-        ) : (
-          <div className="flex gap-1.5 flex-wrap">
-            {DAY_LABELS.map((label, idx) => {
-              const active = recurringDays.includes(idx)
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() =>
-                    setRecurringDays((days) =>
-                      active ? days.filter((d) => d !== idx) : [...days, idx]
-                    )
-                  }
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '50%',
-                    border: `1.5px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                    backgroundColor: active ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
-                    color: active ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                    fontSize: 'var(--font-size-xs, 0.75rem)',
-                    fontWeight: active ? 600 : 400,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2 pt-1">
-        <Button
-          variant="primary"
-          onClick={onSave}
-          loading={loading}
-          disabled={!data.title.trim()}
-          fullWidth
-        >
-          Save
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={onSwitchFull}
-          type="button"
-        >
-          Full mode
-          <ArrowRight size={14} />
-        </Button>
-      </div>
+        )
+      })}
     </div>
   )
 }
 
-// ─── TaskCreationModal ───────────────────────────────────────
+// ─── Member chip selector ───────────────────────────────────
+
+function MemberChips({
+  members,
+  selected,
+  wholeFamily,
+  onToggleMember,
+  onToggleFamily,
+}: {
+  members: Array<{ id: string; display_name: string }>
+  selected: MemberAssignment[]
+  wholeFamily: boolean
+  onToggleMember: (id: string) => void
+  onToggleFamily: () => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <button
+        type="button"
+        onClick={onToggleFamily}
+        className="px-2 py-0.5 rounded-full text-xs"
+        style={{
+          border: `1px solid ${wholeFamily ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+          backgroundColor: wholeFamily
+            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
+            : 'var(--color-bg-secondary)',
+          color: wholeFamily ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+          fontWeight: wholeFamily ? 600 : 400,
+          cursor: 'pointer',
+        }}
+      >
+        Everyone
+      </button>
+      {members.map((m) => {
+        const active = selected.some((a) => a.memberId === m.id)
+        return (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => onToggleMember(m.id)}
+            className="px-2 py-0.5 rounded-full text-xs"
+            style={{
+              border: `1px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+              backgroundColor: active
+                ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
+                : 'var(--color-bg-secondary)',
+              color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              fontWeight: active ? 600 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            {m.display_name}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Compact day chips for quick schedule ────────────────────
+
+function DayChips({
+  days,
+  onChange,
+}: {
+  days: number[]
+  onChange: (days: number[]) => void
+}) {
+  const labels = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa']
+  return (
+    <div className="flex gap-1">
+      {labels.map((label, idx) => {
+        const active = days.includes(idx)
+        return (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onChange(active ? days.filter((d) => d !== idx) : [...days, idx])}
+            className="rounded-full text-xs flex items-center justify-center"
+            style={{
+              width: 28,
+              height: 28,
+              border: `1.5px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+              backgroundColor: active ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+              color: active ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+              fontWeight: active ? 600 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Main Modal ─────────────────────────────────────────────
 
 export function TaskCreationModal({
   isOpen,
   onClose,
   onSave,
   queueItem,
-  mode: initialMode = 'quick',
   batchMode,
   batchItems,
   initialTaskType,
@@ -372,34 +315,30 @@ export function TaskCreationModal({
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
 
-  // If opening from Studio with a specific type, force full mode and pre-select type
-  const effectiveInitialMode = initialTaskType ? 'full' : initialMode
-  const [mode, setMode] = useState<'quick' | 'full'>(effectiveInitialMode)
   const [data, setData] = useState<CreateTaskData>(() => {
     const d = defaultTaskData(queueItem)
-    if (initialTaskType) {
-      d.taskType = initialTaskType as any
-    }
+    if (initialTaskType) d.taskType = initialTaskType as TaskType
     return d
   })
   const [loading, setLoading] = useState(false)
+  const [showScheduler, setShowScheduler] = useState(false)
+  const [quickDays, setQuickDays] = useState<number[]>([])
+  const [quickDate, setQuickDate] = useState('')
 
-  // Batch sequential state
+  // Batch state
   const [batchIndex, setBatchIndex] = useState(0)
   const activeBatchItem = batchMode === 'sequential' && batchItems ? batchItems[batchIndex] : undefined
+  const batchTotal = batchItems?.length ?? 0
 
-  // Re-init when queueItem changes
+  // Re-init on queue item change
   useEffect(() => {
-    setData(defaultTaskData(queueItem ?? activeBatchItem))
-    setMode(initialMode)
-  }, [queueItem?.id, activeBatchItem?.id, initialMode])
-
-  // Auto-switch to full for batch/group mode
-  useEffect(() => {
-    if (batchMode === 'group' || batchMode === 'sequential') {
-      setMode('full')
-    }
-  }, [batchMode])
+    const d = defaultTaskData(queueItem ?? activeBatchItem)
+    if (initialTaskType) d.taskType = initialTaskType as TaskType
+    setData(d)
+    setShowScheduler(false)
+    setQuickDays([])
+    setQuickDate('')
+  }, [queueItem?.id, activeBatchItem?.id, initialTaskType])
 
   const handleSave = useCallback(async () => {
     if (!data.title.trim()) return
@@ -429,34 +368,54 @@ export function TaskCreationModal({
   if (!isOpen) return null
 
   const isRoutine = data.taskType === 'routine'
-  const batchProgressLabel =
-    batchMode === 'sequential' && batchItems
-      ? `${batchIndex + 1} of ${batchItems.length}`
-      : null
+  const srcLabel = sourceLabel(queueItem?.source)
 
-  const sourceLabel = queueItem?.source
-    ? (() => {
-        if (queueItem.source === 'member_request') return `Request from member`
-        if (queueItem.source === 'meeting_action') return `From meeting`
-        if (queueItem.source === 'notepad_routed') return `From Notepad`
-        if (queueItem.source === 'review_route') return `From Review & Route`
-        if (queueItem.source === 'lila_conversation') return `From LiLa conversation`
-        if (queueItem.source === 'goal_decomposition') return `From goal breakdown`
-        return `From: ${queueItem.source}`
-      })()
-    : null
+  const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
+    setData((d) => ({ ...d, [key]: val }))
+
+  const toggleMember = (id: string) => {
+    const exists = data.assignments.some((a) => a.memberId === id)
+    const next = exists
+      ? data.assignments.filter((a) => a.memberId !== id)
+      : [...data.assignments, { memberId: id, copyMode: 'individual' as const }]
+    setData((d) => ({ ...d, assignments: next, wholeFamily: false }))
+  }
+
+  const toggleFamily = () => {
+    setData((d) => ({ ...d, wholeFamily: !d.wholeFamily, assignments: [] }))
+  }
+
+  // Batch progress bar
+  const batchProgress = batchMode === 'sequential' && batchTotal > 1 ? (
+    <div className="flex items-center gap-2 mb-2">
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${((batchIndex + 1) / batchTotal) * 100}%`,
+            backgroundColor: 'var(--color-btn-primary-bg)',
+          }}
+        />
+      </div>
+      <span className="text-xs flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+        {batchIndex + 1} of {batchTotal}
+      </span>
+    </div>
+  ) : null
+
+  // Section label style
+  const sLabel: React.CSSProperties = {
+    fontSize: 'var(--font-size-xs, 0.75rem)',
+    fontWeight: 600,
+    color: 'var(--color-text-secondary)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
+    marginBottom: 4,
+  }
 
   const modal = (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 55,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0',
-      }}
+      style={{ position: 'fixed', inset: 0, zIndex: 55, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
       role="dialog"
       aria-modal="true"
       aria-label="Create task"
@@ -464,370 +423,333 @@ export function TaskCreationModal({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: 'var(--color-bg-overlay, rgba(0,0,0,0.5))',
-        }}
+        style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--color-bg-overlay, rgba(0,0,0,0.5))' }}
         aria-hidden="true"
       />
 
-      {/* Panel — full screen on mobile, large centered on desktop */}
+      {/* Panel — bottom sheet on mobile, centered on desktop */}
       <div
-        className="relative flex flex-col w-full md:max-w-2xl"
+        className="relative flex flex-col w-full md:max-w-lg md:mb-auto md:mt-auto"
         style={{
-          height: '100dvh',
+          maxHeight: '92dvh',
           backgroundColor: 'var(--color-bg-card)',
           boxShadow: 'var(--shadow-lg)',
-          borderRadius: 0,
+          borderRadius: 'var(--vibe-radius-card, 16px) var(--vibe-radius-card, 16px) 0 0',
           overflow: 'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ── */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0.875rem 1rem',
-            borderBottom: '1px solid var(--color-border)',
-            flexShrink: 0,
-            background: 'var(--gradient-primary, var(--color-btn-primary-bg))',
-          }}
+          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--color-border)' }}
         >
-          <div className="flex flex-col">
-            <h2
-              style={{
-                color: 'var(--color-text-on-dark, #fff)',
-                fontSize: 'var(--font-size-base, 1rem)',
-                fontWeight: 700,
-                margin: 0,
-              }}
-            >
-              {batchProgressLabel ? `New task (${batchProgressLabel})` : 'New task'}
+          <div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--color-text-heading)', margin: 0 }}>
+              New task
             </h2>
-            {sourceLabel && (
-              <span
-                style={{
-                  color: 'rgba(255,255,255,0.75)',
-                  fontSize: 'var(--font-size-xs, 0.75rem)',
-                }}
-              >
-                {sourceLabel}
-              </span>
+            {srcLabel && (
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{srcLabel}</span>
             )}
           </div>
-
-          <div className="flex items-center gap-2">
-            {/* Quick / Full toggle */}
-            <div
-              style={{
-                display: 'flex',
-                borderRadius: '9999px',
-                border: '1px solid rgba(255,255,255,0.3)',
-                overflow: 'hidden',
-              }}
-            >
-              {(['quick', 'full'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  style={{
-                    padding: '0.25rem 0.75rem',
-                    fontSize: 'var(--font-size-xs, 0.75rem)',
-                    fontWeight: mode === m ? 700 : 400,
-                    background: mode === m ? 'rgba(255,255,255,0.25)' : 'transparent',
-                    color: 'var(--color-text-on-dark, #fff)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'background var(--vibe-transition, 0.15s ease)',
-                    textTransform: 'capitalize',
-                    minHeight: 32,
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255,255,255,0.15)',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                borderRadius: 'var(--vibe-radius-input, 8px)',
-                color: 'var(--color-text-on-dark, #fff)',
-                minHeight: '36px',
-                minWidth: '36px',
-              }}
-            >
-              <X size={18} aria-hidden />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex items-center justify-center rounded-lg"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0.375rem',
+              color: 'var(--color-text-secondary)',
+              minHeight: 36,
+              minWidth: 36,
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: '1rem' }}>
-          {mode === 'quick' ? (
-            <QuickMode
-              data={data}
-              onChange={setData}
-              familyMembers={familyMembers.map((m) => ({ id: m.id, display_name: m.display_name }))}
-              onSwitchFull={() => setMode('full')}
-              onSave={handleSave}
-              loading={loading}
-              queueItem={queueItem}
-            />
-          ) : (
-            <div className="space-y-3">
-              {/* Section 1: Task Basics */}
-              <CollapsibleSection title="Task Basics" defaultOpen>
-                <div className="space-y-4">
-                  <Input
-                    label="Task name"
-                    value={data.title}
-                    onChange={(e) => setData((d) => ({ ...d, title: e.target.value }))}
-                    placeholder="What needs to be done?"
-                    required
-                    autoFocus
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {batchProgress}
+
+          {/* Task name — full width */}
+          <input
+            type="text"
+            value={data.title}
+            onChange={(e) => update('title', e.target.value)}
+            placeholder="What needs to be done?"
+            autoFocus
+            className="w-full text-base font-medium"
+            style={{
+              padding: '0.625rem 0.75rem',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              backgroundColor: 'var(--color-bg-input)',
+              color: 'var(--color-text-primary)',
+              outline: 'none',
+              minHeight: 44,
+            }}
+          />
+
+          {/* Two-column grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* WHO */}
+            <div>
+              <div style={sLabel}>Who</div>
+              <MemberChips
+                members={familyMembers.map((m) => ({ id: m.id, display_name: m.display_name }))}
+                selected={data.assignments}
+                wholeFamily={data.wholeFamily}
+                onToggleMember={toggleMember}
+                onToggleFamily={toggleFamily}
+              />
+            </div>
+
+            {/* TYPE */}
+            <div>
+              <div style={sLabel}>Type</div>
+              <PillSelect
+                options={TASK_TYPES}
+                value={data.taskType}
+                onChange={(v) => setData((d) => ({
+                  ...d,
+                  taskType: v,
+                  incompleteAction: v === 'routine' ? 'fresh_reset' : 'auto_reschedule',
+                }))}
+              />
+            </div>
+
+            {/* WHEN */}
+            <div>
+              <div style={sLabel}>When</div>
+              {!showScheduler ? (
+                <div className="space-y-1.5">
+                  <DayChips days={quickDays} onChange={setQuickDays} />
+                  <input
+                    type="date"
+                    value={quickDate}
+                    onChange={(e) => setQuickDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.375rem 0.5rem',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      backgroundColor: 'var(--color-bg-input)',
+                      color: 'var(--color-text-primary)',
+                      fontSize: 'var(--font-size-xs, 0.75rem)',
+                      minHeight: 32,
+                    }}
                   />
-                  <div>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: 'var(--font-size-sm, 0.875rem)',
-                        fontWeight: 500,
-                        color: 'var(--color-text-primary)',
-                        marginBottom: '0.375rem',
-                      }}
-                    >
-                      Description
-                    </label>
-                    <textarea
-                      value={data.description}
-                      onChange={(e) => setData((d) => ({ ...d, description: e.target.value }))}
-                      placeholder="Optional details, instructions, context…"
-                      rows={3}
-                      style={{
-                        width: '100%',
-                        resize: 'vertical',
-                        padding: '0.5rem 0.75rem',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--vibe-radius-input, 8px)',
-                        backgroundColor: 'var(--color-bg-input)',
-                        color: 'var(--color-text-primary)',
-                        fontSize: 'var(--font-size-sm, 0.875rem)',
-                        outline: 'none',
-                        minHeight: '80px',
-                      }}
-                    />
-                  </div>
-                  <DurationPicker
-                    value={data.durationEstimate}
-                    onChange={(v) => setData((d) => ({ ...d, durationEstimate: v }))}
-                    customValue={data.customDuration}
-                    onCustomChange={(v) => setData((d) => ({ ...d, customDuration: v }))}
-                  />
-                  <LifeAreaTagPicker
-                    value={data.lifeAreaTag}
-                    onChange={(v) => setData((d) => ({ ...d, lifeAreaTag: v }))}
-                    customValue={data.customLifeArea}
-                    onCustomChange={(v) => setData((d) => ({ ...d, customLifeArea: v }))}
-                  />
-                  {/* Image upload (stub — wires to Supabase Storage) */}
-                  <div>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: 'var(--font-size-sm, 0.875rem)',
-                        fontWeight: 500,
-                        color: 'var(--color-text-primary)',
-                        marginBottom: '0.375rem',
-                      }}
-                    >
-                      Reference image (optional)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        fontSize: 'var(--font-size-sm, 0.875rem)',
-                        color: 'var(--color-text-secondary)',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  </div>
-                  {/* AI buttons */}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      onClick={() => {
-                        // STUB: Task Breaker AI — wires to PRD-09A Task Breaker
-                      }}
-                    >
-                      <Zap size={13} />
-                      Break it down
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      onClick={() => {
-                        // STUB: Organize as Checklist — promotes to Routine type
-                        setData((d) => ({ ...d, taskType: 'routine' }))
-                      }}
-                    >
-                      <ListChecks size={13} />
-                      Organize as checklist
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={() => {
-                        // STUB: LiLa auto-suggest life area tag
-                      }}
-                    >
-                      <Wand2 size={13} />
-                      Auto-tag
-                    </Button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowScheduler(true)}
+                    className="text-xs"
+                    style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    More options...
+                  </button>
                 </div>
-              </CollapsibleSection>
-
-              {/* Section 2: Task Type */}
-              <CollapsibleSection title="Task Type" defaultOpen>
-                <TaskTypeSelector
-                  taskType={data.taskType}
-                  onChange={(v) => setData((d) => ({
-                    ...d,
-                    taskType: v,
-                    incompleteAction: v === 'routine' ? 'fresh_reset' : 'auto_reschedule',
-                  }))}
-                  opportunitySubType={data.opportunitySubType}
-                  onOpportunitySubTypeChange={(v) => setData((d) => ({ ...d, opportunitySubType: v }))}
-                  maxCompletions={data.maxCompletions}
-                  onMaxCompletionsChange={(v) => setData((d) => ({ ...d, maxCompletions: v }))}
-                  claimLockDuration={data.claimLockDuration}
-                  onClaimLockDurationChange={(v) => setData((d) => ({ ...d, claimLockDuration: v }))}
-                  claimLockUnit={data.claimLockUnit}
-                  onClaimLockUnitChange={(v) => setData((d) => ({ ...d, claimLockUnit: v }))}
-                />
-                {/* Routine section editor inline */}
-                {isRoutine && (
-                  <div className="mt-4">
-                    <RoutineSectionEditor
-                      sections={data.routineSections ?? []}
-                      onChange={(sections) => setData((d) => ({ ...d, routineSections: sections }))}
-                    />
-                  </div>
-                )}
-              </CollapsibleSection>
-
-              {/* Section 3: Assignment */}
-              <CollapsibleSection title="Assignment" defaultOpen>
-                <AssignmentSelector
-                  familyMembers={familyMembers}
-                  assignments={data.assignments}
-                  onAssignmentsChange={(v) => setData((d) => ({ ...d, assignments: v }))}
-                  wholeFamily={data.wholeFamily}
-                  onWholeFamilyChange={(v) => setData((d) => ({ ...d, wholeFamily: v }))}
-                  showRotation={isRoutine}
-                  rotationEnabled={data.rotationEnabled}
-                  onRotationChange={(v) => setData((d) => ({ ...d, rotationEnabled: v }))}
-                  rotationFrequency={data.rotationFrequency}
-                  onRotationFrequencyChange={(v) => setData((d) => ({ ...d, rotationFrequency: v }))}
-                />
-              </CollapsibleSection>
-
-              {/* Section 4: Schedule & Recurrence */}
-              <CollapsibleSection title="Schedule & Recurrence">
+              ) : (
                 <UniversalScheduler
                   value={data.schedule}
-                  onChange={(v) => setData((d) => ({ ...d, schedule: v }))}
+                  onChange={(v) => update('schedule', v)}
                   showTimeDefault={false}
+                  compactMode
                 />
-              </CollapsibleSection>
+              )}
+            </div>
 
-              {/* Section 5: Incomplete Action */}
-              <CollapsibleSection
-                title="If Not Completed"
-                subtitle={`Currently: ${data.incompleteAction.replace(/_/g, ' ')}`}
+            {/* IF NOT DONE */}
+            <div>
+              <div style={sLabel}>If not done</div>
+              <select
+                value={data.incompleteAction}
+                onChange={(e) => update('incompleteAction', e.target.value as IncompleteAction)}
+                style={{
+                  width: '100%',
+                  padding: '0.375rem 0.5rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm, 0.875rem)',
+                  minHeight: 36,
+                  cursor: 'pointer',
+                }}
               >
-                <IncompleteActionSelector
-                  value={data.incompleteAction}
-                  onChange={(v) => setData((d) => ({ ...d, incompleteAction: v }))}
-                />
-              </CollapsibleSection>
+                {INCOMPLETE_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
 
-              {/* Section 6: Rewards & Tracking */}
-              <CollapsibleSection title="Rewards & Tracking">
-                <RewardConfig
-                  value={data.reward}
-                  onChange={(v) => setData((d) => ({ ...d, reward: v }))}
-                />
-              </CollapsibleSection>
+            {/* REWARD */}
+            <div>
+              <div style={sLabel}>Reward</div>
+              <select
+                value={data.reward.rewardType || 'none'}
+                onChange={(e) => {
+                  const v = e.target.value === 'none' ? '' : e.target.value
+                  update('reward', { ...data.reward, rewardType: v as RewardType })
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.375rem 0.5rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm, 0.875rem)',
+                  minHeight: 36,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="none">None</option>
+                <option value="stars">Stars</option>
+                <option value="money">Money</option>
+                <option value="privilege">Privilege</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
 
-              {/* Section 7: Template Options */}
-              <CollapsibleSection title="Template Options">
-                <TemplateOptions
-                  saveAsTemplate={data.saveAsTemplate}
-                  onSaveAsTemplateChange={(v) => setData((d) => ({ ...d, saveAsTemplate: v }))}
-                  templateName={data.templateName}
-                  onTemplateNameChange={(v) => setData((d) => ({ ...d, templateName: v }))}
-                />
-              </CollapsibleSection>
+            {/* FLAGS */}
+            <div>
+              <div style={sLabel}>Flags</div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
+                  <input
+                    type="checkbox"
+                    checked={data.reward.trackAsWidget}
+                    onChange={(e) => update('reward', { ...data.reward, trackAsWidget: e.target.checked })}
+                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                  />
+                  Track time
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
+                  <input
+                    type="checkbox"
+                    checked={data.reward.flagAsVictory}
+                    onChange={(e) => update('reward', { ...data.reward, flagAsVictory: e.target.checked })}
+                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                  />
+                  Victory on complete
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
+                  <input
+                    type="checkbox"
+                    checked={data.reward.requireApproval}
+                    onChange={(e) => update('reward', { ...data.reward, requireApproval: e.target.checked })}
+                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                  />
+                  Require approval
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Routine sections — shown inline when type=routine */}
+          {isRoutine && (
+            <div>
+              <div style={sLabel}>Routine steps</div>
+              <RoutineSectionEditor
+                sections={data.routineSections ?? []}
+                onChange={(sections) => update('routineSections', sections)}
+              />
             </div>
           )}
+
+          {/* More → expandable for rare fields */}
+          <MoreSection label="More options →">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                Description
+              </label>
+              <textarea
+                value={data.description}
+                onChange={(e) => update('description', e.target.value)}
+                placeholder="Optional details..."
+                rows={2}
+                style={{
+                  width: '100%',
+                  resize: 'vertical',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm, 0.875rem)',
+                  outline: 'none',
+                  minHeight: '60px',
+                }}
+              />
+            </div>
+            <LifeAreaTagPicker
+              value={data.lifeAreaTag}
+              onChange={(v) => update('lifeAreaTag', v)}
+              customValue={data.customLifeArea}
+              onCustomChange={(v) => update('customLifeArea', v)}
+            />
+            <DurationPicker
+              value={data.durationEstimate}
+              onChange={(v) => update('durationEstimate', v)}
+              customValue={data.customDuration}
+              onCustomChange={(v) => update('customDuration', v)}
+            />
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={data.saveAsTemplate}
+                onChange={(e) => update('saveAsTemplate', e.target.checked)}
+                id="save-template"
+                style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+              />
+              <label htmlFor="save-template" className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                Save as reusable template
+              </label>
+            </div>
+            {data.saveAsTemplate && (
+              <input
+                type="text"
+                value={data.templateName}
+                onChange={(e) => update('templateName', e.target.value)}
+                placeholder="Template name"
+                className="w-full text-sm"
+                style={{
+                  padding: '0.375rem 0.5rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  color: 'var(--color-text-primary)',
+                  minHeight: 36,
+                }}
+              />
+            )}
+          </MoreSection>
         </div>
 
-        {/* ── Footer (full mode only) ── */}
-        {mode === 'full' && (
-          <div
-            style={{
-              padding: '0.875rem 1rem',
-              borderTop: '1px solid var(--color-border)',
-              display: 'flex',
-              gap: '0.625rem',
-              flexShrink: 0,
-              backgroundColor: 'var(--color-bg-card)',
-            }}
+        {/* ── Footer ── */}
+        <div
+          className="flex gap-2 px-4 py-3 flex-shrink-0"
+          style={{ borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-card)' }}
+        >
+          <Button variant="ghost" onClick={onClose} type="button">
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            loading={loading}
+            disabled={!data.title.trim()}
+            fullWidth
           >
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              type="button"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              loading={loading}
-              disabled={!data.title.trim()}
-              fullWidth
-            >
-              {batchProgressLabel
-                ? batchIndex < (batchItems?.length ?? 1) - 1
-                  ? 'Save & next'
-                  : 'Save last task'
-                : 'Save task'}
-            </Button>
-          </div>
-        )}
+            {batchMode === 'sequential' && batchIndex < batchTotal - 1
+              ? 'Save & next'
+              : 'Save task'}
+          </Button>
+        </div>
       </div>
     </div>
   )

@@ -15,9 +15,11 @@ import type { StudioQueueItem, DismissQueueItem } from '@/types/tasks'
 export function useStudioQueueItems(
   familyId: string | undefined,
   destination?: string,
+  /** Pass memberId + role for role-based scoping. Mom sees all; others see own items. */
+  scopeOptions?: { memberId?: string; role?: string },
 ) {
   return useQuery({
-    queryKey: ['studio-queue', familyId, destination],
+    queryKey: ['studio-queue', familyId, destination, scopeOptions?.memberId, scopeOptions?.role],
     queryFn: async () => {
       if (!familyId) return []
 
@@ -31,6 +33,19 @@ export function useStudioQueueItems(
 
       if (destination) {
         query = query.eq('destination', destination)
+      }
+
+      // Role-based filtering (PRD-02 visibility rules)
+      if (scopeOptions?.role && scopeOptions.memberId) {
+        if (scopeOptions.role === 'member') {
+          // Teens (role='member') only see their own items
+          query = query.eq('owner_id', scopeOptions.memberId)
+        } else if (scopeOptions.role === 'additional_adult') {
+          // Dad/additional adults see own items (full permission check requires member_permissions query)
+          query = query.eq('owner_id', scopeOptions.memberId)
+        }
+        // primary_parent (mom) sees all — no additional filter
+        // special_adult scoping would go here when shifts are implemented
       }
 
       const { data, error } = await query

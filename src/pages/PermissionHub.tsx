@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Shield, ChevronDown, ChevronRight, Eye, EyeOff, Users, UserCog,
   Zap, Layers, Crown, AlertTriangle, Lock, Unlock, Clock, ClipboardList,
-  Globe, BookOpen, StopCircle, AlertCircle,
+  Globe, BookOpen, StopCircle,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'

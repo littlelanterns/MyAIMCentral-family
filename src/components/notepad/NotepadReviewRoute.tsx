@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { ArrowLeft, Wand2, Loader2, CheckCircle2, XCircle, SkipForward } from 'lucide-react'
+import { ArrowLeft, Wand2, Loader2, CheckCircle2, XCircle, SkipForward, Pencil, Save, StickyNote } from 'lucide-react'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
+import { useNotepadContext } from './NotepadContext'
 import {
   useExtractContent,
   useRouteExtractedItem,
   useExtractedItems,
+  useCreateNotepadTab,
+  useRouteContent,
   type NotepadTab,
   type NotepadExtractedItem,
+  ROUTING_DESTINATIONS,
 } from '@/hooks/useNotepad'
-import { ROUTING_DESTINATIONS } from '@/hooks/useNotepad'
 
 interface NotepadReviewRouteProps {
   tab: NotepadTab
@@ -20,7 +23,10 @@ interface NotepadReviewRouteProps {
 export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: NotepadReviewRouteProps) {
   const extractMutation = useExtractContent()
   const routeItemMutation = useRouteExtractedItem()
+  const routeContent = useRouteContent()
+  const createTab = useCreateNotepadTab()
   const { data: items = [], isLoading: itemsLoading } = useExtractedItems(tab.id)
+  const { setView, setActiveTabId } = useNotepadContext()
   const [hasExtracted, setHasExtracted] = useState(false)
   const [routingItemId, setRoutingItemId] = useState<string | null>(null)
 
@@ -45,7 +51,6 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     })
     setRoutingItemId(null)
 
-    // Check if all items are now routed/skipped
     const remainingPending = pendingItems.filter(i => i.id !== item.id)
     if (remainingPending.length === 0) {
       onAllRouted()
@@ -68,6 +73,33 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
       })
     }
     onAllRouted()
+  }
+
+  // Issue #5: Edit in Notepad — creates new tab with item content
+  function handleEditInNotepad(item: NotepadExtractedItem) {
+    createTab.mutate({
+      family_id: familyId,
+      member_id: tab.member_id,
+      title: 'Editing from Review',
+      content: item.extracted_content,
+    }, {
+      onSuccess: (newTab) => {
+        setActiveTabId(newTab.id)
+        setView('editor')
+      },
+    })
+  }
+
+  // Issue #6: Save Only — saves content as journal_entry without routing extracted items
+  function handleSaveOnly() {
+    routeContent.mutate({
+      tab,
+      destination: 'journal' as any,
+      subType: 'journal_entry',
+      familyId,
+    }, {
+      onSuccess: () => onAllRouted(),
+    })
   }
 
   // ─── Pre-extraction state ──────────────────────────────────
@@ -172,13 +204,14 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
             onToggleRoutes={() => setRoutingItemId(routingItemId === item.id ? null : item.id)}
             onRoute={(dest, sub) => handleRouteItem(item, dest, sub)}
             onSkip={() => handleSkipItem(item)}
+            onEditInNotepad={() => handleEditInNotepad(item)}
           />
         ))}
       </div>
 
       {/* Bottom actions */}
-      {pendingItems.length > 0 && (
-        <div className="px-3 py-2 border-t shrink-0 space-y-1.5" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="px-3 py-2 border-t shrink-0 space-y-1.5" style={{ borderColor: 'var(--color-border)' }}>
+        {pendingItems.length > 0 && (
           <button
             onClick={handleRouteAll}
             disabled={routeItemMutation.isPending}
@@ -190,11 +223,9 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
           >
             Route All {pendingItems.length} Pending
           </button>
-        </div>
-      )}
+        )}
 
-      {pendingItems.length === 0 && (
-        <div className="px-3 py-2 border-t shrink-0" style={{ borderColor: 'var(--color-border)' }}>
+        {pendingItems.length === 0 && (
           <button
             onClick={onAllRouted}
             className="btn-primary w-full py-2 rounded-lg text-sm font-medium"
@@ -205,8 +236,23 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
           >
             Done
           </button>
-        </div>
-      )}
+        )}
+
+        {/* Issue #6: Save Only button */}
+        <button
+          onClick={handleSaveOnly}
+          disabled={routeContent.isPending}
+          className="w-full py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5"
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-primary)',
+            minHeight: 'unset',
+          }}
+        >
+          <Save size={12} />
+          Save Only (no routing)
+        </button>
+      </div>
     </div>
   )
 }
@@ -233,15 +279,19 @@ function Header({ onBack }: { onBack: () => void }) {
   )
 }
 
-// ─── Extracted Card ──────────────────────────────────────────
+// ─── Extracted Card (with inline editing — Issue #4) ─────────
 
-function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip }: {
+function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip, onEditInNotepad }: {
   item: NotepadExtractedItem
   isShowingRoutes: boolean
   onToggleRoutes: () => void
   onRoute: (dest: string, sub?: string) => void
   onSkip: () => void
+  onEditInNotepad: () => void
 }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(item.extracted_content)
+
   const isRouted = item.status === 'routed'
   const isSkipped = item.status === 'skipped'
   const isDone = isRouted || isSkipped
@@ -264,6 +314,12 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip 
     general: 'Note',
   }
 
+  function handleSaveEdit() {
+    // Update the item content in-memory (the actual DB update happens when routed)
+    item.extracted_content = editText
+    setIsEditing(false)
+  }
+
   return (
     <div
       className="rounded-lg p-3"
@@ -284,15 +340,82 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip 
         >
           {typeLabels[item.item_type] || 'Note'}
         </span>
-        <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-          {Math.round(item.confidence * 100)}%
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+            {Math.round(item.confidence * 100)}%
+          </span>
+          {/* Edit in Notepad button (Issue #5) */}
+          {!isDone && (
+            <button
+              onClick={onEditInNotepad}
+              className="p-0.5 rounded"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+              title="Edit in Notepad"
+            >
+              <StickyNote size={11} />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Content */}
-      <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>
-        {item.extracted_content}
-      </p>
+      {/* Content — inline editable (Issue #4) */}
+      {isEditing ? (
+        <div className="mb-2">
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            className="w-full p-2 text-sm rounded resize-none"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border-focus, var(--color-btn-primary-bg))',
+              outline: 'none',
+            }}
+            rows={3}
+            autoFocus
+          />
+          <div className="flex gap-1 mt-1">
+            <button
+              onClick={handleSaveEdit}
+              className="px-2 py-1 rounded text-[10px] font-medium"
+              style={{
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                color: 'var(--color-btn-primary-text)',
+                minHeight: 'unset',
+              }}
+            >
+              Save
+            </button>
+            <button
+              onClick={() => { setEditText(item.extracted_content); setIsEditing(false) }}
+              className="px-2 py-1 rounded text-[10px]"
+              style={{
+                color: 'var(--color-text-secondary)',
+                background: 'transparent',
+                minHeight: 'unset',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p
+          className="text-sm mb-2 cursor-pointer hover:opacity-80"
+          style={{ color: 'var(--color-text-primary)' }}
+          onClick={() => !isDone && setIsEditing(true)}
+          title={isDone ? undefined : 'Click to edit'}
+        >
+          {editText}
+          {!isDone && (
+            <Pencil
+              size={10}
+              className="inline ml-1 opacity-40"
+              style={{ color: 'var(--color-text-secondary)' }}
+            />
+          )}
+        </p>
+      )}
 
       {/* Status badges for done items */}
       {isRouted && (
@@ -309,7 +432,7 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip 
       )}
 
       {/* Actions for pending items */}
-      {!isDone && !isShowingRoutes && (
+      {!isDone && !isShowingRoutes && !isEditing && (
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => onRoute(suggestedDest)}

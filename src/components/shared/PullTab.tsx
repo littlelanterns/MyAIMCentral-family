@@ -107,7 +107,7 @@ export function PullTab({
         padding: 0,
         color: vibe === 'cozy' ? 'var(--color-text-heading)' : 'var(--color-btn-primary-text)',
         cursor: 'pointer',
-        ...(styles.transform ? { transform: styles.transform } : {}),
+        ...('transform' in styles ? { transform: (styles as Record<string, unknown>).transform as string } : {}),
       }}
       aria-label="Toggle drawer"
     >

@@ -1,19 +1,23 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   StickyNote, Plus, X, Mic, MicOff, Send, ArrowRightLeft,
   Maximize2, Minimize2, Clock, AlertCircle, Loader2,
+  ChevronsRight, Search, ArrowDownUp, Trash2,
 } from 'lucide-react'
 import { Tooltip } from '@/components/Tooltip'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { PullTab } from '@/components/shared/PullTab'
+import { HScrollArrows } from '@/components/shared/HScrollArrows'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
+import { NotepadRichEditor } from './NotepadRichEditor'
 import { NotepadReviewRoute } from './NotepadReviewRoute'
 import { useNotepadContext } from './NotepadContext'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 import {
   useCreateNotepadTab,
   useUpdateNotepadTab,
+  useDeleteNotepadTab,
   useAutosave,
   useRoutingStats,
   useNotepadHistory,
@@ -26,6 +30,26 @@ import {
 
 const TAB_WARNING = 6
 const TAB_LIMIT = 8
+const CHAR_SOFT_LIMIT = 5000
+
+// Destination labels for routing toast links
+const DEST_LABELS: Record<string, { label: string; path: string }> = {
+  journal: { label: 'Journal', path: '/journal' },
+  quick_note: { label: 'Journal', path: '/journal' },
+  best_intentions: { label: 'Best Intentions', path: '/guiding-stars' },
+  victory: { label: 'Victories', path: '/victories' },
+  guiding_stars: { label: 'Guiding Stars', path: '/guiding-stars' },
+  innerworkings: { label: 'InnerWorkings', path: '/inner-workings' },
+  tasks: { label: 'Tasks', path: '/tasks' },
+  list: { label: 'Lists', path: '/lists' },
+  calendar: { label: 'Calendar', path: '/calendar' },
+  track: { label: 'Dashboard', path: '/dashboard' },
+  agenda: { label: 'Meetings', path: '/meetings' },
+  message: { label: 'Messages', path: '/messages' },
+  optimizer: { label: 'Optimizer', path: '/vault' },
+  ideas: { label: 'Ideas', path: '/lists' },
+  backburner: { label: 'Backburner', path: '/lists' },
+}
 
 // ─── Main Component ──────────────────────────────────────────
 
@@ -40,7 +64,7 @@ export function NotepadDrawer() {
 
   const createTab = useCreateNotepadTab()
   const updateTab = useUpdateNotepadTab()
-  // deleteTab available via useDeleteNotepadTab() when wired
+  const deleteTab = useDeleteNotepadTab()
   const routeContent = useRouteContent()
   const undoRoute = useUndoRoute()
   const { data: routingStats = [] } = useRoutingStats(memberId)
@@ -55,7 +79,6 @@ export function NotepadDrawer() {
   const [showSaved, setShowSaved] = useState(false)
   const routingToast = useRoutingToast()
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Swipe-right to dismiss on mobile (PRD-04)
@@ -68,7 +91,6 @@ export function NotepadDrawer() {
     const dx = e.changedTouches[0].clientX - swipeStart.current.x
     const dy = Math.abs(e.changedTouches[0].clientY - swipeStart.current.y)
     swipeStart.current = null
-    // Swipe right > 60px, predominantly horizontal
     if (dx > 60 && dx > dy * 1.5) closeNotepad()
   }, [closeNotepad])
 
@@ -79,20 +101,12 @@ export function NotepadDrawer() {
     }
   }, [activeTab?.id])
 
-  // Auto-focus textarea when tab changes or drawer opens
-  useEffect(() => {
-    if (isOpen && view === 'editor' && textareaRef.current) {
-      setTimeout(() => textareaRef.current?.focus(), 100)
-    }
-  }, [isOpen, view, activeTabId])
-
   // ─── Handlers ──────────────────────────────────────────────
 
   function handleContentChange(value: string) {
     setLocalContent(value)
     save(value)
 
-    // Show saved indicator
     if (saveIndicatorTimer.current) clearTimeout(saveIndicatorTimer.current)
     saveIndicatorTimer.current = setTimeout(() => {
       setShowSaved(true)
@@ -114,14 +128,12 @@ export function NotepadDrawer() {
 
   function handleCloseTab(tabId: string) {
     if (!memberId) return
-    // Archive the tab (soft delete)
     updateTab.mutate({
       id: tabId,
       memberId,
       status: 'archived',
       archived_at: new Date().toISOString(),
     })
-    // Switch to next tab
     const remaining = tabs.filter(t => t.id !== tabId)
     if (remaining.length > 0) {
       setActiveTabId(remaining[0].id)
@@ -155,13 +167,14 @@ export function NotepadDrawer() {
       onSuccess: (result) => {
         setView('editor')
 
-        // Capture references for undo closure
         const routedTab = activeTab
         const routedDest = result.destination
         const routedRef = result.referenceId
+        const destInfo = DEST_LABELS[destination] || { label: destination, path: '' }
 
         routingToast.show({
-          message: `"${routedTab.title}" sent to ${destination}`,
+          message: `Saved to ${destInfo.label}`,
+          destinationPath: destInfo.path || undefined,
           onUndo: () => {
             undoRoute.mutate({
               tab: routedTab,
@@ -189,7 +202,6 @@ export function NotepadDrawer() {
           },
         })
 
-        // Auto-close if no tabs remain
         const remaining = tabs.filter(t => t.id !== routedTab.id)
         if (remaining.length === 0) {
           closeNotepad()
@@ -202,7 +214,6 @@ export function NotepadDrawer() {
 
   function handleReopenHistory(tab: NotepadTab) {
     if (!memberId || !familyId) return
-    // Create a new active tab with the archived content
     createTab.mutate({
       family_id: familyId,
       member_id: memberId,
@@ -226,7 +237,10 @@ export function NotepadDrawer() {
   }, [isOpen, closeNotepad])
 
   // ─── Content counts ────────────────────────────────────────
-  const wordCount = localContent.split(/\s+/).filter(Boolean).length
+  // Strip HTML tags for word/char count
+  const plainText = localContent.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ')
+  const wordCount = plainText.split(/\s+/).filter(Boolean).length
+  const charCount = plainText.length
 
   // ─── Render ────────────────────────────────────────────────
   return (
@@ -234,9 +248,7 @@ export function NotepadDrawer() {
       {/* Pull tab — Desktop: centered vertically, Mobile: above bottom nav */}
       {!isOpen && !isFullPage && (
         <>
-          {/* Desktop pull tab — manila folder tab shape (vertical, right edge) */}
           <Tooltip content="Smart Notepad">
-            {/* Desktop pull tab — vibe-aware side tab */}
             <div className="fixed right-0 z-30 hidden md:block" style={{ top: '50%', transform: 'translateY(-50%)' }}>
               <PullTab orientation="side" onClick={() => openNotepad()}>
                 <StickyNote size={16} />
@@ -244,7 +256,6 @@ export function NotepadDrawer() {
             </div>
           </Tooltip>
 
-          {/* Mobile pull tab — vibe-aware side tab, above bottom nav */}
           <div
             className="fixed right-0 z-30 md:hidden block"
             style={{ bottom: 'calc(56px + 24px)' }}
@@ -284,6 +295,16 @@ export function NotepadDrawer() {
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
         >
+          {/* Close PullTab — inward arrow on left edge (Founder directive A) */}
+          <div
+            className="absolute left-0 z-50 hidden md:block"
+            style={{ top: '50%', transform: 'translate(-100%, -50%)' }}
+          >
+            <PullTab orientation="side" onClick={closeNotepad}>
+              <ChevronsRight size={14} />
+            </PullTab>
+          </div>
+
           {/* FeatureGuide */}
           <div className="px-3 pt-2">
             <FeatureGuide featureKey="notepad" />
@@ -331,13 +352,14 @@ export function NotepadDrawer() {
               >
                 {isFullPage ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               </button>
-              {/* Close */}
+              {/* Mobile close — slide arrow (Founder directive A) */}
               <button
                 onClick={closeNotepad}
-                className="p-1"
+                className="p-1 md:hidden"
                 style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                title="Close (your content is saved)"
               >
-                <X size={14} />
+                <ChevronsRight size={14} />
               </button>
             </div>
           </div>
@@ -346,12 +368,11 @@ export function NotepadDrawer() {
           {view === 'editor' && (
             <EditorView
               tabs={tabs}
-              activeTab={activeTab}
               activeTabId={activeTabId}
               localContent={localContent}
               editingTitle={editingTitle}
               wordCount={wordCount}
-              textareaRef={textareaRef}
+              charCount={charCount}
               onContentChange={handleContentChange}
               onSelectTab={setActiveTabId}
               onAddTab={handleAddTab}
@@ -389,12 +410,15 @@ export function NotepadDrawer() {
             <HistoryView
               historyTabs={historyTabs}
               onReopen={handleReopenHistory}
+              onDelete={(tab) => {
+                if (!memberId) return
+                deleteTab.mutate({ id: tab.id, memberId })
+              }}
               onBack={() => setView('editor')}
             />
           )}
         </div>
       )}
-
     </>
   )
 }
@@ -402,17 +426,16 @@ export function NotepadDrawer() {
 // ─── Editor View ─────────────────────────────────────────────
 
 function EditorView({
-  tabs, activeTab: _activeTab, activeTabId, localContent, editingTitle, wordCount, textareaRef,
+  tabs, activeTabId, localContent, editingTitle, wordCount, charCount,
   onContentChange, onSelectTab, onAddTab, onCloseTab, onRenameTab, onStartRename,
   onSendTo, onReviewRoute,
 }: {
   tabs: NotepadTab[]
-  activeTab: NotepadTab | null
   activeTabId: string | null
   localContent: string
   editingTitle: string | null
   wordCount: number
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  charCount: number
   onContentChange: (v: string) => void
   onSelectTab: (id: string) => void
   onAddTab: () => void
@@ -422,14 +445,15 @@ function EditorView({
   onSendTo: () => void
   onReviewRoute: () => void
 }) {
-  const hasContent = localContent.trim().length > 0
+  const hasContent = localContent.replace(/<[^>]*>/g, '').trim().length > 0
   const voice = useVoiceInput()
+  const isOverLimit = charCount > CHAR_SOFT_LIMIT
 
   async function handleVoiceToggle() {
     if (voice.state === 'recording') {
       const text = await voice.stopRecording()
       if (text) {
-        const newContent = localContent ? localContent + '\n' + text : text
+        const newContent = localContent ? localContent + '<p>' + text + '</p>' : '<p>' + text + '</p>'
         onContentChange(newContent)
       }
     } else if (voice.state === 'idle') {
@@ -463,86 +487,88 @@ function EditorView({
 
   return (
     <>
-      {/* Tab Bar */}
-      <div
-        className="flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto shrink-0"
-        style={{
-          borderColor: 'var(--color-border)',
-          scrollbarWidth: 'none',
-        }}
-      >
-        {tabs.map(tab => (
-          <div key={tab.id} className="flex items-center shrink-0 group max-w-[140px]">
-            {editingTitle === tab.id ? (
-              <input
-                type="text"
-                defaultValue={tab.title}
-                autoFocus
-                onBlur={(e) => onRenameTab(tab.id, e.target.value || tab.title)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onRenameTab(tab.id, (e.target as HTMLInputElement).value || tab.title)
-                  if (e.key === 'Escape') onStartRename(null)
-                }}
-                className="px-1.5 py-0.5 rounded text-xs w-20"
-                style={{
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border-focus, var(--color-btn-primary-bg))',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-            ) : (
-              <button
-                onClick={() => onSelectTab(tab.id)}
-                onDoubleClick={() => onStartRename(tab.id)}
-                className="px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis"
-                style={{
-                  backgroundColor: activeTabId === tab.id ? 'var(--color-bg-secondary)' : 'transparent',
-                  color: activeTabId === tab.id ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
-                  fontWeight: activeTabId === tab.id ? 500 : 400,
-                  borderBottom: activeTabId === tab.id ? '2px solid var(--color-btn-primary-bg)' : '2px solid transparent',
-                  minHeight: 'unset',
-                }}
-                title={`${tab.title} — double-click to rename`}
-              >
-                {tab.title}
-              </button>
-            )}
-            {activeTabId === tab.id && (
-              <button
-                onClick={() => onCloseTab(tab.id)}
-                className="p-0.5 ml-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-                title="Close tab (archives to history)"
-              >
-                <X size={10} />
-              </button>
-            )}
-          </div>
-        ))}
+      {/* Tab Bar with HScrollArrows */}
+      <HScrollArrows>
+        <div
+          data-hscroll
+          className="flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto shrink-0"
+          style={{
+            borderColor: 'var(--color-border)',
+            scrollbarWidth: 'none',
+          }}
+        >
+          {tabs.map(tab => (
+            <div key={tab.id} className="flex items-center shrink-0 group max-w-[140px]">
+              {editingTitle === tab.id ? (
+                <input
+                  type="text"
+                  defaultValue={tab.title}
+                  autoFocus
+                  onBlur={(e) => onRenameTab(tab.id, e.target.value || tab.title)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onRenameTab(tab.id, (e.target as HTMLInputElement).value || tab.title)
+                    if (e.key === 'Escape') onStartRename(null)
+                  }}
+                  className="px-1.5 py-0.5 rounded text-xs w-20"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    border: '1px solid var(--color-border-focus, var(--color-btn-primary-bg))',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
+              ) : (
+                <button
+                  onClick={() => onSelectTab(tab.id)}
+                  onDoubleClick={() => onStartRename(tab.id)}
+                  className="px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis"
+                  style={{
+                    backgroundColor: activeTabId === tab.id ? 'var(--color-bg-secondary)' : 'transparent',
+                    color: activeTabId === tab.id ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
+                    fontWeight: activeTabId === tab.id ? 500 : 400,
+                    borderBottom: activeTabId === tab.id ? '2px solid var(--color-btn-primary-bg)' : '2px solid transparent',
+                    minHeight: 'unset',
+                  }}
+                  title={`${tab.title} — double-click to rename`}
+                >
+                  {tab.title}
+                </button>
+              )}
+              {activeTabId === tab.id && (
+                <button
+                  onClick={() => onCloseTab(tab.id)}
+                  className="p-0.5 ml-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                  title="Close tab (archives to history)"
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </div>
+          ))}
 
-        {/* Add tab button */}
-        <Tooltip content={atLimit ? 'Close or route some tabs first' : 'New tab'}>
-          <button
-            onClick={onAddTab}
-            disabled={atLimit}
-            className="p-1 rounded shrink-0 disabled:opacity-30"
-            style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-          >
-            <Plus size={14} />
-          </button>
-        </Tooltip>
-
-        {/* Tab warning */}
-        {atWarning && !atLimit && (
-          <Tooltip content="Consider routing some tabs">
-            <span className="shrink-0 ml-1">
-              <AlertCircle size={12} style={{ color: 'var(--color-warning, #d6a461)' }} />
-            </span>
+          {/* Add tab button */}
+          <Tooltip content={atLimit ? 'Close or route some tabs first' : 'New tab'}>
+            <button
+              onClick={onAddTab}
+              disabled={atLimit}
+              className="p-1 rounded shrink-0 disabled:opacity-30"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+            >
+              <Plus size={14} />
+            </button>
           </Tooltip>
-        )}
-      </div>
 
-      {/* Content area — "paper" card inset */}
+          {atWarning && !atLimit && (
+            <Tooltip content="Consider routing some tabs">
+              <span className="shrink-0 ml-1">
+                <AlertCircle size={12} style={{ color: 'var(--color-warning, #d6a461)' }} />
+              </span>
+            </Tooltip>
+          )}
+        </div>
+      </HScrollArrows>
+
+      {/* Content area — "paper" card inset with rich text editor */}
       <div
         className="flex-1 flex flex-col min-h-0 mx-2 mb-1 rounded-lg"
         style={{
@@ -551,19 +577,10 @@ function EditorView({
           boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
       >
-        <textarea
-          ref={textareaRef}
-          value={localContent}
-          onChange={(e) => onContentChange(e.target.value)}
-          placeholder="Capture anything here... thoughts, ideas, quick notes."
-          className="flex-1 p-3 text-sm resize-none rounded-lg"
-          style={{
-            backgroundColor: 'transparent',
-            color: 'var(--color-text-primary)',
-            border: 'none',
-            outline: 'none',
-            minHeight: '44px',
-          }}
+        <NotepadRichEditor
+          content={localContent}
+          onChange={onContentChange}
+          autoFocus
         />
         {/* Interim voice preview */}
         {voice.state === 'recording' && voice.interimText && (
@@ -579,6 +596,15 @@ function EditorView({
           </div>
         )}
       </div>
+
+      {/* Large content warning (Issue #8) */}
+      {isOverLimit && (
+        <div className="px-3 py-1">
+          <p className="text-[10px]" style={{ color: 'var(--color-warning, #d6a461)' }}>
+            Long note — consider splitting into multiple tabs or routing some content
+          </p>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div
@@ -610,20 +636,22 @@ function EditorView({
             </button>
           )}
 
-          {/* Recording indicator */}
+          {/* Word/char count */}
           {voice.state === 'recording' ? (
             <span className="text-[10px] font-medium animate-pulse" style={{ color: 'var(--color-error, #e53e3e)' }}>
               {formatDuration(voice.duration)}
             </span>
           ) : (
-            <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-              {wordCount} words
+            <span
+              className="text-[10px]"
+              style={{ color: isOverLimit ? 'var(--color-warning, #d6a461)' : 'var(--color-text-secondary)' }}
+            >
+              {wordCount} words{charCount > 1000 ? ` · ${Math.round(charCount / 1000)}k chars` : ''}
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Send to */}
           <button
             onClick={onSendTo}
             disabled={!hasContent}
@@ -638,7 +666,6 @@ function EditorView({
             Send to...
           </button>
 
-          {/* Review & Route */}
           <button
             onClick={onReviewRoute}
             disabled={!hasContent}
@@ -658,13 +685,46 @@ function EditorView({
   )
 }
 
-// ─── History View ────────────────────────────────────────────
+// ─── History View (Issue #7: search, filter, sort, delete) ───
 
-function HistoryView({ historyTabs, onReopen, onBack }: {
+type HistorySort = 'newest' | 'oldest' | 'by_status'
+type HistoryFilter = 'all' | 'routed' | 'archived'
+
+function HistoryView({ historyTabs, onReopen, onDelete, onBack }: {
   historyTabs: NotepadTab[]
   onReopen: (tab: NotepadTab) => void
+  onDelete: (tab: NotepadTab) => void
   onBack: () => void
 }) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState<HistoryFilter>('all')
+  const [sort, setSort] = useState<HistorySort>('newest')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    let items = [...historyTabs]
+
+    // Filter by status
+    if (filter === 'routed') items = items.filter(t => t.status === 'routed')
+    if (filter === 'archived') items = items.filter(t => t.status === 'archived')
+
+    // Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      items = items.filter(t =>
+        t.title.toLowerCase().includes(q) ||
+        (t.content || '').toLowerCase().includes(q)
+      )
+    }
+
+    // Sort
+    if (sort === 'newest') items.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    if (sort === 'oldest') items.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())
+    if (sort === 'by_status') items.sort((a, b) => a.status.localeCompare(b.status))
+
+    return items
+  }, [historyTabs, filter, searchQuery, sort])
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div
@@ -683,44 +743,135 @@ function HistoryView({ historyTabs, onReopen, onBack }: {
         </button>
       </div>
 
+      {/* Search + controls */}
+      <div className="px-3 py-2 space-y-2 shrink-0">
+        {/* Search bar */}
+        <div
+          className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+        >
+          <Search size={12} style={{ color: 'var(--color-text-secondary)' }} />
+          <input
+            type="text"
+            placeholder="Search history..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 text-xs bg-transparent outline-none"
+            style={{ color: 'var(--color-text-primary)', minHeight: 'unset' }}
+          />
+        </div>
+
+        {/* Filter + Sort row */}
+        <div className="flex items-center justify-between">
+          <HScrollArrows>
+            <div data-hscroll className="flex items-center gap-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {(['all', 'routed', 'archived'] as HistoryFilter[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className="px-2 py-1 rounded text-[10px] whitespace-nowrap"
+                  style={{
+                    backgroundColor: filter === f ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
+                    color: filter === f ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                    minHeight: 'unset',
+                  }}
+                >
+                  {f === 'all' ? 'All' : f === 'routed' ? 'Routed' : 'Archived'}
+                </button>
+              ))}
+            </div>
+          </HScrollArrows>
+
+          <button
+            onClick={() => setSort(sort === 'newest' ? 'oldest' : sort === 'oldest' ? 'by_status' : 'newest')}
+            className="flex items-center gap-1 px-1.5 py-1 rounded text-[10px] shrink-0 ml-1"
+            style={{
+              color: 'var(--color-text-secondary)',
+              backgroundColor: 'var(--color-bg-secondary)',
+              minHeight: 'unset',
+            }}
+            title={`Sort: ${sort}`}
+          >
+            <ArrowDownUp size={10} />
+            {sort === 'newest' ? 'Newest' : sort === 'oldest' ? 'Oldest' : 'Status'}
+          </button>
+        </div>
+      </div>
+
+      {/* History entries */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        {historyTabs.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="p-6 text-center">
             <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              No history yet. Closed and routed tabs will appear here.
+              {searchQuery ? 'No matching entries.' : 'No history yet. Closed and routed tabs will appear here.'}
             </p>
           </div>
         ) : (
           <div className="p-2 space-y-1">
-            {historyTabs.map(tab => (
-              <button
+            {filtered.map(tab => (
+              <div
                 key={tab.id}
-                onClick={() => onReopen(tab)}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm hover:opacity-80 transition-opacity"
+                className="px-3 py-2 rounded-lg text-sm"
                 style={{
                   backgroundColor: 'var(--color-bg-secondary)',
                   color: 'var(--color-text-primary)',
-                  minHeight: 'unset',
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-xs truncate" style={{ color: 'var(--color-text-heading)' }}>
-                    {tab.title}
-                  </span>
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded shrink-0 ml-2"
-                    style={{
-                      backgroundColor: tab.status === 'routed' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-primary)',
-                      color: tab.status === 'routed' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                    }}
+                  <button
+                    onClick={() => onReopen(tab)}
+                    className="flex-1 text-left"
+                    style={{ background: 'transparent', minHeight: 'unset' }}
                   >
-                    {tab.status === 'routed' ? `→ ${tab.routed_to}` : 'Archived'}
-                  </span>
+                    <span className="font-medium text-xs truncate block" style={{ color: 'var(--color-text-heading)' }}>
+                      {tab.title}
+                    </span>
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{
+                        backgroundColor: tab.status === 'routed' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-primary)',
+                        color: tab.status === 'routed' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {tab.status === 'routed' ? `→ ${tab.routed_to}` : 'Archived'}
+                    </span>
+                    {/* Delete button */}
+                    {confirmDeleteId === tab.id ? (
+                      <button
+                        onClick={() => { onDelete(tab); setConfirmDeleteId(null) }}
+                        className="px-1.5 py-0.5 rounded text-[10px]"
+                        style={{
+                          backgroundColor: 'var(--color-error, #e53e3e)',
+                          color: '#fff',
+                          minHeight: 'unset',
+                        }}
+                      >
+                        Confirm
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(tab.id)}
+                        className="p-0.5 rounded opacity-60 hover:opacity-100 transition-opacity"
+                        style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                        title="Delete"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                  {(tab.content || '').slice(0, 80) || '(empty)'}
-                </p>
-              </button>
+                <button
+                  onClick={() => onReopen(tab)}
+                  className="w-full text-left"
+                  style={{ background: 'transparent', minHeight: 'unset' }}
+                >
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                    {(tab.content || '').replace(/<[^>]*>/g, '').slice(0, 80) || '(empty)'}
+                  </p>
+                </button>
+              </div>
             ))}
           </div>
         )}
