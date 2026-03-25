@@ -25,12 +25,6 @@ export interface PullTabProps {
   height?: number
 }
 
-// Washi tape images for Cozy Journal vibe
-const WASHI_IMAGES = {
-  bottom: '/decorations/sagegreenwashi.png',
-  side: '/decorations/pinkwashi.png',
-}
-
 function getTabStyles(vibe: VibeKey, orientation: 'bottom' | 'side') {
   const isBottom = orientation === 'bottom'
 
@@ -43,9 +37,6 @@ function getTabStyles(vibe: VibeKey, orientation: 'bottom' | 'side') {
         boxShadow: 'none',
         width: isBottom ? 60 : 6,
         height: isBottom ? 6 : 60,
-        hoverWidth: isBottom ? 120 : 28,
-        hoverHeight: isBottom ? 28 : 80,
-        filter: 'none',
       }
 
     case 'nautical':
@@ -56,28 +47,23 @@ function getTabStyles(vibe: VibeKey, orientation: 'bottom' | 'side') {
         boxShadow: '0 -1px 4px rgba(0,0,0,0.08)',
         width: isBottom ? 140 : 32,
         height: isBottom ? 28 : 80,
-        hoverWidth: isBottom ? 140 : 32,
-        hoverHeight: isBottom ? 28 : 80,
-        filter: 'none',
       }
 
     case 'cozy':
-      // Washi tape — image background, playful angle
+      // Cozy Journal — extra rounded, warm soft shadow, slightly larger
       return {
-        background: `url(${WASHI_IMAGES[orientation]}) center/cover no-repeat`,
-        borderRadius: '2px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        width: isBottom ? 160 : 38,
-        height: isBottom ? 36 : 90,
-        hoverWidth: isBottom ? 160 : 38,
-        hoverHeight: isBottom ? 36 : 90,
-        filter: 'none',
-        transform: isBottom ? 'rotate(-1deg)' : 'rotate(1deg)',
+        background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+        borderRadius: isBottom ? '16px 16px 0 0' : '16px 0 0 16px',
+        boxShadow: isBottom
+          ? '0 -4px 12px rgba(90, 64, 51, 0.15)'
+          : '-3px 0 10px rgba(90, 64, 51, 0.15)',
+        width: isBottom ? 170 : 40,
+        height: isBottom ? 38 : 95,
       }
 
     case 'classic':
     default:
-      // Warm rounded tab — current default style
+      // Warm rounded tab — brand style
       return {
         background: 'var(--surface-primary, var(--color-btn-primary-bg))',
         borderRadius: isBottom ? '10px 10px 0 0' : '10px 0 0 10px',
@@ -86,9 +72,6 @@ function getTabStyles(vibe: VibeKey, orientation: 'bottom' | 'side') {
           : '-2px 0 6px rgba(0,0,0,0.12)',
         width: isBottom ? 160 : 36,
         height: isBottom ? 34 : 90,
-        hoverWidth: isBottom ? 160 : 36,
-        hoverHeight: isBottom ? 34 : 90,
-        filter: 'none',
       }
   }
 }

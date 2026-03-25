@@ -118,7 +118,7 @@ function ThemeSwatch({ themeKey, gradientEnabled, size = 28 }: { themeKey: Theme
   const colors = themes[themeKey].light
   const c1 = colors.bgPrimary
   const c2 = colors.btnPrimaryBg
-  const c3 = colors.accent
+  const c3 = colors.bgNav
 
   if (gradientEnabled) {
     return (

@@ -328,11 +328,12 @@ h1, h2, h3, h4, h5, h6,
   background: var(--scrollbar-thumb, #c4d4cc);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover, var(--scrollbar-thumb, #a8b8b0)); }
 
 /* Panel scrollbar — matches card background instead of page background */
 .scrollbar-card::-webkit-scrollbar-track { background: var(--color-bg-card, #fff); }
-.scrollbar-card::-webkit-scrollbar-thumb { background: var(--color-border, #d4e3d9); }
+.scrollbar-card::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb, var(--color-border, #d4e3d9)); }
+.scrollbar-card::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover, var(--scrollbar-thumb)); }
 
 /* ============================================================
  * Responsive breakpoints

@@ -163,9 +163,15 @@ function applyTokens(
   if (fontScale === 'large') root.classList.add('font-scale-large')
   if (fontScale === 'extra-large') root.classList.add('font-scale-extra-large')
 
-  // Firefox scrollbar theming
+  // Scrollbar theming — gradient-aware
   root.style.setProperty('--scrollbar-track', colors.bgSecondary)
-  root.style.setProperty('--scrollbar-thumb', colors.border)
+  if (gradientEnabled) {
+    root.style.setProperty('--scrollbar-thumb', colors.btnPrimaryBg)
+    root.style.setProperty('--scrollbar-thumb-hover', colors.accent)
+  } else {
+    root.style.setProperty('--scrollbar-thumb', colors.border)
+    root.style.setProperty('--scrollbar-thumb-hover', colors.btnPrimaryBg)
+  }
 
   // Layout tokens
   root.style.setProperty('--spacing-xs', '0.25rem')
