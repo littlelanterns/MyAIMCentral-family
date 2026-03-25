@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -12,6 +12,12 @@ import { FeatureGuide } from '@/components/shared'
 import { useTasks } from '@/hooks/useTasks'
 import { LogOut, Users, Star, BookOpen, CheckSquare, List, Brain, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { FeatureIcon } from '@/components/shared'
+import { DashboardGrid } from '@/components/widgets/DashboardGrid'
+import { WidgetPicker } from '@/components/widgets/WidgetPicker'
+import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
+import { WidgetDetailView } from '@/components/widgets/WidgetDetailView'
+import { useWidgets, useWidgetFolders, useWidgetStarterConfigs, useCreateWidget, useDeleteWidget, useUpdateWidget, useRecordWidgetData } from '@/hooks/useWidgets'
+import type { DashboardWidget, WidgetStarterConfig, CreateWidget } from '@/types/widgets'
 
 export function Dashboard() {
   const { signOut } = useAuth()
@@ -21,6 +27,49 @@ export function Dashboard() {
   const { shell: _shell } = useShell()
   const { isViewingAs, viewingAsMember, startViewAs, stopViewAs: _stopViewAs } = useViewAs()
   const [perspective, setPerspective] = useState<DashboardView>('personal')
+
+  // PRD-10: Widget state
+  const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
+  const [widgetConfigOpen, setWidgetConfigOpen] = useState(false)
+  const [selectedStarterConfig, setSelectedStarterConfig] = useState<WidgetStarterConfig | null>(null)
+  const [detailWidget, setDetailWidget] = useState<DashboardWidget | null>(null)
+
+  const displayMemberId = (isViewingAs && viewingAsMember?.id) || member?.id
+  const displayFamilyId = family?.id
+
+  const { data: widgets = [] } = useWidgets(displayFamilyId, displayMemberId)
+  const { data: folders = [] } = useWidgetFolders(displayFamilyId, displayMemberId)
+  const { data: starterConfigs = [] } = useWidgetStarterConfigs()
+  const createWidget = useCreateWidget()
+  const deleteWidget = useDeleteWidget()
+  const updateWidget = useUpdateWidget()
+  const recordData = useRecordWidgetData()
+
+  // Data points fetched per-widget via detail view; grid shows computed state from widget_config
+  const dataPointsByWidget: Record<string, import('@/types/widgets').WidgetDataPoint[]> = {}
+
+  const handleSelectStarterConfig = useCallback((config: WidgetStarterConfig) => {
+    setSelectedStarterConfig(config)
+    setWidgetPickerOpen(false)
+    setWidgetConfigOpen(true)
+  }, [])
+
+  const handleDeployWidget = useCallback((widget: CreateWidget) => {
+    createWidget.mutate(widget)
+    setWidgetConfigOpen(false)
+    setSelectedStarterConfig(null)
+  }, [createWidget])
+
+  const handleRecordData = useCallback((widgetId: string, value: number, metadata?: Record<string, unknown>) => {
+    if (!displayFamilyId || !displayMemberId) return
+    recordData.mutate({
+      family_id: displayFamilyId,
+      widget_id: widgetId,
+      family_member_id: displayMemberId,
+      value,
+      metadata,
+    })
+  }, [recordData, displayFamilyId, displayMemberId])
 
   const greeting = (() => {
     const hour = new Date().getHours()
@@ -122,6 +171,32 @@ export function Dashboard() {
           {family?.id && displayMember?.id && (
             <MemberTasksSection familyId={family.id} memberId={displayMember.id} />
           )}
+
+          {/* PRD-10: Widget Dashboard Grid */}
+          {family?.id && displayMember?.id && (
+            <div className="mt-6">
+              <h2
+                className="text-lg font-semibold mb-3"
+                style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
+              >
+                Trackers & Widgets
+              </h2>
+              <DashboardGrid
+                widgets={widgets}
+                folders={folders}
+                dataPointsByWidget={dataPointsByWidget}
+                onRecordData={handleRecordData}
+                onOpenWidgetPicker={() => setWidgetPickerOpen(true)}
+                onOpenWidgetDetail={(w) => setDetailWidget(w)}
+                onOpenWidgetConfig={() => {}}
+                onOpenFolder={() => {}}
+                onRemoveWidget={(id) => deleteWidget.mutate({ id, familyId: family!.id })}
+                onResizeWidget={(id, size) => updateWidget.mutate({ id, size })}
+                canEdit={isMom || !isViewingAs}
+                canReorderOnly={false}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -153,6 +228,40 @@ export function Dashboard() {
             Coming in Phase 15 (PRD-14D).
           </p>
         </div>
+      )}
+
+      {/* PRD-10: Widget Picker Modal */}
+      <WidgetPicker
+        isOpen={widgetPickerOpen}
+        onClose={() => setWidgetPickerOpen(false)}
+        starterConfigs={starterConfigs}
+        onSelectStarterConfig={handleSelectStarterConfig}
+      />
+
+      {/* PRD-10: Widget Configuration Modal */}
+      <WidgetConfiguration
+        isOpen={widgetConfigOpen}
+        onClose={() => { setWidgetConfigOpen(false); setSelectedStarterConfig(null) }}
+        starterConfig={selectedStarterConfig}
+        familyId={family?.id ?? ''}
+        memberId={member?.id ?? ''}
+        familyMembers={(familyMembers ?? []).map(m => ({ id: m.id, display_name: m.display_name }))}
+        onDeploy={handleDeployWidget}
+      />
+
+      {/* PRD-10: Widget Detail View Modal */}
+      {detailWidget && (
+        <WidgetDetailView
+          widget={detailWidget}
+          isOpen={!!detailWidget}
+          onClose={() => setDetailWidget(null)}
+          onRecordData={(v, m) => handleRecordData(detailWidget.id, v, m)}
+          onEdit={() => {}}
+          onRemove={() => {
+            deleteWidget.mutate({ id: detailWidget.id, familyId: family!.id })
+            setDetailWidget(null)
+          }}
+        />
       )}
     </div>
   )

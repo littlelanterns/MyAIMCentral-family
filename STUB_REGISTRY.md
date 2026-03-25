@@ -227,7 +227,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Timer idle reminders | PRD-36 | PRD-15 | ⏳ Unwired (MVP) | Phase 16 |
 | Timer → homeschool time logs | PRD-36 | PRD-28 | ⏳ Unwired (MVP) | Phase 32 |
 | Timer → task completion threshold | PRD-36 | PRD-09A | ✅ Wired | Phase 10 |
-| Timer → widget data points | PRD-36 | PRD-10 | ⏳ Unwired (MVP) | Phase 11 |
+| Timer → widget data points | PRD-36 | PRD-10 | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | Visual World themed timer animations | PRD-36 | PRD-24A | 📌 Post-MVP | — |
 
 ## Studio & Lists Stubs (Phase 10 — PRD-09B)
@@ -239,7 +239,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Studio [Customize] → Task types | PRD-09B | PRD-09A | ✅ Wired | Phase 10 |
 | Studio [Customize] → List types | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Studio [Customize] → Guided Forms | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
-| Studio [Customize] → Trackers/Widgets | PRD-09B | PRD-10 | ⏳ Unwired (MVP) | Phase 11 |
+| Studio [Customize] → Trackers/Widgets | PRD-09B | PRD-10 | ✅ Wired | PRD-10 Phase A |
 | Studio seed templates (15 in DB) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Lists full CRUD (9 types) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Lists Randomizer draw view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
@@ -250,6 +250,54 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Guided Form LiLa help button | PRD-09B | PRD-05 | ⏳ Unwired (MVP) | Phase 06 |
 | System list auto-provision (Backburner, Ideas) | PRD-09B | — | ⏳ Unwired (MVP) | Phase 10+ |
 | ListPicker overlay (Notepad → Lists) | PRD-09B | — | ⏳ Unwired (MVP) | Phase 10+ |
+| List drag-to-rearrange (@dnd-kit) | PRD-09B | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Save list as template to Studio | PRD-09B | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| List item promotion badge | PRD-09B | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+
+## Widget & Tracker Stubs (PRD-10 Phase A)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Dashboard grid + 6 tracker types | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Widget Picker modal | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Widget Configuration modal | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Widget Detail View modal | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Widget folders (create/view) | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Widget starter configs (10 seeds) | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Phase B tracker types (11 remaining) | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Multiplayer layer | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Track This flow (Screen 5) | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Color-reveal tracker + image library | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase C |
+| Gameboard tracker | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase C |
+| Linked pair deployment | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase C |
+| Special Adult child-widget view | PRD-10 | — | 📌 Post-MVP | — |
+| Decorative layer (Cozy Journal) | PRD-10 | — | 📌 Post-MVP | — |
+| Widget milestone → Victory Record | PRD-10 | PRD-11 | ⏳ Unwired (MVP) | PRD-11 |
+| Widget → Gamification progress | PRD-10 | PRD-24 | ⏳ Unwired (MVP) | PRD-24 |
+| Allowance Calculator → payment | PRD-10 | PRD-28 | ⏳ Unwired (MVP) | PRD-28 |
+
+## Tasks Repair Stubs (Phase 10 Repair — PRD-09A, PRD-17)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Task creation modal redesign (compact 2-col) | Phase 10 Repair | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| View sync logic (computeViewSync) | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Task view drag-to-reorder (@dnd-kit) | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Sequential reuse/redeploy flow | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Routine step progress indicator | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Approval-required parent UI | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Completion photo evidence | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Unmark cascade behavior | PRD-09A | Phase 10 Repair | 🔗 Partially Wired | Phase 10 Repair |
+| Batch Process All progress bar | PRD-17 | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Role-scoped queue visibility | PRD-17 | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Breathing glow vs badge toggle | PRD-17 | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| HScrollArrows on ViewCarousel | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| Emoji removed from task views | Phase 10 Repair | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| External attribution removed | Phase 10 Repair | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
+| AI Auto-Sort for views | PRD-09A | — | ⏳ Unwired (MVP) | Needs ai-parse Edge Function |
+| Special Adult shift-scoped task access | PRD-09A | — | ⏳ Unwired (MVP) | Needs access_schedules wiring |
+| Notification auto-dismiss on queue processing | PRD-17 | — | ⏳ Unwired (MVP) | Needs notification system |
+| Gamification reward/streak reversal on unmark | PRD-09A/PRD-24 | — | ⏳ Unwired (MVP) | Needs PRD-24 |
 
 ---
 
