@@ -29,7 +29,7 @@ interface ArchiveMemberCardProps {
   /** Hex color for no-photo background */
   memberColor?: string | null
   /** Member role (for RoleBadge) */
-  role?: string
+  role?: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'
   /** AI context insight counts */
   includedInsights: number
   totalInsights: number

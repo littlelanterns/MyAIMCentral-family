@@ -6,7 +6,7 @@
  * Expanded FAB: Add for a Person, Voice Dump, Bulk Add & Sort.
  */
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -606,7 +606,7 @@ export function ArchivesPage() {
                   {family && overview && (
                     <ArchiveMemberCard
                       name={family.family_name}
-                      avatarUrl={(family as Record<string, unknown>).family_photo_url as string | null}
+                      avatarUrl={family.family_photo_url}
                       memberColor={undefined}
                       isFamilyOverview
                       label="Family Overview"
@@ -630,7 +630,7 @@ export function ArchivesPage() {
                         name={m.display_name}
                         avatarUrl={m.avatar_url}
                         memberColor={m.assigned_color || m.member_color || undefined}
-                        role={m.role}
+                        role={m.role as 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'}
                         includedInsights={stats?.includedInsights ?? 0}
                         totalInsights={stats?.totalInsights ?? 0}
                         isIncludedInAI={stats?.isIncludedInAI ?? true}

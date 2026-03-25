@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import { Loader, RefreshCw, ArrowLeft, Check, Sparkles } from 'lucide-react'
-import { Modal, Badge } from '@/components/shared'
+import { Modal } from '@/components/shared'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import { useCreateArchiveContextItem } from '@/hooks/useArchives'
 import { supabase } from '@/lib/supabase/client'
@@ -250,9 +250,6 @@ Return this exact structure:
           added_by: momMemberId,
         })
       }
-
-      // Count unique members
-      const uniqueMembers = new Set(toSave.map((i) => i.member_name)).size
 
       handleClose()
 

@@ -9,6 +9,7 @@ export interface Family {
   family_login_name: string | null
   is_founding_family: boolean
   timezone: string
+  family_photo_url: string | null
   created_at: string
 }
 

@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react'
-import { Mic, MicOff, Square, Loader } from 'lucide-react'
+import { Mic, Square, Loader } from 'lucide-react'
 import { Modal } from '@/components/shared'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
 
