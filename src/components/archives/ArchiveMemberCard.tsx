@@ -192,7 +192,7 @@ export function ArchiveMemberCard({
           }}
           className="absolute top-2 right-2 z-10 p-1.5 rounded-full transition-colors"
           style={{
-            backgroundColor: 'rgba(0,0,0,0.3)',
+            backgroundColor: 'rgba(255,255,255,0.2)',
             color: isIncludedInAI ? '#ffffff' : 'rgba(255,255,255,0.6)',
           }}
           title={
@@ -225,14 +225,14 @@ export function ArchiveMemberCard({
         </p>
       </div>
 
-      {/* Camera overlay — hover (desktop) */}
+      {/* Camera overlay — hover only (desktop) */}
       {onFileSelect && (
         <div
-          className="absolute inset-0 z-20 items-center justify-center bg-black/40 transition-opacity hidden md:flex"
-          style={{ opacity: showCameraOverlay ? 1 : undefined }}
+          className="absolute inset-0 z-20 items-center justify-center transition-opacity hidden md:flex opacity-0 group-hover:opacity-100"
+          style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
           onClick={handleCameraClick}
         >
-          <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex flex-col items-center gap-1">
             <Camera size={28} color="#ffffff" />
             <span className="text-xs font-medium text-white">
               {hasPhoto ? 'Change Photo' : 'Add Photo'}
