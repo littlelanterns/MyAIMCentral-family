@@ -114,18 +114,18 @@ Start fresh. Experience the onboarding flow. Add your own family.
 ### Sign In as the Testworth Family
 A pre-seeded family with real context so you can see what a lived-in platform looks like.
 
-| Member | Role | Shell | Login |
-|--------|------|-------|-------|
-| Mom | Primary Parent | Mom | testmom@testworths.com / Demo2026! |
-| Dad | Additional Adult | Adult | testdad@testworths.com / Demo2026! |
-| Alex (15) | Independent Teen | Independent | alextest@testworths.com / Demo2026! |
-| Casey (14) | Independent Teen | Independent | caseytest@testworths.com / Demo2026! |
-| Jordan (10) | Guided Child | Guided | Family login → Jordan → PIN: 1234 |
-| Ruthie (7, Down Syndrome) | Play Child | Play | Family login → Ruthie → PIN: 5678 |
-| Amy (aide) | Special Adult | Adult | amytest@testworths.com / Demo2026! |
-| Kylie (aide) | Special Adult | Adult | kylietest@testworths.com / Demo2026! |
+| Member | Age | Role | Shell | Login |
+|--------|-----|------|-------|-------|
+| **Sarah** | — | Primary Parent | Mom | testmom@testworths.com / Demo2026! |
+| **Mark** | — | Additional Adult | Adult | testdad@testworths.com / Demo2026! |
+| **Alex** | 15 | Independent Teen | Independent | alextest@testworths.com / Demo2026! |
+| **Casey** | 14 | Independent Teen | Independent | caseytest@testworths.com / Demo2026! |
+| **Jordan** | 10 | Guided Child | Guided | jordantest@testworths.com / Demo2026! |
+| **Ruthie** | 7 (Down Syndrome) | Play Child | Play | ruthietest@testworths.com / Demo2026! |
+| **Amy** | — | Aide (Special Adult) | Adult | amytest@testworths.com / Demo2026! |
+| **Kylie** | — | Aide (Special Adult) | Adult | kylietest@testworths.com / Demo2026! |
 
-For Jordan and Ruthie, use the family login and select their name, then enter their PIN.
+Family login name: **testworthfamily**
 
 Judges are welcome to add, edit, and interact with any data — or create a fresh account to experience onboarding from scratch. Note: you may need to confirm your email address when creating a new account.
 
@@ -153,29 +153,42 @@ See [docs/WHY_PRDS_EXIST.md](docs/WHY_PRDS_EXIST.md) for the full philosophy.
 ## What's Built vs. What's Planned
 
 ### Built and Working
-- Authentication + family setup with role assignment
-- Five-shell routing (Mom, Adult, Independent, Guided, Play)
-- LiLa conversation engine with Human-in-the-Mix
+- Authentication + family setup with role assignment and invite flow
+- Permissions & Access Control (RLS, role mapping, Permission Hub, View As, PIN lockout)
+- Design System (38 themes, dark mode, shell tokens, shared components)
+- Five-shell routing (Mom, Adult, Independent, Guided, Play) with mobile layouts
+- LiLa conversation engine with Human-in-the-Mix, FAQ patterns, voice input, context assembly
+- Universal Scheduler (all frequency types, calendar preview, custody grid)
+- Universal Timer (4 modes, floating bubble, 5 visual styles, session history)
 - Journal + Smart Notepad with Review & Route
-- Task creation, assignment, and completion
+- Tasks, Lists, Studio & Templates with Queue Modal, Guided Forms, Randomizer
 - Guiding Stars + Best Intentions (family values and growth system)
-- Archives & Context Engine (mostly complete — the memory that makes LiLa smart)
-- Playwright testing infrastructure (21 passing, 0 failing)
-- Testworth family seed data
+- InnerWorkings (self-knowledge profiles that make LiLa personality-aware)
+- Widgets, Trackers & Dashboard Layout
+- Archives & Context Engine (the memory that makes LiLa contextually aware)
+- Communication & Relationship Tools (Cyrano message drafting, Higgins coaching)
+- AI Vault with tutorials and content delivery
+- ThoughtSift Decision & Thinking Tools (Board of Directors, Perspective Shifter, Decision Guide, Mediator, Translator)
+- Testworth demo family seeded with 8 members across all 5 shells
+- Playwright testing infrastructure
 - Deployed and live at myaimcentral.com
 
 ### Planned (Full PRDs Complete, Architecture Designed)
 Every planned feature has a complete PRD, a database schema, permission structures, and a demand validation mechanism (PlannedExpansionCards) built into the app. These aren't vague ideas — they're fully specified systems waiting for build cycles:
 
-- Communication & Relationship Tools (PRD-21) — Cyrano, Higgins, Marriage Toolbox
-- ThoughtSift Decision Tools (PRD-34) — Board of Directors, Perspective Shifter, Decision Guide
-- AI Vault Browse & Content Delivery (PRD-21A) — the AI literacy membership
+- Victory Recorder & Family Celebration (PRD-11, PRD-11B) — celebration-only achievement system
+- Personal Dashboard & Calendar (PRD-14, PRD-14B) — customizable home screen, full family calendar
+- Family Overview, Hub & TV Mode (PRD-14C, PRD-14D, PRD-14E) — command center views
+- Messages, Requests & Notifications (PRD-15) — in-app communication
+- Meetings (PRD-16) — family meeting facilitation
+- MindSweep (PRD-17B) — brain-dump capture, AI categorizes and routes
+- Safe Harbor (PRD-20) — teen emotional processing space
 - BookShelf (PRD-23) — platform-level RAG with chapter-aware chunking
-- BigPlans (PRD-29) — goal backward-planning, project tracking, system design
-- Family Feeds (PRD-37) — private family social media + homeschool portfolio
-- Compliance & Progress Reporting (PRD-28B) — homeschool, SDS/disability, ESA invoices
 - Gamification (PRD-24) — celebration-only mechanics, no punishment
-- And 25+ more — see [docs/FEATURE_VISION.md](docs/FEATURE_VISION.md)
+- BigPlans (PRD-29) — goal backward-planning, project tracking
+- Compliance & Progress Reporting (PRD-28B) — homeschool, SDS/disability, ESA invoices
+- Family Feeds (PRD-37) — private family social media + homeschool portfolio
+- And 15+ more — see [docs/FEATURE_VISION.md](docs/FEATURE_VISION.md)
 
 ---
 
