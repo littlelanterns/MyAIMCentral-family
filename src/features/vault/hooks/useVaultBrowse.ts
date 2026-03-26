@@ -24,6 +24,7 @@ export interface VaultItem {
   difficulty: string
   tags: string[]
   thumbnail_url: string | null
+  preview_image_url: string | null
   status: string
   is_featured: boolean
   teen_visible: boolean
@@ -32,6 +33,24 @@ export interface VaultItem {
   view_count: number
   estimated_minutes: number | null
   created_at: string
+  // Content body
+  content_body: string | null
+  content_url: string | null
+  // Tool-specific
+  tool_url: string | null
+  guided_mode_key: string | null
+  platform: string | null
+  target_platforms: string[]
+  auth_provider: string | null
+  requires_auth: boolean
+  // LiLa optimization
+  enable_lila_optimization: boolean
+  lila_optimization_prompt: string | null
+  // Tool portal
+  portal_description: string | null
+  portal_tips: string[]
+  prerequisites_text: string | null
+  learning_outcomes: string[]
   // Engagement (PRD-21C future)
   heart_count: number
   comment_count: number

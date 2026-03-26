@@ -1,11 +1,10 @@
 import { Sparkles } from 'lucide-react'
 import type { VaultItem } from '../../hooks/useVaultBrowse'
 import { ContentProtection } from '../ContentProtection'
-import { CopyPromptButton } from '../CopyPromptButton'
 
 interface Props {
   item: VaultItem
-  memberId: string | null
+  memberId: string | null // reserved for future progress/copy tracking
 }
 
 /**
@@ -13,7 +12,7 @@ interface Props {
  * Step-by-step layout with numbered steps, instructions, and embedded copyable prompts.
  * Content comes from content_body (Markdown/HTML) with embedded prompt blocks.
  */
-export function WorkflowDetail({ item, memberId }: Props) {
+export function WorkflowDetail({ item, memberId: _memberId }: Props) {
   // Parse content_body for steps. Convention: steps delimited by "## Step N:" headers in Markdown.
   // For now render the full content_body as rich text with copy buttons on code blocks.
   // When admin adds structured workflows, this can be enhanced.

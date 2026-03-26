@@ -93,11 +93,8 @@ export function useVaultDetail(itemId: string | null, memberId: string | null) {
       }, { onConflict: 'user_id,vault_item_id' })
       .then(() => {})
 
-    // Increment view_count (fire-and-forget)
+    // Increment view_count (fire-and-forget, RPC may not exist yet)
     supabase.rpc('increment_vault_view_count', { item_id: item.id }).then(() => {})
-      .catch(() => {
-        // RPC may not exist yet — fallback silent
-      })
   }, [item?.id, memberId])
 
   // Update progress percent
