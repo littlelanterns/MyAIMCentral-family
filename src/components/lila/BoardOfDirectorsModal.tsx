@@ -11,7 +11,7 @@
  * - Disclaimer tracking (once per session)
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Send, Mic, Loader, Copy, FileText, Plus, UserMinus, Star, StarOff, Search, Users, ChevronRight, Brain } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -492,13 +492,6 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
 
   // ── Render ───────────────────────────────────────────────
 
-  // Determine disclaimer info from messages
-  const _disclaimerMessage = useMemo(() => {
-    const msg = messages.find(m => m.metadata?.show_disclaimer === true)
-    if (!msg) return null
-    return msg.metadata?.persona_name as string || null
-  }, [messages])
-
   return (
     <>
       {/* Backdrop */}
@@ -569,9 +562,9 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
 
           {/* Rendered messages */}
           {messages.map((msg, _i) => {
-            const meta = msg.metadata || {}
-            const isAdvisor = meta.persona_name && meta.source !== 'lila_moderator'
-            const isLila = meta.source === 'lila_moderator' || meta.suggest_board
+            const meta = (msg.metadata || {}) as Record<string, string | boolean | undefined>
+            const isAdvisor = !!meta.persona_name && meta.source !== 'lila_moderator'
+            const isLila = meta.source === 'lila_moderator' || !!meta.suggest_board
             const showDiscl = meta.show_disclaimer === true
 
             if (msg.role === 'user') {
