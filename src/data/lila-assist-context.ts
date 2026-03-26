@@ -6,7 +6,7 @@
  * uses this context to give specific, actionable guidance.
  */
 
-import { getFeatureByKey, type JourneyFeature } from './lanterns-path-data'
+import { getFeatureByKey, getAllFeatures, JOURNEY_STAGES, type JourneyFeature } from './lanterns-path-data'
 
 interface AssistContext {
   featureKey: string
@@ -164,22 +164,69 @@ export function getContextualHelpForRoute(route: string): (AssistContext & { fea
 
 /**
  * Build a system prompt addition for LiLa Assist mode.
+ * Includes current page context PLUS full platform knowledge.
  */
 export function buildAssistSystemPrompt(route: string): string {
+  let prompt = ''
+
+  // Current page context
   const ctx = getContextualHelpForRoute(route)
-  if (!ctx) return ''
+  if (ctx) {
+    prompt += `The user is currently on the ${ctx.pageName} page.\n`
+    prompt += `This page: ${ctx.whatThisPageDoes}\n`
 
-  let prompt = `The user is currently on the ${ctx.pageName} page.\n`
-  prompt += `This page: ${ctx.whatThisPageDoes}\n`
+    if (ctx.feature?.connections) {
+      prompt += `Connections: ${ctx.feature.connections}\n`
+    }
 
-  if (ctx.feature?.connections) {
-    prompt += `Connections: ${ctx.feature.connections}\n`
+    prompt += `\nSuggestions you can offer:\n`
+    ctx.suggestionsToTry.forEach(s => {
+      prompt += `- ${s}\n`
+    })
+    prompt += '\n'
   }
 
-  prompt += `\nSuggestions you can offer:\n`
-  ctx.suggestionsToTry.forEach(s => {
-    prompt += `- ${s}\n`
-  })
+  // Full platform knowledge — LiLa Assist knows about ALL features
+  prompt += buildPlatformKnowledgePrompt()
+
+  return prompt
+}
+
+/**
+ * Build a comprehensive platform knowledge prompt from all Lantern's Path data.
+ * This gives LiLa Assist full knowledge of every feature — built and in-production.
+ */
+export function buildPlatformKnowledgePrompt(): string {
+  let prompt = '--- FULL PLATFORM KNOWLEDGE ---\n'
+  prompt += 'You know about every feature in MyAIM Family. When users ask about any feature, you can describe it enthusiastically and explain how it connects to other features.\n\n'
+
+  for (const stage of JOURNEY_STAGES) {
+    prompt += `## Stage ${stage.number}: ${stage.title} — ${stage.subtitle}\n`
+
+    for (const f of stage.features) {
+      const statusLabel = f.status === 'built' ? '[AVAILABLE NOW]' : '[IN PRODUCTION]'
+      prompt += `\n### ${f.name} ${statusLabel}\n`
+      prompt += `${f.description}\n`
+      prompt += `Connections: ${f.connections}\n`
+
+      if (f.status === 'built' && f.route) {
+        prompt += `Route: ${f.route}\n`
+      }
+
+      if (f.miniPrompts && f.miniPrompts.length > 0) {
+        prompt += `Try: ${f.miniPrompts.join(' | ')}\n`
+      }
+
+      if (f.subTools && f.subTools.length > 0) {
+        prompt += `Sub-tools: ${f.subTools.map(t => `${t.name} (${t.brief})`).join(', ')}\n`
+      }
+
+      if (f.lookForward) {
+        prompt += `Coming soon: ${f.lookForward}\n`
+      }
+    }
+    prompt += '\n'
+  }
 
   return prompt
 }

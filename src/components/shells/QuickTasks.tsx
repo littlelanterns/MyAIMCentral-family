@@ -421,6 +421,37 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
   const Icon = item.icon
   const isPinned = PINNED_ACTIONS.some(p => p.key === item.key)
 
+  if (isPinned) {
+    return (
+      <>
+        <style>{`
+          @keyframes qtGoldShimmer {
+            0%, 100% { box-shadow: 0 0 6px rgba(214,164,97,0.4), inset 0 0 4px rgba(214,164,97,0.1); border-color: #D6A461; }
+            50% { box-shadow: 0 0 14px rgba(214,164,97,0.7), inset 0 0 8px rgba(214,164,97,0.2); border-color: #E8C177; }
+          }
+        `}</style>
+        <button
+          onClick={onAction}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap"
+          style={{
+            padding: '6px 14px',
+            backgroundColor: hovered ? '#C4923A' : '#D6A461',
+            color: '#fff',
+            border: '1.5px solid #D6A461',
+            animation: 'qtGoldShimmer 2.5s ease-in-out infinite',
+            minHeight: 'unset',
+            lineHeight: 1.2,
+          }}
+        >
+          <Icon size={16} />
+          {item.label}
+        </button>
+      </>
+    )
+  }
+
   return (
     <button
       onClick={onAction}
@@ -429,12 +460,10 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
       className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap"
       style={{
         padding: '6px 12px',
-        backgroundColor: isPinned
+        backgroundColor: hovered
           ? 'var(--color-btn-primary-bg)'
-          : hovered
-            ? 'var(--color-btn-primary-bg)'
-            : 'var(--color-bg-secondary)',
-        color: isPinned || hovered
+          : 'var(--color-bg-secondary)',
+        color: hovered
           ? 'var(--color-btn-primary-text)'
           : 'var(--color-text-primary)',
         border: 'none',

@@ -21,7 +21,8 @@ import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
 import { useNotepadContextSafe } from '@/components/notepad'
 
 const STORAGE_KEY = 'myaim_intro_tour_dismissed'
-const TOUR_EXPIRY_MS = 48 * 60 * 60 * 1000 // 48 hours
+// Use sessionStorage so tour reappears each login session
+// (dismissed for this session, returns on next login)
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Star, Heart, Sparkles, FileText, CheckSquare, Archive, Feather, Brain,
@@ -33,11 +34,7 @@ function getIcon(name: string): LucideIcon {
 
 function isTourDismissed(): boolean {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return false
-    const ts = parseInt(stored, 10)
-    if (isNaN(ts)) return false
-    return Date.now() - ts < TOUR_EXPIRY_MS
+    return sessionStorage.getItem(STORAGE_KEY) === 'true'
   } catch {
     return false
   }
@@ -45,7 +42,7 @@ function isTourDismissed(): boolean {
 
 function dismissTour() {
   try {
-    localStorage.setItem(STORAGE_KEY, String(Date.now()))
+    sessionStorage.setItem(STORAGE_KEY, 'true')
   } catch { /* noop */ }
 }
 

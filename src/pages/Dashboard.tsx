@@ -172,7 +172,7 @@ export function Dashboard() {
               <NavCard to="/tasks" featureKey="tasks" icon={<CheckSquare size={20} />} label="Tasks" color="var(--color-deep-ocean, #2c5d60)" />
               <NavCard to="/lists" featureKey="lists" icon={<List size={20} />} label="Lists" color="var(--color-dusty-rose, #d69a84)" />
               <NavCard to="/inner-workings" featureKey="my_foundation" icon={<Brain size={20} />} label="InnerWorkings" color="var(--color-warm-earth, #5a4033)" />
-              <NavCard to="/best-intentions" featureKey="my_foundation" icon={<Sparkles size={20} />} label="Best Intentions" color="var(--color-soft-gold, #f4dcb7)" textColor="var(--color-warm-earth, #5a4033)" />
+              <NavCard to="/best-intentions" featureKey="best_intentions" icon={<Sparkles size={20} />} label="Best Intentions" color="var(--color-soft-gold, #f4dcb7)" textColor="var(--color-warm-earth, #5a4033)" />
             </div>
           )}
 
