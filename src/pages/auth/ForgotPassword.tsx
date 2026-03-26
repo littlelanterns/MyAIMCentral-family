@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { resetPassword } from '@/lib/supabase/auth'
+import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -19,25 +20,27 @@ export function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-svh flex items-center justify-center p-8"
-         style={{ backgroundColor: 'var(--theme-background)' }}>
+    <AuthPageLayout>
       <div className="max-w-md w-full space-y-6">
-        <h1 className="text-2xl font-bold text-center" style={{ color: 'var(--theme-text)' }}>
+        <h1
+          className="text-2xl font-bold text-center"
+          style={{ color: AUTH_COLORS.text, fontFamily: 'var(--font-heading)' }}
+        >
           Reset Your Password
         </h1>
 
         {submitted ? (
           <div className="text-center space-y-4">
-            <p style={{ color: 'var(--theme-text)' }}>
+            <p style={{ color: AUTH_COLORS.text }}>
               If an account exists with this email, you'll receive a reset link.
             </p>
             <Link
               to="/auth/sign-in"
               className="inline-block py-2 px-6 rounded-lg font-medium"
               style={{
-                backgroundColor: 'var(--theme-surface)',
-                border: '1px solid var(--theme-border)',
-                color: 'var(--theme-text)',
+                backgroundColor: AUTH_COLORS.card,
+                border: `1px solid ${AUTH_COLORS.border}`,
+                color: AUTH_COLORS.text,
               }}
             >
               Back to Sign In
@@ -45,7 +48,7 @@ export function ForgotPassword() {
           </div>
         ) : (
           <>
-            <p className="text-center text-sm" style={{ color: 'var(--theme-text-muted)' }}>
+            <p className="text-center text-sm" style={{ color: AUTH_COLORS.textMuted }}>
               Enter your email and we'll send you a reset link.
             </p>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -56,9 +59,9 @@ export function ForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg outline-none"
                   style={{
-                    backgroundColor: 'var(--theme-surface)',
-                    border: '1px solid var(--theme-border)',
-                    color: 'var(--theme-text)',
+                    backgroundColor: AUTH_COLORS.card,
+                    border: `1px solid ${AUTH_COLORS.border}`,
+                    color: AUTH_COLORS.text,
                   }}
                   placeholder="your@email.com"
                   required
@@ -67,20 +70,23 @@ export function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-6 rounded-lg text-white font-medium disabled:opacity-50"
-                style={{ backgroundColor: 'var(--theme-primary)' }}
+                className="w-full py-3 px-6 rounded-lg font-medium disabled:opacity-50"
+                style={{
+                  background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                  color: '#ffffff',
+                }}
               >
                 {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
             </form>
             <p className="text-center text-sm">
-              <Link to="/auth/sign-in" className="underline" style={{ color: 'var(--theme-text-muted)' }}>
+              <Link to="/auth/sign-in" className="underline" style={{ color: AUTH_COLORS.textMuted }}>
                 Back to Sign In
               </Link>
             </p>
           </>
         )}
       </div>
-    </div>
+    </AuthPageLayout>
   )
 }

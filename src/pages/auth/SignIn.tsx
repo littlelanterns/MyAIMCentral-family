@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { signIn } from '@/lib/supabase/auth'
+import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
 export function SignIn() {
   const navigate = useNavigate()
@@ -39,24 +40,23 @@ export function SignIn() {
   }
 
   return (
-    <div className="min-h-svh flex items-center justify-center p-8"
-         style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+    <AuthPageLayout>
       <div className="max-w-md w-full space-y-6">
         <h1 className="text-2xl font-bold text-center"
-            style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
+            style={{ color: AUTH_COLORS.text, fontFamily: 'var(--font-heading)' }}>
           Welcome Back
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <p className="text-sm p-3 rounded-lg"
-               style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-error)' }}>
+               style={{ backgroundColor: AUTH_COLORS.bgSecondary, color: AUTH_COLORS.error }}>
               {error}
             </p>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+            <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
               Email
             </label>
             <input
@@ -65,9 +65,9 @@ export function SignIn() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 rounded-lg outline-none"
               style={{
-                backgroundColor: 'var(--color-bg-card)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text-primary)',
+                backgroundColor: AUTH_COLORS.card,
+                border: `1px solid ${AUTH_COLORS.border}`,
+                color: AUTH_COLORS.text,
               }}
               placeholder="your@email.com"
               required
@@ -75,7 +75,7 @@ export function SignIn() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+            <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
               Password
             </label>
             <div className="relative">
@@ -85,9 +85,9 @@ export function SignIn() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 pr-10 rounded-lg outline-none"
                 style={{
-                  backgroundColor: 'var(--color-bg-card)',
-                  border: '1px solid var(--color-border)',
-                  color: 'var(--color-text-primary)',
+                  backgroundColor: AUTH_COLORS.card,
+                  border: `1px solid ${AUTH_COLORS.border}`,
+                  color: AUTH_COLORS.text,
                 }}
                 placeholder="Your password"
                 required
@@ -96,7 +96,7 @@ export function SignIn() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                style={{ color: 'var(--color-text-secondary)' }}
+                style={{ color: AUTH_COLORS.textMuted }}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -108,8 +108,8 @@ export function SignIn() {
             disabled={loading}
             className="w-full py-3 px-6 rounded-lg font-medium transition-colors disabled:opacity-50"
             style={{
-              backgroundColor: 'var(--color-btn-primary-bg)',
-              color: 'var(--color-btn-primary-text)',
+              background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+              color: '#ffffff',
             }}
           >
             {loading ? 'Signing In...' : 'Sign In'}
@@ -120,25 +120,25 @@ export function SignIn() {
           <Link
             to="/auth/forgot-password"
             className="text-sm underline block"
-            style={{ color: 'var(--color-text-secondary)' }}
+            style={{ color: AUTH_COLORS.textMuted }}
           >
             Forgot Password?
           </Link>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="text-sm" style={{ color: AUTH_COLORS.textMuted }}>
             New here?{' '}
-            <Link to="/auth/create-account" className="underline" style={{ color: 'var(--color-btn-primary-bg)' }}>
+            <Link to="/auth/create-account" className="underline" style={{ color: AUTH_COLORS.primary }}>
               Create an Account
             </Link>
           </p>
           <Link
             to="/auth/family-login"
             className="text-sm underline block"
-            style={{ color: 'var(--color-text-secondary)' }}
+            style={{ color: AUTH_COLORS.textMuted }}
           >
             Family Member Login
           </Link>
         </div>
       </div>
-    </div>
+    </AuthPageLayout>
   )
 }

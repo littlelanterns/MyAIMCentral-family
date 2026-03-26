@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { signUp } from '@/lib/supabase/auth'
+import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
 export function CreateAccount() {
   const navigate = useNavigate()
@@ -15,9 +16,9 @@ export function CreateAccount() {
   const [loading, setLoading] = useState(false)
 
   function getPasswordStrength(pw: string): { label: string; color: string } {
-    if (pw.length < 8) return { label: 'Weak', color: 'var(--color-error, #b25a58)' }
-    if (pw.length < 12) return { label: 'Medium', color: 'var(--color-warning, #b99c34)' }
-    return { label: 'Strong', color: 'var(--color-success, #4b7c66)' }
+    if (pw.length < 8) return { label: 'Weak', color: AUTH_COLORS.error }
+    if (pw.length < 12) return { label: 'Medium', color: AUTH_COLORS.warning }
+    return { label: 'Strong', color: AUTH_COLORS.success }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,15 +57,18 @@ export function CreateAccount() {
 
   const strength = password ? getPasswordStrength(password) : null
 
+  const inputStyle = (hasError?: boolean) => ({
+    backgroundColor: AUTH_COLORS.card,
+    border: `1px solid ${hasError ? AUTH_COLORS.error : AUTH_COLORS.border}`,
+    color: AUTH_COLORS.text,
+  })
+
   return (
-    <div
-      className="min-h-svh flex items-center justify-center p-8"
-      style={{ backgroundColor: 'var(--color-bg-primary, var(--theme-background))' }}
-    >
+    <AuthPageLayout>
       <div className="max-w-md w-full space-y-6">
         <h1
           className="text-2xl font-bold text-center"
-          style={{ color: 'var(--color-text-heading, var(--theme-text))', fontFamily: 'var(--font-heading)' }}
+          style={{ color: AUTH_COLORS.text, fontFamily: 'var(--font-heading)' }}
         >
           Create Your Account
         </h1>
@@ -73,20 +77,14 @@ export function CreateAccount() {
           {errors.form && (
             <p
               className="text-sm p-3 rounded-lg"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary, var(--theme-surface))',
-                color: 'var(--color-error, var(--theme-error))',
-              }}
+              style={{ backgroundColor: AUTH_COLORS.bgSecondary, color: AUTH_COLORS.error }}
             >
               {errors.form}
             </p>
           )}
 
           <div>
-            <label
-              className="block text-sm font-medium mb-1"
-              style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
-            >
+            <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
               Display Name
             </label>
             <input
@@ -94,25 +92,16 @@ export function CreateAccount() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full px-3 py-2 rounded-lg outline-none"
-              style={{
-                backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-                border: `1px solid ${errors.displayName ? 'var(--color-error, #b25a58)' : 'var(--color-border, var(--theme-border))'}`,
-                color: 'var(--color-text-primary, var(--theme-text))',
-              }}
+              style={inputStyle(!!errors.displayName)}
               placeholder="What should we call you?"
             />
             {errors.displayName && (
-              <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
-                {errors.displayName}
-              </p>
+              <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>{errors.displayName}</p>
             )}
           </div>
 
           <div>
-            <label
-              className="block text-sm font-medium mb-1"
-              style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
-            >
+            <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
               Email
             </label>
             <input
@@ -120,25 +109,16 @@ export function CreateAccount() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 rounded-lg outline-none"
-              style={{
-                backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-                border: `1px solid ${errors.email ? 'var(--color-error, #b25a58)' : 'var(--color-border, var(--theme-border))'}`,
-                color: 'var(--color-text-primary, var(--theme-text))',
-              }}
+              style={inputStyle(!!errors.email)}
               placeholder="your@email.com"
             />
             {errors.email && (
-              <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
-                {errors.email}
-              </p>
+              <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>{errors.email}</p>
             )}
           </div>
 
           <div>
-            <label
-              className="block text-sm font-medium mb-1"
-              style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
-            >
+            <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
               Password
             </label>
             <div className="relative">
@@ -147,45 +127,31 @@ export function CreateAccount() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 pr-10 rounded-lg outline-none"
-                style={{
-                  backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-                  border: `1px solid ${errors.password ? 'var(--color-error, #b25a58)' : 'var(--color-border, var(--theme-border))'}`,
-                  color: 'var(--color-text-primary, var(--theme-text))',
-                }}
+                style={inputStyle(!!errors.password)}
                 placeholder="Create a password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+                style={{ color: AUTH_COLORS.textMuted }}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            <p
-              className="text-xs mt-1"
-              style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
-            >
+            <p className="text-xs mt-1" style={{ color: AUTH_COLORS.textMuted }}>
               At least 8 characters
             </p>
             {strength && (
-              <p className="text-sm mt-0.5" style={{ color: strength.color }}>
-                {strength.label}
-              </p>
+              <p className="text-sm mt-0.5" style={{ color: strength.color }}>{strength.label}</p>
             )}
             {errors.password && (
-              <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
-                {errors.password}
-              </p>
+              <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>{errors.password}</p>
             )}
           </div>
 
           <div>
-            <label
-              className="block text-sm font-medium mb-1"
-              style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
-            >
+            <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
               Confirm Password
             </label>
             <input
@@ -193,17 +159,11 @@ export function CreateAccount() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full px-3 py-2 rounded-lg outline-none"
-              style={{
-                backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-                border: `1px solid ${errors.confirmPassword ? 'var(--color-error, #b25a58)' : 'var(--color-border, var(--theme-border))'}`,
-                color: 'var(--color-text-primary, var(--theme-text))',
-              }}
+              style={inputStyle(!!errors.confirmPassword)}
               placeholder="Confirm your password"
             />
             {errors.confirmPassword && (
-              <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
-                {errors.confirmPassword}
-              </p>
+              <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>{errors.confirmPassword}</p>
             )}
           </div>
 
@@ -214,24 +174,19 @@ export function CreateAccount() {
               onChange={(e) => setTosAccepted(e.target.checked)}
               className="mt-1 rounded"
             />
-            <span
-              className="text-sm"
-              style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
-            >
+            <span className="text-sm" style={{ color: AUTH_COLORS.text }}>
               I agree to the{' '}
-              <a href="/terms" className="underline" style={{ color: 'var(--color-btn-primary-bg, var(--theme-primary))' }}>
+              <a href="/terms" className="underline" style={{ color: AUTH_COLORS.primary }}>
                 Terms of Service
               </a>{' '}
               and{' '}
-              <a href="/privacy" className="underline" style={{ color: 'var(--color-btn-primary-bg, var(--theme-primary))' }}>
+              <a href="/privacy" className="underline" style={{ color: AUTH_COLORS.primary }}>
                 Privacy Policy
               </a>
             </span>
           </label>
           {errors.tos && (
-            <p className="text-sm" style={{ color: 'var(--color-error, #b25a58)' }}>
-              {errors.tos}
-            </p>
+            <p className="text-sm" style={{ color: AUTH_COLORS.error }}>{errors.tos}</p>
           )}
 
           <button
@@ -239,35 +194,25 @@ export function CreateAccount() {
             disabled={loading}
             className="w-full py-3 px-6 rounded-lg font-medium transition-colors disabled:opacity-50"
             style={{
-              backgroundColor: 'var(--color-btn-primary-bg, var(--theme-primary))',
-              color: 'var(--color-btn-primary-text, #fff)',
+              background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+              color: '#ffffff',
             }}
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
-        <p
-          className="text-center text-sm"
-          style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
-        >
+        <p className="text-center text-sm" style={{ color: AUTH_COLORS.textMuted }}>
           Already have an account?{' '}
-          <Link
-            to="/auth/sign-in"
-            className="underline"
-            style={{ color: 'var(--color-btn-primary-bg, var(--theme-primary))' }}
-          >
+          <Link to="/auth/sign-in" className="underline" style={{ color: AUTH_COLORS.primary }}>
             Sign In
           </Link>
         </p>
 
-        <p
-          className="text-center text-xs"
-          style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
-        >
+        <p className="text-center text-xs" style={{ color: AUTH_COLORS.textMuted }}>
           Joining a family? Use your invite link instead.
         </p>
       </div>
-    </div>
+    </AuthPageLayout>
   )
 }

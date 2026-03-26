@@ -62,6 +62,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, UserPlus, LogIn, AlertCircle, CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { FeatureGuide } from '@/components/shared'
+import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ export function AcceptInvite() {
   // ── Password strength helper ──────────────────────────────────────────────
 
   function passwordStrength(pw: string): { label: string; color: string } {
-    if (pw.length < 8) return { label: 'Weak', color: 'var(--color-error, #b25a58)' }
+    if (pw.length < 8) return { label: 'Weak', color: AUTH_COLORS.error }
     if (pw.length < 12) return { label: 'Medium', color: 'var(--color-warning, #b99c34)' }
     return { label: 'Strong', color: 'var(--color-success, #4b7c66)' }
   }
@@ -306,23 +307,20 @@ export function AcceptInvite() {
   // ── Shared style helpers ──────────────────────────────────────────────────
 
   const inputStyle = (hasError?: boolean) => ({
-    backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-    border: `1px solid ${hasError ? 'var(--color-error, #b25a58)' : 'var(--color-border, var(--theme-border))'}`,
-    color: 'var(--color-text-primary, var(--theme-text))',
+    backgroundColor: AUTH_COLORS.card,
+    border: `1px solid ${hasError ? AUTH_COLORS.error : AUTH_COLORS.border}`,
+    color: AUTH_COLORS.text,
   })
 
   // ── Render: loading ───────────────────────────────────────────────────────
 
   if (tokenState.status === 'loading') {
     return (
-      <div
-        className="min-h-svh flex items-center justify-center p-8"
-        style={{ backgroundColor: 'var(--color-bg-primary, var(--theme-background))' }}
-      >
-        <p style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}>
+      <AuthPageLayout>
+        <p style={{ color: AUTH_COLORS.textMuted }}>
           Validating your invite link...
         </p>
-      </div>
+      </AuthPageLayout>
     )
   }
 
@@ -351,33 +349,30 @@ export function AcceptInvite() {
     const msg = messages[tokenState.reason]
 
     return (
-      <div
-        className="min-h-svh flex items-center justify-center p-8"
-        style={{ backgroundColor: 'var(--color-bg-primary, var(--theme-background))' }}
-      >
+      <AuthPageLayout>
         <div className="max-w-md w-full space-y-4">
           <div
             className="flex items-start gap-3 rounded-xl p-5"
             style={{
-              backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-              border: '1px solid var(--color-error, #b25a58)',
+              backgroundColor: AUTH_COLORS.card,
+              border: `1px solid ${AUTH_COLORS.error}`,
             }}
           >
             <AlertCircle
               size={22}
               className="flex-shrink-0 mt-0.5"
-              style={{ color: 'var(--color-error, #b25a58)' }}
+              style={{ color: AUTH_COLORS.error }}
             />
             <div>
               <p
                 className="font-semibold mb-1"
-                style={{ color: 'var(--color-text-heading, var(--theme-text))' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 {msg.heading}
               </p>
               <p
                 className="text-sm"
-                style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+                style={{ color: AUTH_COLORS.textMuted }}
               >
                 {msg.body}
               </p>
@@ -388,15 +383,15 @@ export function AcceptInvite() {
               href="/auth/sign-in"
               className="block w-full text-center py-3 px-6 rounded-lg font-medium"
               style={{
-                backgroundColor: 'var(--color-btn-primary-bg, var(--theme-primary))',
-                color: 'var(--color-btn-primary-text, #fff)',
+                background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                color: '#ffffff',
               }}
             >
               Sign In
             </a>
           )}
         </div>
-      </div>
+      </AuthPageLayout>
     )
   }
 
@@ -404,27 +399,24 @@ export function AcceptInvite() {
 
   if (successMessage) {
     return (
-      <div
-        className="min-h-svh flex items-center justify-center p-8"
-        style={{ backgroundColor: 'var(--color-bg-primary, var(--theme-background))' }}
-      >
+      <AuthPageLayout>
         <div
           className="flex items-center gap-3 rounded-xl p-5 max-w-md w-full"
           style={{
-            backgroundColor: 'var(--color-bg-card, var(--theme-surface))',
-            border: '1px solid var(--color-success, #4b7c66)',
+            backgroundColor: AUTH_COLORS.card,
+            border: `1px solid ${AUTH_COLORS.success}`,
           }}
         >
           <CheckCircle
             size={22}
             className="flex-shrink-0"
-            style={{ color: 'var(--color-success, #4b7c66)' }}
+            style={{ color: AUTH_COLORS.success }}
           />
-          <p style={{ color: 'var(--color-text-primary, var(--theme-text))' }}>
+          <p style={{ color: AUTH_COLORS.text }}>
             {successMessage}
           </p>
         </div>
-      </div>
+      </AuthPageLayout>
     )
   }
 
@@ -434,10 +426,7 @@ export function AcceptInvite() {
   const familyName = member.families?.family_name ?? 'Your family'
 
   return (
-    <div
-      className="min-h-svh flex items-center justify-center p-8"
-      style={{ backgroundColor: 'var(--color-bg-primary, var(--theme-background))' }}
-    >
+    <AuthPageLayout>
       <div className="max-w-md w-full space-y-6">
 
         {/* FeatureGuide */}
@@ -452,7 +441,7 @@ export function AcceptInvite() {
           <h1
             className="text-2xl font-bold"
             style={{
-              color: 'var(--color-text-heading, var(--theme-text))',
+              color: AUTH_COLORS.text,
               fontFamily: 'var(--font-heading)',
             }}
           >
@@ -460,16 +449,16 @@ export function AcceptInvite() {
           </h1>
           <p
             className="text-lg font-semibold"
-            style={{ color: 'var(--color-btn-primary-bg, var(--theme-primary))' }}
+            style={{ color: AUTH_COLORS.primary }}
           >
             {familyName}
           </p>
           <p
             className="text-sm"
-            style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+            style={{ color: AUTH_COLORS.textMuted }}
           >
             Joining as{' '}
-            <span style={{ color: 'var(--color-text-primary, var(--theme-text))' }}>
+            <span style={{ color: AUTH_COLORS.text }}>
               {member.display_name}
             </span>
           </p>
@@ -478,7 +467,7 @@ export function AcceptInvite() {
         {/* Path toggle */}
         <div
           className="flex rounded-lg p-1 gap-1"
-          style={{ backgroundColor: 'var(--color-bg-secondary, var(--theme-surface))' }}
+          style={{ backgroundColor: AUTH_COLORS.bgSecondary }}
         >
           <button
             type="button"
@@ -487,12 +476,12 @@ export function AcceptInvite() {
             style={
               authPath === 'new_user'
                 ? {
-                    backgroundColor: 'var(--color-bg-card, var(--theme-background))',
-                    color: 'var(--color-text-heading, var(--theme-text))',
+                    backgroundColor: AUTH_COLORS.card,
+                    color: AUTH_COLORS.text,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                   }
                 : {
-                    color: 'var(--color-text-secondary, var(--theme-text-muted))',
+                    color: AUTH_COLORS.textMuted,
                   }
             }
           >
@@ -506,12 +495,12 @@ export function AcceptInvite() {
             style={
               authPath === 'existing_user'
                 ? {
-                    backgroundColor: 'var(--color-bg-card, var(--theme-background))',
-                    color: 'var(--color-text-heading, var(--theme-text))',
+                    backgroundColor: AUTH_COLORS.card,
+                    color: AUTH_COLORS.text,
                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                   }
                 : {
-                    color: 'var(--color-text-secondary, var(--theme-text-muted))',
+                    color: AUTH_COLORS.textMuted,
                   }
             }
           >
@@ -525,7 +514,7 @@ export function AcceptInvite() {
           <form onSubmit={handleNewUserSubmit} className="space-y-4">
             <p
               className="text-sm"
-              style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+              style={{ color: AUTH_COLORS.textMuted }}
             >
               Create a new MyAIM Central account to join {familyName}.
             </p>
@@ -534,8 +523,8 @@ export function AcceptInvite() {
               <p
                 className="text-sm p-3 rounded-lg"
                 style={{
-                  backgroundColor: 'var(--color-bg-secondary, var(--theme-surface))',
-                  color: 'var(--color-error, #b25a58)',
+                  backgroundColor: AUTH_COLORS.bgSecondary,
+                  color: AUTH_COLORS.error,
                 }}
               >
                 {errors.form}
@@ -546,7 +535,7 @@ export function AcceptInvite() {
             <div>
               <label
                 className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Email
               </label>
@@ -560,7 +549,7 @@ export function AcceptInvite() {
                 autoComplete="email"
               />
               {errors.email && (
-                <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
+                <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>
                   {errors.email}
                 </p>
               )}
@@ -570,7 +559,7 @@ export function AcceptInvite() {
             <div>
               <label
                 className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Password
               </label>
@@ -588,7 +577,7 @@ export function AcceptInvite() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                  style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+                  style={{ color: AUTH_COLORS.textMuted }}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -596,7 +585,7 @@ export function AcceptInvite() {
               </div>
               <p
                 className="text-xs mt-1"
-                style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+                style={{ color: AUTH_COLORS.textMuted }}
               >
                 At least 8 characters
               </p>
@@ -606,7 +595,7 @@ export function AcceptInvite() {
                 </p>
               )}
               {errors.password && (
-                <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
+                <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>
                   {errors.password}
                 </p>
               )}
@@ -616,7 +605,7 @@ export function AcceptInvite() {
             <div>
               <label
                 className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Confirm Password
               </label>
@@ -630,7 +619,7 @@ export function AcceptInvite() {
                 autoComplete="new-password"
               />
               {errors.confirmPassword && (
-                <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
+                <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>
                   {errors.confirmPassword}
                 </p>
               )}
@@ -641,8 +630,8 @@ export function AcceptInvite() {
               disabled={loading}
               className="w-full py-3 px-6 rounded-lg font-medium transition-opacity disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--color-btn-primary-bg, var(--theme-primary))',
-                color: 'var(--color-btn-primary-text, #fff)',
+                background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                color: '#ffffff',
               }}
             >
               {loading ? 'Creating Account...' : `Create Account & Join ${familyName}`}
@@ -655,7 +644,7 @@ export function AcceptInvite() {
           <form onSubmit={handleExistingUserSubmit} className="space-y-4">
             <p
               className="text-sm"
-              style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+              style={{ color: AUTH_COLORS.textMuted }}
             >
               Sign in to your existing account to accept this invite.
             </p>
@@ -664,8 +653,8 @@ export function AcceptInvite() {
               <p
                 className="text-sm p-3 rounded-lg"
                 style={{
-                  backgroundColor: 'var(--color-bg-secondary, var(--theme-surface))',
-                  color: 'var(--color-error, #b25a58)',
+                  backgroundColor: AUTH_COLORS.bgSecondary,
+                  color: AUTH_COLORS.error,
                 }}
               >
                 {errors.existingForm}
@@ -676,7 +665,7 @@ export function AcceptInvite() {
             <div>
               <label
                 className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Email
               </label>
@@ -690,7 +679,7 @@ export function AcceptInvite() {
                 autoComplete="email"
               />
               {errors.existingEmail && (
-                <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
+                <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>
                   {errors.existingEmail}
                 </p>
               )}
@@ -700,7 +689,7 @@ export function AcceptInvite() {
             <div>
               <label
                 className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--color-text-primary, var(--theme-text))' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Password
               </label>
@@ -718,14 +707,14 @@ export function AcceptInvite() {
                   type="button"
                   onClick={() => setShowExistingPassword(!showExistingPassword)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
-                  style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+                  style={{ color: AUTH_COLORS.textMuted }}
                   aria-label={showExistingPassword ? 'Hide password' : 'Show password'}
                 >
                   {showExistingPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               {errors.existingPassword && (
-                <p className="text-sm mt-1" style={{ color: 'var(--color-error, #b25a58)' }}>
+                <p className="text-sm mt-1" style={{ color: AUTH_COLORS.error }}>
                   {errors.existingPassword}
                 </p>
               )}
@@ -736,8 +725,8 @@ export function AcceptInvite() {
               disabled={loading}
               className="w-full py-3 px-6 rounded-lg font-medium transition-opacity disabled:opacity-50"
               style={{
-                backgroundColor: 'var(--color-btn-primary-bg, var(--theme-primary))',
-                color: 'var(--color-btn-primary-text, #fff)',
+                background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                color: '#ffffff',
               }}
             >
               {loading ? 'Signing In...' : `Sign In & Join ${familyName}`}
@@ -745,13 +734,13 @@ export function AcceptInvite() {
 
             <p
               className="text-center text-sm"
-              style={{ color: 'var(--color-text-secondary, var(--theme-text-muted))' }}
+              style={{ color: AUTH_COLORS.textMuted }}
             >
               Forgot your password?{' '}
               <a
                 href="/auth/forgot-password"
                 className="underline"
-                style={{ color: 'var(--color-btn-primary-bg, var(--theme-primary))' }}
+                style={{ color: AUTH_COLORS.primary }}
               >
                 Reset it here
               </a>
@@ -759,6 +748,6 @@ export function AcceptInvite() {
           </form>
         )}
       </div>
-    </div>
+    </AuthPageLayout>
   )
 }

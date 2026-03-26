@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { lookupFamilyByLoginName, getFamilyLoginMembers } from '@/lib/supabase/auth'
 import { supabase } from '@/lib/supabase/client'
+import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
 interface LoginMember {
   member_id: string
@@ -123,14 +124,11 @@ export function FamilyLogin() {
     if (countdownRef.current) clearInterval(countdownRef.current)
 
     if (member.auth_method === 'none') {
-      // No auth needed — go directly to dashboard
-      // STUB: In full implementation, this creates a session
       navigate('/dashboard')
       return
     }
 
     if (member.auth_method === 'visual_password') {
-      // Load visual password images from platform_assets
       loadVisualImages()
       setVisualSequence([])
       setStep('visual-password')
@@ -162,7 +160,6 @@ export function FamilyLogin() {
   function handleVisualImageTap(imageId: string) {
     setVisualSequence((prev) => {
       const next = [...prev, imageId]
-      // Visual passwords are typically 4 images
       if (next.length >= 4) {
         verifyVisualPassword(next)
       }
@@ -176,7 +173,6 @@ export function FamilyLogin() {
     setLoading(true)
     setError('')
 
-    // Fetch the member's visual_password_config to compare
     const { data: memberData } = await supabase
       .from('family_members')
       .select('visual_password_config')
@@ -236,12 +232,10 @@ export function FamilyLogin() {
     if (result.reason === 'locked') {
       const seconds = result.remaining_seconds ?? 900
       startLockoutCountdown(seconds)
-      // Error message is rendered from lockout state, not the error string
       return
     }
 
     if (result.reason === 'invalid') {
-      // PRD-01: child-friendly language
       setError('Incorrect PIN. Please try again, or ask mom to reset it.')
       return
     }
@@ -273,16 +267,13 @@ export function FamilyLogin() {
   }
 
   return (
-    <div
-      className="min-h-svh flex items-center justify-center p-8"
-      style={{ backgroundColor: 'var(--theme-background)' }}
-    >
+    <AuthPageLayout>
       <div className="max-w-md w-full space-y-6">
         {step !== 'family-name' && (
           <button
             onClick={goBack}
             className="flex items-center gap-1 text-sm"
-            style={{ color: 'var(--theme-text-muted)' }}
+            style={{ color: AUTH_COLORS.textMuted }}
           >
             <ArrowLeft size={16} /> Back
           </button>
@@ -290,19 +281,19 @@ export function FamilyLogin() {
 
         <h1
           className="text-2xl font-bold text-center"
-          style={{ color: 'var(--theme-text)' }}
+          style={{ color: AUTH_COLORS.text, fontFamily: 'var(--font-heading)' }}
         >
           Family Login
         </h1>
 
-        {/* Lockout banner — rendered independently of the error string */}
+        {/* Lockout banner */}
         {isLocked && (
           <div
             className="rounded-lg px-4 py-3 text-sm text-center space-y-1"
             style={{
-              backgroundColor: 'var(--theme-warning-surface, #fef3c7)',
-              border: '1px solid var(--theme-warning, #f59e0b)',
-              color: 'var(--theme-warning-text, #92400e)',
+              backgroundColor: '#fef3c7',
+              border: '1px solid #f59e0b',
+              color: '#92400e',
             }}
           >
             <p className="font-medium">Too many tries!</p>
@@ -319,23 +310,20 @@ export function FamilyLogin() {
           </div>
         )}
 
-        {/* General error message (not shown when locked banner is active) */}
+        {/* General error message */}
         {error && !isLocked && (
-          <p
-            className="text-sm text-center"
-            style={{ color: 'var(--theme-error)' }}
-          >
+          <p className="text-sm text-center" style={{ color: AUTH_COLORS.error }}>
             {error}
           </p>
         )}
 
-        {/* ── Step: family name ── */}
+        {/* Step: family name */}
         {step === 'family-name' && (
           <form onSubmit={handleFamilyLookup} className="space-y-4">
             <div>
               <label
                 className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--theme-text)' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Enter your Family Login Name
               </label>
@@ -345,9 +333,9 @@ export function FamilyLogin() {
                 onChange={(e) => setFamilyName(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg outline-none"
                 style={{
-                  backgroundColor: 'var(--theme-surface)',
-                  border: '1px solid var(--theme-border)',
-                  color: 'var(--theme-text)',
+                  backgroundColor: AUTH_COLORS.card,
+                  border: `1px solid ${AUTH_COLORS.border}`,
+                  color: AUTH_COLORS.text,
                 }}
                 placeholder="e.g., TheSmithCrew"
                 required
@@ -357,21 +345,21 @@ export function FamilyLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-6 rounded-lg text-white font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--theme-primary)' }}
+              className="w-full py-3 px-6 rounded-lg font-medium disabled:opacity-50"
+              style={{
+                background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                color: '#ffffff',
+              }}
             >
               {loading ? 'Looking up...' : 'Continue'}
             </button>
           </form>
         )}
 
-        {/* ── Step: member select ── */}
+        {/* Step: member select */}
         {step === 'member-select' && (
           <div className="space-y-3">
-            <p
-              className="text-center text-sm"
-              style={{ color: 'var(--theme-text-muted)' }}
-            >
+            <p className="text-center text-sm" style={{ color: AUTH_COLORS.textMuted }}>
               {familyDisplayName}
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -381,8 +369,8 @@ export function FamilyLogin() {
                   onClick={() => handleMemberSelect(member)}
                   className="flex flex-col items-center gap-2 p-4 rounded-lg transition-colors"
                   style={{
-                    backgroundColor: 'var(--theme-surface)',
-                    border: '1px solid var(--theme-border)',
+                    backgroundColor: AUTH_COLORS.card,
+                    border: `1px solid ${AUTH_COLORS.border}`,
                   }}
                 >
                   {member.avatar_url ? (
@@ -395,17 +383,14 @@ export function FamilyLogin() {
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-medium"
                       style={{
-                        backgroundColor: member.member_color || 'var(--theme-primary)',
+                        backgroundColor: member.member_color || AUTH_COLORS.primary,
                         color: 'white',
                       }}
                     >
                       {member.display_name.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span
-                    className="text-sm font-medium"
-                    style={{ color: 'var(--theme-text)' }}
-                  >
+                  <span className="text-sm font-medium" style={{ color: AUTH_COLORS.text }}>
                     {member.display_name}
                   </span>
                 </button>
@@ -414,16 +399,16 @@ export function FamilyLogin() {
           </div>
         )}
 
-        {/* ── Step: PIN entry ── */}
+        {/* Step: PIN entry */}
         {step === 'pin-entry' && selectedMember && (
           <form onSubmit={handlePinSubmit} className="space-y-4">
-            <p className="text-center" style={{ color: 'var(--theme-text)' }}>
+            <p className="text-center" style={{ color: AUTH_COLORS.text }}>
               Hi, {selectedMember.display_name}!
             </p>
             <div>
               <label
                 className="block text-sm font-medium mb-1 text-center"
-                style={{ color: 'var(--theme-text)' }}
+                style={{ color: AUTH_COLORS.text }}
               >
                 Enter your PIN
               </label>
@@ -436,9 +421,9 @@ export function FamilyLogin() {
                 disabled={isLocked}
                 className="w-full px-3 py-4 rounded-lg outline-none text-center text-2xl tracking-widest disabled:opacity-40"
                 style={{
-                  backgroundColor: 'var(--theme-surface)',
-                  border: '1px solid var(--theme-border)',
-                  color: 'var(--theme-text)',
+                  backgroundColor: AUTH_COLORS.card,
+                  border: `1px solid ${AUTH_COLORS.border}`,
+                  color: AUTH_COLORS.text,
                 }}
                 autoFocus
               />
@@ -446,30 +431,27 @@ export function FamilyLogin() {
             <button
               type="submit"
               disabled={loading || pin.length < 4 || isLocked}
-              className="w-full py-3 px-6 rounded-lg text-white font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--theme-primary)' }}
+              className="w-full py-3 px-6 rounded-lg font-medium disabled:opacity-50"
+              style={{
+                background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                color: '#ffffff',
+              }}
             >
               {loading ? 'Checking...' : 'Enter'}
             </button>
-            <p
-              className="text-xs text-center"
-              style={{ color: 'var(--theme-text-muted)' }}
-            >
+            <p className="text-xs text-center" style={{ color: AUTH_COLORS.textMuted }}>
               Forgot your PIN? Ask mom to reset it.
             </p>
           </form>
         )}
 
-        {/* ── Step: Visual Password ── */}
+        {/* Step: Visual Password */}
         {step === 'visual-password' && selectedMember && (
           <div className="space-y-4">
-            <p className="text-center" style={{ color: 'var(--theme-text)' }}>
+            <p className="text-center" style={{ color: AUTH_COLORS.text }}>
               Hi, {selectedMember.display_name}!
             </p>
-            <p
-              className="text-center text-sm"
-              style={{ color: 'var(--theme-text-muted)' }}
-            >
+            <p className="text-center text-sm" style={{ color: AUTH_COLORS.textMuted }}>
               Tap your pictures in the right order
             </p>
 
@@ -480,12 +462,8 @@ export function FamilyLogin() {
                   key={i}
                   className="w-8 h-8 rounded-full border-2 flex items-center justify-center"
                   style={{
-                    borderColor: visualSequence[i]
-                      ? 'var(--theme-primary)'
-                      : 'var(--theme-border)',
-                    backgroundColor: visualSequence[i]
-                      ? 'var(--theme-primary)'
-                      : 'transparent',
+                    borderColor: visualSequence[i] ? AUTH_COLORS.primary : AUTH_COLORS.border,
+                    backgroundColor: visualSequence[i] ? AUTH_COLORS.primary : 'transparent',
                   }}
                 >
                   {visualSequence[i] && (
@@ -506,9 +484,9 @@ export function FamilyLogin() {
                     className="aspect-square rounded-xl overflow-hidden transition-transform active:scale-95 disabled:opacity-40"
                     style={{
                       border: visualSequence.includes(img.id)
-                        ? '3px solid var(--theme-primary)'
-                        : '2px solid var(--theme-border)',
-                      backgroundColor: 'var(--theme-surface)',
+                        ? `3px solid ${AUTH_COLORS.primary}`
+                        : `2px solid ${AUTH_COLORS.border}`,
+                      backgroundColor: AUTH_COLORS.card,
                     }}
                   >
                     <img
@@ -520,10 +498,7 @@ export function FamilyLogin() {
                 ))}
               </div>
             ) : (
-              <p
-                className="text-center text-sm py-4"
-                style={{ color: 'var(--theme-text-muted)' }}
-              >
+              <p className="text-center text-sm py-4" style={{ color: AUTH_COLORS.textMuted }}>
                 Visual password images are not available yet. Ask mom to set them up.
               </p>
             )}
@@ -533,17 +508,14 @@ export function FamilyLogin() {
               disabled={visualSequence.length === 0}
               className="w-full py-2 rounded-lg text-sm font-medium disabled:opacity-30"
               style={{
-                backgroundColor: 'var(--theme-surface)',
-                border: '1px solid var(--theme-border)',
-                color: 'var(--theme-text)',
+                backgroundColor: AUTH_COLORS.card,
+                border: `1px solid ${AUTH_COLORS.border}`,
+                color: AUTH_COLORS.text,
               }}
             >
               Start Over
             </button>
-            <p
-              className="text-xs text-center"
-              style={{ color: 'var(--theme-text-muted)' }}
-            >
+            <p className="text-xs text-center" style={{ color: AUTH_COLORS.textMuted }}>
               Can't remember? Ask mom to reset your picture password.
             </p>
           </div>
@@ -553,12 +525,12 @@ export function FamilyLogin() {
           <Link
             to="/auth/sign-in"
             className="underline"
-            style={{ color: 'var(--theme-text-muted)' }}
+            style={{ color: AUTH_COLORS.textMuted }}
           >
             Sign in with email instead
           </Link>
         </p>
       </div>
-    </div>
+    </AuthPageLayout>
   )
 }
