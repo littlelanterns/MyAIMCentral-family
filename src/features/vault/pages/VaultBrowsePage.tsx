@@ -129,6 +129,8 @@ export function VaultBrowsePage() {
           ) : categories.length > 0 ? (
             categories.map(cat => {
               const items = itemsByCategory[cat.id] || []
+              // Hide empty categories — no "Content coming soon" rows
+              if (items.length === 0) return null
               return (
                 <VaultCategoryRow
                   key={cat.id}
@@ -137,11 +139,6 @@ export function VaultBrowsePage() {
                   items={items}
                   memberId={member?.id ?? null}
                   onSelectItem={handleSelectItem}
-                  emptyMessage={
-                    <span className="text-xs italic" style={{ color: 'var(--color-text-secondary)' }}>
-                      Content coming soon
-                    </span>
-                  }
                 />
               )
             })
