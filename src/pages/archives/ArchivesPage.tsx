@@ -485,13 +485,6 @@ export function ArchivesPage() {
     setCropModalOpen(true)
   }
 
-  function _handleFamilyFileSelect(file: File) {
-    setCropTargetMemberId(null) // null = family
-    setCropMemberName(family?.family_name ?? 'Family')
-    setCropFile(file)
-    setCropModalOpen(true)
-  }
-
   // Called when crop is confirmed
   async function handleCropConfirm(croppedBlob: Blob) {
     const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' })
