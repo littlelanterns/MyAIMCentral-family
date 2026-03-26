@@ -485,7 +485,7 @@ export function ArchivesPage() {
     setCropModalOpen(true)
   }
 
-  function handleFamilyFileSelect(file: File) {
+  function _handleFamilyFileSelect(file: File) {
     setCropTargetMemberId(null) // null = family
     setCropMemberName(family?.family_name ?? 'Family')
     setCropFile(file)
