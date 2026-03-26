@@ -29,6 +29,7 @@ import { FamilyOverviewDetail } from '@/pages/archives/FamilyOverviewDetail'
 import { PrivacyFilteredPage } from '@/pages/archives/PrivacyFilteredPage'
 import { ContextExportPage } from '@/pages/archives/ContextExportPage'
 import { HubPage } from '@/pages/Hub'
+import { VaultBrowsePage, PersonalPromptLibraryPage } from '@/features/vault'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -92,6 +93,8 @@ function App() {
               <Route path="/archives/family-overview" element={<ProtectedRoute><FamilyOverviewDetail /></ProtectedRoute>} />
               <Route path="/archives/privacy-filtered" element={<ProtectedRoute><PrivacyFilteredPage /></ProtectedRoute>} />
               <Route path="/archives/export" element={<ProtectedRoute><ContextExportPage /></ProtectedRoute>} />
+              <Route path="/vault" element={<ProtectedRoute><VaultBrowsePage /></ProtectedRoute>} />
+              <Route path="/vault/my-prompts" element={<ProtectedRoute><PersonalPromptLibraryPage /></ProtectedRoute>} />
               <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
               <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
               {/* Catch-all */}

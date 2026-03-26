@@ -209,3 +209,75 @@ After verification is complete and Tenise has confirmed:
 | PRD-36 | PRD-36-Cross-PRD-Impact-Addendum.md |
 | PRD-37 / PRD-28B | PRD-37-PRD-28B-Cross-PRD-Impact-Addendum.md |
 | All | PRD-Audit-Readiness-Addendum.md, PRD-Template-and-Audit-Updates.md |
+
+"Universal UX Conventions":
+
+DRAG-TO-REORDER (Universal)
+Drag-to-reorder should be available everywhere a list 
+of items has a meaningful order. This is the standard 
+pattern throughout the app.
+
+Library: @dnd-kit/core + @dnd-kit/sortable (install if 
+not already in package.json)
+
+Apply to:
+- Any list of items (tasks, list items, routines, 
+  intentions, victories, etc.)
+- Category sections where order matters
+- Dashboard widgets
+- Nav items where reordering is meaningful
+- Any ordered collection a user creates
+
+Pattern: long-press or drag handle (⠿ icon) to initiate 
+drag. Smooth animation during drag. Persists sort_order 
+to database on drop. StewardShip's Mast.tsx is the 
+reference implementation.
+
+Do NOT add drag handles to:
+- Read-only lists
+- System-generated content
+- Chronological feeds (Journal, History)
+
+---
+
+GRADIENT CONSISTENCY
+Use `--surface-primary` on all interactive surfaces and
+active states. Never hardcode `var(--color-btn-primary-bg)`
+directly on buttons, nav items, active chips, or selected
+states. Use `--surface-nav` for navigation backgrounds.
+`--surface-primary` = gradient when gradient ON, flat color
+when OFF. Cards, inputs, and page backgrounds never use
+the gradient regardless of toggle.
+
+---
+
+HORIZONTAL SCROLL ARROWS
+Every horizontal scroll area must show visible left/right
+ChevronLeft/ChevronRight arrow indicators for desktop users.
+Arrow appears when overflow exists in that direction.
+Arrow fades when scrolled to the end.
+Apply to: task view carousels, any pill/chip scroll row,
+any horizontal collection.
+
+---
+
+EMOJI RULE
+No Unicode emoji in Mom, Adult, or Independent shell
+components. Use Lucide icons only. Emoji permitted ONLY
+in Play shell components and gamification components.
+
+---
+
+NO EXTERNAL ATTRIBUTION IN UI
+Do not reference external authors, books, or frameworks
+by name in UI text. Features like "Big Rocks" and
+"Eat the Frog" are platform concepts — they do not need
+attribution. Remove any references to Stephen Covey,
+7 Habits, Brian Tracy, or any other external source
+from UI-facing text.
+
+---
+
+SCROLLBAR CSS
+Do not modify scrollbar CSS established in Phase 03
+without explicit founder approval.

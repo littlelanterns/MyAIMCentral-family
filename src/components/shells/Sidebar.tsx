@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock,
+  Palette, Lock, Gem, FileText,
   ChevronLeft, ChevronRight, Eye,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -12,8 +12,6 @@ import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
-import { useTheme } from '@/lib/theme'
-import { getFeatureIcons } from '@/lib/assets'
 import type { ShellType } from '@/lib/theme'
 
 interface NavItem {
@@ -78,6 +76,8 @@ function getSidebarSections(shell: ShellType): NavSection[] {
   const tools: NavSection = {
     title: 'AI & Tools',
     items: [
+      { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
+      { label: 'My Prompts', path: '/vault/my-prompts', featureKey: 'vault_prompt_library', icon: <FileText size={20} />, tooltip: 'Your saved prompts' },
       { label: 'Archives', path: '/archives', featureKey: 'archives', icon: <Archive size={20} />, tooltip: 'Context and documents' },
     ],
   }
@@ -86,11 +86,21 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     case 'mom':
       return [home, capture, plan, grow, family, tools]
     case 'adult':
-      return [home, capture, plan, grow, family]
+      return [home, capture, plan, grow, family, {
+        title: 'AI & Tools',
+        items: [
+          { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
+        ],
+      }]
     case 'independent':
       return [home, capture, plan, {
         ...grow,
         items: grow.items.filter(i => i.label !== 'LifeLantern'),
+      }, {
+        title: 'AI & Tools',
+        items: [
+          { label: 'AI Vault', path: '/vault', featureKey: 'vault_consume', icon: <Gem size={20} />, tooltip: 'AI tutorials and tools' },
+        ],
       }]
     case 'guided':
       return [home, {
@@ -104,33 +114,6 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     case 'play':
       return [] // Play shell has no sidebar
   }
-}
-
-/** Batch-fetch illustrated icons for all nav items, cached by vibe */
-function useNavIcons(sections: NavSection[]) {
-  const { vibe } = useTheme()
-  const [iconUrls, setIconUrls] = useState<Record<string, string | null>>({})
-  const vibeRef = useRef(vibe)
-  const sectionsRef = useRef(sections)
-
-  // Track sections reference for stable comparison
-  const sectionKeys = sections.flatMap(s => s.items.map(i => i.featureKey)).join(',')
-
-  useEffect(() => {
-    const featureKeys = sections.flatMap(s => s.items.map(i => i.featureKey))
-    if (featureKeys.length === 0) return
-
-    let cancelled = false
-    getFeatureIcons(featureKeys, vibe, 'A', 128).then(urls => {
-      if (!cancelled) setIconUrls(urls)
-    })
-    vibeRef.current = vibe
-    sectionsRef.current = sections
-
-    return () => { cancelled = true }
-  }, [vibe, sectionKeys])
-
-  return iconUrls
 }
 
 /**
@@ -299,8 +282,6 @@ function SidebarInner({
   shell: ShellType
   isPreview: boolean
 }) {
-  const iconUrls = useNavIcons(sections)
-
   const sidebarContent = (
     <nav className="flex-1 flex flex-col overflow-y-auto py-4 scrollbar-card">
       {sections.map((section) => (
@@ -314,14 +295,10 @@ function SidebarInner({
             </p>
           )}
           {section.items.map((item) => {
-            const illustratedUrl = iconUrls[item.featureKey]
             // Tier-locking: during beta useCanAccess returns true for all.
-            // When tiers are enforced: mom sees greyed/blurred, others hidden.
-            // For now, always show all items (beta behavior).
             const tierLocked = false // Will be: !useCanAccess(item.featureKey)
             const isMom = shell === 'mom'
 
-            // Non-mom: hide tier-locked items entirely
             if (tierLocked && !isMom) return null
 
             return (
@@ -349,11 +326,7 @@ function SidebarInner({
                   cursor: tierLocked ? 'not-allowed' : 'pointer',
                 })}
               >
-                {illustratedUrl ? (
-                  <img src={illustratedUrl} alt="" width={26} height={26} className="shrink-0 rounded-sm" style={tierLocked ? { filter: 'grayscale(1)' } : undefined} />
-                ) : (
-                  item.icon
-                )}
+                {item.icon}
                 {!collapsed && (
                   <>
                     <span>{item.label}</span>

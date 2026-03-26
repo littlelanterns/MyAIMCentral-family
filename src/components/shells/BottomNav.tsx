@@ -70,7 +70,7 @@ const MORE_SECTIONS: MoreNavSection[] = [
   {
     title: 'Tools',
     items: [
-      { path: '/vault', label: 'AI Vault', description: 'Browse & learn', featureKey: 'ai_vault' },
+      { path: '/vault', label: 'AI Vault', description: 'Tutorials, tools, and prompts', featureKey: 'vault_browse' },
       { path: '/bigplans', label: 'BigPlans', description: 'Project planning', featureKey: 'bigplans' },
       { path: '/thoughtsift', label: 'ThoughtSift', description: 'Decision tools', featureKey: 'thoughtsift' },
       { path: '/archives', label: 'Archives', description: 'Context & documents', featureKey: 'archives' },
