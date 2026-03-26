@@ -10,16 +10,15 @@ Built by a self-taught mom of nine. Powered by the same AI tools it teaches. A p
 
 ## The Problem
 
-Moms are the original systems thinkers, project managers, therapists, schedulers, educators, mediators, and CFOs of the household — all unpaid, largely unseen, and chronically underserved by technology.
+AI is transforming every industry on earth — but the people running the most complex organizations aren't invited. The ~85 million American moms who coordinate schedules, manage therapies, track goals, mediate conflicts, document education, and hold the emotional pulse of entire households are either locked out of the AI revolution entirely or handed tools built for someone else's life.
 
-Existing tools fail because they were designed for one person or one use case, not a whole family:
+The landscape shifts daily. For moms who do step in, they find AI tools designed for marketers, developers, and entrepreneurs — powerful systems that require a mom to reshape her reality to fit someone else's workflow. She becomes the adapter, bending generic technology around the most demanding and least-supported role in existence. And even the "family" tools miss the point:
 
-- **Cozi** tracks a calendar. It doesn't know your daughter has Down Syndrome and needs aide coordination across three caregivers.
-- **OurHome** assigns chores. It can't simultaneously count a chore toward allowance, homeschool hours, and behavioral tracking.
-- **Notion** is infinitely flexible. It's also infinitely empty — a mom at 11pm doesn't need a blank page, she needs a system that already knows her family.
-- **ChatGPT** can help with anything. It can't help with *your* family — it doesn't know your Guiding Stars, your teenager's communication style, or your 7-year-old's therapy schedule.
+- **Skylight** calls itself the operating system for family life. It's a calendar with a chore chart and a meal planner on a screen that costs $150–$600 plus a yearly subscription — and locks your family's data inside their hardware. It doesn't know your daughter has Down Syndrome and needs aide coordination across three caregivers. It can't count a single activity toward allowance, homeschool hours, and behavioral tracking simultaneously.
+- **Notion** is infinitely flexible — and infinitely empty. A mom at 11pm doesn't need a blank page. She needs a system that already knows her family.
+- **ChatGPT** can help with anything — except your family. It doesn't know your values, your teenager's communication style, or your 7-year-old's therapy schedule.
 
-Meanwhile, the AI revolution is transforming every industry — but nobody is building AI tools designed for the ~85 million American moms who run the most complex organizations on Earth: their families.
+The real cost isn't inefficiency. It's that while moms drown in mental load that technology could handle, they lose time for the things only a human can do — the connection, the presence, the creative energy they actually want to pour into their families.
 
 **MyAIM changes that.**
 
@@ -248,6 +247,58 @@ MyAIMCentral/
 │   └── prds/                          ← 40+ Product Requirement Documents
 └── .judge-exclude/                    ← Internal planning files (not relevant to evaluation)
 ```
+
+---
+
+## Quick Navigation for Evaluators
+
+### Impact & Relevance (40% of score)
+- **[docs/IMPACT_STORY.md](docs/IMPACT_STORY.md)** — Six real mom profiles showing ripple effect from individual to society
+- **[docs/RUTHIE_USE_CASE.md](docs/RUTHIE_USE_CASE.md)** — Concrete before/after: one real child, one real week, measurable time saved
+- **[docs/research/MARKET_RESEARCH.md](docs/research/MARKET_RESEARCH.md)** — ~85M moms, ~3.3M homeschool families, ~4.5M disability families, ESA funding opportunity
+- **[docs/THE_LANTERNS_WE_LIVE_BY.md](docs/THE_LANTERNS_WE_LIVE_BY.md)** — The mission and values behind every design decision
+
+### Demo Quality (20% of score)
+- **[DEMO.md](DEMO.md)** — Live app credentials, what to click first, walkthrough guide
+- **Live app:** [myaimcentral.com](https://myaimcentral.com) — working platform, pre-seeded Testworth family, no setup required
+- **[BUILD_STATUS.md](BUILD_STATUS.md)** — Full build timeline showing 20+ completed phases
+
+### Innovation (15% of score)
+- **[docs/AI_INTEGRATION_PHILOSOPHY.md](docs/AI_INTEGRATION_PHILOSOPHY.md)** — AI IS the product: context assembly, condensed intelligence, nine cost optimization patterns
+- **[docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)** — Why every technical choice was made
+- **[docs/WHY_PRDS_EXIST.md](docs/WHY_PRDS_EXIST.md)** — 40+ PRDs as architecture-first validation (not overengineering)
+- **[claude/PRE_BUILD_PROCESS.md](claude/PRE_BUILD_PROCESS.md)** — How we solved the "AI does its own thing" problem with structured build discipline
+
+### Feasibility (15% of score)
+- **[docs/FOUNDER_STORY.md](docs/FOUNDER_STORY.md)** — Self-taught mom of nine, Best of Show at Missouri's first Vibeathon, predecessor app in daily use
+- **[docs/research/COMPETITIVE_ANALYSIS.md](docs/research/COMPETITIVE_ANALYSIS.md)** — No competitor assembles family context over time
+- **[prds/](prds/)** — 40+ complete PRDs across 10 categorized subfolders — the most thorough pre-build specification in this competition
+
+### User Experience (10% of score)
+- **[DEMO.md](DEMO.md)** — Log in as different Testworth family members to see all 5 shells
+- **Five purpose-built shells:** Mom (full command center), Adult (scoped), Independent (teen), Guided (kid), Play (young child) — not settings toggles, fundamentally different interfaces
+
+### By the Numbers
+
+| Metric | Value |
+|--------|-------|
+| Documents written before code | 131 (54 PRDs, 33 addenda, 22 specs, 15 reference docs, 7 audit docs) |
+| Database tables designed | 60-80+ |
+| Completed build phases | 20+ |
+| Major rebuild cycles | 3 (each time restarting from PRD-01 — the third produced the pre-build discipline process that finally solved it) |
+| Dashboard shells | 5 |
+| LiLa AI guided modes | 40 |
+| AI cost per family/month | < $1.00 |
+| Playwright tests passing | 21/21 |
+| Feature keys registered | ~190 |
+| Testworth family members | 8 (6 with working logins for judges) |
+| Mom avatars researched | 6 detailed profiles |
+| ESA states covered | 11+ |
+| Predecessor app daily users | Founder's family of 11 |
+
+### The One-Sentence Case
+
+We didn't build a family app. We built infrastructure for the people who hold the world together — and then we built the training platform to teach them to build with it.
 
 ---
 
