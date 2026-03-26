@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type TouchEvent as ReactTouchEvent } from 'react'
-import { ChevronUp, ChevronDown, Send, X, History, Mic, Loader } from 'lucide-react'
+import { ChevronUp, ChevronDown, Send, X, History, Mic, Loader, Maximize2 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase/client'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { PullTab } from '@/components/shared/PullTab'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { FEATURE_FLAGS } from '@/config/featureFlags'
 
 type DrawerState = 'collapsed' | 'peek' | 'full'
 
@@ -34,6 +35,7 @@ interface LilaDrawerProps {
   initialMode?: string
   onHistoryOpen?: () => void
   onContextSettingsOpen?: () => void
+  onExpandToModal?: () => void
 }
 
 /**
@@ -49,6 +51,7 @@ export function LilaDrawer({
   initialMode,
   onHistoryOpen,
   onContextSettingsOpen,
+  onExpandToModal,
 }: LilaDrawerProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
@@ -99,6 +102,7 @@ export function LilaDrawer({
   const [openingMessage, setOpeningMessage] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState('')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Show interim voice text in input while recording
@@ -245,8 +249,14 @@ export function LilaDrawer({
         conv.id,
         messageText,
         () => {}, // Crisis is handled client-side
-        () => setStreamingContent(''),
-        () => setStreamingContent(''),
+        () => {
+          setStreamingContent('')
+          queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
+        },
+        () => {
+          setStreamingContent('')
+          queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
+        },
       ).catch(() => {})
       return
     }
@@ -254,6 +264,7 @@ export function LilaDrawer({
     // Stream AI response
     setIsStreaming(true)
     setStreamingContent('')
+    setErrorMessage(null)
 
     await streamLilaChat(
       conv.id,
@@ -264,15 +275,19 @@ export function LilaDrawer({
       () => {
         setIsStreaming(false)
         setStreamingContent('')
-        // Messages will auto-refresh via React Query
+        // Refetch messages from DB — edge function saved both user + assistant messages
+        queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
       },
       (error) => {
         console.error('LiLa chat error:', error)
         setIsStreaming(false)
-        setStreamingContent('I had trouble with that. Want to try again?')
+        setStreamingContent('')
+        setErrorMessage(error.message || 'I had trouble with that. Want to try again?')
+        // Still refetch — the user message was saved by the Edge Function
+        queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
       },
     )
-  }, [input, member, family, isStreaming, conversation, currentMode, guidedModes, createConversation, onConversationCreated])
+  }, [input, member, family, isStreaming, conversation, currentMode, guidedModes, createConversation, onConversationCreated, queryClient, location.pathname])
 
   /** Delete the assistant message and re-send the last user message (PRD-05 HumanInTheMix) */
   const handleRegenerate = useCallback(
@@ -467,6 +482,18 @@ export function LilaDrawer({
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Expand to fullscreen modal */}
+            {onExpandToModal && conversation && (
+              <button
+                onClick={onExpandToModal}
+                className="p-1.5 rounded-full"
+                style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
+                title="Expand to fullscreen"
+              >
+                <Maximize2 size={14} />
+              </button>
+            )}
+
             {/* Expand/collapse toggle */}
             {drawerState === 'peek' && (
               <button
@@ -590,6 +617,24 @@ export function LilaDrawer({
             </div>
           )}
 
+          {/* Error message — persists until next send */}
+          {errorMessage && !isStreaming && (
+            <div
+              className="flex items-start gap-2 p-3 rounded-xl text-sm"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <LilaAvatar avatarKey={avatarKey} size={16} />
+              <div>
+                <p>I had trouble with that. Want to try again?</p>
+                <p className="text-xs mt-1 opacity-60">{errorMessage}</p>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -607,7 +652,7 @@ export function LilaDrawer({
           </div>
 
           {/* Recording status bar — visible only while recording or transcribing */}
-          {(voiceState === 'recording' || voiceState === 'transcribing') && (
+          {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceState === 'recording' || voiceState === 'transcribing') && (
             <div
               className="mx-4 mt-1.5 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
               style={{
@@ -631,8 +676,8 @@ export function LilaDrawer({
           )}
 
           <div className="flex items-center gap-2 px-4 py-3">
-            {/* Voice input button — live when supported */}
-            {voiceSupported ? (
+            {/* Voice input button — hidden behind feature flag */}
+            {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceSupported ? (
               <button
                 type="button"
                 onClick={handleVoiceMic}
@@ -657,7 +702,7 @@ export function LilaDrawer({
               >
                 <Mic size={16} />
               </button>
-            )}
+            ))}
 
             <input
               type="text"

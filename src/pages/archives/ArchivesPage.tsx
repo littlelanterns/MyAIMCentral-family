@@ -47,6 +47,7 @@ import { supabase } from '@/lib/supabase/client'
 import { getOptimalColumnCount } from '@/lib/utils/gridColumns'
 import { ArchiveMemberCard } from '@/components/archives/ArchiveMemberCard'
 import { VoiceDumpModal } from '@/components/archives/VoiceDumpModal'
+import { FEATURE_FLAGS } from '@/config/featureFlags'
 import { BulkAddSortModal } from '@/components/archives/BulkAddSortModal'
 import { CropPreviewModal } from '@/components/archives/CropPreviewModal'
 
@@ -131,30 +132,43 @@ function useArchiveMemberStats(familyId: string | undefined, memberIds: string[]
       const stats: MemberArchiveStats[] = []
 
       for (const memberId of memberIds) {
-        const { count: totalSK } = await supabase
-          .from('self_knowledge')
-          .select('id', { count: 'exact', head: true })
-          .eq('family_id', familyId)
-          .eq('member_id', memberId)
-          .is('archived_at', null)
+        const [skTotal, skIncluded, gsTotal, aciTotal, aciIncluded] = await Promise.all([
+          supabase
+            .from('self_knowledge')
+            .select('id', { count: 'exact', head: true })
+            .eq('family_id', familyId)
+            .eq('member_id', memberId)
+            .is('archived_at', null),
+          supabase
+            .from('self_knowledge')
+            .select('id', { count: 'exact', head: true })
+            .eq('family_id', familyId)
+            .eq('member_id', memberId)
+            .eq('is_included_in_ai', true)
+            .is('archived_at', null),
+          supabase
+            .from('guiding_stars')
+            .select('id', { count: 'exact', head: true })
+            .eq('family_id', familyId)
+            .eq('member_id', memberId)
+            .is('archived_at', null),
+          supabase
+            .from('archive_context_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('family_id', familyId)
+            .eq('member_id', memberId)
+            .is('archived_at', null),
+          supabase
+            .from('archive_context_items')
+            .select('id', { count: 'exact', head: true })
+            .eq('family_id', familyId)
+            .eq('member_id', memberId)
+            .eq('is_included_in_ai', true)
+            .is('archived_at', null),
+        ])
 
-        const { count: includedSK } = await supabase
-          .from('self_knowledge')
-          .select('id', { count: 'exact', head: true })
-          .eq('family_id', familyId)
-          .eq('member_id', memberId)
-          .eq('is_included_in_ai', true)
-          .is('archived_at', null)
-
-        const { count: totalGS } = await supabase
-          .from('guiding_stars')
-          .select('id', { count: 'exact', head: true })
-          .eq('family_id', familyId)
-          .eq('member_id', memberId)
-          .is('archived_at', null)
-
-        const total = (totalSK ?? 0) + (totalGS ?? 0)
-        const included = (includedSK ?? 0) + (totalGS ?? 0)
+        const total = (skTotal.count ?? 0) + (gsTotal.count ?? 0) + (aciTotal.count ?? 0)
+        const included = (skIncluded.count ?? 0) + (gsTotal.count ?? 0) + (aciIncluded.count ?? 0)
 
         stats.push({
           memberId,
@@ -836,7 +850,8 @@ export function ArchivesPage() {
               </div>
             </button>
 
-            {/* Option B: Voice Dump */}
+            {/* Option B: Voice Dump — hidden behind feature flag */}
+            {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (
             <button
               onClick={() => {
                 setFabExpanded(false)
@@ -860,6 +875,7 @@ export function ArchivesPage() {
                 <Mic size={18} />
               </div>
             </button>
+            )}
 
             {/* Option C: Bulk Add & Sort */}
             <button

@@ -184,13 +184,19 @@ export function buildContextSection(contextData: {
   selfKnowledge?: Array<{ content: string; category: string }>
   journalRecent?: Array<{ content: string; entry_type: string }>
   archiveItems?: Array<{ context_value: string; folder_name?: string }>
-  familyMembers?: Array<{ display_name: string; role: string }>
+  archiveContext?: Array<{ content: string }>
+  familyMembers?: Array<{ display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }>
 }): string {
   const sections: string[] = []
 
   if (contextData.familyMembers?.length) {
     sections.push(`## Family Members\n${contextData.familyMembers
-      .map(m => `- ${m.display_name} (${m.role})`)
+      .map(m => {
+        const details: string[] = [m.role]
+        if (m.age) details.push(`age ${m.age}`)
+        if (m.relationship) details.push(m.relationship)
+        return `- ${m.display_name} (${details.join(', ')})`
+      })
       .join('\n')}`)
   }
 
@@ -238,6 +244,12 @@ export function buildContextSection(contextData: {
   if (contextData.archiveItems?.length) {
     sections.push(`## Archive Context\n${contextData.archiveItems
       .map(a => `- ${a.context_value}${a.folder_name ? ` [${a.folder_name}]` : ''}`)
+      .join('\n')}`)
+  }
+
+  if (contextData.archiveContext?.length) {
+    sections.push(`## Family Context (Archives)\n${contextData.archiveContext
+      .map(a => `- ${a.content}`)
       .join('\n')}`)
   }
 

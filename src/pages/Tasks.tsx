@@ -115,9 +115,14 @@ export function TasksPage() {
 
   const handleCreateTask = useCallback(
     async (data: CreateTaskData) => {
+      if (!family?.id || !member?.id) {
+        console.error('Cannot create task: family or member not loaded')
+        return
+      }
+
       const taskBase = {
-        family_id: family?.id,
-        created_by: member?.id,
+        family_id: family.id,
+        created_by: member.id,
         title: data.title,
         description: data.description || null,
         task_type: data.taskType === 'opportunity' ? 'opportunity_repeatable' : data.taskType,
@@ -164,9 +169,13 @@ export function TasksPage() {
           const assignments = data.assignments.map(a => ({
             task_id: newTask.id,
             member_id: a.memberId,
-            assigned_by: member?.id,
+            family_member_id: a.memberId,
+            assigned_by: member.id,
           }))
-          await supabase.from('task_assignments').insert(assignments)
+          const { error: assignError } = await supabase.from('task_assignments').insert(assignments)
+          if (assignError) {
+            console.error('Failed to create task assignments:', assignError)
+          }
         }
       }
 

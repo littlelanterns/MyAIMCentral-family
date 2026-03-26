@@ -229,20 +229,16 @@ export function ArchiveMemberCard({
         </p>
       </div>
 
-      {/* Camera overlay — hover only (desktop) */}
+      {/* Camera button — top-right corner, hover only (desktop) */}
       {onFileSelect && (
-        <div
-          className="absolute inset-0 z-20 items-center justify-center transition-opacity hidden md:flex opacity-0 group-hover:opacity-100"
-          style={{ backgroundColor: 'rgba(0,0,0,0.35)' }}
+        <button
+          className="absolute top-2 right-2 z-20 p-2 rounded-full transition-opacity hidden md:flex opacity-0 group-hover:opacity-100"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
           onClick={handleCameraClick}
+          title={hasPhoto ? 'Change Photo' : 'Add Photo'}
         >
-          <div className="flex flex-col items-center gap-1">
-            <Camera size={28} color="#ffffff" />
-            <span className="text-xs font-medium text-white">
-              {hasPhoto ? 'Change Photo' : 'Add Photo'}
-            </span>
-          </div>
-        </div>
+          <Camera size={16} color="#ffffff" />
+        </button>
       )}
 
       {/* Camera overlay — long-press (mobile) */}

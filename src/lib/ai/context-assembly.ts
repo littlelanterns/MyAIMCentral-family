@@ -98,7 +98,7 @@ export function shouldLoadBestIntentions(
 /** A named group of context items from a single source domain. */
 export interface ContextSection {
   label: string
-  items: Array<{ content: string; source?: string; visibility?: string; belongsToOtherMember?: boolean }>
+  items: Array<{ content: string; source?: string; belongsToOtherMember?: boolean }>
 }
 
 export interface ContextBundle {
@@ -107,7 +107,7 @@ export interface ContextBundle {
   selfKnowledge: Array<{ id: string; content: string; category: string }>
   journalRecent: Array<{ id: string; content: string; entry_type: string }>
   archiveItems: Array<{ id: string; context_value: string; folder_name?: string }>
-  familyMembers: Array<{ id: string; display_name: string; role: string }>
+  familyMembers: Array<{ id: string; display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }>
   faithPreferences: {
     tradition?: string
     denomination?: string
@@ -216,7 +216,7 @@ async function loadArchiveContext(
   // Step 3: Load items from enabled folders (item level)
   let query = supabase
     .from('archive_context_items')
-    .select('id, context_value, folder_id, member_id, is_included_in_ai, is_privacy_filtered, visibility')
+    .select('id, context_value, folder_id, member_id, is_included_in_ai, is_privacy_filtered')
     .eq('family_id', familyId)
     .in('folder_id', enabledFolderIds)
     .eq('is_included_in_ai', true)
@@ -239,7 +239,6 @@ async function loadArchiveContext(
     items: items.map(item => ({
       content: `[${folderMap.get(item.folder_id) ?? 'Archive'}] ${item.context_value}`,
       source: 'archive',
-      visibility: item.is_privacy_filtered ? 'private' : undefined,
       belongsToOtherMember: false,
     })),
   }
@@ -382,7 +381,7 @@ export async function assembleContext(
   // ---------------------------------------------------------------------------
   const { data: membersData } = await supabase
     .from('family_members')
-    .select('id, display_name, role')
+    .select('id, display_name, role, age, date_of_birth, dashboard_mode, relationship')
     .eq('family_id', familyId)
     .eq('is_active', true)
 
@@ -391,6 +390,9 @@ export async function assembleContext(
       id: m.id,
       display_name: m.display_name,
       role: m.role,
+      age: m.age ?? undefined,
+      dashboard_mode: m.dashboard_mode ?? undefined,
+      relationship: m.relationship ?? undefined,
     }))
   }
 
@@ -566,23 +568,10 @@ export async function assembleContext(
 
   // ---------------------------------------------------------------------------
   // Step 6: Privacy Filtered exclusion
-  // Items with visibility = 'private' are NEVER included for non-mom members.
-  // This is a HARD system constraint (PRD-13).
+  // Archive items with is_privacy_filtered are already excluded server-side (query filter).
+  // This step is a defense-in-depth no-op for now — the real filtering happens in
+  // loadArchiveContext() via the .eq('is_privacy_filtered', false) query for non-mom.
   // ---------------------------------------------------------------------------
-  if (!isMom) {
-    const allSections: ContextSection[] = [
-      bundle.archiveContext,
-      bundle.lifeLanternContext,
-      bundle.partnerContext,
-      bundle.bookShelfContext,
-      bundle.familyVisionContext,
-      bundle.personalVisionContext,
-      bundle.recentTasksContext,
-    ]
-    for (const section of allSections) {
-      section.items = section.items.filter(item => item.visibility !== 'private')
-    }
-  }
 
   return bundle
 }

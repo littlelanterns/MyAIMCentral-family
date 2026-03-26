@@ -92,33 +92,120 @@ interface ContextData {
   guidingStars: string[]
   bestIntentions: string[]
   selfKnowledge: Array<{ content: string; category: string }>
-  familyMembers: Array<{ display_name: string; role: string }>
+  familyMembers: Array<{ display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }>
+  archiveContext: Array<{ content: string; folder_name?: string }>
   faithContext: string
 }
 
 async function assembleServerContext(familyId: string, memberId: string): Promise<ContextData> {
-  const [gsRes, biRes, skRes, fmRes, fpRes] = await Promise.all([
-    supabase.from('guiding_stars').select('content').eq('family_id', familyId).eq('member_id', memberId).eq('is_included_in_ai', true),
-    supabase.from('best_intentions').select('statement').eq('family_id', familyId).eq('member_id', memberId).eq('is_included_in_ai', true),
-    supabase.from('self_knowledge').select('content, category').eq('family_id', familyId).eq('member_id', memberId).eq('is_included_in_ai', true),
-    supabase.from('family_members').select('display_name, role').eq('family_id', familyId).eq('is_active', true),
-    supabase.from('faith_preferences').select('tradition, denomination, response_approach, special_instructions').eq('family_id', familyId).maybeSingle(),
+  // Load all family members first (needed for multi-member context)
+  const fmRes = await supabase
+    .from('family_members')
+    .select('id, display_name, role, age, date_of_birth, dashboard_mode, relationship')
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+
+  const allMemberIds = (fmRes.data || []).map((m: { id: string }) => m.id)
+
+  // Load context for ALL family members (not just conversation owner)
+  const [gsRes, biRes, skRes, fpRes, archiveRes] = await Promise.all([
+    // Guiding Stars for all members
+    supabase.from('guiding_stars').select('content, member_id').eq('family_id', familyId).eq('is_included_in_ai', true).is('archived_at', null),
+    // Best Intentions for all members
+    supabase.from('best_intentions').select('statement, member_id').eq('family_id', familyId).eq('is_included_in_ai', true).eq('is_active', true).is('archived_at', null),
+    // Self-Knowledge for all members
+    supabase.from('self_knowledge').select('content, category, member_id').eq('family_id', familyId).eq('is_included_in_ai', true).is('archived_at', null),
+    // Faith preferences
+    supabase.from('faith_preferences').select('faith_tradition, denomination, special_instructions').eq('family_id', familyId).maybeSingle(),
+    // Archive context items — load from enabled folders for all members
+    loadArchiveContextServer(familyId, allMemberIds),
   ])
 
   let faithContext = ''
-  if (fpRes.data?.tradition) {
-    faithContext = `Faith: This family identifies with ${fpRes.data.tradition}${fpRes.data.denomination ? ` (${fpRes.data.denomination})` : ''}. Reference when naturally relevant. Never force.`
-    if (fpRes.data.special_instructions) {
-      faithContext += ` Family instructions: ${fpRes.data.special_instructions}`
+  const fp = fpRes.data as { faith_tradition?: string; denomination?: string; special_instructions?: string } | null
+  if (fp?.faith_tradition) {
+    faithContext = `Faith: This family identifies with ${fp.faith_tradition}${fp.denomination ? ` (${fp.denomination})` : ''}. Reference when naturally relevant. Never force.`
+    if (fp.special_instructions) {
+      faithContext += ` Family instructions: ${fp.special_instructions}`
     }
   }
 
   return {
-    guidingStars: gsRes.data?.map(g => g.content) || [],
-    bestIntentions: biRes.data?.map(b => b.statement) || [],
-    selfKnowledge: skRes.data || [],
-    familyMembers: fmRes.data || [],
+    guidingStars: (gsRes.data || []).map((g: { content: string }) => g.content),
+    bestIntentions: (biRes.data || []).map((b: { statement: string }) => b.statement),
+    selfKnowledge: (skRes.data || []) as Array<{ content: string; category: string }>,
+    familyMembers: (fmRes.data || []).map((m: { display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }) => ({
+      display_name: m.display_name,
+      role: m.role,
+      age: m.age,
+      dashboard_mode: m.dashboard_mode,
+      relationship: m.relationship,
+    })),
+    archiveContext: archiveRes,
     faithContext,
+  }
+}
+
+/** Load archive context items with three-tier filtering (server-side, using service role) */
+async function loadArchiveContextServer(
+  familyId: string,
+  memberIds: string[],
+): Promise<Array<{ content: string; folder_name?: string }>> {
+  if (memberIds.length === 0) return []
+
+  try {
+    // Step 1: Check person-level toggles
+    const { data: memberSettings } = await supabase
+      .from('archive_member_settings')
+      .select('member_id, is_included_in_ai')
+      .eq('family_id', familyId)
+
+    // Members without settings default to included
+    const excludedMembers = new Set(
+      (memberSettings ?? [])
+        .filter((s: { is_included_in_ai: boolean }) => !s.is_included_in_ai)
+        .map((s: { member_id: string }) => s.member_id)
+    )
+    const enabledMembers = memberIds.filter(id => !excludedMembers.has(id))
+    if (enabledMembers.length === 0) return []
+
+    // Step 2: Load enabled folders (category level)
+    const { data: folders } = await supabase
+      .from('archive_folders')
+      .select('id, folder_name, is_included_in_ai, member_id')
+      .eq('family_id', familyId)
+      .eq('is_included_in_ai', true)
+
+    if (!folders || folders.length === 0) return []
+
+    // Filter to folders belonging to enabled members (or family-level folders with null member_id)
+    const enabledFolders = folders.filter((f: { member_id: string | null }) =>
+      f.member_id === null || enabledMembers.includes(f.member_id)
+    )
+    if (enabledFolders.length === 0) return []
+
+    const enabledFolderIds = enabledFolders.map((f: { id: string }) => f.id)
+    const folderMap = new Map(enabledFolders.map((f: { id: string; folder_name: string }) => [f.id, f.folder_name]))
+
+    // Step 3: Load items from enabled folders (item level)
+    const { data: items } = await supabase
+      .from('archive_context_items')
+      .select('context_value, folder_id')
+      .eq('family_id', familyId)
+      .in('folder_id', enabledFolderIds)
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null)
+      .limit(100) // Cap to prevent token overflow
+
+    if (!items || items.length === 0) return []
+
+    return items.map((item: { context_value: string; folder_id: string }) => ({
+      content: item.context_value,
+      folder_name: folderMap.get(item.folder_id),
+    }))
+  } catch (err) {
+    console.error('Archive context loading failed:', err)
+    return []
   }
 }
 
@@ -141,24 +228,38 @@ function buildSystemPrompt(
   // Faith
   if (context.faithContext) parts.push(context.faithContext)
 
-  // Family members
+  // Family members with details
   if (context.familyMembers.length > 0) {
-    parts.push(`Family: ${context.familyMembers.map(m => `${m.display_name} (${m.role})`).join(', ')}`)
+    const memberLines = context.familyMembers.map(m => {
+      const details: string[] = [m.role]
+      if (m.age) details.push(`age ${m.age}`)
+      if (m.relationship) details.push(m.relationship)
+      if (m.dashboard_mode) details.push(`${m.dashboard_mode} mode`)
+      return `- ${m.display_name} (${details.join(', ')})`
+    })
+    parts.push(`## Family Members\n${memberLines.join('\n')}`)
   }
 
   // Guiding Stars
   if (context.guidingStars.length > 0) {
-    parts.push(`Guiding Stars:\n${context.guidingStars.map(g => `- ${g}`).join('\n')}`)
+    parts.push(`## Guiding Stars\n${context.guidingStars.map(g => `- ${g}`).join('\n')}`)
   }
 
   // Best Intentions
   if (context.bestIntentions.length > 0) {
-    parts.push(`Best Intentions:\n${context.bestIntentions.map(b => `- ${b}`).join('\n')}`)
+    parts.push(`## Best Intentions\n${context.bestIntentions.map(b => `- ${b}`).join('\n')}`)
   }
 
   // Self-Knowledge
   if (context.selfKnowledge.length > 0) {
-    parts.push(`Self-Knowledge:\n${context.selfKnowledge.map(s => `- [${s.category}] ${s.content}`).join('\n')}`)
+    parts.push(`## Self-Knowledge (InnerWorkings)\n${context.selfKnowledge.map(s => `- [${s.category}] ${s.content}`).join('\n')}`)
+  }
+
+  // Archive Context (family knowledge, interests, preferences, schedules)
+  if (context.archiveContext.length > 0) {
+    parts.push(`## Family Context (Archives)\n${context.archiveContext.map(a =>
+      `- ${a.content}${a.folder_name ? ` [${a.folder_name}]` : ''}`
+    ).join('\n')}`)
   }
 
   // Page context
@@ -166,8 +267,10 @@ function buildSystemPrompt(
     parts.push(`Current page: ${pageContext}`)
   }
 
-  if (context.guidingStars.length === 0 && context.bestIntentions.length === 0 && context.selfKnowledge.length === 0) {
-    parts.push('No family context loaded yet. Give helpful but more generic responses.')
+  const hasContext = context.guidingStars.length > 0 || context.bestIntentions.length > 0 ||
+    context.selfKnowledge.length > 0 || context.archiveContext.length > 0
+  if (!hasContext) {
+    parts.push('No detailed family context loaded yet. Give helpful but more generic responses. Encourage the user to add context through Archives, Guiding Stars, or InnerWorkings for more personalized help.')
   }
 
   return parts.join('\n\n')
