@@ -26,7 +26,7 @@ import {
 import type { LilaConversation } from '@/hooks/useLila'
 import { LilaAvatar } from './LilaAvatar'
 import { supabase } from '@/lib/supabase/client'
-import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { useVoiceInput } from '@/hooks/useVoiceInput'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 
 const MAX_ADVISORS = 5
@@ -148,7 +148,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingChunks, setStreamingChunks] = useState<Array<{ personaName: string | null; content: string }>>([])
-  const [currentStreamPersona, setCurrentStreamPersona] = useState<string | null>(null)
+  const [_currentStreamPersona, setCurrentStreamPersona] = useState<string | null>(null)
 
   const [seatedPersonas, setSeatedPersonas] = useState<Persona[]>([])
   const [showPersonaSelector, setShowPersonaSelector] = useState(false)
@@ -160,7 +160,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
   const [searchResults, setSearchResults] = useState<Persona[]>([])
   const [favorites, setFavorites] = useState<string[]>([])
   const [allPersonas, setAllPersonas] = useState<Persona[]>([])
-  const [recentPersonaIds, setRecentPersonaIds] = useState<string[]>([])
+  const [_recentPersonaIds, _setRecentPersonaIds] = useState<string[]>([])
 
   // Create persona state
   const [newName, setNewName] = useState('')
@@ -176,7 +176,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
 
   const {
     state: voiceState,
-    duration: voiceDuration,
+    duration: _voiceDuration,
     interimText,
     startRecording,
     stopRecording,
@@ -493,7 +493,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
   // ── Render ───────────────────────────────────────────────
 
   // Determine disclaimer info from messages
-  const disclaimerMessage = useMemo(() => {
+  const _disclaimerMessage = useMemo(() => {
     const msg = messages.find(m => m.metadata?.show_disclaimer === true)
     if (!msg) return null
     return msg.metadata?.persona_name as string || null
@@ -590,7 +590,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
                 {isAdvisor && (
                   <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text-heading)' }}>
                     <Users size={12} />
-                    {meta.persona_name as string}:
+                    {String(meta.persona_name || '')}:
                   </div>
                 )}
                 {isLila && (
@@ -608,7 +608,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
                   {/* Disclaimer — once per session */}
                   {showDiscl && (
                     <p className="mt-2 text-xs italic" style={{ color: 'var(--color-text-secondary)', opacity: 0.7 }}>
-                      This is an AI interpretation of {meta.persona_name as string} based on publicly available writings and known positions. Not endorsed by or affiliated with {meta.persona_name as string}. For the real thing, read their actual work.
+                      This is an AI interpretation of {String(meta.persona_name || '')} based on publicly available writings and known positions. Not endorsed by or affiliated with {String(meta.persona_name || '')}. For the real thing, read their actual work.
                     </p>
                   )}
                 </div>

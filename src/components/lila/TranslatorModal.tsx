@@ -65,6 +65,8 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
       // Create a new conversation for this rewrite (or reuse existing)
       let convId: string
       const conv = await createConversation.mutateAsync({
+        family_id: family.id,
+        member_id: member.id,
         mode: 'general',
         guided_mode: 'translator',
         container_type: 'modal',
