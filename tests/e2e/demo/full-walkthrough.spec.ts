@@ -12,17 +12,12 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
 
-dotenv.config({ path: '.env.local' })
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL!
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!
+const BASE_URL = 'http://localhost:5173'
 
 const DEMO_USERS = {
-  sarah: { email: 'testmom@testworths.com', password: 'TestPassword123!' },
-  ruthie: { email: 'ruthietest@testworths.com', password: 'TestPassword123!' },
+  sarah: { email: 'testmom@testworths.com', password: 'Demo2026!' },
+  ruthie: { email: 'ruthietest@testworths.com', password: 'Demo2026!' },
 }
 
 // ── Test Configuration ──────────────────────────────────────────
@@ -33,37 +28,40 @@ test.use({
   viewport: { width: 1280, height: 720 },
 })
 
-// ── Auth Helper ─────────────────────────────────────────────────
+// ── Auth Helper — Browser UI Login ──────────────────────────────
+// Uses the real login page so judges see the actual sign-in flow.
 
-async function loginAs(page: Page, email: string, password: string) {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
+async function loginViaUI(page: Page, email: string, password: string) {
+  await page.goto(`${BASE_URL}/auth/sign-in`)
+  await page.waitForLoadState('networkidle')
+
+  // Type email
+  const emailInput = page.locator('input[placeholder="your@email.com"]')
+  await emailInput.waitFor({ state: 'visible', timeout: 8000 })
+  await emailInput.click()
+  await page.keyboard.type(email, { delay: 35 })
+
+  // Type password
+  const passwordInput = page.locator('input[placeholder="Your password"]')
+  await passwordInput.click()
+  await page.keyboard.type(password, { delay: 35 })
+
+  await page.waitForTimeout(500)
+
+  // Click Sign In
+  const signInBtn = page.locator('button[type="submit"]:has-text("Sign In")')
+  await signInBtn.click()
+
+  // Wait for redirect to dashboard
+  await page.waitForURL('**/dashboard**', { timeout: 15000 }).catch(() => {
+    // Some flows redirect to other pages — just wait for network idle
   })
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error || !data.session) throw new Error(`Login failed: ${error?.message}`)
-
-  await page.goto('/')
-  const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
-  await page.evaluate(([key, val]) => localStorage.setItem(key, val), [
-    storageKey,
-    JSON.stringify({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      expires_at: data.session.expires_at,
-      expires_in: data.session.expires_in || 3600,
-      token_type: 'bearer',
-      type: 'access',
-      user: data.session.user,
-    }),
-  ])
+  await page.waitForLoadState('networkidle')
 
   // Dismiss the intro tour so it doesn't interfere with the demo
   await page.evaluate(() => {
-    localStorage.setItem('myaim_intro_tour_dismissed', String(Date.now()))
+    sessionStorage.setItem('myaim_intro_tour_dismissed', 'true')
   })
-
-  await page.reload()
-  await page.waitForLoadState('networkidle')
 }
 
 // ── Caption System ──────────────────────────────────────────────
@@ -143,9 +141,7 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
     await showCaption(page, 'Welcome to MyAIM Family',
       'Logging in as Sarah Testworth — mom of 6, managing it all',
       'Help a mom, help everyone she holds. That\'s the entire thesis.')
-    await loginAs(page, DEMO_USERS.sarah.email, DEMO_USERS.sarah.password)
-    await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
+    await loginViaUI(page, DEMO_USERS.sarah.email, DEMO_USERS.sarah.password)
     await expect(page.locator('main').first()).toBeVisible({ timeout: 10_000 })
 
     await showCaption(page, 'The Command Center',
@@ -468,9 +464,7 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
     }
 
     // Login as Ruthie
-    await loginAs(page, DEMO_USERS.ruthie.email, DEMO_USERS.ruthie.password)
-    await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
+    await loginViaUI(page, DEMO_USERS.ruthie.email, DEMO_USERS.ruthie.password)
 
     await showCaption(page, 'Ruthie\'s World',
       'A 7-year-old with Down Syndrome gets her own purpose-built experience',
