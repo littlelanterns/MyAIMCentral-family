@@ -11,7 +11,8 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Sparkles, ThumbsUp, ThumbsDown, Send, Check, Bell, BellOff } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Sparkles, ThumbsUp, ThumbsDown, Send, Check, Bell, BellOff, Map } from 'lucide-react'
 import { FEATURE_EXPANSION_REGISTRY } from '@/config/feature_expansion_registry'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -353,6 +354,18 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
               </span>
             </div>
           </button>
+        </div>
+
+        {/* ── Lantern's Path link ── */}
+        <div className="px-5 pb-4">
+          <Link
+            to="/lanterns-path"
+            className="flex items-center gap-1.5 text-xs font-medium"
+            style={{ color: 'var(--color-warm-earth, #6B4E3D)', opacity: 0.55 }}
+          >
+            <Map size={12} />
+            Learn more in The Lantern's Path
+          </Link>
         </div>
       </div>
     </div>

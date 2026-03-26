@@ -54,7 +54,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   victories: {
     name: 'Victory Recorder & DailyCelebration',
     description:
-      'This is your Ta-Da list — not a to-do list. Record personal victories big and small, and let LiLa weave them into celebration narratives with eight unique voices, from a proud grandmother to a poetic storyteller. Victories auto-route from completed tasks and milestones.',
+      'You did 47 things today. Your brain remembers the 3 you didn\'t do. Victory Recorder flips the script — it\'s a ta-da list, not a to-do list. Every completed task, every tracker milestone automatically appears here. Plus manual entries for wins that don\'t live anywhere else: "I didn\'t yell when the milk spilled." LiLa writes you a daily celebration that honors small steps without being fake about it — choose from eight celebration voices.',
     location_hint: 'Personal Dashboard, daily rhythm, family celebration',
   },
 
@@ -109,14 +109,14 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   calendar: {
     name: 'Family Calendar',
     description:
-      'A calendar built for the way families actually schedule. Color-coded by family member, category icons for sports/medical/school, AI-assisted event intake that extracts dates from photos of flyers and emails. Children\'s events require parent approval. Leave-by-time reminders so you\'re never late.',
+      'Natural language event creation ("Dentist next Thursday at 2pm for Amelia"), per-member color coding so you see everyone\'s schedule at a glance, and member filter pills to focus on one person\'s day at a time. Category icons for sports, medical, school, and more. Children\'s events require parent approval. Leave-by-time reminders so you\'re never late. Your family\'s chaos, color-coded and searchable.',
     location_hint: 'Bottom nav, all dashboards',
   },
 
   meetings: {
     name: 'Family Meetings',
     description:
-      'Structured meeting templates for couple check-ins, parent-child conversations, family councils, weekly reviews, and quarterly family inventories. Each member contributes agenda items beforehand. LiLa facilitates in real time, captures action items, and routes follow-ups to the right features.',
+      'Run a weekly family meeting with a pre-built agenda. LiLa captures action items as you talk — "Jake, trash, Tuesdays" becomes a recurring task automatically routed to Jake\'s list. Structured templates for couple check-ins, parent-child conversations, family councils, weekly reviews, and quarterly inventories. The weekly family meeting your family keeps skipping? This makes it actually happen.',
     location_hint: 'Personal Dashboard, family coordination',
   },
 
@@ -155,7 +155,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   safe_harbor: {
     name: 'Safe Harbor — Emotional Processing',
     description:
-      'A completely private space for processing difficult emotions. LiLa acts as a compassionate processing partner — never a therapist, always a bridge toward real human connection. Safe Harbor conversations are exempt from all data aggregation, reports, and spousal transparency. For teens, parent consent and AI literacy orientation are required first.',
+      'A completely private emotional space for your teens to process hard feelings with LiLa. You cannot see it. It doesn\'t feed into any reports. It\'s exempt from all data aggregation and spousal transparency. Because you love your kids enough to give them space. Parent consent and AI literacy orientation required first — safety is never compromised.',
     location_hint: 'Personal Dashboard, dedicated entry point',
   },
 
@@ -164,7 +164,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   bookshelf: {
     name: 'BookShelf — Personal Wisdom Library',
     description:
-      'Upload your favorite books and let LiLa extract key insights, principles, frameworks, declarations, and action steps chapter by chapter. Heart the wisdom that resonates most. Build a personal library that LiLa references in your conversations — your books become part of your AI context. Cross-book discussions connect ideas across your entire library.',
+      'You bought 12 parenting books this year. You\'ve finished... one and a half. BookShelf doesn\'t judge. Upload any book you own and LiLa reads it WITH you — extracting principles, declarations, and action steps chapter by chapter. Heart the wisdom that resonates most. Then she turns wisdom into action: a principle becomes a Guiding Star, an action step becomes a Task. And Discussion mode lets you talk through the book like you\'re at the world\'s most patient book club.',
     location_hint: 'Personal Dashboard sidebar, LiLa context, AI Vault',
   },
 
@@ -173,7 +173,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   gamification: {
     name: 'Visual Worlds & Gamification',
     description:
-      'Transform your child\'s dashboard into a living world. Choose from garden, ocean, space, and kingdom themes where completing tasks grows the scene. Collectible overlay systems — nurture pets, brew potions, build kingdoms — with daily effort earning new items. Configurable point systems, streak celebrations, treasure boxes with reveal animations, and a reward store where kids spend earned points.',
+      'Your kids do NOT want to check off chores. But they DO want to open a treasure chest to see what badge they earned. XP for completed tasks. Levels that unlock rewards. Eight reveal animations. Transform your child\'s dashboard into a living world — garden, ocean, space, and kingdom themes where completing tasks grows the scene. And the philosophy is celebration-only — XP goes up, never down. Missing a day doesn\'t punish.',
     location_hint: 'Child dashboards, family celebration',
   },
 
@@ -189,10 +189,10 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   // ── Family Feeds ─────────────────────────────────────────────────
 
   family_feeds: {
-    name: 'Family Life Feed',
+    name: 'Family Feeds',
     description:
-      'A private family social network — just for your family. Capture moments with photos, voice recordings, and text. Tag moments as portfolio items for homeschool documentation. Share with Out of Nest family members (grandparents, college kids) through a dedicated feed. LiLa can bulk-summarize a day of learning into a polished family update.',
-    location_hint: 'Bottom nav, family sharing surface',
+      'A private Instagram for your family. Share moments, document your homeschool day, and let adult kids who\'ve left home stay connected. Voice dump your whole day and LiLa sorts entries per-kid automatically. Portfolio tagging for homeschool documentation. No ads, no algorithms, no strangers. Just your family\'s story, told by the people living it.',
+    location_hint: 'Sidebar under Family, family sharing surface',
   },
 
   // ── MindSweep ────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   mindsweep: {
     name: 'MindSweep — Brain Dump Capture',
     description:
-      'Voice, text, scan, or email anything into MindSweep and let AI sort it all. That random thought at 2 AM? Voice-capture it. A school flyer? Snap a photo. A forwarded email about soccer practice? Forward it to your MindSweep address. AI auto-routes every item to tasks, calendar, journal, lists, or wherever it belongs — with your approval.',
+      'Brain dump on steroids. Text it, speak it, forward an email — LiLa sorts EVERYTHING. Three modes: Always Ask, Trust the Obvious, Full Autopilot. That random thought at 2 AM? Voice-capture it. A school flyer? Snap a photo. A forwarded email about soccer practice? Forward it to your MindSweep address. The 11pm brain dump that used to keep you awake? LiLa handles it while you sleep.',
     location_hint: 'PWA entry point, Quick Tasks drawer',
   },
 
@@ -209,7 +209,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   caregiver_tools: {
     name: 'Caregiver & Co-Parent Tools',
     description:
-      'Purpose-built tools for babysitters, grandparents, and co-parents. Trackable event logging (meals, naps, medications, diapers), shift reports auto-compiled when the caregiver leaves, and custody schedule integration. Special adults see only what mom has authorized, only during their scheduled access windows.',
+      'Invite your babysitter with a link. They see the kids\' schedules, tasks, medication, and allergy info — only what you\'ve authorized. They mark things done and add notes. When their shift ends, a report auto-compiles. Co-parents with custody schedules get always-on access during their windows. Access expires automatically.',
     location_hint: 'Special adult shell, mom\'s permission hub',
   },
 
@@ -218,14 +218,14 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   tracking_financial: {
     name: 'Allowance & Financial Tracking',
     description:
-      'Teach financial literacy through real experience. Set up fixed, task-based, or hybrid allowance systems. Kids earn, save, and spend points or real money. Loan tracking with customizable terms teaches borrowing responsibility. Opportunity earnings let kids claim extra tasks for bonus pay.',
+      'Set up allowance pools with rules: Jake earns $10/week but only the percentage he completes. 7 of 10 chores = $7. Clean, fair, automated. Three approaches: fixed allowance, task-based earnings, or hybrid. Loan tracking teaches borrowing responsibility. Opportunity earnings let kids claim extra tasks for bonus pay.',
     location_hint: 'Parent dashboard, child dashboard',
   },
 
   compliance: {
     name: 'Homeschool Compliance & Reporting',
     description:
-      'State-aware compliance tracking that takes the stress out of homeschool documentation. Map activities to education standards, auto-generate progress reports, maintain portfolio evidence, and create ESA-compliant invoices. LiLa drafts narrative reports using your actual activity data — you just review and approve.',
+      'Homeschool reports that write themselves. SDS monthly summaries that used to take hours now take minutes. ESA invoices at EVERY tier. State-aware compliance tracking, standards mapping, portfolio evidence collection, and LiLa-drafted narrative reports. Designed by a founder who writes these reports herself.',
     location_hint: 'Homeschool dashboard, parent reports',
   },
 
@@ -243,7 +243,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   bigplans: {
     name: 'BigPlans — Project & Goal Planner',
     description:
-      'Plan and track ambitious goals with LiLa\'s help. She detects whether you\'re backward-planning from a deadline, tracking a multi-phase project, designing a new family system, or running a trial period — and adapts her guidance accordingly. Friction detection identifies why you\'re stuck and suggests unblocking strategies. Check-ins keep momentum alive.',
+      'Tell LiLa "I want to homeschool starting in September" and she works backward: what needs to happen by August, July, June... all the way to today\'s first step. Every milestone becomes trackable. Friction detection identifies why you\'re stuck. Five planning modes auto-detected: backward planning, multi-phase projects, system design trials, habit building, and component deployment.',
     location_hint: 'Personal Dashboard, transformation section',
   },
 
@@ -252,7 +252,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   rhythms: {
     name: 'Rhythms & Reflections',
     description:
-      'Structure your day with morning and evening rhythms — not rigid routines, but gentle patterns that ground you. Each rhythm includes reflection prompts from a rotating library of 32 questions. Weekly, monthly, and quarterly rhythms help you zoom out and see the bigger picture. LiLa uses your reflections to deepen every future conversation.',
+      'Fully customizable morning and evening routines from a library of 28+ section types. Your morning might include: weather, today\'s tasks, a gratitude prompt, and a Guiding Star rotation. Your evening: mood check-in, today\'s victories, and a reflection prompt. Structure that fits YOUR rhythm, not someone else\'s template.',
     location_hint: 'Personal Dashboard, daily flow',
   },
 

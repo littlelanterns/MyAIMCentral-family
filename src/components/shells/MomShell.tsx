@@ -1,5 +1,6 @@
 import { useState, useCallback, type ReactNode } from 'react'
 import { Settings } from 'lucide-react'
+import { GuidedIntroTour } from '@/components/tour/GuidedIntroTour'
 import { useAutoCollapse } from '@/hooks/useAutoCollapse'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
@@ -113,6 +114,9 @@ export function MomShell({ children }: MomShellProps) {
         <main className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-16">
           {children}
         </main>
+
+        {/* Guided Intro Tour — floating carousel for new/demo users */}
+        <GuidedIntroTour />
 
         {/* LiLa bottom drawer — always mounted to preserve conversation state.
             Hidden behind overlays when history/context settings are open. */}

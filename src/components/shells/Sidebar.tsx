@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, FileText,
+  Palette, Lock, Gem, FileText, Rss,
   ChevronLeft, ChevronRight, Eye, ChevronDown,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -75,6 +75,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     title: 'Family',
     items: [
       { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
+      { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
     ],
   }
 

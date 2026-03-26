@@ -10,15 +10,15 @@ export function CalendarPage() {
 }
 
 export function TrackersPage() {
-  return <PlaceholderPage title="Trackers" description="Dashboard widgets and visual trackers for habits, goals, and progress." icon={BarChart3} prd="PRD-10" featureKey="widgets_trackers" />
+  return <PlaceholderPage title="Trackers" description="Dashboard widgets and visual trackers for habits, goals, and progress." icon={BarChart3} prd="PRD-10" featureKey="widgets" />
 }
 
 export function LifeLanternPage() {
-  return <PlaceholderPage title="LifeLantern" description="Personal life assessment across 6 areas: family, health, spirituality, education, community, personal growth." icon={Compass} prd="PRD-12A" featureKey="lifelantern" />
+  return <PlaceholderPage title="LifeLantern" description="Personal life assessment across 6 areas: family, health, spirituality, education, community, personal growth." icon={Compass} prd="PRD-12A" featureKey="life_lantern" />
 }
 
 export function FamilyContextPage() {
-  return <PlaceholderPage title="People" description="Family context, relationships, documents, and guided interview progress." icon={Users} prd="PRD-19" featureKey="people_relationships" />
+  return <PlaceholderPage title="People" description="Family context, relationships, documents, and guided interview progress." icon={Users} prd="PRD-19" featureKey="family_context" />
 }
 
 export function ArchivesPage() {
@@ -26,11 +26,11 @@ export function ArchivesPage() {
 }
 
 export function MorningRhythmPage() {
-  return <PlaceholderPage title="Morning Rhythm" description="Start your day with intention. Configurable morning routine with reflections." icon={Sun} prd="PRD-18" featureKey="morning_rhythm" />
+  return <PlaceholderPage title="Morning Rhythm" description="Start your day with intention. Configurable morning routine with reflections." icon={Sun} prd="PRD-18" featureKey="rhythms" />
 }
 
 export function EveningReviewPage() {
-  return <PlaceholderPage title="Evening Review" description="Reflect on your day. Gratitude, wins, and tomorrow's intentions." icon={Moon} prd="PRD-18" featureKey="evening_review" />
+  return <PlaceholderPage title="Evening Review" description="Reflect on your day. Gratitude, wins, and tomorrow's intentions." icon={Moon} prd="PRD-18" featureKey="rhythms" />
 }
 
 export function SettingsPage() {

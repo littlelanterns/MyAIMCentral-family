@@ -13,7 +13,7 @@
 
 import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, Inbox, Heart, Feather, GraduationCap } from 'lucide-react'
+import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
@@ -40,6 +40,18 @@ interface QuickAction {
 }
 
 // ─── Action Definitions ──────────────────────────────────────
+
+/** Pinned first — not subject to usage sorting */
+const PINNED_ACTIONS: QuickAction[] = [
+  {
+    key: 'lanterns_path',
+    label: "Lantern's Path",
+    icon: Map,
+    featureKey: 'lanterns_path',
+    kind: 'path',
+    path: '/lanterns-path',
+  },
+]
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
@@ -283,8 +295,8 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
     }
   }
 
-  // Auto-sort by usage frequency (PRD-04)
-  const sortedActions = sortByUsage(QUICK_ACTIONS)
+  // Auto-sort by usage frequency (PRD-04) — pinned items always first
+  const sortedActions = [...PINNED_ACTIONS, ...sortByUsage(QUICK_ACTIONS)]
 
   if (effectiveCollapsed) {
     return (
@@ -407,6 +419,7 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
 function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAction: () => void; illustratedUrl: string | null }) {
   const [hovered, setHovered] = useState(false)
   const Icon = item.icon
+  const isPinned = PINNED_ACTIONS.some(p => p.key === item.key)
 
   return (
     <button
@@ -416,10 +429,12 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
       className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap"
       style={{
         padding: '6px 12px',
-        backgroundColor: hovered
+        backgroundColor: isPinned
           ? 'var(--color-btn-primary-bg)'
-          : 'var(--color-bg-secondary)',
-        color: hovered
+          : hovered
+            ? 'var(--color-btn-primary-bg)'
+            : 'var(--color-bg-secondary)',
+        color: isPinned || hovered
           ? 'var(--color-btn-primary-text)'
           : 'var(--color-text-primary)',
         border: 'none',

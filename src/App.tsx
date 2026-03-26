@@ -23,6 +23,9 @@ import {
   VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
   FamilyContextPage, MorningRhythmPage, EveningReviewPage,
 } from '@/pages/placeholder'
+import { LanternsPathPage } from '@/pages/LanternsPath'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
 import { FamilyOverviewDetail } from '@/pages/archives/FamilyOverviewDetail'
@@ -97,6 +100,9 @@ function App() {
               <Route path="/vault/my-prompts" element={<ProtectedRoute><PersonalPromptLibraryPage /></ProtectedRoute>} />
               <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
               <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
+              <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
             </Routes>

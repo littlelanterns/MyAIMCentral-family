@@ -14,11 +14,11 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
   guiding_stars: {
     title: 'Your Guiding Stars',
     description:
-      'Guiding Stars are the values, declarations, and vision statements that define who you are and who you want to become. They anchor everything LiLa does for you.',
+      'Your Guiding Stars are the values and declarations that anchor everything LiLa does for you. "I choose to be fully present with my kids, even when the house is chaos." That\'s not a to-do — it\'s a declaration of who you\'re becoming.',
     bullets: [
-      'Add values, declarations, scripture, or vision statements',
-      'LiLa uses these as context for every conversation',
-      'Heart entries to include them in LiLa conversations',
+      'Write a Guiding Star — start with "I choose..." or "I am learning to..."',
+      'Use "Craft with LiLa" for AI-guided declaration writing',
+      'Heart entries to include them in every LiLa conversation',
     ],
   },
   best_intentions: {
@@ -34,11 +34,11 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
   inner_workings: {
     title: 'InnerWorkings — Know Yourself',
     description:
-      'InnerWorkings is your self-knowledge library. Personality types, strengths, growth areas, and the patterns that make you uniquely you.',
+      'You took that Enneagram test three years ago. You know you\'re an INFJ. But that knowledge just... sits there. InnerWorkings gives it a home and a purpose — a living self-knowledge library that makes every AI interaction deeply personal.',
     bullets: [
-      'Enter insights manually or upload assessment results',
-      'Discover more about yourself with LiLa\'s guided exploration',
-      '"Growth Areas" — always strength-based framing. Language matters here.',
+      'Add personality insights — Enneagram, MBTI, StrengthsFinder, or anything',
+      'Start a guided self-discovery conversation with LiLa',
+      'Upload assessment results for LiLa to extract insights',
     ],
   },
   journal: {
@@ -54,11 +54,11 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
   tasks: {
     title: 'Tasks & Routines',
     description:
-      'Your family\'s task management system. Simple tasks, structured routines, opportunity jobs, and sequential collections — all in one place.',
+      'Not just a checklist. Morning routines with step-by-step tracking. Opportunity boards kids can claim for rewards. Task Breaker AI that splits big jobs into manageable steps. Thirteen prioritization views to see your tasks through different lenses.',
     bullets: [
-      'Create tasks manually or receive them from Smart Notepad routing',
-      'Assign to family members with approval workflows',
-      'Multiple views: Simple List, Now/Next/Optional, By Category, and more',
+      'Create a task and try Task Breaker to decompose it into steps',
+      'Switch between prioritization views — each shows tasks through a different lens',
+      'Visit Studio to create routine templates for your kids',
     ],
   },
   lists: {
@@ -84,31 +84,31 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
   notepad: {
     title: 'Smart Notepad',
     description:
-      'Your always-available capture space. Write, speak, or paste anything — then route it to the right place with Review & Route.',
+      'Your always-available capture space. Dump three paragraphs of brain chaos, tap one button, and LiLa extracts each item — a task goes to Tasks, a reflection goes to Journal, a date goes to Calendar. One capture point, every destination.',
     bullets: [
+      'Dump anything on your mind, then tap Review & Route',
       'Multiple tabs for parallel thoughts',
-      'Voice-to-text input',
-      'Review & Route extracts and sends content to Tasks, Calendar, Journal, and more',
+      'Voice-to-text when your hands are full',
     ],
   },
   archives: {
-    title: 'Archives — Family Context',
+    title: 'Archives — Family Context Engine',
     description:
-      'The knowledge engine behind LiLa. Archives store everything LiLa needs to know about your family — preferences, schedules, personalities, and more.',
+      'This is what makes LiLa truly different. Archives store everything she needs to know about your family — allergies, school schedules, personality traits, communication styles. The more context LiLa has, the more she feels like a partner who actually knows your family.',
     bullets: [
-      'Per-member context folders with smart categories',
-      'Three-tier AI inclusion toggles (person, category, item)',
-      'Privacy Filtered items are never shared with LiLa for non-mom members',
+      'Visit a family member\'s archive and add a preference or personality trait',
+      'Three-tier toggles (person, category, item) control what LiLa knows',
+      'Tell LiLa about a family member — she\'ll suggest adding it to their Archive',
     ],
   },
   lila: {
     title: 'Meet LiLa — Your Processing Partner',
     description:
-      'LiLa (Little Lanterns) is your AI processing partner. She helps you think, plan, communicate, and grow — always as a partner, never a friend or therapist.',
+      'LiLa isn\'t a chatbot. She\'s a processing partner who knows your Guiding Stars, your family dynamics, and your communication style. She\'ll never pretend to be your friend or therapist — but she\'ll help you think more clearly than any generic AI ever could.',
     bullets: [
-      'Four modes: Help, Assist, Optimizer, and General Chat',
-      'Every AI suggestion offers Edit / Approve / Regenerate / Reject',
-      'LiLa uses your Guiding Stars, InnerWorkings, and Archives as context',
+      'Ask "What do you know about my family so far?" to see context in action',
+      'Try Help mode for "how do I..." questions about the platform',
+      'Every suggestion offers Edit / Approve / Regenerate / Reject — you\'re in control',
     ],
   },
   shift_view: {
