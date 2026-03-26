@@ -1,0 +1,505 @@
+// Shared relationship context loader for PRD-21 communication tools
+// Used by: lila-cyrano, lila-higgins-say, lila-higgins-navigate,
+//          lila-quality-time, lila-gifts, lila-observe-serve,
+//          lila-words-affirmation, lila-gratitude
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+// ────────────────────────────────────────────────────────────────
+// Types
+// ────────────────────────────────────────────────────────────────
+
+export interface PersonContext {
+  memberId: string
+  displayName: string
+  role: string
+  age?: number | null
+  dashboardMode?: string | null
+  relationship?: string | null
+  loveLangage?: string | null
+  personalityType?: string | null
+  howToReachMe?: string | null
+  archiveItems: string[]
+  negativePreferences: string[]
+  selfKnowledge: Array<{ content: string; category: string }>
+}
+
+export interface RelationshipContext {
+  /** Context for the user making the request */
+  userContext: PersonContext
+  /** Context for the selected person(s) */
+  personContexts: PersonContext[]
+  /** User's private notes about selected person(s) */
+  privateNotes: string[]
+  /** User's relationship notes for relevant pairs */
+  relationshipNotes: string[]
+  /** Name alias map for auto-detection */
+  nameAliases: Record<string, string>
+  /** Recent teaching skills used (for rotation) */
+  recentSkills: string[]
+  /** Total interaction count for skill-check threshold */
+  totalInteractions: number
+  /** User's guiding stars */
+  guidingStars: string[]
+  /** User's best intentions */
+  bestIntentions: string[]
+  /** Family faith context */
+  faithContext: string
+}
+
+// ────────────────────────────────────────────────────────────────
+// Main loader
+// ────────────────────────────────────────────────────────────────
+
+export async function loadRelationshipContext(
+  familyId: string,
+  memberId: string,
+  personIds: string[],
+  toolMode: string,
+): Promise<RelationshipContext> {
+  // Load all family members for name resolution
+  const { data: allMembers } = await supabase
+    .from('family_members')
+    .select('id, display_name, role, age, date_of_birth, dashboard_mode, relationship')
+    .eq('family_id', familyId)
+    .eq('is_active', true)
+
+  const members = allMembers || []
+
+  // Build name alias map from archive_member_settings
+  const { data: aliasData } = await supabase
+    .from('archive_member_settings')
+    .select('member_id, display_name_aliases')
+    .eq('family_id', familyId)
+
+  const nameAliases: Record<string, string> = {}
+  for (const m of members) {
+    // Map display_name → memberId
+    nameAliases[m.display_name.toLowerCase()] = m.id
+    // Map first name → memberId
+    const firstName = m.display_name.split(' ')[0]?.toLowerCase()
+    if (firstName) nameAliases[firstName] = m.id
+  }
+  // Map custom aliases
+  for (const a of (aliasData || [])) {
+    const aliases = a.display_name_aliases || []
+    for (const alias of aliases) {
+      if (alias) nameAliases[alias.toLowerCase()] = a.member_id
+    }
+  }
+
+  // Parallel load of all context sources
+  const [
+    guidingStarsRes,
+    bestIntentionsRes,
+    userSelfKnowledgeRes,
+    privateNotesRes,
+    relationshipNotesRes,
+    recentSkillsRes,
+    totalCountRes,
+    faithRes,
+    ...personLoads
+  ] = await Promise.all([
+    // User's guiding stars
+    supabase.from('guiding_stars')
+      .select('content')
+      .eq('family_id', familyId)
+      .eq('member_id', memberId)
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null),
+    // User's best intentions
+    supabase.from('best_intentions')
+      .select('statement')
+      .eq('family_id', familyId)
+      .eq('member_id', memberId)
+      .eq('is_included_in_ai', true)
+      .eq('is_active', true)
+      .is('archived_at', null),
+    // User's self-knowledge
+    supabase.from('self_knowledge')
+      .select('content, category')
+      .eq('family_id', familyId)
+      .eq('member_id', memberId)
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null),
+    // User's private notes about selected persons
+    personIds.length > 0
+      ? supabase.from('private_notes')
+          .select('content, about_member_id')
+          .eq('family_id', familyId)
+          .eq('author_id', memberId)
+          .in('about_member_id', personIds)
+          .eq('is_included_in_ai', true)
+      : Promise.resolve({ data: [] }),
+    // Relationship notes for user ↔ selected persons
+    personIds.length > 0
+      ? supabase.from('relationship_notes')
+          .select('content, person_a_id, person_b_id')
+          .eq('family_id', familyId)
+          .eq('author_id', memberId)
+          .eq('is_included_in_ai', true)
+      : Promise.resolve({ data: [] }),
+    // Recent teaching skills for rotation
+    supabase.from('teaching_skill_history')
+      .select('skill_key')
+      .eq('member_id', memberId)
+      .eq('tool_mode', toolMode)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    // Total interaction count for skill-check mode
+    supabase.from('teaching_skill_history')
+      .select('id', { count: 'exact', head: true })
+      .eq('member_id', memberId)
+      .eq('tool_mode', toolMode),
+    // Faith preferences
+    supabase.from('faith_preferences')
+      .select('faith_tradition, denomination, special_instructions')
+      .eq('family_id', familyId)
+      .maybeSingle(),
+    // Load context for each selected person
+    ...personIds.map(pid => loadPersonContext(familyId, memberId, pid, members)),
+  ])
+
+  // Filter relationship notes to only relevant pairs
+  const relevantRelNotes: string[] = []
+  for (const note of (relationshipNotesRes.data || []) as Array<{ content: string; person_a_id: string; person_b_id: string }>) {
+    const involves = personIds.some(pid =>
+      (note.person_a_id === pid || note.person_b_id === pid)
+    )
+    if (involves) relevantRelNotes.push(note.content)
+  }
+
+  // Build faith context string
+  let faithContext = ''
+  const fp = faithRes.data as { faith_tradition?: string; denomination?: string; special_instructions?: string } | null
+  if (fp?.faith_tradition) {
+    faithContext = `Faith: This family identifies with ${fp.faith_tradition}${fp.denomination ? ` (${fp.denomination})` : ''}. Reference when naturally relevant. Never force.`
+    if (fp.special_instructions) faithContext += ` ${fp.special_instructions}`
+  }
+
+  // Build user context
+  const userMember = members.find(m => m.id === memberId)
+  const userSk = (userSelfKnowledgeRes.data || []) as Array<{ content: string; category: string }>
+
+  const userContext: PersonContext = {
+    memberId,
+    displayName: userMember?.display_name || 'User',
+    role: userMember?.role || 'primary_parent',
+    age: userMember?.age,
+    dashboardMode: userMember?.dashboard_mode,
+    relationship: userMember?.relationship,
+    selfKnowledge: userSk,
+    archiveItems: [],
+    negativePreferences: [],
+  }
+
+  // Extract love language from self-knowledge for user
+  const userLl = userSk.find(s => s.category === 'personality_type' && s.content.toLowerCase().includes('love language'))
+  if (userLl) userContext.loveLangage = userLl.content
+
+  return {
+    userContext,
+    personContexts: personLoads as PersonContext[],
+    privateNotes: ((privateNotesRes.data || []) as Array<{ content: string }>).map(n => n.content),
+    relationshipNotes: relevantRelNotes,
+    nameAliases,
+    recentSkills: ((recentSkillsRes.data || []) as Array<{ skill_key: string }>).map(s => s.skill_key),
+    totalInteractions: totalCountRes.count || 0,
+    guidingStars: ((guidingStarsRes.data || []) as Array<{ content: string }>).map(g => g.content),
+    bestIntentions: ((bestIntentionsRes.data || []) as Array<{ statement: string }>).map(b => b.statement),
+    faithContext,
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// Person context loader (for each selected person)
+// ────────────────────────────────────────────────────────────────
+
+async function loadPersonContext(
+  familyId: string,
+  _requestingMemberId: string,
+  personId: string,
+  allMembers: Array<{ id: string; display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }>,
+): Promise<PersonContext> {
+  const member = allMembers.find(m => m.id === personId)
+
+  // Parallel load person-specific context
+  const [skRes, archiveRes, negPrefRes] = await Promise.all([
+    // Person's self-knowledge (only if share flags allow — simplified: load all for now)
+    supabase.from('self_knowledge')
+      .select('content, category')
+      .eq('family_id', familyId)
+      .eq('member_id', personId)
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null),
+    // Person's archive items (enabled folders + items, 3-tier filtered)
+    loadPersonArchiveItems(familyId, personId),
+    // Negative preferences (veto items)
+    supabase.from('archive_context_items')
+      .select('context_value')
+      .eq('family_id', familyId)
+      .eq('member_id', personId)
+      .eq('is_negative_preference', true)
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null),
+  ])
+
+  const selfKnowledge = (skRes.data || []) as Array<{ content: string; category: string }>
+
+  // Extract love language and personality from self-knowledge
+  let loveLangage: string | undefined
+  let personalityType: string | undefined
+  for (const sk of selfKnowledge) {
+    if (sk.category === 'personality_type' && sk.content.toLowerCase().includes('love language')) {
+      loveLangage = sk.content
+    }
+    if (sk.category === 'personality_type' && !sk.content.toLowerCase().includes('love language')) {
+      personalityType = sk.content
+    }
+  }
+
+  // Find "How to Reach Me" card
+  let howToReachMe: string | undefined
+  const archiveItems = archiveRes || []
+  const htrmIndex = archiveItems.findIndex(a => a.type === 'how_to_reach_me')
+  if (htrmIndex !== -1) {
+    howToReachMe = archiveItems[htrmIndex].content
+    archiveItems.splice(htrmIndex, 1) // Don't duplicate in general items
+  }
+
+  return {
+    memberId: personId,
+    displayName: member?.display_name || 'Unknown',
+    role: member?.role || 'member',
+    age: member?.age,
+    dashboardMode: member?.dashboard_mode,
+    relationship: member?.relationship,
+    loveLangage,
+    personalityType,
+    howToReachMe,
+    archiveItems: archiveItems.map(a => a.content),
+    negativePreferences: ((negPrefRes.data || []) as Array<{ context_value: string }>).map(n => n.context_value),
+    selfKnowledge,
+  }
+}
+
+/** Load archive items for a specific person with 3-tier toggle filtering */
+async function loadPersonArchiveItems(
+  familyId: string,
+  personId: string,
+): Promise<Array<{ content: string; type?: string }>> {
+  // Check person-level toggle
+  const { data: memberSettings } = await supabase
+    .from('archive_member_settings')
+    .select('is_included_in_ai')
+    .eq('family_id', familyId)
+    .eq('member_id', personId)
+    .maybeSingle()
+
+  if (memberSettings && !memberSettings.is_included_in_ai) return []
+
+  // Load enabled folders for this person
+  const { data: folders } = await supabase
+    .from('archive_folders')
+    .select('id, folder_name')
+    .eq('family_id', familyId)
+    .eq('member_id', personId)
+    .eq('is_included_in_ai', true)
+
+  if (!folders || folders.length === 0) return []
+
+  const folderIds = folders.map(f => f.id)
+
+  // Load items from enabled folders
+  const { data: items } = await supabase
+    .from('archive_context_items')
+    .select('context_value, context_type, is_negative_preference')
+    .eq('family_id', familyId)
+    .in('folder_id', folderIds)
+    .eq('is_included_in_ai', true)
+    .eq('is_negative_preference', false)
+    .is('archived_at', null)
+    .limit(100)
+
+  return (items || []).map((item: { context_value: string; context_type?: string }) => ({
+    content: item.context_value,
+    type: item.context_type || undefined,
+  }))
+}
+
+// ────────────────────────────────────────────────────────────────
+// Formatting helpers
+// ────────────────────────────────────────────────────────────────
+
+/** Format person context into a prompt block */
+export function formatPersonContextBlock(person: PersonContext): string {
+  const lines: string[] = []
+  lines.push(`## About ${person.displayName}`)
+  lines.push(`Role: ${person.role}${person.age ? `, Age: ${person.age}` : ''}`)
+
+  if (person.howToReachMe) {
+    lines.push(`\n### HOW TO REACH ${person.displayName.toUpperCase()} (HIGH PRIORITY)`)
+    lines.push(person.howToReachMe)
+  }
+
+  if (person.loveLangage) {
+    lines.push(`\nLove Language: ${person.loveLangage}`)
+  }
+  if (person.personalityType) {
+    lines.push(`Personality: ${person.personalityType}`)
+  }
+
+  if (person.selfKnowledge.length > 0) {
+    lines.push(`\n### What I Know About ${person.displayName}`)
+    for (const sk of person.selfKnowledge.slice(0, 15)) {
+      lines.push(`- [${sk.category}] ${sk.content}`)
+    }
+  }
+
+  if (person.archiveItems.length > 0) {
+    lines.push(`\n### Context Items`)
+    for (const item of person.archiveItems.slice(0, 20)) {
+      lines.push(`- ${item}`)
+    }
+  }
+
+  if (person.negativePreferences.length > 0) {
+    lines.push(`\n### AVOID SUGGESTING (silently skip these — do not mention they were vetoed)`)
+    for (const pref of person.negativePreferences) {
+      lines.push(`- ${pref}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+/** Format the full context for injection into system prompt */
+export function formatRelationshipContextForPrompt(ctx: RelationshipContext): string {
+  const sections: string[] = []
+
+  // User's own context (brief)
+  if (ctx.guidingStars.length > 0) {
+    sections.push(`## Your Guiding Stars\n${ctx.guidingStars.map(g => `- ${g}`).join('\n')}`)
+  }
+
+  if (ctx.userContext.selfKnowledge.length > 0) {
+    sections.push(`## Your InnerWorkings\n${ctx.userContext.selfKnowledge.slice(0, 10).map(s => `- [${s.category}] ${s.content}`).join('\n')}`)
+  }
+
+  // Person context blocks
+  for (const person of ctx.personContexts) {
+    sections.push(formatPersonContextBlock(person))
+  }
+
+  // Private notes
+  if (ctx.privateNotes.length > 0) {
+    sections.push(`## Your Private Notes\n${ctx.privateNotes.map(n => `- ${n}`).join('\n')}`)
+  }
+
+  // Relationship notes
+  if (ctx.relationshipNotes.length > 0) {
+    sections.push(`## Relationship Notes\n${ctx.relationshipNotes.map(n => `- ${n}`).join('\n')}`)
+  }
+
+  // Name aliases
+  const aliasEntries = Object.entries(ctx.nameAliases)
+  if (aliasEntries.length > 0) {
+    const aliasLines = aliasEntries.slice(0, 30).map(([alias, _id]) => alias).join(', ')
+    sections.push(`## Known Names & Nicknames\n${aliasLines}`)
+  }
+
+  // Faith context
+  if (ctx.faithContext) {
+    sections.push(ctx.faithContext)
+  }
+
+  return sections.join('\n\n')
+}
+
+// ────────────────────────────────────────────────────────────────
+// Skill rotation helper
+// ────────────────────────────────────────────────────────────────
+
+/** Pick a skill that hasn't been used recently, preferring unused ones */
+export function pickNextSkill(allSkills: string[], recentSkills: string[]): string {
+  // Filter out the most recently used skill
+  const lastUsed = recentSkills[0]
+  const available = allSkills.filter(s => s !== lastUsed)
+
+  // Prefer skills not in recent history at all
+  const unused = available.filter(s => !recentSkills.includes(s))
+  if (unused.length > 0) {
+    return unused[Math.floor(Math.random() * unused.length)]
+  }
+
+  // Fall back to any skill except the most recent
+  if (available.length > 0) {
+    return available[Math.floor(Math.random() * available.length)]
+  }
+
+  // Last resort: use any skill
+  return allSkills[Math.floor(Math.random() * allSkills.length)]
+}
+
+// ────────────────────────────────────────────────────────────────
+// Teaching skill save helper
+// ────────────────────────────────────────────────────────────────
+
+export async function saveTeachingSkill(
+  familyId: string,
+  memberId: string,
+  toolMode: string,
+  skillKey: string,
+  aboutMemberId?: string,
+  conversationId?: string,
+) {
+  await supabase.from('teaching_skill_history').insert({
+    family_id: familyId,
+    member_id: memberId,
+    tool_mode: toolMode,
+    skill_key: skillKey,
+    about_member_id: aboutMemberId || null,
+    lila_conversation_id: conversationId || null,
+  })
+}
+
+// ────────────────────────────────────────────────────────────────
+// Veto write-back helper
+// ────────────────────────────────────────────────────────────────
+
+export async function saveVetoItem(
+  familyId: string,
+  addedBy: string,
+  aboutMemberId: string,
+  vetoContent: string,
+  conversationId?: string,
+) {
+  // folder_id is NOT NULL — find the person's member_root folder
+  const { data: rootFolder } = await supabase
+    .from('archive_folders')
+    .select('id')
+    .eq('family_id', familyId)
+    .eq('member_id', aboutMemberId)
+    .eq('folder_type', 'member_root')
+    .maybeSingle()
+
+  if (!rootFolder) return // Can't save without a folder
+
+  await supabase.from('archive_context_items').insert({
+    family_id: familyId,
+    folder_id: rootFolder.id,
+    member_id: aboutMemberId,
+    context_value: vetoContent,
+    context_type: 'preference',
+    is_negative_preference: true,
+    is_included_in_ai: true,
+    source: 'lila_conversation',
+    source_conversation_id: conversationId || null,
+    added_by: addedBy,
+  })
+}
