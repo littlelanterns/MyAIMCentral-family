@@ -438,8 +438,8 @@ export function ArchivesPage() {
   // View mode
   const [viewMode, setViewMode] = useViewMode()
 
-  // Responsive columns: +1 for Family Overview card
-  const totalGridCards = householdMembers.length + 1
+  // Responsive columns
+  const totalGridCards = householdMembers.length
   const { columns, isMobile } = useResponsiveColumns(totalGridCards)
   const oonColumns = useResponsiveColumns(oonMembers.length)
 
@@ -616,24 +616,7 @@ export function ArchivesPage() {
                     gap: isMobile ? '8px' : '12px',
                   }}
                 >
-                  {/* Family Overview — always first */}
-                  {family && overview && (
-                    <ArchiveMemberCard
-                      name={family.family_name}
-                      avatarUrl={family.family_photo_url}
-                      memberColor={undefined}
-                      isFamilyOverview
-                      label="Family Overview"
-                      insightLabel={`${overview.totalItems} items active`}
-                      includedInsights={overview.totalItems}
-                      totalInsights={overview.totalItems}
-                      isIncludedInAI={true}
-                      onNavigate={() => navigate('/archives/family-overview')}
-                      onToggleAI={() => {}}
-                      onFileSelect={(file) => handleFamilyFileSelect(file)}
-                      uploading={uploadingFamily}
-                    />
-                  )}
+                  {/* Family Overview — hidden until content is crafted */}
 
                   {/* Member cards */}
                   {householdMembers.map((m) => {
