@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Star, Heart, Sparkles, FileText, CheckSquare, Archive,
   Feather, Brain, ChevronLeft, ChevronRight, X, Map,
@@ -54,7 +54,6 @@ export function GuidedIntroTour() {
   const [step, setStep] = useState(0)
   const [minimized, setMinimized] = useState(false)
   const navigate = useNavigate()
-  const location = useLocation()
   const { openTool } = useToolLauncher()
   const notepadCtx = useNotepadContextSafe()
 
