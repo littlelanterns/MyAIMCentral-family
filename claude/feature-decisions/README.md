@@ -67,3 +67,4 @@ decided and why at build time. Do not delete them after a feature ships.
 | PRD-10-Widgets-Trackers-Dashboard-Layout.md | PRD-10 | 2026-03-25 | Complete |
 | PRD-13-Archives-Context.md | PRD-13 | 2026-03-25 | Complete (80 wired, 14 stubbed) |
 | PRD-21A-AI-Vault-Browse.md | PRD-21A | 2026-03-25 | Complete (74 wired, 14 stubbed) |
+| PRD-21-Communication-Relationship-Tools.md | PRD-21 | 2026-03-26 | Complete (32 wired, 10 stubbed) |

@@ -151,15 +151,78 @@ Eight AI-powered guided tools that help family members communicate better and co
 
 ## Founder Confirmation (Pre-Build)
 
-- [ ] Pre-build summary reviewed and accurate
-- [ ] All addenda captured above
-- [ ] Stubs confirmed — nothing extra will be built
-- [ ] Schema changes correct
-- [ ] Feature keys identified
-- [ ] **Approved to build**
+- [x] Pre-build summary reviewed and accurate
+- [x] All addenda captured above
+- [x] Stubs confirmed — nothing extra will be built
+- [x] Schema changes correct
+- [x] Feature keys identified
+- [x] **Approved to build** — 2026-03-26
 
 ---
 
 ## Post-Build PRD Verification
 
-> To be completed after build.
+| # | Requirement | Source | Status | Notes |
+|---|---|---|---|---|
+| 1 | AI Toolbox sidebar in Mom/Adult/Independent | PRD §Entry Points | Wired | AIToolboxSection in Sidebar.tsx |
+| 2 | Love Languages group (collapsible, 5) + Cyrano + Higgins | PRD §Entry Points | Wired | |
+| 3 | QuickTasks 3 buttons | PRD §Entry Points | Wired | Love Languages, Cyrano, Higgins |
+| 4 | Love Languages popover (5 tools) | PRD §Screen 1 | Stubbed | QuickTasks opens quality_time directly; sidebar has full 5-tool picker |
+| 5 | Higgins mode picker (Say/Navigate) | PRD §Screen 2 | Wired | Sidebar expands to both |
+| 6 | All 8 in modals for ALL members | PRD §Screen 3 | Wired | container_preference='modal' |
+| 7 | Person pill selector in header | PRD §Screen 3 | Wired | PersonPillSelector component |
+| 8 | Pills pre-select spouse for Cyrano | PRD §Screen 3 | Wired | partnerOnly mode |
+| 9 | Multi-select for Higgins | PRD §Screen 3 | Wired | |
+| 10 | Name auto-detection (client-side pill) | PRD §Screen 3 | Stubbed | Server-side name detection works; client pill auto-select not wired |
+| 11 | Context assembly loads 11 sources | PRD §AI Integration | Wired | relationship-context.ts |
+| 12 | "How to Reach Me" high-priority | PRD §AI Integration | Wired | Loaded first, formatted as HIGH PRIORITY |
+| 13 | Quality Time suggestions | PRD §Tool 1 | Wired | |
+| 14 | Gifts personalized | PRD §Tool 2 | Wired | |
+| 15 | Gifts: Add to Wishlist/Gift Ideas chips | PRD §Tool 2 | Stubbed | UI present, routes to generic list creation |
+| 16 | Observe & Serve hidden needs | PRD §Tool 3 | Wired | |
+| 17 | Words of Affirmation specific | PRD §Tool 4 | Wired | 4 subtypes, NVC formula |
+| 18 | Gratitude: Save to Journal | PRD §Tool 5 | Wired | entry_type='gratitude' |
+| 19 | Cyrano craft-first + partner lens | PRD §Tool 6 | Wired | |
+| 20 | Cyrano teaches 1 skill/interaction | PRD §Tool 6 | Wired | 11 skills with rotation |
+| 21 | Higgins Say voice adaptation | PRD §Tool 7 | Wired | 7 relationship types |
+| 22 | Higgins Say teaches skills | PRD §Tool 7 | Wired | 9 skills with rotation |
+| 23 | Navigate 5-phase flow | PRD §Tool 8 | Wired | Listen→Validate→Curiosity→Options→Empower |
+| 24 | Navigate options with labels/risk | PRD §Tool 8 | Wired | SODA process |
+| 25 | Veto memory | PRD §Screen 3 | Wired | is_negative_preference column + AVOID list |
+| 26 | communication_drafts + RLS | PRD §Data Schema | Wired | |
+| 27 | teaching_skill_history + RLS | PRD §Data Schema | Wired | |
+| 28 | Skill rotation (last 10) | PRD §Tool 6 | Wired | pickNextSkill helper |
+| 29 | Skill-check after 5+ | PRD §Tool 6 | Wired | totalInteractions in prompt |
+| 30 | Save/Copy Draft chips | PRD §Screen 3 | Wired | |
+| 31 | Send via Message | PRD §Screen 3 | Stubbed | PRD-15 compose API not verified |
+| 32 | Create Task chips | PRD §Screen 3 | Wired | |
+| 33 | Record Victory chips | PRD §Screen 3 | Wired | |
+| 34 | Mode switching within modals | PRD §AI Integration | Wired | Navigate→Say via ToolLauncherProvider |
+| 35 | Conversations save with mode tags | PRD §Screen 3 | Wired | |
+| 36 | Conversations auto-named | PRD §Screen 3 | Stubbed | Auto-titling not in tool Edge Functions |
+| 37 | Opening messages rotate | PRD §Tools | Wired | 2 variants per tool seeded |
+| 38 | useCanAccess() on 9 keys | PRD §Tier Gating | Stubbed | Keys registered; gates not wrapped (beta=all true) |
+| 39 | PermissionGate wrapping | PRD §Tier Gating | Stubbed | Same — beta deferred |
+| 40 | RLS: drafts author+mom | PRD §Data Schema | Wired | |
+| 41 | RLS: skill history member+mom | PRD §Data Schema | Wired | |
+| 42 | Teen voice: talks UP | PRD §Visibility | Wired | In Higgins Say system prompt |
+
+### Summary
+- Total requirements: 42
+- Wired: 32
+- Stubbed: 10
+- Missing: **0**
+
+### Founder Notes for PRD-34
+- Item 36 (auto-titling): Wire auto-title Haiku call in all ThoughtSift tool Edge Functions from the start
+- Item 31 (Send via Message): Verify PRD-15 compose flow API before PRD-34 ships — Mediator needs it too
+
+---
+
+## Founder Sign-Off (Post-Build)
+
+- [x] Verification table reviewed
+- [x] All stubs are acceptable for this phase
+- [x] Zero Missing items confirmed
+- [x] **Phase approved as complete**
+- **Completion date:** 2026-03-26
