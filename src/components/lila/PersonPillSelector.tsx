@@ -66,6 +66,8 @@ export function PersonPillSelector({
 
   if (selectableMembers.length === 0) return null
 
+  const isSomeoneElseSelected = selectedIds.includes('__someone_else__')
+
   return (
     <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
       {label && (
@@ -93,6 +95,20 @@ export function PersonPillSelector({
             </button>
           )
         })}
+        {/* "Someone else" option for people outside the family */}
+        {!partnerOnly && (
+          <button
+            onClick={() => onToggle('__someone_else__')}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+            style={{
+              backgroundColor: isSomeoneElseSelected ? 'var(--color-text-secondary)' : 'transparent',
+              color: isSomeoneElseSelected ? '#fff' : 'var(--color-text-secondary)',
+              border: `1.5px solid ${isSomeoneElseSelected ? 'var(--color-text-secondary)' : 'var(--color-border)'}`,
+            }}
+          >
+            Someone else
+          </button>
+        )}
       </div>
     </div>
   )

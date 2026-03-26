@@ -4,13 +4,13 @@
  * Types: Shopping, Wishlist, Expenses, Packing, To-Do, Custom, Randomizer.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, Loader2, Save,
-  Clock, Lightbulb, Heart, GripVertical,
+  Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -58,6 +58,27 @@ const FILTER_TABS: { key: string; label: string }[] = [
   { key: 'shared', label: 'Shared' },
 ]
 
+// ── View mode persistence ─────────────────────────────────
+
+type ViewMode = 'grid' | 'list'
+
+function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
+  const [mode, setMode] = useState<ViewMode>(() => {
+    try {
+      return (localStorage.getItem('lists-view-mode') as ViewMode) || 'grid'
+    } catch {
+      return 'grid'
+    }
+  })
+
+  const set = useCallback((newMode: ViewMode) => {
+    setMode(newMode)
+    try { localStorage.setItem('lists-view-mode', newMode) } catch { /* noop */ }
+  }, [])
+
+  return [mode, set]
+}
+
 // ── Main page ──────────────────────────────────────────────
 
 export function ListsPage() {
@@ -67,6 +88,7 @@ export function ListsPage() {
   const createList = useCreateList()
 
   const [searchParams, setSearchParams] = useSearchParams()
+  const [viewMode, setViewMode] = useViewMode()
   const [filter, setFilter] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
@@ -127,14 +149,45 @@ export function ListsPage() {
             Lists
           </h1>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-        >
-          <Plus size={16} />
-          New List
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Grid/List toggle */}
+          <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <button
+              onClick={() => setViewMode('grid')}
+              className="p-2 transition-colors"
+              style={{
+                backgroundColor: viewMode === 'grid'
+                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)'
+                  : 'transparent',
+                color: viewMode === 'grid' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              }}
+              title="Grid view"
+            >
+              <LayoutGrid size={16} />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className="p-2 transition-colors"
+              style={{
+                backgroundColor: viewMode === 'list'
+                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)'
+                  : 'transparent',
+                color: viewMode === 'list' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              }}
+              title="List view"
+            >
+              <List size={16} />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            <Plus size={16} />
+            New List
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -224,6 +277,31 @@ export function ListsPage() {
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
             Create one to start organizing — shopping, packing, wishlists, and more.
           </p>
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {filtered.map(list => {
+            const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
+            const Icon = cfg.icon
+            return (
+              <button
+                key={list.id}
+                onClick={() => setSelectedListId(list.id)}
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:translate-y-[-2px] hover:shadow-md aspect-square"
+                style={{
+                  backgroundColor: 'var(--color-bg-card)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '2px 3px 8px rgba(0, 0, 0, 0.06)',
+                }}
+              >
+                <Icon size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
+                <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                  {cfg.label}{list.is_shared ? ' · Shared' : ''}
+                </p>
+              </button>
+            )
+          })}
         </div>
       ) : (
         <div className="space-y-2">

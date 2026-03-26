@@ -137,3 +137,8 @@ export function useNotepadContext() {
   if (!ctx) throw new Error('useNotepadContext must be used inside NotepadProvider')
   return ctx
 }
+
+/** Safe version that returns null when not inside NotepadProvider */
+export function useNotepadContextSafe() {
+  return useContext(NotepadCtx)
+}

@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSessionTimeout } from '@/hooks/useSessionTimeout'
+import { useThemePersistence } from '@/lib/theme/useThemePersistence'
 import { SessionWarning } from '@/components/shared/SessionWarning'
 import type { ShellType } from '@/lib/theme'
 
@@ -44,6 +45,9 @@ interface ShellProviderProps {
 export function ShellProvider({ children }: ShellProviderProps) {
   const { data: member } = useFamilyMember()
   const { showWarning, secondsRemaining, dismissWarning } = useSessionTimeout()
+
+  // Sync theme preferences with Supabase (PRD-03)
+  useThemePersistence()
 
   const shell = member ? getShellForMember(member.role, member.dashboard_mode) : 'mom'
 

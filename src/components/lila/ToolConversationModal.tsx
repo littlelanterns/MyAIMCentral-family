@@ -29,6 +29,8 @@ import { LilaAvatar } from './LilaAvatar'
 import { PersonPillSelector } from './PersonPillSelector'
 import { supabase } from '@/lib/supabase/client'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { useNotepadContextSafe } from '@/components/notepad'
+import { StickyNote } from 'lucide-react'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 
 // ── Tool → Edge Function routing ────────────────────────────────
@@ -64,8 +66,8 @@ const VICTORY_TOOLS = new Set(['words_affirmation', 'gratitude'])
 // Tools that are partner-only (person selector locked to spouse)
 const PARTNER_ONLY_TOOLS = new Set(['cyrano'])
 
-// Tools that support multi-select
-const MULTI_SELECT_TOOLS = new Set(['higgins_say', 'higgins_navigate'])
+// Tools that support multi-select (all tools except partner-only Cyrano)
+const MULTI_SELECT_TOOLS = new Set(['higgins_say', 'higgins_navigate', 'quality_time', 'gifts', 'observe_serve', 'words_affirmation', 'gratitude', 'mediator'])
 
 // ── Streaming helper ────────────────────────────────────────────
 
@@ -166,6 +168,7 @@ export function ToolConversationModal({
   const { data: family } = useFamily()
   const { data: mode } = useGuidedMode(modeKey)
   const { data: familyMembers = [] } = useFamilyMembers(family?.id)
+  const notepad = useNotepadContextSafe()
   const [conversation, setConversation] = useState<LilaConversation | null>(existingConversation || null)
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(
     initialPersonId ? [initialPersonId] : []
@@ -463,6 +466,13 @@ export function ToolConversationModal({
     })
   }, [conversation, member, family, modeKey, selectedPersonIds, messages])
 
+  const handleSaveToNotepad = useCallback((content: string) => {
+    if (!notepad) return
+    const title = content.split('\n')[0]?.slice(0, 60) || 'From LiLa conversation'
+    notepad.openNotepad({ content, title, sourceType: 'lila_conversation' as any, sourceReferenceId: conversation?.id })
+    onClose()
+  }, [notepad, conversation?.id, onClose])
+
   const handleSaveToJournal = useCallback(async (content: string) => {
     if (!member || !family) return
     await supabase.from('journal_entries').insert({
@@ -733,10 +743,13 @@ export function ToolConversationModal({
                     {/* Universal: Copy */}
                     <ActionChip icon={<Copy size={12} />} label="Copy" onClick={() => handleCopyMessage(msg.content)} />
 
-                    {/* Draft tools: Save Draft, Copy Draft, Send via Message */}
+                    {/* Draft tools: Save Draft, Edit in Notepad */}
                     {DRAFT_TOOLS.has(modeKey) && (
                       <>
                         <ActionChip icon={<ClipboardCopy size={12} />} label="Save Draft" onClick={() => handleSaveDraft(msg.content)} />
+                        {notepad && (
+                          <ActionChip icon={<StickyNote size={12} />} label="Edit in Notepad" onClick={() => handleSaveToNotepad(msg.content)} />
+                        )}
                       </>
                     )}
 
@@ -762,8 +775,8 @@ export function ToolConversationModal({
                     )}
 
                     {/* ThoughtSift tools: Save to Notepad */}
-                    {(['decision_guide', 'perspective_shifter', 'mediator', 'board_of_directors'].includes(modeKey)) && (
-                      <ActionChip icon={<FileText size={12} />} label="Save to Notepad" onClick={() => handleSaveToJournal(msg.content)} />
+                    {(['decision_guide', 'perspective_shifter', 'mediator', 'board_of_directors'].includes(modeKey)) && notepad && (
+                      <ActionChip icon={<StickyNote size={12} />} label="Edit in Notepad" onClick={() => handleSaveToNotepad(msg.content)} />
                     )}
 
                     {/* Higgins Navigate: pathway to Say */}

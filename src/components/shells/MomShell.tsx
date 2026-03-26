@@ -65,8 +65,8 @@ export function MomShell({ children }: MomShellProps) {
   return (
     <TimerProvider>
     <RoutingToastProvider>
-    <ToolLauncherProvider>
     <NotepadProvider>
+    <ToolLauncherProvider>
     <div
       className="flex min-h-svh"
       style={{
@@ -116,7 +116,7 @@ export function MomShell({ children }: MomShellProps) {
 
         {/* LiLa bottom drawer — always mounted to preserve conversation state.
             Hidden behind overlays when history/context settings are open. */}
-        <div style={{ display: showHistory || showContextSettings ? 'none' : undefined }}>
+        <div style={{ display: _lilaVisible && !showHistory && !showContextSettings ? undefined : 'none' }}>
           <LilaDrawer
             conversation={activeConversation}
             onConversationCreated={setActiveConversation}
@@ -172,8 +172,8 @@ export function MomShell({ children }: MomShellProps) {
       {/* Bottom navigation — mobile only */}
       <BottomNav />
     </div>
-    </NotepadProvider>
     </ToolLauncherProvider>
+    </NotepadProvider>
     </RoutingToastProvider>
     </TimerProvider>
   )

@@ -28,6 +28,7 @@ interface NavItem {
 interface NavSection {
   title: string
   items: NavItem[]
+  collapsible?: boolean
 }
 
 function getSidebarSections(shell: ShellType): NavSection[] {
@@ -40,6 +41,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
   const capture: NavSection = {
     title: 'Capture & Reflect',
+    collapsible: true,
     items: [
       { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
       { label: 'Morning Rhythm', path: '/rhythms/morning', featureKey: 'morning_rhythm', icon: <Sun size={20} />, tooltip: 'Start your day with intention' },
@@ -49,6 +51,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
   const plan: NavSection = {
     title: 'Plan & Do',
+    collapsible: true,
     items: [
       { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
       { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
@@ -60,6 +63,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
   const grow: NavSection = {
     title: 'Grow',
+    collapsible: true,
     items: [
       { label: 'Guiding Stars', path: '/guiding-stars', featureKey: 'guiding_stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
       { label: 'BestIntentions', path: '/best-intentions', featureKey: 'best_intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
@@ -87,7 +91,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
   switch (shell) {
     case 'mom':
-      return [home, capture, plan, grow, family, tools]
+      return [home, tools, capture, plan, grow, family]
     case 'adult':
       return [home, capture, plan, grow, family, {
         title: 'AI & Tools',
@@ -274,6 +278,27 @@ function ViewAsSwitcher() {
   )
 }
 
+/** Persist section collapsed state to localStorage */
+function useSectionCollapse() {
+  const STORAGE_KEY = 'sidebar-collapsed-sections'
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      return stored ? JSON.parse(stored) : {}
+    } catch { return {} }
+  })
+
+  const toggleSection = useCallback((title: string) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [title]: !prev[title] }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch { /* noop */ }
+      return next
+    })
+  }, [])
+
+  return { collapsedSections, toggleSection }
+}
+
 function SidebarInner({
   sections, collapsed, setCollapsed, mobileOpen: _mobileOpen, setMobileOpen, shell, isPreview: _isPreview,
 }: {
@@ -285,19 +310,48 @@ function SidebarInner({
   shell: ShellType
   isPreview: boolean
 }) {
+  const { collapsedSections, toggleSection } = useSectionCollapse()
+  const location = useLocation()
+
   const sidebarContent = (
     <nav className="flex-1 flex flex-col overflow-y-auto py-4 scrollbar-card">
-      {sections.map((section) => (
+      {sections.map((section) => {
+        const isCollapsible = section.collapsible && !collapsed
+        const isSectionCollapsed = isCollapsible && collapsedSections[section.title]
+        // Auto-expand if the active route is inside a collapsed section
+        const hasActiveChild = section.items.some(item =>
+          location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+        )
+        const showItems = !isSectionCollapsed || hasActiveChild
+
+        return (
         <div key={section.title} className="mb-4">
           {!collapsed && (
-            <p
-              className="px-4 mb-1 text-xs font-medium uppercase tracking-wider"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              {section.title}
-            </p>
+            isCollapsible ? (
+              <button
+                onClick={() => toggleSection(section.title)}
+                className="flex items-center justify-between w-full px-4 mb-1 text-xs font-medium uppercase tracking-wider"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset', padding: '0 16px', cursor: 'pointer' }}
+              >
+                <span>{section.title}</span>
+                <ChevronDown
+                  size={12}
+                  style={{
+                    transform: isSectionCollapsed && !hasActiveChild ? 'rotate(-90deg)' : 'rotate(0)',
+                    transition: 'transform 150ms ease',
+                  }}
+                />
+              </button>
+            ) : (
+              <p
+                className="px-4 mb-1 text-xs font-medium uppercase tracking-wider"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                {section.title}
+              </p>
+            )
           )}
-          {section.items.map((item) => {
+          {showItems && section.items.map((item) => {
             // Tier-locking: during beta useCanAccess returns true for all.
             const tierLocked = false // Will be: !useCanAccess(item.featureKey)
             const isMom = shell === 'mom'
@@ -340,7 +394,8 @@ function SidebarInner({
             )
           })}
         </div>
-      ))}
+        )
+      })}
 
       {/* AI Toolbox section — PRD-21. Mom/Adult/Independent shells only. */}
       {(shell === 'mom' || shell === 'adult' || shell === 'independent') && !collapsed && (

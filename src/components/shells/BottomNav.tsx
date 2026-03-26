@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, BookOpen, FileText, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
+import { Home, CheckSquare, StickyNote, Gem, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useNotepadContextSafe } from '@/components/notepad'
 import { useShell } from './ShellProvider'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
@@ -20,12 +21,19 @@ interface BottomNavItem {
   featureKey: string
 }
 
-const NAV_ITEMS: BottomNavItem[] = [
+// Left side items (before center notepad button)
+const NAV_LEFT: BottomNavItem[] = [
   { path: '/dashboard', icon: Home, label: 'Home', featureKey: 'dashboard' },
   { path: '/tasks', icon: CheckSquare, label: 'Tasks', featureKey: 'tasks' },
-  { path: '/journal', icon: BookOpen, label: 'Journal', featureKey: 'journal' },
-  { path: '/notepad', icon: FileText, label: 'Notepad', featureKey: 'notepad_basic' },
 ]
+
+// Right side items (after center notepad button)
+const NAV_RIGHT: BottomNavItem[] = [
+  { path: '/vault', icon: Gem, label: 'AI Vault', featureKey: 'vault_browse' },
+]
+
+// Combined for icon fetching
+const NAV_ITEMS: BottomNavItem[] = [...NAV_LEFT, ...NAV_RIGHT]
 
 interface MoreNavItem {
   path: string
@@ -43,6 +51,7 @@ const MORE_SECTIONS: MoreNavSection[] = [
   {
     title: 'Daily',
     items: [
+      { path: '/journal', label: 'Journal', description: 'Capture thoughts and reflect', featureKey: 'journal' },
       { path: '/calendar', label: 'Calendar', description: 'Events & schedule', featureKey: 'calendar' },
       { path: '/messages', label: 'Messages', description: 'Family conversations', featureKey: 'messages' },
       { path: '/victories', label: 'Victories', description: 'Celebrate wins', featureKey: 'victories' },
@@ -107,9 +116,34 @@ export function BottomNav() {
   const { data: member } = useFamilyMember()
   const { shell } = useShell()
   const iconUrls = useBottomNavIcons()
+  const notepad = useNotepadContextSafe()
 
   // Guided and play shells handle their own navigation
   if (shell === 'guided' || shell === 'play') return null
+
+  const renderNavItem = (item: BottomNavItem) => {
+    const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+    const illustratedUrl = iconUrls[item.featureKey]
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
+        style={{
+          color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
+          textDecoration: 'none',
+          transition: 'color 0.2s ease',
+        }}
+      >
+        {illustratedUrl ? (
+          <img src={illustratedUrl} alt="" width={20} height={20} className="shrink-0 rounded-sm" />
+        ) : (
+          <item.icon size={20} />
+        )}
+        <span className="text-[10px] font-medium">{item.label}</span>
+      </NavLink>
+    )
+  }
 
   return (
     <>
@@ -123,29 +157,39 @@ export function BottomNav() {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        {NAV_ITEMS.map((item) => {
-          const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
-          const illustratedUrl = iconUrls[item.featureKey]
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
-              style={{
-                color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
-                textDecoration: 'none',
-                transition: 'color 0.2s ease',
-              }}
-            >
-              {illustratedUrl ? (
-                <img src={illustratedUrl} alt="" width={20} height={20} className="shrink-0 rounded-sm" />
-              ) : (
-                <item.icon size={20} />
-              )}
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </NavLink>
-          )
-        })}
+        {/* Left items */}
+        {NAV_LEFT.map(renderNavItem)}
+
+        {/* Center: Notepad — raised circle button */}
+        <div className="flex-1 flex items-center justify-center" style={{ position: 'relative' }}>
+          <button
+            onClick={() => notepad?.toggleNotepad()}
+            className="flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
+            style={{
+              width: '52px',
+              height: '52px',
+              background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+              color: 'var(--color-btn-primary-text, #fff)',
+              border: '3px solid var(--color-bg-nav, var(--color-bg-card))',
+              position: 'absolute',
+              top: '-14px',
+              minHeight: 'unset',
+              padding: 0,
+            }}
+            aria-label="Open Notepad"
+          >
+            <StickyNote size={22} />
+          </button>
+          <span
+            className="text-[10px] font-medium absolute"
+            style={{ bottom: '2px', color: 'var(--color-text-secondary)' }}
+          >
+            Notepad
+          </span>
+        </div>
+
+        {/* Right items */}
+        {NAV_RIGHT.map(renderNavItem)}
 
         {/* More button */}
         <button
