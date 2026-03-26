@@ -202,7 +202,7 @@ Every planned feature has a complete PRD, a database schema, permission structur
 
 **Market opportunity:**
 - ~85M US moms, ~3.3M homeschool families, ~4.5M disability families
-- ESA programs in 11+ states with per-student funding up to $47,500 (Arizona) — and growing
+- ESA programs in 11+ states with per-student annual funding up to $9000  — and growing
 - No competitor assembles family context across members over time
 - The AI literacy gap for women/moms represents one of the largest underserved markets in tech
 
