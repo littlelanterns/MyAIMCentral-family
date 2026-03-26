@@ -26,10 +26,10 @@ The Testworth family is a pre-populated household so you can explore what MyAIM 
 | **Casey** | 14 | Independent Teen | Independent | caseytest@testworths.com / Demo2026! |
 | **Jordan** | 10 | Guided Child | Guided | jordantest@testworths.com / Demo2026! |
 | **Ruthie** | 7 (Down Syndrome) | Play Child | Play | ruthietest@testworths.com / Demo2026! |
-| **Amy** | — | Aide (Special Adult) | Adult | amytest@testworths.com / Demo2026! |
-| **Kylie** | — | Aide (Special Adult) | Adult | kylietest@testworths.com / Demo2026! |
 
 Family login name: **testworthfamily**
+
+The Testworth family also includes two caregiving aides (Amy and Kylie) whose accounts and Caregiver Tools are specified in PRD-27 and planned for a future build phase.
 
 ---
 
@@ -89,7 +89,7 @@ Every planned feature has a reason, a spec, and a build path. See [docs/FEATURE_
 ## Technical Notes for Judges
 
 - **Stack:** Vite + React 19 + TypeScript + Tailwind + Supabase + pgvector + OpenRouter
-- **AI cost:** ~$0.20/family/month through 9 optimization patterns (embedding-first classification, on-demand secondary outputs, per-turn semantic context refresh)
+- **AI cost:** < $1.00/family/month through 9 optimization patterns (embedding-first classification, on-demand secondary outputs, per-turn semantic context refresh)
 - **Testing:** Playwright E2E test suite — 21 passing, 0 failing
 - **PRDs:** 40+ complete product requirement documents in `docs/prds/`
 - **Predecessor:** StewardShip, a working app actively used by the founder's family of eleven

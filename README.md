@@ -100,7 +100,7 @@ Every ripple starts with one mom opening an app.
 | Deployment | Vercel | Automatic deployments, edge functions |
 | Voice | Web Speech API + Whisper | Voice input everywhere — a mom's hands are never free |
 
-**Total AI cost: ~$0.20/family/month.** Nine optimization patterns (P1-P9) keep costs disciplined without sacrificing experience. Embedding-based auto-tagging replaces expensive LLM calls for classification. On-demand secondary outputs via action chips instead of pre-generating everything. Per-turn semantic context refresh instead of stuffing full conversation history.
+**Total AI cost: < $1.00/family/month.** Nine optimization patterns (P1-P9) keep costs disciplined without sacrificing experience. Embedding-based auto-tagging replaces expensive LLM calls for classification. On-demand secondary outputs via action chips instead of pre-generating everything. Per-turn semantic context refresh instead of stuffing full conversation history.
 
 ---
 
@@ -122,10 +122,10 @@ A pre-seeded family with real context so you can see what a lived-in platform lo
 | **Casey** | 14 | Independent Teen | Independent | caseytest@testworths.com / Demo2026! |
 | **Jordan** | 10 | Guided Child | Guided | jordantest@testworths.com / Demo2026! |
 | **Ruthie** | 7 (Down Syndrome) | Play Child | Play | ruthietest@testworths.com / Demo2026! |
-| **Amy** | — | Aide (Special Adult) | Adult | amytest@testworths.com / Demo2026! |
-| **Kylie** | — | Aide (Special Adult) | Adult | kylietest@testworths.com / Demo2026! |
 
 Family login name: **testworthfamily**
+
+The Testworth family also includes two caregiving aides (Amy and Kylie) whose accounts and Caregiver Tools are specified in PRD-27 and planned for a future build phase.
 
 Judges are welcome to add, edit, and interact with any data — or create a fresh account to experience onboarding from scratch. Note: you may need to confirm your email address when creating a new account.
 
@@ -145,6 +145,8 @@ This repo contains 40+ Product Requirement Documents. That is not overengineerin
 Every PRD specifies screens, interactions, data models, permission structures across five user roles, and architectural decisions with rationale. The PRDs ARE the business plan, the market research, the feature specifications, and the architectural blueprint — all in one.
 
 We ran a 97-file audit with 14 parallel agents before building. When the audit revealed that early code diverged from the PRDs, we rebuilt from scratch rather than ship wrong code. That's not a setback — that's product integrity for a platform families will trust with their most sensitive information.
+
+This wasn't a one-time correction. The team went through three complete rebuild cycles — each time restarting from PRD-01 — before developing the pre-build discipline process (documented in `claude/PRE_BUILD_PROCESS.md`) that finally solved the root cause: AI builders working from summaries instead of specifications. The third rebuild, guided by surgical repair and a structured verification process, produced the stable codebase that runs today.
 
 See [docs/WHY_PRDS_EXIST.md](docs/WHY_PRDS_EXIST.md) for the full philosophy.
 

@@ -70,7 +70,7 @@ Benefits:
 - **Fallback handling:** If one model provider has an outage, OpenRouter can route to alternatives.
 - **Single billing and monitoring:** One API key, one usage dashboard, one cost tracking system.
 
-Total AI cost across all nine optimization patterns: approximately $0.20 per family per month. This matters because cost discipline enables subscription pricing that families can actually afford.
+Total AI cost across all nine optimization patterns: under $1.00 per family per month. This matters because cost discipline enables subscription pricing that families can actually afford.
 
 ---
 

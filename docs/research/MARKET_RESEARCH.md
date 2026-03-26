@@ -82,7 +82,7 @@ Every family management tool on the market fails the same way: it was designed f
 
 ### Unit Economics
 
-AI costs are controlled through nine optimization patterns (P1-P9): approximately $0.20 per family per month. This means even the lowest subscription tier is profitable per-user from day one.
+AI costs are controlled through nine optimization patterns (P1-P9): under $1.00 per family per month. This means even the lowest subscription tier is profitable per-user from day one.
 
 ---
 
@@ -110,7 +110,7 @@ The ESA market is unusual because the customer (the family) is often not the pay
 
 4. **Architecture-first** — 40+ PRDs written before code. A 97-file compliance audit before building. Rebuilt from scratch when the audit found divergence. This level of rigor builds trust with families handling sensitive data — and it builds defensible intellectual property.
 
-5. **Cost discipline** — ~$0.20/family/month in AI costs means sustainable unit economics from the earliest tiers. Competitors wrapping raw LLM calls in a UI will face margin pressure that MyAIM has already solved.
+5. **Cost discipline** — < $1.00/family/month in AI costs means sustainable unit economics from the earliest tiers. Competitors wrapping raw LLM calls in a UI will face margin pressure that MyAIM has already solved.
 
 6. **Proven builder** — The founder won Best of Show at Missouri's first Vibeathon, building a healthcare scheduling solution solo in 36 hours. The ability to ship working product under pressure is demonstrated, not claimed.
 

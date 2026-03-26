@@ -20,7 +20,7 @@ A 97-file compliance audit was conducted before the build sprint. When it found 
 
 - **Mom-first:** Every design decision serves mom's workflow first. Other roles get scoped access that ultimately serves mom's goals.
 - **Family context is the differentiator:** Without context, LiLa is just another chatbot. With it, she's a partner who knows this specific family.
-- **Embedding-first classification:** ~90% of routine classification uses pgvector embeddings, not LLM calls. Total AI cost: ~$0.20/family/month.
+- **Embedding-first classification:** ~90% of routine classification uses pgvector embeddings, not LLM calls. Total AI cost: < $1.00/family/month.
 - **Templates as data, not code:** Report templates, guided modes, and widget configurations are database rows, not code files.
 - **Celebration only, never punishment:** Victory Recorder shows what was done, never what wasn't. No shame mechanics anywhere.
 

@@ -53,7 +53,7 @@ The condensed intelligence files that back LiLa's specialized modes were created
 
 ## The Nine Cost Optimization Patterns
 
-Total AI cost: approximately $0.20 per family per month. This is achieved through nine patterns (P1-P9) applied across every AI-calling feature:
+Total AI cost: under $1.00 per family per month. This is achieved through nine patterns (P1-P9) applied across every AI-calling feature:
 
 **P1 — Embedding-based auto-tagging.** Instead of calling an LLM to classify every journal entry, task, or feed item, we generate a text embedding and compare it to reference vectors. This handles ~90% of routine classification at a fraction of the cost.
 
