@@ -475,7 +475,7 @@ function AIToolboxSection({ setMobileOpen }: { setMobileOpen: (v: boolean) => vo
       )}
 
       {/* Cyrano */}
-      <ToolButton icon={<Feather size={20} />} label="Cyrano Me" onClick={() => launchTool('cyrano')} />
+      <ToolButton icon={<Feather size={20} />} label="Cyrano" onClick={() => launchTool('cyrano')} />
 
       {/* Higgins — opens mode picker inline */}
       <HigginsEntry onLaunch={launchTool} />

@@ -396,7 +396,7 @@ export function ToolConversationModal({
 
   const toolConfig = useMemo(() => {
     const configs: Record<string, { icon: typeof Heart; label: string; personLabel: string }> = {
-      cyrano: { icon: FileText, label: 'Cyrano Me', personLabel: 'Your partner' },
+      cyrano: { icon: FileText, label: 'Cyrano', personLabel: 'Your partner' },
       higgins_say: { icon: MessageSquare, label: 'Higgins — Say Something', personLabel: 'Who is this about?' },
       higgins_navigate: { icon: MessageSquare, label: 'Higgins — Navigate', personLabel: 'Who is involved?' },
       quality_time: { icon: Heart, label: 'Quality Time', personLabel: 'Who is this about?' },

@@ -100,7 +100,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
   {
     key: 'cyrano',
-    label: 'Cyrano Me',
+    label: 'Cyrano',
     icon: Feather,
     featureKey: 'tool_cyrano',
     kind: 'tool',
