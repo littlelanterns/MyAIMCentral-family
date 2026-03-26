@@ -1,4 +1,4 @@
-import { useState, useCallback, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, type ReactNode } from 'react'
 import { Settings } from 'lucide-react'
 import { GuidedIntroTour } from '@/components/tour/GuidedIntroTour'
 import { useAutoCollapse } from '@/hooks/useAutoCollapse'
@@ -54,6 +54,18 @@ export function MomShell({ children }: MomShellProps) {
     setShowHistory(false)
     setShowContextSettings(false)
   }
+
+  // Listen for tour-open-lila events from GuidedIntroTour
+  useEffect(() => {
+    function handleTourOpenLila(e: Event) {
+      const detail = (e as CustomEvent).detail
+      if (detail?.mode) {
+        handleFloatingButton(detail.mode)
+      }
+    }
+    window.addEventListener('tour-open-lila', handleTourOpenLila)
+    return () => window.removeEventListener('tour-open-lila', handleTourOpenLila)
+  }, [])
 
   function handleHistorySelect(conv: LilaConversation) {
     setActiveConversation(conv)

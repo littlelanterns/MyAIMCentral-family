@@ -4,6 +4,9 @@
  * Shows one built feature at a time with navigation arrows.
  * Dismissal stored in localStorage with 48-hour expiry.
  * Minimizes to a floating pill when user navigates to a feature.
+ *
+ * Each tour card specifies an action: navigate to a page, open a LiLa tool,
+ * open the LiLa drawer in a specific mode, or open the Smart Notepad.
  */
 
 import { useState, useEffect } from 'react'
@@ -14,6 +17,8 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { getTourFeatures, type JourneyFeature } from '@/data/lanterns-path-data'
+import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
+import { useNotepadContextSafe } from '@/components/notepad'
 
 const STORAGE_KEY = 'myaim_intro_tour_dismissed'
 const TOUR_EXPIRY_MS = 48 * 60 * 60 * 1000 // 48 hours
@@ -50,6 +55,8 @@ export function GuidedIntroTour() {
   const [minimized, setMinimized] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { openTool } = useToolLauncher()
+  const notepadCtx = useNotepadContextSafe()
 
   const tourFeatures = getTourFeatures()
   const totalSteps = tourFeatures.length + 1 // +1 for the final card
@@ -60,13 +67,6 @@ export function GuidedIntroTour() {
     }
   }, [])
 
-  // When location changes (user navigated), minimize the tour
-  useEffect(() => {
-    if (visible && !minimized && step > 0) {
-      // Only minimize if user navigated away (not on first render)
-    }
-  }, [location.pathname])
-
   if (!visible || tourFeatures.length === 0) return null
 
   const handleDismiss = () => {
@@ -74,11 +74,49 @@ export function GuidedIntroTour() {
     setVisible(false)
   }
 
+  /** Execute the tour action for a feature — navigate + trigger the right UI */
   const handleShowMe = (feature: JourneyFeature) => {
-    if (feature.route) {
-      navigate(feature.route)
+    const action = feature.tourAction
+
+    if (!action) {
+      // Default: just navigate
+      if (feature.route) navigate(feature.route)
       setMinimized(true)
+      return
     }
+
+    switch (action.type) {
+      case 'navigate':
+        if (action.route) navigate(action.route)
+        break
+
+      case 'tool':
+        // Open a LiLa tool modal (Cyrano, Perspective Shifter, etc.)
+        if (action.toolModeKey) {
+          openTool(action.toolModeKey)
+        }
+        break
+
+      case 'lila':
+        // Navigate to page if specified, then open LiLa drawer in the specified mode
+        if (action.route) navigate(action.route)
+        if (action.lilaMode) {
+          // Dispatch custom event that MomShell listens for
+          window.dispatchEvent(new CustomEvent('tour-open-lila', {
+            detail: { mode: action.lilaMode },
+          }))
+        }
+        break
+
+      case 'notepad':
+        // Open the Smart Notepad drawer
+        if (notepadCtx) {
+          notepadCtx.openNotepad()
+        }
+        break
+    }
+
+    setMinimized(true)
   }
 
   const handleNext = () => {
@@ -189,19 +227,17 @@ export function GuidedIntroTour() {
           Try this now: {feature.tourInstruction}
         </p>
       )}
-      {feature.route && (
-        <button
-          onClick={() => handleShowMe(feature)}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
-          style={{
-            backgroundColor: 'var(--color-btn-primary-bg)',
-            color: 'var(--color-btn-primary-text)',
-            border: 'none',
-          }}
-        >
-          Show me <ChevronRight size={12} />
-        </button>
-      )}
+      <button
+        onClick={() => handleShowMe(feature)}
+        className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
+        style={{
+          backgroundColor: 'var(--color-btn-primary-bg)',
+          color: 'var(--color-btn-primary-text)',
+          border: 'none',
+        }}
+      >
+        Show me <ChevronRight size={12} />
+      </button>
     </TourCardWrapper>
   )
 }

@@ -42,6 +42,60 @@ export function SettingsPage() {
         </h1>
       </div>
 
+      {/* Lantern's Path Card — TOP position, gold shimmer */}
+      <style>{`
+        @keyframes goldShimmer {
+          0%, 100% { box-shadow: 0 0 8px rgba(214, 164, 97, 0.3); border-color: #D6A461; }
+          50% { box-shadow: 0 0 20px rgba(214, 164, 97, 0.6); border-color: #E8C177; }
+        }
+      `}</style>
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: 'var(--color-bg-card)',
+          border: '2px solid #D6A461',
+          animation: 'goldShimmer 3s ease-in-out infinite',
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Map size={20} style={{ color: '#D6A461' }} />
+          <h3 className="font-semibold" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-heading)' }}>
+            The Lantern's Path
+          </h3>
+        </div>
+        <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+          Your guide to every feature in MyAIM. Discover what's working now and what's coming next.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/lanterns-path"
+            className="px-4 py-2 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: '#D6A461',
+              color: '#fff',
+              border: 'none',
+            }}
+          >
+            Open Guide
+          </Link>
+          <button
+            onClick={() => {
+              localStorage.removeItem(TOUR_STORAGE_KEY)
+              navigate('/dashboard')
+            }}
+            className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <RotateCcw size={14} />
+            Take the Guided Tour
+          </button>
+        </div>
+      </div>
+
       {/* Profile Section */}
       <SettingsSection title="Profile" icon={User}>
         <ProfileSection member={member} />
@@ -58,53 +112,6 @@ export function SettingsPage() {
           <FamilyMembersSection familyId={family?.id} />
         </SettingsSection>
       )}
-
-      {/* Lantern's Path Card */}
-      <div
-        className="rounded-xl p-5"
-        style={{
-          background: 'var(--surface-primary, var(--color-btn-primary-bg))',
-          color: 'var(--color-btn-primary-text)',
-        }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <Map size={20} />
-          <h3 className="font-semibold" style={{ fontFamily: 'var(--font-heading)', color: 'inherit' }}>
-            The Lantern's Path
-          </h3>
-        </div>
-        <p className="text-sm opacity-90 mb-4" style={{ color: 'inherit' }}>
-          Your guide to every feature in MyAIM. Discover what's working now and what's coming next.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/lanterns-path"
-            className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              color: 'inherit',
-              border: '1px solid rgba(255,255,255,0.3)',
-            }}
-          >
-            Open Guide
-          </Link>
-          <button
-            onClick={() => {
-              localStorage.removeItem(TOUR_STORAGE_KEY)
-              navigate('/dashboard')
-            }}
-            className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              color: 'inherit',
-              border: '1px solid rgba(255,255,255,0.3)',
-            }}
-          >
-            <RotateCcw size={14} />
-            Take the Guided Tour
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

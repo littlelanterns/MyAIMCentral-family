@@ -16,6 +16,18 @@ export interface SubTool {
   detail: string
 }
 
+/** What the tour "Show me" button should trigger */
+export interface TourAction {
+  /** 'navigate' = go to route, 'tool' = open LiLa tool modal, 'lila' = open LiLa drawer in mode, 'notepad' = open Smart Notepad */
+  type: 'navigate' | 'tool' | 'lila' | 'notepad'
+  /** Route to navigate to (for 'navigate' type) */
+  route?: string
+  /** LiLa tool mode key (for 'tool' type — opens ToolConversationModal) */
+  toolModeKey?: string
+  /** LiLa drawer mode (for 'lila' type — opens drawer in help/assist/general/optimizer) */
+  lilaMode?: string
+}
+
 export interface JourneyFeature {
   /** Internal key matching feature_expansion_registry / feature_guide_registry */
   key: string
@@ -43,6 +55,8 @@ export interface JourneyFeature {
   tourHook?: string
   /** Specific tour instruction */
   tourInstruction?: string
+  /** What the tour "Show me" button should do (if omitted, navigates to route) */
+  tourAction?: TourAction
 }
 
 export interface JourneyStage {
@@ -90,6 +104,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'Define who you\'re becoming — then let LiLa help you live it.',
         tourInstruction: 'Try typing: "I choose to be fully present with my kids, even when the house is chaos."',
+        tourAction: { type: 'navigate', route: '/guiding-stars' },
       },
       {
         key: 'innerworkings',
@@ -107,6 +122,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'Give LiLa the context to truly understand how you think.',
         tourInstruction: 'Try starting a conversation with LiLa about how you handle conflict.',
+        tourAction: { type: 'lila', lilaMode: 'general', route: '/inner-workings' },
       },
     ],
   },
@@ -152,6 +168,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'The AI that actually knows your family.',
         tourInstruction: 'Try asking: "What do you know about my family so far?"',
+        tourAction: { type: 'lila', lilaMode: 'general' },
       },
     ],
   },
@@ -180,6 +197,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'Capture everything, route it anywhere.',
         tourInstruction: 'Try dumping three things on your mind, then tap Review & Route.',
+        tourAction: { type: 'notepad' },
       },
       {
         key: 'journal',
@@ -237,6 +255,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'Tasks, routines, opportunities — with AI that breaks down the overwhelming stuff.',
         tourInstruction: 'Try creating a task and using Task Breaker to decompose it.',
+        tourAction: { type: 'navigate', route: '/tasks?new=1' },
       },
       {
         key: 'lists',
@@ -282,6 +301,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'The knowledge engine that makes LiLa truly know your family.',
         tourInstruction: 'Try telling LiLa about a family member — she\'ll organize it for you.',
+        tourAction: { type: 'navigate', route: '/archives' },
       },
     ],
   },
@@ -310,6 +330,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'Turn raw feelings into beautiful words — and learn along the way.',
         tourInstruction: 'Try drafting an encouraging message to your spouse.',
+        tourAction: { type: 'tool', toolModeKey: 'cyrano' },
       },
       {
         key: 'tool_higgins',
@@ -371,6 +392,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         ],
         tourHook: 'Five thinking tools: advisors, perspectives, frameworks, mediation, and translation.',
         tourInstruction: 'Try Perspective Shifter: describe a situation and see it through a family member\'s eyes.',
+        tourAction: { type: 'tool', toolModeKey: 'perspective_shifter' },
       },
     ],
   },
