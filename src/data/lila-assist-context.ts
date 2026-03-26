@@ -6,7 +6,7 @@
  * uses this context to give specific, actionable guidance.
  */
 
-import { getFeatureByKey, getAllFeatures, JOURNEY_STAGES, type JourneyFeature } from './lanterns-path-data'
+import { getFeatureByKey, JOURNEY_STAGES, type JourneyFeature } from './lanterns-path-data'
 
 interface AssistContext {
   featureKey: string
