@@ -164,7 +164,7 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
   bookshelf: {
     name: 'BookShelf — Personal Wisdom Library',
     description:
-      'You bought 12 parenting books this year. You\'ve finished... one and a half. BookShelf doesn\'t judge. Upload any book you own and LiLa reads it WITH you — extracting principles, declarations, and action steps chapter by chapter. Heart the wisdom that resonates most. Then she turns wisdom into action: a principle becomes a Guiding Star, an action step becomes a Task. And Discussion mode lets you talk through the book like you\'re at the world\'s most patient book club.',
+      'You bought 12 parenting books this year. You\'ve finished... one and a half. BookShelf doesn\'t judge. Upload any book you own and LiLa reads it WITH you — or FOR you — extracting principles, declarations, and action steps chapter by chapter. Heart the wisdom that resonates most. Then she turns wisdom into action: a principle becomes a Guiding Star, an action step becomes a Task. And Discussion mode lets you talk through the book like you\'re at the world\'s most patient book club.',
     location_hint: 'Personal Dashboard sidebar, LiLa context, AI Vault',
   },
 

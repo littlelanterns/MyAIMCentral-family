@@ -430,7 +430,7 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         route: null,
         status: 'in_production',
         description:
-          'You bought 12 parenting books this year. You\'ve finished... one and a half. BookShelf doesn\'t judge. Upload any book you own and LiLa reads it WITH you — extracting principles, declarations, and action steps chapter by chapter. Heart the wisdom that resonates most. Then LiLa turns wisdom into action: a principle becomes a Guiding Star, an action step becomes a Task. Discussion mode lets you talk through the book like you\'re at the world\'s most patient book club.',
+          'You bought 12 parenting books this year. You\'ve finished... one and a half. BookShelf doesn\'t judge. Upload any book you own and LiLa reads it WITH you — or FOR you — extracting principles, declarations, and action steps chapter by chapter. Heart the wisdom that resonates most. Then LiLa turns wisdom into action: a principle becomes a Guiding Star, an action step becomes a Task. Discussion mode lets you talk through the book like you\'re at the world\'s most patient book club.',
         connections: 'Hearted insights feed LiLa context (configurable: hearted only, all, principles only, or none). Declarations route to Guiding Stars. Action steps route to Tasks. Cross-book discussions connect ideas across your entire library.',
         lookForward: 'Upload PDFs, EPUBs, or paste text. LiLa processes chapter by chapter — extracting key concepts, stories, quotes, insights, principles, frameworks, declarations, questions, and action steps. Heart what resonates. Export to Guiding Stars, Tasks, and Journal. Start multi-book discussions where LiLa connects ideas across everything you\'ve read.',
       },

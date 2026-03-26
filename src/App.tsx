@@ -26,6 +26,7 @@ import {
 import { LanternsPathPage } from '@/pages/LanternsPath'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
+import { BookShelfStub } from '@/pages/BookShelfStub'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
 import { FamilyOverviewDetail } from '@/pages/archives/FamilyOverviewDetail'
@@ -103,6 +104,7 @@ function App() {
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
+              <Route path="/bookshelf" element={<ProtectedRoute><BookShelfStub /></ProtectedRoute>} />
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
             </Routes>

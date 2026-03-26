@@ -3,7 +3,6 @@ import { Search, Sparkles, MessageSquarePlus } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
-import { PlannedExpansionCard } from '@/components/shared/PlannedExpansionCard'
 import { VaultHeroSpotlight } from '../components/VaultHeroSpotlight'
 import { VaultCategoryRow } from '../components/VaultCategoryRow'
 import { VaultContentCard } from '../components/VaultContentCard'
@@ -108,9 +107,6 @@ export function VaultBrowsePage() {
               onSelectItem={handleSelectItem}
             />
           )}
-
-          {/* BookShelf — Coming Soon highlight */}
-          <PlannedExpansionCard featureKey="bookshelf" />
 
           {/* Section D: Category Rows */}
           {loading ? (

@@ -418,8 +418,21 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
 
 function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAction: () => void; illustratedUrl: string | null }) {
   const [hovered, setHovered] = useState(false)
+  const [attentionGlow, setAttentionGlow] = useState(false)
   const Icon = item.icon
   const isPinned = PINNED_ACTIONS.some(p => p.key === item.key)
+
+  // Listen for tour dismissal to trigger attention animation
+  useEffect(() => {
+    if (!isPinned) return
+    function handleGlow() {
+      setAttentionGlow(true)
+      // Stop after 6 seconds
+      setTimeout(() => setAttentionGlow(false), 6000)
+    }
+    window.addEventListener('tour-dismissed-glow', handleGlow)
+    return () => window.removeEventListener('tour-dismissed-glow', handleGlow)
+  }, [isPinned])
 
   if (isPinned) {
     return (
@@ -429,20 +442,30 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
             0%, 100% { box-shadow: 0 0 6px rgba(214,164,97,0.4), inset 0 0 4px rgba(214,164,97,0.1); border-color: #D6A461; }
             50% { box-shadow: 0 0 14px rgba(214,164,97,0.7), inset 0 0 8px rgba(214,164,97,0.2); border-color: #E8C177; }
           }
+          @keyframes qtAttentionPulse {
+            0% { transform: scale(1); box-shadow: 0 0 8px rgba(214,164,97,0.5); background-color: #D6A461; }
+            25% { transform: scale(1.15); box-shadow: 0 0 24px rgba(214,164,97,0.9); background-color: #E8C177; }
+            50% { transform: scale(1); box-shadow: 0 0 8px rgba(104,163,149,0.6); background-color: #68A395; }
+            75% { transform: scale(1.1); box-shadow: 0 0 20px rgba(214,164,97,0.8); background-color: #D6A461; }
+            100% { transform: scale(1); box-shadow: 0 0 8px rgba(214,164,97,0.5); background-color: #D6A461; }
+          }
         `}</style>
         <button
           onClick={onAction}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-bold transition-all duration-150 whitespace-nowrap"
+          className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-bold whitespace-nowrap"
           style={{
             padding: '6px 14px',
             backgroundColor: hovered ? '#C4923A' : '#D6A461',
             color: '#fff',
             border: '1.5px solid #D6A461',
-            animation: 'qtGoldShimmer 2.5s ease-in-out infinite',
+            animation: attentionGlow
+              ? 'qtAttentionPulse 1s ease-in-out infinite'
+              : 'qtGoldShimmer 2.5s ease-in-out infinite',
             minHeight: 'unset',
             lineHeight: 1.2,
+            transition: 'background-color 0.15s',
           }}
         >
           <Icon size={16} />

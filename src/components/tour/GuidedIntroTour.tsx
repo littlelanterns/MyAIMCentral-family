@@ -1,12 +1,9 @@
 /**
  * GuidedIntroTour — Floating card carousel for new/demo users
  *
- * Shows one built feature at a time with navigation arrows.
- * Dismissal stored in localStorage with 48-hour expiry.
- * Minimizes to a floating pill when user navigates to a feature.
- *
- * Each tour card specifies an action: navigate to a page, open a LiLa tool,
- * open the LiLa drawer in a specific mode, or open the Smart Notepad.
+ * Stays visible while exploring. "Show me" navigates + triggers the UI element
+ * but the carousel bounces to the bottom-right corner so it's easy to continue.
+ * "Dismiss Guide" closes it and triggers a glow on the Lantern's Path QuickTasks pill.
  */
 
 import { useState, useEffect } from 'react'
@@ -21,8 +18,6 @@ import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
 import { useNotepadContextSafe } from '@/components/notepad'
 
 const STORAGE_KEY = 'myaim_intro_tour_dismissed'
-// Use sessionStorage so tour reappears each login session
-// (dismissed for this session, returns on next login)
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Star, Heart, Sparkles, FileText, CheckSquare, Archive, Feather, Brain,
@@ -46,10 +41,15 @@ function dismissTour() {
   } catch { /* noop */ }
 }
 
+/** Dispatch event so QuickTasks Lantern's Path pill can glow after dismiss */
+function triggerLanternsPathGlow() {
+  window.dispatchEvent(new CustomEvent('tour-dismissed-glow'))
+}
+
 export function GuidedIntroTour() {
   const [visible, setVisible] = useState(false)
   const [step, setStep] = useState(0)
-  const [minimized, setMinimized] = useState(false)
+  const [docked, setDocked] = useState(false) // "bounced to corner" state
   const navigate = useNavigate()
   const { openTool } = useToolLauncher()
   const notepadCtx = useNotepadContextSafe()
@@ -68,16 +68,16 @@ export function GuidedIntroTour() {
   const handleDismiss = () => {
     dismissTour()
     setVisible(false)
+    triggerLanternsPathGlow()
   }
 
-  /** Execute the tour action for a feature — navigate + trigger the right UI */
+  /** Execute the tour action — navigate + trigger UI, then dock the carousel */
   const handleShowMe = (feature: JourneyFeature) => {
     const action = feature.tourAction
 
     if (!action) {
-      // Default: just navigate
       if (feature.route) navigate(feature.route)
-      setMinimized(true)
+      setDocked(true)
       return
     }
 
@@ -85,84 +85,107 @@ export function GuidedIntroTour() {
       case 'navigate':
         if (action.route) navigate(action.route)
         break
-
       case 'tool':
-        // Open a LiLa tool modal (Cyrano, Perspective Shifter, etc.)
-        if (action.toolModeKey) {
-          openTool(action.toolModeKey)
-        }
+        if (action.toolModeKey) openTool(action.toolModeKey)
         break
-
       case 'lila':
-        // Navigate to page if specified, then open LiLa drawer in the specified mode
         if (action.route) navigate(action.route)
         if (action.lilaMode) {
-          // Dispatch custom event that MomShell listens for
           window.dispatchEvent(new CustomEvent('tour-open-lila', {
             detail: { mode: action.lilaMode },
           }))
         }
         break
-
       case 'notepad':
-        // Open the Smart Notepad drawer
-        if (notepadCtx) {
-          notepadCtx.openNotepad()
-        }
+        if (notepadCtx) notepadCtx.openNotepad()
         break
     }
 
-    setMinimized(true)
+    setDocked(true)
   }
 
   const handleNext = () => {
     if (step < totalSteps - 1) {
       setStep(step + 1)
-      setMinimized(false)
+      setDocked(false)
     }
   }
 
   const handlePrev = () => {
     if (step > 0) {
       setStep(step - 1)
-      setMinimized(false)
+      setDocked(false)
     }
   }
 
-  // Minimized pill
-  if (minimized) {
+  const handleUndock = () => setDocked(false)
+
+  // ── Docked state: compact card in bottom-right ────────────
+  if (docked) {
+    const isLastStep = step >= tourFeatures.length
+    const currentFeature = !isLastStep ? tourFeatures[step] : null
+    const Icon = currentFeature ? getIcon(currentFeature.iconName) : Map
+
     return (
-      <div
-        className="fixed z-40 flex items-center gap-2 px-3 py-2 rounded-full shadow-lg cursor-pointer"
-        style={{
-          bottom: '70px',
-          right: '16px',
-          backgroundColor: 'var(--color-btn-primary-bg)',
-          color: 'var(--color-btn-primary-text)',
-        }}
-        onClick={() => setMinimized(false)}
-      >
-        <Map size={14} />
-        <span className="text-xs font-medium">Tour: {step + 1}/{totalSteps}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); handleNext() }}
-          className="text-xs font-medium ml-1"
-          style={{ color: 'inherit', background: 'transparent', border: 'none', minHeight: 'unset', padding: 0 }}
+      <>
+        <style>{`
+          @keyframes tourBounceIn {
+            0% { transform: scale(0.8) translateY(20px); opacity: 0; }
+            50% { transform: scale(1.05) translateY(-4px); }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+          }
+        `}</style>
+        <div
+          className="fixed z-40 rounded-xl shadow-xl p-3 cursor-pointer"
+          style={{
+            bottom: '70px',
+            right: '16px',
+            width: '280px',
+            backgroundColor: 'var(--color-bg-card)',
+            border: '1.5px solid #D6A461',
+            boxShadow: '0 4px 20px rgba(214,164,97,0.3)',
+            animation: 'tourBounceIn 0.4s ease-out',
+          }}
+          onClick={handleUndock}
         >
-          Next
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDismiss() }}
-          className="ml-1"
-          style={{ color: 'inherit', background: 'transparent', border: 'none', minHeight: 'unset', padding: 0 }}
-        >
-          <X size={14} />
-        </button>
-      </div>
+          <div className="flex items-center gap-2">
+            <Icon size={16} style={{ color: '#D6A461' }} />
+            <span className="text-xs font-semibold flex-1 truncate" style={{ color: 'var(--color-text-heading)' }}>
+              {currentFeature ? currentFeature.name : 'Tour Complete'}
+            </span>
+            <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+              {step + 1}/{totalSteps}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleUndock() }}
+              className="text-[11px] font-medium px-2 py-1 rounded"
+              style={{ backgroundColor: '#D6A461', color: '#fff', border: 'none', minHeight: 'unset' }}
+            >
+              Continue Tour
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleNext() }}
+              className="text-[11px] px-2 py-1 rounded"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: '1px solid var(--color-border)', minHeight: 'unset' }}
+            >
+              Next
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDismiss() }}
+              className="text-[11px] px-2 py-1 rounded ml-auto"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset', opacity: 0.6 }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </>
     )
   }
 
-  // Final card
+  // ── Final card ────────────────────────────────────────────
   if (step >= tourFeatures.length) {
     return (
       <TourCardWrapper
@@ -184,11 +207,7 @@ export function GuidedIntroTour() {
           <button
             onClick={() => { navigate('/lanterns-path'); handleDismiss() }}
             className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: 'var(--color-btn-primary-bg)',
-              color: 'var(--color-btn-primary-text)',
-              border: 'none',
-            }}
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', border: 'none' }}
           >
             Open Full Map
           </button>
@@ -197,7 +216,7 @@ export function GuidedIntroTour() {
     )
   }
 
-  // Feature card
+  // ── Feature card (full) ───────────────────────────────────
   const feature = tourFeatures[step]
   const Icon = getIcon(feature.iconName)
 
@@ -226,11 +245,7 @@ export function GuidedIntroTour() {
       <button
         onClick={() => handleShowMe(feature)}
         className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
-        style={{
-          backgroundColor: 'var(--color-btn-primary-bg)',
-          color: 'var(--color-btn-primary-text)',
-          border: 'none',
-        }}
+        style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', border: 'none' }}
       >
         Show me <ChevronRight size={12} />
       </button>
@@ -267,17 +282,8 @@ function TourCardWrapper({
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
       }}
     >
-      {/* Dismiss button */}
-      <button
-        onClick={onDismiss}
-        className="absolute top-2 right-2 p-1 rounded-full"
-        style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset' }}
-      >
-        <X size={16} />
-      </button>
-
       {/* Content */}
-      <div className="pr-6">{children}</div>
+      <div className="pr-2">{children}</div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-3 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
@@ -288,9 +294,7 @@ function TourCardWrapper({
           style={{
             color: step === 0 ? 'var(--color-text-secondary)' : 'var(--color-btn-primary-bg)',
             opacity: step === 0 ? 0.3 : 1,
-            background: 'transparent',
-            border: 'none',
-            minHeight: 'unset',
+            background: 'transparent', border: 'none', minHeight: 'unset',
           }}
         >
           <ChevronLeft size={18} />
@@ -303,9 +307,7 @@ function TourCardWrapper({
               key={i}
               className="w-1.5 h-1.5 rounded-full"
               style={{
-                backgroundColor: i === step
-                  ? 'var(--color-btn-primary-bg)'
-                  : 'var(--color-border)',
+                backgroundColor: i === step ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
               }}
             />
           ))}
@@ -330,14 +332,14 @@ function TourCardWrapper({
         )}
       </div>
 
-      {/* Skip tour link */}
+      {/* Dismiss Guide button */}
       <div className="text-center mt-1">
         <button
           onClick={onDismiss}
-          className="text-[10px]"
-          style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset', opacity: 0.6 }}
+          className="text-[11px] font-medium"
+          style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset', opacity: 0.7 }}
         >
-          Skip Tour
+          Dismiss Guide
         </button>
       </div>
     </div>

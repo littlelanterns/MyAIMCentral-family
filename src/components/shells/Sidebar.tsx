@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, FileText, Rss,
+  Palette, Lock, Gem, FileText, Rss, BookCopy,
   ChevronLeft, ChevronRight, Eye, ChevronDown,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -83,8 +83,8 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     title: 'AI & Tools',
     items: [
       { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
-      { label: 'My Prompts', path: '/vault/my-prompts', featureKey: 'vault_prompt_library', icon: <FileText size={20} />, tooltip: 'Your saved prompts' },
       { label: 'Archives', path: '/archives', featureKey: 'archives', icon: <Archive size={20} />, tooltip: 'Context and documents' },
+      { label: 'BookShelf', path: '/bookshelf', featureKey: 'bookshelf', icon: <BookCopy size={20} />, tooltip: 'Upload books, extract wisdom with LiLa' },
     ],
   }
 
