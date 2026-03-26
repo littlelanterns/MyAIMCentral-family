@@ -17,6 +17,7 @@ import { LilaAvatar } from './LilaAvatar'
 import { matchHelpPattern } from '@/lib/ai/help-patterns'
 import { supabase } from '@/lib/supabase/client'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { FEATURE_FLAGS } from '@/config/featureFlags'
 
 /**
  * LiLa Modal — Non-mom members (PRD-05)
@@ -151,6 +152,7 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
       () => {
         setIsStreaming(false)
         setStreamingContent('')
+        queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
       },
       (error) => {
         console.error('LiLa modal error:', error)
@@ -335,7 +337,7 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
         </div>
 
         {/* Recording status bar */}
-        {(voiceState === 'recording' || voiceState === 'transcribing') && (
+        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceState === 'recording' || voiceState === 'transcribing') && (
           <div
             className="mx-4 mb-1 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
             style={{
@@ -363,8 +365,8 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
           className="flex items-center gap-2 px-4 py-3 border-t shrink-0"
           style={{ borderColor: 'var(--color-border)' }}
         >
-          {/* Voice input button — live when supported */}
-          {voiceSupported ? (
+          {/* Voice input button — hidden behind feature flag */}
+          {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceSupported ? (
             <button
               type="button"
               onClick={handleVoiceMic}
@@ -387,7 +389,7 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
             >
               <Mic size={16} style={{ color: 'var(--color-text-secondary)' }} />
             </button>
-          )}
+          ))}
 
           <input
             type="text"

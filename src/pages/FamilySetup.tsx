@@ -283,15 +283,23 @@ Return ONLY a JSON array. Example:
         // Auto-generate and hash PINs for each member (MMDD from birthday, or 0000)
         // Archive folders + dashboard_configs are auto-created by DB trigger
         if (insertedMembers) {
-          await Promise.all(
-            insertedMembers.map((m) => {
+          const pinResults = await Promise.allSettled(
+            insertedMembers.map(async (m) => {
               const pin = pinFromBirthday(m.date_of_birth)
-              return supabase.rpc('hash_member_pin', {
+              const { error } = await supabase.rpc('hash_member_pin', {
                 p_member_id: m.id,
                 p_pin: pin,
               })
+              if (error) {
+                console.error(`PIN hash failed for member ${m.id}:`, error.message)
+                throw error
+              }
             }),
           )
+          const failures = pinResults.filter(r => r.status === 'rejected')
+          if (failures.length > 0) {
+            console.warn(`${failures.length} PIN(s) failed to hash — members will need PINs set manually`)
+          }
         }
       }
 

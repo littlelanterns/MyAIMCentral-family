@@ -241,7 +241,7 @@ export function FamilyLogin() {
     }
 
     if (result.reason === 'not_found') {
-      setError('Something went wrong. Please go back and try again.')
+      setError('No PIN has been set for this member. Ask the family admin to set one in Settings.')
       return
     }
 

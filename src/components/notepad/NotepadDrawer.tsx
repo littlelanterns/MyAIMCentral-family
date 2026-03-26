@@ -14,6 +14,7 @@ import { NotepadRichEditor } from './NotepadRichEditor'
 import { NotepadReviewRoute } from './NotepadReviewRoute'
 import { useNotepadContext } from './NotepadContext'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { FEATURE_FLAGS } from '@/config/featureFlags'
 import {
   useCreateNotepadTab,
   useUpdateNotepadTab,
@@ -583,7 +584,7 @@ function EditorView({
           autoFocus
         />
         {/* Interim voice preview */}
-        {voice.state === 'recording' && voice.interimText && (
+        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && voice.state === 'recording' && voice.interimText && (
           <div
             className="px-3 py-2 text-xs italic border-t"
             style={{
@@ -612,8 +613,8 @@ function EditorView({
         style={{ borderColor: 'var(--color-border)' }}
       >
         <div className="flex items-center gap-2">
-          {/* Voice input */}
-          {voice.state === 'transcribing' ? (
+          {/* Voice input — hidden behind feature flag */}
+          {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voice.state === 'transcribing' ? (
             <div className="flex items-center gap-1.5 px-2 py-1">
               <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-btn-primary-bg)' }} />
               <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
@@ -634,10 +635,10 @@ function EditorView({
             >
               {voice.state === 'recording' ? <MicOff size={16} /> : <Mic size={16} />}
             </button>
-          )}
+          ))}
 
           {/* Word/char count */}
-          {voice.state === 'recording' ? (
+          {FEATURE_FLAGS.ENABLE_VOICE_INPUT && voice.state === 'recording' ? (
             <span className="text-[10px] font-medium animate-pulse" style={{ color: 'var(--color-error, #e53e3e)' }}>
               {formatDuration(voice.duration)}
             </span>

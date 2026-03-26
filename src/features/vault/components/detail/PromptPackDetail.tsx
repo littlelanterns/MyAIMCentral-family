@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronUp, Save, Check, Sparkles, Image as ImageIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronDown, ChevronUp, Save, Check, Sparkles, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import type { VaultItem } from '../../hooks/useVaultBrowse'
 import type { PromptEntry } from '../../hooks/useVaultDetail'
@@ -35,6 +35,54 @@ async function saveToMyPrompts(memberId: string, entry: PromptEntry, item: Vault
  */
 export function PromptPackDetail({ item, entries, memberId }: Props) {
   const isGallery = item.prompt_format === 'image_gen' || item.prompt_format === 'video_gen'
+
+  // If there's an interactive HTML content_url, render it via iframe (like TutorialDetail)
+  const isStorageHtml = item.content_url?.includes('supabase.co/storage') && item.content_url?.endsWith('.html')
+  const [htmlContent, setHtmlContent] = useState<string | null>(null)
+  const [loadingHtml, setLoadingHtml] = useState(false)
+
+  useEffect(() => {
+    if (!isStorageHtml || !item.content_url) return
+    setLoadingHtml(true)
+    fetch(item.content_url)
+      .then(r => r.text())
+      .then(html => setHtmlContent(html))
+      .catch(() => setHtmlContent(null))
+      .finally(() => setLoadingHtml(false))
+  }, [item.content_url, isStorageHtml])
+
+  // Interactive HTML version takes priority when available
+  if (isStorageHtml) {
+    return (
+      <div className="p-4 md:p-6">
+        {item.full_description && (
+          <p className="text-sm mb-4" style={{ color: 'var(--color-text-primary)' }}>
+            {item.full_description}
+          </p>
+        )}
+        {loadingHtml ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 size={24} className="animate-spin" style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <span className="ml-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>Loading prompt pack...</span>
+          </div>
+        ) : htmlContent ? (
+          <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <iframe
+              srcDoc={htmlContent}
+              className="w-full border-0"
+              style={{ minHeight: '80vh' }}
+              title={item.detail_title || item.display_title}
+              sandbox="allow-scripts allow-same-origin allow-popups"
+            />
+          </div>
+        ) : (
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            Failed to load content. Please try again later.
+          </p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 md:p-6">

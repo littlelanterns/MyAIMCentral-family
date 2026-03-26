@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Mail, ArrowRight } from 'lucide-react'
 import { signUp } from '@/lib/supabase/auth'
 import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
@@ -14,6 +14,7 @@ export function CreateAccount() {
   const [tosAccepted, setTosAccepted] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
 
   function getPasswordStrength(pw: string): { label: string; color: string } {
     if (pw.length < 8) return { label: 'Weak', color: AUTH_COLORS.error }
@@ -52,7 +53,8 @@ export function CreateAccount() {
       return
     }
 
-    navigate('/dashboard')
+    setLoading(false)
+    setShowConfirmation(true)
   }
 
   const strength = password ? getPasswordStrength(password) : null
@@ -62,6 +64,54 @@ export function CreateAccount() {
     border: `1px solid ${hasError ? AUTH_COLORS.error : AUTH_COLORS.border}`,
     color: AUTH_COLORS.text,
   })
+
+  if (showConfirmation) {
+    return (
+      <AuthPageLayout>
+        <div className="max-w-md w-full space-y-6">
+          <div
+            className="rounded-xl p-6 text-center space-y-4"
+            style={{
+              backgroundColor: AUTH_COLORS.card,
+              border: `1px solid ${AUTH_COLORS.border}`,
+            }}
+          >
+            <div
+              className="w-14 h-14 rounded-full mx-auto flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)` }}
+            >
+              <Mail size={24} color="#fff" />
+            </div>
+
+            <h2
+              className="text-xl font-bold"
+              style={{ color: AUTH_COLORS.text, fontFamily: 'var(--font-heading)' }}
+            >
+              Welcome to MyAIM Family!
+            </h2>
+
+            <p className="text-sm leading-relaxed" style={{ color: AUTH_COLORS.text }}>
+              We've sent a confirmation link to{' '}
+              <strong style={{ color: AUTH_COLORS.primary }}>{email}</strong>.
+              Please check your inbox (and spam folder) and click the link to activate your account.
+            </p>
+
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-full py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              style={{
+                background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                color: '#ffffff',
+              }}
+            >
+              Continue to My Dashboard
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      </AuthPageLayout>
+    )
+  }
 
   return (
     <AuthPageLayout>
