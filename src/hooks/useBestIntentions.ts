@@ -322,6 +322,21 @@ export function useLogIteration() {
         .single()
 
       if (error) throw error
+
+      // Increment the denormalized iteration_count on the intention
+      const { data: current } = await supabase
+        .from('best_intentions')
+        .select('iteration_count')
+        .eq('id', intentionId)
+        .single()
+
+      if (current) {
+        await supabase
+          .from('best_intentions')
+          .update({ iteration_count: (current.iteration_count ?? 0) + 1 })
+          .eq('id', intentionId)
+      }
+
       return data as IntentionIteration
     },
     onSuccess: (data) => {

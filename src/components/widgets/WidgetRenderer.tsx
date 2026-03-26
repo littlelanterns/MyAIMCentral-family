@@ -8,6 +8,7 @@ import { StreakTracker } from './trackers/StreakTracker'
 import { PercentageTracker } from './trackers/PercentageTracker'
 import { ChecklistTracker } from './trackers/ChecklistTracker'
 import { HabitGridTracker } from './trackers/HabitGridTracker'
+import { BestIntentionTracker } from './trackers/BestIntentionTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
 
 interface WidgetRendererProps {
@@ -68,6 +69,13 @@ export function WidgetRenderer({ widget, dataPoints, onRecordData, isCompact }: 
           dataPoints={dataPoints}
           onRecordData={onRecordData}
           variant={variant}
+          isCompact={isCompact}
+        />
+      )
+    case 'best_intention':
+      return (
+        <BestIntentionTracker
+          widget={widget}
           isCompact={isCompact}
         />
       )
