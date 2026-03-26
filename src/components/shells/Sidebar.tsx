@@ -4,11 +4,9 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, FileText, MessageCircle, Feather, GraduationCap,
-  Gift, Sparkles, Eye as EyeIcon,
+  Palette, Lock, Gem, FileText,
   ChevronLeft, ChevronRight, Eye, ChevronDown,
 } from 'lucide-react'
-import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
 import { useShell } from './ShellProvider'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -475,106 +473,3 @@ function SidebarInner({
   )
 }
 
-/**
- * AI Toolbox sidebar section — PRD-21
- * Shows communication tools that launch modals (not pages).
- * Love Languages group (collapsible, 5 tools) + Cyrano + Higgins.
- */
-function AIToolboxSection({ setMobileOpen }: { setMobileOpen: (v: boolean) => void }) {
-  const { openTool } = useToolLauncher()
-  const [loveLangExpanded, setLoveLangExpanded] = useState(false)
-
-  const launchTool = (modeKey: string) => {
-    openTool(modeKey)
-    setMobileOpen(false)
-  }
-
-  return (
-    <div className="mb-4">
-      <p
-        className="px-4 mb-1 text-xs font-medium uppercase tracking-wider"
-        style={{ color: 'var(--color-text-secondary)' }}
-      >
-        AI Toolbox
-      </p>
-
-      {/* Love Languages group — collapsible */}
-      <button
-        onClick={() => setLoveLangExpanded(!loveLangExpanded)}
-        className="flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm w-[calc(100%-16px)] text-left transition-colors hover:opacity-80"
-        style={{ color: 'var(--color-text-primary)' }}
-      >
-        <Heart size={20} />
-        <span className="flex-1">Love Languages</span>
-        <ChevronDown
-          size={14}
-          style={{
-            color: 'var(--color-text-secondary)',
-            transform: loveLangExpanded ? 'rotate(180deg)' : 'rotate(0)',
-            transition: 'transform 150ms ease',
-          }}
-        />
-      </button>
-
-      {loveLangExpanded && (
-        <div className="ml-4">
-          <ToolButton icon={<Heart size={16} />} label="Quality Time" onClick={() => launchTool('quality_time')} />
-          <ToolButton icon={<Gift size={16} />} label="Gifts" onClick={() => launchTool('gifts')} />
-          <ToolButton icon={<EyeIcon size={16} />} label="Observe & Serve" onClick={() => launchTool('observe_serve')} />
-          <ToolButton icon={<MessageCircle size={16} />} label="Words of Affirmation" onClick={() => launchTool('words_affirmation')} />
-          <ToolButton icon={<Sparkles size={16} />} label="Gratitude" onClick={() => launchTool('gratitude')} />
-        </div>
-      )}
-
-      {/* Cyrano */}
-      <ToolButton icon={<Feather size={20} />} label="Cyrano" onClick={() => launchTool('cyrano')} />
-
-      {/* Higgins — opens mode picker inline */}
-      <HigginsEntry onLaunch={launchTool} />
-    </div>
-  )
-}
-
-function ToolButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm w-[calc(100%-16px)] text-left transition-colors hover:opacity-80"
-      style={{ color: 'var(--color-text-primary)' }}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  )
-}
-
-function HigginsEntry({ onLaunch }: { onLaunch: (key: string) => void }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm w-[calc(100%-16px)] text-left transition-colors hover:opacity-80"
-        style={{ color: 'var(--color-text-primary)' }}
-      >
-        <GraduationCap size={20} />
-        <span className="flex-1">Higgins</span>
-        <ChevronDown
-          size={14}
-          style={{
-            color: 'var(--color-text-secondary)',
-            transform: expanded ? 'rotate(180deg)' : 'rotate(0)',
-            transition: 'transform 150ms ease',
-          }}
-        />
-      </button>
-      {expanded && (
-        <div className="ml-4">
-          <ToolButton icon={<MessageCircle size={16} />} label="Help Me Say Something" onClick={() => onLaunch('higgins_say')} />
-          <ToolButton icon={<Compass size={16} />} label="Help Me Navigate This" onClick={() => onLaunch('higgins_navigate')} />
-        </div>
-      )}
-    </>
-  )
-}
