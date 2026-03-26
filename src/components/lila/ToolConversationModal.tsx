@@ -194,8 +194,7 @@ export function ToolConversationModal({
     if (!isPartnerOnly || selectedPersonIds.length > 0) return
     const partner = familyMembers.find(fm =>
       fm.id !== member?.id &&
-      fm.role === 'additional_adult' &&
-      (fm.relationship === 'spouse' || fm.relationship === 'partner')
+      fm.role === 'additional_adult'
     )
     if (partner) {
       setSelectedPersonIds([partner.id])
@@ -288,10 +287,13 @@ export function ToolConversationModal({
         guided_mode_reference_id: selectedPersonIds[0] || undefined,
         container_type: 'modal',
         model_used: mode?.model_tier || 'sonnet',
-        context_snapshot: selectedPersonIds.length > 1
-          ? { involved_member_ids: selectedPersonIds }
-          : {},
       })
+      // Store additional person IDs in context_snapshot for multi-person Higgins
+      if (selectedPersonIds.length > 1) {
+        await supabase.from('lila_conversations').update({
+          context_snapshot: { involved_member_ids: selectedPersonIds },
+        }).eq('id', conv.id)
+      }
       setConversation(conv)
     }
 

@@ -13,9 +13,10 @@
 
 import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, Inbox } from 'lucide-react'
+import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, Inbox, Heart, Feather, GraduationCap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
+import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
 import { useFamily } from '@/hooks/useFamily'
@@ -24,7 +25,7 @@ import { BreathingGlow } from '@/components/ui/BreathingGlow'
 
 // ─── Types ───────────────────────────────────────────────────
 
-type QuickActionKind = 'path' | 'notepad'
+type QuickActionKind = 'path' | 'notepad' | 'tool'
 
 interface QuickAction {
   key: string
@@ -34,6 +35,8 @@ interface QuickAction {
   kind: QuickActionKind
   /** Populated when kind === 'path' */
   path?: string
+  /** Populated when kind === 'tool' — the guided mode key to launch */
+  toolModeKey?: string
 }
 
 // ─── Action Definitions ──────────────────────────────────────
@@ -85,6 +88,31 @@ const QUICK_ACTIONS: QuickAction[] = [
     featureKey: 'mindsweep',
     kind: 'path',
     path: '/sweep',
+  },
+  // PRD-21: Communication tool QuickTasks
+  {
+    key: 'love_languages',
+    label: 'Love Languages',
+    icon: Heart,
+    featureKey: 'tool_quality_time',
+    kind: 'tool',
+    toolModeKey: 'quality_time', // Opens Quality Time by default; popover would be Phase 21-B enhancement
+  },
+  {
+    key: 'cyrano',
+    label: 'Cyrano',
+    icon: Feather,
+    featureKey: 'tool_cyrano',
+    kind: 'tool',
+    toolModeKey: 'cyrano',
+  },
+  {
+    key: 'higgins',
+    label: 'Higgins',
+    icon: GraduationCap,
+    featureKey: 'tool_higgins_say',
+    kind: 'tool',
+    toolModeKey: 'higgins_say', // Default to Say; Sidebar has the full mode picker
   },
 ]
 
@@ -200,6 +228,7 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
   const { shell } = useShell()
   const navigate = useNavigate()
   const notepadBridge = useContext(QuickTasksNotepadCtx)
+  const { openTool } = useToolLauncher()
   const iconUrls = useQuickActionIcons()
   const { data: family } = useFamily()
   const { data: queueCount = 0 } = useStudioQueueCount(family?.id)
@@ -240,6 +269,9 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
     incrementUsage(action.key) // Track usage for auto-sort (PRD-04)
     if (action.kind === 'path' && action.path) {
       navigate(action.path)
+    } else if (action.kind === 'tool' && action.toolModeKey) {
+      // PRD-21: Launch communication tool modal
+      openTool(action.toolModeKey)
     } else {
       // notepad action
       if (notepadBridge) {

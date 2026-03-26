@@ -4,7 +4,8 @@ import { useAutoCollapse } from '@/hooks/useAutoCollapse'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
-import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar } from '@/components/lila'
+import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar, LilaModal } from '@/components/lila'
+import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { TimerProvider } from '@/features/timer'
@@ -28,6 +29,7 @@ export function MomShell({ children }: MomShellProps) {
   const [lilaMode, setLilaMode] = useState<string | undefined>(undefined)
   const [showHistory, setShowHistory] = useState(false)
   const [showContextSettings, setShowContextSettings] = useState(false)
+  const [showExpandedModal, setShowExpandedModal] = useState(false)
   const { gradientEnabled } = useTheme()
   const { openSettings } = useSettings()
   const { mainRef, quickTasksAutoCollapsed } = useAutoCollapse()
@@ -56,11 +58,14 @@ export function MomShell({ children }: MomShellProps) {
     setActiveConversation(conv)
     setLilaMode(conv.mode || 'general')
     setShowHistory(false)
+    // Open in expanded modal for better readability
+    setShowExpandedModal(true)
   }
 
   return (
     <TimerProvider>
     <RoutingToastProvider>
+    <ToolLauncherProvider>
     <NotepadProvider>
     <div
       className="flex min-h-svh"
@@ -119,6 +124,7 @@ export function MomShell({ children }: MomShellProps) {
             initialMode={lilaMode}
             onHistoryOpen={() => setShowHistory(true)}
             onContextSettingsOpen={() => setShowContextSettings(true)}
+            onExpandToModal={() => setShowExpandedModal(true)}
           />
         </div>
 
@@ -133,6 +139,15 @@ export function MomShell({ children }: MomShellProps) {
               onClose={() => setShowHistory(false)}
             />
           </div>
+        )}
+
+        {/* Expanded LiLa modal — fullscreen conversation view */}
+        {showExpandedModal && activeConversation && (
+          <LilaModal
+            modeKey={activeConversation.guided_mode || activeConversation.mode || 'general'}
+            onClose={() => setShowExpandedModal(false)}
+            existingConversation={activeConversation}
+          />
         )}
 
         {/* Context Settings overlay */}
@@ -158,6 +173,7 @@ export function MomShell({ children }: MomShellProps) {
       <BottomNav />
     </div>
     </NotepadProvider>
+    </ToolLauncherProvider>
     </RoutingToastProvider>
     </TimerProvider>
   )

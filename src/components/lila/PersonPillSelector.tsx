@@ -39,7 +39,7 @@ export function PersonPillSelector({
   currentMemberId,
   selectedIds,
   onToggle,
-  multiSelect = false,
+  multiSelect: _multiSelect = false,
   partnerOnly = false,
   label,
 }: PersonPillSelectorProps) {
@@ -47,11 +47,8 @@ export function PersonPillSelector({
     let list = members.filter(m => m.id !== currentMemberId)
 
     if (partnerOnly) {
-      // Cyrano: only show spouse/partner
-      list = list.filter(m =>
-        m.role === 'additional_adult' &&
-        (m.relationship === 'spouse' || m.relationship === 'partner' || m.dashboard_mode === 'adult')
-      )
+      // Cyrano: only show spouse/partner (additional_adult role)
+      list = list.filter(m => m.role === 'additional_adult')
     }
 
     return list
