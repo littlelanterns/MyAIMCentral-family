@@ -61,7 +61,7 @@ const MORE_SECTIONS: MoreNavSection[] = [
   {
     title: 'Family',
     items: [
-      { path: '/family-hub', label: 'Family Hub', description: 'Shared coordination', featureKey: 'family_hub' },
+      { path: '/hub', label: 'Family Hub', description: 'Shared coordination', featureKey: 'family_hub' },
       { path: '/family-members', label: 'Family Members', description: 'Manage your family', featureKey: 'family_management' },
       { path: '/meetings', label: 'Meetings', description: 'Family meetings', featureKey: 'meetings' },
       { path: '/family-feed', label: 'Family Feed', description: 'Moments & updates', featureKey: 'family_feeds' },

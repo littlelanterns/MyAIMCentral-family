@@ -352,14 +352,14 @@ export function NotepadDrawer() {
               >
                 {isFullPage ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               </button>
-              {/* Mobile close — slide arrow (Founder directive A) */}
+              {/* X button to close — always visible on all screen sizes */}
               <button
                 onClick={closeNotepad}
-                className="p-1 md:hidden"
+                className="p-1"
                 style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
                 title="Close (your content is saved)"
               >
-                <ChevronsRight size={14} />
+                <X size={14} />
               </button>
             </div>
           </div>

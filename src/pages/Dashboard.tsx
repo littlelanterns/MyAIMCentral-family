@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -27,6 +27,15 @@ export function Dashboard() {
   const { shell: _shell } = useShell()
   const { isViewingAs, viewingAsMember, startViewAs, stopViewAs: _stopViewAs } = useViewAs()
   const [perspective, setPerspective] = useState<DashboardView>('personal')
+  const navigate = useNavigate()
+
+  // Navigate to /hub when Family Hub perspective is selected
+  useEffect(() => {
+    if (perspective === 'family_hub') {
+      navigate('/hub')
+      setPerspective('personal') // Reset so returning to dashboard shows personal view
+    }
+  }, [perspective, navigate])
 
   // PRD-10: Widget state
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -210,25 +219,7 @@ export function Dashboard() {
         />
       )}
 
-      {/* ── FAMILY HUB view — placeholder ── */}
-      {perspective === 'family_hub' && !isViewingAs && (
-        <div
-          className="p-6 rounded-xl text-center"
-          style={{
-            backgroundColor: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <Users size={32} className="mx-auto mb-3" style={{ color: 'var(--color-btn-primary-bg)' }} />
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--color-text-heading)' }}>
-            Family Hub
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            The shared family coordination surface — countdowns, meal plan, chore board, and more.
-            Coming in Phase 15 (PRD-14D).
-          </p>
-        </div>
-      )}
+      {/* Family Hub — navigates to /hub via useEffect above */}
 
       {/* PRD-10: Widget Picker Modal */}
       <WidgetPicker
