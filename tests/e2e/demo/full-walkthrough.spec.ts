@@ -158,7 +158,8 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
       'Context assembly pulls from Archives, InnerWorkings, Guiding Stars, and relationships — before every response.')
 
     // Click one of the floating LiLa buttons to open the drawer
-    const assistBtn = page.locator('button[title*="Feature guidance"]').first()
+    // FloatingLilaButton has title={label} ("Assist") and aria-label={`${label} — ${tooltip}`}
+    const assistBtn = page.locator('button[aria-label*="Feature guidance"]').first()
     if (await assistBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await assistBtn.click()
     }
@@ -334,8 +335,8 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 
-    // Click into Ruthie's archive to show her context folders
-    const memberLink = page.locator('a:has-text("Ruthie"), button:has-text("Ruthie")').first()
+    // Click into Ruthie's archive — ArchiveMemberCard is a div with role="button"
+    const memberLink = page.locator('[role="button"]:has-text("Ruthie"), a:has-text("Ruthie")').first()
     if (await memberLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await memberLink.click()
       await page.waitForLoadState('networkidle')
@@ -366,8 +367,8 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
       await cyranoBtn.click()
       await page.waitForTimeout(2000)
 
-      // Type into the Cyrano conversation modal
-      const cyranoInput = page.locator('input[placeholder*="mind"], input[type="text"], textarea').last()
+      // Type into the Cyrano conversation modal — ToolConversationModal uses "Type a message..."
+      const cyranoInput = page.locator('input[placeholder="Type a message..."]').first()
       if (await cyranoInput.isVisible({ timeout: 3000 }).catch(() => false)) {
         await cyranoInput.click()
         await page.keyboard.type(
@@ -393,11 +394,9 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
         }
       }
 
-      // Close the tool modal
-      const closeModal = page.locator('button[aria-label*="close"], button:has(svg.lucide-x)').first()
-      if (await closeModal.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await closeModal.click()
-      }
+      // Close the tool modal — press Escape (cleanest approach)
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(500)
     }
 
     // ─────────────────────────────────────────────────────────
@@ -415,8 +414,8 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
     })
     await page.waitForTimeout(2000)
 
-    // Look for the perspective shifter modal/conversation
-    const perspInput = page.locator('input[placeholder*="mind"], input[type="text"], textarea').last()
+    // Look for the perspective shifter modal/conversation — same ToolConversationModal
+    const perspInput = page.locator('input[placeholder="Type a message..."]').first()
     if (await perspInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await perspInput.click()
       await page.keyboard.type(
