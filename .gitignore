@@ -80,3 +80,8 @@ AUDIT_FINDINGS_HEADER_INSTRUCTIONS.md
 PRD_HEADER_BANNER_INSTRUCTIONS.md
 REPO_CLEANUP_SCRIPT.md
 UPDATE_DOCS_PROMPT.md
+
+# Large binary assets (uploaded to Supabase Storage, not needed in repo)
+vault-thumbnails/grids/
+seed-assets/testworth-family/
+vault-tutorials/
