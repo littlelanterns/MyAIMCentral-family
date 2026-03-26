@@ -397,10 +397,7 @@ function SidebarInner({
         )
       })}
 
-      {/* AI Toolbox section — PRD-21. Mom/Adult/Independent shells only. */}
-      {(shell === 'mom' || shell === 'adult' || shell === 'independent') && !collapsed && (
-        <AIToolboxSection setMobileOpen={setMobileOpen} />
-      )}
+      {/* AI Toolbox removed — tools accessible via LiLa guided mode switcher */}
     </nav>
   )
 

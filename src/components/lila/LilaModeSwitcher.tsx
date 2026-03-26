@@ -20,6 +20,15 @@ const DISPLAY_OVERRIDES: Record<string, string> = {
   general: 'General Chat',
 }
 
+/** Modes that have a working Edge Function deployed */
+const BUILT_MODES = new Set([
+  'general', 'help', 'assist', 'optimizer',
+  'cyrano', 'higgins_say', 'higgins_navigate',
+  'quality_time', 'gifts', 'observe_serve', 'words_affirmation', 'gratitude',
+  'translator', 'board_of_directors', 'perspective_shifter', 'decision_guide', 'mediator',
+  'task_breaker', 'task_breaker_image',
+])
+
 const GROUP_LABELS: Record<string, string> = {
   relationship_action: 'Relationship Tools',
   crew_action: 'Communication',
@@ -143,21 +152,28 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
               <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
                 {GROUP_LABELS[group] || group}
               </p>
-              {groupModes.map(mode => (
-                <button
-                  key={mode.mode_key}
-                  onClick={() => { onModeSelect(mode.mode_key); setOpen(false) }}
-                  className={`w-full px-3 py-1.5 rounded text-sm text-left hover:opacity-80 transition-opacity ${
-                    mode.mode_key === currentMode ? 'font-medium' : ''
-                  }`}
-                  style={{
-                    backgroundColor: mode.mode_key === currentMode ? 'var(--color-bg-secondary)' : 'transparent',
-                    color: 'var(--color-text-primary)',
-                  }}
-                >
-                  {mode.display_name}
-                </button>
-              ))}
+              {groupModes.map(mode => {
+                const isBuilt = BUILT_MODES.has(mode.mode_key)
+                return (
+                  <button
+                    key={mode.mode_key}
+                    onClick={() => { if (isBuilt) { onModeSelect(mode.mode_key); setOpen(false) } }}
+                    disabled={!isBuilt}
+                    className={`w-full px-3 py-1.5 rounded text-sm text-left transition-opacity ${
+                      mode.mode_key === currentMode ? 'font-medium' : ''
+                    } ${isBuilt ? 'hover:opacity-80' : ''}`}
+                    style={{
+                      backgroundColor: mode.mode_key === currentMode ? 'var(--color-bg-secondary)' : 'transparent',
+                      color: isBuilt ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                      opacity: isBuilt ? 1 : 0.4,
+                      cursor: isBuilt ? 'pointer' : 'default',
+                    }}
+                    title={isBuilt ? mode.display_name : `${mode.display_name} — coming soon`}
+                  >
+                    {mode.display_name}
+                  </button>
+                )
+              })}
             </div>
           ))}
         </div>,
