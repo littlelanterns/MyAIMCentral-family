@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Bookmark, BookmarkCheck, Lock, Sparkles } from 'lucide-react'
 import type { VaultItem } from '../hooks/useVaultBrowse'
 import { useVaultBookmarks } from '../hooks/useVaultBookmarks'

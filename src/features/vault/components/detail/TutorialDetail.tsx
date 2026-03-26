@@ -18,7 +18,7 @@ interface Props {
  * fetches the HTML content and renders via iframe srcdoc to avoid
  * content-type issues (Supabase Storage serves HTML as text/plain).
  */
-export function TutorialDetail({ item, memberId, updateProgress }: Props) {
+export function TutorialDetail({ item, memberId: _memberId, updateProgress }: Props) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [loadingHtml, setLoadingHtml] = useState(false)

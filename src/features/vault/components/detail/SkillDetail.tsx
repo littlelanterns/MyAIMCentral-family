@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Download, Copy, Sparkles, Check, Monitor, Smartphone } from 'lucide-react'
+import { Download, Copy, Sparkles, Check } from 'lucide-react'
 import type { VaultItem } from '../../hooks/useVaultBrowse'
 import { ContentProtection } from '../ContentProtection'
-import { CopyPromptButton } from '../CopyPromptButton'
 
 interface Props {
   item: VaultItem
@@ -20,7 +19,7 @@ const PLATFORM_LABELS: Record<string, { label: string; action: string }> = {
  * Deployable AI instruction sets for external platforms.
  * Shows: description, platform selector, framework preview, deploy/download/copy buttons.
  */
-export function SkillDetail({ item, memberId }: Props) {
+export function SkillDetail({ item, memberId: _memberId }: Props) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>(
     item.target_platforms?.[0] || 'claude'
   )

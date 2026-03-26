@@ -25,7 +25,7 @@ const RATE_WINDOW_MS = 60 * 60 * 1000
 export function CopyPromptButton({ text, memberId, vaultItemId, promptEntryId, label = 'Copy', size = 'sm' }: Props) {
   const [copied, setCopied] = useState(false)
   const [rateLimitMsg, setRateLimitMsg] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation()

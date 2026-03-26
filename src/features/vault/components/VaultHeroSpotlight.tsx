@@ -4,7 +4,7 @@ import type { VaultItem } from '../hooks/useVaultBrowse'
 
 interface Props {
   items: VaultItem[]
-  memberId: string | null
+  memberId: string | null // reserved for future personalization
 }
 
 const CTA_LABELS: Record<string, string> = {
@@ -16,7 +16,7 @@ const CTA_LABELS: Record<string, string> = {
   skill: 'Learn More',
 }
 
-export function VaultHeroSpotlight({ items, memberId }: Props) {
+export function VaultHeroSpotlight({ items, memberId: _memberId }: Props) {
   const [index, setIndex] = useState(0)
   const item = items[index]
   if (!item) return null

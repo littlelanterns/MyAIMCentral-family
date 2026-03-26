@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, ExternalLink, Sparkles, Info } from 'lucide-react'
+import { Play, ExternalLink, Info } from 'lucide-react'
 import type { VaultItem } from '../../hooks/useVaultBrowse'
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
  * Portal page with tool description, tips, and Launch Tool button.
  * Delivery methods: native (LiLa modal), embedded (iframe), link_out (new tab).
  */
-export function AIToolDetail({ item, memberId }: Props) {
+export function AIToolDetail({ item, memberId: _memberId }: Props) {
   const [launched, setLaunched] = useState(false)
 
   const handleLaunch = () => {
