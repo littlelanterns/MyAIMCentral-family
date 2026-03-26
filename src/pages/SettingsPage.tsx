@@ -168,7 +168,7 @@ function ProfileSection({ member }: { member: any }) {
 // ── Appearance Section ───────────────────────────────────────────
 
 function AppearanceSection() {
-  const { theme, colorMode, setColorMode, effectiveColorMode, gradientEnabled, setGradientEnabled } = useTheme()
+  const { theme, setColorMode, effectiveColorMode, gradientEnabled, setGradientEnabled } = useTheme()
   const isDark = effectiveColorMode === 'dark'
 
   return (
