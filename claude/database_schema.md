@@ -4085,6 +4085,7 @@
 | member_id | UUID | — | NO | FK family_members |
 | conversation_id | UUID | — | NO | FK lila_conversations |
 | topic | TEXT | — | YES | |
+| disclaimer_shown | BOOLEAN | false | NO | PRD-34: tracks whether persona disclaimer has been shown once this session |
 | created_at | TIMESTAMPTZ | now() | NO | |
 
 **RLS:** Member can manage own.

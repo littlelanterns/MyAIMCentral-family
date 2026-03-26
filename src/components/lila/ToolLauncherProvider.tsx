@@ -8,6 +8,8 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { ToolConversationModal } from './ToolConversationModal'
+import { TranslatorModal } from './TranslatorModal'
+import { BoardOfDirectorsModal } from './BoardOfDirectorsModal'
 
 interface ToolLauncherState {
   /** Open a tool conversation modal by mode key */
@@ -61,13 +63,17 @@ export function ToolLauncherProvider({ children }: { children: ReactNode }) {
   return (
     <ToolLauncherContext.Provider value={{ openTool, closeTool, isOpen: !!activeTool, activeTool }}>
       {children}
-      {activeTool && (
+      {activeTool === 'translator' ? (
+        <TranslatorModal onClose={closeTool} />
+      ) : activeTool === 'board_of_directors' ? (
+        <BoardOfDirectorsModal onClose={closeTool} />
+      ) : activeTool ? (
         <ToolConversationModal
           modeKey={activeTool}
           onClose={closeTool}
           initialPersonId={initialPersonId}
         />
-      )}
+      ) : null}
     </ToolLauncherContext.Provider>
   )
 }

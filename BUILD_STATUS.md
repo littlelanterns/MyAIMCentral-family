@@ -54,7 +54,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | Pending |
 | 22 | PRD-12A, PRD-12B | LifeLantern & Family Vision Quest | Phase 07, 08, 13 | Pending |
 | 23 | PRD-05C | LiLa Optimizer | Phase 06, 13 | Pending |
-| 24 | PRD-21 | Communication & Relationship Tools (Cyrano/Higgins) | Phase 06, 20 | Pending |
+| 24 | PRD-21 | Communication & Relationship Tools (Cyrano/Higgins) | Phase 06, 20 | **Complete** | 2026-03-26 |
 | 25 | PRD-21A | AI Vault Browse & Content Delivery | Phase 06, 23 | **Complete** | 2026-03-25 |
 | 26 | PRD-21C | AI Vault Engagement & Community | Phase 25 | Pending |
 | 27 | PRD-22 | Settings | Phase 04, 16 | Pending |
@@ -65,7 +65,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 32 | PRD-28, PRD-28B | Tracking, Allowance & Compliance | Phase 05, 10, 11 | Pending |
 | 33 | PRD-29 | BigPlans | Phase 06, 10, 12 | Pending |
 | 34 | PRD-30 | Safety Monitoring | Phase 06, 16 | Pending |
-| 35 | PRD-34 | ThoughtSift | Phase 06, 20 | Pending |
+| 35 | PRD-34 | ThoughtSift — Decision & Thinking Tools (5 tools, 6 tables, 5 Edge Functions) | Phase 06, 20 | **Complete** | 2026-03-26 |
 | 36 | PRD-37 | Family Feeds | Phase 09, 15, 16 | Pending |
 | 37 | PRD-38 | Blog (Cookie Dough) | Phase 03, 26 | Pending |
 | 38 | PRD-31 | Subscription Tier System | Phase 02, 27 | Pending |

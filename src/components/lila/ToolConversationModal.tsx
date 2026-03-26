@@ -12,7 +12,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { X, Send, Mic, Loader, Copy, FileText, ClipboardCopy, MessageSquare, CheckSquare, BookOpen, Trophy, Gift, Heart } from 'lucide-react'
+import { X, Send, Mic, Loader, Copy, FileText, ClipboardCopy, MessageSquare, CheckSquare, BookOpen, Trophy, Gift, Heart, Brain, Scale, Compass, RefreshCw } from 'lucide-react'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
@@ -42,6 +42,11 @@ const TOOL_EDGE_FUNCTIONS: Record<string, string> = {
   observe_serve: 'lila-observe-serve',
   words_affirmation: 'lila-words-affirmation',
   gratitude: 'lila-gratitude',
+  // ThoughtSift (PRD-34)
+  decision_guide: 'lila-decision-guide',
+  perspective_shifter: 'lila-perspective-shifter',
+  mediator: 'lila-mediator',
+  board_of_directors: 'lila-board-of-directors',
 }
 
 // Tools that produce drafts (show Save Draft / Copy Draft / Send via Message)
@@ -71,6 +76,7 @@ async function streamToolChat(
   onChunk: (chunk: string) => void,
   onDone: () => void,
   onError: (error: string) => void,
+  extraPayload?: Record<string, unknown>,
 ) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -87,7 +93,7 @@ async function streamToolChat(
         'Authorization': `Bearer ${session.access_token}`,
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ conversation_id: conversationId, content }),
+      body: JSON.stringify({ conversation_id: conversationId, content, ...extraPayload }),
     })
 
     if (!response.ok) {
@@ -182,6 +188,60 @@ export function ToolConversationModal({
   const [streamingContent, setStreamingContent] = useState('')
   const [openingMessage, setOpeningMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Decision Guide framework state (PRD-34)
+  const pendingSuggestRef = useRef(false)
+  const [activeFrameworkKey, setActiveFrameworkKey] = useState<string | null>(null)
+  const [activeFrameworkName, setActiveFrameworkName] = useState<string | null>(null)
+  const [showFrameworkPicker, setShowFrameworkPicker] = useState(false)
+  const [frameworks, setFrameworks] = useState<Array<{ framework_key: string; display_name: string; description: string; best_for: string }>>([])
+  const isDecisionGuide = modeKey === 'decision_guide'
+
+  // Load frameworks from DB for Decision Guide
+  useEffect(() => {
+    if (!isDecisionGuide) return
+    supabase
+      .from('decision_frameworks')
+      .select('framework_key, display_name, description, best_for')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .then(({ data }) => { if (data) setFrameworks(data) })
+  }, [isDecisionGuide])
+
+  // Perspective Shifter lens state (PRD-34)
+  const isPerspectiveShifter = modeKey === 'perspective_shifter'
+  const [activeLensKey, setActiveLensKey] = useState<string | null>(null)
+  const [activeLensName, setActiveLensName] = useState<string | null>(null)
+  const [lenses, setLenses] = useState<Array<{ lens_key: string; display_name: string; description: string; lens_type: string }>>([])
+  const [showLensLibrary, setShowLensLibrary] = useState(false)
+
+  useEffect(() => {
+    if (!isPerspectiveShifter) return
+    supabase
+      .from('perspective_lenses')
+      .select('lens_key, display_name, description, lens_type')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .then(({ data }) => { if (data) setLenses(data) })
+  }, [isPerspectiveShifter])
+
+  // Mediator context mode state (PRD-34)
+  const isMediator = modeKey === 'mediator'
+  const [mediationContext, setMediationContext] = useState('solo')
+
+  const MEDIATION_CONTEXTS = useMemo(() => [
+    { key: 'solo', label: 'Solo — just me processing', needsPerson: false },
+    { key: 'spouse_partner', label: 'Me and my spouse/partner', needsPerson: true },
+    { key: 'parent_child', label: 'Me and my child', needsPerson: true },
+    { key: 'parent_teen', label: 'Me and a teen', needsPerson: true },
+    { key: 'sibling_mediation', label: 'Between my children', needsPerson: true },
+    { key: 'workplace', label: 'Workplace / non-family', needsPerson: false },
+    { key: 'man_vs_self', label: 'Man vs. Self', needsPerson: false },
+    { key: 'full_picture', label: 'Full Picture (Mom only)', needsPerson: true, momOnly: true },
+  ], [])
+
+  // Check if current user is primary_parent for Full Picture gating
+  const isPrimaryParent = member?.role === 'primary_parent'
 
   const isPartnerOnly = PARTNER_ONLY_TOOLS.has(modeKey)
   const isMultiSelect = MULTI_SELECT_TOOLS.has(modeKey)
@@ -306,6 +366,19 @@ export function ToolConversationModal({
     setIsStreaming(true)
     setStreamingContent('')
 
+    const extra: Record<string, unknown> = {}
+    if (isDecisionGuide && activeFrameworkKey) {
+      extra.framework_key = activeFrameworkKey
+    }
+    if (isPerspectiveShifter) {
+      if (activeLensKey) extra.lens_key = activeLensKey
+      if (selectedPersonIds[0]) extra.person_id = selectedPersonIds[0]
+    }
+    if (isMediator) {
+      extra.mediation_context = mediationContext
+      if (selectedPersonIds.length > 0) extra.person_ids = selectedPersonIds
+    }
+
     await streamToolChat(
       edgeFunctionName,
       conv.id,
@@ -321,8 +394,17 @@ export function ToolConversationModal({
         setIsStreaming(false)
         setStreamingContent('I had trouble with that. Want to try again?')
       },
+      Object.keys(extra).length > 0 ? extra : undefined,
     )
-  }, [input, member, family, isStreaming, conversation, modeKey, selectedPersonIds, mode, edgeFunctionName, createConversation, queryClient])
+  }, [input, member, family, isStreaming, conversation, modeKey, selectedPersonIds, mode, edgeFunctionName, createConversation, queryClient, isDecisionGuide, activeFrameworkKey, isPerspectiveShifter, activeLensKey, isMediator, mediationContext])
+
+  // Auto-send when "Suggest for me" sets input (Decision Guide)
+  useEffect(() => {
+    if (pendingSuggestRef.current && input.trim()) {
+      pendingSuggestRef.current = false
+      handleSend()
+    }
+  }, [input, handleSend])
 
   // ── Regenerate / Reject ────────────────────────────────────
 
@@ -392,6 +474,41 @@ export function ToolConversationModal({
     })
   }, [member, family, modeKey])
 
+  // ── Decision Guide: framework selection ────────────────────
+
+  const handleSelectFramework = useCallback((frameworkKey: string) => {
+    const fw = frameworks.find(f => f.framework_key === frameworkKey)
+    if (!fw) return
+    setActiveFrameworkKey(frameworkKey)
+    setActiveFrameworkName(fw.display_name)
+    setShowFrameworkPicker(false)
+  }, [frameworks])
+
+  const handleSwitchFramework = useCallback(() => {
+    setShowFrameworkPicker(true)
+  }, [])
+
+  // ── Perspective Shifter: lens selection ────────────────────
+
+  const handleSelectLens = useCallback((lensKey: string) => {
+    const lens = lenses.find(l => l.lens_key === lensKey)
+    if (!lens) return
+    setActiveLensKey(lensKey)
+    setActiveLensName(lens.display_name)
+    setShowLensLibrary(false)
+  }, [lenses])
+
+  // ── Mediator: context mode selection ──────────────────────
+
+  const handleMediationContextChange = useCallback((contextKey: string) => {
+    setMediationContext(contextKey)
+    // Clear person selection when switching to modes that don't need it
+    const mode = MEDIATION_CONTEXTS.find(m => m.key === contextKey)
+    if (!mode?.needsPerson) {
+      setSelectedPersonIds([])
+    }
+  }, [MEDIATION_CONTEXTS])
+
   // ── Tool display config ────────────────────────────────────
 
   const toolConfig = useMemo(() => {
@@ -404,6 +521,11 @@ export function ToolConversationModal({
       observe_serve: { icon: Heart, label: 'Observe & Serve', personLabel: 'Who is this about?' },
       words_affirmation: { icon: MessageSquare, label: 'Words of Affirmation', personLabel: 'Who is this for?' },
       gratitude: { icon: Heart, label: 'Gratitude', personLabel: 'Who are you grateful for?' },
+      // ThoughtSift (PRD-34)
+      decision_guide: { icon: Compass, label: 'Decision Guide', personLabel: '' },
+      perspective_shifter: { icon: Brain, label: 'Perspective Shifter', personLabel: 'Whose perspective?' },
+      mediator: { icon: Scale, label: 'Mediator', personLabel: 'Who is involved?' },
+      board_of_directors: { icon: Brain, label: 'Board of Directors', personLabel: '' },
     }
     return configs[modeKey] || { icon: Heart, label: mode?.display_name || modeKey, personLabel: 'Who is this about?' }
   }, [modeKey, mode])
@@ -442,26 +564,94 @@ export function ToolConversationModal({
               {toolConfig.label}
             </span>
           </div>
-          <button
-            onClick={onClose}
-            disabled={isStreaming}
-            className="p-1 disabled:opacity-50"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Switch Framework button for Decision Guide */}
+            {isDecisionGuide && activeFrameworkKey && !isStreaming && (
+              <button
+                onClick={handleSwitchFramework}
+                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <RefreshCw size={12} />
+                Switch Framework
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              disabled={isStreaming}
+              className="p-1 disabled:opacity-50"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        {/* Person Pill Selector */}
-        <PersonPillSelector
-          members={familyMembers}
-          currentMemberId={member?.id || ''}
-          selectedIds={selectedPersonIds}
-          onToggle={handlePersonToggle}
-          multiSelect={isMultiSelect}
-          partnerOnly={isPartnerOnly}
-          label={toolConfig.personLabel}
-        />
+        {/* Active Framework Header — Decision Guide (PRD-34) */}
+        {isDecisionGuide && activeFrameworkName && (
+          <div
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium border-b"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <Compass size={14} />
+            <span>Working with: {activeFrameworkName}</span>
+          </div>
+        )}
+
+        {/* Mediator Context Selector — PRD-34 */}
+        {isMediator && (
+          <div
+            className="flex items-center gap-2 px-4 py-2 border-b"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            <Scale size={14} style={{ color: 'var(--color-text-secondary)' }} />
+            <select
+              value={mediationContext}
+              onChange={e => handleMediationContextChange(e.target.value)}
+              disabled={isStreaming}
+              className="flex-1 rounded-lg px-2 py-1.5 text-sm"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              {MEDIATION_CONTEXTS.map(ctx => {
+                // Full Picture: only show for primary_parent
+                if (ctx.momOnly && !isPrimaryParent) return null
+                return (
+                  <option key={ctx.key} value={ctx.key}>
+                    {ctx.label}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        )}
+
+        {/* Person Pill Selector — show for tools that need it, including Mediator context-dependent */}
+        {(toolConfig.personLabel || (isMediator && MEDIATION_CONTEXTS.find(c => c.key === mediationContext)?.needsPerson)) && (
+          <PersonPillSelector
+            members={familyMembers}
+            currentMemberId={member?.id || ''}
+            selectedIds={selectedPersonIds}
+            onToggle={handlePersonToggle}
+            multiSelect={isMultiSelect || mediationContext === 'sibling_mediation'}
+            partnerOnly={isPartnerOnly || mediationContext === 'spouse_partner'}
+            label={isMediator
+              ? (mediationContext === 'sibling_mediation' ? 'Which children?' : 'Who is involved?')
+              : toolConfig.personLabel
+            }
+          />
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
@@ -478,6 +668,51 @@ export function ToolConversationModal({
               >
                 <p>{openingMessage}</p>
               </div>
+            </div>
+          )}
+
+          {/* Decision Guide: Suggest/Pick buttons after first assistant response, before framework is selected */}
+          {isDecisionGuide && !activeFrameworkKey && messages.length >= 2 && !isStreaming && (
+            <div className="flex gap-2 ml-7">
+              <button
+                onClick={() => {
+                  // "Suggest for me" — inject the request and trigger send via ref
+                  pendingSuggestRef.current = true
+                  setInput('Suggest the best framework for my situation.')
+                }}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                Suggest for me
+              </button>
+              <button
+                onClick={() => setShowFrameworkPicker(true)}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                I'll pick my own
+              </button>
+            </div>
+          )}
+
+          {/* Decision Guide: Framework switch divider */}
+          {isDecisionGuide && activeFrameworkName && messages.some(m =>
+            m.metadata?.active_framework && m.metadata.active_framework !== activeFrameworkKey
+          ) && (
+            <div
+              className="flex items-center gap-2 py-2 text-xs"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              <div className="flex-1 border-b" style={{ borderColor: 'var(--color-border)' }} />
+              <span>Switched to: {activeFrameworkName}</span>
+              <div className="flex-1 border-b" style={{ borderColor: 'var(--color-border)' }} />
             </div>
           )}
 
@@ -524,6 +759,11 @@ export function ToolConversationModal({
                       <ActionChip icon={<Trophy size={12} />} label="Record Victory" onClick={() => {
                         window.open(`/victories?new=1`, '_self')
                       }} />
+                    )}
+
+                    {/* ThoughtSift tools: Save to Notepad */}
+                    {(['decision_guide', 'perspective_shifter', 'mediator', 'board_of_directors'].includes(modeKey)) && (
+                      <ActionChip icon={<FileText size={12} />} label="Save to Notepad" onClick={() => handleSaveToJournal(msg.content)} />
                     )}
 
                     {/* Higgins Navigate: pathway to Say */}
@@ -598,6 +838,228 @@ export function ToolConversationModal({
                 <span>Transcribing...</span>
               </>
             )}
+          </div>
+        )}
+
+        {/* Framework Picker Overlay — Decision Guide (PRD-34) */}
+        {isDecisionGuide && showFrameworkPicker && (
+          <div
+            className="absolute inset-0 z-10 flex flex-col overflow-hidden rounded-xl"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                Choose a Decision Framework
+              </h3>
+              <button
+                onClick={() => setShowFrameworkPicker(false)}
+                className="p-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {frameworks.map((fw) => (
+                <button
+                  key={fw.framework_key}
+                  onClick={() => handleSelectFramework(fw.framework_key)}
+                  className="w-full text-left rounded-lg p-3 transition-colors hover:opacity-90"
+                  style={{
+                    backgroundColor: activeFrameworkKey === fw.framework_key
+                      ? 'var(--color-bg-secondary)'
+                      : 'transparent',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                        {fw.display_name}
+                      </p>
+                      <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                        {fw.description}
+                      </p>
+                      <p className="mt-1 text-xs italic" style={{ color: 'var(--color-text-secondary)', opacity: 0.7 }}>
+                        Best for: {fw.best_for}
+                      </p>
+                    </div>
+                    {activeFrameworkKey === fw.framework_key && (
+                      <span className="shrink-0 mt-0.5 text-xs font-medium px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: 'var(--color-btn-primary-bg)',
+                          color: 'var(--color-btn-primary-text)',
+                        }}
+                      >
+                        Active
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Perspective Shifter Lens Chip Row — PRD-34 (above input) */}
+        {isPerspectiveShifter && lenses.length > 0 && (
+          <div
+            className="flex items-center gap-1 px-4 py-2 border-t overflow-x-auto shrink-0"
+            style={{ borderColor: 'var(--color-border)', scrollbarWidth: 'none' }}
+          >
+            <span className="text-xs shrink-0 mr-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Lenses:
+            </span>
+            {lenses.filter(l => l.lens_type !== 'family_context').slice(0, 8).map(lens => (
+              <button
+                key={lens.lens_key}
+                onClick={() => handleSelectLens(lens.lens_key)}
+                disabled={isStreaming}
+                className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap disabled:opacity-50"
+                style={{
+                  backgroundColor: activeLensKey === lens.lens_key
+                    ? 'var(--color-btn-primary-bg)'
+                    : 'var(--color-bg-secondary)',
+                  color: activeLensKey === lens.lens_key
+                    ? 'var(--color-btn-primary-text)'
+                    : 'var(--color-text-primary)',
+                  border: `1px solid ${activeLensKey === lens.lens_key ? 'transparent' : 'var(--color-border)'}`,
+                }}
+              >
+                {lens.display_name}
+              </button>
+            ))}
+            {/* Family-context lenses — show with member names */}
+            {familyMembers.filter(fm => fm.id !== member?.id).slice(0, 3).map(fm => (
+              <button
+                key={`family-${fm.id}`}
+                onClick={() => {
+                  setSelectedPersonIds([fm.id])
+                  handleSelectLens('family_context_member')
+                }}
+                disabled={isStreaming}
+                className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap disabled:opacity-50"
+                style={{
+                  backgroundColor: activeLensKey?.startsWith('family_context') && selectedPersonIds.includes(fm.id)
+                    ? 'var(--color-btn-primary-bg)'
+                    : 'var(--color-bg-secondary)',
+                  color: activeLensKey?.startsWith('family_context') && selectedPersonIds.includes(fm.id)
+                    ? 'var(--color-btn-primary-text)'
+                    : 'var(--color-text-primary)',
+                  border: `1px solid ${activeLensKey?.startsWith('family_context') && selectedPersonIds.includes(fm.id) ? 'transparent' : 'var(--color-border)'}`,
+                }}
+              >
+                How would {fm.display_name} see this?
+              </button>
+            ))}
+            <button
+              onClick={() => setShowLensLibrary(true)}
+              disabled={isStreaming}
+              className="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap disabled:opacity-50"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary)',
+                border: '1px dashed var(--color-border)',
+              }}
+            >
+              + More
+            </button>
+          </div>
+        )}
+
+        {/* Perspective Shifter: Active Lens indicator */}
+        {isPerspectiveShifter && activeLensName && (
+          <div
+            className="flex items-center gap-2 px-4 py-1.5 text-xs border-t"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+              borderColor: 'var(--color-border)',
+            }}
+          >
+            <Brain size={12} />
+            <span>Active lens: {activeLensName}</span>
+          </div>
+        )}
+
+        {/* Perspective Shifter: Full Lens Library Overlay */}
+        {isPerspectiveShifter && showLensLibrary && (
+          <div
+            className="absolute inset-0 z-10 flex flex-col overflow-hidden rounded-xl"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                Choose a Lens
+              </h3>
+              <button onClick={() => setShowLensLibrary(false)} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+              {['simple_shift', 'named_framework', 'family_context'].map(lensType => {
+                const typeLenses = lenses.filter(l => l.lens_type === lensType)
+                if (typeLenses.length === 0 && lensType !== 'family_context') return null
+                const typeLabel = lensType === 'simple_shift' ? 'Simple Angle Shifts'
+                  : lensType === 'named_framework' ? 'Named Framework Lenses'
+                  : 'Family-Context Lenses'
+                return (
+                  <div key={lensType}>
+                    <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      {typeLabel}
+                    </h4>
+                    <div className="space-y-1.5">
+                      {lensType === 'family_context' ? (
+                        familyMembers.filter(fm => fm.id !== member?.id).map(fm => (
+                          <button
+                            key={fm.id}
+                            onClick={() => {
+                              setSelectedPersonIds([fm.id])
+                              handleSelectLens('family_context_member')
+                              setShowLensLibrary(false)
+                            }}
+                            className="w-full text-left rounded-lg p-2.5 transition-colors hover:opacity-90"
+                            style={{ border: '1px solid var(--color-border)' }}
+                          >
+                            <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                              How would {fm.display_name} see this?
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                              Uses {fm.display_name}'s context from Archives and InnerWorkings
+                            </p>
+                          </button>
+                        ))
+                      ) : (
+                        typeLenses.map(lens => (
+                          <button
+                            key={lens.lens_key}
+                            onClick={() => { handleSelectLens(lens.lens_key); setShowLensLibrary(false) }}
+                            className="w-full text-left rounded-lg p-2.5 transition-colors hover:opacity-90"
+                            style={{
+                              backgroundColor: activeLensKey === lens.lens_key ? 'var(--color-bg-secondary)' : 'transparent',
+                              border: '1px solid var(--color-border)',
+                            }}
+                          >
+                            <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                              {lens.display_name}
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                              {lens.description}
+                            </p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 

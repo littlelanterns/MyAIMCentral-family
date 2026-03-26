@@ -348,15 +348,43 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Notification auto-dismiss on queue processing | PRD-17 | — | ⏳ Unwired (MVP) | Needs notification system |
 | Gamification reward/streak reversal on unmark | PRD-09A/PRD-24 | — | ⏳ Unwired (MVP) | Needs PRD-24 |
 
+## ThoughtSift Stubs (PRD-34)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| ThoughtSift guided modes (5) | PRD-05 | PRD-34 | ✅ Wired | Phase 35 (34A) |
+| `relationship_mediation` guided mode | PRD-19 | PRD-34 (mediator) | ✅ Wired | Phase 35 (34B) |
+| Board of Directors persona library | Platform Intelligence Channel D | PRD-34 | ✅ Wired | Phase 35 (34A) |
+| Community persona moderation queue | PRD-34 | PRD-32 | ⏳ Unwired (MVP) | Phase 39 (Admin Console) |
+| Community lens moderation queue | PRD-34 | PRD-32 | ⏳ Unwired (MVP) | Phase 39 (Admin Console) |
+| Full persona library browse page (categories/filtering) | PRD-34 | — | 📌 Post-MVP | — |
+| LiLa proactive ThoughtSift tool suggestion | PRD-34 | — | 📌 Post-MVP | — |
+| Board session export | PRD-34 | — | 📌 Post-MVP | — |
+| Translator non-English language support | PRD-34 | — | 📌 Post-MVP | — |
+| Custom lens creation UI (describe → LiLa caches) | PRD-34 | — | 📌 Post-MVP | — |
+| Custom lens sharing to community library | PRD-34 | — | 📌 Post-MVP | — |
+| Decision Guide: user-created custom frameworks | PRD-34 | — | 📌 Post-MVP | — |
+| Guided-shell simplified ThoughtSift versions | PRD-34 | — | 📌 Post-MVP | — |
+| BookShelf enrichment for BoD personas | PRD-34 | PRD-23 | ⏳ Unwired (MVP) | Phase 28 (BookShelf) |
+| Route to BigPlans action chip (Decision Guide + BoD) | PRD-34 | PRD-29 | ⏳ Unwired (MVP) | Phase 33 (BigPlans) |
+| `is_available_for_mediation` per-note toggle | PRD-34 (Mediator) | PRD-19 | ⏳ Unwired (MVP) | Phase 20 (Family Context) |
+| Send via Message action chip (Mediator) | PRD-34 | PRD-15 | ⏳ Unwired (MVP) | Phase 16 (Messages) |
+| @Name addressing UI parsing in BoD | PRD-34 | — | 📌 Post-MVP | — |
+| Suggested for This Situation in persona selector | PRD-34 | — | 📌 Post-MVP | — |
+| Long-press persona preview card | PRD-34 | — | 📌 Post-MVP | — |
+| LiLa follow-up question after custom persona creation ("direct or warm?") | PRD-34 | — | 📌 Post-MVP | Enhancement to custom persona flow — description field covers this for now |
+| Recently Used section in persona selector | PRD-34 | — | 📌 Post-MVP | — |
+| Full PRD-30 Layer 2 Haiku safety classification for ThoughtSift | PRD-34 | PRD-30 | ⏳ Unwired (MVP) | Phase 34 (Safety Monitoring) |
+
 ---
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ Wired | ~67 |
+| ✅ Wired | ~70 |
 | 🔗 Partially Wired | ~3 |
-| ⏳ Unwired (MVP) | ~21 |
-| 📌 Post-MVP | ~55 |
+| ⏳ Unwired (MVP) | ~27 |
+| 📌 Post-MVP | ~67 |
 | ❌ Superseded | ~3 |
-| **Total** | ~149 |
+| **Total** | ~170 |

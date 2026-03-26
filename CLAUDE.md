@@ -228,3 +228,20 @@ This process exists because weeks of careful planning went into every PRD and ad
 89. **Delivery methods for AI tools:** `native` (LiLa conversation modal via guided_mode_key), `embedded` (iframe), `link_out` (new tab). Native tools use `container_preference: 'modal'`.
 90. **Learning ladder** (`fun_creative`, `practical`, `creator`) is internal content strategy metadata, NOT a user-facing filter. Not connected to tiers.
 91. **`vault_items` replaces V1's `library_items`.** All V1 library_ prefixed tables are superseded.
+
+## ThoughtSift (PRD-34)
+
+92. **ThoughtSift = 5 separate tools, NOT one tool with sub-modes.** Each has its own guided mode key (`board_of_directors`, `perspective_shifter`, `decision_guide`, `mediator`, `translator`), Edge Function, system prompt, model tier, and Vault listing.
+93. **Board of Directors uses sequential per-advisor Sonnet calls.** Each response attributed via `lila_messages.metadata.persona_id`. 3 default seats, 5 max. Each advisor call receives full history INCLUDING prior advisor responses from the current turn.
+94. **Translator uses Haiku, is single-turn.** Saves to `lila_messages` for history but does not use conversation continuity. No emoji in tone labels or output text.
+95. **Mediator supersedes `relationship_mediation` (PRD-19).** Mode key `relationship_mediation` was never created. Feature key `archives_relationship_mediation` maps to the Mediator's Full Picture context mode. Full Picture is restricted to `primary_parent` role only.
+96. **Mediator safety exception is mandatory.** Once triggered (fear, harm, coercive control, isolation, threats), `safety_triggered` flag is persisted to `lila_conversations.context_snapshot`. Checked from DB on every turn. Framework coaching does NOT resume in that session. Flag survives close/reopen.
+97. **Board of Directors `personal_custom` personas NEVER enter the platform intelligence pipeline.** `persona_type` check required before any pipeline write. Hard rule, no exceptions.
+98. **Perspective Shifter family-context lenses: synthesize context, never quote source items.** Privacy rule enforced in Edge Function code (`synthesizeFamilyContext()`), not just system prompt. Dual enforcement.
+99. **Persona caching (P8 pattern): always check `board_personas` by name (case-insensitive) before generating a new public persona.** One generation cost per persona, amortized across all future users.
+100. **Prayer Seat = special `board_session_personas` record with `is_prayer_seat=true`.** No AI responses generated for this seat. Reflection questions generated FRESH per session by Sonnet using the user's specific situation — never canned.
+101. **Persona disclaimer shown exactly ONCE per session for non-personal personas.** Tracked via `disclaimer_shown` boolean on `board_sessions`. "AI interpretation of [Name]... not endorsed... read their actual work."
+102. **Content policy gate runs BEFORE persona generation.** Haiku pre-screen (separate call from Sonnet generation). Three outcomes: deity → Prayer Seat redirect, blocked figure → hard block, harmful description → prompt to revise. Applies to ALL persona types including `personal_custom`.
+103. **Decision Guide: 15 named frameworks in `decision_frameworks` table.** LiLa suggests based on decision type or user picks from list. Framework's `system_prompt_addition` loaded from DB and appended to system prompt. Coin flip insight = LiLa interjection during indecision (3+ turns), offered once, never pushed.
+104. **All ThoughtSift conversations pass through PRD-30 safety monitoring pipeline.** No new safety infrastructure needed. Crisis override is global.
+105. **ThoughtSift tools live in AI Vault as 5 separate items.** No default family member assignments. Mom assigns via "+Add to AI Toolbox."
