@@ -36,14 +36,14 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 
 ## Feature Phases (Pending)
 
-| Phase | PRDs | Description | Dependencies | Status |
-|-------|------|-------------|-------------|--------|
-| 07 | PRD-06 | GuidingStars & BestIntentions | Phase 06 | Pending |
-| 08 | PRD-07 | InnerWorkings | Phase 06 | Pending |
-| 10 | PRD-09A, PRD-09B | Tasks, Lists, Studio & Templates | Phase 05, 09 | Complete (2026-03-24) |
-| 11 | PRD-10 | Widgets, Trackers & Dashboard Layout | Phase 10 | Pending |
-| 12 | PRD-11, PRD-11B | Victory Recorder & Family Celebration | Phase 07, 10, 11 | Pending |
-| 13 | PRD-13 | Archives & Context | Phase 07, 08, 09 | Pending |
+| Phase | PRDs | Description | Dependencies | Status | Completed |
+|-------|------|-------------|-------------|--------|-----------|
+| 07 | PRD-06 | GuidingStars & BestIntentions | Phase 06 | **Complete** | 2026-03-25 |
+| 08 | PRD-07 | InnerWorkings | Phase 06 | **Complete** | 2026-03-25 |
+| 10 | PRD-09A, PRD-09B | Tasks, Lists, Studio & Templates | Phase 05, 09 | **Complete** | 2026-03-24 |
+| 11 | PRD-10 | Widgets, Trackers & Dashboard Layout | Phase 10 | **Complete** | 2026-03-25 |
+| 12 | PRD-11, PRD-11B | Victory Recorder & Family Celebration | Phase 07, 10, 11 | Pending |  |
+| 13 | PRD-13 | Archives & Context | Phase 07, 08, 09 | **Complete** | 2026-03-25 |
 | 14 | PRD-14, PRD-14B | Personal Dashboard & Calendar | Phase 05, 10, 11 | Pending |
 | 15 | PRD-14C, PRD-14D, PRD-14E | Family Overview, Hub & TV Mode | Phase 14 | Pending |
 | 16 | PRD-15 | Messages, Requests & Notifications | Phase 06 | Pending |
@@ -55,7 +55,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 22 | PRD-12A, PRD-12B | LifeLantern & Family Vision Quest | Phase 07, 08, 13 | Pending |
 | 23 | PRD-05C | LiLa Optimizer | Phase 06, 13 | Pending |
 | 24 | PRD-21 | Communication & Relationship Tools (Cyrano/Higgins) | Phase 06, 20 | Pending |
-| 25 | PRD-21A, PRD-21B | AI Vault Browse & Admin | Phase 06, 23 | Pending |
+| 25 | PRD-21A | AI Vault Browse & Content Delivery | Phase 06, 23 | **Complete** | 2026-03-25 |
 | 26 | PRD-21C | AI Vault Engagement & Community | Phase 25 | Pending |
 | 27 | PRD-22 | Settings | Phase 04, 16 | Pending |
 | 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | Pending |

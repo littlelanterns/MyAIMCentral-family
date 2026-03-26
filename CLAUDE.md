@@ -213,3 +213,18 @@ This process exists because weeks of careful planning went into every PRD and ad
 79. **Name detection in context assembly.** When a user mentions a family member by name in a LiLa conversation, the context assembly pipeline automatically loads that person's Archive context using word-boundary regex matching (StewardShip `contextLoader.ts` pattern). This makes LiLa feel like she "knows" the family without mom having to specify every time.
 
 73. **Old build prompts are BANNED.** The 42 files in `archive/old-build-prompts/` were generated from a bad schema summary and are POISONED. Never reference, read, or use them. For every remaining feature, read the FULL PRD in `prds/` (and any addenda in `prds/addenda/`) before writing any code. This supersedes any workflow that previously relied on build prompt files.
+
+## AI Vault (PRD-21A)
+
+80. **AI Vault** is the browsable content catalog; **AI Toolbox** (PRD-21) is the personalized per-member launcher. Vault = storefront. Toolbox = personalized view. Only `ai_tool` and `skill` type items can be added to Toolbox.
+81. **Content types:** `'tutorial'`, `'ai_tool'`, `'prompt_pack'`, `'curation'`, `'workflow'`, `'skill'`. The value `'curation'` replaces `'tool_collection'` per PRD-21B addendum. Platform-specific tools (GPTs, Gems, etc.) are `ai_tool` with `platform` metadata, not separate content types.
+82. **Two-layer titles:** `display_title` (hook, visible to ALL including non-subscribers) + `detail_title` (clear, visible only to tier-authorized users). Hook titles sell the outcome; detail titles reveal the method.
+83. **Two-layer descriptions:** `short_description` (visible on card) + `full_description` (detail view, tier-gated).
+84. **Prompt format determines rendering:** `image_gen`/`video_gen` → gallery mode (masonry grid), `text_llm`/`audio_gen` → list mode (expandable cards). Parent-child model: `vault_items` holds the pack, `vault_prompt_entries` holds individual prompts.
+85. **Content protection:** No text selection on prompt content. Copy only via CopyPromptButton. All copies logged to `vault_copy_events`. Soft rate limit (20/60min). Prompt text loaded on-demand. Right-click disabled on images.
+86. **NEW badge:** Per-user first-seen tracking via `vault_first_sightings`, NOT upload date. Default 30-day countdown from first sighting.
+87. **Locked content:** Visible in browse with faded overlay + tier badge. Hook title and short_description always visible. Full description and content gated by tier.
+88. **"+Add to AI Toolbox"** creates `lila_tool_permissions` records with `source = 'vault'` and `vault_item_id`. Only available on `ai_tool` and `skill` content type items.
+89. **Delivery methods for AI tools:** `native` (LiLa conversation modal via guided_mode_key), `embedded` (iframe), `link_out` (new tab). Native tools use `container_preference: 'modal'`.
+90. **Learning ladder** (`fun_creative`, `practical`, `creator`) is internal content strategy metadata, NOT a user-facing filter. Not connected to tiers.
+91. **`vault_items` replaces V1's `library_items`.** All V1 library_ prefixed tables are superseded.

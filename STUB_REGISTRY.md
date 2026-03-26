@@ -170,9 +170,20 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
-| AI Toolbox browsing/assignment | PRD-19 | PRD-21A | ✅ Wired | Phase 25 |
-| Vault recommended dashboard widget | PRD-21A | — | 📌 Post-MVP | — |
+| AI Vault sidebar navigation | PRD-04 | PRD-21A | ✅ Wired | Phase 25 (2026-03-25) |
+| AI Toolbox browsing/assignment | PRD-19 | PRD-21A | ✅ Wired | Phase 25 (2026-03-25) |
+| Library Vault tutorial links from LiLa Assist | PRD-05 | PRD-21A | ✅ Wired | Phase 25 (2026-03-25) |
+| Optimize with LiLa (full flow) | PRD-21A | PRD-05C | ⏳ Unwired (MVP) | Phase 23 |
+| Deploy with LiLa (skill deployment) | PRD-21A | — | 📌 Post-MVP | — |
+| Embedded tool iframe delivery | PRD-21A | — | 📌 Post-MVP | — |
+| Native AI tool LiLa modal launch | PRD-21A | PRD-05 | ⏳ Unwired (MVP) | Phase 24 |
+| Vault recommended dashboard widget | PRD-21A | PRD-10 | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | LiLa proactive Vault suggestions | PRD-21A | — | 📌 Post-MVP | — |
+| Seasonal tag auto-surfacing (date logic) | PRD-21A | — | ⏳ Unwired (MVP) | Phase 25 enhancement |
+| Section C: Recommended for You | PRD-21A | — | ⏳ Unwired (MVP) | Phase 25 enhancement |
+| Session report re-import via Review & Route | PRD-21A | PRD-08 + PRD-28 | ⏳ Unwired (MVP) | Phase 32 |
+| PRD-21B Admin content management UI | PRD-21A | PRD-21B | ⏳ Unwired (MVP) | Phase 25B |
+| PRD-21C Engagement (hearts, comments, discussions) | PRD-21A | PRD-21C | ⏳ Unwired (MVP) | Phase 26 |
 | Learning paths (multi-item sequences) | PRD-21A | — | 📌 Post-MVP | — |
 | Creator economy / user-submitted tools | PRD-21A | — | 📌 Post-MVP (Phase 4) | — |
 | Content versioning | PRD-21B | — | 📌 Post-MVP | — |

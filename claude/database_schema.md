@@ -4701,6 +4701,73 @@
 
 ---
 
+## AI Vault (PRD-21A, PRD-21B, PRD-21C)
+
+### `vault_categories`
+**PRD:** PRD-21A | **Domain:** vault
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| slug | TEXT | — | NO | UNIQUE |
+| display_name | TEXT | — | NO | |
+| description | TEXT | — | YES | |
+| icon | TEXT | — | YES | Lucide icon name |
+| color | TEXT | — | YES | |
+| sort_order | INTEGER | 0 | NO | |
+| is_active | BOOLEAN | true | NO | |
+| created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
+
+### `vault_items`
+**PRD:** PRD-21A | **Domain:** vault
+Core content table. Replaces V1's `library_items`. Content type CHECK: 'tutorial', 'ai_tool', 'prompt_pack', 'curation', 'workflow', 'skill'. Includes PRD-21B (last_published_at) and PRD-21C (heart_count, comment_count, satisfaction_positive, satisfaction_negative) future columns. ~55 columns total — see migration `00000000100039_vault_tables.sql` for full schema. Key columns: display_title, detail_title, short_description, full_description, content_type, prompt_format, delivery_method, category_id, difficulty, tags[], thumbnail_url, content_body, content_url, tool_url, guided_mode_key, allowed_tiers[], status, is_featured, teen_visible, fts_document (trigger-maintained tsvector).
+
+### `vault_prompt_entries`
+**PRD:** PRD-21A | **Domain:** vault
+Child table for prompt packs. Each entry is one prompt within a pack. Columns: vault_item_id (FK), title, prompt_text, variable_placeholders[], example_outputs[], reference_images[], tags[], sort_order.
+
+### `vault_collection_items`
+**PRD:** PRD-21A | **Domain:** vault
+Join table for curation items. UNIQUE(collection_id, item_id). Columns: collection_id (FK vault_items), item_id (FK vault_items), sort_order.
+
+### `vault_user_bookmarks`
+**PRD:** PRD-21A | **Domain:** vault
+UNIQUE(user_id, vault_item_id). user_id FK → family_members.
+
+### `vault_user_progress`
+**PRD:** PRD-21A | **Domain:** vault
+UNIQUE(user_id, vault_item_id). Columns: progress_status ('not_started'/'in_progress'/'completed'), progress_percent, last_accessed_at, completed_at.
+
+### `vault_user_visits`
+**PRD:** PRD-21A | **Domain:** vault
+Records Vault page visit timestamps for NEW badge calculation. Columns: user_id (FK family_members), visited_at.
+
+### `vault_first_sightings`
+**PRD:** PRD-21A | **Domain:** vault
+UNIQUE(user_id, vault_item_id). Anchored timestamp for per-user NEW badge countdown.
+
+### `vault_tool_sessions`
+**PRD:** PRD-21A | **Domain:** vault
+Session tokens for embedded tool access. Columns: session_token (UNIQUE), started_at, expires_at, last_activity_at, is_active.
+
+### `vault_copy_events`
+**PRD:** PRD-21A | **Domain:** vault
+Insert-only content protection tracking. Columns: user_id, vault_item_id, prompt_entry_id (nullable), copied_at.
+
+### `user_saved_prompts`
+**PRD:** PRD-21A | **Domain:** vault
+Personal prompt library. Columns: user_id, title, prompt_text, source_vault_item_id, source_prompt_entry_id, is_lila_optimized, tags[], shared_with_member_id (PRD-21C future).
+
+### `vault_content_requests`
+**PRD:** PRD-21A | **Domain:** vault
+User content requests. Columns: user_id, topic, description, category_suggestion, priority ('low'/'medium'/'high'), status ('pending'/'reviewed'/'planned'/'completed'/'declined'), admin_notes.
+
+### Modified Tables (PRD-21A)
+- **`lila_tool_permissions`**: Added `source` TEXT (CHECK: 'default', 'vault'), `vault_item_id` UUID (FK vault_items), `saved_prompt_id` UUID
+- **`archive_member_settings`**: Added `physical_description` TEXT, `reference_photos` TEXT[]
+
+---
+
 ## Activity Log (Cross-Feature)
 
 ### `activity_log_entries`
