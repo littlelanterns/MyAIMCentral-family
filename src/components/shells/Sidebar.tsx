@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, FileText, Rss, BookCopy,
+  Palette, Lock, Gem, Rss, BookCopy,
   ChevronLeft, ChevronRight, Eye, ChevronDown,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'

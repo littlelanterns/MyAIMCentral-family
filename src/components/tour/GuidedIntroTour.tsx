@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Star, Heart, Sparkles, FileText, CheckSquare, Archive,
-  Feather, Brain, ChevronLeft, ChevronRight, X, Map,
+  Feather, Brain, ChevronLeft, ChevronRight, Map,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { getTourFeatures, type JourneyFeature } from '@/data/lanterns-path-data'
