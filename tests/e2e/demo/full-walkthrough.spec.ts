@@ -35,6 +35,22 @@ async function loginViaUI(page: Page, email: string, password: string) {
   await page.goto(`${BASE_URL}/auth/sign-in`)
   await page.waitForLoadState('networkidle')
 
+  // Pre-dismiss tour carousel and ALL FeatureGuide cards BEFORE the dashboard loads.
+  // These must be set before login redirect so components read the values on mount.
+  // Both all_guides_dismissed AND explicit keys as belt-and-suspenders.
+  await page.evaluate(() => {
+    sessionStorage.setItem('myaim_intro_tour_dismissed', 'true')
+    localStorage.setItem('myaim_guide_prefs', JSON.stringify({
+      dismissed_guides: [
+        'dashboard', 'lila', 'guiding_stars', 'best_intentions', 'inner_workings',
+        'journal', 'notepad', 'tasks', 'lists', 'studio', 'calendar', 'archives',
+        'archives_member', 'archives_family', 'vault_browse', 'vault_detail',
+        'victories', 'meetings', 'safe_harbor', 'family_hub', 'family_overview',
+      ],
+      all_guides_dismissed: true
+    }))
+  })
+
   // Type email
   const emailInput = page.locator('input[placeholder="your@email.com"]')
   await emailInput.waitFor({ state: 'visible', timeout: 8000 })
@@ -57,11 +73,6 @@ async function loginViaUI(page: Page, email: string, password: string) {
     // Some flows redirect to other pages — just wait for network idle
   })
   await page.waitForLoadState('networkidle')
-
-  // Dismiss the intro tour so it doesn't interfere with the demo
-  await page.evaluate(() => {
-    sessionStorage.setItem('myaim_intro_tour_dismissed', 'true')
-  })
 }
 
 // ── Caption System ──────────────────────────────────────────────
@@ -69,8 +80,12 @@ async function loginViaUI(page: Page, email: string, password: string) {
 
 async function showCaption(page: Page, title: string, subtitle: string, detail?: string) {
   await page.evaluate(({ title, subtitle, detail }) => {
+    // Smoothly replace the previous caption (stays until next showCaption call)
     const existing = document.getElementById('demo-caption')
-    if (existing) existing.remove()
+    if (existing) {
+      existing.style.animation = 'captionFadeOut 0.3s ease-out forwards'
+      setTimeout(() => existing.remove(), 300)
+    }
 
     const overlay = document.createElement('div')
     overlay.id = 'demo-caption'
@@ -106,18 +121,11 @@ async function showCaption(page: Page, title: string, subtitle: string, detail?:
         }
       </style>
     `
-    document.body.appendChild(overlay)
-
-    setTimeout(() => {
-      const el = document.getElementById('demo-caption')
-      if (el) {
-        el.style.animation = 'captionFadeOut 0.5s ease-out forwards'
-        setTimeout(() => el.remove(), 500)
-      }
-    }, 3500)
+    // Small delay so the old one fades before the new one appears
+    setTimeout(() => document.body.appendChild(overlay), existing ? 300 : 0)
   }, { title, subtitle, detail })
 
-  await page.waitForTimeout(1800)
+  await page.waitForTimeout(500)
 }
 
 /** Remove caption immediately if needed */
@@ -126,6 +134,15 @@ async function clearCaption(page: Page) {
     const el = document.getElementById('demo-caption')
     if (el) el.remove()
   })
+}
+
+/** Force-close any open ToolConversationModal by navigating away.
+ *  The modal disables Escape, X button, and backdrop click while streaming,
+ *  so the only reliable way to close is a page navigation which unmounts React. */
+async function forceCloseToolModal(page: Page, navigateTo = '/dashboard') {
+  await page.goto(navigateTo)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(1000)
 }
 
 // ── Main Demo ───────────────────────────────────────────────────
@@ -157,16 +174,18 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
       'Your AI companion already knows your family',
       'Context assembly pulls from Archives, InnerWorkings, Guiding Stars, and relationships — before every response.')
 
-    // Click one of the floating LiLa buttons to open the drawer
-    // FloatingLilaButton has title={label} ("Assist") and aria-label={`${label} — ${tooltip}`}
-    const assistBtn = page.locator('button[aria-label*="Feature guidance"]').first()
-    if (await assistBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await assistBtn.click()
-    }
+    // The LiLa drawer starts collapsed — click the pull tab at the bottom to open it.
+    // The PullTab contains "LiLa" text and a ChevronUp icon.
     await page.waitForTimeout(1500)
 
-    // Type into the LiLa chat input
-    const lilaInput = page.locator('input[placeholder*="mind"], input[placeholder*="learn"], input[placeholder*="issue"]').first()
+    const lilaPullTab = page.locator('button:has-text("LiLa")').last()
+    if (await lilaPullTab.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await lilaPullTab.click()
+      await page.waitForTimeout(1000) // Wait for drawer slide-up animation
+    }
+
+    // Find the LiLa chat input — general mode placeholder is "What's on your mind?"
+    const lilaInput = page.locator('input[placeholder*="mind"]').first()
     await lilaInput.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
 
     if (await lilaInput.isVisible().catch(() => false)) {
@@ -178,13 +197,16 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
       // Send the message
       await page.keyboard.press('Enter')
 
-      // Wait for AI response to render
-      await page.waitForTimeout(8000)
+      // Wait for LiLa's response — look for the Approve button which appears after AI finishes
+      // If AI is slow, wait up to 30 seconds
+      const approveVisible = page.getByRole('button', { name: /Approve/i }).first()
+      await approveVisible.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {})
+      await page.waitForTimeout(3000) // Let viewer read the response
 
       await showCaption(page, 'Human-in-the-Mix',
         'Edit / Approve / Regenerate / Reject — on every AI output',
         'Not just good UX — it\'s COPPA compliance, ethical AI practice, and legal liability protection built into the architecture.')
-      await page.waitForTimeout(3000)
+      await page.waitForTimeout(4000)
 
       // Try to find and click Approve
       const approveBtn = page.getByRole('button', { name: /Approve/i }).first()
@@ -247,14 +269,19 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
       'One brain dump becomes three organized outcomes',
       'Capture at 11pm. LiLa sorts by morning. Tasks, calendar events, messages — all routed automatically.')
 
-    // Click "Quick Note" in QuickTasks to open the Notepad
-    const quickNoteBtn = page.locator('button:has-text("Quick Note")').first()
-    if (await quickNoteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await quickNoteBtn.click()
-      await page.waitForTimeout(1000)
+    // Make sure we're on the dashboard so the NotepadDrawer is mounted
+    await page.goto('/dashboard')
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1000)
+
+    // Click the Notepad pull tab on the right edge of the screen (PullTab with StickyNote icon)
+    // It's a fixed button at right-0, vertically centered, inside a div.hidden.md:block
+    const notepadPullTab = page.locator('.fixed.right-0.z-30 button').first()
+    if (await notepadPullTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await notepadPullTab.click()
+      await page.waitForTimeout(1500)
     }
 
-    // Type into the notepad's rich text editor
     const notepadEditor = page.locator('[role="textbox"]').first()
     if (await notepadEditor.isVisible({ timeout: 3000 }).catch(() => false)) {
       await notepadEditor.click()
@@ -281,49 +308,6 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
     }
 
     // ─────────────────────────────────────────────────────────
-    // Scene 5: Tasks — Create & Break Down (30 seconds)
-    // ─────────────────────────────────────────────────────────
-
-    await showCaption(page, 'Tasks + Task Breaker',
-      'AI turns a vague idea into a complete action plan',
-      '13 view frameworks, sequential collections for homeschool curriculum, claimable chore opportunities with rewards.')
-
-    await page.goto('/tasks?new=1')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(1500)
-
-    // The ?new=1 param should open the task creation modal
-    const taskNameInput = page.locator('input[placeholder*="What needs to be done"]').first()
-    if (await taskNameInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await taskNameInput.click()
-      await page.keyboard.type("Plan Jordan's birthday party", { delay: 40 })
-      await page.waitForTimeout(1000)
-
-      // Save the task
-      const saveTaskBtn = page.locator('button:has-text("Save task")').first()
-      if (await saveTaskBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await saveTaskBtn.click()
-        await page.waitForTimeout(2000)
-      }
-    }
-
-    await page.waitForTimeout(2000)
-
-    // Try to find and demonstrate Task Breaker on a task
-    const taskMenu = page.locator('button[title*="More"], button[aria-label*="more"]').first()
-    if (await taskMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await taskMenu.click()
-      await page.waitForTimeout(500)
-
-      const breakItDown = page.locator('button:has-text("Break"), [role="menuitem"]:has-text("Break")').first()
-      if (await breakItDown.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await breakItDown.click()
-        await page.waitForTimeout(5000) // Wait for AI decomposition
-        await page.waitForTimeout(3000) // Let viewer see the breakdown
-      }
-    }
-
-    // ─────────────────────────────────────────────────────────
     // Scene 6: Archives — Family Context (45 seconds)
     // ─────────────────────────────────────────────────────────
 
@@ -335,7 +319,68 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 
-    // Click into Ruthie's archive — ArchiveMemberCard is a div with role="button"
+    // ── Bulk Add & Sort: the main wow feature ──
+    // Mom types a plain-language brain dump and LiLa auto-sorts it into the right
+    // family member's context folders — no manual filing needed.
+
+    await showCaption(page, 'Bulk Add & Sort',
+      'Type anything you know about your family — LiLa files it all automatically',
+      'One brain dump. AI extracts each fact, matches it to a family member, picks the right folder. Zero manual filing.')
+
+    // Open the FAB menu
+    const fabBtn = page.locator('button[aria-label="Add context"]').first()
+    if (await fabBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await fabBtn.click()
+      await page.waitForTimeout(800)
+
+      // Click "Bulk Add & Sort"
+      const bulkAddBtn = page.locator('button').filter({ hasText: 'Bulk Add & Sort' }).first()
+      if (await bulkAddBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await bulkAddBtn.click()
+        await page.waitForTimeout(1000)
+
+        // Type a rich, realistic family brain dump
+        const bulkTextarea = page.locator('textarea[placeholder*="Jordan loves Minecraft"]').first()
+        if (await bulkTextarea.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await bulkTextarea.click()
+          await page.keyboard.type(
+            "Ruthie needs her weighted blanket during therapy sessions and her OT is on Tuesdays at 2pm. " +
+            "Jordan is obsessed with Minecraft and wants to learn Python to build mods. " +
+            "Alex prefers texts over phone calls and shuts down when he feels lectured. " +
+            "Casey's favorite series is Percy Jackson and she reads before bed every night. " +
+            "Family rule: no screens before breakfast. " +
+            "Mark's love language is acts of service — he feels most appreciated when we notice the behind-the-scenes work.",
+            { delay: 25 }
+          )
+          await page.waitForTimeout(1500)
+
+          // Click "Let LiLa Sort"
+          const sortBtn = page.locator('button').filter({ hasText: 'Let LiLa Sort' }).first()
+          if (await sortBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await sortBtn.click()
+
+            // Wait for AI sorting to complete — look for the review step
+            await page.waitForTimeout(8000)
+
+            await showCaption(page, 'Every Fact, Perfectly Filed',
+              'Each item matched to the right person and the right category — automatically',
+              'Mom can reassign, deselect, or regenerate before saving. Human-in-the-Mix pattern: AI proposes, mom decides.')
+            await page.waitForTimeout(5000)
+
+            // Save the sorted items
+            const saveBtn = page.locator('button').filter({ hasText: /Save Selected/ }).first()
+            if (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+              await saveBtn.click()
+              await page.waitForTimeout(2000)
+            }
+          }
+        }
+      }
+    }
+
+    await page.waitForTimeout(1500)
+
+    // Click into Ruthie's archive to show the saved context
     const memberLink = page.locator('[role="button"]:has-text("Ruthie"), a:has-text("Ruthie")').first()
     if (await memberLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await memberLink.click()
@@ -356,17 +401,19 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
       'AI that knows HOW your partner hears love',
       'Pulls from Mark\'s InnerWorkings profile — communication style, personality, strengths — to craft words that land.')
 
-    // Go back to dashboard and launch Cyrano from QuickTasks
+    // Go back to dashboard and launch Cyrano via custom event
+    // (QuickTasks pills are blocked by the floating LiLa buttons z-index overlay)
     await page.goto('/dashboard')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
 
-    // Click the Cyrano pill in QuickTasks
-    const cyranoBtn = page.locator('button:has-text("Cyrano")').first()
-    if (await cyranoBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await cyranoBtn.click()
-      await page.waitForTimeout(2000)
+    // Launch Cyrano via ToolLauncherProvider's event listener
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('lila-mode-switch', { detail: { to: 'cyrano' } }))
+    })
+    await page.waitForTimeout(2000)
 
+    {
       // Type into the Cyrano conversation modal — ToolConversationModal uses "Type a message..."
       const cyranoInput = page.locator('input[placeholder="Type a message..."]').first()
       if (await cyranoInput.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -394,9 +441,8 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
         }
       }
 
-      // Close the tool modal — press Escape (cleanest approach)
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(500)
+      // Close the Cyrano tool modal
+      await forceCloseToolModal(page)
     }
 
     // ─────────────────────────────────────────────────────────
@@ -438,6 +484,9 @@ test.describe('MyAIM Family Demo Walkthrough', () => {
         'Five thinking tools — each with its own Edge Function, system prompt, and model tier.')
       await page.waitForTimeout(3000)
     }
+
+    // Close the Perspective Shifter modal before moving on
+    await forceCloseToolModal(page)
 
     // ─────────────────────────────────────────────────────────
     // Scene 9: Quick Shell Switch to Ruthie (15 seconds)

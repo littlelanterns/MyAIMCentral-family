@@ -94,11 +94,11 @@ const THEME_CATEGORIES: ThemeCategory[] = [
   },
 ]
 
-const VIBE_OPTIONS: { key: VibeKey; name: string }[] = [
-  { key: 'classic', name: 'Classic MyAIM' },
-  { key: 'modern', name: 'Clean & Modern' },
-  { key: 'nautical', name: 'Professional' },
-  { key: 'cozy', name: 'Cozy Journal' },
+const VIBE_OPTIONS: { key: VibeKey; name: string; short: string }[] = [
+  { key: 'classic', name: 'Classic MyAIM', short: 'Classic' },
+  { key: 'modern', name: 'Clean & Modern', short: 'Modern' },
+  { key: 'nautical', name: 'Professional', short: 'Prof.' },
+  { key: 'cozy', name: 'Cozy Journal', short: 'Cozy' },
 ]
 
 const COLOR_MODES = [
@@ -203,8 +203,10 @@ export function ThemeSelector() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-80 max-h-[90vh] overflow-y-auto rounded-lg mt-10 mr-2"
+        className="max-h-[90vh] overflow-y-auto rounded-lg mt-10 mr-2"
         style={{
+          maxWidth: '280px',
+          width: '100%',
           backgroundColor: 'var(--color-bg-card)',
           border: '1px solid var(--color-border)',
           boxShadow: 'var(--shadow-lg)',
@@ -224,7 +226,7 @@ export function ThemeSelector() {
           </button>
         </div>
 
-        <div className="px-3 py-2.5 space-y-3">
+        <div className="px-3 py-2 space-y-2.5">
           {/* Row 1: Mode + Gradient side by side */}
           <div className="flex items-end gap-3">
             <div className="flex-1">
@@ -323,19 +325,18 @@ export function ThemeSelector() {
             <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
               Vibe
             </p>
-            <div className="grid grid-cols-2 gap-1">
+            <div className="flex gap-1">
               {VIBE_OPTIONS.map(v => (
                 <button
                   key={v.key}
                   onClick={() => setVibe(v.key)}
-                  className="py-1.5 px-2 rounded-md text-[11px] font-medium text-center"
+                  className="flex-1 py-1 px-1.5 rounded-md text-[11px] font-medium text-center whitespace-nowrap"
                   style={{
-                    backgroundColor: vibe === v.key ? 'var(--color-bg-secondary)' : 'transparent',
-                    border: vibe === v.key ? '1.5px solid var(--color-btn-primary-bg)' : '1.5px solid var(--color-border)',
-                    color: vibe === v.key ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                    backgroundColor: vibe === v.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
+                    color: vibe === v.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
                   }}
                 >
-                  {v.name}
+                  {v.short}
                 </button>
               ))}
             </div>

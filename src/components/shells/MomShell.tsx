@@ -5,6 +5,7 @@ import { useAutoCollapse } from '@/hooks/useAutoCollapse'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
+import { QuickCreate } from '@/components/global/QuickCreate'
 import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar, LilaModal } from '@/components/lila'
 import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
@@ -185,6 +186,9 @@ export function MomShell({ children }: MomShellProps) {
       {/* Smart Notepad right drawer — desktop pull tab, mobile hidden (accessible via More menu) */}
       <NotepadDrawer />
 
+      {/* Quick Create FAB — mobile only */}
+      <MobileQuickCreateFAB />
+
       {/* Bottom navigation — mobile only */}
       <BottomNav />
     </div>
@@ -207,6 +211,22 @@ function NotepadBridgedQuickTasks({ forceCollapsed }: { forceCollapsed?: boolean
     <QuickTasksNotepadBridgeProvider openNotepad={openNotepad}>
       <QuickTasks forceCollapsed={forceCollapsed} />
     </QuickTasksNotepadBridgeProvider>
+  )
+}
+
+/** Mobile floating action button for Quick Create — sits above bottom nav */
+function MobileQuickCreateFAB() {
+  const { openNotepad } = useNotepadContext()
+  return (
+    <QuickCreate
+      mode="fab"
+      onAddTask={() => { window.location.href = '/tasks?new=1' }}
+      onQuickNote={openNotepad}
+      onLogVictory={() => { window.location.href = '/victories?new=1' }}
+      onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
+      onSendRequest={openNotepad}
+      onMindSweep={() => { window.location.href = '/sweep' }}
+    />
   )
 }
 

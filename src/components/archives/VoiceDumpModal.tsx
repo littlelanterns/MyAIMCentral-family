@@ -80,10 +80,10 @@ export function VoiceDumpModal({ open, onClose, onTranscriptReady }: VoiceDumpMo
             <button
               onClick={handleStop}
               className="w-20 h-20 rounded-full flex items-center justify-center animate-pulse transition-colors"
-              style={{ backgroundColor: '#ef4444' }}
+              style={{ backgroundColor: 'var(--color-error, #ef4444)' }}
               aria-label="Stop recording"
             >
-              <Square size={28} fill="#ffffff" color="#ffffff" />
+              <Square size={28} fill="currentColor" color="currentColor" style={{ color: 'var(--color-btn-primary-text, #fff)' }} />
             </button>
 
             {/* Duration */}

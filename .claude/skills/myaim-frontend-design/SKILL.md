@@ -1,3 +1,8 @@
+---
+name: myaim-frontend-design
+description: "Use this skill whenever creating, modifying, or reviewing any UI component, CSS, or visual element in the MyAIM Family v2 codebase. Triggers include: creating new components, modifying styles, building modals or forms, adjusting spacing/padding, working with theme tokens, creating page layouts, or any task involving visual output."
+---
+
 # MyAIM Frontend Design System — Claude Code Skill
 
 This skill constrains all frontend work to the MyAIM design system. Load it whenever writing CSS, creating components, or modifying UI. These rules prevent the visual density and consistency problems that required the UX overhaul.
@@ -6,213 +11,97 @@ This skill constrains all frontend work to the MyAIM design system. Load it when
 
 ## Rule 1: Zero Hardcoded Colors
 
-Every `color`, `background`, `background-color`, `border-color`, `box-shadow` color, `fill`, `stroke`, and `outline-color` MUST use `var(--*)` CSS custom property tokens.
+Every `color`, `background`, `border-color`, `fill`, `stroke`, `box-shadow` color value must use `var(--*)` CSS custom properties. No hex, no rgb(), no named colors. The ONLY exception is `rgba(0,0,0,...)` for shadow definitions — and even those should prefer `var(--shadow-*)` tokens when possible.
 
-**Never use:** hex values (`#fff`, `#68a395`), `rgb()`/`rgba()`, named colors (`white`, `black`, `gray`).
+**Never use:** hex values (`#fff`, `#68a395`), `rgb()`/`rgba()` with hardcoded color components, named colors (`white`, `black`, `gray`).
 
 **Always use:** `var(--color-text-primary)`, `var(--color-bg-card)`, `var(--color-btn-primary-bg)`, `var(--color-border)`, `var(--color-text-secondary)`, etc.
 
 **For transparency:** Use `color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))` instead of `rgba()` with hardcoded colors.
 
-**Verification:** Run `npm run check:colors` or grep for `#[0-9a-fA-F]{3,8}` in `.tsx` and `.css` files (excluding comments, SVG assets, and Tailwind config).
-
 ---
 
 ## Rule 2: Density Tiers
 
-Every page or surface wrapper MUST declare a density tier via CSS class. Components consume the `--density-multiplier` for spacing.
+Every new page or surface must declare its density class on its wrapper element. Creation flows and forms use `density-comfortable`. Browsing grids and navigation use `density-compact`. Settings panels and control surfaces use `density-tight`. Content reading surfaces use `density-comfortable`.
 
 ```css
-.density-comfortable { --density-multiplier: 1; }    /* default */
+.density-comfortable { --density-multiplier: 1; }
 .density-compact     { --density-multiplier: 0.7; }
 .density-tight       { --density-multiplier: 0.5; }
 ```
 
-| Surface Type | Density | Examples |
-|---|---|---|
-| Creation flows & forms | `comfortable` | Task Creation Modal, list creation, journal editing, family setup |
-| Content consumption | `comfortable` | Tutorial detail, journal reading, LiLa chat, entry detail |
-| Browsing & navigation | `compact` | Studio, AI Vault, Archives, Command Center, dashboard widgets |
-| Control panels & settings | `tight` | Theme selector, filter bars, config panels, permission editors |
-| Data lists & tables | `compact` | Task lists, queue items, notification lists, history views |
-
-**The density class goes on the page-level wrapper, NOT globally.**
-
-Density does NOT affect `--touch-target-min` — touch targets are governed by shell, not density. Shell token overrides (Play = larger) compose ON TOP of density.
-
 ---
 
-## Rule 3: Card Sizes
+## Rule 3: Card Sizes via Prop
 
-Use the shared Card component with the `size` prop. Never set fixed pixel heights on cards.
-
-| Size | Internal Padding | Body Text Size | Use Case |
-|---|---|---|---|
-| `sm` | `0.75rem` | `var(--font-size-xs)` | Studio templates, vault browse, queue items |
-| `md` | `1rem` | `var(--font-size-sm)` | Dashboard widgets, task cards, list items |
-| `lg` | `1.5rem` | `var(--font-size-base)` | Form sections, detail views, modal content |
-
-**Never:** `height: 360px`, `min-height: 300px`, or any fixed height on a card.
-**Always:** Let content determine height. Use `max-height` + `overflow: hidden` only for unbounded content.
+Use the shared Card component with `size="sm"`, `size="md"`, or `size="lg"`. Never set fixed pixel heights on cards. Let content drive height. Studio/Vault browse = `sm`. Dashboard widgets = `md`. Form section cards = `lg`.
 
 ---
 
 ## Rule 4: Section Card Pattern for Forms
 
-Multi-field forms use stacked full-width section cards. Never use 2-column grid layouts for form sections.
-
-```css
-.form-section-card {
-  background: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
-  border: 1px solid var(--color-border);
-  border-radius: var(--vibe-radius-card);
-  padding: var(--spacing-lg);      /* 1.5rem — forms breathe */
-  margin-bottom: var(--spacing-md); /* 1rem between sections */
-}
-
-.form-section-heading {
-  color: var(--color-btn-primary-bg);
-  font-family: var(--font-heading);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: var(--spacing-sm); /* 0.5rem */
-}
-```
-
-Fields within a section card are full-width, stacked vertically. Labels above fields, not beside them.
+Multi-field forms use stacked full-width section cards: translucent card background (`color-mix(in srgb, var(--color-bg-card) 90%, transparent)`), colored section heading in `var(--font-heading)`, `1px solid var(--color-border)`, `var(--vibe-radius-card)` corners, generous internal padding (`1.25rem`).
 
 ---
 
-## Rule 5: Modal System
+## Rule 5: Gradient Headers on Primary Modals
 
-All modals use the shared `<Modal>` component. Never create standalone modal implementations with custom portals, backdrops, or positioning. See `specs/Modal-System-Architecture.md` for the full spec.
-
-**Two modal types:**
-- **Persistent** (`type="persistent"`): Creation flows and configuration. Gradient header. Can be **minimized** to a floating pill — click-off and X trigger minimize, not close. Explicit "Cancel"/"Discard" required to close. State preserved while minimized. Max 3 minimized at once.
-- **Transient** (`type="transient"`): Quick views, confirmations, pickers. Plain header. Click-off and X close the modal. No state preservation. Opens fresh every time.
-
-**Size mapping (desktop):**
-| Size | Max Width | Use Case |
-|---|---|---|
-| `sm` | 480px | Confirmations, pickers, simple forms |
-| `md` | 640px | Event creation, victory log, list item add |
-| `lg` | 750px | Task creation, template customization |
-| `xl` | 960px | Vault detail, calendar month, View As |
-| `full` | 90vw | Admin panels, complex config |
-
-**Mobile:** `sm`/`md` → bottom-sheet. `lg`/`xl`/`full` → full-screen with back arrow.
-
-**Sidebar navigation while modal is open:** Auto-minimizes the persistent modal to a pill, then navigates. User can restore from any page.
-
-**Key components:** `Modal.tsx`, `ModalHeader.tsx`, `ModalFooter.tsx`, `MinimizedPillBar.tsx`, `DraftPrompt.tsx`, `LimitPrompt.tsx`, `ModalManagerContext.tsx`, `useModal.ts`, `useModalState.ts`
-
-**Never:** Create a modal with its own overlay, backdrop, portal, or z-index management. Always use the shared Modal system and the z-index layer tokens (`--z-modal-backdrop: 50`, `--z-modal-content: 55`, `--z-modal-stacked: 60`).
+All persistent (minimizable) modals get the gradient header: `var(--gradient-primary)` background (with solid fallback), `var(--font-heading)`, white/on-dark text, circular close button with translucent white background. Transient modals get a plain header with border-bottom.
 
 ---
 
 ## Rule 6: Helper Text on Non-Obvious Fields
 
-Every form field that isn't immediately self-explanatory gets small helper text below it.
-
-```css
-.field-helper {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  margin-top: 0.25rem;
-}
-```
-
-**Fields that need helper text:** description fields, duration pickers, life area tags, schedule options, incomplete actions, reward amounts, bonus thresholds, template names, any toggle whose purpose isn't obvious from its label alone.
-
-**Fields that don't need helper text:** name/title fields, date pickers, email fields, password fields.
+Every form field whose purpose isn't immediately obvious from its label gets helper text: `var(--color-text-secondary)`, `var(--font-size-xs)`, placed directly below the input with `4px` gap. Written in conversational plain language.
 
 ---
 
-## Rule 7: Radio Buttons with Descriptions for Exclusive Choices
+## Rule 7: Radio Buttons with Descriptions for Exclusive Non-Obvious Choices
 
-When a user must choose one option from a non-obvious set (scheduling frequency, incomplete action, task type), use radio buttons with descriptions — NOT tiny pills, NOT dropdowns.
-
-```
-○ Label — Short description explaining what this option means
-○ Label — Short description explaining what this option means
-```
-
-Each radio option:
-- Radio input with `accent-color: var(--color-btn-primary-bg)`
-- Label: `var(--color-text-primary)`, `font-weight: 600`
-- Description after em-dash: `var(--color-text-secondary)`, `font-weight: 400`
-
-**When to use pills/chips instead:** Only for multi-select values where all options are obvious (day-of-week selectors, tag lists, member selection).
+When options are mutually exclusive AND a user wouldn't know what to pick without context, use radio buttons where each option has a bold label and a description line. Chips/pills are fine for well-understood selections (days of week, family members by name).
 
 ---
 
-## Rule 8: Expandable Inline Explainers
+## Rule 8: Expandable Inline Explainers for Terminology
 
-For terminology or concepts that need explanation, use the "Types Explained" pattern:
-
-- **Trigger:** Text link with chevron icon, styled in `var(--color-btn-primary-bg)`
-- **Content:** Paragraph descriptions in a tinted background card
-- **Background:** `color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))`
-- **Default state:** Collapsed
-- **Animation:** Smooth height transition, 200ms
-
-Never put explanations in tooltips if they're longer than one sentence. Never hide critical decision-making information behind a "?" icon.
+For any place where the app introduces terminology that might confuse a first-time user, add an expandable "What's the difference?" section: text link trigger in `var(--color-btn-primary-bg)`, expanded content in a tinted background card.
 
 ---
 
-## Rule 9: Touch Target Scoping
+## Rule 9: Touch Targets Scoped by Element Type
 
-Touch targets are scoped by element type, not applied globally.
-
-```css
-/* Primary interactive elements: full touch target */
-button:not(.btn-icon):not(.btn-chip):not(.btn-inline),
-input[type="text"], input[type="email"], input[type="password"],
-input[type="number"], input[type="date"],
-textarea, select {
-  min-height: var(--touch-target-min, 44px);
-}
-
-/* Small UI elements: reduced minimum */
-.btn-icon, .btn-chip, .btn-inline {
-  min-height: 28px;
-}
-```
-
-**Never** apply `min-height: 44px` to ALL buttons globally. Icon buttons, chips, and inline toggles get `28px`.
+Primary interactive elements (buttons, inputs, selects) get `min-height: var(--touch-target-min)` (44px adult, 48px guided, 56px play). Icon buttons, chips, inline toggles get `min-height: 28px`. Never apply 44px minimum to every button globally.
 
 ---
 
-## Rule 10: Icons
+## Rule 10: Lucide Icons Only in Mom/Adult/Independent/Guided Shells
 
-- **Mom, Adult, Independent, Guided shells:** Lucide React icons only. No Unicode emoji anywhere.
-- **Play shell only:** Emoji permitted alongside Lucide icons.
-- Icon sizes follow the density tier:
-  - Cards with `size="sm"`: `16-20px` icons
-  - Cards with `size="md"`: `20-24px` icons
-  - Cards with `size="lg"`: `24-32px` icons
-  - Navigation: `20px` default
+No Unicode emoji as decoration, bullets, or status indicators. Play shell permits emoji. Icon size: 18-20px adult, 22-24px guided, 28-32px play.
 
 ---
 
-## Rule 11: Shell Token Composition
+## Rule 11: Shell Token Overrides Compose with Density
 
-Shell-specific token overrides (from PRD-03/PRD-04) apply ON TOP of the density tier:
-
-- **Play shell:** 56px touch targets, larger fonts, bouncier animations — these override density
-- **Guided shell:** 48px touch targets, moderate scaling
-- **Independent/Adult/Mom:** Standard touch targets, density controls spacing
-
-The density system reduces spacing. The shell system increases touch targets. They compose — they don't conflict.
+When building for Guided or Play shells, the shell's larger font/spacing/touch-target overrides apply ON TOP of the surface's density tier. They multiply, not conflict.
 
 ---
 
-## Rule 12: No Global Spacing Overrides
+## Rule 12: No `!important` on Spacing
 
-- Never use `!important` on spacing properties (padding, margin, gap)
-- Never set spacing in a global stylesheet that affects all instances of an element type
-- Spacing is controlled by: density tier (page level) → component size prop → component-specific CSS
-- If you need to override spacing for a specific instance, use a scoped class, not a global rule
+Never use `!important` to override padding, margin, gap, or any spacing value. Use the density system or component props.
+
+---
+
+## Rule 13: Modal Type Correctness
+
+Use `type="persistent"` for creation/editing flows (task, event, list, template, victory). Use `type="transient"` for read-only views, confirmations, pickers. Always use the shared ModalV2 component — no one-off portals.
+
+---
+
+## Rule 14: Consistent Modal Patterns
+
+All persistent modals: gradient header, section-card body, sticky footer with Cancel + primary action. All transient modals: plain header with border, content body, optional footer. Both: backdrop click behavior per type, Escape key, focus trap.
 
 ---
 

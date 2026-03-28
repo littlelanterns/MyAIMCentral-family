@@ -88,7 +88,7 @@ export function VaultHeroSpotlight({ items, memberId: _memberId }: Props) {
               key={i}
               onClick={() => setIndex(i)}
               className="w-2 h-2 rounded-full transition-colors"
-              style={{ backgroundColor: i === index ? '#fff' : 'rgba(255,255,255,0.4)' }}
+              style={{ backgroundColor: i === index ? 'var(--color-text-on-primary, #fff)' : 'rgba(255,255,255,0.4)' }}
             />
           ))}
           <button onClick={() => setIndex(prev => (prev + 1) % items.length)} className="p-1 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>

@@ -85,7 +85,7 @@ export function VaultContentCard({ item, memberId, showProgress, onSelect }: Pro
           className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider"
           style={{
             backgroundColor: 'rgba(0,0,0,0.65)',
-            color: '#fff',
+            color: 'var(--color-text-on-primary, #fff)',
             backdropFilter: 'blur(4px)',
           }}
         >
@@ -106,7 +106,7 @@ export function VaultContentCard({ item, memberId, showProgress, onSelect }: Pro
             className="px-1.5 py-0.5 rounded text-[10px] font-medium"
             style={{
               backgroundColor: 'rgba(0,0,0,0.55)',
-              color: DIFFICULTY_COLORS[item.difficulty] || '#fff',
+              color: DIFFICULTY_COLORS[item.difficulty] || 'var(--color-text-on-primary, #fff)',
             }}
           >
             {item.difficulty}

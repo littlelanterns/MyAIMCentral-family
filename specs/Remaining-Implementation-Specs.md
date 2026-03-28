@@ -27,11 +27,15 @@ const QUICK_ACTIONS = [
   { key: 'task', label: 'Add Task', icon: CheckSquare, action: 'openTaskQuickMode' },
   { key: 'note', label: 'Quick Note', icon: StickyNote, action: 'openNotepad' },
   { key: 'victory', label: 'Log Victory', icon: Trophy, action: 'openVictoryMini' },
-  { key: 'list-item', label: 'Add to List', icon: ListPlus, action: 'openListItemMini' },
   { key: 'event', label: 'Calendar Event', icon: CalendarPlus, action: 'openEventCreation' },
+  { key: 'request', label: 'Send Request', icon: HandHelping, action: 'openRequestMini' },
   { key: 'sweep', label: 'Mind Sweep', icon: Brain, action: 'openMindSweep' },
 ] as const
 ```
+
+> **Why "Send Request" instead of "Add to List":** List items are better handled by MindSweep routing or from the Lists page directly. Requests are one of the most common family interactions — kids asking permission, parents delegating, teens negotiating chore swaps. Every family member uses this frequently. It's a tiny form (what + who + when + details) that takes 10 seconds.
+
+> **Why "Backburner" is NOT in Quick Create:** Backburner gets its own self-sorting pill in the QuickTasks strip (per the Backburner Feature Addendum). It's an important capture action, but specialized enough to be a strip pill that rises in prominence via usage frequency rather than occupying a fixed slot in Quick Create.
 
 ### Popover Styling
 
@@ -51,19 +55,21 @@ const QUICK_ACTIONS = [
 | Add Task | Opens Task Creation Modal in Quick Mode (persistent modal, `id: 'task-create'`) |
 | Quick Note | Opens Smart Notepad drawer (if closed) or creates new tab (if already open). Does NOT open a modal. |
 | Log Victory | Opens a compact persistent modal (`id: 'victory-create'`, size `sm`): title input + who dropdown + optional description textarea + "Record Victory" button |
-| Add to List | Opens a compact transient modal (size `sm`): list picker dropdown + item text input + "Add" button. Selected list persists for the session (remembers last-used list). |
 | Calendar Event | Opens EventCreationModal as persistent modal (`id: 'event-create'`) |
+| Send Request | Opens a compact persistent modal (`id: 'request-create'`, size `sm`, gradient header): "What are you requesting?" text input + "Who is this for?" member dropdown (filtered by messaging permissions) + "When? (optional)" text input + "Details (optional)" textarea + "Send Request" button. Creates a `family_requests` record, sends notification to recipient, and item appears in recipient's Queue Modal Requests tab. (Per PRD-15 Screen 7.) |
 | Mind Sweep | Opens Smart Notepad drawer in MindSweep mode (voice capture focus). If MindSweep PWA entry exists, can also navigate to `/sweep`. |
 
 ### Shell Visibility
 
-| Shell | Quick Create Available |
-|---|---|
-| Mom | Yes — all 6 actions |
-| Adult | Yes — all 6 actions |
-| Independent | Yes — all except Mind Sweep (permission-gated) |
-| Guided | No — uses simplified bottom nav actions |
-| Play | No — uses large tile actions |
+| Shell | Quick Create Available | Notes |
+|---|---|---|
+| Mom | Yes — all 6 actions | Full access |
+| Adult | Yes — all 6 actions | Request recipients filtered by permissions |
+| Independent (Teen) | Yes — all 6 actions | Request recipients filtered by messaging permissions; Mind Sweep may be permission-gated |
+| Guided | No — uses simplified bottom nav actions | Can access Send Request via bottom nav or LiLa-guided flow instead |
+| Play | No — uses large tile actions | No direct creation capabilities |
+
+> **Note for Independent (Teen) shell:** Teens having Send Request in Quick Create is especially valuable — it's their primary channel for "Can I go to Tyler's?" / "Can you buy poster board?" style asks. The member dropdown only shows family members they have messaging permission to reach (typically parents, possibly siblings if mom enabled it).
 
 ---
 
@@ -241,7 +247,7 @@ function useSidebarSections(currentRoute: string) {
   const activeSection = SIDEBAR_SECTIONS.find(section =>
     section.items.some(item => currentRoute.startsWith(item.route))
   )
-  
+
   // State: which sections are expanded (session-only)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     // Default: only the section containing the current page
@@ -458,9 +464,9 @@ From our analysis:
 ```yaml
 ---
 name: myaim-frontend-design
-description: "Use this skill whenever creating, modifying, or reviewing any UI component, 
-CSS, or visual element in the MyAIM Family v2 codebase. Triggers include: creating new 
-components, modifying styles, building modals or forms, adjusting spacing/padding, working 
+description: "Use this skill whenever creating, modifying, or reviewing any UI component,
+CSS, or visual element in the MyAIM Family v2 codebase. Triggers include: creating new
+components, modifying styles, building modals or forms, adjusting spacing/padding, working
 with theme tokens, creating page layouts, or any task involving visual output."
 ---
 ```

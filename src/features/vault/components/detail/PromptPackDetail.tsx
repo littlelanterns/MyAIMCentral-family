@@ -135,8 +135,8 @@ function SaveButton({ entry, item, memberId, dark }: { entry: PromptEntry; item:
       disabled={saving || saved}
       className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
       style={dark
-        ? { backgroundColor: saved ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.2)', color: '#fff' }
-        : { backgroundColor: saved ? 'var(--color-success, #22c55e)' : 'var(--color-bg-secondary)', color: saved ? '#fff' : 'var(--color-text-primary)' }
+        ? { backgroundColor: saved ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.2)', color: 'var(--color-text-on-primary, #fff)' }
+        : { backgroundColor: saved ? 'var(--color-success, #22c55e)' : 'var(--color-bg-secondary)', color: saved ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-primary)' }
       }
     >
       {saved ? <Check size={dark ? 10 : 12} /> : <Save size={dark ? 10 : 12} />}
@@ -159,7 +159,7 @@ function OptimizeButton({ dark }: { dark?: boolean }) {
       title="Optimize with LiLa — coming soon"
       className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium opacity-60"
       style={dark
-        ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff' }
+        ? { backgroundColor: 'rgba(255,255,255,0.15)', color: 'var(--color-text-on-primary, #fff)' }
         : { backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }
       }
     >

@@ -46,7 +46,7 @@ export function VaultBrowsePage() {
   const showSearchResults = searchQuery.length > 0 || Object.values(filters).some(Boolean)
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-20">
+    <div className="density-compact max-w-7xl mx-auto px-4 pb-20">
       <FeatureGuide featureKey="vault_browse" />
 
       {/* Page header */}

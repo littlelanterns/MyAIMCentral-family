@@ -32,6 +32,7 @@ interface NavSection {
 function getSidebarSections(shell: ShellType): NavSection[] {
   const home: NavSection = {
     title: 'Home',
+    collapsible: false,
     items: [
       { label: 'Dashboard', path: '/dashboard', featureKey: 'dashboard', icon: <LayoutDashboard size={20} />, tooltip: 'Your personal space' },
     ],
@@ -73,6 +74,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
   const family: NavSection = {
     title: 'Family',
+    collapsible: true,
     items: [
       { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
       { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
@@ -81,6 +83,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
 
   const tools: NavSection = {
     title: 'AI & Tools',
+    collapsible: true,
     items: [
       { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
       { label: 'Archives', path: '/archives', featureKey: 'archives', icon: <Archive size={20} />, tooltip: 'Context and documents' },
@@ -277,25 +280,37 @@ function ViewAsSwitcher() {
   )
 }
 
-/** Persist section collapsed state to localStorage */
-function useSectionCollapse() {
-  const STORAGE_KEY = 'sidebar-collapsed-sections'
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      return stored ? JSON.parse(stored) : {}
-    } catch { return {} }
+/** Track expanded sections — default: only the section containing the current route */
+function useSectionCollapse(sections: NavSection[], currentPath: string) {
+  // Find which section contains the active route
+  const activeSectionTitle = sections.find(s =>
+    s.items.some(item => currentPath === item.path || currentPath.startsWith(item.path + '/'))
+  )?.title
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    // Default: only expand the section containing the current route
+    return new Set(activeSectionTitle ? [activeSectionTitle] : ['Home'])
   })
 
+  // When route changes, auto-expand the section containing the new route
+  useEffect(() => {
+    if (activeSectionTitle && !expandedSections.has(activeSectionTitle)) {
+      setExpandedSections(prev => new Set([...prev, activeSectionTitle]))
+    }
+  }, [currentPath, activeSectionTitle])
+
   const toggleSection = useCallback((title: string) => {
-    setCollapsedSections(prev => {
-      const next = { ...prev, [title]: !prev[title] }
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch { /* noop */ }
+    setExpandedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(title)) next.delete(title)
+      else next.add(title)
       return next
     })
   }, [])
 
-  return { collapsedSections, toggleSection }
+  const isSectionExpanded = useCallback((title: string) => expandedSections.has(title), [expandedSections])
+
+  return { isSectionExpanded, toggleSection }
 }
 
 function SidebarInner({
@@ -309,48 +324,65 @@ function SidebarInner({
   shell: ShellType
   isPreview: boolean
 }) {
-  const { collapsedSections, toggleSection } = useSectionCollapse()
   const location = useLocation()
+  const { isSectionExpanded, toggleSection } = useSectionCollapse(sections, location.pathname)
 
   const sidebarContent = (
     <nav className="flex-1 flex flex-col overflow-y-auto py-4 scrollbar-card">
       {sections.map((section) => {
         const isCollapsible = section.collapsible && !collapsed
-        const isSectionCollapsed = isCollapsible && collapsedSections[section.title]
-        // Auto-expand if the active route is inside a collapsed section
-        const hasActiveChild = section.items.some(item =>
-          location.pathname === item.path || location.pathname.startsWith(item.path + '/')
-        )
-        const showItems = !isSectionCollapsed || hasActiveChild
+        const isExpanded = !isCollapsible || isSectionExpanded(section.title)
 
         return (
-        <div key={section.title} className="mb-4">
+        <div key={section.title} className="mb-1">
           {!collapsed && (
             isCollapsible ? (
               <button
                 onClick={() => toggleSection(section.title)}
-                className="flex items-center justify-between w-full px-4 mb-1 text-xs font-medium uppercase tracking-wider"
-                style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset', padding: '0 16px', cursor: 'pointer' }}
+                className="flex items-center justify-between w-full text-xs font-semibold uppercase"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  background: 'transparent',
+                  border: 'none',
+                  minHeight: 'unset',
+                  padding: '0.375rem 0.75rem',
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em',
+                  fontSize: 'var(--font-size-xs, 0.7rem)',
+                }}
               >
                 <span>{section.title}</span>
-                <ChevronDown
+                <ChevronRight
                   size={12}
                   style={{
-                    transform: isSectionCollapsed && !hasActiveChild ? 'rotate(-90deg)' : 'rotate(0)',
-                    transition: 'transform 150ms ease',
+                    transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)',
+                    transition: 'transform 200ms ease',
+                    color: 'var(--color-text-secondary)',
                   }}
                 />
               </button>
             ) : (
               <p
-                className="px-4 mb-1 text-xs font-medium uppercase tracking-wider"
-                style={{ color: 'var(--color-text-secondary)' }}
+                className="text-xs font-semibold uppercase"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  padding: '0.375rem 0.75rem',
+                  letterSpacing: '0.05em',
+                  fontSize: 'var(--font-size-xs, 0.7rem)',
+                }}
               >
                 {section.title}
               </p>
             )
           )}
-          {showItems && section.items.map((item) => {
+          <div
+            style={{
+              overflow: 'hidden',
+              maxHeight: isExpanded ? '500px' : '0',
+              transition: 'max-height 200ms ease',
+            }}
+          >
+          {section.items.map((item) => {
             // Tier-locking: during beta useCanAccess returns true for all.
             const tierLocked = false // Will be: !useCanAccess(item.featureKey)
             const isMom = shell === 'mom'
@@ -392,6 +424,7 @@ function SidebarInner({
               </NavLink>
             )
           })}
+          </div>
         </div>
         )
       })}

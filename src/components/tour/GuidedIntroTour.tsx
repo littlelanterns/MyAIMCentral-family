@@ -149,7 +149,7 @@ export function GuidedIntroTour() {
           onClick={handleUndock}
         >
           <div className="flex items-center gap-2">
-            <Icon size={16} style={{ color: '#D6A461' }} />
+            <Icon size={16} style={{ color: 'var(--color-accent, #D6A461)' }} />
             <span className="text-xs font-semibold flex-1 truncate" style={{ color: 'var(--color-text-heading)' }}>
               {currentFeature ? currentFeature.name : 'Tour Complete'}
             </span>
@@ -161,7 +161,7 @@ export function GuidedIntroTour() {
             <button
               onClick={(e) => { e.stopPropagation(); handleUndock() }}
               className="text-[11px] font-medium px-2 py-1 rounded"
-              style={{ backgroundColor: '#D6A461', color: '#fff', border: 'none', minHeight: 'unset' }}
+              style={{ backgroundColor: 'var(--color-accent, #D6A461)', color: 'var(--color-btn-primary-text, #fff)', border: 'none', minHeight: 'unset' }}
             >
               Continue Tour
             </button>

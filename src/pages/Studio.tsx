@@ -316,7 +316,7 @@ export function StudioPage() {
 
   return (
     <div
-      className="max-w-4xl mx-auto px-4 py-6"
+      className="density-compact max-w-4xl mx-auto px-4 py-6"
       style={{ color: 'var(--color-text-primary)' }}
     >
       {/* ── Header ─────────────────────────────────────────── */}

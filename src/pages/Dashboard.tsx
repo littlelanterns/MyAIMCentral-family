@@ -94,7 +94,7 @@ export function Dashboard() {
   const isMom = member?.role === 'primary_parent'
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="density-compact max-w-4xl mx-auto space-y-4" style={{ padding: '1.25rem 1rem' }}>
       <FeatureGuide featureKey="dashboard" />
 
       {/* Perspective Switcher — Mom only, personal dashboard view */}
@@ -106,7 +106,7 @@ export function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1
-            className="text-2xl font-bold"
+            className="text-xl font-bold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
           >
             {greeting}, {displayMember?.display_name ?? 'there'}

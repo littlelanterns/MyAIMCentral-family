@@ -145,7 +145,7 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--color-btn-primary-bg, #68a395) !important;
-  box-shadow: 0 0 0 3px rgba(104, 163, 149, 0.15) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent) !important;
 }
 
 /* Theme transition (for smooth theme switching) */
@@ -160,7 +160,7 @@ select:focus {
 }
 .card-hover:hover {
   transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(104, 163, 149, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 .card-hover:active {
   transform: translateY(-2px) scale(1);

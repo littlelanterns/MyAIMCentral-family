@@ -151,7 +151,7 @@ export function TaskCompletionExpander({
                 width: 18,
                 height: 18,
                 backgroundColor: 'var(--color-error, #ef4444)',
-                color: '#fff',
+                color: 'var(--color-btn-primary-text, #fff)',
               }}
               aria-label="Remove photo"
             >

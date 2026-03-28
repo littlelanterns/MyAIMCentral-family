@@ -45,20 +45,20 @@ export function SettingsPage() {
       {/* Lantern's Path Card — TOP position, gold shimmer */}
       <style>{`
         @keyframes goldShimmer {
-          0%, 100% { box-shadow: 0 0 8px rgba(214, 164, 97, 0.3); border-color: #D6A461; }
-          50% { box-shadow: 0 0 20px rgba(214, 164, 97, 0.6); border-color: #E8C177; }
+          0%, 100% { box-shadow: 0 0 8px rgba(214, 164, 97, 0.3); border-color: var(--color-accent, #D6A461); }
+          50% { box-shadow: 0 0 20px rgba(214, 164, 97, 0.6); border-color: var(--color-accent, #E8C177); }
         }
       `}</style>
       <div
         className="rounded-xl p-5"
         style={{
           background: 'var(--color-bg-card)',
-          border: '2px solid #D6A461',
+          border: '2px solid var(--color-accent, #D6A461)',
           animation: 'goldShimmer 3s ease-in-out infinite',
         }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <Map size={20} style={{ color: '#D6A461' }} />
+          <Map size={20} style={{ color: 'var(--color-accent, #D6A461)' }} />
           <h3 className="font-semibold" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text-heading)' }}>
             The Lantern's Path
           </h3>
@@ -71,8 +71,8 @@ export function SettingsPage() {
             to="/lanterns-path"
             className="px-4 py-2 rounded-lg text-sm font-medium"
             style={{
-              backgroundColor: '#D6A461',
-              color: '#fff',
+              backgroundColor: 'var(--color-accent, #D6A461)',
+              color: 'var(--color-btn-primary-text, #fff)',
               border: 'none',
             }}
           >

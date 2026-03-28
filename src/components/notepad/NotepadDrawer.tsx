@@ -845,7 +845,7 @@ function HistoryView({ historyTabs, onReopen, onDelete, onBack }: {
                         className="px-1.5 py-0.5 rounded text-[10px]"
                         style={{
                           backgroundColor: 'var(--color-error, #e53e3e)',
-                          color: '#fff',
+                          color: 'var(--color-btn-primary-text, #fff)',
                           minHeight: 'unset',
                         }}
                       >

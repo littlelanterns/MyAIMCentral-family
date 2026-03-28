@@ -22,6 +22,7 @@ import { getFeatureIcons } from '@/lib/assets'
 import { useFamily } from '@/hooks/useFamily'
 import { useStudioQueueCount } from '@/hooks/useStudioQueue'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
+import { QuickCreate } from '@/components/global/QuickCreate'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -357,6 +358,23 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         {sortedActions.map((item) => (
           <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
         ))}
+
+        {/* Quick Create "+" button — rightmost in strip */}
+        <QuickCreate
+          mode="strip"
+          onAddTask={() => navigate('/tasks?new=1')}
+          onQuickNote={() => {
+            if (notepadBridge) notepadBridge.openNotepad()
+            else navigate('/notepad')
+          }}
+          onLogVictory={() => navigate('/victories?new=1')}
+          onCalendarEvent={() => navigate('/calendar?new=1')}
+          onSendRequest={() => {
+            // TODO: Open request creation modal when PRD-15 is built
+            if (notepadBridge) notepadBridge.openNotepad()
+          }}
+          onMindSweep={() => navigate('/sweep')}
+        />
       </div>
 
       {/* Queue indicator — shows pending items */}
@@ -439,15 +457,15 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
       <>
         <style>{`
           @keyframes qtGoldShimmer {
-            0%, 100% { box-shadow: 0 0 6px rgba(214,164,97,0.4), inset 0 0 4px rgba(214,164,97,0.1); border-color: #D6A461; }
-            50% { box-shadow: 0 0 14px rgba(214,164,97,0.7), inset 0 0 8px rgba(214,164,97,0.2); border-color: #E8C177; }
+            0%, 100% { box-shadow: 0 0 6px rgba(214,164,97,0.4), inset 0 0 4px rgba(214,164,97,0.1); border-color: var(--color-accent, #D6A461); }
+            50% { box-shadow: 0 0 14px rgba(214,164,97,0.7), inset 0 0 8px rgba(214,164,97,0.2); border-color: var(--color-accent, #E8C177); }
           }
           @keyframes qtAttentionPulse {
-            0% { transform: scale(1); box-shadow: 0 0 8px rgba(214,164,97,0.5); background-color: #D6A461; }
-            25% { transform: scale(1.15); box-shadow: 0 0 24px rgba(214,164,97,0.9); background-color: #E8C177; }
-            50% { transform: scale(1); box-shadow: 0 0 8px rgba(104,163,149,0.6); background-color: #68A395; }
-            75% { transform: scale(1.1); box-shadow: 0 0 20px rgba(214,164,97,0.8); background-color: #D6A461; }
-            100% { transform: scale(1); box-shadow: 0 0 8px rgba(214,164,97,0.5); background-color: #D6A461; }
+            0% { transform: scale(1); box-shadow: 0 0 8px rgba(214,164,97,0.5); background-color: var(--color-accent, #D6A461); }
+            25% { transform: scale(1.15); box-shadow: 0 0 24px rgba(214,164,97,0.9); background-color: var(--color-accent, #E8C177); }
+            50% { transform: scale(1); box-shadow: 0 0 8px rgba(104,163,149,0.6); background-color: var(--color-btn-primary-bg, #68A395); }
+            75% { transform: scale(1.1); box-shadow: 0 0 20px rgba(214,164,97,0.8); background-color: var(--color-accent, #D6A461); }
+            100% { transform: scale(1); box-shadow: 0 0 8px rgba(214,164,97,0.5); background-color: var(--color-accent, #D6A461); }
           }
         `}</style>
         <button
@@ -457,9 +475,9 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
           className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-bold whitespace-nowrap"
           style={{
             padding: '6px 14px',
-            backgroundColor: hovered ? '#C4923A' : '#D6A461',
-            color: '#fff',
-            border: '1.5px solid #D6A461',
+            backgroundColor: hovered ? 'var(--color-accent-deep, #C4923A)' : 'var(--color-accent, #D6A461)',
+            color: 'var(--color-btn-primary-text, #fff)',
+            border: '1.5px solid var(--color-accent, #D6A461)',
             animation: attentionGlow
               ? 'qtAttentionPulse 1s ease-in-out infinite'
               : 'qtGoldShimmer 2.5s ease-in-out infinite',

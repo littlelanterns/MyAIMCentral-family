@@ -82,7 +82,7 @@ export function ArchiveMemberCard({
   const initials = getInitials(name)
   const initialsColor = memberColor && memberColor.startsWith('#')
     ? getContrastText(memberColor)
-    : '#ffffff'
+    : 'var(--color-text-on-primary, #fff)'
 
   const displayLabel = label || name
   const displayInsight = insightLabel || `${includedInsights}/${totalInsights} insights`
@@ -197,7 +197,7 @@ export function ArchiveMemberCard({
           className="absolute top-2 right-2 z-10 p-1.5 rounded-full transition-colors"
           style={{
             backgroundColor: 'rgba(255,255,255,0.2)',
-            color: isIncludedInAI ? '#ffffff' : 'rgba(255,255,255,0.6)',
+            color: isIncludedInAI ? 'var(--color-text-on-primary, #fff)' : 'rgba(255,255,255,0.6)',
           }}
           title={
             isIncludedInAI
@@ -217,7 +217,7 @@ export function ArchiveMemberCard({
       <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-2.5 pt-6">
         <p
           className="text-sm font-semibold truncate"
-          style={{ color: '#ffffff', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+          style={{ color: 'var(--color-text-on-primary, #fff)', textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
         >
           {displayLabel}
         </p>
@@ -237,7 +237,7 @@ export function ArchiveMemberCard({
           onClick={handleCameraClick}
           title={hasPhoto ? 'Change Photo' : 'Add Photo'}
         >
-          <Camera size={16} color="#ffffff" />
+          <Camera size={16} color="white" />
         </button>
       )}
 
@@ -248,7 +248,7 @@ export function ArchiveMemberCard({
           onClick={handleCameraClick}
         >
           <div className="flex flex-col items-center gap-1">
-            <Camera size={28} color="#ffffff" />
+            <Camera size={28} color="white" />
             <span className="text-xs font-medium text-white">
               {hasPhoto ? 'Change Photo' : 'Add Photo'}
             </span>
