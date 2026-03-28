@@ -40,48 +40,11 @@ yarn-error.log*
 .claude/settings.local.json
 .claude/worktrees/
 
-# Content staging (large binary files uploaded to Supabase Storage)
-content-staging/
-
 # OS junk
 desktop.ini
 
-# === VIBEATHON CLEANUP — Builder context, not for judges ===
-
-# Internal specs and planning
-specs/
-workflows/
-asset-requirements/
-
-# Cross-PRD addenda (builder context)
-prds/addenda/
-
-# Condensed intelligence (builder context — also in reference/)
-Additional Docs/
-
-# Internal builder/tracking files at root
-AUDIT_SESSION_STARTER.md
-CURRENT_BUILD.md
-FIXME-LOG.md
-PATTERN-DECISIONS.md
-QA-SHELLS.md
-RLS-VERIFICATION.md
-STUB_REGISTRY.md
-WIRING_STATUS.md
-AI-COST-TRACKER.md
-questions-for-tenise.md
-
-# Unresolved audit actions (builder context)
-audit/UNRESOLVED_CROSS_PRD_ACTIONS.md
-
-# Instruction files (already executed)
-CLAUDE_MD_HEADER_INSTRUCTIONS.md
-AUDIT_FINDINGS_HEADER_INSTRUCTIONS.md
-PRD_HEADER_BANNER_INSTRUCTIONS.md
-REPO_CLEANUP_SCRIPT.md
-UPDATE_DOCS_PROMPT.md
-
-# Large binary assets (uploaded to Supabase Storage, not needed in repo)
-vault-thumbnails/grids/
-seed-assets/testworth-family/
+# Large binary assets (stored in Supabase Storage, not in repo)
+content-staging/
+vault-thumbnails/
+seed-assets/
 vault-tutorials/
