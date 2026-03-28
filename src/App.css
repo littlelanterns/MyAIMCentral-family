@@ -84,9 +84,47 @@ a:hover {
   color: var(--color-btn-primary-text, white);
 }
 
-/* Touch target minimum */
-button, a, input, select, textarea {
+/* ============================================================
+ * Density Tier System (MyAIM Design System)
+ * Page-level wrappers declare density; components consume
+ * --density-multiplier for spacing calculations.
+ * ============================================================ */
+.density-comfortable { --density-multiplier: 1; }
+.density-compact     { --density-multiplier: 0.7; }
+.density-tight       { --density-multiplier: 0.5; }
+
+/* ============================================================
+ * Touch Target Minimums — scoped by element type (Rule 9)
+ * Primary interactive elements get full touch targets.
+ * Small UI elements (icon buttons, chips) get reduced minimum.
+ * ============================================================ */
+
+/* Primary interactive elements: full touch target */
+button:not(.btn-icon):not(.btn-chip):not(.btn-inline),
+input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], input[type="date"],
+textarea, select {
   min-height: var(--touch-target-min, 44px);
+}
+
+/* Small UI elements: reduced minimum */
+.btn-icon, .btn-chip, .btn-inline,
+button[aria-label*="Move"],
+button[aria-label*="Remove"],
+button[aria-label*="Close"] {
+  min-height: 28px;
+}
+
+/* Z-Index Layer System (Modal Architecture) */
+:root {
+  --z-layout: 1;
+  --z-floating-buttons: 10;
+  --z-quicktasks: 15;
+  --z-pill-bar: 40;
+  --z-modal-backdrop: 50;
+  --z-modal-content: 55;
+  --z-modal-stacked: 60;
+  --z-toast: 70;
 }
 
 /* ============================================================

@@ -12,6 +12,11 @@ import type { ReactNode, MouseEvent } from 'react'
 export interface CardProps {
   variant?: 'raised' | 'flat' | 'interactive'
   padding?: 'none' | 'sm' | 'md' | 'lg'
+  /** Card size — controls padding and body text scale.
+   *  sm: compact (Studio templates, vault browse, queue items)
+   *  md: standard (dashboard widgets, task cards, list items)
+   *  lg: spacious (form sections, detail views, modal content) */
+  size?: 'sm' | 'md' | 'lg'
   children: ReactNode
   className?: string
   onClick?: (e: MouseEvent<HTMLDivElement>) => void
@@ -24,9 +29,24 @@ const paddingClasses: Record<NonNullable<CardProps['padding']>, string> = {
   lg: 'p-6',
 }
 
+/** Size-based padding when `size` is used instead of explicit `padding` */
+const sizePadding: Record<NonNullable<CardProps['size']>, string> = {
+  sm: '0.75rem',
+  md: '1rem',
+  lg: '1.5rem',
+}
+
+/** Size-based body font size */
+const sizeFontSize: Record<NonNullable<CardProps['size']>, string> = {
+  sm: 'var(--font-size-xs, 0.75rem)',
+  md: 'var(--font-size-sm, 0.875rem)',
+  lg: 'var(--font-size-base, 1rem)',
+}
+
 export function Card({
   variant = 'raised',
   padding = 'md',
+  size,
   children,
   className = '',
   onClick,
@@ -59,6 +79,11 @@ export function Card({
 
   const resolvedVariant = isInteractive && variant !== 'flat' ? 'interactive' : variant
 
+  // When `size` is provided, use size-based padding/font instead of Tailwind padding classes
+  const sizeStyles: React.CSSProperties = size
+    ? { padding: sizePadding[size], fontSize: sizeFontSize[size] }
+    : {}
+
   return (
     <div
       role={isInteractive ? 'button' : undefined}
@@ -75,13 +100,13 @@ export function Card({
           : undefined
       }
       className={[
-        paddingClasses[padding],
+        size ? '' : paddingClasses[padding],
         isInteractive ? 'card-hover' : '',
         className,
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ ...baseStyle, ...variantStyles[resolvedVariant] }}
+      style={{ ...baseStyle, ...variantStyles[resolvedVariant], ...sizeStyles }}
     >
       {children}
     </div>

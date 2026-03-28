@@ -38,6 +38,8 @@ import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRou
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
 import { SettingsProvider } from '@/components/settings'
+import { ModalManagerProvider } from '@/contexts/ModalManagerContext'
+import { MinimizedPillBar } from '@/components/shared/MinimizedPillBar'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +54,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <ModalManagerProvider>
         <ViewAsProvider>
           <SettingsProvider>
           <BrowserRouter>
@@ -111,6 +114,8 @@ function App() {
           </BrowserRouter>
           </SettingsProvider>
         </ViewAsProvider>
+        <MinimizedPillBar />
+        </ModalManagerProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

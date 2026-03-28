@@ -1,17 +1,22 @@
 /**
  * TaskCreationModal (PRD-09A Screen 3, PRD-17 Screen 7 & 8)
  *
- * REDESIGNED: Compact two-column layout. No Quick/Full toggle.
- * No collapsible accordion sections. Everything above the fold.
- * Feels like filling out a sticky note, not completing a form.
+ * REDESIGNED: Linear, full-width, section-card form following
+ * specs/TaskCreationModal-Redesign-Spec.md exactly.
+ *
+ * Uses ModalV2 (persistent, lg) with gradient header.
+ * Section cards, radio buttons with descriptions, checkbox assignment rows.
+ * Quick Mode toggle, TaskBreaker preview, expandable "Types Explained".
  *
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { X, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/shared'
+import {
+  FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
+  CheckSquare, RotateCcw, Star, TrendingUp,
+} from 'lucide-react'
+import { Button, ModalV2 } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
 import { RoutineSectionEditor } from './RoutineSectionEditor'
 import { DurationPicker } from './DurationPicker'
@@ -117,42 +122,43 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
   }
 }
 
-const TASK_TYPES: { key: TaskType; label: string }[] = [
-  { key: 'task', label: 'Task' },
-  { key: 'routine', label: 'Routine' },
-  { key: 'opportunity' as TaskType, label: 'Opportunity' },
-  { key: 'habit', label: 'Habit' },
+// ─── Constants ───────────────────────────────────────────────
+
+const TASK_TYPES: {
+  key: TaskType
+  label: string
+  description: string
+  icon: React.ComponentType<{ size: number }>
+}[] = [
+  { key: 'task', label: 'Task', description: 'One-time or recurring responsibility', icon: CheckSquare },
+  { key: 'routine', label: 'Routine', description: 'Multi-step checklist with sections', icon: RotateCcw },
+  { key: 'opportunity' as TaskType, label: 'Opportunity', description: 'Optional — earn rewards, no pressure', icon: Star },
+  { key: 'habit', label: 'Habit', description: 'Track consistency over time', icon: TrendingUp },
 ]
 
-const INCOMPLETE_OPTIONS: { key: IncompleteAction; label: string }[] = [
-  { key: 'auto_reschedule', label: 'Auto-reschedule' },
-  { key: 'fresh_reset', label: 'Fresh reset' },
-  { key: 'drop_after_date', label: 'Drop after date' },
-  { key: 'reassign_until_complete', label: 'Reassign until done' },
-  { key: 'require_decision', label: 'Ask me' },
-  { key: 'escalate_to_parent', label: 'Escalate' },
+const INCOMPLETE_OPTIONS: {
+  key: IncompleteAction
+  label: string
+  description: string
+}[] = [
+  { key: 'fresh_reset', label: 'Auto-Disappear', description: 'Task vanishes if not done; fresh start each day' },
+  { key: 'auto_reschedule', label: 'Auto-Reschedule', description: 'Moves to next available day' },
+  { key: 'drop_after_date', label: 'Drop After Date', description: 'Disappears after a specific date passes' },
+  { key: 'reassign_until_complete', label: 'Reassign Until Done', description: 'Keeps reassigning until someone completes it' },
+  { key: 'require_decision', label: 'Ask Me', description: 'Goes to your review queue for a manual decision' },
+  { key: 'escalate_to_parent', label: 'Escalate', description: 'Flags for parent review' },
 ]
 
-// ─── Inline "More" expandable ───────────────────────────────
+type ScheduleMode = 'one_time' | 'daily' | 'weekly' | 'custom'
 
-function MoreSection({ label, children }: { label: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false)
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-sm flex items-center gap-1"
-        style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-      >
-        {label} <ChevronDown size={14} />
-      </button>
-    )
-  }
-  return <div className="space-y-3 pt-1">{children}</div>
-}
+const SCHEDULE_OPTIONS: { key: ScheduleMode; label: string; description: string }[] = [
+  { key: 'one_time', label: 'One-Time', description: 'Something that needs to be done once' },
+  { key: 'daily', label: 'Daily', description: 'Repeats every day (like morning routines)' },
+  { key: 'weekly', label: 'Weekly', description: 'Repeats on specific days each week' },
+  { key: 'custom', label: 'Custom', description: 'Define your own schedule' },
+]
 
-// ─── Source label ────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────
 
 function sourceLabel(source?: string): string | null {
   if (!source) return null
@@ -165,116 +171,94 @@ function sourceLabel(source?: string): string | null {
   return `From: ${source}`
 }
 
-// ─── Compact pill selector ──────────────────────────────────
+function dashboardModeLabel(mode: string | null): string {
+  if (mode === 'independent') return 'Independent'
+  if (mode === 'guided') return 'Guided'
+  if (mode === 'play') return 'Play'
+  if (mode === 'adult') return 'Adult'
+  return ''
+}
 
-function PillSelect<T extends string>({
-  options,
+// ─── Sub-components ──────────────────────────────────────────
+
+/** Section card wrapper per the design system Rule 4 */
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={sectionCardStyle}>
+      {children}
+    </div>
+  )
+}
+
+function SectionHeading({ icon: Icon, children }: { icon: React.ComponentType<{ size: number }>; children: React.ReactNode }) {
+  return (
+    <h3 style={sectionHeadingStyle}>
+      <Icon size={18} />
+      {children}
+    </h3>
+  )
+}
+
+function HelperText({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{
+      color: 'var(--color-text-secondary)',
+      fontSize: 'var(--font-size-xs, 0.75rem)',
+      marginTop: '0.25rem',
+      marginBottom: 0,
+    }}>
+      {children}
+    </p>
+  )
+}
+
+/** Radio button with description (Rule 7) */
+function RadioOption<T extends string>({
+  name,
   value,
+  checked,
   onChange,
+  label,
+  description,
 }: {
-  options: { key: T; label: string }[]
+  name: string
   value: T
+  checked: boolean
   onChange: (v: T) => void
+  label: string
+  description: string
 }) {
   return (
-    <div className="flex flex-wrap gap-1">
-      {options.map((opt) => {
-        const active = opt.key === value
-        return (
-          <button
-            key={opt.key}
-            type="button"
-            onClick={() => onChange(opt.key)}
-            className="px-2.5 py-1 rounded-full text-xs whitespace-nowrap transition-all"
-            style={{
-              border: `1px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-              backgroundColor: active
-                ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
-                : 'var(--color-bg-secondary)',
-              color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-              fontWeight: active ? 600 : 400,
-              cursor: 'pointer',
-            }}
-          >
-            {opt.label}
-          </button>
-        )
-      })}
-    </div>
+    <label
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.5rem',
+        padding: '0.375rem 0',
+        cursor: 'pointer',
+      }}
+    >
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={() => onChange(value)}
+        style={{ accentColor: 'var(--color-btn-primary-bg)', marginTop: '0.2rem', flexShrink: 0 }}
+      />
+      <span>
+        <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
+        <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}> — {description}</span>
+      </span>
+    </label>
   )
 }
 
-// ─── Member chip selector ───────────────────────────────────
-
-function MemberChips({
-  members,
-  selected,
-  wholeFamily,
-  onToggleMember,
-  onToggleFamily,
-}: {
-  members: Array<{ id: string; display_name: string }>
-  selected: MemberAssignment[]
-  wholeFamily: boolean
-  onToggleMember: (id: string) => void
-  onToggleFamily: () => void
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      <button
-        type="button"
-        onClick={onToggleFamily}
-        className="px-2 py-0.5 rounded-full text-xs"
-        style={{
-          border: `1px solid ${wholeFamily ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-          backgroundColor: wholeFamily
-            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
-            : 'var(--color-bg-secondary)',
-          color: wholeFamily ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-          fontWeight: wholeFamily ? 600 : 400,
-          cursor: 'pointer',
-        }}
-      >
-        Everyone
-      </button>
-      {members.map((m) => {
-        const active = selected.some((a) => a.memberId === m.id)
-        return (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => onToggleMember(m.id)}
-            className="px-2 py-0.5 rounded-full text-xs"
-            style={{
-              border: `1px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-              backgroundColor: active
-                ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
-                : 'var(--color-bg-secondary)',
-              color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-              fontWeight: active ? 600 : 400,
-              cursor: 'pointer',
-            }}
-          >
-            {m.display_name}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── Compact day chips for quick schedule ────────────────────
-
-function DayChips({
-  days,
-  onChange,
-}: {
-  days: number[]
-  onChange: (days: number[]) => void
-}) {
+/** Day-of-week chips for weekly schedule */
+function DayChips({ days, onChange }: { days: number[]; onChange: (days: number[]) => void }) {
   const labels = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa']
   return (
-    <div className="flex gap-1">
+    <div style={{ display: 'flex', gap: '0.375rem', marginTop: '0.5rem' }}>
       {labels.map((label, idx) => {
         const active = days.includes(idx)
         return (
@@ -282,15 +266,21 @@ function DayChips({
             key={label}
             type="button"
             onClick={() => onChange(active ? days.filter((d) => d !== idx) : [...days, idx])}
-            className="rounded-full text-xs flex items-center justify-center"
+            className="btn-chip"
             style={{
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
               border: `1.5px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
               backgroundColor: active ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
               color: active ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
               fontWeight: active ? 600 : 400,
+              fontSize: 'var(--font-size-xs, 0.75rem)',
               cursor: 'pointer',
+              padding: 0,
             }}
           >
             {label}
@@ -301,13 +291,47 @@ function DayChips({
   )
 }
 
-// ─── Main Modal ─────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────
+
+const sectionCardStyle: React.CSSProperties = {
+  background: 'color-mix(in srgb, var(--color-bg-card) 90%, transparent)',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--vibe-radius-card, 12px)',
+  padding: '1.25rem',
+  marginBottom: '0.75rem',
+}
+
+const sectionHeadingStyle: React.CSSProperties = {
+  color: 'var(--color-btn-primary-bg)',
+  fontFamily: 'var(--font-heading)',
+  fontSize: '1.1rem',
+  fontWeight: 600,
+  margin: '0 0 0.75rem 0',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  lineHeight: 1.3,
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '0.625rem 0.75rem',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--vibe-radius-input, 8px)',
+  backgroundColor: 'var(--color-bg-input, var(--color-bg-card))',
+  color: 'var(--color-text-primary)',
+  fontSize: 'var(--font-size-sm, 0.875rem)',
+  outline: 'none',
+}
+
+// ─── Main Modal ──────────────────────────────────────────────
 
 export function TaskCreationModal({
   isOpen,
   onClose,
   onSave,
   queueItem,
+  mode: initialMode,
   batchMode,
   batchItems,
   initialTaskType,
@@ -321,9 +345,13 @@ export function TaskCreationModal({
     return d
   })
   const [loading, setLoading] = useState(false)
-  const [showScheduler, setShowScheduler] = useState(false)
+  const [viewMode, setViewMode] = useState<'quick' | 'full'>(initialMode ?? 'full')
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time')
   const [quickDays, setQuickDays] = useState<number[]>([])
   const [quickDate, setQuickDate] = useState('')
+  const [showScheduler, setShowScheduler] = useState(false)
+  const [showTypesExplained, setShowTypesExplained] = useState(false)
+  const [showTaskBreaker, setShowTaskBreaker] = useState(false)
 
   // Batch state
   const [batchIndex, setBatchIndex] = useState(0)
@@ -335,10 +363,16 @@ export function TaskCreationModal({
     const d = defaultTaskData(queueItem ?? activeBatchItem)
     if (initialTaskType) d.taskType = initialTaskType as TaskType
     setData(d)
-    setShowScheduler(false)
+    setScheduleMode('one_time')
     setQuickDays([])
     setQuickDate('')
+    setShowScheduler(false)
+    setShowTypesExplained(false)
+    setShowTaskBreaker(false)
   }, [queueItem?.id, activeBatchItem?.id, initialTaskType])
+
+  const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
+    setData((d) => ({ ...d, [key]: val }))
 
   const handleSave = useCallback(async () => {
     if (!data.title.trim()) return
@@ -355,24 +389,6 @@ export function TaskCreationModal({
     }
   }, [data, onSave, onClose, batchMode, batchItems, batchIndex])
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
-
-  const isRoutine = data.taskType === 'routine'
-  const srcLabel = sourceLabel(queueItem?.source)
-
-  const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
-    setData((d) => ({ ...d, [key]: val }))
-
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
     const next = exists
@@ -385,374 +401,650 @@ export function TaskCreationModal({
     setData((d) => ({ ...d, wholeFamily: !d.wholeFamily, assignments: [] }))
   }
 
-  // Batch progress bar
-  const batchProgress = batchMode === 'sequential' && batchTotal > 1 ? (
-    <div className="flex items-center gap-2 mb-2">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${((batchIndex + 1) / batchTotal) * 100}%`,
-            backgroundColor: 'var(--color-btn-primary-bg)',
-          }}
-        />
-      </div>
-      <span className="text-xs flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
-        {batchIndex + 1} of {batchTotal}
-      </span>
-    </div>
-  ) : null
+  const hasUnsavedChanges = data.title.trim().length > 0 || data.description.trim().length > 0
 
-  // Section label style
-  const sLabel: React.CSSProperties = {
-    fontSize: 'var(--font-size-xs, 0.75rem)',
-    fontWeight: 600,
-    color: 'var(--color-text-secondary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.03em',
-    marginBottom: 4,
-  }
+  const srcLabel = sourceLabel(queueItem?.source)
 
-  const modal = (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 55, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Create task"
-    >
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--color-bg-overlay, rgba(0,0,0,0.5))' }}
-        aria-hidden="true"
+  // Assignable members (children and non-primary adults)
+  const assignableMembers = familyMembers.filter(
+    (m) => m.is_active && m.id !== currentMember?.id
+  )
+
+  // ─── Quick Mode ─────────────────────────────────────────────
+
+  const quickModeContent = (
+    <div className="density-comfortable" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {/* Task name */}
+      <input
+        type="text"
+        value={data.title}
+        onChange={(e) => update('title', e.target.value)}
+        placeholder="What needs to be done?"
+        autoFocus
+        style={{ ...inputStyle, fontSize: '1rem', fontWeight: 500 }}
       />
 
-      {/* Panel — bottom sheet on mobile, centered on desktop */}
-      <div
-        className="relative flex flex-col w-full md:max-w-lg md:mb-auto md:mt-auto"
-        style={{
-          maxHeight: '92dvh',
-          backgroundColor: 'var(--color-bg-card)',
-          boxShadow: 'var(--shadow-lg)',
-          borderRadius: 'var(--vibe-radius-card, 16px) var(--vibe-radius-card, 16px) 0 0',
-          overflow: 'hidden',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* ── Header ── */}
-        <div
-          className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--color-border)' }}
-        >
-          <div>
-            <h2 className="text-base font-bold" style={{ color: 'var(--color-text-heading)', margin: 0 }}>
-              New task
-            </h2>
-            {srcLabel && (
-              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{srcLabel}</span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex items-center justify-center rounded-lg"
-            style={{
-              background: 'var(--color-bg-secondary)',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0.375rem',
-              color: 'var(--color-text-secondary)',
-              minHeight: 36,
-              minWidth: 36,
-            }}
-          >
-            <X size={18} />
-          </button>
+      {/* Assign */}
+      <SectionCard>
+        <SectionHeading icon={Users}>Who's Responsible?</SectionHeading>
+        {renderAssignmentRows()}
+      </SectionCard>
+
+      {/* Simple schedule */}
+      <SectionCard>
+        <SectionHeading icon={Calendar}>When?</SectionHeading>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name="quick-schedule"
+              checked={scheduleMode === 'one_time'}
+              onChange={() => setScheduleMode('one_time')}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            <span style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}>One-Time</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              name="quick-schedule"
+              checked={scheduleMode === 'weekly'}
+              onChange={() => setScheduleMode('weekly')}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            <span style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}>Recurring</span>
+          </label>
         </div>
-
-        {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-          {batchProgress}
-
-          {/* Task name — full width */}
+        {scheduleMode === 'one_time' && (
           <input
-            type="text"
-            value={data.title}
-            onChange={(e) => update('title', e.target.value)}
-            placeholder="What needs to be done?"
-            autoFocus
-            className="w-full text-base font-medium"
-            style={{
-              padding: '0.625rem 0.75rem',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--vibe-radius-input, 8px)',
-              backgroundColor: 'var(--color-bg-input)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-              minHeight: 44,
-            }}
+            type="date"
+            value={quickDate}
+            onChange={(e) => setQuickDate(e.target.value)}
+            style={{ ...inputStyle, marginTop: '0.5rem' }}
           />
+        )}
+        {scheduleMode === 'weekly' && (
+          <DayChips days={quickDays} onChange={setQuickDays} />
+        )}
+      </SectionCard>
 
-          {/* Two-column grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* WHO */}
-            <div>
-              <div style={sLabel}>Who</div>
-              <MemberChips
-                members={familyMembers.map((m) => ({ id: m.id, display_name: m.display_name }))}
-                selected={data.assignments}
-                wholeFamily={data.wholeFamily}
-                onToggleMember={toggleMember}
-                onToggleFamily={toggleFamily}
-              />
-            </div>
+      {/* Full mode link */}
+      <button
+        type="button"
+        onClick={() => setViewMode('full')}
+        className="btn-inline"
+        style={{
+          color: 'var(--color-btn-primary-bg)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '0.25rem 0',
+          fontSize: 'var(--font-size-sm)',
+          textAlign: 'left',
+        }}
+      >
+        Full mode →
+      </button>
+    </div>
+  )
 
-            {/* TYPE */}
-            <div>
-              <div style={sLabel}>Type</div>
-              <PillSelect
-                options={TASK_TYPES}
-                value={data.taskType}
-                onChange={(v) => setData((d) => ({
-                  ...d,
-                  taskType: v,
-                  incompleteAction: v === 'routine' ? 'fresh_reset' : 'auto_reschedule',
-                }))}
-              />
-            </div>
+  // ─── Assignment rows (shared between Quick and Full) ────────
 
-            {/* WHEN */}
-            <div>
-              <div style={sLabel}>When</div>
-              {!showScheduler ? (
-                <div className="space-y-1.5">
-                  <DayChips days={quickDays} onChange={setQuickDays} />
-                  <input
-                    type="date"
-                    value={quickDate}
-                    onChange={(e) => setQuickDate(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.375rem 0.5rem',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--vibe-radius-input, 8px)',
-                      backgroundColor: 'var(--color-bg-input)',
-                      color: 'var(--color-text-primary)',
-                      fontSize: 'var(--font-size-xs, 0.75rem)',
-                      minHeight: 32,
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowScheduler(true)}
-                    className="text-xs"
-                    style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    More options...
-                  </button>
-                </div>
-              ) : (
-                <UniversalScheduler
-                  value={data.schedule}
-                  onChange={(v) => update('schedule', v)}
-                  showTimeDefault={false}
-                  compactMode
-                />
-              )}
-            </div>
-
-            {/* IF NOT DONE */}
-            <div>
-              <div style={sLabel}>If not done</div>
-              <select
-                value={data.incompleteAction}
-                onChange={(e) => update('incompleteAction', e.target.value as IncompleteAction)}
-                style={{
-                  width: '100%',
-                  padding: '0.375rem 0.5rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--vibe-radius-input, 8px)',
-                  backgroundColor: 'var(--color-bg-input)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm, 0.875rem)',
-                  minHeight: 36,
-                  cursor: 'pointer',
-                }}
-              >
-                {INCOMPLETE_OPTIONS.map((opt) => (
-                  <option key={opt.key} value={opt.key}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* REWARD */}
-            <div>
-              <div style={sLabel}>Reward</div>
-              <select
-                value={data.reward.rewardType || 'none'}
-                onChange={(e) => {
-                  const v = e.target.value === 'none' ? '' : e.target.value
-                  update('reward', { ...data.reward, rewardType: v as RewardType })
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.375rem 0.5rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--vibe-radius-input, 8px)',
-                  backgroundColor: 'var(--color-bg-input)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm, 0.875rem)',
-                  minHeight: 36,
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="none">None</option>
-                <option value="stars">Stars</option>
-                <option value="money">Money</option>
-                <option value="privilege">Privilege</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-
-            {/* FLAGS */}
-            <div>
-              <div style={sLabel}>Flags</div>
-              <div className="space-y-1">
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.reward.trackAsWidget}
-                    onChange={(e) => update('reward', { ...data.reward, trackAsWidget: e.target.checked })}
-                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-                  />
-                  Track time
-                </label>
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.reward.flagAsVictory}
-                    onChange={(e) => update('reward', { ...data.reward, flagAsVictory: e.target.checked })}
-                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-                  />
-                  Victory on complete
-                </label>
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={data.reward.requireApproval}
-                    onChange={(e) => update('reward', { ...data.reward, requireApproval: e.target.checked })}
-                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-                  />
-                  Require approval
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Routine sections — shown inline when type=routine */}
-          {isRoutine && (
-            <div>
-              <div style={sLabel}>Routine steps</div>
-              <RoutineSectionEditor
-                sections={data.routineSections ?? []}
-                onChange={(sections) => update('routineSections', sections)}
-              />
-            </div>
-          )}
-
-          {/* More → expandable for rare fields */}
-          <MoreSection label="More options →">
-            <div>
-              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Description
-              </label>
-              <textarea
-                value={data.description}
-                onChange={(e) => update('description', e.target.value)}
-                placeholder="Optional details..."
-                rows={2}
-                style={{
-                  width: '100%',
-                  resize: 'vertical',
-                  padding: '0.5rem 0.75rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--vibe-radius-input, 8px)',
-                  backgroundColor: 'var(--color-bg-input)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm, 0.875rem)',
-                  outline: 'none',
-                  minHeight: '60px',
-                }}
-              />
-            </div>
-            <LifeAreaTagPicker
-              value={data.lifeAreaTag}
-              onChange={(v) => update('lifeAreaTag', v)}
-              customValue={data.customLifeArea}
-              onCustomChange={(v) => update('customLifeArea', v)}
-            />
-            <DurationPicker
-              value={data.durationEstimate}
-              onChange={(v) => update('durationEstimate', v)}
-              customValue={data.customDuration}
-              onCustomChange={(v) => update('customDuration', v)}
-            />
-            <div className="flex items-center gap-2">
+  function renderAssignmentRows() {
+    return (
+      <div>
+        {assignableMembers.map((m) => {
+          const checked = data.assignments.some((a) => a.memberId === m.id)
+          return (
+            <label
+              key={m.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.625rem',
+                padding: '0.5rem 0',
+                cursor: 'pointer',
+                borderBottom: '1px solid color-mix(in srgb, var(--color-border) 40%, transparent)',
+              }}
+            >
               <input
                 type="checkbox"
-                checked={data.saveAsTemplate}
-                onChange={(e) => update('saveAsTemplate', e.target.checked)}
-                id="save-template"
-                style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                checked={checked}
+                onChange={() => toggleMember(m.id)}
+                style={{ accentColor: 'var(--color-btn-primary-bg)', flexShrink: 0 }}
               />
-              <label htmlFor="save-template" className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                Save as reusable template
-              </label>
-            </div>
-            {data.saveAsTemplate && (
-              <input
-                type="text"
-                value={data.templateName}
-                onChange={(e) => update('templateName', e.target.value)}
-                placeholder="Template name"
-                className="w-full text-sm"
-                style={{
-                  padding: '0.375rem 0.5rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--vibe-radius-input, 8px)',
-                  backgroundColor: 'var(--color-bg-input)',
-                  color: 'var(--color-text-primary)',
-                  minHeight: 36,
-                }}
-              />
-            )}
-          </MoreSection>
+              <div>
+                <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                  {m.display_name}
+                </span>
+                {(m.age != null || m.dashboard_mode) && (
+                  <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', marginLeft: '0.375rem' }}>
+                    {m.age != null && `Age ${m.age}`}
+                    {m.age != null && m.dashboard_mode && ' — '}
+                    {m.dashboard_mode && dashboardModeLabel(m.dashboard_mode)}
+                  </span>
+                )}
+              </div>
+            </label>
+          )
+        })}
+        {/* Whole Family separator + option */}
+        <div style={{ borderTop: '1px solid var(--color-border)', marginTop: '0.25rem', paddingTop: '0.25rem' }}>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.625rem',
+              padding: '0.5rem 0',
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={data.wholeFamily}
+              onChange={toggleFamily}
+              style={{ accentColor: 'var(--color-btn-primary-bg)', flexShrink: 0 }}
+            />
+            <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+              Whole Family
+            </span>
+          </label>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Full Mode ──────────────────────────────────────────────
+
+  const fullModeContent = (
+    <div className="density-comfortable" style={{ display: 'flex', flexDirection: 'column', gap: '0rem' }}>
+      {/* Mode toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--vibe-radius-input, 8px)',
+            overflow: 'hidden',
+          }}
+        >
+          {(['quick', 'full'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setViewMode(m)}
+              className="btn-inline"
+              style={{
+                padding: '0.25rem 0.75rem',
+                fontSize: 'var(--font-size-xs)',
+                fontWeight: viewMode === m ? 600 : 400,
+                background: viewMode === m
+                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))'
+                  : 'var(--color-bg-card)',
+                color: viewMode === m ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                border: 'none',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 1. Task Name (not in a card) */}
+      <input
+        type="text"
+        value={data.title}
+        onChange={(e) => update('title', e.target.value)}
+        placeholder="What needs to be done?"
+        autoFocus
+        style={{
+          ...inputStyle,
+          fontSize: '1rem',
+          fontWeight: 500,
+          padding: '0.75rem',
+          marginBottom: '0.75rem',
+        }}
+      />
+
+      {/* 2. Task Basics */}
+      <SectionCard>
+        <SectionHeading icon={FileText}>Task Basics</SectionHeading>
+
+        {/* Description */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label
+            style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}
+          >
+            Description & Instructions
+          </label>
+          <textarea
+            value={data.description}
+            onChange={(e) => {
+              update('description', e.target.value)
+              if (e.target.value.length >= 30 && !showTaskBreaker) setShowTaskBreaker(true)
+            }}
+            placeholder="Describe what needs to be done..."
+            rows={3}
+            style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }}
+          />
+          <HelperText>Describe what needs to be done. TaskBreaker can turn this into step-by-step subtasks.</HelperText>
         </div>
 
-        {/* ── Footer ── */}
-        <div
-          className="flex gap-2 px-4 py-3 flex-shrink-0"
-          style={{ borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-card)' }}
-        >
-          <Button variant="ghost" onClick={onClose} type="button">
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            loading={loading}
-            disabled={!data.title.trim()}
-            fullWidth
+        {/* TaskBreaker AI Preview */}
+        {showTaskBreaker && (
+          <div
+            style={{
+              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              padding: '1rem',
+              marginBottom: '0.75rem',
+            }}
           >
-            {batchMode === 'sequential' && batchIndex < batchTotal - 1
-              ? 'Save & next'
-              : 'Save task'}
-          </Button>
+            <div style={{ color: 'var(--color-btn-primary-bg)', fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+              TaskBreaker AI
+            </div>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', margin: '0 0 0.625rem' }}>
+              Based on your description, TaskBreaker can create smart subtasks...
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <Button variant="primary" size="sm" onClick={() => { /* Stub: TaskBreaker AI */ }}>
+                Generate Subtasks
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => { /* Stub: checklist split */ }}>
+                Organize as Checklist
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Duration */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <DurationPicker
+            value={data.durationEstimate}
+            onChange={(v) => update('durationEstimate', v)}
+            customValue={data.customDuration}
+            onCustomChange={(v) => update('customDuration', v)}
+          />
+          <HelperText>Set a time limit only if needed (like 30 minutes of reading practice)</HelperText>
         </div>
+
+        {/* Life Area */}
+        <div>
+          <LifeAreaTagPicker
+            value={data.lifeAreaTag}
+            onChange={(v) => update('lifeAreaTag', v)}
+            customValue={data.customLifeArea}
+            onCustomChange={(v) => update('customLifeArea', v)}
+          />
+          <HelperText>Optional — helps organize tasks by area of life</HelperText>
+        </div>
+      </SectionCard>
+
+      {/* 3. Task Type */}
+      <SectionCard>
+        <SectionHeading icon={Layers}>Task Type</SectionHeading>
+
+        {/* 2x2 toggle grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          {TASK_TYPES.map((tt) => {
+            const active = data.taskType === tt.key
+            const TypeIcon = tt.icon
+            return (
+              <button
+                key={tt.key}
+                type="button"
+                onClick={() => setData((d) => ({
+                  ...d,
+                  taskType: tt.key,
+                  incompleteAction: tt.key === 'routine' ? 'fresh_reset' : 'auto_reschedule',
+                }))}
+                className="btn-inline"
+                style={{
+                  padding: '0.75rem',
+                  border: `1.5px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  background: active
+                    ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))'
+                    : 'var(--color-bg-card)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.375rem',
+                  color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                  fontWeight: 600,
+                  fontSize: 'var(--font-size-sm)',
+                  marginBottom: '0.25rem',
+                }}>
+                  <TypeIcon size={14} />
+                  {tt.label}
+                </div>
+                <div style={{
+                  color: 'var(--color-text-secondary)',
+                  fontSize: 'var(--font-size-xs)',
+                  lineHeight: 1.3,
+                }}>
+                  {tt.description}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Types Explained expandable (Rule 8) */}
+        <button
+          type="button"
+          onClick={() => setShowTypesExplained(!showTypesExplained)}
+          className="btn-inline"
+          style={{
+            color: 'var(--color-btn-primary-bg)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0.25rem 0',
+            fontSize: 'var(--font-size-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.25rem',
+          }}
+        >
+          What's the difference?
+          {showTypesExplained ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {showTypesExplained && (
+          <div style={{
+            background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
+            borderRadius: 'var(--vibe-radius-input, 8px)',
+            padding: '1rem',
+            marginTop: '0.5rem',
+            fontSize: 'var(--font-size-xs)',
+            color: 'var(--color-text-secondary)',
+            lineHeight: 1.5,
+          }}>
+            <p style={{ margin: '0 0 0.5rem' }}>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Tasks</strong> are one-time or recurring responsibilities. Take out the trash, return library books, call the dentist.
+            </p>
+            <p style={{ margin: '0 0 0.5rem' }}>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Routines</strong> are multi-step checklists with sections on different schedules — daily, weekly, or custom. Build once, deploy to any child. Resets fresh each period.
+            </p>
+            <p style={{ margin: '0 0 0.5rem' }}>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Opportunities</strong> are optional jobs kids can browse and claim to earn rewards. No pressure, no guilt.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Habits</strong> track consistency over time. Focus on showing up, not perfection.
+            </p>
+          </div>
+        )}
+
+        {/* Routine section editor (appears when routine is selected) */}
+        {data.taskType === 'routine' && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <RoutineSectionEditor
+              sections={data.routineSections ?? []}
+              onChange={(sections) => update('routineSections', sections)}
+            />
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 4. Who's Responsible */}
+      <SectionCard>
+        <SectionHeading icon={Users}>Who's Responsible?</SectionHeading>
+        {renderAssignmentRows()}
+      </SectionCard>
+
+      {/* 5. Schedule */}
+      <SectionCard>
+        <SectionHeading icon={Calendar}>How Often?</SectionHeading>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+          {SCHEDULE_OPTIONS.map((opt) => (
+            <RadioOption
+              key={opt.key}
+              name="schedule"
+              value={opt.key}
+              checked={scheduleMode === opt.key}
+              onChange={(v) => {
+                setScheduleMode(v)
+                if (v === 'custom') setShowScheduler(true)
+                else setShowScheduler(false)
+              }}
+              label={opt.label}
+              description={opt.description}
+            />
+          ))}
+        </div>
+
+        {/* Contextual pickers */}
+        {scheduleMode === 'one_time' && (
+          <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+            <input
+              type="date"
+              value={quickDate}
+              onChange={(e) => setQuickDate(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+        )}
+        {scheduleMode === 'weekly' && (
+          <div style={{ paddingLeft: '1.5rem' }}>
+            <DayChips days={quickDays} onChange={setQuickDays} />
+          </div>
+        )}
+        {scheduleMode === 'custom' && showScheduler && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <UniversalScheduler
+              value={data.schedule}
+              onChange={(v) => update('schedule', v)}
+              showTimeDefault={false}
+              compactMode
+            />
+            <HelperText>For complex schedules like "every other Wednesday" or "first Monday of each month"</HelperText>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 6. If Not Completed */}
+      <SectionCard>
+        <SectionHeading icon={AlertCircle}>What happens if not completed?</SectionHeading>
+        <HelperText>What should happen when the scheduled time passes and the task isn't done?</HelperText>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem', marginTop: '0.5rem' }}>
+          {INCOMPLETE_OPTIONS.map((opt) => (
+            <RadioOption
+              key={opt.key}
+              name="incomplete"
+              value={opt.key}
+              checked={data.incompleteAction === opt.key}
+              onChange={(v) => update('incompleteAction', v)}
+              label={opt.label}
+              description={opt.description}
+            />
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* 7. Rewards & Tracking */}
+      <SectionCard>
+        <SectionHeading icon={Gift}>Rewards & Completion Tracking</SectionHeading>
+
+        {/* Reward type */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
+            Reward Type
+          </label>
+          <select
+            value={data.reward.rewardType || 'none'}
+            onChange={(e) => {
+              const v = e.target.value === 'none' ? '' : e.target.value
+              update('reward', { ...data.reward, rewardType: v as RewardType })
+            }}
+            style={inputStyle}
+          >
+            <option value="none">None</option>
+            <option value="stars">Stars</option>
+            <option value="points">Points</option>
+            <option value="money">Money</option>
+            <option value="privilege">Special Privilege</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        {/* Amount — only when reward type set */}
+        {data.reward.rewardType && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
+              Reward Amount
+            </label>
+            <input
+              type="text"
+              value={data.reward.rewardAmount}
+              onChange={(e) => update('reward', { ...data.reward, rewardAmount: e.target.value })}
+              placeholder="e.g., 10"
+              style={inputStyle}
+            />
+            <HelperText>How much does completing this task earn?</HelperText>
+          </div>
+        )}
+
+        {/* Checkboxes */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.reward.requireApproval}
+              onChange={(e) => update('reward', { ...data.reward, requireApproval: e.target.checked })}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Require parent approval before reward
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.reward.trackAsWidget}
+              onChange={(e) => update('reward', { ...data.reward, trackAsWidget: e.target.checked })}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Track this task as a dashboard widget
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.reward.flagAsVictory}
+              onChange={(e) => update('reward', { ...data.reward, flagAsVictory: e.target.checked })}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Flag completion as a Victory
+          </label>
+        </div>
+
+        {/* Bonus config — visible only when reward is set */}
+        {data.reward.rewardType && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div>
+              <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
+                Bonus Threshold
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <input
+                  type="number"
+                  value={data.reward.bonusThreshold}
+                  onChange={(e) => update('reward', { ...data.reward, bonusThreshold: e.target.value })}
+                  style={{ ...inputStyle, width: 80 }}
+                />
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>%</span>
+              </div>
+              <HelperText>What completion percentage triggers a bonus?</HelperText>
+            </div>
+            <div>
+              <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
+                Bonus Amount
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <input
+                  type="number"
+                  value={data.reward.bonusPercentage}
+                  onChange={(e) => update('reward', { ...data.reward, bonusPercentage: e.target.value })}
+                  style={{ ...inputStyle, width: 80 }}
+                />
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>%</span>
+              </div>
+              <HelperText>How much extra on top of the base reward?</HelperText>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 8. Template (not a card — simple row) */}
+      <div style={{ padding: '0.25rem 0', marginBottom: '0.5rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+          <input
+            type="checkbox"
+            checked={data.saveAsTemplate}
+            onChange={(e) => update('saveAsTemplate', e.target.checked)}
+            style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+          />
+          Save as a reusable template in your Studio library
+        </label>
+        {data.saveAsTemplate && (
+          <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+            <input
+              type="text"
+              value={data.templateName}
+              onChange={(e) => update('templateName', e.target.value)}
+              placeholder="e.g., Weekly Bedroom Clean, Daily Reading Practice..."
+              style={inputStyle}
+            />
+            <HelperText>Name it something descriptive so you can find it later</HelperText>
+          </div>
+        )}
       </div>
     </div>
   )
 
-  return createPortal(modal, document.body)
+  // ─── Footer ─────────────────────────────────────────────────
+
+  const footer = (
+    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%' }}>
+      <Button variant="ghost" onClick={onClose} type="button">
+        Cancel
+      </Button>
+      <Button
+        variant="primary"
+        onClick={handleSave}
+        loading={loading}
+        disabled={!data.title.trim()}
+      >
+        {batchMode === 'sequential' && batchIndex < batchTotal - 1
+          ? 'Save & Next'
+          : 'Create Task'}
+      </Button>
+    </div>
+  )
+
+  // ─── Render ─────────────────────────────────────────────────
+
+  return (
+    <ModalV2
+      id="task-create"
+      isOpen={isOpen}
+      onClose={onClose}
+      type="persistent"
+      size="lg"
+      title="New task"
+      subtitle={srcLabel ?? undefined}
+      icon={CheckSquare}
+      hasUnsavedChanges={hasUnsavedChanges}
+      footer={footer}
+      batchProgress={
+        batchMode === 'sequential' && batchTotal > 1
+          ? { current: batchIndex + 1, total: batchTotal }
+          : undefined
+      }
+    >
+      {viewMode === 'quick' ? quickModeContent : fullModeContent}
+    </ModalV2>
+  )
 }
