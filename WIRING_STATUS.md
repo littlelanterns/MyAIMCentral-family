@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-03-24.
+> Updated each build session. Last updated: 2026-03-28.
 
 ## RoutingStrip Destinations
 
@@ -79,9 +79,22 @@
 | lists | — | Owner + parent | Owner + parent | Yes (wishlist create test) |
 | guided_form_responses | — | Family-scoped | Own records | Yes (empty query succeeds) |
 
+## Quick Create Actions (Global "+" Button)
+
+| Action | Opens | Status | Notes |
+|---|---|---|---|
+| Add Task | Navigate `/tasks?new=1` | **Wired** | TaskCreationModal in Quick Mode |
+| Quick Note | Notepad drawer (mom) or `/notepad` | **Wired** | Via NotepadBridge context |
+| Log Victory | Navigate `/victories?new=1` | **Wired** | Victory recording page |
+| Calendar Event | Navigate `/calendar?new=1` | Stub | PRD-14B not built |
+| Send Request | Opens Notepad (fallback) | Stub | PRD-15 request modal not built |
+| Mind Sweep | Navigate `/sweep` | Stub | MindSweep PWA entry |
+
 ## Known Issues / TODO
 
 - System lists (Backburner, Ideas) not auto-provisioned yet — need trigger in auto_provision_member_resources
 - ListPicker overlay for Notepad → Lists routing not built (items route to studio_queue instead)
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)
 - Guided Form child fill view + mom review flow not tested end-to-end
+- Quick Create "Send Request" falls back to Notepad until PRD-15 is built
+- Quick Create "Calendar Event" navigates to calendar page (no modal yet)

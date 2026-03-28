@@ -21,4 +21,8 @@
 
 *PRD-34 (ThoughtSift — Decision & Thinking Tools) completed 2026-03-26. 3 sub-phases: 34A (Foundation + Translator + Decision Guide), 34B (Perspective Shifter + Mediator), 34C (Board of Directors). 6 tables, 5 Edge Functions, 18 personas + 17 lenses + 15 frameworks seeded, 5 vault items. Total: 129 wired, 22 stubbed, 0 missing across all sub-phases.*
 
+*UX Overhaul Session 1 completed 2026-03-28. Density system, z-index layers, Card size prop, ModalV2 system (8 files), ModalManagerProvider, TaskCreationModal redesign.*
+
+*UX Overhaul Session 2 completed 2026-03-28. SKILL.md updated to 14 rules, hardcoded color audit (0 remaining in non-auth files), ThemeSelector compacted to 280px, all sidebar sections collapsible with route-aware expand, QuickCreate component (strip pill + mobile FAB), density-compact applied to Studio/Dashboard/Vault.*
+
 ---

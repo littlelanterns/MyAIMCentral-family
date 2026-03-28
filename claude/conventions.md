@@ -201,3 +201,65 @@ When creating a stub for a future feature:
 - **Integration tests** for cross-feature flows (queue routing, context assembly).
 - **E2E tests** for critical paths (auth, task completion to victory, tier gating).
 - Tests are written to the `tests/` directory, organized by feature domain.
+
+---
+
+## Visual Density System
+
+Every page or surface wrapper MUST declare a density class. Components consume `--density-multiplier` for spacing calculations.
+
+| Density | Multiplier | Use |
+|---|---|---|
+| `density-comfortable` | 1.0 | Creation flows, forms, content reading |
+| `density-compact` | 0.7 | Browsing grids, navigation, data lists (Studio, Vault, Dashboard, Archives) |
+| `density-tight` | 0.5 | Settings panels, control surfaces, filter bars |
+
+Density goes on the **page-level wrapper**, not globally and not on individual components.
+
+---
+
+## Zero Hardcoded Colors
+
+All `color`, `background`, `border-color`, `fill`, `stroke`, and `box-shadow` color values must use `var(--*)` CSS custom properties. No hex, no `rgb()`, no named colors.
+
+**Exceptions:** `rgba(0,0,0,...)` in shadow definitions, print `@media print` styles, and auth pages (pre-theme).
+
+Use `var(--token, #fallback)` pattern where a fallback is needed for safety. Use `color-mix(in srgb, var(--token) NN%, transparent)` for opacity instead of `rgba()` with hardcoded components.
+
+---
+
+## Quick Create Component
+
+`src/components/global/QuickCreate.tsx` — Global "+" button with 6 quick-action shortcuts.
+
+- **Desktop:** Renders as the rightmost pill in the QuickTasks strip (`mode="strip"`)
+- **Mobile:** Renders as a FAB in bottom-right corner above BottomNav (`mode="fab"`)
+- **Actions:** Add Task, Quick Note, Log Victory, Calendar Event, Send Request, Mind Sweep
+- **Shell visibility:** Mom, Adult, Independent only (no Guided/Play)
+
+Action handlers are passed as props by the consuming shell (MomShell, etc.).
+
+---
+
+## Sidebar Collapsible Sections
+
+Sidebar nav items are organized into 6 sections: Home, Capture & Reflect, Plan & Do, Grow, Family, AI & Tools. All sections except Home are collapsible.
+
+- Default: only the section containing the current route is expanded
+- Expanding one section does NOT auto-collapse others
+- Navigating to a page auto-expands its section
+- State is session-only (not persisted)
+- Smooth `max-height` transition, 200ms
+
+---
+
+## Modal System
+
+All modals MUST use `<ModalV2>` from `@/components/shared/ModalV2.tsx`. No one-off portals.
+
+| Type | Header | Close Behavior | State |
+|---|---|---|---|
+| `persistent` | Gradient | Minimizes to pill (max 3) | Preserved while minimized |
+| `transient` | Plain + border | Closes and destroys | No preservation |
+
+Sizes: `sm` (480px), `md` (640px), `lg` (750px), `xl` (960px), `full` (90vw).
