@@ -362,7 +362,7 @@ export function CalendarWidget() {
             setShowEventCreation(true)
           }}
           onEditEvent={(ev) => {
-            setEditingEvent(ev)
+            setEditingEvent({ ...ev, event_attendees: (ev as CalendarEvent & { event_attendees?: EventAttendee[] }).event_attendees ?? [] })
             setShowEventCreation(true)
           }}
         />

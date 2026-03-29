@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { CheckSquare, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/useAuth'
+
 import type { DashboardWidget } from '@/types/widgets'
 
 interface Props {
@@ -12,7 +12,6 @@ interface Props {
 
 export function InfoUpcomingTasks({ widget, isCompact }: Props) {
   const navigate = useNavigate()
-  const { session } = useAuth()
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; due_date: string | null; status: string }>>([])
 
   useEffect(() => {

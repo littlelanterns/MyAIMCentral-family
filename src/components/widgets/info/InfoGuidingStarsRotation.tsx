@@ -14,7 +14,7 @@ export function InfoGuidingStarsRotation({ widget }: Props) {
   const [stars, setStars] = useState<Array<{ id: string; content: string; category: string | null }>>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const intervalMs = ((widget.widget_config?.rotation_interval as number) || 8) * 1000
-  const timerRef = useRef<ReturnType<typeof setInterval>>()
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined)
 
   useEffect(() => {
     if (!widget.family_id) return

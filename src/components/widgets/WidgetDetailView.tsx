@@ -7,7 +7,7 @@ import {
   Settings, Trash2, Clock, Plus, Minus, BarChart3, TrendingUp,
   Hash, CircleCheck, Smile, Flame, Hourglass,
 } from 'lucide-react'
-import type { DashboardWidget, WidgetDataPoint } from '@/types/widgets'
+import type { DashboardWidget } from '@/types/widgets'
 import { WidgetRenderer } from './WidgetRenderer'
 import { useWidgetData } from '@/hooks/useWidgets'
 import { ModalV2, Button } from '@/components/shared'
