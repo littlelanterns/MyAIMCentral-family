@@ -15,18 +15,22 @@ import {
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { supabase } from '@/lib/supabase/client'
+import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
-  useToggleListItem, useDeleteListItem, useUpdateListItem,
+  useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
   useUncheckAllItems, usePromoteListItem, useArchiveList,
   useReorderListItems, useSaveListAsTemplate,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
-import { Sparkles } from 'lucide-react'
-import type { ListItem, ListType } from '@/types/lists'
+import { Sparkles, Settings2 } from 'lucide-react'
+import type { ListItem, ListType, List as ListData } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
+import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/FrequencyRulesEditor'
+import { PoolModeSelector } from '@/components/lists/PoolModeSelector'
+import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 
 // ── Type config ────────────────────────────────────────────
 
@@ -138,7 +142,7 @@ export function ListsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="density-compact max-w-3xl mx-auto space-y-4">
       <FeatureGuide featureKey="lists_detail" />
 
       {/* Header */}
@@ -382,6 +386,210 @@ function getBulkAddPrompt(listType: string): string {
   }
 }
 
+// ── Randomizer Detail View ───────────────────────────────
+
+function RandomizerDetailView({
+  list,
+  items,
+  memberId,
+  familyMembers,
+  onBack,
+}: {
+  list: ListData
+  items: ListItem[]
+  memberId: string
+  familyMembers: FamilyMember[]
+  onBack: () => void
+}) {
+  const [showSettings, setShowSettings] = useState(false)
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
+  const updateList = useUpdateList()
+  const createItem = useCreateListItem()
+  const updateItem = useUpdateListItem()
+  const deleteItem = useDeleteListItem()
+  const [newItemText, setNewItemText] = useState('')
+
+  const poolMode = list.pool_mode ?? 'individual'
+
+  async function handleAddItem() {
+    if (!newItemText.trim()) return
+    await createItem.mutateAsync({
+      list_id: list.id,
+      content: newItemText.trim(),
+      sort_order: items.length,
+    })
+    setNewItemText('')
+  }
+
+  function handleFrequencyChange(itemId: string, rules: FrequencyRules) {
+    updateItem.mutate({
+      id: itemId,
+      listId: list.id,
+      frequency_min: rules.frequency_min,
+      frequency_max: rules.frequency_max,
+      frequency_period: rules.frequency_period,
+      cooldown_hours: rules.cooldown_hours,
+      max_instances: rules.lifetime_max,
+      reward_amount: rules.reward_amount,
+    })
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+          <ChevronDown size={20} className="rotate-90" />
+        </button>
+        <RotateCcw size={20} style={{ color: 'var(--color-btn-primary-bg)' }} />
+        <h1 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
+          {list.title}
+        </h1>
+        <Tooltip content="Pool settings">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="p-1.5 rounded-lg"
+            style={{ color: showSettings ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+          >
+            <Settings2 size={16} />
+          </button>
+        </Tooltip>
+      </div>
+
+      {/* Settings panel (collapsible) */}
+      {showSettings && (
+        <div className="space-y-3">
+          <PoolModeSelector
+            poolMode={poolMode}
+            eligibleMembers={list.eligible_members}
+            allMembers={familyMembers}
+            onPoolModeChange={(mode) => updateList.mutate({ id: list.id, pool_mode: mode })}
+            onEligibleMembersChange={(members) => updateList.mutate({ id: list.id, eligible_members: members })}
+          />
+
+          {/* Per-item frequency rules */}
+          <div
+            className="rounded-lg p-3 space-y-2"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+          >
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              Item Frequency Rules
+            </span>
+            {items.length === 0 ? (
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Add items first, then configure frequency rules.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {items.map(item => (
+                  <div key={item.id} className="flex items-start gap-2">
+                    <span className="text-xs flex-1 pt-1" style={{ color: 'var(--color-text-primary)' }}>
+                      {item.item_name || item.content}
+                    </span>
+                    <FrequencyRulesEditor
+                      value={{
+                        frequency_min: item.frequency_min,
+                        frequency_max: item.frequency_max,
+                        frequency_period: item.frequency_period,
+                        cooldown_hours: item.cooldown_hours,
+                        lifetime_max: item.max_instances,
+                        reward_amount: item.reward_amount,
+                      }}
+                      onChange={(rules) => handleFrequencyChange(item.id, rules)}
+                      compact
+                    />
+                    <button
+                      onClick={() => deleteItem.mutate({ id: item.id, listId: list.id })}
+                      className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:opacity-100"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Randomizer draw area */}
+      <Randomizer
+        listId={list.id}
+        listTitle={list.title}
+        familyId={list.family_id}
+        assigningMemberId={memberId}
+        items={items}
+        eligibleMembers={familyMembers}
+        poolMode={poolMode}
+      />
+
+      {/* Add item */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newItemText}
+          onChange={e => setNewItemText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAddItem()}
+          placeholder="Add an item to the pool..."
+          className="flex-1 px-3 py-2 rounded-lg text-sm"
+          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+        />
+        <button
+          onClick={handleAddItem}
+          disabled={!newItemText.trim()}
+          className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+          style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+        >
+          <Plus size={16} />
+        </button>
+        <Tooltip content="Bulk add with AI frequency suggestions">
+          <button
+            onClick={() => setShowBulkAdd(true)}
+            className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+          >
+            <Sparkles size={14} />
+            <span className="hidden sm:inline">Bulk</span>
+          </button>
+        </Tooltip>
+      </div>
+
+      {/* Bulk add with frequency suggestions */}
+      {showBulkAdd && (
+        <BulkAddWithFrequency
+          listId={list.id}
+          listTitle={list.title}
+          existingItemCount={items.length}
+          onSave={async (parsed) => {
+            for (const item of parsed) {
+              const { data: created } = await supabase
+                .from('list_items')
+                .insert({
+                  list_id: list.id,
+                  content: item.text,
+                  section_name: item.category || undefined,
+                  sort_order: items.length,
+                  frequency_min: item.frequency.frequency_min,
+                  frequency_max: item.frequency.frequency_max,
+                  frequency_period: item.frequency.frequency_period,
+                  cooldown_hours: item.frequency.cooldown_hours,
+                  max_instances: item.frequency.lifetime_max,
+                  reward_amount: item.frequency.reward_amount,
+                })
+                .select('id')
+                .single()
+
+              if (!created) continue
+            }
+          }}
+          onClose={() => setShowBulkAdd(false)}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── List Detail View ──────────────────────────────────────
 
 function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void }) {
@@ -424,19 +632,12 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
 
   if (list.list_type === 'randomizer') {
     return (
-      <Randomizer
-        listId={list.id}
-        listTitle={list.title}
-        familyId={list.family_id}
-        assigningMemberId={member?.id ?? ''}
-        items={items.map(item => ({
-          id: item.id,
-          item_name: item.content || '',
-          notes: item.notes ?? null,
-          category: item.section_name ?? null,
-          is_repeatable: item.availability_mode !== 'one_time',
-        }))}
-        eligibleMembers={familyMembers}
+      <RandomizerDetailView
+        list={list}
+        items={items}
+        memberId={member?.id ?? ''}
+        familyMembers={familyMembers}
+        onBack={onBack}
       />
     )
   }

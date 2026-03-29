@@ -20,6 +20,9 @@ export type ListItemPriority = 'low' | 'medium' | 'high' | 'urgent' | 'must_have
 
 export type GuidedFormSubtype = 'sodas' | 'what_if' | 'apology_reflection' | 'custom'
 
+export type PoolMode = 'individual' | 'shared'
+export type FrequencyPeriod = 'day' | 'week' | 'month'
+
 export interface List {
   id: string
   family_id: string
@@ -36,6 +39,8 @@ export interface List {
   reveal_type: string | null
   max_respins_per_period: number | null
   respin_period: string | null
+  pool_mode: PoolMode
+  eligible_members: string[] | null
   archived_at: string | null
   created_at: string
   updated_at: string
@@ -66,10 +71,17 @@ export interface ListItem {
   is_available: boolean
   parent_item_id: string | null
   availability_mode: string | null
-  max_instances: number | null
-  completed_instances: number
+  max_instances: number | null        // serves as lifetime_max
+  completed_instances: number         // serves as lifetime_completion_count
   recurrence_config: Record<string, unknown> | null
-  next_available_at: string | null
+  next_available_at: string | null    // cooldown result timestamp
+  frequency_min: number | null
+  frequency_max: number | null
+  frequency_period: FrequencyPeriod | null
+  cooldown_hours: number | null
+  last_completed_at: string | null
+  period_completion_count: number
+  reward_amount: number | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -137,10 +149,33 @@ export interface GuidedFormSection {
   filled_by?: 'mom' | 'child'
 }
 
+export interface ListItemMemberTracking {
+  id: string
+  list_item_id: string
+  family_member_id: string
+  last_completed_at: string | null
+  period_completion_count: number
+  lifetime_completion_count: number
+  created_at: string
+  updated_at: string
+}
+
+/** AI-suggested frequency rules from bulk add parsing */
+export interface FrequencySuggestion {
+  item_name: string
+  frequency_min: number | null
+  frequency_max: number | null
+  frequency_period: FrequencyPeriod | null
+  cooldown_hours: number | null
+  reward_amount: number | null
+}
+
 // Create/update helpers
 export type CreateList = Pick<List, 'family_id' | 'owner_id' | 'title' | 'list_type'> & {
   description?: string
   is_shared?: boolean
+  pool_mode?: PoolMode
+  eligible_members?: string[]
 }
 
 export type CreateListItem = Pick<ListItem, 'list_id' | 'content'> & {

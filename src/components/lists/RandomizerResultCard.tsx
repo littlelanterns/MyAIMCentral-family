@@ -24,6 +24,7 @@ export interface RandomizerItem {
   notes: string | null
   category: string | null
   is_repeatable: boolean
+  reward_amount?: number | null
 }
 
 // ─── Props ────────────────────────────────────────────────────────
@@ -111,6 +112,13 @@ export function RandomizerResultCard({
       {item.notes && (
         <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           {item.notes}
+        </p>
+      )}
+
+      {/* Reward amount */}
+      {item.reward_amount != null && item.reward_amount > 0 && (
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-btn-primary-bg)' }}>
+          ${item.reward_amount} reward
         </p>
       )}
 
