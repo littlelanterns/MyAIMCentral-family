@@ -397,10 +397,8 @@ export function TaskCreationModal({
 
   const srcLabel = sourceLabel(queueItem?.source)
 
-  // Assignable members (children and non-primary adults)
-  const assignableMembers = familyMembers.filter(
-    (m) => m.is_active && m.id !== currentMember?.id
-  )
+  // Assignable members — includes mom (self-assign for personal tasks)
+  const assignableMembers = familyMembers.filter((m) => m.is_active)
 
   // ─── Quick Mode ─────────────────────────────────────────────
 
