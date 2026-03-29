@@ -135,28 +135,34 @@ export function TasksPage() {
         source: 'manual',
       }
 
-      // "Whole Family" → create one task copy per family member (individual copies)
-      if (data.wholeFamily && familyMembers && familyMembers.length > 0) {
-        const otherMembers = familyMembers.filter(m => m.id !== member?.id)
-        const inserts = otherMembers.map(m => ({
-          ...taskBase,
-          assignee_id: m.id,
-        }))
+      // Determine who gets the task
+      const assignees = data.wholeFamily
+        ? (familyMembers ?? []).filter(m => m.is_active)
+        : data.assignments ?? []
+      const mode = data.assignMode ?? 'each'
 
+      if (assignees.length >= 2 && mode === 'each') {
+        // "Each of them" — individual copies per person
+        const inserts = assignees.map(a => ({
+          ...taskBase,
+          assignee_id: 'memberId' in a ? a.memberId : a.id,
+          is_shared: false,
+        }))
         const { error } = await supabase.from('tasks').insert(inserts)
         if (error) {
-          console.error('Failed to create family tasks:', error)
+          console.error('Failed to create tasks:', error)
           return
         }
       } else {
-        // Single task or specific assignments
-        const primaryAssigneeId = data.assignments?.length > 0
-          ? data.assignments[0].memberId
+        // "Any of them" (shared) or single assignee
+        const primaryId = assignees.length > 0
+          ? ('memberId' in assignees[0] ? assignees[0].memberId : assignees[0].id)
           : null
 
         const { data: newTask, error } = await supabase.from('tasks').insert({
           ...taskBase,
-          assignee_id: primaryAssigneeId,
+          assignee_id: primaryId,
+          is_shared: assignees.length >= 2,
         }).select().single()
 
         if (error) {
@@ -164,14 +170,17 @@ export function TasksPage() {
           return
         }
 
-        // Create task_assignments for each assigned member
-        if (newTask && data.assignments?.length > 0) {
-          const assignments = data.assignments.map(a => ({
-            task_id: newTask.id,
-            member_id: a.memberId,
-            family_member_id: a.memberId,
-            assigned_by: member.id,
-          }))
+        // Create task_assignments for all assignees on shared task
+        if (newTask && assignees.length > 0) {
+          const assignments = assignees.map(a => {
+            const mid = 'memberId' in a ? a.memberId : a.id
+            return {
+              task_id: newTask.id,
+              member_id: mid,
+              family_member_id: mid,
+              assigned_by: member.id,
+            }
+          })
           const { error: assignError } = await supabase.from('task_assignments').insert(assignments)
           if (assignError) {
             console.error('Failed to create task assignments:', assignError)

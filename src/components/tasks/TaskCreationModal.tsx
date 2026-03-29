@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
-  CheckSquare, RotateCcw, Star, TrendingUp,
+  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles,
 } from 'lucide-react'
 import { Button, ModalV2 } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
@@ -61,11 +61,19 @@ export interface CreateTaskData {
   routineSections?: RoutineSection[]
   assignments: MemberAssignment[]
   wholeFamily: boolean
+  /** When 2+ assigned: 'any' = shared task (anyone can complete), 'each' = individual copies */
+  assignMode: 'any' | 'each'
   rotationEnabled: boolean
   rotationFrequency: string
   schedule: SchedulerOutput | null
   incompleteAction: IncompleteAction
   reward: RewardConfigData
+  // List task type fields
+  listSource?: 'existing' | 'new' | 'image'
+  linkedListId?: string
+  listDeliveryMode?: 'checklist' | 'batch' | 'sequential'
+  newListName?: string
+  newListItems?: string[]
   saveAsTemplate: boolean
   templateName: string
   sourceQueueItemId?: string
@@ -111,11 +119,16 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
       ? [{ memberId: queueItem.requester_id, copyMode: 'individual' }]
       : [],
     wholeFamily: false,
+    assignMode: 'each',
     rotationEnabled: false,
     rotationFrequency: 'weekly',
     schedule: null,
     incompleteAction: 'auto_reschedule',
     reward: defaultReward(),
+    listSource: 'new',
+    listDeliveryMode: 'checklist',
+    newListName: '',
+    newListItems: [],
     saveAsTemplate: false,
     templateName: '',
     sourceQueueItemId: queueItem?.id,
@@ -124,7 +137,7 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
 
 // ─── Constants ───────────────────────────────────────────────
 
-const TASK_TYPES: {
+const TASK_TYPES_GRID: {
   key: TaskType
   label: string
   description: string
@@ -134,6 +147,19 @@ const TASK_TYPES: {
   { key: 'routine', label: 'Routine', description: 'Multi-step checklist with sections', icon: RotateCcw },
   { key: 'opportunity' as TaskType, label: 'Opportunity', description: 'Optional — earn rewards, no pressure', icon: Star },
   { key: 'habit', label: 'Habit', description: 'Track consistency over time', icon: TrendingUp },
+]
+
+const LIST_TYPE = {
+  key: 'list' as TaskType,
+  label: 'List',
+  description: 'Assign a checklist or ordered series of items',
+  icon: ListChecks,
+}
+
+const LIST_DELIVERY_MODES = [
+  { key: 'checklist' as const, label: 'Checklist', description: 'Assign as one task with a checklist (all items visible, check off as you go)' },
+  { key: 'batch' as const, label: 'Batch', description: 'Each item becomes its own task (all assigned at once as individual tasks)' },
+  { key: 'sequential' as const, label: 'Sequential', description: 'Items drip-feed 1-2 at a time (next item appears when the current one is done)' },
 ]
 
 const INCOMPLETE_OPTIONS: {
@@ -344,6 +370,7 @@ export function TaskCreationModal({
   const [showScheduler, setShowScheduler] = useState(false)
   const [showTypesExplained, setShowTypesExplained] = useState(false)
   const [showTaskBreaker, setShowTaskBreaker] = useState(false)
+  const [listFreeformText, setListFreeformText] = useState('')
 
   // Batch state
   const [batchIndex, setBatchIndex] = useState(0)
@@ -391,6 +418,10 @@ export function TaskCreationModal({
 
   const toggleFamily = () => {
     setData((d) => ({ ...d, wholeFamily: !d.wholeFamily, assignments: [] }))
+  }
+
+  const setAssignMode = (mode: 'any' | 'each') => {
+    setData((d) => ({ ...d, assignMode: mode }))
   }
 
   const hasUnsavedChanges = data.title.trim().length > 0 || data.description.trim().length > 0
@@ -481,50 +512,101 @@ export function TaskCreationModal({
   // ─── Assignment rows (shared between Quick and Full) ────────
 
   function renderAssignmentRows() {
+    const selectedCount = data.wholeFamily ? assignableMembers.length : data.assignments.length
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-        {assignableMembers.map((m) => {
-          const selected = data.assignments.some((a) => a.memberId === m.id)
-          const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => toggleMember(m.id)}
-              className="rounded-full text-xs font-semibold transition-all duration-150"
-              style={{
-                padding: '0.375rem 0.75rem',
-                backgroundColor: selected ? color : 'transparent',
-                color: selected ? '#fff' : 'var(--color-text-primary)',
-                border: `2px solid ${color}`,
-                cursor: 'pointer',
-                minHeight: 'unset',
-                lineHeight: 1.2,
-                opacity: selected ? 1 : 0.7,
-              }}
+      <div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+          {assignableMembers.map((m) => {
+            const selected = data.wholeFamily || data.assignments.some((a) => a.memberId === m.id)
+            const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  if (data.wholeFamily) {
+                    // Switching from Everyone to individual selection — select all except this one
+                    const others = assignableMembers.filter(x => x.id !== m.id)
+                    setData(d => ({ ...d, wholeFamily: false, assignments: others.map(x => ({ memberId: x.id, copyMode: 'individual' as const })) }))
+                  } else {
+                    toggleMember(m.id)
+                  }
+                }}
+                className="rounded-full text-xs font-semibold transition-all duration-150"
+                style={{
+                  padding: '0.375rem 0.75rem',
+                  backgroundColor: selected ? color : 'transparent',
+                  color: selected ? '#fff' : 'var(--color-text-primary)',
+                  border: `2px solid ${color}`,
+                  cursor: 'pointer',
+                  minHeight: 'unset',
+                  lineHeight: 1.2,
+                  opacity: selected ? 1 : 0.7,
+                }}
+              >
+                {m.display_name.split(' ')[0]}
+              </button>
+            )
+          })}
+          {/* Everyone toggle */}
+          <button
+            type="button"
+            onClick={toggleFamily}
+            className="rounded-full text-xs font-semibold transition-all duration-150"
+            style={{
+              padding: '0.375rem 0.75rem',
+              backgroundColor: data.wholeFamily ? 'var(--color-btn-primary-bg)' : 'transparent',
+              color: data.wholeFamily ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+              border: '2px solid var(--color-btn-primary-bg)',
+              cursor: 'pointer',
+              minHeight: 'unset',
+              lineHeight: 1.2,
+              opacity: data.wholeFamily ? 1 : 0.7,
+            }}
+          >
+            Everyone
+          </button>
+        </div>
+
+        {/* Any / Each toggle — appears when 2+ people selected */}
+        {selectedCount >= 2 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div
+              className="flex rounded-lg overflow-hidden"
+              style={{ border: '1px solid var(--color-border)' }}
             >
-              {m.display_name.split(' ')[0]}
-            </button>
-          )
-        })}
-        {/* Whole Family toggle */}
-        <button
-          type="button"
-          onClick={toggleFamily}
-          className="rounded-full text-xs font-semibold transition-all duration-150"
-          style={{
-            padding: '0.375rem 0.75rem',
-            backgroundColor: data.wholeFamily ? 'var(--color-btn-primary-bg)' : 'transparent',
-            color: data.wholeFamily ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
-            border: '2px solid var(--color-btn-primary-bg)',
-            cursor: 'pointer',
-            minHeight: 'unset',
-            lineHeight: 1.2,
-            opacity: data.wholeFamily ? 1 : 0.7,
-          }}
-        >
-          Everyone
-        </button>
+              <button
+                type="button"
+                onClick={() => setAssignMode('any')}
+                className="text-xs font-medium px-3 py-1"
+                style={{
+                  background: data.assignMode === 'any' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+                  color: data.assignMode === 'any' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                  border: 'none', minHeight: 'unset', cursor: 'pointer',
+                }}
+              >
+                Any of them
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignMode('each')}
+                className="text-xs font-medium px-3 py-1"
+                style={{
+                  background: data.assignMode === 'each' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+                  color: data.assignMode === 'each' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                  border: 'none', minHeight: 'unset', cursor: 'pointer',
+                }}
+              >
+                Each of them
+              </button>
+            </div>
+            <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+              {data.assignMode === 'any'
+                ? 'Shared — anyone can check it off'
+                : 'Individual — each gets their own copy'}
+            </span>
+          </div>
+        )}
       </div>
     )
   }
@@ -662,9 +744,9 @@ export function TaskCreationModal({
       <SectionCard>
         <SectionHeading icon={Layers}>Task Type</SectionHeading>
 
-        {/* 2x2 toggle grid */}
+        {/* 2x2 toggle grid + full-width List row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          {TASK_TYPES.map((tt) => {
+          {TASK_TYPES_GRID.map((tt) => {
             const active = data.taskType === tt.key
             const TypeIcon = tt.icon
             return (
@@ -709,6 +791,52 @@ export function TaskCreationModal({
             )
           })}
         </div>
+        {/* List — full-width 5th button */}
+        {(() => {
+          const active = data.taskType === LIST_TYPE.key
+          const LIcon = LIST_TYPE.icon
+          return (
+            <button
+              type="button"
+              onClick={() => setData((d) => ({
+                ...d,
+                taskType: LIST_TYPE.key,
+                incompleteAction: 'auto_reschedule',
+              }))}
+              className="btn-inline"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: `1.5px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                borderRadius: 'var(--vibe-radius-input, 8px)',
+                background: active
+                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))'
+                  : 'var(--color-bg-card)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                marginBottom: '0.5rem',
+              }}
+            >
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.375rem',
+                color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                fontWeight: 600,
+                fontSize: 'var(--font-size-sm)',
+                marginBottom: '0.25rem',
+              }}>
+                <LIcon size={14} />
+                {LIST_TYPE.label}
+              </div>
+              <div style={{
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--font-size-xs)',
+                lineHeight: 1.3,
+              }}>
+                {LIST_TYPE.description}
+              </div>
+            </button>
+          )
+        })()}
 
         {/* Types Explained expandable (Rule 8) */}
         <button
@@ -749,8 +877,11 @@ export function TaskCreationModal({
             <p style={{ margin: '0 0 0.5rem' }}>
               <strong style={{ color: 'var(--color-text-primary)' }}>Opportunities</strong> are optional jobs kids can browse and claim to earn rewards. No pressure, no guilt.
             </p>
-            <p style={{ margin: 0 }}>
+            <p style={{ margin: '0 0 0.5rem' }}>
               <strong style={{ color: 'var(--color-text-primary)' }}>Habits</strong> track consistency over time. Focus on showing up, not perfection.
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Lists</strong> are assigned checklists or ordered sequences. Packing lists, monthly call lists, curriculum chapters that drip-feed one at a time. Choose how items are delivered — all at once, each as its own task, or one by one in order.
             </p>
           </div>
         )}
@@ -762,6 +893,232 @@ export function TaskCreationModal({
               sections={data.routineSections ?? []}
               onChange={(sections) => update('routineSections', sections)}
             />
+          </div>
+        )}
+
+        {/* List sub-section (appears when list is selected) */}
+        {data.taskType === 'list' && (
+          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {/* Decision 1: Which list? */}
+            <div style={{
+              padding: '1rem',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}>
+              <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                List Source
+              </p>
+
+              {/* Source radio options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <RadioOption
+                  name="list-source"
+                  value="existing"
+                  checked={data.listSource === 'existing'}
+                  onChange={(v) => update('listSource', v as 'existing' | 'new' | 'image')}
+                  label="Choose an existing list"
+                  description="Pick from your family's lists"
+                />
+                <RadioOption
+                  name="list-source"
+                  value="new"
+                  checked={data.listSource === 'new'}
+                  onChange={(v) => update('listSource', v as 'existing' | 'new' | 'image')}
+                  label="Create a new list"
+                  description="Type, paste, or brain dump items"
+                />
+                <RadioOption
+                  name="list-source"
+                  value="image"
+                  checked={data.listSource === 'image'}
+                  onChange={(v) => update('listSource', v as 'existing' | 'new' | 'image')}
+                  label="Import from image"
+                  description="Upload a photo of a list or curriculum"
+                />
+              </div>
+
+              {/* Existing list picker */}
+              {data.listSource === 'existing' && (
+                <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                  <HelperText>Select from your family's lists (coming soon — create a new list below for now)</HelperText>
+                </div>
+              )}
+
+              {/* New list creation */}
+              {data.listSource === 'new' && (
+                <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                  <input
+                    type="text"
+                    value={data.newListName ?? ''}
+                    onChange={(e) => update('newListName', e.target.value)}
+                    placeholder="List name (e.g., Monthly phone calls)"
+                    style={{ ...inputStyle, marginBottom: '0.5rem' }}
+                  />
+                  <textarea
+                    value={listFreeformText}
+                    onChange={(e) => setListFreeformText(e.target.value)}
+                    placeholder="Type or paste items, one per line — or brain dump a paragraph and use Smart Parse"
+                    rows={4}
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: 80, marginBottom: '0.5rem' }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const lines = listFreeformText
+                          .split('\n')
+                          .map(l => l.replace(/^[-*•]\s*/, '').trim())
+                          .filter(l => l.length > 0)
+                        update('newListItems', lines)
+                      }}
+                      className="btn-inline"
+                      style={{
+                        padding: '0.375rem 0.75rem',
+                        background: 'var(--color-bg-card)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--vibe-radius-input, 8px)',
+                        color: 'var(--color-text-primary)',
+                        fontSize: 'var(--font-size-xs)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Split into items
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Stub: AI parse — for now fallback to line split
+                        const lines = listFreeformText
+                          .split('\n')
+                          .map(l => l.replace(/^[-*•]\s*/, '').trim())
+                          .filter(l => l.length > 0)
+                        update('newListItems', lines)
+                      }}
+                      className="btn-inline"
+                      style={{
+                        padding: '0.375rem 0.75rem',
+                        background: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+                        border: '1px solid var(--color-btn-primary-bg)',
+                        borderRadius: 'var(--vibe-radius-input, 8px)',
+                        color: 'var(--color-btn-primary-bg)',
+                        fontSize: 'var(--font-size-xs)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      <Sparkles size={12} />
+                      Smart Parse
+                    </button>
+                  </div>
+
+                  {/* Parsed items list */}
+                  {(data.newListItems?.length ?? 0) > 0 && (
+                    <div style={{
+                      background: 'var(--color-bg-card)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      padding: '0.75rem',
+                    }}>
+                      <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '0.5rem' }}>
+                        Items ({data.newListItems!.length}):
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {data.newListItems!.map((item, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <GripVertical size={12} style={{ color: 'var(--color-text-secondary)', opacity: 0.5, flexShrink: 0 }} />
+                            <input
+                              type="text"
+                              value={item}
+                              onChange={(e) => {
+                                const items = [...(data.newListItems ?? [])]
+                                items[idx] = e.target.value
+                                update('newListItems', items)
+                              }}
+                              style={{
+                                ...inputStyle,
+                                padding: '0.375rem 0.5rem',
+                                fontSize: 'var(--font-size-xs)',
+                                flex: 1,
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const items = [...(data.newListItems ?? [])]
+                                items.splice(idx, 1)
+                                update('newListItems', items)
+                              }}
+                              className="btn-inline"
+                              style={{
+                                padding: '0.25rem',
+                                color: 'var(--color-text-secondary)',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => update('newListItems', [...(data.newListItems ?? []), ''])}
+                        className="btn-inline"
+                        style={{
+                          color: 'var(--color-btn-primary-bg)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0.375rem 0',
+                          fontSize: 'var(--font-size-xs)',
+                          marginTop: '0.25rem',
+                        }}
+                      >
+                        + Add item
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Image import stub */}
+              {data.listSource === 'image' && (
+                <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                  <HelperText>Image import coming soon — use "Create a new list" to type or paste items for now.</HelperText>
+                </div>
+              )}
+            </div>
+
+            {/* Decision 2: Delivery mode */}
+            <div style={{
+              padding: '1rem',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}>
+              <p style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Delivery Mode
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {LIST_DELIVERY_MODES.map(mode => (
+                  <RadioOption
+                    key={mode.key}
+                    name="list-delivery"
+                    value={mode.key}
+                    checked={data.listDeliveryMode === mode.key}
+                    onChange={(v) => update('listDeliveryMode', v as 'checklist' | 'batch' | 'sequential')}
+                    label={mode.label}
+                    description={mode.description}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </SectionCard>

@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
 import { QuickCreate } from '@/components/global/QuickCreate'
+import { TrackerQuickCreateModal } from '@/components/widgets/TrackerQuickCreateModal'
 import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar, LilaModal } from '@/components/lila'
 import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
@@ -63,15 +64,31 @@ export function MomShell({ children }: MomShellProps) {
       victory_flagged: data.reward?.flagAsVictory ?? false,
       source: 'manual',
     }
-    if (data.wholeFamily && familyMembers && familyMembers.length > 0) {
-      const others = familyMembers.filter(m => m.id !== currentMember.id)
-      await supabase.from('tasks').insert(others.map(m => ({ ...taskBase, assignee_id: m.id })))
+    // Determine who gets the task
+    const assignees = data.wholeFamily
+      ? (familyMembers ?? []).filter(m => m.is_active)
+      : data.assignments ?? []
+    const mode = data.assignMode ?? 'each'
+
+    if (assignees.length >= 2 && mode === 'each') {
+      // "Each of them" — create individual copies per person
+      await supabase.from('tasks').insert(
+        assignees.map(a => ({ ...taskBase, assignee_id: 'memberId' in a ? a.memberId : a.id, is_shared: false }))
+      )
     } else {
-      const primaryId = data.assignments?.length > 0 ? data.assignments[0].memberId : null
-      const { data: newTask } = await supabase.from('tasks').insert({ ...taskBase, assignee_id: primaryId }).select().single()
-      if (newTask && data.assignments?.length > 0) {
+      // "Any of them" (shared) or single assignee
+      const primaryId = assignees.length > 0 ? ('memberId' in assignees[0] ? assignees[0].memberId : assignees[0].id) : null
+      const { data: newTask } = await supabase.from('tasks').insert({
+        ...taskBase,
+        assignee_id: primaryId,
+        is_shared: assignees.length >= 2,
+      }).select().single()
+      if (newTask && assignees.length > 0) {
         await supabase.from('task_assignments').insert(
-          data.assignments.map(a => ({ task_id: newTask.id, member_id: a.memberId, family_member_id: a.memberId, assigned_by: currentMember.id }))
+          assignees.map(a => {
+            const mid = 'memberId' in a ? a.memberId : a.id
+            return { task_id: newTask.id, member_id: mid, family_member_id: mid, assigned_by: currentMember.id }
+          })
         )
       }
     }
