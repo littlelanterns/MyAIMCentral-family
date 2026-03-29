@@ -222,9 +222,9 @@ export function UniversalScheduler({
 
               {activeOption === opt.key && opt.key === 'custom' && showCustomExpanded && (
                 <div className="pl-8 pb-2 space-y-3">
-                  <CustomConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  <CustomConfig state={state} dispatch={dispatch} inputStyle={inputStyle} weekStartDay={weekStartDay} />
                   {state.advancedMode && (
-                    <AdvancedModeConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                    <AdvancedModeConfig state={state} dispatch={dispatch} inputStyle={inputStyle} weekStartDay={weekStartDay} />
                   )}
                   {/* Advanced patterns */}
                   <RepeatPatternSelector state={state} dispatch={dispatch} inputStyle={inputStyle} />
@@ -481,12 +481,12 @@ function ScheduleUntilSection({ state, dispatch, inputStyle }: {
 
 // ─── Advanced Mode Config (renders the active advanced sub-config) ───────
 
-function AdvancedModeConfig({ state, dispatch, inputStyle }: {
-  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
+function AdvancedModeConfig({ state, dispatch, inputStyle, weekStartDay = 0 }: {
+  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties; weekStartDay?: 0 | 1
 }) {
   switch (state.advancedMode) {
     case 'alternating':
-      return <AlternatingConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+      return <AlternatingConfig state={state} dispatch={dispatch} inputStyle={inputStyle} weekStartDay={weekStartDay} />
     case 'custody':
       return <CustodyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
     case 'seasonal':
@@ -748,8 +748,8 @@ function YearlyConfig({ state, dispatch, inputStyle }: {
 
 // ─── Custom Config ──────────────────────────────────────────────────────
 
-function CustomConfig({ state, dispatch, inputStyle }: {
-  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
+function CustomConfig({ state, dispatch, inputStyle, weekStartDay = 0 }: {
+  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties; weekStartDay?: 0 | 1
 }) {
   if (state.advancedMode) return null
 
@@ -796,8 +796,8 @@ function CustomConfig({ state, dispatch, inputStyle }: {
 
 // ─── Alternating Weeks Config ───────────────────────────────────────────
 
-function AlternatingConfig({ state, dispatch, inputStyle }: {
-  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties
+function AlternatingConfig({ state, dispatch, inputStyle, weekStartDay = 0 }: {
+  state: any; dispatch: React.Dispatch<any>; inputStyle: React.CSSProperties; weekStartDay?: 0 | 1
 }) {
   return (
     <div className="space-y-3">

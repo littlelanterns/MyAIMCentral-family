@@ -83,7 +83,7 @@ export function CalendarPage() {
   const [eventCreationDate, setEventCreationDate] = useState<string | undefined>()
   const [showMiniPicker, setShowMiniPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [_editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
 
   // Calculate date range based on view
   const { rangeStart, rangeEnd } = useMemo(() => {
@@ -502,8 +502,8 @@ export function CalendarPage() {
                   {/* Day body — tall rectangle */}
                   <div
                     className="flex-1 p-1.5 space-y-0.5 overflow-hidden"
-                    style={{ minHeight: '180px' }}
                     style={{
+                      minHeight: '180px',
                       background: isToday
                         ? 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-card))'
                         : 'var(--color-bg-card)',

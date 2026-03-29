@@ -14,7 +14,7 @@
 import { useState, useCallback } from 'react'
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckSquare, Clock,
-  AlertCircle, Plus, Pencil, Trash2, Users, Repeat, MapPin, Package, Car,
+  Plus, Pencil, Trash2, Users, Repeat, MapPin, Package, Car,
 } from 'lucide-react'
 import { ModalV2, Button } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'

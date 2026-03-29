@@ -105,6 +105,7 @@ export function CalendarSettingsModal({ isOpen, onClose, onDefaultViewChange, on
 
   return (
     <ModalV2
+      id="calendar-settings"
       isOpen={isOpen}
       onClose={onClose}
       title="Calendar Settings"
