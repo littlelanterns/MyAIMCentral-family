@@ -70,4 +70,6 @@
 
 *UX Overhaul Session 2 completed 2026-03-28. SKILL.md updated to 14 rules, hardcoded color audit (0 remaining in non-auth files), ThemeSelector compacted to 280px, all sidebar sections collapsible with route-aware expand, QuickCreate component (strip pill + mobile FAB), density-compact applied to Studio/Dashboard/Vault.*
 
+*UX Overhaul Session 3 (partial) completed 2026-03-28. Calendar visual overhaul: v1-style warm card columns (widget), square month cells with event title labels (page), gradient headers on both, full month grid in MonthViewModal with legend. ThemeSelector btn-chip fix for Cozy vibe S/M/L/XL. Modern vibe PullTab visibility fix (6px→120x24px). Font scale CSS dedup fix (S/M/L/XL now in correct order). EventCreationModal wired from dashboard DateDetailModal.*
+
 ---

@@ -30,13 +30,13 @@ function getTabStyles(vibe: VibeKey, orientation: 'bottom' | 'side') {
 
   switch (vibe) {
     case 'modern':
-      // Minimal thin notch — barely visible, expands on hover
+      // Minimal clean tab — understated but still findable
       return {
-        background: 'var(--color-border)',
+        background: 'var(--surface-primary, var(--color-btn-primary-bg))',
         borderRadius: isBottom ? '6px 6px 0 0' : '6px 0 0 6px',
-        boxShadow: 'none',
-        width: isBottom ? 60 : 6,
-        height: isBottom ? 6 : 60,
+        boxShadow: '0 -1px 3px rgba(0,0,0,0.08)',
+        width: isBottom ? 120 : 24,
+        height: isBottom ? 24 : 70,
       }
 
     case 'nautical':
@@ -93,7 +93,7 @@ export function PullTab({
       onClick={onClick}
       className={`
         flex items-center justify-center transition-all duration-200
-        ${isModern ? 'hover:opacity-100 opacity-60' : 'hover:brightness-110'}
+        ${isModern ? 'hover:opacity-100 opacity-80' : 'hover:brightness-110'}
         ${className}
       `.trim()}
       style={{

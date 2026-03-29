@@ -6,10 +6,8 @@
  * This file provides structural defaults and responsive foundation.
  */
 
-/* Font scale accessibility */
+/* Font scale accessibility — sizes defined once, near bottom of file */
 html { font-size: 16px; }
-html.font-scale-large { font-size: 18px; }
-html.font-scale-extra-large { font-size: 20px; }
 
 /* Base styles */
 body {

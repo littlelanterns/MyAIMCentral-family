@@ -1,21 +1,20 @@
 /**
  * CalendarWidget — compact week view for the Personal Dashboard.
  *
- * Default view: Week (7-column grid).
- * Respects calendar_settings.week_start_day.
- * Click any day → DateDetailModal (modal, not navigation).
- * "View Month" → full month in a transient modal overlay.
+ * Visual style matches v1: warm card-like day columns with filled headers,
+ * today in accent color, "No events" placeholder, accent "View Month" button.
  *
- * PRD-14B, spec: Calendar-System-Build-Spec.md
+ * PRD-14B: Dashboard widget defaults to Week view.
  */
 
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, CalendarDays, Expand } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Settings } from 'lucide-react'
 import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { DateDetailModal } from './DateDetailModal'
 import { MonthViewModal } from './MonthViewModal'
+import { EventCreationModal } from './EventCreationModal'
 import type { CalendarEvent, EventAttendee, TaskDueDate } from '@/types/calendar'
 
 function toISODate(d: Date): string {
@@ -38,15 +37,6 @@ function getWeekStart(date: Date, weekStartDay: 0 | 1): Date {
 
 const DAY_NAMES_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-function formatDateRange(start: Date, end: Date): string {
-  const startMonth = start.toLocaleDateString('en-US', { month: 'short' })
-  const endMonth = end.toLocaleDateString('en-US', { month: 'short' })
-  if (startMonth === endMonth) {
-    return `${startMonth} ${start.getDate()} – ${end.getDate()}`
-  }
-  return `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}`
-}
 
 export function CalendarWidget() {
   const { data: settings } = useCalendarSettings()
@@ -71,8 +61,9 @@ export function CalendarWidget() {
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [showMonth, setShowMonth] = useState(false)
+  const [showEventCreation, setShowEventCreation] = useState(false)
+  const [eventCreationDate, setEventCreationDate] = useState<string | undefined>()
 
-  // Group events by date
   const eventsByDate = useMemo(() => {
     const map = new Map<string, (CalendarEvent & { event_attendees: EventAttendee[] })[]>()
     for (const ev of events ?? []) {
@@ -83,7 +74,6 @@ export function CalendarWidget() {
     return map
   }, [events])
 
-  // Group tasks by date
   const tasksByDate = useMemo(() => {
     const map = new Map<string, TaskDueDate[]>()
     for (const t of tasksDue ?? []) {
@@ -94,7 +84,6 @@ export function CalendarWidget() {
     return map
   }, [tasksDue])
 
-  // Member color map
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of familyMembers ?? []) {
@@ -110,65 +99,102 @@ export function CalendarWidget() {
   return (
     <>
       <div
-        className="rounded-lg overflow-hidden"
+        className="rounded-xl overflow-hidden"
         style={{
           backgroundColor: 'var(--color-bg-card)',
           border: '1px solid var(--color-border)',
         }}
       >
-        {/* Header */}
+        {/* Header toolbar — gradient */}
         <div
-          className="flex items-center justify-between px-3 py-2"
-          style={{ borderBottom: '1px solid var(--color-border)' }}
+          className="flex items-center justify-between px-4 py-3"
+          style={{
+            background: 'var(--gradient-primary, var(--color-btn-primary-bg))',
+          }}
         >
-          <div className="flex items-center gap-2">
-            <CalendarDays size={16} style={{ color: 'var(--color-text-secondary)' }} />
-            <span
-              className="text-sm font-semibold"
-              style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
-            >
-              This Week
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
+          {/* Title */}
+          <h3
+            className="text-base font-bold"
+            style={{
+              color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+              fontFamily: 'var(--font-heading)',
+            }}
+          >
+            This Week
+          </h3>
+
+          {/* Controls */}
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setWeekOffset(w => w - 1)}
-              className="flex items-center justify-center rounded"
-              style={{ width: '24px', height: '24px', background: 'transparent', color: 'var(--color-text-secondary)', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
-              aria-label="Previous week"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)', minWidth: '100px', textAlign: 'center' }}>
-              {formatDateRange(weekStart, weekEnd)}
-            </span>
-            <button
-              onClick={() => setWeekOffset(w => w + 1)}
-              className="flex items-center justify-center rounded"
-              style={{ width: '24px', height: '24px', background: 'transparent', color: 'var(--color-text-secondary)', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
-              aria-label="Next week"
-            >
-              <ChevronRight size={14} />
-            </button>
-            <button
-              onClick={() => setShowMonth(true)}
-              className="flex items-center gap-1 text-xs rounded px-2 py-1 ml-1"
+              onClick={() => setWeekOffset(0)}
+              className="text-xs px-2.5 py-1 rounded font-medium"
               style={{
-                background: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid var(--color-border)',
+                background: 'color-mix(in srgb, var(--color-text-on-primary, #fff) 20%, transparent)',
+                color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+                border: '1px solid color-mix(in srgb, var(--color-text-on-primary, #fff) 30%, transparent)',
                 minHeight: 'unset',
                 cursor: 'pointer',
               }}
             >
-              <Expand size={12} />
-              Month
+              Today
+            </button>
+            <button
+              onClick={() => setWeekOffset(w => w - 1)}
+              className="flex items-center justify-center rounded"
+              style={{
+                width: '28px', height: '28px',
+                background: 'transparent',
+                color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+                border: 'none', minHeight: 'unset', cursor: 'pointer',
+              }}
+              aria-label="Previous week"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => setWeekOffset(w => w + 1)}
+              className="flex items-center justify-center rounded"
+              style={{
+                width: '28px', height: '28px',
+                background: 'transparent',
+                color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+                border: 'none', minHeight: 'unset', cursor: 'pointer',
+              }}
+              aria-label="Next week"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              className="flex items-center justify-center rounded"
+              style={{
+                width: '28px', height: '28px',
+                background: 'transparent',
+                color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+                border: 'none', minHeight: 'unset', cursor: 'pointer',
+              }}
+              aria-label="Calendar settings"
+            >
+              <Settings size={14} />
+            </button>
+            <button
+              onClick={() => setShowMonth(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 ml-1"
+              style={{
+                background: 'color-mix(in srgb, var(--color-text-on-primary, #fff) 20%, transparent)',
+                color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+                border: '1px solid color-mix(in srgb, var(--color-text-on-primary, #fff) 30%, transparent)',
+                minHeight: 'unset',
+                cursor: 'pointer',
+              }}
+            >
+              <CalendarDays size={14} />
+              View Month
             </button>
           </div>
         </div>
 
-        {/* Week grid */}
-        <div className="grid grid-cols-7">
+        {/* Week grid — card-like day columns */}
+        <div className="grid grid-cols-7 gap-px px-3 pb-3" style={{ backgroundColor: 'transparent' }}>
           {weekDays.map((day, i) => {
             const dayKey = toISODate(day)
             const isToday = dayKey === todayKey
@@ -180,68 +206,97 @@ export function CalendarWidget() {
               <button
                 key={dayKey}
                 onClick={() => setSelectedDate(day)}
-                className="flex flex-col items-center py-2 px-1 transition-colors"
+                className="flex flex-col rounded-lg overflow-hidden"
                 style={{
-                  background: isToday ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)' : 'transparent',
-                  borderRight: i < 6 ? '1px solid var(--color-border)' : 'none',
-                  minHeight: '64px',
+                  border: `1px solid ${isToday ? 'var(--color-btn-primary-bg)' : 'color-mix(in srgb, var(--color-border) 60%, transparent)'}`,
                   cursor: 'pointer',
-                  border: 'none',
-                  borderBottom: 'none',
+                  minHeight: '90px',
+                  background: 'transparent',
                 }}
               >
-                {/* Day name */}
-                <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  {dayNames[i]}
-                </span>
-
-                {/* Date number */}
-                <span
-                  className="text-sm font-semibold rounded-full flex items-center justify-center"
+                {/* Day header — filled background */}
+                <div
+                  className="flex flex-col items-center py-1.5 px-1"
                   style={{
-                    width: '28px',
-                    height: '28px',
-                    color: isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
-                    background: isToday ? 'var(--color-btn-primary-bg)' : 'transparent',
+                    background: isToday
+                      ? 'var(--color-btn-primary-bg)'
+                      : 'color-mix(in srgb, var(--color-btn-primary-bg) 18%, var(--color-bg-secondary))',
                   }}
                 >
-                  {day.getDate()}
-                </span>
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-wide"
+                    style={{
+                      color: isToday
+                        ? 'var(--color-btn-primary-text)'
+                        : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {dayNames[i]}
+                  </span>
+                  <span
+                    className="text-base font-bold"
+                    style={{
+                      color: isToday
+                        ? 'var(--color-btn-primary-text)'
+                        : 'var(--color-text-primary)',
+                    }}
+                  >
+                    {day.getDate()}
+                  </span>
+                </div>
 
-                {/* Event dots */}
-                {totalItems > 0 && (
-                  <div className="flex gap-0.5 mt-1 flex-wrap justify-center" style={{ maxWidth: '40px' }}>
-                    {dayEvents.slice(0, 3).map((ev) => (
-                      <span
-                        key={ev.id}
-                        className="rounded-full"
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          backgroundColor: ev.status === 'pending_approval'
-                            ? 'var(--color-text-secondary)'
-                            : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)',
-                          opacity: ev.status === 'pending_approval' ? 0.5 : 1,
-                        }}
-                      />
-                    ))}
-                    {dayTasks.slice(0, 2).map((t) => (
-                      <span
-                        key={t.id}
-                        className="rounded-sm"
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          backgroundColor: memberColorMap.get(t.assignee_id ?? t.created_by) ?? 'var(--color-text-secondary)',
-                          opacity: 0.6,
-                        }}
-                      />
-                    ))}
-                    {totalItems > 5 && (
-                      <span className="text-[8px]" style={{ color: 'var(--color-text-secondary)' }}>+{totalItems - 5}</span>
-                    )}
-                  </div>
-                )}
+                {/* Day body */}
+                <div
+                  className="flex-1 flex flex-col items-center justify-center px-1 py-1.5"
+                  style={{
+                    background: isToday
+                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-card))'
+                      : 'var(--color-bg-card)',
+                  }}
+                >
+                  {totalItems > 0 ? (
+                    <div className="flex gap-0.5 flex-wrap justify-center" style={{ maxWidth: '50px' }}>
+                      {dayEvents.slice(0, 3).map((ev) => (
+                        <span
+                          key={ev.id}
+                          className="rounded-full"
+                          style={{
+                            width: '7px',
+                            height: '7px',
+                            backgroundColor: ev.status === 'pending_approval'
+                              ? 'var(--color-text-secondary)'
+                              : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)',
+                            opacity: ev.status === 'pending_approval' ? 0.5 : 1,
+                          }}
+                        />
+                      ))}
+                      {dayTasks.slice(0, 2).map((t) => (
+                        <span
+                          key={t.id}
+                          className="rounded-sm"
+                          style={{
+                            width: '7px',
+                            height: '7px',
+                            backgroundColor: memberColorMap.get(t.assignee_id ?? t.created_by) ?? 'var(--color-text-secondary)',
+                            opacity: 0.6,
+                          }}
+                        />
+                      ))}
+                      {totalItems > 5 && (
+                        <span className="text-[8px]" style={{ color: 'var(--color-text-secondary)' }}>
+                          +{totalItems - 5}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span
+                      className="text-[10px] italic"
+                      style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}
+                    >
+                      No events
+                    </span>
+                  )}
+                </div>
               </button>
             )
           })}
@@ -255,8 +310,19 @@ export function CalendarWidget() {
           isOpen={true}
           onClose={() => setSelectedDate(null)}
           onDateChange={setSelectedDate}
+          onAddEvent={(d) => {
+            setEventCreationDate(toISODate(d))
+            setShowEventCreation(true)
+          }}
         />
       )}
+
+      {/* EventCreationModal */}
+      <EventCreationModal
+        isOpen={showEventCreation}
+        onClose={() => setShowEventCreation(false)}
+        initialDate={eventCreationDate}
+      />
 
       {/* Month View Modal */}
       {showMonth && (

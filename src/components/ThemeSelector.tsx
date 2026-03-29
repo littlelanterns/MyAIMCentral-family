@@ -238,10 +238,12 @@ export function ThemeSelector() {
                   <button
                     key={mode.key}
                     onClick={() => setColorMode(mode.key)}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px]"
+                    className="btn-chip flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px]"
                     style={{
                       background: colorMode === mode.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
                       color: colorMode === mode.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                      border: 'none',
+                      cursor: 'pointer',
                     }}
                   >
                     <mode.icon size={12} />
@@ -330,10 +332,12 @@ export function ThemeSelector() {
                 <button
                   key={v.key}
                   onClick={() => setVibe(v.key)}
-                  className="flex-1 py-1 px-1.5 rounded-md text-[11px] font-medium text-center whitespace-nowrap"
+                  className="btn-chip flex-1 py-1 px-1.5 rounded-md text-[11px] font-medium text-center whitespace-nowrap"
                   style={{
                     backgroundColor: vibe === v.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
                     color: vibe === v.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                    border: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   {v.short}
@@ -355,10 +359,12 @@ export function ThemeSelector() {
                 <button
                   key={fs.key}
                   onClick={() => setFontScale(fs.key)}
-                  className="flex-1 flex items-center justify-center py-1 rounded-md text-[11px] font-medium"
+                  className="btn-chip flex-1 flex items-center justify-center py-1 rounded-md text-[11px] font-medium"
                   style={{
                     background: fontScale === fs.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
                     color: fontScale === fs.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                    border: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   {fs.label}
