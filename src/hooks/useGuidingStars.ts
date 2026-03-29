@@ -20,6 +20,7 @@ export interface GuidingStar {
   description: string | null
   source: string
   source_reference_id: string | null
+  owner_type?: 'member' | 'family'
   is_included_in_ai: boolean
   is_private: boolean
   is_shared_with_partner: boolean
@@ -197,6 +198,26 @@ export function useRestoreGuidingStar() {
       const { error } = await supabase
         .from('guiding_stars')
         .update({ archived_at: null })
+        .eq('id', id)
+
+      if (error) throw error
+      return memberId
+    },
+    onSuccess: (memberId) => {
+      queryClient.invalidateQueries({ queryKey: ['guiding-stars', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['guiding-stars-archived', memberId] })
+    },
+  })
+}
+
+export function useHardDeleteGuidingStar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, memberId }: { id: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('guiding_stars')
+        .delete()
         .eq('id', id)
 
       if (error) throw error

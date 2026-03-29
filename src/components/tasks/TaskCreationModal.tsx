@@ -21,7 +21,7 @@ import { UniversalScheduler } from '@/components/scheduling'
 import { RoutineSectionEditor } from './RoutineSectionEditor'
 import { DurationPicker } from './DurationPicker'
 import { LifeAreaTagPicker } from './LifeAreaTagPicker'
-import type { TaskType } from './TaskTypeSelector'
+import type { TaskType, OpportunitySubType } from './TaskTypeSelector'
 import type { IncompleteAction } from './IncompleteActionSelector'
 import type { RewardConfigData, RewardType } from './RewardConfig'
 import type { MemberAssignment } from './AssignmentSelector'
@@ -54,7 +54,7 @@ export interface CreateTaskData {
   customLifeArea: string
   imageUrl?: string
   taskType: TaskType
-  opportunitySubType?: string
+  opportunitySubType?: OpportunitySubType
   maxCompletions?: string
   claimLockDuration?: string
   claimLockUnit?: string
@@ -115,6 +115,10 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
     lifeAreaTag: '',
     customLifeArea: '',
     taskType: 'task',
+    opportunitySubType: 'repeatable',
+    maxCompletions: '',
+    claimLockDuration: '',
+    claimLockUnit: 'hours',
     assignments: queueItem?.requester_id
       ? [{ memberId: queueItem.requester_id, copyMode: 'individual' }]
       : [],
@@ -160,6 +164,24 @@ const LIST_DELIVERY_MODES = [
   { key: 'checklist' as const, label: 'Checklist', description: 'Assign as one task with a checklist (all items visible, check off as you go)' },
   { key: 'batch' as const, label: 'Batch', description: 'Each item becomes its own task (all assigned at once as individual tasks)' },
   { key: 'sequential' as const, label: 'Sequential', description: 'Items drip-feed 1-2 at a time (next item appears when the current one is done)' },
+]
+
+const OPP_SUBTYPES: { value: OpportunitySubType; label: string; description: string }[] = [
+  {
+    value: 'repeatable',
+    label: 'Repeatable',
+    description: 'Can be done multiple times (optionally cap total completions)',
+  },
+  {
+    value: 'claimable',
+    label: 'Claimable Job',
+    description: 'Locks to the first person who claims it for a set window of time',
+  },
+  {
+    value: 'capped',
+    label: 'Capped',
+    description: 'Limited total completions across all family members (requires a max)',
+  },
 ]
 
 const INCOMPLETE_OPTIONS: {
@@ -837,6 +859,161 @@ export function TaskCreationModal({
             </button>
           )
         })()}
+
+        {/* Opportunity sub-type selector — inline expansion when Opportunity selected */}
+        {data.taskType === 'opportunity' && (
+          <div
+            style={{
+              marginTop: '0.25rem',
+              marginBottom: '0.5rem',
+              padding: '1rem',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <p style={{
+              fontSize: 'var(--font-size-xs, 0.75rem)',
+              fontWeight: 600,
+              color: 'var(--color-text-secondary)',
+              marginBottom: '0.625rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}>
+              Opportunity type
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+              {OPP_SUBTYPES.map(({ value, label, description }) => {
+                const selected = (data.opportunitySubType ?? 'repeatable') === value
+                return (
+                  <label
+                    key={value}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '0.5rem',
+                      padding: '0.5rem',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      backgroundColor: selected
+                        ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))'
+                        : 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="opp-subtype"
+                      value={value}
+                      checked={selected}
+                      onChange={() => update('opportunitySubType', value)}
+                      style={{ accentColor: 'var(--color-btn-primary-bg)', marginTop: '0.2rem', flexShrink: 0 }}
+                    />
+                    <span>
+                      <span style={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{label}</span>
+                      <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400, fontSize: 'var(--font-size-xs)' }}> — {description}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+
+            {/* Repeatable: optional max completions per period */}
+            {(data.opportunitySubType ?? 'repeatable') === 'repeatable' && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                  fontSize: 'var(--font-size-sm)',
+                  marginBottom: '0.25rem',
+                }}>
+                  Max completions <span style={{ color: 'var(--color-text-secondary)', fontWeight: 400 }}>(blank = unlimited)</span>
+                </label>
+                <input
+                  type="number"
+                  value={data.maxCompletions ?? ''}
+                  onChange={(e) => update('maxCompletions', e.target.value)}
+                  placeholder="Unlimited"
+                  min={1}
+                  style={{ ...inputStyle, width: 120 }}
+                />
+              </div>
+            )}
+
+            {/* Claimable: lock duration + unit */}
+            {data.opportunitySubType === 'claimable' && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                  fontSize: 'var(--font-size-sm)',
+                  marginBottom: '0.375rem',
+                }}>
+                  Claim lock duration
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    value={data.claimLockDuration ?? ''}
+                    onChange={(e) => update('claimLockDuration', e.target.value)}
+                    placeholder="4"
+                    min={1}
+                    style={{ ...inputStyle, width: 80 }}
+                  />
+                  <select
+                    value={data.claimLockUnit ?? 'hours'}
+                    onChange={(e) => update('claimLockUnit', e.target.value)}
+                    style={{
+                      padding: '0.625rem 0.75rem',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      backgroundColor: 'var(--color-bg-input, var(--color-bg-card))',
+                      color: 'var(--color-text-primary)',
+                      fontSize: 'var(--font-size-sm, 0.875rem)',
+                      minHeight: '44px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                  </select>
+                </div>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs, 0.75rem)', marginTop: '0.25rem', marginBottom: 0 }}>
+                  How long the job stays locked to whoever claims it first
+                </p>
+              </div>
+            )}
+
+            {/* Capped: required max completions total */}
+            {data.opportunitySubType === 'capped' && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label style={{
+                  display: 'block',
+                  color: 'var(--color-text-primary)',
+                  fontWeight: 500,
+                  fontSize: 'var(--font-size-sm)',
+                  marginBottom: '0.25rem',
+                }}>
+                  Maximum completions <span style={{ color: 'var(--color-accent-deep, var(--color-btn-primary-bg))', fontWeight: 400 }}>(required)</span>
+                </label>
+                <input
+                  type="number"
+                  value={data.maxCompletions ?? ''}
+                  onChange={(e) => update('maxCompletions', e.target.value)}
+                  placeholder="5"
+                  required
+                  min={1}
+                  style={{ ...inputStyle, width: 120 }}
+                />
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs, 0.75rem)', marginTop: '0.25rem', marginBottom: 0 }}>
+                  Total completions allowed across all family members
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Types Explained expandable (Rule 8) */}
         <button

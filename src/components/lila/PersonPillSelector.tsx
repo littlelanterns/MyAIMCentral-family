@@ -87,7 +87,7 @@ export function PersonPillSelector({
               className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
               style={{
                 backgroundColor: isSelected ? pillColor : 'transparent',
-                color: isSelected ? '#fff' : 'var(--color-text-primary)',
+                color: isSelected ? 'var(--color-bg-card, #fff)' : 'var(--color-text-primary)',
                 border: `1.5px solid ${isSelected ? pillColor : 'var(--color-border)'}`,
               }}
             >
@@ -102,7 +102,7 @@ export function PersonPillSelector({
             className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
               backgroundColor: isSomeoneElseSelected ? 'var(--color-text-secondary)' : 'transparent',
-              color: isSomeoneElseSelected ? '#fff' : 'var(--color-text-secondary)',
+              color: isSomeoneElseSelected ? 'var(--color-bg-card, #fff)' : 'var(--color-text-secondary)',
               border: `1.5px solid ${isSomeoneElseSelected ? 'var(--color-text-secondary)' : 'var(--color-border)'}`,
             }}
           >

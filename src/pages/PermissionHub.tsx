@@ -108,7 +108,7 @@ export function PermissionHub() {
   const teens = children.filter((m) => m.dashboard_mode === 'independent')
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="density-compact max-w-3xl mx-auto space-y-6">
       <button
         onClick={() => navigate('/dashboard')}
         className="hidden md:flex items-center gap-1 text-sm"

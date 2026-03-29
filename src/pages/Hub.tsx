@@ -36,7 +36,7 @@ export function HubPage() {
 
   return (
     <div
-      className="min-h-svh flex flex-col"
+      className="density-compact min-h-svh flex flex-col"
       style={{ backgroundColor: 'var(--color-bg-primary)' }}
     >
       {/* Hub Header */}

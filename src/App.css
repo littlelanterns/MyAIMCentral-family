@@ -123,6 +123,16 @@ button[aria-label*="Close"] {
   --z-modal-content: 55;
   --z-modal-stacked: 60;
   --z-toast: 70;
+
+  /* Analytics Chart Color Palette (8 distinct colors, accessible on light + dark) */
+  --color-chart-1: #4e79a7;
+  --color-chart-2: #f28e2b;
+  --color-chart-3: #e15759;
+  --color-chart-4: #76b7b2;
+  --color-chart-5: #59a14f;
+  --color-chart-6: #edc948;
+  --color-chart-7: #b07aa1;
+  --color-chart-8: #ff9da7;
 }
 
 /* ============================================================
@@ -210,6 +220,11 @@ select:focus {
   background: linear-gradient(135deg, var(--color-accent, #d6a461), var(--color-btn-primary-bg, #68a395));
 }
 
+/* Firefox scrollbar theming */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
 
 /* ============================================================
  * Keyframe Animations

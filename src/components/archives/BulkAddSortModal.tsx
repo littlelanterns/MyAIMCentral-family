@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import { Loader, RefreshCw, ArrowLeft, Check, Sparkles } from 'lucide-react'
-import { Modal } from '@/components/shared'
+import { ModalV2 } from '@/components/shared'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import { useCreateArchiveContextItem } from '@/hooks/useArchives'
 import { supabase } from '@/lib/supabase/client'
@@ -302,9 +302,11 @@ Return this exact structure:
   // -------------------------------------------------------------------------
 
   return (
-    <Modal
-      open={open}
+    <ModalV2
+      id="archive-bulk-add-sort"
+      isOpen={open}
       onClose={handleClose}
+      type="transient"
       title={step === 'review' ? 'Review & Save' : 'Bulk Add & Sort'}
       size="lg"
       footer={
@@ -544,6 +546,6 @@ Return this exact structure:
           ))}
         </div>
       )}
-    </Modal>
+    </ModalV2>
   )
 }

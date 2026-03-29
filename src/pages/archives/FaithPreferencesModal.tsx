@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from 'react'
 import { BookHeart } from 'lucide-react'
-import { Modal } from '@/components/shared'
+import { ModalV2 } from '@/components/shared'
 import { useFaithPreferences, useSaveFaithPreferences } from '@/hooks/useArchives'
 import { FAITH_TRADITIONS } from '@/types/archives'
 import type { FaithPreferences, FaithRelevanceSetting } from '@/types/archives'
@@ -357,12 +357,14 @@ export function FaithPreferencesModal({ open, onClose, familyId }: FaithPreferen
     initialized && JSON.stringify(fromDbToForm(faithData ?? null)) !== JSON.stringify(form)
 
   return (
-    <Modal
-      open={open}
+    <ModalV2
+      id="faith-preferences"
+      isOpen={open}
       onClose={onClose}
+      type="transient"
       title="Faith Preferences"
       size="lg"
-      isDirty={isDirty}
+      hasUnsavedChanges={isDirty}
       footer={
         <div className="flex items-center justify-end gap-3">
           <button
@@ -598,6 +600,6 @@ export function FaithPreferencesModal({ open, onClose, familyId }: FaithPreferen
           </div>
         </div>
       )}
-    </Modal>
+    </ModalV2>
   )
 }

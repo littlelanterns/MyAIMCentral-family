@@ -1,13 +1,167 @@
 // PRD-06 + PRD-10: Best Intention tracker widget for dashboard
-// Compact card showing a single intention with celebrate button
-// Uses existing hooks: useBestIntentions, useTodaysIterations, useLogIteration
+// Shows ALL active intentions with colored dots, today counts, celebrate buttons,
+// and mini sparklines (7-day trend) for medium/large sizes.
 
-import { useState, useRef, useCallback } from 'react'
-import { Check, Sparkles } from 'lucide-react'
+import { useState, useRef, useCallback, useMemo } from 'react'
+import { Check } from 'lucide-react'
 import type { DashboardWidget } from '@/types/widgets'
-import { useBestIntentions, useTodaysIterations, useLogIteration } from '@/hooks/useBestIntentions'
+import {
+  useBestIntentions,
+  useTodaysIterations,
+  useLogIteration,
+  useAllIntentionIterations,
+  INTENTION_COLORS,
+} from '@/hooks/useBestIntentions'
+import type { BestIntention } from '@/hooks/useBestIntentions'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
+
+// ---- Mini Sparkline (7-day trend, pure SVG) ----
+
+function MiniSparkline({
+  data,
+  color,
+  width = 40,
+  height = 16,
+}: {
+  data: number[]
+  color: string
+  width?: number
+  height?: number
+}) {
+  if (data.length < 2) {
+    // Not enough data — render a flat line
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <line
+          x1={0} y1={height / 2} x2={width} y2={height / 2}
+          stroke={color} strokeWidth={1.5} strokeOpacity={0.3}
+        />
+      </svg>
+    )
+  }
+
+  const max = Math.max(...data, 1)
+  const padding = 1
+  const innerW = width - padding * 2
+  const innerH = height - padding * 2
+
+  const points = data.map((v, i) => {
+    const x = padding + (i / (data.length - 1)) * innerW
+    const y = padding + innerH - (v / max) * innerH
+    return `${x},${y}`
+  })
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <polyline
+        points={points.join(' ')}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+// ---- Single intention row with celebrate ----
+
+function IntentionRow({
+  intention,
+  familyId,
+  compact,
+  sparklineData,
+}: {
+  intention: BestIntention
+  familyId: string
+  compact: boolean
+  sparklineData?: number[]
+}) {
+  const { data: member } = useFamilyMember()
+  const { data: todayCount = 0 } = useTodaysIterations(intention.id)
+  const logIteration = useLogIteration()
+
+  const [sparkle, setSparkle] = useState<{ x: number; y: number } | null>(null)
+  const lastTapRef = useRef(0)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const color = intention.color ?? INTENTION_COLORS[0]
+
+  const handleCelebrate = useCallback(() => {
+    if (!member) return
+    logIteration.mutate({
+      intentionId: intention.id,
+      familyId,
+      memberId: member.id,
+    })
+
+    const now = Date.now()
+    if (now - lastTapRef.current >= 500 && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setSparkle({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+    }
+    lastTapRef.current = now
+  }, [intention.id, familyId, member, logIteration])
+
+  return (
+    <div className="flex items-center gap-2 min-h-[28px]">
+      {/* Color dot */}
+      <span
+        className="w-2.5 h-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: color }}
+      />
+
+      {/* Statement (truncated) */}
+      <span
+        className="flex-1 text-xs leading-tight truncate"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        {intention.statement}
+      </span>
+
+      {/* Sparkline — only for non-compact */}
+      {!compact && sparklineData && (
+        <MiniSparkline data={sparklineData} color={color} />
+      )}
+
+      {/* Today count */}
+      {todayCount > 0 && (
+        <span
+          className="text-[10px] font-bold shrink-0 tabular-nums"
+          style={{ color }}
+        >
+          {todayCount}
+        </span>
+      )}
+
+      {/* Celebrate button */}
+      <button
+        ref={btnRef}
+        onClick={(e) => { e.stopPropagation(); handleCelebrate() }}
+        className="flex items-center justify-center rounded-full transition-transform active:scale-90 shrink-0"
+        style={{
+          width: compact ? 24 : 28,
+          height: compact ? 24 : 28,
+          minWidth: compact ? 24 : 28,
+          backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+          border: `1.5px solid ${color}`,
+          color,
+        }}
+        title="Celebrate"
+      >
+        <Check size={compact ? 12 : 14} strokeWidth={3} />
+      </button>
+
+      {sparkle && (
+        <SparkleOverlay type="quick_burst" origin={sparkle} onComplete={() => setSparkle(null)} />
+      )}
+    </div>
+  )
+}
+
+// ---- Main Widget ----
 
 interface BestIntentionTrackerProps {
   widget: DashboardWidget
@@ -17,120 +171,98 @@ interface BestIntentionTrackerProps {
 export function BestIntentionTracker({ widget, isCompact }: BestIntentionTrackerProps) {
   const { data: member } = useFamilyMember()
   const memberId = widget.assigned_member_id ?? member?.id
-  const intentionId = (widget.widget_config as Record<string, string>)?.intention_id
 
-  const { data: intentions } = useBestIntentions(memberId)
-  // If a specific intention_id is set, use it; otherwise use the first active one
-  const intention = intentionId
-    ? intentions?.find(i => i.id === intentionId)
-    : intentions?.find(i => i.is_active)
+  const { data: intentions = [] } = useBestIntentions(memberId)
+  const activeIntentions = useMemo(
+    () => intentions.filter((i) => i.is_active),
+    [intentions],
+  )
 
-  const { data: todayCount = 0 } = useTodaysIterations(intention?.id)
-  const logIteration = useLogIteration()
+  // Sparkline data: last 7 days of iterations for all active intentions
+  const sevenDaysAgo = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 6)
+    return d.toISOString().split('T')[0]
+  }, [])
+  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
-  const [sparkle, setSparkle] = useState<{ x: number; y: number } | null>(null)
-  const lastTapRef = useRef(0)
-  const btnRef = useRef<HTMLButtonElement>(null)
+  const intentionIds = useMemo(
+    () => activeIntentions.map((i) => i.id),
+    [activeIntentions],
+  )
 
-  const handleCelebrate = useCallback(() => {
-    if (!intention || !member) return
+  const { data: recentIterations = [] } = useAllIntentionIterations(
+    memberId,
+    intentionIds,
+    { start: sevenDaysAgo, end: today },
+  )
 
-    logIteration.mutate({
-      intentionId: intention.id,
-      familyId: widget.family_id,
-      memberId: member.id,
-    })
-
-    // Debounce sparkle animation (500ms)
-    const now = Date.now()
-    if (now - lastTapRef.current >= 500 && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      setSparkle({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+  // Build sparkline data per intention: array of 7 numbers (one per day)
+  const sparklineMap = useMemo(() => {
+    const map = new Map<string, number[]>()
+    // Generate 7 date strings
+    const dates: string[] = []
+    const cur = new Date(sevenDaysAgo + 'T00:00:00')
+    for (let i = 0; i < 7; i++) {
+      dates.push(cur.toISOString().split('T')[0])
+      cur.setDate(cur.getDate() + 1)
     }
-    lastTapRef.current = now
-  }, [intention, member, widget.family_id, logIteration])
 
-  if (!intention) {
+    // Group by intention_id + day_date
+    const grouped = new Map<string, Map<string, number>>()
+    for (const iter of recentIterations) {
+      if (!grouped.has(iter.intention_id)) grouped.set(iter.intention_id, new Map())
+      const dayMap = grouped.get(iter.intention_id)!
+      dayMap.set(iter.day_date, (dayMap.get(iter.day_date) ?? 0) + 1)
+    }
+
+    for (const id of intentionIds) {
+      const dayMap = grouped.get(id)
+      map.set(id, dates.map((d) => dayMap?.get(d) ?? 0))
+    }
+    return map
+  }, [recentIterations, intentionIds, sevenDaysAgo])
+
+  if (activeIntentions.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-sm"
-        style={{ color: 'var(--color-text-tertiary)' }}>
-        No active intention
+      <div
+        className="flex items-center justify-center h-full text-xs"
+        style={{ color: 'var(--color-text-tertiary)' }}
+      >
+        No active intentions
       </div>
     )
   }
 
-  if (isCompact) {
-    // Small size: just the celebrate button + count
-    return (
-      <div className="flex items-center gap-2 h-full">
-        <button
-          ref={btnRef}
-          onClick={(e) => { e.stopPropagation(); handleCelebrate() }}
-          className="flex items-center justify-center rounded-full transition-transform active:scale-90 shrink-0"
-          style={{
-            width: 36, height: 36, minWidth: 36,
-            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
-            border: '2px solid var(--color-btn-primary-bg)',
-            color: 'var(--color-btn-primary-bg)',
-          }}
-          title="Celebrate"
-        >
-          <Check size={18} strokeWidth={3} />
-        </button>
-        {todayCount > 0 && (
-          <span className="text-lg font-bold" style={{ color: 'var(--color-btn-primary-bg)' }}>
-            {todayCount}
-          </span>
-        )}
-        {sparkle && <SparkleOverlay type="quick_burst" origin={sparkle} onComplete={() => setSparkle(null)} />}
-      </div>
-    )
-  }
+  // Small size: max 3 intentions + overflow indicator
+  const compact = isCompact ?? (widget.size === 'small')
+  const maxShow = compact ? 3 : activeIntentions.length
+  const visible = activeIntentions.slice(0, maxShow)
+  const overflowCount = activeIntentions.length - maxShow
 
-  // Medium/Large: statement + celebrate button + today badge
   return (
-    <div className="flex flex-col gap-2 h-full" onClick={(e) => e.stopPropagation()}>
-      {/* Statement */}
-      <p className="text-sm leading-snug line-clamp-3"
-        style={{ color: 'var(--color-text-secondary)' }}>
-        {intention.statement}
-      </p>
+    <div
+      className="flex flex-col gap-1.5 h-full overflow-hidden"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {visible.map((intention) => (
+        <IntentionRow
+          key={intention.id}
+          intention={intention}
+          familyId={widget.family_id}
+          compact={compact}
+          sparklineData={compact ? undefined : sparklineMap.get(intention.id)}
+        />
+      ))}
 
-      {/* Celebrate row */}
-      <div className="flex items-center gap-3 mt-auto">
-        <button
-          ref={btnRef}
-          onClick={handleCelebrate}
-          className="flex items-center justify-center rounded-full transition-transform active:scale-90 shrink-0"
-          style={{
-            width: 44, height: 44, minWidth: 44,
-            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
-            border: '2px solid var(--color-btn-primary-bg)',
-            color: 'var(--color-btn-primary-bg)',
-          }}
-          title="Celebrate this intention"
+      {overflowCount > 0 && (
+        <span
+          className="text-[10px] text-center"
+          style={{ color: 'var(--color-text-tertiary)' }}
         >
-          <Check size={22} strokeWidth={3} />
-        </button>
-
-        {todayCount > 0 && (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
-            style={{
-              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)',
-              color: 'var(--color-btn-primary-bg)',
-            }}>
-            {todayCount} today
-          </span>
-        )}
-
-        {/* All-time count */}
-        <span className="text-xs ml-auto" style={{ color: 'var(--color-text-tertiary)' }}>
-          <Sparkles size={10} className="inline mr-0.5" />
-          {intention.iteration_count} total
+          +{overflowCount} more
         </span>
-      </div>
-
-      {sparkle && <SparkleOverlay type="quick_burst" origin={sparkle} onComplete={() => setSparkle(null)} />}
+      )}
     </div>
   )
 }

@@ -15,6 +15,9 @@ import {
 } from 'lucide-react'
 import { ModalV2, Button } from '@/components/shared'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useFamily } from '@/hooks/useFamily'
+import { useCreateWidget } from '@/hooks/useWidgets'
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import { getPhaseATrackers } from '@/types/widgets'
 import type { PhaseATrackerType } from '@/types/widgets'
 
@@ -37,42 +40,33 @@ interface TrackerQuickCreateModalProps {
   onClose: () => void
 }
 
+// Map quick-create size keys to widget WidgetSize values
+const SIZE_TO_WIDGET: Record<'sm' | 'md' | 'lg', import('@/types/widgets').WidgetSize> = {
+  sm: 'small',
+  md: 'medium',
+  lg: 'large',
+}
+
 export function TrackerQuickCreateModal({ isOpen, onClose }: TrackerQuickCreateModalProps) {
   const { data: currentMember } = useFamilyMember()
+  const { data: family } = useFamily()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
   const phaseATrackers = getPhaseATrackers()
+  const createWidget = useCreateWidget()
+  const routingToast = useRoutingToast()
 
   const [title, setTitle] = useState('')
   const [trackerType, setTrackerType] = useState<PhaseATrackerType>('tally')
   const [assigneeId, setAssigneeId] = useState<string>('')
   const [size, setSize] = useState<'sm' | 'md' | 'lg'>('md')
-  const [loading, setLoading] = useState(false)
+
+  // Derive loading state from mutation
+  const loading = createWidget.isPending
 
   // Default assignee to current member
   const effectiveAssigneeId = assigneeId || currentMember?.id || ''
 
   const selectedMeta = phaseATrackers.find(t => t.type === trackerType)
-
-  const handleAddToDashboard = useCallback(async () => {
-    if (!title.trim()) return
-    setLoading(true)
-    try {
-      // STUB: Create dashboard_widgets record via Supabase
-      // For now, close the modal — the widget creation will be wired
-      // when the dashboard widget CRUD hooks are built
-      console.log('TrackerQuickCreate: would create widget', {
-        title: title.trim(),
-        trackerType,
-        variant: selectedMeta?.defaultVariant,
-        assigneeId: effectiveAssigneeId,
-        size,
-      })
-      onClose()
-      resetForm()
-    } finally {
-      setLoading(false)
-    }
-  }, [title, trackerType, selectedMeta, effectiveAssigneeId, size, onClose])
 
   const resetForm = () => {
     setTitle('')
@@ -80,6 +74,34 @@ export function TrackerQuickCreateModal({ isOpen, onClose }: TrackerQuickCreateM
     setAssigneeId('')
     setSize('md')
   }
+
+  const handleAddToDashboard = useCallback(async () => {
+    if (!title.trim() || !family?.id || !currentMember?.id) return
+    createWidget.mutate(
+      {
+        family_id: family.id,
+        family_member_id: effectiveAssigneeId || currentMember.id,
+        template_type: trackerType,
+        visual_variant: selectedMeta?.defaultVariant ?? null,
+        title: title.trim(),
+        size: SIZE_TO_WIDGET[size],
+        position_x: 0,
+        position_y: 0,
+        widget_config: {},
+        assigned_member_id: effectiveAssigneeId || currentMember.id,
+      },
+      {
+        onSuccess: () => {
+          routingToast.show({
+            message: `"${title.trim()}" added to dashboard`,
+            onUndo: () => {},
+          })
+          onClose()
+          resetForm()
+        },
+      }
+    )
+  }, [title, trackerType, selectedMeta, effectiveAssigneeId, size, family, currentMember, createWidget, routingToast, onClose])
 
   const footer = (
     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>

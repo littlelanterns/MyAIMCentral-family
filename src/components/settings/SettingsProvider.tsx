@@ -2,10 +2,12 @@
  * SettingsProvider — PRD-04 / PRD-22
  *
  * Provides openSettings() to all shells via context.
- * Now navigates to the /settings page instead of showing a modal overlay.
+ * Navigates to the /settings page using React Router (no full page reload).
+ * Full Settings overlay conversion deferred to PRD-22 build.
  */
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useCallback, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface SettingsContextType {
   isOpen: boolean
@@ -24,16 +26,22 @@ export function useSettings() {
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
+
+  const openSettings = useCallback(() => {
+    navigate('/settings')
+  }, [navigate])
+
+  const closeSettings = useCallback(() => {
+    navigate(-1)
+  }, [navigate])
+
   return (
     <SettingsContext.Provider
       value={{
         isOpen: false,
-        openSettings: () => {
-          // Navigate to the settings page
-          // Using window.location because SettingsProvider is outside BrowserRouter
-          window.location.href = '/settings'
-        },
-        closeSettings: () => {},
+        openSettings,
+        closeSettings,
       }}
     >
       {children}

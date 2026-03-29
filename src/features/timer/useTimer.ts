@@ -194,7 +194,7 @@ export function useTimerActions(): TimerActions {
     // task_id / member_id in the completion event.
     const { data: session, error: fetchError } = await supabase
       .from('time_sessions')
-      .select('started_at, task_id, family_member_id')
+      .select('started_at, task_id, family_member_id, timer_mode')
       .eq('id', sessionId)
       .single()
 
@@ -221,6 +221,7 @@ export function useTimerActions(): TimerActions {
           taskId: session.task_id,
           memberId: session.family_member_id,
           durationMinutes,
+          timerMode: session.timer_mode,
         },
       })
     )

@@ -225,6 +225,24 @@ serve(async (req: Request) => {
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
 
+    // Log AI cost (fire-and-forget) — Sonnet calls are expensive for PDF extraction
+    const inputTokens = data.usage?.prompt_tokens || 0;
+    const outputTokens = data.usage?.completion_tokens || 0;
+    // Resolve family_id and member_id from user_id
+    supabase.from('family_members').select('id, family_id').eq('user_id', userId).limit(1).single()
+      .then(({ data: fm }) => {
+        if (fm) {
+          supabase.from('ai_usage_tracking').insert({
+            family_id: fm.family_id,
+            member_id: fm.id,
+            feature_key: 'extract_insights',
+            model: 'sonnet',
+            tokens_used: inputTokens + outputTokens,
+            estimated_cost: (inputTokens * 3.0 + outputTokens * 15.0) / 1_000_000,
+          }).then(() => {}).catch(() => {});
+        }
+      }).catch(() => {});
+
     // Parse JSON from response — strip markdown fencing if present
     const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 

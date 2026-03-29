@@ -20,7 +20,7 @@ import { ModalV2, Button } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import {
   useEventsForDate, useTasksDueInRange, useApproveEvent,
-  useRejectEvent, useDeleteEvent, useCalendarSettings,
+  useRejectEvent, useDeleteEvent, useCalendarSettings, useUpdateEvent,
 } from '@/hooks/useCalendarEvents'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -77,6 +77,7 @@ export function DateDetailModal({ date, isOpen, onClose, onDateChange, onAddEven
   const approveEvent = useApproveEvent()
   const rejectEvent = useRejectEvent()
   const deleteEvent = useDeleteEvent()
+  const updateEvent = useUpdateEvent()
   const [showJumpPicker, setShowJumpPicker] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
@@ -110,6 +111,15 @@ export function DateDetailModal({ date, isOpen, onClose, onDateChange, onAddEven
     await deleteEvent.mutateAsync(eventId)
     setConfirmDeleteId(null)
   }, [deleteEvent])
+
+  const handleToggleItem = useCallback((event: CalendarEvent & { event_attendees: EventAttendee[] }, idx: number) => {
+    const currentItems: ItemToBring[] = event.items_to_bring ?? []
+    const updated = currentItems.map((item, i) =>
+      i === idx ? { ...item, checked: !item.checked } : item
+    )
+    // Optimistic: the query will re-fetch on invalidation
+    updateEvent.mutate({ eventId: event.id, updates: { items_to_bring: updated } })
+  }, [updateEvent])
 
   return (
     <ModalV2
@@ -204,6 +214,7 @@ export function DateDetailModal({ date, isOpen, onClose, onDateChange, onAddEven
                   onReject={(id) => { setRejectingId(id); setRejectionNote('') }}
                   onEdit={onEditEvent ? () => onEditEvent(ev) : undefined}
                   onDelete={(id) => setConfirmDeleteId(id)}
+                  onToggleItem={(idx) => handleToggleItem(ev, idx)}
                   isCreator={ev.created_by === member?.id}
                 />
               ))}
@@ -247,7 +258,7 @@ export function DateDetailModal({ date, isOpen, onClose, onDateChange, onAddEven
               <button
                 onClick={() => handleDelete(confirmDeleteId)}
                 className="text-xs font-medium px-3 py-1.5 rounded"
-                style={{ background: 'var(--color-danger, #E53E3E)', color: '#fff', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
+                style={{ background: 'var(--color-danger, #E53E3E)', color: 'var(--color-bg-card, #fff)', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
               >
                 Delete
               </button>
@@ -309,6 +320,7 @@ function EventCard({
   onReject,
   onEdit,
   onDelete,
+  onToggleItem,
   isCreator,
 }: {
   event: CalendarEvent & { event_attendees: EventAttendee[] }
@@ -319,6 +331,7 @@ function EventCard({
   onReject: (id: string) => void
   onEdit?: () => void
   onDelete: (id: string) => void
+  onToggleItem: (idx: number) => void
   isCreator: boolean
 }) {
   const isPending = event.status === 'pending_approval'
@@ -457,13 +470,13 @@ function EventCard({
           </div>
           <div className="space-y-0.5">
             {event.items_to_bring.map((item: ItemToBring, idx: number) => (
-              <label key={idx} className="flex items-center gap-1.5 text-xs cursor-default" style={{ color: 'var(--color-text-primary)' }}>
+              <label key={idx} className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
                 <input
                   type="checkbox"
                   checked={item.checked}
-                  readOnly
+                  onChange={() => onToggleItem(idx)}
                   className="rounded"
-                  style={{ accentColor: 'var(--color-btn-primary-bg)', width: '12px', height: '12px' }}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)', width: '12px', height: '12px', cursor: 'pointer' }}
                 />
                 <span style={{ textDecoration: item.checked ? 'line-through' : 'none', opacity: item.checked ? 0.5 : 1 }}>
                   {item.text}

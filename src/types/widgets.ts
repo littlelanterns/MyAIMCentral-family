@@ -26,6 +26,12 @@ export type TrackerType =
 // Phase A tracker types
 export type PhaseATrackerType = 'tally' | 'streak' | 'percentage' | 'checklist' | 'multi_habit_grid'
 
+// Phase B-1 tracker types
+export type PhaseBTrackerType =
+  | 'boolean_checkin' | 'sequential_path' | 'achievement_badge'
+  | 'xp_level' | 'allowance_calculator' | 'leaderboard'
+  | 'mood_rating' | 'countdown' | 'timer_duration' | 'snapshot_comparison'
+
 // ============================================================
 // Visual Variants — how each tracker type renders
 // ============================================================
@@ -51,6 +57,9 @@ export type VisualVariant =
   | 'road_trip' | 'space_route' | 'garden_path' | 'castle_quest' | 'ocean_voyage' | 'custom_path'
   | 'bujo_monthly_grid' | 'animated_sticker_grid' | 'progress_bar_multi'
   | 'colored_bars_competitive' | 'year_in_pixels_weekly' | 'donut_completion'
+  // Phase B-1 additions
+  | 'simple_toggle' | 'calendar_dots' | 'stamp_card' | 'heatmap'
+  | 'number_scale'
   | string // Allow future variants without type errors
 
 // ============================================================
@@ -319,12 +328,12 @@ export const TRACKER_TYPE_REGISTRY: TrackerTypeMeta[] = [
   {
     type: 'boolean_checkin',
     label: 'Daily Check-In',
-    description: 'Simple yes/no daily check-in.',
+    description: 'Simple yes/no daily check-in. Did you do the thing today?',
     icon: 'CircleCheck',
-    defaultVariant: 'emoji_row_trend',
-    availableVariants: ['emoji_row_trend', 'color_gradient', 'weather_metaphor'],
+    defaultVariant: 'simple_toggle',
+    availableVariants: ['simple_toggle', 'calendar_dots', 'stamp_card', 'heatmap'],
     category: 'reflection_insight',
-    supportsMultiplayer: false,
+    supportsMultiplayer: true,
     phaseA: false,
   },
   {
@@ -387,8 +396,8 @@ export const TRACKER_TYPE_REGISTRY: TrackerTypeMeta[] = [
     label: 'Mood Check-In',
     description: 'Daily mood or energy rating on a 1-5 scale. See patterns over time.',
     icon: 'Smile',
-    defaultVariant: 'year_in_pixels_weekly',
-    availableVariants: ['year_in_pixels_weekly', 'color_gradient', 'weather_metaphor'],
+    defaultVariant: 'emoji_row_trend',
+    availableVariants: ['emoji_row_trend', 'color_gradient', 'weather_metaphor', 'number_scale'],
     category: 'reflection_insight',
     supportsMultiplayer: false,
     phaseA: false,

@@ -12,9 +12,10 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Settings,
-  CheckSquare, Circle,
+  CheckSquare, Circle, Check,
 } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
@@ -22,6 +23,7 @@ import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/ho
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useUpdateTask, useCompleteTask } from '@/hooks/useTasks'
 import { DateDetailModal } from './DateDetailModal'
 import { EventCreationModal } from './EventCreationModal'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
@@ -106,12 +108,15 @@ function StackedDots({ colors, pending }: { colors: string[]; pending?: boolean 
 }
 
 export function CalendarPage() {
+  const navigate = useNavigate()
   const { data: settings } = useCalendarSettings()
   const { data: family } = useFamily()
   const { data: member } = useFamilyMember()
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayHeaders = weekStartDay === 1 ? DAY_HEADERS_MON : DAY_HEADERS_SUN
+  const updateTask = useUpdateTask()
+  const completeTask = useCompleteTask()
 
   const today = new Date()
   const [view, setView] = useState<CalendarView>(() => {
@@ -136,8 +141,10 @@ export function CalendarPage() {
   const [eventCreationDate, setEventCreationDate] = useState<string | undefined>()
   const [showMiniPicker, setShowMiniPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [_editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [editingEvent, setEditingEvent] = useState<(CalendarEvent & { event_attendees?: EventAttendee[] }) | null>(null)
   const [taskDetailId, setTaskDetailId] = useState<string | null>(null)
+  const [taskCompletedId, setTaskCompletedId] = useState<string | null>(null)
+  const [taskDatePickerValue, setTaskDatePickerValue] = useState<string>('')
 
   // ?new=1 URL param → auto-open EventCreationModal
   useEffect(() => {
@@ -218,7 +225,7 @@ export function CalendarPage() {
   const todayKey = toISODate(today)
 
   // Navigation
-  const navigate = useCallback((dir: 'prev' | 'next') => {
+  const navigateCalendar = useCallback((dir: 'prev' | 'next') => {
     setCurrentDate(prev => {
       if (view === 'month') {
         const d = new Date(prev)
@@ -428,7 +435,7 @@ export function CalendarPage() {
         >
           {/* Date navigation */}
           <div className="flex items-center gap-2 flex-1">
-            <button onClick={() => navigate('prev')} className="p-1.5 rounded" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }} aria-label="Previous">
+            <button onClick={() => navigateCalendar('prev')} className="p-1.5 rounded" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }} aria-label="Previous">
               <ChevronLeft size={16} />
             </button>
 
@@ -436,7 +443,7 @@ export function CalendarPage() {
               {titleLabel}
             </span>
 
-            <button onClick={() => navigate('next')} className="p-1.5 rounded" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }} aria-label="Next">
+            <button onClick={() => navigateCalendar('next')} className="p-1.5 rounded" style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }} aria-label="Next">
               <ChevronRight size={16} />
             </button>
 
@@ -893,8 +900,12 @@ export function CalendarPage() {
       {/* EventCreationModal */}
       <EventCreationModal
         isOpen={showEventCreation}
-        onClose={() => setShowEventCreation(false)}
+        onClose={() => {
+          setShowEventCreation(false)
+          setEditingEvent(null)
+        }}
         initialDate={eventCreationDate}
+        initialEvent={editingEvent ?? undefined}
       />
 
       {/* Calendar Settings */}
@@ -908,7 +919,7 @@ export function CalendarPage() {
       {taskDetail && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={() => setTaskDetailId(null)}
+          onClick={() => { setTaskDetailId(null); setTaskCompletedId(null); setTaskDatePickerValue('') }}
         >
           <div className="fixed inset-0" style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-primary) 60%, transparent)' }} />
           <div
@@ -920,15 +931,20 @@ export function CalendarPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
-                <CheckSquare size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                {taskCompletedId === taskDetail.id ? (
+                  <Check size={18} style={{ color: 'var(--color-success, #38A169)' }} />
+                ) : (
+                  <CheckSquare size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                )}
                 <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
                   {taskDetail.title}
                 </h3>
               </div>
               <button
-                onClick={() => setTaskDetailId(null)}
+                onClick={() => { setTaskDetailId(null); setTaskCompletedId(null); setTaskDatePickerValue('') }}
                 className="text-sm"
                 style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}
               >
@@ -936,25 +952,50 @@ export function CalendarPage() {
               </button>
             </div>
 
+            {/* Details */}
             <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
+              {/* Due Date row — shows date picker inline when editing */}
+              <div className="flex items-center justify-between gap-2">
                 <span style={{ color: 'var(--color-text-secondary)' }}>Due Date</span>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{taskDetail.due_date}</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={taskDatePickerValue || taskDetail.due_date}
+                    onChange={(e) => {
+                      const newDate = e.target.value
+                      setTaskDatePickerValue(newDate)
+                      if (newDate) {
+                        updateTask.mutate({ id: taskDetail.id, due_date: newDate })
+                      }
+                    }}
+                    className="text-xs rounded px-1.5 py-1 outline-none"
+                    style={{
+                      backgroundColor: 'var(--color-bg-primary)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
               </div>
+
               <div className="flex items-center justify-between">
                 <span style={{ color: 'var(--color-text-secondary)' }}>Status</span>
                 <span
                   className="px-2 py-0.5 rounded-full text-xs font-medium"
                   style={{
-                    backgroundColor: taskDetail.status === 'completed'
-                      ? 'color-mix(in srgb, var(--color-success) 15%, transparent)'
+                    backgroundColor: (taskCompletedId === taskDetail.id || taskDetail.status === 'completed')
+                      ? 'color-mix(in srgb, var(--color-success, #38A169) 15%, transparent)'
                       : 'var(--color-bg-secondary)',
-                    color: taskDetail.status === 'completed' ? 'var(--color-success)' : 'var(--color-text-primary)',
+                    color: (taskCompletedId === taskDetail.id || taskDetail.status === 'completed')
+                      ? 'var(--color-success, #38A169)'
+                      : 'var(--color-text-primary)',
                   }}
                 >
-                  {taskDetail.status}
+                  {taskCompletedId === taskDetail.id ? 'completed' : taskDetail.status}
                 </span>
               </div>
+
               {taskDetail.priority && (
                 <div className="flex items-center justify-between">
                   <span style={{ color: 'var(--color-text-secondary)' }}>Priority</span>
@@ -963,11 +1004,59 @@ export function CalendarPage() {
               )}
             </div>
 
-            <div className="mt-4 flex justify-end">
+            {/* Action buttons */}
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {/* Mark Complete — hidden if already completed */}
+                {taskDetail.status !== 'completed' && taskCompletedId !== taskDetail.id && (
+                  <button
+                    onClick={() => {
+                      if (!member?.id) return
+                      completeTask.mutate({
+                        taskId: taskDetail.id,
+                        memberId: member.id,
+                        requireApproval: false,
+                      }, {
+                        onSuccess: () => {
+                          setTaskCompletedId(taskDetail.id)
+                        },
+                      })
+                    }}
+                    disabled={completeTask.isPending}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
+                    style={{
+                      background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                      color: 'var(--color-btn-primary-text)',
+                      border: 'none',
+                      cursor: completeTask.isPending ? 'default' : 'pointer',
+                      minHeight: 'unset',
+                      opacity: completeTask.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    <Check size={12} />
+                    {completeTask.isPending ? 'Saving…' : 'Mark Complete'}
+                  </button>
+                )}
+                {(taskDetail.status === 'completed' || taskCompletedId === taskDetail.id) && (
+                  <span
+                    className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg"
+                    style={{
+                      background: 'color-mix(in srgb, var(--color-success, #38A169) 15%, transparent)',
+                      color: 'var(--color-success, #38A169)',
+                    }}
+                  >
+                    <Check size={12} />
+                    Completed!
+                  </span>
+                )}
+              </div>
+
               <button
                 onClick={() => {
                   setTaskDetailId(null)
-                  window.location.href = '/tasks'
+                  setTaskCompletedId(null)
+                  setTaskDatePickerValue('')
+                  navigate(`/tasks?taskId=${taskDetail.id}`)
                 }}
                 className="text-sm font-medium"
                 style={{

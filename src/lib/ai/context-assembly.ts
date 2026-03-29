@@ -567,11 +567,19 @@ export async function assembleContext(
   }
 
   // ---------------------------------------------------------------------------
-  // Step 6: Privacy Filtered exclusion
-  // Archive items with is_privacy_filtered are already excluded server-side (query filter).
-  // This step is a defense-in-depth no-op for now — the real filtering happens in
-  // loadArchiveContext() via the .eq('is_privacy_filtered', false) query for non-mom.
+  // Step 6: Privacy Filtered exclusion — DEFENSE-IN-DEPTH
+  // Primary enforcement: loadArchiveContext() filters via .eq('is_privacy_filtered', false)
+  // for non-mom. This secondary check catches any items that might slip through
+  // future code paths or additional context sources. PRD-13: Privacy Filtered is a
+  // HARD system constraint — is_privacy_filtered items NEVER reach non-mom context.
   // ---------------------------------------------------------------------------
+  if (!isMom) {
+    // Filter archive context items that may have is_privacy_filtered set
+    // (should already be excluded by query, but enforce as defense-in-depth)
+    bundle.archiveContext.items = bundle.archiveContext.items.filter(
+      item => !(item as { is_privacy_filtered?: boolean }).is_privacy_filtered
+    )
+  }
 
   return bundle
 }

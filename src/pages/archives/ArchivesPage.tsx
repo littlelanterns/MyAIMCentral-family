@@ -523,7 +523,7 @@ export function ArchivesPage() {
 
   return (
     <PermissionGate featureKey="archives_browse">
-      <div className="max-w-3xl mx-auto space-y-6 pb-24">
+      <div className="density-compact max-w-3xl mx-auto space-y-6 pb-24">
         <FeatureGuide featureKey="archives" />
 
         {/* Header */}

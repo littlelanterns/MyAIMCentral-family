@@ -37,7 +37,7 @@ export function Welcome() {
                 opacity: lilaHovered ? 1 : 0,
                 pointerEvents: 'none',
                 background: brand.deepOcean,
-                color: '#ffffff',
+                color: 'var(--color-bg-base, #ffffff)',
                 padding: '6px 14px',
                 borderRadius: '12px',
                 fontSize: '0.85rem',
@@ -72,7 +72,7 @@ export function Welcome() {
           >
             MyAIM Central
           </h1>
-          <p className="text-lg" style={{ color: '#7a6a5f' }}>
+          <p className="text-lg" style={{ color: 'var(--color-text-secondary, #7a6a5f)' }}>
             Your skills. Your talents. Your interests. Amplified.
           </p>
         </div>
@@ -83,7 +83,7 @@ export function Welcome() {
             className="welcome-btn-primary block w-full py-3.5 px-6 rounded-xl font-semibold text-center"
             style={{
               background: `linear-gradient(135deg, ${brand.sageTeal} 0%, ${brand.goldenHoney} 100%)`,
-              color: '#ffffff',
+              color: 'var(--color-bg-base, #ffffff)',
               boxShadow: '0 4px 14px rgba(104, 163, 149, 0.35), 0 2px 6px rgba(0,0,0,0.08)',
             }}
           >
@@ -93,7 +93,7 @@ export function Welcome() {
             to="/auth/sign-in"
             className="welcome-btn-secondary block w-full py-3.5 px-6 rounded-xl font-semibold text-center"
             style={{
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--color-bg-base, #ffffff)',
               color: brand.warmEarth,
               border: `2px solid ${brand.softSage}`,
               boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
@@ -106,7 +106,7 @@ export function Welcome() {
         <Link
           to="/auth/family-login"
           className="welcome-btn-link inline-block text-sm font-medium"
-          style={{ color: '#7a6a5f' }}
+          style={{ color: 'var(--color-text-secondary, #7a6a5f)' }}
         >
           Family Member Login
         </Link>

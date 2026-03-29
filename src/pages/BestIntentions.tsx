@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
-import { Target, Plus, Pencil, Archive, Heart, HeartOff, Sparkles, Check, RotateCcw, ToggleLeft, ToggleRight } from 'lucide-react'
-import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge, Tooltip } from '@/components/shared'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { Target, Plus, Pencil, Archive, Heart, HeartOff, Sparkles, Check, RotateCcw, ToggleLeft, ToggleRight, BarChart3 } from 'lucide-react'
+import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge, Tooltip, TrackerAnalyticsView } from '@/components/shared'
+import type { TrackerAnalyticsDataSeries } from '@/components/shared'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useBestIntentions,
@@ -14,6 +15,9 @@ import {
   useRestoreIntention,
   useLogIteration,
   useTodaysIterations,
+  useUpdateIntentionColor,
+  useAllIntentionIterations,
+  INTENTION_COLORS,
 } from '@/hooks/useBestIntentions'
 import type { BestIntention } from '@/hooks/useBestIntentions'
 
@@ -90,6 +94,63 @@ function CelebrateButton({
   )
 }
 
+// ---- Color Picker Popover ----
+
+function IntentionColorPicker({
+  intentionId,
+  currentColor,
+}: {
+  intentionId: string
+  currentColor: string | null
+}) {
+  const [open, setOpen] = useState(false)
+  const updateColor = useUpdateIntentionColor()
+  const fallback = INTENTION_COLORS[0]
+  const active = currentColor ?? fallback
+
+  return (
+    <div className="relative">
+      <Tooltip content="Change color">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="w-4 h-4 rounded-full shrink-0 border border-transparent hover:ring-2 hover:ring-offset-1 transition-shadow"
+          style={{
+            backgroundColor: active,
+            ringColor: active,
+          }}
+          aria-label="Pick color"
+        />
+      </Tooltip>
+      {open && (
+        <div
+          className="absolute z-30 left-0 top-6 flex gap-1.5 p-2 rounded-lg shadow-lg"
+          style={{
+            backgroundColor: 'var(--color-bg-primary)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          {INTENTION_COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => {
+                updateColor.mutate({ id: intentionId, color: c })
+                setOpen(false)
+              }}
+              className="w-5 h-5 rounded-full transition-transform hover:scale-125"
+              style={{
+                backgroundColor: c,
+                outline: c === active ? '2px solid var(--color-text-primary)' : 'none',
+                outlineOffset: '2px',
+              }}
+              aria-label={`Color ${c}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- Intention Card (active or resting) ----
 
 function IntentionCard({
@@ -130,12 +191,15 @@ function IntentionCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p
-            className="font-semibold"
-            style={{ color: 'var(--color-text-heading)' }}
-          >
-            {intention.statement}
-          </p>
+          <div className="flex items-center gap-2">
+            <IntentionColorPicker intentionId={intention.id} currentColor={intention.color} />
+            <p
+              className="font-semibold"
+              style={{ color: 'var(--color-text-heading)' }}
+            >
+              {intention.statement}
+            </p>
+          </div>
           {intention.description && (
             <p
               className="text-sm mt-1"
@@ -314,6 +378,8 @@ function IntentionForm({
   onSave,
   onCancel,
   isSaving,
+  familyId,
+  currentMemberId,
 }: {
   initial?: BestIntention | null
   onSave: (data: {
@@ -321,9 +387,12 @@ function IntentionForm({
     description: string
     tags: string[]
     tracker_style: TrackerStyle
+    related_member_ids: string[]
   }) => void
   onCancel: () => void
   isSaving: boolean
+  familyId?: string
+  currentMemberId?: string
 }) {
   const [statement, setStatement] = useState(initial?.statement ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -331,6 +400,18 @@ function IntentionForm({
   const [trackerStyle, setTrackerStyle] = useState<TrackerStyle>(
     initial?.tracker_style ?? 'counter'
   )
+  const [relatedMemberIds, setRelatedMemberIds] = useState<string[]>(
+    initial?.related_member_ids ?? []
+  )
+  const { data: allMembers = [] } = useFamilyMembers(familyId)
+  // Exclude self from the picker
+  const otherMembers = allMembers.filter((m) => m.id !== currentMemberId)
+
+  function toggleMember(id: string) {
+    setRelatedMemberIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   const handleSubmit = () => {
     if (!statement.trim()) return
@@ -338,7 +419,7 @@ function IntentionForm({
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean)
-    onSave({ statement: statement.trim(), description: description.trim(), tags, tracker_style: trackerStyle })
+    onSave({ statement: statement.trim(), description: description.trim(), tags, tracker_style: trackerStyle, related_member_ids: relatedMemberIds })
   }
 
   return (
@@ -417,6 +498,39 @@ function IntentionForm({
         />
       </div>
 
+      {/* Related members */}
+      {otherMembers.length > 0 && (
+        <div>
+          <label
+            className="block text-sm mb-1.5"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            Related to (optional)
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {otherMembers.map((m) => {
+              const selected = relatedMemberIds.includes(m.id)
+              const color = m.assigned_color ?? m.member_color ?? 'var(--color-btn-primary-bg)'
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleMember(m.id)}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor: selected ? color : 'transparent',
+                    color: selected ? '#ffffff' : 'var(--color-text-primary)',
+                    border: `2px solid ${color}`,
+                  }}
+                >
+                  {m.display_name.split(' ')[0]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Tracker style */}
       <div>
         <label
@@ -486,7 +600,169 @@ function IntentionForm({
   )
 }
 
+// ---- Analytics Tab Content ----
+
+function AnalyticsTabContent({
+  intentions,
+  memberId,
+}: {
+  intentions: BestIntention[]
+  memberId: string
+}) {
+  const activeIntentions = useMemo(
+    () => intentions.filter((i) => i.is_active),
+    [intentions],
+  )
+
+  const [timeFrame, setTimeFrame] = useState<'day' | 'week' | 'month'>('week')
+  const [chartType, setChartType] = useState<'bar' | 'line' | 'both'>('bar')
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+
+  // Compute date range based on time frame
+  const dateRange = useMemo(() => {
+    const end = new Date()
+    const start = new Date()
+    if (timeFrame === 'day') {
+      start.setDate(end.getDate() - 1)
+    } else if (timeFrame === 'week') {
+      start.setDate(end.getDate() - 6)
+    } else {
+      start.setDate(end.getDate() - 29)
+    }
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
+    }
+  }, [timeFrame])
+
+  const intentionIds = useMemo(
+    () => activeIntentions.map((i) => i.id),
+    [activeIntentions],
+  )
+
+  const { data: allIterations = [] } = useAllIntentionIterations(
+    memberId,
+    intentionIds,
+    dateRange,
+  )
+
+  // Build data series from iterations
+  const dataSeries: TrackerAnalyticsDataSeries[] = useMemo(() => {
+    // Generate all dates in the range
+    const dates: string[] = []
+    const cur = new Date(dateRange.start + 'T00:00:00')
+    const endD = new Date(dateRange.end + 'T00:00:00')
+    while (cur <= endD) {
+      dates.push(cur.toISOString().split('T')[0])
+      cur.setDate(cur.getDate() + 1)
+    }
+
+    // Group iterations by intention_id + day_date
+    const grouped = new Map<string, Map<string, number>>()
+    for (const iter of allIterations) {
+      if (!grouped.has(iter.intention_id)) {
+        grouped.set(iter.intention_id, new Map())
+      }
+      const dayMap = grouped.get(iter.intention_id)!
+      dayMap.set(iter.day_date, (dayMap.get(iter.day_date) ?? 0) + 1)
+    }
+
+    return activeIntentions
+      .filter((i) => !hiddenSeries.has(i.id))
+      .map((intention, idx) => {
+        const dayMap = grouped.get(intention.id)
+        return {
+          id: intention.id,
+          label:
+            intention.statement.length > 30
+              ? intention.statement.slice(0, 30) + '...'
+              : intention.statement,
+          color: intention.color ?? INTENTION_COLORS[idx % INTENTION_COLORS.length],
+          dataPoints: dates.map((d) => ({
+            date: d,
+            value: dayMap?.get(d) ?? 0,
+          })),
+        }
+      })
+  }, [activeIntentions, allIterations, dateRange, hiddenSeries])
+
+  // Legend with toggle
+  const toggleSeries = useCallback((id: string) => {
+    setHiddenSeries((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  if (activeIntentions.length === 0) {
+    return (
+      <div
+        className="p-8 rounded-lg text-center space-y-3"
+        style={{
+          backgroundColor: 'var(--color-bg-card)',
+          border: '1px solid var(--color-border)',
+        }}
+      >
+        <BarChart3 size={32} style={{ color: 'var(--color-text-secondary)' }} className="mx-auto" />
+        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          Create active intentions to see analytics here.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Interactive legend — toggle intentions on/off */}
+      <div className="flex flex-wrap gap-2">
+        {activeIntentions.map((intention, idx) => {
+          const color = intention.color ?? INTENTION_COLORS[idx % INTENTION_COLORS.length]
+          const hidden = hiddenSeries.has(intention.id)
+          return (
+            <button
+              key={intention.id}
+              onClick={() => toggleSeries(intention.id)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-opacity"
+              style={{
+                backgroundColor: hidden
+                  ? 'var(--color-bg-secondary)'
+                  : `color-mix(in srgb, ${color} 18%, transparent)`,
+                color: hidden ? 'var(--color-text-secondary)' : color,
+                border: `1.5px solid ${hidden ? 'var(--color-border)' : color}`,
+                opacity: hidden ? 0.5 : 1,
+              }}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: color, opacity: hidden ? 0.3 : 1 }}
+              />
+              {intention.statement.length > 25
+                ? intention.statement.slice(0, 25) + '...'
+                : intention.statement}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Chart */}
+      <TrackerAnalyticsView
+        dataSeries={dataSeries}
+        timeFrame={timeFrame}
+        onTimeFrameChange={setTimeFrame}
+        chartType={chartType}
+        onChartTypeChange={setChartType}
+        showAverage
+        showTotal
+      />
+    </div>
+  )
+}
+
 // ---- Main Page ----
+
+type PageTab = 'intentions' | 'analytics'
 
 export function BestIntentionsPage() {
   const { data: member } = useFamilyMember()
@@ -496,6 +772,7 @@ export function BestIntentionsPage() {
   const createIntention = useCreateBestIntention()
   const updateIntention = useUpdateBestIntention()
 
+  const [activeTab, setActiveTab] = useState<PageTab>('intentions')
   const [showCreate, setShowCreate] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
@@ -527,6 +804,7 @@ export function BestIntentionsPage() {
     description: string
     tags: string[]
     tracker_style: TrackerStyle
+    related_member_ids: string[]
   }) {
     if (!member || !family) return
     await createIntention.mutateAsync({
@@ -536,6 +814,7 @@ export function BestIntentionsPage() {
       description: data.description || undefined,
       tags: data.tags.length > 0 ? data.tags : undefined,
       tracker_style: data.tracker_style,
+      related_member_ids: data.related_member_ids.length > 0 ? data.related_member_ids : undefined,
     })
     resetForm()
   }
@@ -545,6 +824,7 @@ export function BestIntentionsPage() {
     description: string
     tags: string[]
     tracker_style: TrackerStyle
+    related_member_ids: string[]
   }) {
     if (!editing) return
     await updateIntention.mutateAsync({
@@ -553,6 +833,7 @@ export function BestIntentionsPage() {
       description: data.description || null,
       tags: data.tags.length > 0 ? data.tags : null,
       tracker_style: data.tracker_style,
+      related_member_ids: data.related_member_ids.length > 0 ? data.related_member_ids : null,
     })
     resetForm()
   }
@@ -563,7 +844,7 @@ export function BestIntentionsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="density-comfortable max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center justify-between">
@@ -599,36 +880,38 @@ export function BestIntentionsPage() {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            <Tooltip content="Bulk add intentions with AI">
-            <button
-              onClick={() => setShowBulkAdd(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-btn-primary-bg)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              <Sparkles size={14} />
-              <span className="hidden sm:inline">Bulk</span>
-            </button>
-            </Tooltip>
-            <button
-              onClick={() => {
-                setShowCreate(true)
-                setEditing(null)
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-              style={{
-                backgroundColor: 'var(--color-btn-primary-bg)',
-                color: 'var(--color-btn-primary-text)',
-              }}
-            >
-              <Plus size={16} /> Add Intention
-            </button>
-          </div>
+          {/* Action buttons — only on intentions tab */}
+          {activeTab === 'intentions' && (
+            <div className="flex items-center gap-2">
+              <Tooltip content="Bulk add intentions with AI">
+              <button
+                onClick={() => setShowBulkAdd(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-btn-primary-bg)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <Sparkles size={14} />
+                <span className="hidden sm:inline">Bulk</span>
+              </button>
+              </Tooltip>
+              <button
+                onClick={() => {
+                  setShowCreate(true)
+                  setEditing(null)
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                <Plus size={16} /> Add Intention
+              </button>
+            </div>
+          )}
         </div>
 
         {/* AI summary */}
@@ -642,149 +925,186 @@ export function BestIntentionsPage() {
         )}
       </div>
 
-      {/* Bulk Add */}
-      {showBulkAdd && member && family && (
-        <BulkAddWithAI
-          title="Bulk Add Intentions"
-          placeholder={
-            'Paste or type multiple intentions, one per line. E.g.:\nI intend to be more present with my kids\nI intend to move my body every morning\nI intend to respond instead of react'
-          }
-          hint="AI will parse your text into individual intention statements."
-          parsePrompt='Parse the following text into individual intention statements. Each should be a clear, personal statement (often starting with "I intend to..." but not required). Return a JSON array of strings: ["intention1", "intention2", ...].'
-          onSave={async (parsed) => {
-            for (const item of parsed.filter((i) => i.selected)) {
-              await createIntention.mutateAsync({
-                family_id: family.id,
-                member_id: member.id,
-                statement: item.text,
-              })
-            }
-          }}
-          onClose={() => setShowBulkAdd(false)}
-        />
-      )}
-
-      {/* Create / Edit Form */}
-      {(showCreate || editing) && (
-        <IntentionForm
-          initial={editing}
-          onSave={editing ? handleUpdate : handleCreate}
-          onCancel={resetForm}
-          isSaving={createIntention.isPending || updateIntention.isPending}
-        />
-      )}
-
-      {/* Loading */}
-      {isLoading ? (
-        <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
-      ) : intentions.length === 0 && !showCreate ? (
-        /* Empty state */
-        <div
-          className="p-8 rounded-lg text-center space-y-4"
-          style={{
-            backgroundColor: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <Target
-            size={40}
-            className="mx-auto"
-            style={{ color: 'var(--color-text-secondary)' }}
-          />
-          <div>
-            <p
-              className="text-sm"
-              style={{ color: 'var(--color-text-secondary)' }}
+      {/* Tab switcher */}
+      <div className="flex gap-1">
+        {([
+          { value: 'intentions' as const, label: 'My Intentions', icon: Target },
+          { value: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
+        ]).map((tab) => {
+          const isActive = activeTab === tab.value
+          return (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                background: isActive ? 'var(--surface-primary)' : 'var(--color-bg-secondary)',
+                color: isActive ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
+                border: isActive ? 'none' : '1px solid var(--color-border-default)',
+              }}
             >
-              Best Intentions are the things you want to be more mindful of
-              &mdash; not goals to complete, but ways of being you want to
-              practice.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: 'var(--color-btn-primary-bg)',
-              color: 'var(--color-btn-primary-text)',
-            }}
-          >
-            <Plus size={16} /> Add My First Intention
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Active Intentions */}
-          {activeIntentions.length > 0 && (
-            <div className="space-y-3">
-              <h2
-                className="text-sm font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                Active ({activeIntentions.length})
-              </h2>
-              {activeIntentions.map((intention) => (
-                <IntentionCard
-                  key={intention.id}
-                  intention={intention}
-                  familyId={family?.id ?? ''}
-                  memberId={member?.id ?? ''}
-                  isActive
-                  onEdit={handleEdit}
-                />
-              ))}
-            </div>
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && member && (
+        <AnalyticsTabContent intentions={intentions} memberId={member.id} />
+      )}
+
+      {/* Intentions Tab */}
+      {activeTab === 'intentions' && (
+        <>
+          {/* Bulk Add */}
+          {showBulkAdd && member && family && (
+            <BulkAddWithAI
+              title="Bulk Add Intentions"
+              placeholder={
+                'Paste or type multiple intentions, one per line. E.g.:\nI intend to be more present with my kids\nI intend to move my body every morning\nI intend to respond instead of react'
+              }
+              hint="AI will parse your text into individual intention statements."
+              parsePrompt='Parse the following text into individual intention statements. Each should be a clear, personal statement (often starting with "I intend to..." but not required). Return a JSON array of strings: ["intention1", "intention2", ...].'
+              onSave={async (parsed) => {
+                for (const item of parsed.filter((i) => i.selected)) {
+                  await createIntention.mutateAsync({
+                    family_id: family.id,
+                    member_id: member.id,
+                    statement: item.text,
+                  })
+                }
+              }}
+              onClose={() => setShowBulkAdd(false)}
+            />
           )}
 
-          {/* Resting Intentions */}
-          {restingIntentions.length > 0 && (
-            <CollapsibleGroup
-              label="Resting"
-              count={restingIntentions.length}
-              defaultOpen={false}
-              description="Intentions you're not actively tracking right now"
+          {/* Create / Edit Form */}
+          {(showCreate || editing) && (
+            <IntentionForm
+              initial={editing}
+              onSave={editing ? handleUpdate : handleCreate}
+              onCancel={resetForm}
+              isSaving={createIntention.isPending || updateIntention.isPending}
+              familyId={family?.id}
+              currentMemberId={member?.id}
+            />
+          )}
+
+          {/* Loading */}
+          {isLoading ? (
+            <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
+          ) : intentions.length === 0 && !showCreate ? (
+            /* Empty state */
+            <div
+              className="p-8 rounded-lg text-center space-y-4"
+              style={{
+                backgroundColor: 'var(--color-bg-card)',
+                border: '1px solid var(--color-border)',
+              }}
             >
-              <div className="space-y-2">
-                {restingIntentions.map((intention) => (
-                  <IntentionCard
-                    key={intention.id}
-                    intention={intention}
-                    familyId={family?.id ?? ''}
-                    memberId={member?.id ?? ''}
-                    isActive={false}
-                    onEdit={handleEdit}
-                  />
-                ))}
+              <Target
+                size={40}
+                className="mx-auto"
+                style={{ color: 'var(--color-text-secondary)' }}
+              />
+              <div>
+                <p
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Best Intentions are the things you want to be more mindful of
+                  &mdash; not goals to complete, but ways of being you want to
+                  practice.
+                </p>
               </div>
-            </CollapsibleGroup>
-          )}
-
-          {/* Archived */}
-          {archivedIntentions.length > 0 && (
-            <div>
               <button
-                onClick={() => setShowArchived((v) => !v)}
-                className="text-xs font-medium flex items-center gap-1"
-                style={{ color: 'var(--color-text-secondary)' }}
+                onClick={() => setShowCreate(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                }}
               >
-                <Archive size={12} />
-                {showArchived ? 'Hide' : 'View'} Archived (
-                {archivedIntentions.length})
+                <Plus size={16} /> Add My First Intention
               </button>
-              {showArchived && (
-                <div className="mt-2 space-y-2">
-                  {archivedIntentions.map((intention) => (
-                    <ArchivedIntentionCard
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Active Intentions */}
+              {activeIntentions.length > 0 && (
+                <div className="space-y-3">
+                  <h2
+                    className="text-sm font-semibold uppercase tracking-wide"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Active ({activeIntentions.length})
+                  </h2>
+                  {activeIntentions.map((intention) => (
+                    <IntentionCard
                       key={intention.id}
                       intention={intention}
+                      familyId={family?.id ?? ''}
+                      memberId={member?.id ?? ''}
+                      isActive
                       onEdit={handleEdit}
                     />
                   ))}
                 </div>
               )}
+
+              {/* Resting Intentions */}
+              {restingIntentions.length > 0 && (
+                <CollapsibleGroup
+                  label="Resting"
+                  count={restingIntentions.length}
+                  defaultOpen={false}
+                  description="Intentions you're not actively tracking right now"
+                >
+                  <div className="space-y-2">
+                    {restingIntentions.map((intention) => (
+                      <IntentionCard
+                        key={intention.id}
+                        intention={intention}
+                        familyId={family?.id ?? ''}
+                        memberId={member?.id ?? ''}
+                        isActive={false}
+                        onEdit={handleEdit}
+                      />
+                    ))}
+                  </div>
+                </CollapsibleGroup>
+              )}
+
+              {/* Archived */}
+              {archivedIntentions.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setShowArchived((v) => !v)}
+                    className="text-xs font-medium flex items-center gap-1"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    <Archive size={12} />
+                    {showArchived ? 'Hide' : 'View'} Archived (
+                    {archivedIntentions.length})
+                  </button>
+                  {showArchived && (
+                    <div className="mt-2 space-y-2">
+                      {archivedIntentions.map((intention) => (
+                        <ArchivedIntentionCard
+                          key={intention.id}
+                          intention={intention}
+                          onEdit={handleEdit}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )

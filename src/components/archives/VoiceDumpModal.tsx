@@ -7,7 +7,7 @@
 
 import { useCallback } from 'react'
 import { Mic, Square, Loader } from 'lucide-react'
-import { Modal } from '@/components/shared'
+import { ModalV2 } from '@/components/shared'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
 
 interface VoiceDumpModalProps {
@@ -54,7 +54,7 @@ export function VoiceDumpModal({ open, onClose, onTranscriptReady }: VoiceDumpMo
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Voice Dump" size="sm">
+    <ModalV2 id="archive-voice-dump" isOpen={open} onClose={handleClose} type="transient" title="Voice Dump" size="sm">
       <div className="py-6 flex flex-col items-center gap-5">
         {/* Subtitle */}
         <p className="text-sm text-center px-4" style={{ color: 'var(--color-text-secondary)' }}>
@@ -137,6 +137,6 @@ export function VoiceDumpModal({ open, onClose, onTranscriptReady }: VoiceDumpMo
           </div>
         )}
       </div>
-    </Modal>
+    </ModalV2>
   )
 }

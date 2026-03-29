@@ -8,7 +8,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
-import { Modal, LoadingSpinner } from '@/components/shared'
+import { ModalV2, LoadingSpinner } from '@/components/shared'
 import { getCroppedImage } from '@/lib/utils/cropImage'
 
 interface CropPreviewModalProps {
@@ -110,9 +110,11 @@ export function CropPreviewModal({
   const isLoading = uploading || processing
 
   return (
-    <Modal
-      open={open}
+    <ModalV2
+      id="archive-crop-preview"
+      isOpen={open}
       onClose={onClose}
+      type="transient"
       title="Crop Photo"
       size="md"
       footer={
@@ -220,6 +222,6 @@ export function CropPreviewModal({
         style={{ display: 'none' }}
         onChange={handleNewFileSelect}
       />
-    </Modal>
+    </ModalV2>
   )
 }

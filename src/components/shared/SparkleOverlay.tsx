@@ -99,7 +99,7 @@ export function SparkleOverlay({ type, origin, onComplete }: SparkleOverlayProps
             width: 80,
             height: 80,
             borderRadius: '50%',
-            background: 'rgba(212, 175, 55, 0.4)',
+            background: 'color-mix(in srgb, var(--color-accent) 40%, transparent)',
             animation: 'fadeIn 0.3s ease forwards',
           }}
         />

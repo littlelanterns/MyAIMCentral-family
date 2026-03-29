@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { ArrowLeft, Wand2, Loader2, CheckCircle2, XCircle, SkipForward, Pencil, Save, StickyNote } from 'lucide-react'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
 import { useNotepadContext } from './NotepadContext'
+import { useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase/client'
 import {
   useExtractContent,
   useRouteExtractedItem,
@@ -289,8 +291,10 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip,
   onSkip: () => void
   onEditInNotepad: () => void
 }) {
+  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(item.extracted_content)
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   const isRouted = item.status === 'routed'
   const isSkipped = item.status === 'skipped'
@@ -314,10 +318,30 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip,
     general: 'Note',
   }
 
-  function handleSaveEdit() {
-    // Update the item content in-memory (the actual DB update happens when routed)
-    item.extracted_content = editText
+  async function handleSaveEdit() {
+    const trimmed = editText.trim()
+    if (!trimmed || trimmed === item.extracted_content) {
+      setIsEditing(false)
+      return
+    }
+
+    // Optimistic: update local ref immediately so routing uses the new text
+    item.extracted_content = trimmed
     setIsEditing(false)
+
+    // Persist to DB
+    setIsSavingEdit(true)
+    try {
+      const { error } = await supabase
+        .from('notepad_extracted_items')
+        .update({ extracted_content: trimmed })
+        .eq('id', item.id)
+      if (!error) {
+        queryClient.invalidateQueries({ queryKey: ['extracted-items', item.tab_id] })
+      }
+    } finally {
+      setIsSavingEdit(false)
+    }
   }
 
   return (
@@ -377,14 +401,15 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip,
           <div className="flex gap-1 mt-1">
             <button
               onClick={handleSaveEdit}
-              className="px-2 py-1 rounded text-[10px] font-medium"
+              disabled={isSavingEdit}
+              className="px-2 py-1 rounded text-[10px] font-medium disabled:opacity-60"
               style={{
                 backgroundColor: 'var(--color-btn-primary-bg)',
                 color: 'var(--color-btn-primary-text)',
                 minHeight: 'unset',
               }}
             >
-              Save
+              {isSavingEdit ? '...' : 'Save'}
             </button>
             <button
               onClick={() => { setEditText(item.extracted_content); setIsEditing(false) }}

@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
+export const INTENTION_COLORS = [
+  '#4e79a7', '#f28e2b', '#e15759', '#76b7b2',
+  '#59a14f', '#edc948', '#b07aa1', '#ff9da7',
+] as const
+
 export interface BestIntention {
   id: string
   family_id: string
@@ -12,6 +17,7 @@ export interface BestIntention {
   source_reference_id: string | null
   related_member_ids: string[] | null
   tracker_style: 'counter' | 'bar_graph' | 'streak'
+  color: string | null
   is_active: boolean
   celebration_count: number
   iteration_count: number
@@ -31,6 +37,7 @@ export interface IntentionIteration {
   family_id: string
   member_id: string
   victory_reference: string | null
+  recorded_at?: string
   day_date: string
   created_at: string
 }
@@ -119,6 +126,16 @@ export function useTodaysIterations(intentionId: string | undefined) {
   })
 }
 
+/** Pick the next unused color from INTENTION_COLORS, cycling if all 8 are used. */
+function pickNextColor(existingColors: (string | null)[]): string {
+  const used = new Set(existingColors.filter(Boolean))
+  for (const c of INTENTION_COLORS) {
+    if (!used.has(c)) return c
+  }
+  // All 8 used — cycle from the start
+  return INTENTION_COLORS[existingColors.length % INTENTION_COLORS.length]
+}
+
 export function useCreateBestIntention() {
   const queryClient = useQueryClient()
 
@@ -132,7 +149,19 @@ export function useCreateBestIntention() {
       source?: string
       related_member_ids?: string[]
       tracker_style?: 'counter' | 'bar_graph' | 'streak'
+      color?: string
     }) => {
+      // Auto-assign a color if not provided — query existing intentions' colors
+      let color = intention.color
+      if (!color) {
+        const { data: existing } = await supabase
+          .from('best_intentions')
+          .select('color')
+          .eq('member_id', intention.member_id)
+          .is('archived_at', null)
+        color = pickNextColor((existing ?? []).map((r: { color: string | null }) => r.color))
+      }
+
       const { data, error } = await supabase
         .from('best_intentions')
         .insert({
@@ -144,6 +173,7 @@ export function useCreateBestIntention() {
           source: intention.source ?? 'manual',
           related_member_ids: intention.related_member_ids ?? null,
           tracker_style: intention.tracker_style ?? 'counter',
+          color,
         })
         .select()
         .single()
@@ -292,6 +322,54 @@ export function useReorderIntentions() {
   })
 }
 
+export function useUpdateIntentionColor() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, color }: { id: string; color: string }) => {
+      const { data, error } = await supabase
+        .from('best_intentions')
+        .update({ color })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data as BestIntention
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['best-intentions', data.member_id] })
+    },
+  })
+}
+
+/** Query all iterations for a member within a date range, grouped for analytics */
+export function useAllIntentionIterations(
+  memberId: string | undefined,
+  intentionIds: string[],
+  dateRange: { start: string; end: string },
+) {
+  return useQuery({
+    queryKey: ['intention-iterations-range', memberId, intentionIds, dateRange.start, dateRange.end],
+    queryFn: async () => {
+      if (!memberId || intentionIds.length === 0) return [] as IntentionIteration[]
+
+      const { data, error } = await supabase
+        .from('intention_iterations')
+        .select('*')
+        .eq('member_id', memberId)
+        .in('intention_id', intentionIds)
+        .gte('day_date', dateRange.start)
+        .lte('day_date', dateRange.end)
+        .order('day_date', { ascending: true })
+
+      if (error) throw error
+      return data as IntentionIteration[]
+    },
+    enabled: !!memberId && intentionIds.length > 0,
+  })
+}
+
 export function useLogIteration() {
   const queryClient = useQueryClient()
 
@@ -343,6 +421,7 @@ export function useLogIteration() {
       queryClient.invalidateQueries({ queryKey: ['intention-iterations', data.intention_id] })
       queryClient.invalidateQueries({ queryKey: ['intention-iterations-today', data.intention_id] })
       queryClient.invalidateQueries({ queryKey: ['best-intentions'] })
+      queryClient.invalidateQueries({ queryKey: ['intention-iterations-range'] })
     },
   })
 }

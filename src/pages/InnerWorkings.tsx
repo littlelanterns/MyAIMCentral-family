@@ -61,6 +61,7 @@ export function InnerWorkingsPage() {
   const [formCategory, setFormCategory] = useState<SelfKnowledgeCategory>('general')
   const [formSource, setFormSource] = useState('')
   const [formShareDad, setFormShareDad] = useState(false)
+  const [formShareMom, setFormShareMom] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -96,6 +97,7 @@ export function InnerWorkingsPage() {
     setFormContent('')
     setFormCategory('general')
     setFormSource('')
+    setFormShareMom(true)
     setFormShareDad(false)
     setMode('list')
     setEditing(null)
@@ -110,6 +112,7 @@ export function InnerWorkingsPage() {
       content: formContent.trim(),
       source_type: 'manual',
       source: formSource.trim() || null,
+      share_with_mom: formShareMom,
       share_with_dad: formShareDad,
     })
     resetForm()
@@ -122,6 +125,7 @@ export function InnerWorkingsPage() {
       content: formContent.trim(),
       category: formCategory,
       source: formSource.trim() || null,
+      share_with_mom: formShareMom,
       share_with_dad: formShareDad,
     })
     resetForm()
@@ -152,6 +156,7 @@ export function InnerWorkingsPage() {
     setFormContent(entry.content)
     setFormCategory(entry.category)
     setFormSource(entry.source ?? '')
+    setFormShareMom(entry.share_with_mom)
     setFormShareDad(entry.share_with_dad)
     setMode('edit')
   }
@@ -372,7 +377,7 @@ export function InnerWorkingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="density-comfortable max-w-3xl mx-auto space-y-6">
       <FeatureGuide featureKey="inner_workings" />
 
       {/* Header */}
@@ -505,11 +510,18 @@ export function InnerWorkingsPage() {
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>
-            <input type="checkbox" checked={formShareDad} onChange={e => setFormShareDad(e.target.checked)} className="rounded" />
-            <Users size={14} />
-            Share with spouse (helps Cyrano & relationship tools)
-          </label>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>
+              <input type="checkbox" checked={formShareMom} onChange={e => setFormShareMom(e.target.checked)} className="rounded" />
+              <Users size={14} />
+              Share with mom (visible in family context)
+            </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>
+              <input type="checkbox" checked={formShareDad} onChange={e => setFormShareDad(e.target.checked)} className="rounded" />
+              <Users size={14} />
+              Share with spouse (helps Cyrano & relationship tools)
+            </label>
+          </div>
           <div className="flex gap-2 justify-end">
             <button onClick={resetForm} className="px-3 py-2 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)', minHeight: '44px' }}>Cancel</button>
             <button

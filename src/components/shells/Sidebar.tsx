@@ -4,7 +4,7 @@ import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
-  BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
+  BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, BookCopy,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
@@ -64,7 +64,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     items: [
       { label: 'Guiding Stars', path: '/guiding-stars', featureKey: 'guiding_stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
       { label: 'BestIntentions', path: '/best-intentions', featureKey: 'best_intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
-      { label: 'InnerWorkings', path: '/inner-workings', featureKey: 'my_foundation', icon: <Heart size={20} />, tooltip: 'Self-knowledge and growth' },
+      { label: 'InnerWorkings', path: '/inner-workings', featureKey: 'my_foundation', icon: <Brain size={20} />, tooltip: 'Self-knowledge and growth' },
       { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
       { label: 'LifeLantern', path: '/life-lantern', featureKey: 'lifelantern', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
     ],

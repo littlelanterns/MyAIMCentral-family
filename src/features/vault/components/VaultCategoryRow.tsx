@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, type ReactNode } from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import type { VaultItem } from '../hooks/useVaultBrowse'
 import { VaultContentCard } from './VaultContentCard'
+import { VaultCategoryGridModal } from './VaultCategoryGridModal'
 
 interface Props {
   title: string
@@ -17,6 +18,7 @@ export function VaultCategoryRow({ title, categorySlug, items, memberId, showPro
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
+  const [showAllModal, setShowAllModal] = useState(false)
 
   const checkScroll = () => {
     const el = scrollRef.current
@@ -46,13 +48,13 @@ export function VaultCategoryRow({ title, categorySlug, items, memberId, showPro
           {title}
         </h2>
         {categorySlug && items.length > 0 && (
-          <a
-            href={`/vault/category/${categorySlug}`}
+          <button
+            onClick={() => setShowAllModal(true)}
             className="text-xs font-medium flex items-center gap-0.5"
-            style={{ color: 'var(--color-btn-primary-bg)' }}
+            style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             See All <ChevronRight size={14} />
-          </a>
+          </button>
         )}
       </div>
 
@@ -105,6 +107,15 @@ export function VaultCategoryRow({ title, categorySlug, items, memberId, showPro
           )}
         </div>
       )}
+
+      <VaultCategoryGridModal
+        isOpen={showAllModal}
+        onClose={() => setShowAllModal(false)}
+        categoryTitle={title}
+        items={items}
+        memberId={memberId}
+        onSelectItem={onSelectItem}
+      />
     </section>
   )
 }

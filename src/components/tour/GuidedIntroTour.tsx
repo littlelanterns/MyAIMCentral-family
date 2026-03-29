@@ -142,7 +142,7 @@ export function GuidedIntroTour() {
             right: '16px',
             width: '280px',
             backgroundColor: 'var(--color-bg-card)',
-            border: '1.5px solid #D6A461',
+            border: '1.5px solid var(--color-accent, #D6A461)',
             boxShadow: '0 4px 20px rgba(214,164,97,0.3)',
             animation: 'tourBounceIn 0.4s ease-out',
           }}

@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { system_prompt, messages, max_tokens, model_tier } = await req.json()
+    const { system_prompt, messages, max_tokens, model_tier, family_id, member_id, feature_key } = await req.json()
 
     if (!system_prompt || !messages) {
       return new Response(JSON.stringify({ error: 'Missing system_prompt or messages' }), {
@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
     }
 
     const modelId = MODELS[(model_tier as keyof typeof MODELS)] || MODELS.haiku
+    const isHaiku = !model_tier || model_tier === 'haiku'
 
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -73,6 +74,19 @@ Deno.serve(async (req) => {
     // Log usage (fire-and-forget)
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    if (family_id && member_id) {
+      const costPerMInput = isHaiku ? 0.25 : 3.0
+      const costPerMOutput = isHaiku ? 1.25 : 15.0
+      supabase.from('ai_usage_tracking').insert({
+        family_id,
+        member_id,
+        feature_key: feature_key || 'ai_parse',
+        model: isHaiku ? 'haiku' : 'sonnet',
+        tokens_used: inputTokens + outputTokens,
+        estimated_cost: (inputTokens * costPerMInput + outputTokens * costPerMOutput) / 1_000_000,
+      }).then(() => {}).catch(() => {})
+    }
 
     return new Response(JSON.stringify({ content, input_tokens: inputTokens, output_tokens: outputTokens }), {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },

@@ -13,12 +13,14 @@ import { useTasks } from '@/hooks/useTasks'
 import { LogOut, Users, Star, BookOpen, CheckSquare, List, Brain, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { FeatureIcon } from '@/components/shared'
 import { DashboardGrid } from '@/components/widgets/DashboardGrid'
+import { FolderOverlayModal } from '@/components/widgets/FolderOverlayModal'
 import { CalendarWidget } from '@/components/calendar'
 import { WidgetPicker } from '@/components/widgets/WidgetPicker'
 import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
 import { WidgetDetailView } from '@/components/widgets/WidgetDetailView'
-import { useWidgets, useWidgetFolders, useWidgetStarterConfigs, useCreateWidget, useDeleteWidget, useUpdateWidget, useRecordWidgetData } from '@/hooks/useWidgets'
-import type { DashboardWidget, WidgetStarterConfig, CreateWidget } from '@/types/widgets'
+import { useWidgets, useWidgetFolders, useWidgetStarterConfigs, useCreateWidget, useDeleteWidget, useUpdateWidget, useRecordWidgetData, useUpdateDashboardLayout } from '@/hooks/useWidgets'
+import { useDashboardConfig, useUpdateDashboardConfig } from '@/hooks/useDashboardConfig'
+import type { DashboardWidget, WidgetStarterConfig, CreateWidget, DashboardWidgetFolder } from '@/types/widgets'
 
 export function Dashboard() {
   const { signOut } = useAuth()
@@ -43,6 +45,7 @@ export function Dashboard() {
   const [widgetConfigOpen, setWidgetConfigOpen] = useState(false)
   const [selectedStarterConfig, setSelectedStarterConfig] = useState<WidgetStarterConfig | null>(null)
   const [detailWidget, setDetailWidget] = useState<DashboardWidget | null>(null)
+  const [openFolder, setOpenFolder] = useState<DashboardWidgetFolder | null>(null)
 
   const displayMemberId = (isViewingAs && viewingAsMember?.id) || member?.id
   const displayFamilyId = family?.id
@@ -54,6 +57,34 @@ export function Dashboard() {
   const deleteWidget = useDeleteWidget()
   const updateWidget = useUpdateWidget()
   const recordData = useRecordWidgetData()
+  const updateLayout = useUpdateDashboardLayout()
+
+  // PRD-10: Dashboard config — layout_mode and grid_columns
+  const { data: dashboardConfig } = useDashboardConfig(displayFamilyId, displayMemberId, 'personal')
+  const updateDashboardConfig = useUpdateDashboardConfig()
+
+  // PRD-10: Responsive --grid-cols: 2 mobile / 3 tablet / 4 desktop,
+  // overridden by saved grid_columns if the user has manually set one.
+  useEffect(() => {
+    const savedCols = dashboardConfig?.preferences?.grid_columns
+    if (savedCols) {
+      document.documentElement.style.setProperty('--grid-cols', String(savedCols))
+      return
+    }
+    // Responsive default via matchMedia
+    function applyResponsiveCols() {
+      if (window.matchMedia('(min-width: 1024px)').matches) {
+        document.documentElement.style.setProperty('--grid-cols', '4')
+      } else if (window.matchMedia('(min-width: 768px)').matches) {
+        document.documentElement.style.setProperty('--grid-cols', '3')
+      } else {
+        document.documentElement.style.setProperty('--grid-cols', '2')
+      }
+    }
+    applyResponsiveCols()
+    window.addEventListener('resize', applyResponsiveCols)
+    return () => window.removeEventListener('resize', applyResponsiveCols)
+  }, [dashboardConfig?.preferences?.grid_columns])
 
   // Data points fetched per-widget via detail view; grid shows computed state from widget_config
   const dataPointsByWidget: Record<string, import('@/types/widgets').WidgetDataPoint[]> = {}
@@ -69,6 +100,28 @@ export function Dashboard() {
     setWidgetConfigOpen(false)
     setSelectedStarterConfig(null)
   }, [createWidget])
+
+  // PRD-10: Persist widget reorder
+  const handleUpdateLayout = useCallback(
+    (updates: { id: string; position_x: number; position_y: number; sort_order: number }[]) => {
+      updateLayout.mutate(updates)
+    },
+    [updateLayout]
+  )
+
+  // PRD-10: Layout mode transition — called from DashboardGrid when user confirms switch to manual
+  const handleLayoutModeChange = useCallback(
+    (mode: 'auto' | 'manual') => {
+      if (!displayFamilyId || !displayMemberId) return
+      updateDashboardConfig.mutate({
+        familyId: displayFamilyId,
+        memberId: displayMemberId,
+        dashboardType: 'personal',
+        layoutMode: mode,
+      })
+    },
+    [updateDashboardConfig, displayFamilyId, displayMemberId]
+  )
 
   const handleRecordData = useCallback((widgetId: string, value: number, metadata?: Record<string, unknown>) => {
     if (!displayFamilyId || !displayMemberId) return
@@ -142,7 +195,7 @@ export function Dashboard() {
               }}
             >
               <div className="flex items-start gap-3">
-                <Users size={24} style={{ color: 'var(--color-sage-teal, #68a395)' }} className="mt-0.5 flex-shrink-0" />
+                <Users size={24} style={{ color: 'var(--color-sage-teal, #68a395)' }} className="mt-0.5 shrink-0" />
                 <div>
                   <h3 className="font-semibold" style={{ color: 'var(--color-warm-earth, #5a4033)' }}>
                     Tell us about your family
@@ -201,12 +254,32 @@ export function Dashboard() {
                 onRecordData={handleRecordData}
                 onOpenWidgetPicker={() => setWidgetPickerOpen(true)}
                 onOpenWidgetDetail={(w) => setDetailWidget(w)}
-                onOpenWidgetConfig={() => {}}
-                onOpenFolder={() => {}}
+                onOpenWidgetConfig={(w) => {
+                  // Open WidgetConfiguration for an existing widget
+                  const starter: WidgetStarterConfig = {
+                    id: w.id,
+                    tracker_type: w.template_type,
+                    visual_variant: w.visual_variant ?? '',
+                    config_name: w.title,
+                    description: null,
+                    category: null,
+                    default_config: w.widget_config,
+                    is_example: false,
+                    sort_order: 0,
+                    created_at: w.created_at,
+                    updated_at: w.updated_at,
+                  }
+                  setSelectedStarterConfig(starter)
+                  setWidgetConfigOpen(true)
+                }}
+                onOpenFolder={(folder) => setOpenFolder(folder)}
                 onRemoveWidget={(id) => deleteWidget.mutate({ id, familyId: family!.id })}
                 onResizeWidget={(id, size) => updateWidget.mutate({ id, size })}
+                onUpdateLayout={handleUpdateLayout}
                 canEdit={isMom || !isViewingAs}
                 canReorderOnly={false}
+                layoutMode={dashboardConfig?.layout_mode ?? 'auto'}
+                onLayoutModeChange={handleLayoutModeChange}
               />
             </div>
           )}
@@ -258,6 +331,19 @@ export function Dashboard() {
           }}
         />
       )}
+
+      {/* PRD-10: Folder Overlay Modal */}
+      <FolderOverlayModal
+        isOpen={!!openFolder}
+        onClose={() => setOpenFolder(null)}
+        folder={openFolder}
+        widgets={openFolder ? widgets.filter(w => w.folder_id === openFolder.id) : []}
+        dataPointsByWidget={dataPointsByWidget}
+        onRecordData={handleRecordData}
+        onOpenWidgetDetail={(w) => { setOpenFolder(null); setDetailWidget(w) }}
+        onRemoveWidget={(id) => { deleteWidget.mutate({ id, familyId: family!.id }); setOpenFolder(null) }}
+        onResizeWidget={(id, size) => updateWidget.mutate({ id, size })}
+      />
     </div>
   )
 }
@@ -328,7 +414,7 @@ function FamilyOverviewStrip({ members, currentMemberId, familyId, onViewAs }: F
               <button
                 key={m.id}
                 onClick={() => handleMemberClick(m)}
-                className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl snap-start transition-all duration-300 flex-shrink-0 min-w-[100px]"
+                className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl snap-start transition-all duration-300 shrink-0 min-w-25"
                 style={{
                   background: isSelected
                     ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 70%, var(--color-bg-card)))`

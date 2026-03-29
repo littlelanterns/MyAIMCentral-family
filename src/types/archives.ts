@@ -61,6 +61,8 @@ export interface ArchiveMemberSettings {
   is_included_in_ai: boolean
   overview_card_content: string | null
   overview_card_updated_at: string | null
+  physical_description?: string | null
+  reference_photos?: string[] | null
   created_at: string
   updated_at: string
 }

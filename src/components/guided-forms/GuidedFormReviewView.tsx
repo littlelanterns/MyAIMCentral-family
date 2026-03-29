@@ -13,10 +13,10 @@
 
 import { useState, useCallback } from 'react'
 import {
-  CheckCircle, MessageSquarePlus, Bell, Eye,
+  CheckCircle, MessageSquarePlus, Bell, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/shared/Button'
-import { Modal } from '@/components/shared/Modal'
+import { ModalV2 } from '@/components/shared/ModalV2'
 import { GuidedFormSectionEditor } from './GuidedFormSectionEditor'
 import { getSectionsForSubtype, getSubtypeLabel } from './guidedFormTypes'
 import type {
@@ -156,9 +156,11 @@ export function GuidedFormReviewView({
   )
 
   return (
-    <Modal
-      open={open}
+    <ModalV2
+      id="guided-form-review"
+      isOpen={open}
       onClose={onClose}
+      type="transient"
       title={`Review: ${getSubtypeLabel(subtype)}`}
       size="lg"
       footer={footer}
@@ -187,7 +189,7 @@ export function GuidedFormReviewView({
         </div>
         {isReviewed && (
           <div className="ml-auto flex items-center gap-1">
-            <Eye size={14} aria-hidden style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <CheckCircle2 size={14} aria-hidden style={{ color: 'var(--color-btn-primary-bg)' }} />
             <span className="text-xs font-medium" style={{ color: 'var(--color-btn-primary-bg)' }}>
               Reviewed
             </span>
@@ -337,6 +339,6 @@ export function GuidedFormReviewView({
           )
         })}
       </div>
-    </Modal>
+    </ModalV2>
   )
 }

@@ -17,6 +17,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { DateDetailModal } from './DateDetailModal'
 import { MonthViewModal } from './MonthViewModal'
 import { EventCreationModal } from './EventCreationModal'
+import { CalendarSettingsModal } from './CalendarSettingsModal'
 import type { CalendarEvent, EventAttendee, TaskDueDate } from '@/types/calendar'
 
 function toISODate(d: Date): string {
@@ -66,6 +67,8 @@ export function CalendarWidget() {
   const [showMonth, setShowMonth] = useState(false)
   const [showEventCreation, setShowEventCreation] = useState(false)
   const [eventCreationDate, setEventCreationDate] = useState<string | undefined>()
+  const [showSettings, setShowSettings] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<(CalendarEvent & { event_attendees: EventAttendee[] }) | null>(null)
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, (CalendarEvent & { event_attendees: EventAttendee[] })[]>()
@@ -207,6 +210,7 @@ export function CalendarWidget() {
             </div>
 
             <button
+              onClick={() => setShowSettings(true)}
               className="flex items-center justify-center rounded"
               style={{
                 width: '28px', height: '28px',
@@ -354,9 +358,11 @@ export function CalendarWidget() {
           onDateChange={setSelectedDate}
           onAddEvent={(d) => {
             setEventCreationDate(toISODate(d))
+            setEditingEvent(null)
             setShowEventCreation(true)
           }}
-          onEditEvent={() => {
+          onEditEvent={(ev) => {
+            setEditingEvent(ev)
             setShowEventCreation(true)
           }}
         />
@@ -365,8 +371,12 @@ export function CalendarWidget() {
       {/* EventCreationModal */}
       <EventCreationModal
         isOpen={showEventCreation}
-        onClose={() => setShowEventCreation(false)}
+        onClose={() => {
+          setShowEventCreation(false)
+          setEditingEvent(null)
+        }}
         initialDate={eventCreationDate}
+        initialEvent={editingEvent ?? undefined}
       />
 
       {/* Month View Modal */}
@@ -380,6 +390,12 @@ export function CalendarWidget() {
           }}
         />
       )}
+
+      {/* Calendar Settings Modal */}
+      <CalendarSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </>
   )
 }

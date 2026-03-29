@@ -18,8 +18,9 @@ import {
   Star,
   BookOpen,
   MessageCircle,
+  Trash2,
 } from 'lucide-react'
-import { FeatureGuide, FeatureIcon, Modal, BulkAddWithAI, CollapsibleGroup, Tooltip } from '@/components/shared'
+import { FeatureGuide, FeatureIcon, ModalV2, BulkAddWithAI, CollapsibleGroup, Tooltip } from '@/components/shared'
 import {
   DndContext,
   closestCenter,
@@ -44,6 +45,7 @@ import {
   useCreateGuidingStar,
   useUpdateGuidingStar,
   useDeleteGuidingStar,
+  useHardDeleteGuidingStar,
   useRestoreGuidingStar,
   useToggleGuidingStarAI,
   useBatchToggleGuidingStarAI,
@@ -190,6 +192,7 @@ export function GuidingStarsPage() {
   const createStar = useCreateGuidingStar()
   const updateStar = useUpdateGuidingStar()
   const deleteStar = useDeleteGuidingStar()
+  const hardDeleteStar = useHardDeleteGuidingStar()
   const restoreStar = useRestoreGuidingStar()
   const toggleAI = useToggleGuidingStarAI()
   const batchToggleAI = useBatchToggleGuidingStarAI()
@@ -205,6 +208,7 @@ export function GuidingStarsPage() {
   const [formDescription, setFormDescription] = useState('')
   const [showInspiration, setShowInspiration] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   // DnD sensors
   const sensors = useSensors(
@@ -326,7 +330,7 @@ export function GuidingStarsPage() {
   // -----------------------------------------------------------------------
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="density-comfortable max-w-3xl mx-auto space-y-6">
       <FeatureGuide featureKey="guiding_stars" />
 
       {/* Header */}
@@ -733,6 +737,7 @@ export function GuidingStarsPage() {
                       )?.label ?? 'Value'}
                     </span>
                   </div>
+                  <div className="flex items-center gap-1">
                   <Tooltip content="Restore">
                   <button
                     onClick={() => handleRestore(star)}
@@ -746,6 +751,20 @@ export function GuidingStarsPage() {
                     Restore
                   </button>
                   </Tooltip>
+                  <Tooltip content="Permanently delete">
+                  <button
+                    onClick={() => setConfirmDeleteId(star.id)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                    style={{
+                      color: 'var(--color-status-error, #dc2626)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                    }}
+                  >
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
+                  </Tooltip>
+                  </div>
                 </div>
               ))}
             </div>
@@ -753,10 +772,56 @@ export function GuidingStarsPage() {
         </div>
       )}
 
+      {/* Permanent Delete Confirmation */}
+      <ModalV2
+        id="guiding-stars-hard-delete-confirm"
+        isOpen={confirmDeleteId !== null}
+        onClose={() => setConfirmDeleteId(null)}
+        type="transient"
+        title="Permanently Delete?"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+            This will permanently delete this guiding star. It cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setConfirmDeleteId(null)}
+              className="px-3 py-1.5 rounded text-sm"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirmDeleteId || !member?.id) return
+                await hardDeleteStar.mutateAsync({ id: confirmDeleteId, memberId: member.id })
+                setConfirmDeleteId(null)
+              }}
+              disabled={hardDeleteStar.isPending}
+              className="px-3 py-1.5 rounded text-sm font-medium"
+              style={{
+                backgroundColor: 'var(--color-status-error, #dc2626)',
+                color: '#ffffff',
+                opacity: hardDeleteStar.isPending ? 0.6 : 1,
+              }}
+            >
+              {hardDeleteStar.isPending ? 'Deleting...' : 'Delete Forever'}
+            </button>
+          </div>
+        </div>
+      </ModalV2>
+
       {/* Inspiration Article Modal */}
-      <Modal
-        open={showInspiration}
+      <ModalV2
+        id="guiding-stars-inspiration"
+        isOpen={showInspiration}
         onClose={() => setShowInspiration(false)}
+        type="transient"
         title="The Art of Honest Declarations"
         size="lg"
       >
@@ -855,7 +920,7 @@ export function GuidingStarsPage() {
             )
           })}
         </div>
-      </Modal>
+      </ModalV2>
     </div>
   )
 }

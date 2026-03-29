@@ -24,7 +24,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="max-w-2xl mx-auto pb-12 space-y-6">
+    <div className="density-tight max-w-2xl mx-auto pb-12 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button

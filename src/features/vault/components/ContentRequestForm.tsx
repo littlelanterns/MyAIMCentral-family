@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Send, Check } from 'lucide-react'
-import { Modal } from '@/components/shared/Modal'
+import { ModalV2 } from '@/components/shared/ModalV2'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 
@@ -50,7 +50,14 @@ export function ContentRequestForm({ open, onClose }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Request a Tutorial or Tool" size="sm">
+    <ModalV2
+      id="vault-content-request"
+      isOpen={open}
+      onClose={onClose}
+      type="transient"
+      title="Request a Tutorial or Tool"
+      size="sm"
+    >
       <div className="p-4">
         {submitted ? (
           <div className="text-center py-8">
@@ -173,6 +180,6 @@ export function ContentRequestForm({ open, onClose }: Props) {
           </>
         )}
       </div>
-    </Modal>
+    </ModalV2>
   )
 }

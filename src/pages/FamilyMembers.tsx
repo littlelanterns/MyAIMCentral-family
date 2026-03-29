@@ -62,7 +62,7 @@ export function FamilyMembers() {
   const otherMembers = allMembers?.filter((m) => m.id !== member?.id) ?? []
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="density-comfortable max-w-2xl mx-auto space-y-6">
       <button
         onClick={() => navigate('/dashboard')}
         className="hidden md:flex items-center gap-1 text-sm"

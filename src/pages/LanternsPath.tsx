@@ -51,7 +51,7 @@ export function LanternsPathPage() {
       }))
 
   return (
-    <div className="max-w-4xl mx-auto pb-12">
+    <div className="density-comfortable max-w-4xl mx-auto pb-12">
       {/* Header Banner */}
       <div
         className="rounded-xl p-6 md:p-8 mb-6"

@@ -14,18 +14,20 @@ import {
   Repeat, Users, Car, Tag, Bell,
 } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { useCreateEvent, useEventCategories, useCalendarSettings } from '@/hooks/useCalendarEvents'
+import { useCreateEvent, useUpdateEvent, useEventCategories, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { UniversalScheduler } from '@/components/scheduling/UniversalScheduler'
 import type { SchedulerOutput } from '@/components/scheduling/types'
-import type { CreateEventInput, AttendeeInput, ItemToBring } from '@/types/calendar'
+import type { CalendarEvent, EventAttendee, CreateEventInput, AttendeeInput, ItemToBring } from '@/types/calendar'
 
 interface EventCreationModalProps {
   isOpen: boolean
   onClose: () => void
   /** Pre-populate date when opened from a calendar date */
   initialDate?: string // 'YYYY-MM-DD'
+  /** Pre-populate all fields when editing an existing event */
+  initialEvent?: CalendarEvent & { event_attendees?: EventAttendee[] }
 }
 
 const REMINDER_OPTIONS = [
@@ -38,8 +40,10 @@ const REMINDER_OPTIONS = [
   { value: 1440, label: '1 day' },
 ]
 
-export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreationModalProps) {
+export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent }: EventCreationModalProps) {
+  const isEditing = !!initialEvent
   const createEvent = useCreateEvent()
+  const updateEvent = useUpdateEvent()
   const { data: categories } = useEventCategories()
   const { data: settings } = useCalendarSettings()
   const { data: family } = useFamily()
@@ -63,27 +67,56 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
   const [notes, setNotes] = useState('')
   const [scheduleValue, setScheduleValue] = useState<SchedulerOutput | null>(null)
 
-  // Reset form when modal opens
+  // Reset / populate form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setTitle('')
-      setEventDate(initialDate ?? '')
-      setStartTime('')
-      setEndTime('')
-      setIsAllDay(false)
-      setLocation('')
-      setDescription('')
-      setCategoryId('')
-      setSelectedReminders([])
-      setAttendees(new Map())
-      setTransportationNeeded(false)
-      setTransportationNotes('')
-      setItemsToBring([])
+      if (initialEvent) {
+        // Edit mode — pre-populate from existing event
+        setTitle(initialEvent.title ?? '')
+        setEventDate(initialEvent.event_date ?? initialDate ?? '')
+        setStartTime(initialEvent.start_time?.slice(0, 5) ?? '')
+        setEndTime(initialEvent.end_time?.slice(0, 5) ?? '')
+        setIsAllDay(initialEvent.is_all_day ?? false)
+        setLocation(initialEvent.location ?? '')
+        setDescription(initialEvent.description ?? '')
+        setCategoryId(initialEvent.category_id ?? '')
+        setSelectedReminders(initialEvent.reminder_minutes ?? [])
+        const initialAttendees = new Map<string, string>()
+        for (const a of initialEvent.event_attendees ?? []) {
+          initialAttendees.set(a.family_member_id, a.attendee_role ?? 'attending')
+        }
+        setAttendees(initialAttendees)
+        setTransportationNeeded(initialEvent.transportation_needed ?? false)
+        setTransportationNotes(initialEvent.transportation_notes ?? '')
+        setItemsToBring(initialEvent.items_to_bring ?? [])
+        setNotes(initialEvent.notes ?? '')
+        // Restore recurrence if present
+        if (initialEvent.recurrence_details) {
+          setScheduleValue(initialEvent.recurrence_details as unknown as SchedulerOutput)
+        } else {
+          setScheduleValue(null)
+        }
+      } else {
+        // Create mode — reset to blank
+        setTitle('')
+        setEventDate(initialDate ?? '')
+        setStartTime('')
+        setEndTime('')
+        setIsAllDay(false)
+        setLocation('')
+        setDescription('')
+        setCategoryId('')
+        setSelectedReminders([])
+        setAttendees(new Map())
+        setTransportationNeeded(false)
+        setTransportationNotes('')
+        setItemsToBring([])
+        setNotes('')
+        setScheduleValue(null)
+      }
       setNewItemText('')
-      setNotes('')
-      setScheduleValue(null)
     }
-  }, [isOpen, initialDate])
+  }, [isOpen, initialDate, initialEvent])
 
   const toggleReminder = useCallback((mins: number) => {
     setSelectedReminders(prev =>
@@ -158,10 +191,15 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
       else input.recurrence_rule = 'custom'
     }
 
-    await createEvent.mutateAsync(input)
+    if (isEditing && initialEvent) {
+      await updateEvent.mutateAsync({ eventId: initialEvent.id, updates: input })
+    } else {
+      await createEvent.mutateAsync(input)
+    }
     onClose()
-  }, [title, eventDate, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, scheduleValue, createEvent, onClose])
+  }, [title, eventDate, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
 
+  const isSaving = createEvent.isPending || updateEvent.isPending
   const hasUnsavedChanges = title.trim().length > 0
 
   // Calculate leave-by time
@@ -184,7 +222,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
       onClose={onClose}
       type="persistent"
       size="md"
-      title="Create Event"
+      title={isEditing ? 'Edit Event' : 'Create Event'}
       icon={CalendarIcon}
       hasUnsavedChanges={hasUnsavedChanges}
       footer={
@@ -198,7 +236,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!title.trim() || !eventDate || createEvent.isPending}
+            disabled={!title.trim() || !eventDate || isSaving}
             className="text-sm font-medium px-4 py-2 rounded-lg"
             style={{
               background: 'var(--surface-primary, var(--color-btn-primary-bg))',
@@ -209,7 +247,10 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
               opacity: (!title.trim() || !eventDate) ? 0.5 : 1,
             }}
           >
-            {createEvent.isPending ? 'Creating...' : 'Create Event'}
+            {isSaving
+              ? (isEditing ? 'Saving...' : 'Creating...')
+              : (isEditing ? 'Save Changes' : 'Create Event')
+            }
           </button>
         </div>
       }
@@ -330,7 +371,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
                     style={{
                       padding: '0.375rem 0.75rem',
                       backgroundColor: isSelected ? color : 'transparent',
-                      color: isSelected ? '#fff' : 'var(--color-text-primary)',
+                      color: isSelected ? 'var(--color-bg-card, #fff)' : 'var(--color-text-primary)',
                       border: `2px solid ${color}`,
                       cursor: 'pointer',
                       minHeight: 'unset',

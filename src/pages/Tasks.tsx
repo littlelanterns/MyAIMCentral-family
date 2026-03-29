@@ -125,7 +125,9 @@ export function TasksPage() {
         created_by: member.id,
         title: data.title,
         description: data.description || null,
-        task_type: data.taskType === 'opportunity' ? 'opportunity_repeatable' : data.taskType,
+        task_type: data.taskType === 'opportunity'
+          ? `opportunity_${data.opportunitySubType ?? 'repeatable'}`
+          : data.taskType,
         status: 'pending',
         life_area_tag: data.lifeAreaTag || null,
         duration_estimate: data.durationEstimate || null,
@@ -133,6 +135,12 @@ export function TasksPage() {
         require_approval: data.reward?.requireApproval ?? false,
         victory_flagged: data.reward?.flagAsVictory ?? false,
         source: 'manual',
+        // Opportunity-specific fields
+        ...(data.taskType === 'opportunity' && {
+          max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,
+          claim_lock_duration: data.claimLockDuration ? parseInt(data.claimLockDuration, 10) : null,
+          claim_lock_unit: data.claimLockUnit || null,
+        }),
       }
 
       // Determine who gets the task

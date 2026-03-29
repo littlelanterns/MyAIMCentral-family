@@ -57,8 +57,8 @@ function App() {
       <ThemeProvider>
         <ModalManagerProvider>
         <ViewAsProvider>
-          <SettingsProvider>
           <BrowserRouter>
+          <SettingsProvider>
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Welcome />} />
@@ -112,8 +112,8 @@ function App() {
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
             </Routes>
-          </BrowserRouter>
           </SettingsProvider>
+          </BrowserRouter>
         </ViewAsProvider>
         <MinimizedPillBar />
         </ModalManagerProvider>

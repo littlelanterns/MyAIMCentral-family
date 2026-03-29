@@ -80,7 +80,7 @@ export function JournalPage() {
   const grouped = groupByDate(filtered)
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="density-comfortable max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FeatureIcon featureKey="journal" fallback={<BookOpen size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
