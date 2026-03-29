@@ -20,9 +20,10 @@ import { ListsPage } from '@/pages/Lists'
 import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
 import {
-  VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
+  VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage, MorningRhythmPage, EveningReviewPage,
 } from '@/pages/placeholder'
+import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'

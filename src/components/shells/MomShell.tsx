@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react'
+import { SpotlightSearch, useSpotlightShortcut } from '@/components/global/SpotlightSearch'
+import { Tooltip } from '@/components/shared/Tooltip'
 import { Settings } from 'lucide-react'
 import { GuidedIntroTour } from '@/components/tour/GuidedIntroTour'
 import { useAutoCollapse } from '@/hooks/useAutoCollapse'
@@ -37,6 +39,10 @@ export function MomShell({ children }: MomShellProps) {
   const { mainRef, quickTasksAutoCollapsed } = useAutoCollapse()
   const { data: currentMember } = useFamilyMember()
   const { data: currentFamily } = useFamily()
+
+  // Spotlight Search (Cmd+K)
+  const [spotlightOpen, setSpotlightOpen] = useState(false)
+  useSpotlightShortcut(useCallback(() => setSpotlightOpen(true), []))
 
   const handleRefreshContext = useCallback(async () => {
     if (!currentFamily?.id || !currentMember?.id || !activeConversation?.id) return
@@ -103,18 +109,19 @@ export function MomShell({ children }: MomShellProps) {
           </div>
           {/* Theme + Settings — always visible, compact on mobile */}
           <ThemeSelector />
-          <button
-            onClick={openSettings}
-            className="p-2 rounded-full hover:scale-110 transition-all duration-200"
-            style={{
-              background: 'transparent',
-              color: 'var(--color-btn-primary-bg, #68a395)',
-              minHeight: 'unset',
-            }}
-            title="Settings"
-          >
-            <Settings size={20} />
-          </button>
+          <Tooltip content="Settings">
+            <button
+              onClick={openSettings}
+              className="p-2 rounded-full hover:scale-110 transition-all duration-200"
+              style={{
+                background: 'transparent',
+                color: 'var(--color-btn-primary-bg, #68a395)',
+                minHeight: 'unset',
+              }}
+            >
+              <Settings size={20} />
+            </button>
+          </Tooltip>
         </div>
 
         {/* Spacer for fixed FAB bar on mobile */}
@@ -191,6 +198,9 @@ export function MomShell({ children }: MomShellProps) {
 
       {/* Bottom navigation — mobile only */}
       <BottomNav />
+
+      {/* Spotlight Search — Cmd+K / Ctrl+K */}
+      <SpotlightSearch isOpen={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
     </div>
     </ToolLauncherProvider>
     </NotepadProvider>

@@ -10,7 +10,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, Brain, X } from 'lucide-react'
+import { Plus, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, Brain } from 'lucide-react'
 import { useShell } from '@/components/shells/ShellProvider'
 
 const QUICK_ACTIONS = [

@@ -198,42 +198,56 @@ Use v1's RLS policies as the base (they're well-structured). Extend the SELECT p
 
 **Layout:** Main content area, uses `density-compact` class.
 
+**Default view: Month.** (The dashboard widget defaults to Week — but the full calendar page shows Month because that's where you go for the big picture.)
+
 **Toolbar:**
 - Title: "Calendar" in heading font
 - [+ Add Event] button (primary, gradient when ON)
-- Date navigation: ‹ Prev | Date Range | Next ›
+- **Date navigation (interactive label):**
+  - Prev/next arrows for one-step navigation (prev/next month, week, or day depending on view)
+  - **Clickable month name** → dropdown of all 12 months, pick one to jump immediately
+  - **Clickable year** → inline editable text field, type any year, Enter to jump
+  - **Mini-calendar picker** (small calendar icon button) → opens a compact month grid popup where you click any date. The popup has its own prev/next month arrows, month dropdown, and editable year. This is the fast path to reach any date without scrolling month by month.
+  - **"Today" button** → jumps back to the current date
 - View toggle: Day | Week | Month (segmented control, compact)
 - Filter: Me | Family | Pick Members (segmented control)
 - Color mode: Dots | Stripe (small toggle)
+- **Week start day:** Settings gear icon or inline toggle to switch between Sunday and Monday start. Persists to `calendar_settings.week_start_day`. All views (day/week/month) respect this setting.
 - Member filter row (visible only in "Pick Members" mode): horizontal scroll of member avatars with checkboxes, colored borders
 
 **Calendar Grid:**
-- Renders based on active view (day/week/month)
+- Renders based on active view (day/week/month), respecting week start day
 - Events render with member color coding (dot or left-border stripe)
 - Task due dates render distinctly (checkbox icon, muted style)
 - Pending events render faded with dotted border + "pending" badge
-- Click any event → Event Detail flyout/modal
-- Click any empty slot → Quick Add pre-populated with date
-- Click any task due date → Task detail flyout
+- **Click behavior — consistent across ALL views (month, week, day):**
+  - **Click any date cell** → opens DateDetailModal as transient modal overlay (the calendar view stays visible behind it)
+  - **Click any individual event** → opens Event Detail as transient modal
+  - **Click any task due date** → opens Task Detail flyout
+  - **Click empty area within a date cell** → opens EventCreationModal pre-populated with that date
 
 ### Widget: Calendar Dashboard Widget
 
 **Purpose:** Compact week view for the Personal Dashboard (PRD-14).
 
+**Default view: Week.** (Unlike the full Calendar page which defaults to Month.)
+
 **Follow v1's PersonalCalendar pattern:**
 - Week grid: 7 columns, day name + date number + event indicators
+- **Respects `calendar_settings.week_start_day`** — grid starts on Sunday (0) or Monday (1) per family setting
 - Header: "This Week" title + prev/next arrows + date range label + "View Month" button
 - Click any day → DateDetailModal (modal, not navigation)
 - "View Month" → Full month calendar in a modal overlay
-- Jump-to-date: Calendar icon button opens month/day/year select dropdowns (v1's pattern)
+- **Jump-to-date:** Calendar icon button opens a mini-calendar picker popup (same component as the Calendar page's picker — compact month grid with month dropdown + editable year)
 - Today highlighted with `var(--color-btn-primary-bg)` background on the day header
 
 ### Modal: DateDetailModal
 
 **Follow v1's pattern exactly, but with v2 tokens and v2 data:**
 
-- Full-screen-ish modal (portal-rendered)
-- Header: Formatted date ("Wednesday, March 12, 2026") + prev/next day arrows + date picker
+- Transient modal via ModalV2, size `md`
+- Header: Formatted date ("Wednesday, March 12, 2026") + prev/next day arrows
+- **Jump-to-date picker:** Small calendar icon button in the header. Clicking opens a mini-calendar picker popup (compact month grid — click any date to jump). The popup has its own prev/next month arrows, clickable month name (dropdown of all 12 months), and clickable year (inline editable text field — type any year, Enter to jump). This lets you reach any date in 2-3 clicks instead of scrolling month by month. Same shared `MiniCalendarPicker` component used by the Calendar page toolbar.
 - Body: Events grouped by type:
   - Tasks (from tasks table, `due_date` matches selected date)
   - Events (from calendar_events)
@@ -248,7 +262,7 @@ Use v1's RLS policies as the base (they're well-structured). Extend the SELECT p
 
 **Follow v1's section-card form pattern, extended with v2 fields:**
 
-**Modal container:** Same as Task Creation Modal — centered on desktop, bottom-sheet on mobile, gradient header, portal-rendered.
+**Modal container:** Uses ModalV2 with `type="persistent"`, size `md`, gradient header.
 
 **Header:** Gradient bar, "Create Event" title with Calendar icon, close button.
 
@@ -440,10 +454,17 @@ This creates visual consistency: task creation, event creation, and date detail 
 
 ## Verification Checklist
 
-- [ ] Week view widget renders on Personal Dashboard with 7-day grid
-- [ ] Click any day opens DateDetailModal with events grouped by type
-- [ ] "View Month" opens full month in a modal overlay (not page navigation)
+- [ ] Week view widget renders on Personal Dashboard with 7-day grid (respects week start day)
+- [ ] Full Calendar page defaults to Month view; dashboard widget defaults to Week view
+- [ ] Click any date on ANY view (month, week, day) opens DateDetailModal as overlay (calendar stays behind)
+- [ ] Click any individual event opens Event Detail modal
+- [ ] Click empty area in a date cell opens EventCreationModal pre-populated with that date
+- [ ] "View Month" from dashboard widget opens full month in a modal overlay (not page navigation)
 - [ ] Day navigation arrows work within DateDetailModal
+- [ ] Jump-to-date mini-calendar picker works: clickable month dropdown + editable year field + month grid
+- [ ] Date picker lets you reach any date in 2-3 clicks (no scrolling month-by-month)
+- [ ] Week start day setting (Sunday/Monday) works and persists; all views respect it
+- [ ] "Today" button on Calendar page jumps to current date
 - [ ] EventCreationModal has gradient header and section-card form layout
 - [ ] Recurrence uses radio buttons with descriptions
 - [ ] Family member selection uses checkbox rows
@@ -452,7 +473,7 @@ This creates visual consistency: task creation, event creation, and date detail 
 - [ ] Mom can approve/reject pending events from DateDetailModal or Queue
 - [ ] Task due dates appear on calendar with distinct checkbox icon styling
 - [ ] Member colors applied as dots or stripes based on preference
-- [ ] All modals use ReactDOM.createPortal (render above everything)
+- [ ] All modals use ModalV2 (no one-off portals)
 - [ ] All colors use CSS variables (zero hardcoded hex)
 - [ ] Calendar page accessible from sidebar navigation
 - [ ] Guided shell: LiLa-assisted event creation instead of full modal

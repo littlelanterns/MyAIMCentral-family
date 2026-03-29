@@ -1,0 +1,526 @@
+/**
+ * EventCreationModal — persistent modal for creating/editing calendar events.
+ *
+ * Uses ModalV2 with type="persistent", size "md", gradient header.
+ * Section-card form pattern matching TaskCreationModal.
+ * Uses Universal Scheduler for recurrence with showTimeDefault={true}.
+ *
+ * PRD-14B Screen 2, spec: Calendar-System-Build-Spec.md
+ */
+
+import { useState, useCallback, useEffect } from 'react'
+import {
+  Calendar as CalendarIcon, Clock, MapPin, FileText,
+  Repeat, Users, Car, Tag, Bell,
+} from 'lucide-react'
+import { ModalV2 } from '@/components/shared/ModalV2'
+import { useCreateEvent, useEventCategories, useCalendarSettings } from '@/hooks/useCalendarEvents'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useFamily } from '@/hooks/useFamily'
+import { UniversalScheduler } from '@/components/scheduling/UniversalScheduler'
+import type { SchedulerOutput } from '@/components/scheduling/types'
+import type { CreateEventInput, AttendeeInput, ItemToBring } from '@/types/calendar'
+
+interface EventCreationModalProps {
+  isOpen: boolean
+  onClose: () => void
+  /** Pre-populate date when opened from a calendar date */
+  initialDate?: string // 'YYYY-MM-DD'
+}
+
+const REMINDER_OPTIONS = [
+  { value: 5, label: '5 min' },
+  { value: 10, label: '10 min' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+  { value: 120, label: '2 hours' },
+  { value: 1440, label: '1 day' },
+]
+
+export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreationModalProps) {
+  const createEvent = useCreateEvent()
+  const { data: categories } = useEventCategories()
+  const { data: settings } = useCalendarSettings()
+  const { data: family } = useFamily()
+  const { data: familyMembers } = useFamilyMembers(family?.id)
+
+  // Form state
+  const [title, setTitle] = useState('')
+  const [eventDate, setEventDate] = useState(initialDate ?? '')
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [isAllDay, setIsAllDay] = useState(false)
+  const [location, setLocation] = useState('')
+  const [description, setDescription] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [selectedReminders, setSelectedReminders] = useState<number[]>([])
+  const [attendees, setAttendees] = useState<Map<string, string>>(new Map()) // memberId → role
+  const [transportationNeeded, setTransportationNeeded] = useState(false)
+  const [transportationNotes, setTransportationNotes] = useState('')
+  const [itemsToBring, setItemsToBring] = useState<ItemToBring[]>([])
+  const [newItemText, setNewItemText] = useState('')
+  const [notes, setNotes] = useState('')
+  const [scheduleValue, setScheduleValue] = useState<SchedulerOutput | null>(null)
+
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setTitle('')
+      setEventDate(initialDate ?? '')
+      setStartTime('')
+      setEndTime('')
+      setIsAllDay(false)
+      setLocation('')
+      setDescription('')
+      setCategoryId('')
+      setSelectedReminders([])
+      setAttendees(new Map())
+      setTransportationNeeded(false)
+      setTransportationNotes('')
+      setItemsToBring([])
+      setNewItemText('')
+      setNotes('')
+      setScheduleValue(null)
+    }
+  }, [isOpen, initialDate])
+
+  const toggleReminder = useCallback((mins: number) => {
+    setSelectedReminders(prev =>
+      prev.includes(mins) ? prev.filter(m => m !== mins) : [...prev, mins]
+    )
+  }, [])
+
+  const toggleAttendee = useCallback((memberId: string) => {
+    setAttendees(prev => {
+      const next = new Map(prev)
+      if (next.has(memberId)) {
+        next.delete(memberId)
+      } else {
+        next.set(memberId, 'attending')
+      }
+      return next
+    })
+  }, [])
+
+  const setAttendeeRole = useCallback((memberId: string, role: string) => {
+    setAttendees(prev => {
+      const next = new Map(prev)
+      next.set(memberId, role)
+      return next
+    })
+  }, [])
+
+  const addItem = useCallback(() => {
+    if (!newItemText.trim()) return
+    setItemsToBring(prev => [...prev, { text: newItemText.trim(), checked: false, ai_suggested: false }])
+    setNewItemText('')
+  }, [newItemText])
+
+  const removeItem = useCallback((idx: number) => {
+    setItemsToBring(prev => prev.filter((_, i) => i !== idx))
+  }, [])
+
+  const handleSubmit = useCallback(async () => {
+    if (!title.trim() || !eventDate) return
+
+    const attendeeInputs: AttendeeInput[] = Array.from(attendees.entries()).map(([id, role]) => ({
+      family_member_id: id,
+      attendee_role: role as 'attending' | 'driving' | 'requested_presence',
+    }))
+
+    const input: CreateEventInput = {
+      title: title.trim(),
+      event_date: eventDate,
+      start_time: isAllDay ? undefined : startTime || undefined,
+      end_time: isAllDay ? undefined : endTime || undefined,
+      is_all_day: isAllDay,
+      location: location || undefined,
+      description: description || undefined,
+      category_id: categoryId || undefined,
+      reminder_minutes: selectedReminders.length > 0 ? selectedReminders : undefined,
+      transportation_needed: transportationNeeded,
+      transportation_notes: transportationNotes || undefined,
+      items_to_bring: itemsToBring.length > 0 ? itemsToBring : undefined,
+      notes: notes || undefined,
+      attendees: attendeeInputs.length > 0 ? attendeeInputs : undefined,
+    }
+
+    // Apply recurrence from scheduler
+    if (scheduleValue?.rrule) {
+      input.recurrence_details = scheduleValue as unknown as Record<string, unknown>
+      // Derive quick-filter recurrence_rule
+      const rrule = scheduleValue.rrule
+      if (rrule.includes('FREQ=DAILY')) input.recurrence_rule = 'daily'
+      else if (rrule.includes('FREQ=WEEKLY')) input.recurrence_rule = 'weekly'
+      else if (rrule.includes('FREQ=MONTHLY')) input.recurrence_rule = 'monthly'
+      else if (rrule.includes('FREQ=YEARLY')) input.recurrence_rule = 'yearly'
+      else input.recurrence_rule = 'custom'
+    }
+
+    await createEvent.mutateAsync(input)
+    onClose()
+  }, [title, eventDate, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, scheduleValue, createEvent, onClose])
+
+  const hasUnsavedChanges = title.trim().length > 0
+
+  // Calculate leave-by time
+  const leaveByTime = transportationNeeded && startTime && settings?.default_drive_time_minutes
+    ? (() => {
+        const [h, m] = startTime.split(':').map(Number)
+        const totalMin = h * 60 + m - settings.default_drive_time_minutes
+        const lh = Math.floor(((totalMin % 1440) + 1440) % 1440 / 60)
+        const lm = ((totalMin % 1440) + 1440) % 1440 % 60
+        const ampm = lh >= 12 ? 'PM' : 'AM'
+        const hour = lh % 12 || 12
+        return `${hour}:${String(lm).padStart(2, '0')} ${ampm}`
+      })()
+    : null
+
+  return (
+    <ModalV2
+      id="event-create"
+      isOpen={isOpen}
+      onClose={onClose}
+      type="persistent"
+      size="md"
+      title="Create Event"
+      icon={CalendarIcon}
+      hasUnsavedChanges={hasUnsavedChanges}
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="text-sm px-4 py-2 rounded-lg"
+            style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!title.trim() || !eventDate || createEvent.isPending}
+            className="text-sm font-medium px-4 py-2 rounded-lg"
+            style={{
+              background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+              color: 'var(--color-btn-primary-text)',
+              border: 'none',
+              minHeight: 'unset',
+              cursor: 'pointer',
+              opacity: (!title.trim() || !eventDate) ? 0.5 : 1,
+            }}
+          >
+            {createEvent.isPending ? 'Creating...' : 'Create Event'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4 p-4" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+        {/* Event Title */}
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Enter event name"
+          className="w-full text-base font-medium rounded-lg px-3 py-2.5"
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border)',
+            outline: 'none',
+          }}
+          autoFocus
+        />
+
+        {/* Date & Time Section Card */}
+        <SectionCard title="Date & Time" icon={Clock}>
+          <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isAllDay}
+              onChange={(e) => setIsAllDay(e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            <span style={{ color: 'var(--color-text-primary)' }}>All day event</span>
+          </label>
+          <div className={`grid gap-3 ${isAllDay ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>Date</label>
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className="w-full text-sm rounded-lg px-3 py-2"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+              />
+            </div>
+            {!isAllDay && (
+              <>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>Start Time</label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full text-sm rounded-lg px-3 py-2"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>End Time</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full text-sm rounded-lg px-3 py-2"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Location */}
+        <div className="flex items-center gap-2">
+          <MapPin size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location (optional)"
+            className="flex-1 text-sm rounded-lg px-3 py-2"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+          />
+        </div>
+
+        {/* Description */}
+        <div className="flex items-start gap-2">
+          <FileText size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0, marginTop: '8px' }} />
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (optional)"
+            rows={2}
+            className="flex-1 text-sm rounded-lg px-3 py-2 resize-none"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+          />
+        </div>
+
+        {/* Recurrence — Universal Scheduler */}
+        <SectionCard title="How Often?" icon={Repeat}>
+          <UniversalScheduler
+            value={scheduleValue}
+            onChange={setScheduleValue}
+            showTimeDefault={false}
+            compactMode
+          />
+        </SectionCard>
+
+        {/* Who's Involved */}
+        {familyMembers && familyMembers.length > 0 && (
+          <SectionCard title="Who's Involved?" icon={Users}>
+            <div className="space-y-1">
+              {familyMembers.map(m => {
+                const isSelected = attendees.has(m.id)
+                const role = attendees.get(m.id) ?? 'attending'
+                return (
+                  <div key={m.id} className="flex items-center gap-2 py-1">
+                    <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleAttendee(m.id)}
+                        style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                      />
+                      <span style={{ color: 'var(--color-text-primary)' }}>{m.display_name}</span>
+                      <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>({m.role})</span>
+                    </label>
+                    {isSelected && (
+                      <select
+                        value={role}
+                        onChange={(e) => setAttendeeRole(m.id, e.target.value)}
+                        className="text-xs rounded px-1.5 py-0.5"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: 'unset' }}
+                      >
+                        <option value="attending">Attending</option>
+                        <option value="driving">Driving</option>
+                        <option value="requested_presence">Requested</option>
+                      </select>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Transportation & Logistics */}
+        <SectionCard title="Transportation" icon={Car} collapsed>
+          <label className="flex items-center gap-2 text-sm mb-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={transportationNeeded}
+              onChange={(e) => setTransportationNeeded(e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            <span style={{ color: 'var(--color-text-primary)' }}>Transportation needed</span>
+          </label>
+          {transportationNeeded && (
+            <div className="space-y-2 pl-6">
+              {leaveByTime && (
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  Leave by: <strong>{leaveByTime}</strong> (based on {settings?.default_drive_time_minutes} min drive)
+                </p>
+              )}
+              <input
+                value={transportationNotes}
+                onChange={(e) => setTransportationNotes(e.target.value)}
+                placeholder="Who's driving? Carpool details?"
+                className="w-full text-sm rounded-lg px-3 py-2"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+              />
+            </div>
+          )}
+
+          {/* Items to bring */}
+          <div className="mt-3">
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Items to bring</p>
+            {itemsToBring.map((item, i) => (
+              <div key={i} className="flex items-center gap-2 py-0.5">
+                <span className="text-sm flex-1" style={{ color: 'var(--color-text-primary)' }}>{item.text}</span>
+                <button
+                  onClick={() => removeItem(i)}
+                  className="text-xs"
+                  style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
+                >
+                  remove
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-2 mt-1">
+              <input
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addItem() }}
+                placeholder="Add item..."
+                className="flex-1 text-sm rounded px-2 py-1"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+              />
+              <button
+                onClick={addItem}
+                className="text-xs px-2 py-1 rounded"
+                style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Category */}
+        <div className="flex items-center gap-2">
+          <Tag size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="flex-1 text-sm rounded-lg px-3 py-2"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+          >
+            <option value="">Category (optional)</option>
+            {(categories ?? []).map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Reminders */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Bell size={16} style={{ color: 'var(--color-text-secondary)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Reminders</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {REMINDER_OPTIONS.map(opt => {
+              const isSelected = selectedReminders.includes(opt.value)
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => toggleReminder(opt.value)}
+                  className="text-xs rounded-full px-2.5 py-1 transition-colors"
+                  style={{
+                    backgroundColor: isSelected ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-secondary)',
+                    color: isSelected ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                    border: isSelected ? 'none' : '1px solid var(--color-border)',
+                    minHeight: 'unset',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className="flex items-start gap-2">
+          <FileText size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0, marginTop: '8px' }} />
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Notes for mom (optional)"
+            rows={2}
+            className="flex-1 text-sm rounded-lg px-3 py-2 resize-none"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+          />
+        </div>
+      </div>
+    </ModalV2>
+  )
+}
+
+// ─── Section Card ────────────────────────────────────────────
+
+function SectionCard({
+  title,
+  icon: Icon,
+  children,
+  collapsed: defaultCollapsed,
+}: {
+  title: string
+  icon: React.ComponentType<{ size: number }>
+  children: React.ReactNode
+  collapsed?: boolean
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed ?? false)
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--color-bg-card) 90%, transparent)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="flex items-center gap-2 w-full px-3 py-2.5 text-left"
+        style={{ background: 'transparent', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
+      >
+        <Icon size={16} />
+        <span
+          className="text-sm font-semibold flex-1"
+          style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
+        >
+          {title}
+        </span>
+        <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          {isCollapsed ? '+' : '-'}
+        </span>
+      </button>
+      {!isCollapsed && (
+        <div className="px-3 pb-3">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}

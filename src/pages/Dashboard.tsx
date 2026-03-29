@@ -13,6 +13,7 @@ import { useTasks } from '@/hooks/useTasks'
 import { LogOut, Users, Star, BookOpen, CheckSquare, List, Brain, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { FeatureIcon } from '@/components/shared'
 import { DashboardGrid } from '@/components/widgets/DashboardGrid'
+import { CalendarWidget } from '@/components/calendar'
 import { WidgetPicker } from '@/components/widgets/WidgetPicker'
 import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
 import { WidgetDetailView } from '@/components/widgets/WidgetDetailView'
@@ -175,6 +176,9 @@ export function Dashboard() {
               <NavCard to="/best-intentions" featureKey="best_intentions" icon={<Sparkles size={20} />} label="Best Intentions" color="var(--color-soft-gold, #f4dcb7)" textColor="var(--color-warm-earth, #5a4033)" />
             </div>
           )}
+
+          {/* PRD-14B: Calendar Section — week view, before tasks per PRD-14 layout */}
+          <CalendarWidget />
 
           {/* Dashboard Tasks Section — shows tasks for the viewed member */}
           {family?.id && displayMember?.id && (

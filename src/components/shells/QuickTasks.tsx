@@ -5,15 +5,18 @@
  * Available on Mom, Adult, and Independent shells only.
  * Collapse state persists in localStorage.
  *
- * "Quick Note" opens the Smart Notepad drawer when NotepadProvider is in the
- * tree (Mom shell). On other shells it falls back to navigating to /notepad.
- *
- * Future: auto-sort by usage frequency from notepad_routing_stats.
+ * Layout fixes (UX Overhaul Session 3):
+ * - Strip spans only main content area (stops before floating buttons)
+ * - Hidden scrollbar with swipe support
+ * - Right-edge fade gradient when items overflow
+ * - Scroll arrow buttons on desktop
+ * - Auto-sort by usage frequency (persisted to localStorage)
+ * - Quick Create "+" always anchored rightmost
  */
 
-import { useState, useEffect, createContext, useContext, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
+import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
@@ -109,7 +112,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: Heart,
     featureKey: 'tool_quality_time',
     kind: 'tool',
-    toolModeKey: 'quality_time', // Opens Quality Time by default; popover would be Phase 21-B enhancement
+    toolModeKey: 'quality_time',
   },
   {
     key: 'cyrano',
@@ -125,7 +128,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: GraduationCap,
     featureKey: 'tool_higgins_say',
     kind: 'tool',
-    toolModeKey: 'higgins_say', // Default to Say; Sidebar has the full mode picker
+    toolModeKey: 'higgins_say',
   },
 ]
 
@@ -172,15 +175,13 @@ function sortByUsage(actions: QuickAction[]): QuickAction[] {
   return [...actions].sort((a, b) => {
     const countA = counts[a.key] || 0
     const countB = counts[b.key] || 0
-    return countB - countA // Higher count first
+    if (countB !== countA) return countB - countA
+    // Tiebreaker: preserve original order
+    return actions.indexOf(a) - actions.indexOf(b)
   })
 }
 
 // ─── NotepadOpener bridge ────────────────────────────────────
-// QuickTasks cannot safely import useNotepadContext directly because
-// Adult and Independent shells never render NotepadProvider. Instead,
-// MomShell passes an openNotepad function down through a thin context
-// defined here so QuickTasks stays self-contained.
 
 interface QuickTasksNotepadBridge {
   openNotepad: () => void
@@ -188,15 +189,6 @@ interface QuickTasksNotepadBridge {
 
 const QuickTasksNotepadCtx = createContext<QuickTasksNotepadBridge | null>(null)
 
-/**
- * Wrap QuickTasks with this inside MomShell (after NotepadProvider) to wire
- * the notepad action. Other shells do not need to use this.
- *
- * Usage in MomShell (after NotepadProvider is in the tree):
- *   import { QuickTasksNotepadBridge } from '@/components/shells/QuickTasks'
- *   // Then inside a component that can call useNotepadContext:
- *   <QuickTasksNotepadBridge>…</QuickTasksNotepadBridge>
- */
 function QuickTasksNotepadBridgeProvider({
   openNotepad,
   children,
@@ -211,16 +203,43 @@ function QuickTasksNotepadBridgeProvider({
   )
 }
 
-// Export for MomShell to use
 export { QuickTasksNotepadBridgeProvider }
 
 // ─── Shell eligibility ────────────────────────────────────────
 
 const ALLOWED_SHELLS = new Set(['mom', 'adult', 'independent'])
 
-// ─── Component ───────────────────────────────────────────────
+// ─── Scroll overflow detection hook ──────────────────────────
 
-/** Batch-fetch illustrated icons for quick action pills */
+function useScrollOverflow(scrollRef: React.RefObject<HTMLDivElement | null>) {
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkOverflow = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 2)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+  }, [scrollRef])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    checkOverflow()
+    el.addEventListener('scroll', checkOverflow, { passive: true })
+    const resizeOb = new ResizeObserver(checkOverflow)
+    resizeOb.observe(el)
+    return () => {
+      el.removeEventListener('scroll', checkOverflow)
+      resizeOb.disconnect()
+    }
+  }, [scrollRef, checkOverflow])
+
+  return { canScrollLeft, canScrollRight, checkOverflow }
+}
+
+// ─── Illustrated icons hook ──────────────────────────────────
+
 function useQuickActionIcons() {
   const { vibe } = useTheme()
   const [iconUrls, setIconUrls] = useState<Record<string, string | null>>({})
@@ -237,6 +256,8 @@ function useQuickActionIcons() {
   return iconUrls
 }
 
+// ─── Main Component ──────────────────────────────────────────
+
 export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}) {
   const { shell } = useShell()
   const navigate = useNavigate()
@@ -246,6 +267,8 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
   const { data: family } = useFamily()
   const { data: queueCount = 0 } = useStudioQueueCount(family?.id)
   const [indicatorMode, setIndicatorModeState] = useState<IndicatorMode>(getIndicatorMode)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const { canScrollLeft, canScrollRight } = useScrollOverflow(scrollRef)
 
   function toggleIndicatorMode() {
     const next: IndicatorMode = indicatorMode === 'glow' ? 'numeric' : 'glow'
@@ -258,45 +281,44 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored !== null) return stored === 'true'
     } catch {
-      // localStorage not available — use responsive default
+      // localStorage not available
     }
-    // Default: collapsed on mobile (<768px), expanded on desktop
     return typeof window !== 'undefined' && window.innerWidth < 768
   })
 
   if (!ALLOWED_SHELLS.has(shell)) return null
 
-  // Auto-collapse override from ResizeObserver (PRD-04 auto-collapse logic)
   const effectiveCollapsed = forceCollapsed || collapsed
 
   function persistCollapsed(next: boolean) {
     setCollapsed(next)
     try {
       localStorage.setItem(STORAGE_KEY, String(next))
-    } catch {
-      // Non-critical
-    }
+    } catch { /* Non-critical */ }
   }
 
   function handleAction(action: QuickAction) {
-    incrementUsage(action.key) // Track usage for auto-sort (PRD-04)
+    incrementUsage(action.key)
     if (action.kind === 'path' && action.path) {
       navigate(action.path)
     } else if (action.kind === 'tool' && action.toolModeKey) {
-      // PRD-21: Launch communication tool modal
       openTool(action.toolModeKey)
     } else {
-      // notepad action
       if (notepadBridge) {
         notepadBridge.openNotepad()
       } else {
-        // Fallback for Adult/Independent shells (no NotepadProvider)
         navigate('/notepad')
       }
     }
   }
 
-  // Auto-sort by usage frequency (PRD-04) — pinned items always first
+  function scrollStrip(direction: 'left' | 'right') {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: direction === 'right' ? 200 : -200, behavior: 'smooth' })
+  }
+
+  // Auto-sort by usage frequency — pinned items always first
   const sortedActions = [...PINNED_ACTIONS, ...sortByUsage(QUICK_ACTIONS)]
 
   if (effectiveCollapsed) {
@@ -337,29 +359,58 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
 
   return (
     <div
+      className="quicktasks-strip"
       style={{
         backgroundColor: 'var(--surface-nav, var(--color-bg-card))',
         borderBottom: '1px solid var(--color-border)',
         position: 'relative',
       }}
     >
-      {/* Scrollable pill row */}
+      {/* CSS for hidden scrollbar */}
+      <style>{`
+        .qt-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
+
+      {/* Left scroll arrow — desktop only, visible when can scroll left */}
+      {canScrollLeft && (
+        <button
+          onClick={() => scrollStrip('left')}
+          className="hidden md:flex absolute left-0 top-1/2 items-center justify-center rounded-full z-[2] transition-opacity"
+          style={{
+            transform: 'translateY(-50%)',
+            width: '28px',
+            height: '28px',
+            background: 'color-mix(in srgb, var(--color-bg-card) 90%, transparent)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+            minHeight: 'unset',
+          }}
+          aria-label="Scroll left"
+        >
+          <ChevronLeft size={14} />
+        </button>
+      )}
+
+      {/* Scrollable pill row — constrained to not overlap floating buttons */}
       <div
-        className="flex items-center gap-2 px-3 pr-10 overflow-x-auto"
+        ref={scrollRef}
+        className="qt-scroll flex items-center gap-2 overflow-x-auto"
         style={{
           height: '44px',
-          // Hide scrollbar across all browsers
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
+          scrollBehavior: 'smooth',
+          // Left padding: account for scroll arrow space if scrollable
+          paddingLeft: canScrollLeft ? '32px' : '12px',
+          // Right padding: room for collapse button + queue indicator + right arrow
+          paddingRight: '48px',
         }}
       >
-        <style>{`.qt-row::-webkit-scrollbar { display: none; }`}</style>
-
         {sortedActions.map((item) => (
           <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
         ))}
 
-        {/* Quick Create "+" button — rightmost in strip */}
+        {/* Quick Create "+" button — always anchored rightmost */}
         <QuickCreate
           mode="strip"
           onAddTask={() => navigate('/tasks?new=1')}
@@ -376,6 +427,36 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
           onMindSweep={() => navigate('/sweep')}
         />
       </div>
+
+      {/* Right fade gradient — visible when items overflow right */}
+      {canScrollRight && (
+        <div
+          className="absolute top-0 right-[40px] h-full w-10 pointer-events-none z-[1]"
+          style={{
+            background: 'linear-gradient(to left, var(--surface-nav, var(--color-bg-card)), transparent)',
+          }}
+        />
+      )}
+
+      {/* Right scroll arrow — desktop only, visible when can scroll right */}
+      {canScrollRight && (
+        <button
+          onClick={() => scrollStrip('right')}
+          className="hidden md:flex absolute right-[32px] top-1/2 items-center justify-center rounded-full z-[2] transition-opacity"
+          style={{
+            transform: 'translateY(-50%)',
+            width: '28px',
+            height: '28px',
+            background: 'color-mix(in srgb, var(--color-bg-card) 90%, transparent)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+            minHeight: 'unset',
+          }}
+          aria-label="Scroll right"
+        >
+          <ChevronRight size={14} />
+        </button>
+      )}
 
       {/* Queue indicator — shows pending items */}
       {queueCount > 0 && (
@@ -445,7 +526,6 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
     if (!isPinned) return
     function handleGlow() {
       setAttentionGlow(true)
-      // Stop after 6 seconds
       setTimeout(() => setAttentionGlow(false), 6000)
     }
     window.addEventListener('tour-dismissed-glow', handleGlow)

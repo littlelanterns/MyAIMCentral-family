@@ -5,10 +5,9 @@ import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Heart, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, BookCopy,
-  ChevronLeft, ChevronRight, Eye, ChevronDown,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
@@ -202,84 +201,6 @@ export function Sidebar() {
   return <SidebarInner sections={sections} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} shell={shell} isPreview={isPreview} />
 }
 
-/** ViewAs member switcher — mom only, at the bottom of the sidebar */
-function ViewAsSwitcher() {
-  const { data: member } = useFamilyMember()
-  const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember, startViewAs, stopViewAs } = useViewAs()
-  const [members, setMembers] = useState<Array<{ id: string; display_name: string; role: string; dashboard_mode: string | null; theme_preferences: Record<string, unknown> | null }>>([])
-  const [open, setOpen] = useState(false)
-
-  // Load family members — include dashboard_mode and theme_preferences for View As shell switching
-  useEffect(() => {
-    if (!family?.id) return
-    supabase
-      .from('family_members')
-      .select('id, display_name, role, dashboard_mode, theme_preferences')
-      .eq('family_id', family.id)
-      .eq('is_active', true)
-      .then(({ data }) => {
-        if (data) setMembers(data as typeof members)
-      })
-  }, [family?.id])
-
-  if (!member || !family) return null
-
-  return (
-    <div className="border-t p-3 mt-auto" style={{ borderColor: 'var(--color-border)' }}>
-      {isViewingAs ? (
-        <div>
-          <p className="text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-            Viewing as:
-          </p>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {viewingAsMember?.display_name}
-            </span>
-            <button
-              onClick={stopViewAs}
-              className="text-xs px-2 py-1 rounded"
-              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}
-            >
-              Stop
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <button
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-1.5 text-xs w-full px-2 py-1.5 rounded"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            <Eye size={14} />
-            View As...
-          </button>
-          {open && (
-            <div className="mt-1 space-y-0.5">
-              {members
-                .filter(m => m.id !== member.id)
-                .map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => {
-                      startViewAs(m as any, member.id, family.id)
-                      setOpen(false)
-                    }}
-                    className="w-full text-left text-xs px-2 py-1 rounded hover:opacity-80"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {m.display_name} <span style={{ color: 'var(--color-text-secondary)' }}>({m.role})</span>
-                  </button>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** Track expanded sections — default: only the section containing the current route */
 function useSectionCollapse(sections: NavSection[], currentPath: string) {
   // Find which section contains the active route
@@ -464,7 +385,7 @@ function SidebarInner({
               </button>
             </div>
             {sidebarContent}
-            {shell === 'mom' && FEATURE_FLAGS.ENABLE_VIEW_AS && <ViewAsSwitcher />}
+            {/* View As removed from sidebar — lives in Family Overview only */}
           </aside>
           <style>{`
             @keyframes slideRight {

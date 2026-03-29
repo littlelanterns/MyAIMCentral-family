@@ -1,10 +1,14 @@
 /**
  * Universal Scheduler Component (PRD-35)
  *
- * Compact scheduling component embedded in Tasks, Calendar, Meetings, Permissions.
- * Default state: toggle between one-time date picker and weekly day chips.
- * "More options" reveals all advanced scheduling patterns inline.
+ * Radio-button primary interface ("How Often?") per consolidated update spec.
+ * One-Time, Daily, Weekly, Monthly, Yearly as top-level options with inline
+ * detail pickers. Custom expands to full scheduling power (intervals, custody,
+ * seasonal, completion-dependent).
+ *
  * Output is RRULE JSONB stored in the consuming feature's column.
+ *
+ * Redesigned per specs/Universal-Scheduler-Calendar-Consolidated-Update.md Part 1.
  */
 
 import { useState, useCallback } from 'react'
@@ -33,30 +37,8 @@ export function UniversalScheduler({
 }: UniversalSchedulerProps) {
   const stableOnChange = useCallback((v: SchedulerOutput) => onChange(v), [onChange])
   const { state, dispatch, output } = useSchedulerState(value, stableOnChange, showTimeDefault, timezone)
-  const [showMoreOptions, setShowMoreOptions] = useState(
-    !!state.advancedMode ||
-    state.frequency === 'monthly' ||
-    state.frequency === 'yearly' ||
-    state.frequency === 'custom' ||
-    state.frequency === 'daily'
-  )
+  const [showCustomExpanded, setShowCustomExpanded] = useState(!!state.advancedMode)
   const [showCalendar, setShowCalendar] = useState(false)
-
-  // Derive the toggle state: NO = one_time, YES = any repeating frequency
-  const repeats = state.frequency !== 'one_time'
-
-  // ─── Compact Mode: day-of-week circles only ───────────────────
-  if (compactMode) {
-    return (
-      <div className="space-y-2">
-        <WeekdayCircles
-          selected={state.selectedDays}
-          onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
-          label="Repeat on"
-        />
-      </div>
-    )
-  }
 
   const inputStyle: React.CSSProperties = {
     backgroundColor: 'var(--color-bg-primary)',
@@ -64,220 +46,221 @@ export function UniversalScheduler({
     color: 'var(--color-text-primary)',
   }
 
-  const handleRepeatToggle = (wantsRepeat: boolean) => {
-    if (wantsRepeat && !repeats) {
-      // Switch to weekly as default repeating frequency
-      dispatch({ type: 'SET_FREQUENCY', frequency: 'weekly' })
-    } else if (!wantsRepeat && repeats) {
-      dispatch({ type: 'SET_FREQUENCY', frequency: 'one_time' })
-      setShowMoreOptions(false)
+  // Determine which radio is selected based on state
+  type FreqOption = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+  const activeOption: FreqOption = state.advancedMode ? 'custom' :
+    (state.frequency === 'custom' ? 'custom' : state.frequency as FreqOption)
+
+  const selectFrequency = (freq: FreqOption) => {
+    if (freq === 'custom') {
+      dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
+      setShowCustomExpanded(true)
+    } else {
+      dispatch({ type: 'SET_FREQUENCY', frequency: freq })
+      dispatch({ type: 'SET_ADVANCED_MODE', mode: null })
+      setShowCustomExpanded(false)
     }
   }
 
-  // Check if current frequency needs "more options" to be visible
-  const isAdvancedFrequency =
-    state.frequency === 'monthly' ||
-    state.frequency === 'yearly' ||
-    state.frequency === 'custom' ||
-    state.frequency === 'daily' ||
-    !!state.advancedMode
+  const isRepeating = activeOption !== 'one_time'
+
+  // Radio option definitions
+  const radioOptions: { key: FreqOption; label: string; desc: string }[] = compactMode
+    ? [
+        { key: 'one_time', label: 'One-Time', desc: '' },
+        { key: 'daily', label: 'Daily', desc: '' },
+        { key: 'weekly', label: 'Weekly', desc: '' },
+        { key: 'monthly', label: 'Monthly', desc: '' },
+        { key: 'yearly', label: 'Yearly', desc: '' },
+        { key: 'custom', label: 'Custom', desc: '' },
+      ]
+    : [
+        { key: 'one_time', label: 'One-Time', desc: 'Something that needs to happen once' },
+        { key: 'daily', label: 'Daily', desc: 'Repeats every single day' },
+        { key: 'weekly', label: 'Weekly', desc: 'Repeats on specific days each week' },
+        { key: 'monthly', label: 'Monthly', desc: 'Repeats each month' },
+        { key: 'yearly', label: 'Yearly', desc: 'Repeats once a year' },
+        { key: 'custom', label: 'Custom', desc: 'Build your own schedule' },
+      ]
 
   return (
     <div className="space-y-3">
-      <FeatureGuide
-        featureKey="scheduler_basic"
-        title="Schedule"
-        description="Set when this happens. Toggle repeating, pick your days, and you're done."
-        bullets={[
-          'Tap days to select which ones this repeats on',
-          'Use "More options" for monthly, yearly, or rotation patterns',
-          'View your schedule on the calendar preview',
-        ]}
-      />
+      {!compactMode && (
+        <FeatureGuide
+          featureKey="scheduler_basic"
+          title="Schedule"
+          description="Set when this happens — pick a frequency, choose your days, done."
+          bullets={[
+            'Pick how often this repeats',
+            'Use "Custom" for rotation patterns, seasonal, or interval-based schedules',
+            'View your schedule on the calendar preview',
+          ]}
+        />
+      )}
 
-      {/* ── Repeat Toggle ── */}
+      {/* ── Radio buttons: "How Often?" ── */}
       <div>
-        <div
-          className="text-xs font-medium mb-2 uppercase tracking-wider"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          Does this repeat?
-        </div>
-        <div className="flex rounded-lg overflow-hidden" style={{ border: '1.5px solid var(--color-border)' }}>
-          <button
-            type="button"
-            onClick={() => handleRepeatToggle(false)}
-            className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: !repeats ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
-              color: !repeats ? 'var(--color-text-on-primary, white)' : 'var(--color-text-secondary)',
-            }}
+        {!compactMode && (
+          <div
+            className="text-xs font-medium mb-2 uppercase tracking-wider"
+            style={{ color: 'var(--color-text-secondary)' }}
           >
-            No
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRepeatToggle(true)}
-            className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: repeats ? 'var(--color-accent, var(--color-sage-teal, #68a395))' : 'transparent',
-              color: repeats ? 'var(--color-text-on-primary, white)' : 'var(--color-text-secondary)',
-              borderLeft: '1.5px solid var(--color-border)',
-            }}
-          >
-            Yes
-          </button>
+            How often?
+          </div>
+        )}
+
+        <div className="space-y-1">
+          {radioOptions.map(opt => (
+            <div key={opt.key}>
+              {/* Radio button row */}
+              <label
+                className="flex items-start gap-2.5 rounded-lg px-3 py-2 cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: activeOption === opt.key ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)' : 'transparent',
+                  border: activeOption === opt.key ? '1px solid var(--color-btn-primary-bg)' : '1px solid transparent',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="scheduler-frequency"
+                  checked={activeOption === opt.key}
+                  onChange={() => selectFrequency(opt.key)}
+                  className="mt-0.5"
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {opt.label}
+                  </span>
+                  {opt.desc && (
+                    <span className="text-xs ml-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+                      — {opt.desc}
+                    </span>
+                  )}
+                </div>
+              </label>
+
+              {/* ── Inline detail pickers below selected option ── */}
+              {activeOption === opt.key && opt.key === 'one_time' && (
+                <div className="pl-8 pb-2 flex items-center gap-2 flex-wrap">
+                  <input
+                    type="date"
+                    value={state.oneTimeDate}
+                    onChange={(e) => dispatch({ type: 'SET_ONE_TIME_DATE', date: e.target.value })}
+                    className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                    style={inputStyle}
+                  />
+                  {showTimeDefault || state.showTime ? (
+                    <>
+                      <input
+                        type="time"
+                        value={state.time}
+                        onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })}
+                        className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                        style={inputStyle}
+                      />
+                      {!showTimeDefault && (
+                        <button type="button" onClick={() => dispatch({ type: 'TOGGLE_TIME' })} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>remove time</button>
+                      )}
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => dispatch({ type: 'TOGGLE_TIME' })} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs" style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                      <Clock size={12} /> Add time
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {activeOption === opt.key && opt.key === 'daily' && showTimeDefault && (
+                <div className="pl-8 pb-2 flex items-center gap-2">
+                  <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                  <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                </div>
+              )}
+
+              {activeOption === opt.key && opt.key === 'weekly' && (
+                <div className="pl-8 pb-2 space-y-2">
+                  <WeekdayCircles
+                    selected={state.selectedDays}
+                    onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
+                    label=""
+                  />
+                  {showTimeDefault && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                      <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeOption === opt.key && opt.key === 'monthly' && (
+                <div className="pl-8 pb-2 space-y-2">
+                  <MonthlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  {showTimeDefault && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                      <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeOption === opt.key && opt.key === 'yearly' && (
+                <div className="pl-8 pb-2 space-y-2">
+                  <YearlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  {showTimeDefault && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                      <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeOption === opt.key && opt.key === 'custom' && showCustomExpanded && (
+                <div className="pl-8 pb-2 space-y-3">
+                  <CustomConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  {state.advancedMode && (
+                    <AdvancedModeConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  )}
+                  {/* Advanced patterns */}
+                  <RepeatPatternSelector state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  {/* Exceptions */}
+                  <ExceptionSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
+                  {showTimeDefault && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                      <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── One-Time: Date + optional time ── */}
-      {!repeats && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <input
-            type="date"
-            value={state.oneTimeDate}
-            onChange={(e) => dispatch({ type: 'SET_ONE_TIME_DATE', date: e.target.value })}
-            className="px-3 py-1.5 rounded-lg text-sm outline-none"
-            style={inputStyle}
-          />
+      {/* ── Schedule Until (visible for any repeating option) ── */}
+      {isRepeating && (
+        <ScheduleUntilSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
+      )}
+
+      {/* ── Optional time picker for repeating (when not showTimeDefault) ── */}
+      {isRepeating && !showTimeDefault && (
+        <div>
           {state.showTime ? (
-            <>
-              <input
-                type="time"
-                value={state.time}
-                onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })}
-                className="px-3 py-1.5 rounded-lg text-sm outline-none"
-                style={inputStyle}
-              />
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
-                className="text-xs"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                remove time
-              </button>
-            </>
+            <div className="flex items-center gap-2">
+              <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
+              <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
+              <button type="button" onClick={() => dispatch({ type: 'TOGGLE_TIME' })} className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>remove</button>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs"
-              style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
-            >
-              <Clock size={12} /> Add time
+            <button type="button" onClick={() => dispatch({ type: 'TOGGLE_TIME' })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm" style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}>
+              <Plus size={14} /> Add time
             </button>
           )}
         </div>
-      )}
-
-      {/* ── Repeating: Default compact view (day chips + time) ── */}
-      {repeats && (
-        <>
-          {/* Day chips — show for weekly or custom with day-based units */}
-          {(state.frequency === 'weekly' ||
-            (state.frequency === 'custom' && !state.advancedMode && (state.customUnit === 'days' || state.customUnit === 'weeks'))) && (
-            <WeekdayCircles
-              selected={state.selectedDays}
-              onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
-              label="Repeats on"
-            />
-          )}
-
-          {/* Show frequency-specific config when in advanced frequencies */}
-          {state.frequency === 'daily' && showMoreOptions && (
-            <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              Repeats every day
-            </div>
-          )}
-
-          {state.frequency === 'monthly' && showMoreOptions && (
-            <MonthlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-          )}
-
-          {state.frequency === 'yearly' && showMoreOptions && (
-            <YearlyConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-          )}
-
-          {state.frequency === 'custom' && !state.advancedMode && showMoreOptions && (
-            <CustomConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-          )}
-
-          {/* Advanced mode config (alternating, custody, seasonal, completion) */}
-          {state.advancedMode && showMoreOptions && (
-            <AdvancedModeConfig state={state} dispatch={dispatch} inputStyle={inputStyle} />
-          )}
-
-          {/* Time picker */}
-          <div>
-            {state.showTime ? (
-              <div className="flex items-center gap-2">
-                <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
-                <input
-                  type="time"
-                  value={state.time}
-                  onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })}
-                  className="px-3 py-1.5 rounded-lg text-sm outline-none"
-                  style={inputStyle}
-                />
-                <button
-                  type="button"
-                  onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
-                  className="text-xs"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  remove
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => dispatch({ type: 'TOGGLE_TIME' })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
-                style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
-              >
-                <Plus size={14} /> Add time
-              </button>
-            )}
-          </div>
-
-          {/* ── More options link ── */}
-          <button
-            type="button"
-            onClick={() => setShowMoreOptions(!showMoreOptions)}
-            className="flex items-center gap-1.5 text-sm w-full"
-            style={{ color: 'var(--color-accent, var(--color-sage-teal, #68a395))' }}
-          >
-            {showMoreOptions ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {showMoreOptions ? 'Fewer options' : 'More options'}
-          </button>
-
-          {/* ── Expanded "More options" section ── */}
-          {showMoreOptions && (
-            <div
-              className="space-y-4 pt-2 pl-3 border-l-2"
-              style={{ borderColor: 'var(--color-border)' }}
-            >
-              {/* Frequency refinement — only show if not already in a specific mode */}
-              {!isAdvancedFrequency && state.frequency === 'weekly' && (
-                <RepeatFrequencyPicker state={state} dispatch={dispatch} inputStyle={inputStyle} />
-              )}
-
-              {/* Switch to other repeat patterns */}
-              <RepeatPatternSelector
-                state={state}
-                dispatch={dispatch}
-                inputStyle={inputStyle}
-              />
-
-              {/* Schedule until */}
-              <ScheduleUntilSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
-
-              {/* Exceptions */}
-              <ExceptionSection state={state} dispatch={dispatch} inputStyle={inputStyle} />
-            </div>
-          )}
-        </>
       )}
 
       {/* ── Calendar Preview Toggle ── */}
@@ -294,46 +277,6 @@ export function UniversalScheduler({
       {showCalendar && (
         <CalendarPreview output={output} dispatch={dispatch} />
       )}
-    </div>
-  )
-}
-
-// ─── Repeat Frequency Picker (every X weeks) ─────────────────────────────
-
-function RepeatFrequencyPicker({ state, dispatch, inputStyle }: {
-  state: ReturnType<typeof useSchedulerState>['state']
-  dispatch: React.Dispatch<any>
-  inputStyle: React.CSSProperties
-}) {
-  // If user sets interval > 1, switch to custom with weeks unit
-  const currentInterval = state.frequency === 'custom' && state.customUnit === 'weeks'
-    ? state.customInterval
-    : 1
-
-  const handleIntervalChange = (val: number) => {
-    if (val > 1) {
-      dispatch({ type: 'SET_FREQUENCY', frequency: 'custom' })
-      dispatch({ type: 'SET_CUSTOM_UNIT', unit: 'weeks' })
-      dispatch({ type: 'SET_CUSTOM_INTERVAL', interval: val })
-    } else {
-      dispatch({ type: 'SET_FREQUENCY', frequency: 'weekly' })
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Repeats every</span>
-      <input
-        type="number"
-        min={1}
-        value={currentInterval}
-        onChange={(e) => handleIntervalChange(parseInt(e.target.value) || 1)}
-        className="w-14 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
-        style={inputStyle}
-      />
-      <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        {currentInterval === 1 ? 'week' : 'weeks'}
-      </span>
     </div>
   )
 }

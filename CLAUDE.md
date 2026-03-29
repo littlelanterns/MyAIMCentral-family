@@ -273,3 +273,22 @@ This process exists because weeks of careful planning went into every PRD and ad
 103. **Decision Guide: 15 named frameworks in `decision_frameworks` table.** LiLa suggests based on decision type or user picks from list. Framework's `system_prompt_addition` loaded from DB and appended to system prompt. Coin flip insight = LiLa interjection during indecision (3+ turns), offered once, never pushed.
 104. **All ThoughtSift conversations pass through PRD-30 safety monitoring pipeline.** No new safety infrastructure needed. Crisis override is global.
 105. **ThoughtSift tools live in AI Vault as 5 separate items.** No default family member assignments. Mom assigns via "+Add to AI Toolbox."
+
+## Calendar (PRD-14B)
+
+106. **Calendar date storage uses separate fields:** `event_date DATE` + `start_time TIME` + `end_time TIME` + `end_date DATE`. NULL times = all-day event. Simpler for date queries than combined TIMESTAMPTZ. The build spec's combined TIMESTAMPTZ approach is superseded.
+107. **Calendar page defaults to Month view; dashboard widget defaults to Week view.** The full page is the big-picture view. The widget shows "what's happening this week."
+108. **Click any date on any calendar view opens DateDetailModal** as a transient modal overlay. Calendar stays visible behind it. Consistent across Month/Week/Day views. No page navigation on date click.
+109. **Calendar recurrence uses Universal Scheduler output.** `recurrence_details JSONB` (RRULE format) + `recurrence_rule TEXT` (quick-filter enum: 'daily', 'weekly', 'monthly', 'yearly', 'custom', 'none'). No individual recurrence columns (`recurrence_type`, `recurrence_interval`, `recurrence_days` etc. are redundant). EventCreationModal passes `showTimeDefault={true}` to the scheduler.
+110. **11 system event categories:** Learning (not School), Sports, Medical, Family, Social, Faith, Music & Arts, Travel, Celebration, Work, Other. System categories have `family_id IS NULL`. Category is `category_id UUID` FK (not a text slug column).
+111. **Events by mom auto-approved.** Events by members in `calendar_settings.auto_approve_members` UUID[] auto-approved. All others `pending_approval`. Pending rendering: faded/gray, dotted border, "pending" badge. Full color on approval.
+112. **Task due dates surface on calendar via direct query from `tasks` table.** NO duplication into `calendar_events`. Distinct checkbox icon, slightly muted style. Mom can inline edit task due dates from calendar (full permission); members can only edit due dates on tasks they created themselves.
+113. **`items_to_bring` is JSONB** with structure `[{text: string, checked: boolean, ai_suggested: boolean}]` — not a simple text array. Checkable state for packing. `transportation_notes TEXT` (not `transportation_details`).
+114. **Calendar Settings stores:** `default_drive_time_minutes INTEGER DEFAULT 30`, `required_intake_fields JSONB DEFAULT '[]'`, `auto_approve_members UUID[]`, `week_start_day INTEGER DEFAULT 0`. Mom configures which fields are mandatory for kid events.
+115. **Week start day is configurable** (Sunday=0 or Monday=1). Stored in `calendar_settings.week_start_day`. Respected by: Calendar page grid, Dashboard widget grid, WeekdayCircles, MiniCalendarPicker, Universal Scheduler calendar preview.
+116. **MiniCalendarPicker is a shared component** (`src/components/shared/MiniCalendarPicker.tsx`). Compact month grid with clickable month name dropdown + editable year text field + prev/next arrows + Today button. Used by Calendar page toolbar, DateDetailModal header, Dashboard widget, and Universal Scheduler calendar preview.
+117. **Universal Scheduler redesigned to radio-button primary interface** ("How Often?"). One-Time, Daily, Weekly, Monthly, Yearly as top-level radio buttons with inline detail pickers. Custom expands to full scheduling power. Supersedes the NO/YES toggle interface. See `specs/Universal-Scheduler-Calendar-Consolidated-Update.md`.
+
+## Build Strictness (Non-Negotiable)
+
+118. **Before completing any build session, run `npx tsc --noEmit` and verify zero errors.** The production build (Vercel) uses strict TypeScript checking with `noUnusedLocals` and `noUnusedParameters` enabled. Vite's dev server does NOT type-check — it uses esbuild which ignores these flags. Code that works in `vite dev` can still fail on deploy. Never commit code that passes `vite dev` but would fail `npx tsc --noEmit`. Run the check before declaring any phase complete.

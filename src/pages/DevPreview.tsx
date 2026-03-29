@@ -9,9 +9,10 @@ import { JournalPage } from './Journal'
 import { TasksPage } from './Tasks'
 import { ListsPage } from './Lists'
 import {
-  VictoriesPage, CalendarPage, TrackersPage, LifeLanternPage,
+  VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage, ArchivesPage, MorningRhythmPage, EveningReviewPage,
 } from './placeholder'
+import { CalendarPage } from '@/components/calendar'
 
 /**
  * Dev Preview — browse the entire app without authentication.

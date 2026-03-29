@@ -3,7 +3,52 @@
 > Auto-loaded every session via CLAUDE.md. Must be fully populated before any build begins.
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 
-## Status: IDLE
+## Status: ACTIVE — UX Overhaul Session 3 + PRD-14B Calendar
+
+### PRD File
+`prds/dashboards/PRD-14B-Calendar.md`
+
+### Addenda Read
+- `prds/addenda/PRD-14B-Cross-PRD-Impact-Addendum.md`
+- `prds/addenda/PRD-14-Cross-PRD-Impact-Addendum.md`
+- `prds/addenda/PRD-35-Cross-PRD-Impact-Addendum.md`
+- `prds/addenda/PRD-08-Cross-PRD-Impact-Addendum.md`
+- `prds/addenda/PRD-14D-Cross-PRD-Impact-Addendum.md`
+
+### Feature Decision File
+`claude/feature-decisions/PRD-14B-Calendar.md`
+
+### Superseding Spec
+`specs/Universal-Scheduler-Calendar-Consolidated-Update.md` — founder-approved consolidated decisions that override any conflicts in other specs.
+
+### Session Items (UX Overhaul Session 3)
+1. **QuickTasks Strip Layout Fix** — COMPLETE. Hidden scrollbar, fade gradient, scroll arrows, usage sorting.
+2. **Calendar System (PRD-14B)** — IN PROGRESS. Pre-build complete. Migration needs regeneration per consolidated spec.
+3. **Spotlight Search (Cmd+K)** — PENDING.
+4. **Tooltip Audit** — PENDING.
+
+### Schema Reconciliation (Founder-Confirmed)
+- Date storage: separate `event_date DATE` + `start_time TIME` + `end_time TIME` + `end_date DATE`
+- Category: `category_id UUID` FK to `event_categories.id` (not slug text)
+- 11 system categories: Learning, Sports, Medical, Family, Social, Faith, Music & Arts, Travel, Celebration, Work, Other
+- Recurrence: `recurrence_details JSONB` (RRULE) + `recurrence_rule TEXT` (quick-filter). No individual recurrence columns.
+- `items_to_bring JSONB` [{text, checked, ai_suggested}]
+- `transportation_notes TEXT`
+- `reminder_minutes INTEGER[]`
+- `default_drive_time_minutes DEFAULT 30`
+- `required_intake_fields JSONB DEFAULT '[]'` in calendar_settings
+- `event_categories.family_id` nullable (NULL = system)
+- Universal Scheduler redesign: radio-button primary interface, MiniCalendarPicker shared component
+
+### Stubs (Not Building This Phase)
+- Image-to-event OCR (Edge Function)
+- LiLa guided event creation
+- Universal Queue Modal Calendar tab (approval in DateDetailModal)
+- Calendar context for LiLa
+- Guided/Play shell calendar variants
+- Google Calendar sync
+- Push notification reminders
+- "Send to Calendar" from Notepad
 
 ---
 
