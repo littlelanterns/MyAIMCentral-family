@@ -293,15 +293,23 @@ function NotepadBridgedQuickTasks({ forceCollapsed }: { forceCollapsed?: boolean
 /** Universal Quick Create FAB — draggable on all screen sizes */
 function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
   const { openNotepad } = useNotepadContext()
+  const [showTrackerCreate, setShowTrackerCreate] = useState(false)
   return (
-    <QuickCreate
-      onAddTask={onAddTask}
-      onQuickNote={openNotepad}
-      onLogVictory={() => { window.location.href = '/victories?new=1' }}
-      onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
-      onSendRequest={openNotepad}
-      onMindSweep={() => { window.location.href = '/sweep' }}
-    />
+    <>
+      <QuickCreate
+        onAddTask={onAddTask}
+        onQuickNote={openNotepad}
+        onLogVictory={() => { window.location.href = '/victories?new=1' }}
+        onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
+        onSendRequest={openNotepad}
+        onTrackSomething={() => setShowTrackerCreate(true)}
+        onMindSweep={() => { window.location.href = '/sweep' }}
+      />
+      <TrackerQuickCreateModal
+        isOpen={showTrackerCreate}
+        onClose={() => setShowTrackerCreate(false)}
+      />
+    </>
   )
 }
 

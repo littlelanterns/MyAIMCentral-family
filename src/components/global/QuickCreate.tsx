@@ -12,7 +12,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, Brain } from 'lucide-react'
+import { Plus, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, BarChart3, Brain } from 'lucide-react'
 import { useShell } from '@/components/shells/ShellProvider'
 
 const QUICK_ACTIONS = [
@@ -21,6 +21,7 @@ const QUICK_ACTIONS = [
   { key: 'victory', label: 'Log Victory', icon: Trophy },
   { key: 'event', label: 'Calendar Event', icon: CalendarPlus },
   { key: 'request', label: 'Send Request', icon: HandHelping },
+  { key: 'tracker', label: 'Track Something', icon: BarChart3 },
   { key: 'sweep', label: 'Mind Sweep', icon: Brain },
 ] as const
 
@@ -32,6 +33,7 @@ export interface QuickCreateProps {
   onLogVictory?: () => void
   onCalendarEvent?: () => void
   onSendRequest?: () => void
+  onTrackSomething?: () => void
   onMindSweep?: () => void
 }
 
@@ -88,6 +90,7 @@ export function QuickCreate({
   onLogVictory,
   onCalendarEvent,
   onSendRequest,
+  onTrackSomething,
   onMindSweep,
 }: QuickCreateProps) {
   const { shell } = useShell()
@@ -110,9 +113,10 @@ export function QuickCreate({
       case 'victory': onLogVictory?.(); break
       case 'event': onCalendarEvent?.(); break
       case 'request': onSendRequest?.(); break
+      case 'tracker': onTrackSomething?.(); break
       case 'sweep': onMindSweep?.(); break
     }
-  }, [onAddTask, onQuickNote, onLogVictory, onCalendarEvent, onSendRequest, onMindSweep])
+  }, [onAddTask, onQuickNote, onLogVictory, onCalendarEvent, onSendRequest, onTrackSomething, onMindSweep])
 
   // Close on click outside
   useEffect(() => {

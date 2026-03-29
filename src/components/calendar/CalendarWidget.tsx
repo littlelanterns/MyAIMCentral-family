@@ -3,12 +3,14 @@
  *
  * Visual style matches v1: warm card-like day columns with filled headers,
  * today in accent color, "No events" placeholder, accent "View Month" button.
+ * MiniCalendarPicker popup for jump-to-date.
  *
  * PRD-14B: Dashboard widget defaults to Week view.
  */
 
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, CalendarDays, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Calendar as CalendarIcon, Settings } from 'lucide-react'
+import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -45,6 +47,7 @@ export function CalendarWidget() {
 
   const today = new Date()
   const [weekOffset, setWeekOffset] = useState(0)
+  const [showMiniPicker, setShowMiniPicker] = useState(false)
 
   const weekStart = useMemo(() => {
     const base = getWeekStart(today, weekStartDay)
@@ -95,6 +98,14 @@ export function CalendarWidget() {
   }, [familyMembers])
 
   const todayKey = toISODate(today)
+
+  // Jump to week containing a specific date
+  const jumpToDate = (date: Date) => {
+    const targetWeekStart = getWeekStart(date, weekStartDay)
+    const baseWeekStart = getWeekStart(today, weekStartDay)
+    const diffDays = Math.round((targetWeekStart.getTime() - baseWeekStart.getTime()) / (1000 * 60 * 60 * 24))
+    setWeekOffset(Math.round(diffDays / 7))
+  }
 
   return (
     <>
@@ -164,6 +175,37 @@ export function CalendarWidget() {
             >
               <ChevronRight size={16} />
             </button>
+
+            {/* MiniCalendarPicker jump-to-date */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMiniPicker(!showMiniPicker)}
+                className="flex items-center justify-center rounded"
+                style={{
+                  width: '28px', height: '28px',
+                  background: 'transparent',
+                  color: 'var(--color-text-on-primary, var(--color-btn-primary-text))',
+                  border: 'none', minHeight: 'unset', cursor: 'pointer',
+                }}
+                aria-label="Jump to date"
+              >
+                <CalendarIcon size={14} />
+              </button>
+              {showMiniPicker && (
+                <div className="absolute top-full mt-1 right-0 z-50">
+                  <MiniCalendarPicker
+                    selectedDate={weekStart}
+                    onDateSelect={(d) => {
+                      jumpToDate(d)
+                      setShowMiniPicker(false)
+                    }}
+                    weekStartDay={weekStartDay}
+                    showTodayButton
+                  />
+                </div>
+              )}
+            </div>
+
             <button
               className="flex items-center justify-center rounded"
               style={{
@@ -315,7 +357,6 @@ export function CalendarWidget() {
             setShowEventCreation(true)
           }}
           onEditEvent={() => {
-            // STUB: Edit from widget opens EventCreationModal pre-populated (Session 5)
             setShowEventCreation(true)
           }}
         />

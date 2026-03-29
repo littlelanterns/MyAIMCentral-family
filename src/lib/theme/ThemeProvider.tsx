@@ -5,6 +5,7 @@ import { applyShellTokens } from './shellTokens'
 
 type ColorMode = 'light' | 'dark' | 'system'
 type FontScale = 'small' | 'default' | 'large' | 'extra-large'
+type ElementSize = 'small' | 'default' | 'large'
 
 interface ThemeContextType {
   theme: ThemeKey
@@ -13,12 +14,14 @@ interface ThemeContextType {
   effectiveColorMode: 'light' | 'dark'
   gradientEnabled: boolean
   fontScale: FontScale
+  elementSize: ElementSize
   shell: ShellType
   setTheme: (theme: ThemeKey) => void
   setVibe: (vibe: VibeKey) => void
   setColorMode: (mode: ColorMode) => void
   setGradientEnabled: (enabled: boolean) => void
   setFontScale: (scale: FontScale) => void
+  setElementSize: (size: ElementSize) => void
   setShell: (shell: ShellType) => void
   themeConfig: ThemeColors
   vibeConfig: VibeConfig
@@ -44,6 +47,7 @@ function applyTokens(
   gradientEnabled: boolean,
   shell: ShellType,
   fontScale: FontScale,
+  elementSize: ElementSize,
 ) {
   const theme = themes[themeKey]
   const vibe = vibes[vibeKey]
@@ -184,6 +188,14 @@ function applyTokens(
 
   // Shell-specific token overrides (font-size-base, touch-target-min, etc.)
   applyShellTokens(shell)
+
+  // Element size → --density-multiplier on :root
+  const densityMap: Record<ElementSize, string> = {
+    'small': '0.7',
+    'default': '1',
+    'large': '1.3',
+  }
+  root.style.setProperty('--density-multiplier', densityMap[elementSize])
 }
 
 interface ThemeProviderProps {
@@ -207,6 +219,9 @@ export function ThemeProvider({ children, defaultShell = 'mom' }: ThemeProviderP
   const [fontScale, setFontScaleState] = useState<FontScale>(() =>
     (localStorage.getItem('myaim-font-scale') as FontScale) || 'default'
   )
+  const [elementSize, setElementSizeState] = useState<ElementSize>(() =>
+    (localStorage.getItem('myaim-element-size') as ElementSize) || 'default'
+  )
   const [shell, setShell] = useState<ShellType>(defaultShell)
   const [systemMode, setSystemMode] = useState<'light' | 'dark'>(getSystemColorMode)
 
@@ -222,8 +237,8 @@ export function ThemeProvider({ children, defaultShell = 'mom' }: ThemeProviderP
 
   // Apply tokens whenever anything changes
   useEffect(() => {
-    applyTokens(theme, vibe, effectiveColorMode === 'dark', gradientEnabled, shell, fontScale)
-  }, [theme, vibe, effectiveColorMode, gradientEnabled, shell, fontScale])
+    applyTokens(theme, vibe, effectiveColorMode === 'dark', gradientEnabled, shell, fontScale, elementSize)
+  }, [theme, vibe, effectiveColorMode, gradientEnabled, shell, fontScale, elementSize])
 
   const setTheme = useCallback((t: ThemeKey) => {
     setThemeState(t)
@@ -250,11 +265,16 @@ export function ThemeProvider({ children, defaultShell = 'mom' }: ThemeProviderP
     localStorage.setItem('myaim-font-scale', s)
   }, [])
 
+  const setElementSize = useCallback((s: ElementSize) => {
+    setElementSizeState(s)
+    localStorage.setItem('myaim-element-size', s)
+  }, [])
+
   return (
     <ThemeContext.Provider
       value={{
-        theme, vibe, colorMode, effectiveColorMode, gradientEnabled, fontScale, shell,
-        setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale, setShell,
+        theme, vibe, colorMode, effectiveColorMode, gradientEnabled, fontScale, elementSize, shell,
+        setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale, setElementSize, setShell,
         themeConfig: themes[theme],
         vibeConfig: vibes[vibe],
       }}

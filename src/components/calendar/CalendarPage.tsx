@@ -4,13 +4,17 @@
  * Default view: Month (per founder decision).
  * Day/Week/Month views, filter modes (Me/Family/Pick Members),
  * color mode (Dots/Stripe), date navigation with MiniCalendarPicker.
+ * Task due dates shown with CheckSquare icon, muted style.
+ * Member colors applied as dots or left-border stripes.
+ * ?new=1 URL param auto-opens EventCreationModal.
  *
  * PRD-14B Screen 1, spec: Calendar-System-Build-Spec.md
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Settings,
+  CheckSquare, Circle,
 } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
@@ -21,7 +25,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { DateDetailModal } from './DateDetailModal'
 import { EventCreationModal } from './EventCreationModal'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
-import type { CalendarView, CalendarFilter } from '@/types/calendar'
+import type { CalendarView, CalendarFilter, CalendarColorMode } from '@/types/calendar'
 import type { CalendarEvent, EventAttendee, TaskDueDate } from '@/types/calendar'
 
 function toISODate(d: Date): string {
@@ -60,6 +64,47 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const DAY_HEADERS_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_HEADERS_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+/** Member color dot (8px circle) before event text */
+function ColorDot({ color, pending }: { color: string; pending?: boolean }) {
+  return (
+    <span
+      className="rounded-full inline-block flex-shrink-0"
+      style={{
+        width: '8px',
+        height: '8px',
+        backgroundColor: pending ? 'var(--color-text-secondary)' : color,
+        opacity: pending ? 0.5 : 1,
+      }}
+    />
+  )
+}
+
+/** Stacked dots for multi-attendee events (up to 3 + overflow) */
+function StackedDots({ colors, pending }: { colors: string[]; pending?: boolean }) {
+  const shown = colors.slice(0, 3)
+  const overflow = colors.length - 3
+  return (
+    <span className="inline-flex items-center gap-px flex-shrink-0">
+      {shown.map((c, i) => (
+        <span
+          key={i}
+          className="rounded-full"
+          style={{
+            width: '6px',
+            height: '6px',
+            backgroundColor: pending ? 'var(--color-text-secondary)' : c,
+            opacity: pending ? 0.5 : 1,
+            marginLeft: i > 0 ? '-2px' : 0,
+          }}
+        />
+      ))}
+      {overflow > 0 && (
+        <span className="text-[7px] ml-px" style={{ color: 'var(--color-text-secondary)' }}>+{overflow}</span>
+      )}
+    </span>
+  )
+}
+
 export function CalendarPage() {
   const { data: settings } = useCalendarSettings()
   const { data: family } = useFamily()
@@ -78,12 +123,45 @@ export function CalendarPage() {
   })
   const [currentDate, setCurrentDate] = useState(today)
   const [filter, setFilter] = useState<CalendarFilter>('family')
+  const [pickedMemberIds, setPickedMemberIds] = useState<Set<string>>(new Set())
+  const [colorMode, setColorMode] = useState<CalendarColorMode>(() => {
+    try {
+      const stored = localStorage.getItem('myaim-calendar-color-mode')
+      if (stored === 'dots' || stored === 'stripe') return stored
+    } catch { /* ignore */ }
+    return 'dots'
+  })
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [showEventCreation, setShowEventCreation] = useState(false)
   const [eventCreationDate, setEventCreationDate] = useState<string | undefined>()
   const [showMiniPicker, setShowMiniPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [_editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [taskDetailId, setTaskDetailId] = useState<string | null>(null)
+
+  // ?new=1 URL param → auto-open EventCreationModal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('new') === '1') {
+      setShowEventCreation(true)
+      // Strip param from URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete('new')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+
+  // Persist color mode
+  useEffect(() => {
+    try { localStorage.setItem('myaim-calendar-color-mode', colorMode) } catch { /* ignore */ }
+  }, [colorMode])
+
+  // Initialize picked members to all when switching to pick mode
+  useEffect(() => {
+    if (filter === 'pick' && pickedMemberIds.size === 0 && familyMembers?.length) {
+      setPickedMemberIds(new Set(familyMembers.map(m => m.id)))
+    }
+  }, [filter, familyMembers, pickedMemberIds.size])
 
   // Calculate date range based on view
   const { rangeStart, rangeEnd } = useMemo(() => {
@@ -99,7 +177,13 @@ export function CalendarPage() {
     }
   }, [view, currentDate, weekStartDay])
 
-  const memberFilter = filter === 'me' && member ? [member.id] : undefined
+  // Member filter for query
+  const memberFilter = useMemo(() => {
+    if (filter === 'me' && member) return [member.id]
+    if (filter === 'pick' && pickedMemberIds.size > 0) return Array.from(pickedMemberIds)
+    return undefined
+  }, [filter, member, pickedMemberIds])
+
   const { data: events } = useEventsForRange(rangeStart, rangeEnd, memberFilter)
   const { data: tasksDue } = useTasksDueInRange(rangeStart, rangeEnd)
 
@@ -184,6 +268,117 @@ export function CalendarPage() {
     const ws = getWeekStart(currentDate, weekStartDay)
     return Array.from({ length: 7 }, (_, i) => addDays(ws, i))
   }, [view, currentDate, weekStartDay])
+
+  // Get attendee colors for an event
+  const getEventColors = useCallback((ev: CalendarEvent & { event_attendees: EventAttendee[] }) => {
+    const colors: string[] = []
+    // Creator color first
+    const creatorColor = memberColorMap.get(ev.created_by)
+    if (creatorColor) colors.push(creatorColor)
+    // Then attendees
+    for (const att of ev.event_attendees ?? []) {
+      const c = memberColorMap.get(att.family_member_id)
+      if (c && !colors.includes(c)) colors.push(c)
+    }
+    return colors.length > 0 ? colors : ['var(--color-btn-primary-bg)']
+  }, [memberColorMap])
+
+  // Event label rendering helper (dots or stripe mode)
+  const renderEventLabel = useCallback((
+    ev: CalendarEvent & { event_attendees: EventAttendee[] },
+    opts: { isToday?: boolean; compact?: boolean } = {},
+  ) => {
+    const isPending = ev.status === 'pending_approval'
+    const colors = getEventColors(ev)
+    const primaryColor = isPending ? 'var(--color-text-secondary)' : colors[0]
+
+    if (colorMode === 'stripe') {
+      return (
+        <div
+          key={ev.id}
+          className={`text-[${opts.compact ? '9' : '10'}px] leading-tight rounded-sm px-1 py-px truncate`}
+          style={{
+            backgroundColor: opts.isToday
+              ? 'color-mix(in srgb, var(--color-btn-primary-text) 20%, transparent)'
+              : isPending
+                ? 'var(--color-bg-secondary)'
+                : `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
+            color: opts.isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+            borderLeft: `3px solid ${primaryColor}`,
+            borderStyle: isPending ? 'dashed' : 'solid',
+            opacity: isPending ? 0.65 : 1,
+          }}
+        >
+          {ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}{ev.title}
+        </div>
+      )
+    }
+
+    // Dots mode
+    return (
+      <div
+        key={ev.id}
+        className={`text-[${opts.compact ? '9' : '10'}px] leading-tight rounded-sm px-1 py-px truncate flex items-center gap-1`}
+        style={{
+          backgroundColor: opts.isToday
+            ? 'color-mix(in srgb, var(--color-btn-primary-text) 20%, transparent)'
+            : isPending
+              ? 'var(--color-bg-secondary)'
+              : `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
+          color: opts.isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+          opacity: isPending ? 0.65 : 1,
+        }}
+      >
+        {colors.length > 1
+          ? <StackedDots colors={colors} pending={isPending} />
+          : <ColorDot color={primaryColor} pending={isPending} />
+        }
+        <span className="truncate">
+          {ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}{ev.title}
+        </span>
+      </div>
+    )
+  }, [colorMode, getEventColors])
+
+  // Task due date label rendering
+  const renderTaskLabel = useCallback((
+    t: TaskDueDate,
+    opts: { isToday?: boolean } = {},
+  ) => {
+    const taskColor = memberColorMap.get(t.assignee_id ?? t.created_by) ?? 'var(--color-text-secondary)'
+
+    return (
+      <div
+        key={t.id}
+        className="text-[9px] leading-tight rounded-sm px-1 py-px truncate flex items-center gap-1 cursor-pointer"
+        style={{
+          backgroundColor: opts.isToday
+            ? 'color-mix(in srgb, var(--color-btn-primary-text) 15%, transparent)'
+            : 'var(--color-bg-secondary)',
+          color: opts.isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+          borderLeft: colorMode === 'stripe' ? `3px solid ${taskColor}` : undefined,
+          opacity: 0.85,
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          setTaskDetailId(t.id)
+        }}
+      >
+        {colorMode === 'dots' && <CheckSquare size={8} className="flex-shrink-0" style={{ opacity: 0.7 }} />}
+        <span className="truncate">{t.title}</span>
+      </div>
+    )
+  }, [colorMode, memberColorMap])
+
+  // Task detail for click action
+  const taskDetail = useMemo(() => {
+    if (!taskDetailId) return null
+    for (const tasks of tasksByDate.values()) {
+      const found = tasks.find(t => t.id === taskDetailId)
+      if (found) return found
+    }
+    return null
+  }, [taskDetailId, tasksByDate])
 
   return (
     <div className="density-compact">
@@ -274,8 +469,9 @@ export function CalendarPage() {
             </div>
           </div>
 
-          {/* View toggle + Filter */}
+          {/* View toggle + Filter + Color mode */}
           <div className="flex items-center gap-2">
+            {/* View toggle */}
             <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
               {(['day', 'week', 'month'] as CalendarView[]).map(v => (
                 <button
@@ -295,8 +491,9 @@ export function CalendarPage() {
               ))}
             </div>
 
+            {/* Filter toggle: Me / Family / Pick */}
             <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
-              {([['me', 'Me'], ['family', 'Family']] as [CalendarFilter, string][]).map(([f, label]) => (
+              {([['me', 'Me'], ['family', 'Family'], ['pick', 'Pick']] as [CalendarFilter, string][]).map(([f, label]) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -314,6 +511,22 @@ export function CalendarPage() {
               ))}
             </div>
 
+            {/* Dots / Stripe toggle */}
+            <button
+              onClick={() => setColorMode(colorMode === 'dots' ? 'stripe' : 'dots')}
+              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded font-medium"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+                minHeight: 'unset',
+                cursor: 'pointer',
+              }}
+              title={colorMode === 'dots' ? 'Switch to stripe mode' : 'Switch to dots mode'}
+            >
+              {colorMode === 'dots' ? <><Circle size={8} fill="currentColor" /> Dots</> : <>▌Stripe</>}
+            </button>
+
             <button
               onClick={() => setShowSettings(true)}
               className="p-1.5 rounded"
@@ -324,6 +537,75 @@ export function CalendarPage() {
             </button>
           </div>
         </div>
+
+        {/* Pick Members avatar row */}
+        {filter === 'pick' && familyMembers && familyMembers.length > 0 && (
+          <div
+            className="px-4 py-2 flex items-center gap-2 overflow-x-auto"
+            style={{
+              background: 'var(--color-bg-card)',
+              borderTop: '1px solid var(--color-border)',
+            }}
+          >
+            <button
+              onClick={() => {
+                const allIds = familyMembers.map(m => m.id)
+                const allSelected = allIds.every(id => pickedMemberIds.has(id))
+                setPickedMemberIds(allSelected ? new Set() : new Set(allIds))
+              }}
+              className="text-[10px] font-medium flex-shrink-0"
+              style={{
+                color: 'var(--color-btn-primary-bg)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                minHeight: 'unset',
+              }}
+            >
+              {familyMembers.every(m => pickedMemberIds.has(m.id)) ? 'Clear All' : 'Select All'}
+            </button>
+            {familyMembers.map(m => {
+              const isActive = pickedMemberIds.has(m.id)
+              const mColor = m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)'
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setPickedMemberIds(prev => {
+                      const next = new Set(prev)
+                      if (next.has(m.id)) next.delete(m.id)
+                      else next.add(m.id)
+                      return next
+                    })
+                  }}
+                  className="flex flex-col items-center gap-0.5 flex-shrink-0"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    minHeight: 'unset',
+                    opacity: isActive ? 1 : 0.4,
+                  }}
+                  title={m.display_name}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${mColor} 20%, var(--color-bg-card))`,
+                      border: `2.5px solid ${isActive ? mColor : 'var(--color-border)'}`,
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    {m.display_name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-[9px] truncate max-w-[48px]" style={{ color: 'var(--color-text-secondary)' }}>
+                    {m.display_name.split(' ')[0]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Calendar Grid */}
@@ -396,42 +678,10 @@ export function CalendarPage() {
                     {date.getDate()}
                   </span>
 
-                  {/* Event labels (show title text, not just dots) */}
+                  {/* Event + task labels */}
                   <div className="flex flex-col gap-px mt-1 overflow-hidden flex-1">
-                    {dayEvs.slice(0, 3).map(ev => (
-                      <div
-                        key={ev.id}
-                        className="text-[9px] leading-tight rounded-sm px-1 py-px truncate"
-                        style={{
-                          backgroundColor: isToday
-                            ? 'color-mix(in srgb, var(--color-btn-primary-text) 20%, transparent)'
-                            : ev.status === 'pending_approval'
-                              ? 'var(--color-bg-secondary)'
-                              : `color-mix(in srgb, ${memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'} 25%, transparent)`,
-                          color: isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
-                          borderLeft: isToday
-                            ? 'none'
-                            : `2px solid ${ev.status === 'pending_approval' ? 'var(--color-text-secondary)' : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'}`,
-                          opacity: ev.status === 'pending_approval' ? 0.65 : 1,
-                        }}
-                      >
-                        {ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}{ev.title}
-                      </div>
-                    ))}
-                    {dayTasks.slice(0, 2).map(t => (
-                      <div
-                        key={t.id}
-                        className="text-[9px] leading-tight rounded-sm px-1 py-px truncate"
-                        style={{
-                          backgroundColor: isToday
-                            ? 'color-mix(in srgb, var(--color-btn-primary-text) 15%, transparent)'
-                            : 'var(--color-bg-secondary)',
-                          color: isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                        }}
-                      >
-                        {t.title}
-                      </div>
-                    ))}
+                    {dayEvs.slice(0, 3).map(ev => renderEventLabel(ev, { isToday, compact: true }))}
+                    {dayTasks.slice(0, 2).map(t => renderTaskLabel(t, { isToday }))}
                     {totalItems > 5 && (
                       <span
                         className="text-[8px]"
@@ -510,28 +760,8 @@ export function CalendarPage() {
                       borderRight: i < 6 ? '1px solid var(--color-border)' : 'none',
                     }}
                   >
-                    {dayEvs.slice(0, 4).map(ev => (
-                      <div
-                        key={ev.id}
-                        className="text-[10px] rounded px-1 py-0.5 truncate"
-                        style={{
-                          backgroundColor: ev.status === 'pending_approval'
-                            ? 'var(--color-bg-secondary)'
-                            : `color-mix(in srgb, ${memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'} 20%, transparent)`,
-                          color: 'var(--color-text-primary)',
-                          borderLeft: `3px solid ${ev.status === 'pending_approval' ? 'var(--color-text-secondary)' : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'}`,
-                          opacity: ev.status === 'pending_approval' ? 0.6 : 1,
-                          borderStyle: ev.status === 'pending_approval' ? 'dashed' : 'solid',
-                        }}
-                      >
-                        {ev.start_time ? ev.start_time.slice(0, 5) : ''} {ev.title}
-                      </div>
-                    ))}
-                    {dayTasks.slice(0, 2).map(t => (
-                      <div key={t.id} className="text-[10px] rounded px-1 py-0.5 truncate" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}>
-                        {t.title}
-                      </div>
-                    ))}
+                    {dayEvs.slice(0, 4).map(ev => renderEventLabel(ev, { isToday }))}
+                    {dayTasks.slice(0, 2).map(t => renderTaskLabel(t, { isToday }))}
                     {dayEvs.length === 0 && dayTasks.length === 0 && (
                       <span className="text-[10px] italic block text-center mt-4" style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}>
                         No events
@@ -557,28 +787,56 @@ export function CalendarPage() {
               </p>
             </button>
             <div className="space-y-2">
-              {(eventsByDate.get(toISODate(currentDate)) ?? []).map(ev => (
+              {(eventsByDate.get(toISODate(currentDate)) ?? []).map(ev => {
+                const evColors = getEventColors(ev)
+                const isPending = ev.status === 'pending_approval'
+                return (
+                  <div
+                    key={ev.id}
+                    className="rounded-lg p-3 cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      border: isPending ? '1px dashed var(--color-border)' : '1px solid var(--color-border)',
+                      borderLeft: colorMode === 'stripe'
+                        ? `4px ${isPending ? 'dashed' : 'solid'} ${isPending ? 'var(--color-text-secondary)' : evColors[0]}`
+                        : undefined,
+                      opacity: isPending ? 0.7 : 1,
+                    }}
+                    onClick={() => handleDateClick(currentDate)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {colorMode === 'dots' && (
+                        evColors.length > 1
+                          ? <StackedDots colors={evColors} pending={isPending} />
+                          : <ColorDot color={evColors[0]} pending={isPending} />
+                      )}
+                      <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{ev.title}</p>
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      {ev.is_all_day ? 'All Day' : `${ev.start_time?.slice(0, 5) ?? ''} – ${ev.end_time?.slice(0, 5) ?? ''}`}
+                      {ev.location ? ` · ${ev.location}` : ''}
+                    </p>
+                  </div>
+                )
+              })}
+              {(tasksByDate.get(toISODate(currentDate)) ?? []).map(t => (
                 <div
-                  key={ev.id}
+                  key={t.id}
                   className="rounded-lg p-3 cursor-pointer"
                   style={{
                     backgroundColor: 'var(--color-bg-secondary)',
-                    border: ev.status === 'pending_approval' ? '1px dashed var(--color-border)' : '1px solid var(--color-border)',
-                    borderLeft: `4px solid ${memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'}`,
-                    opacity: ev.status === 'pending_approval' ? 0.7 : 1,
+                    border: '1px solid var(--color-border)',
+                    borderLeft: colorMode === 'stripe'
+                      ? `4px solid ${memberColorMap.get(t.assignee_id ?? t.created_by) ?? 'var(--color-text-secondary)'}`
+                      : undefined,
+                    opacity: 0.85,
                   }}
-                  onClick={() => handleDateClick(currentDate)}
+                  onClick={() => setTaskDetailId(t.id)}
                 >
-                  <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{ev.title}</p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {ev.is_all_day ? 'All Day' : `${ev.start_time?.slice(0, 5) ?? ''} – ${ev.end_time?.slice(0, 5) ?? ''}`}
-                    {ev.location ? ` · ${ev.location}` : ''}
-                  </p>
-                </div>
-              ))}
-              {(tasksByDate.get(toISODate(currentDate)) ?? []).map(t => (
-                <div key={t.id} className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', opacity: 0.85 }}>
-                  <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{t.title}</p>
+                  <div className="flex items-center gap-2">
+                    {colorMode === 'dots' && <CheckSquare size={12} style={{ color: 'var(--color-text-secondary)' }} />}
+                    <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{t.title}</p>
+                  </div>
                   <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Task due · {t.status}</p>
                 </div>
               ))}
@@ -595,15 +853,20 @@ export function CalendarPage() {
       {/* Legend */}
       <div className="flex items-center justify-center gap-5 mt-3">
         {[
-          { label: 'Deadline', color: 'var(--color-text-primary)' },
-          { label: 'Task', color: 'var(--color-text-secondary)' },
           { label: 'Event', color: 'var(--color-btn-primary-bg)' },
-          { label: 'Reminder', color: 'var(--color-accent-deep, var(--color-btn-primary-bg))' },
-        ].map(({ label, color }) => (
+          { label: 'Task', color: 'var(--color-text-secondary)' },
+          { label: 'Pending', color: 'var(--color-text-secondary)', dashed: true },
+        ].map(({ label, color, dashed }) => (
           <div key={label} className="flex items-center gap-1.5">
             <span
               className="rounded-full"
-              style={{ width: '8px', height: '8px', backgroundColor: color }}
+              style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: color,
+                border: dashed ? '1px dashed var(--color-text-secondary)' : 'none',
+                opacity: dashed ? 0.5 : 1,
+              }}
             />
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {label}
@@ -640,6 +903,87 @@ export function CalendarPage() {
         onClose={() => setShowSettings(false)}
         onDefaultViewChange={(v) => setView(v as CalendarView)}
       />
+
+      {/* Task Due Date Detail Mini-Modal */}
+      {taskDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setTaskDetailId(null)}
+        >
+          <div className="fixed inset-0" style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-primary) 60%, transparent)' }} />
+          <div
+            className="relative rounded-xl p-5 w-full max-w-sm"
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              border: '1px solid var(--color-border)',
+              boxShadow: 'var(--shadow-lg)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckSquare size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
+                  {taskDetail.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setTaskDetailId(null)}
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span style={{ color: 'var(--color-text-secondary)' }}>Due Date</span>
+                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{taskDetail.due_date}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span style={{ color: 'var(--color-text-secondary)' }}>Status</span>
+                <span
+                  className="px-2 py-0.5 rounded-full text-xs font-medium"
+                  style={{
+                    backgroundColor: taskDetail.status === 'completed'
+                      ? 'color-mix(in srgb, var(--color-success) 15%, transparent)'
+                      : 'var(--color-bg-secondary)',
+                    color: taskDetail.status === 'completed' ? 'var(--color-success)' : 'var(--color-text-primary)',
+                  }}
+                >
+                  {taskDetail.status}
+                </span>
+              </div>
+              {taskDetail.priority && (
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'var(--color-text-secondary)' }}>Priority</span>
+                  <span style={{ color: 'var(--color-text-primary)' }}>{taskDetail.priority}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setTaskDetailId(null)
+                  window.location.href = '/tasks'
+                }}
+                className="text-sm font-medium"
+                style={{
+                  color: 'var(--color-btn-primary-bg)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  minHeight: 'unset',
+                }}
+              >
+                Open full task →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -132,4 +132,4 @@ export interface TaskDueDate {
 // Calendar view types
 export type CalendarView = 'day' | 'week' | 'month'
 export type CalendarFilter = 'me' | 'family' | 'pick'
-export type ColorMode = 'dots' | 'stripe'
+export type CalendarColorMode = 'dots' | 'stripe'

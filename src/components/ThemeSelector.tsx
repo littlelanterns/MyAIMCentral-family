@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Palette, X, Sun, Moon, Monitor, ChevronDown, ChevronUp, Type } from 'lucide-react'
+import { Palette, X, Sun, Moon, Monitor, ChevronDown, ChevronUp, Type, Maximize2 } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
 import { themes } from '@/lib/theme/tokens'
 import type { ThemeKey, VibeKey } from '@/lib/theme/tokens'
@@ -154,8 +154,8 @@ function findCategoryForTheme(themeKey: ThemeKey): string {
 export function ThemeSelector() {
   const [open, setOpen] = useState(false)
   const {
-    theme, vibe, colorMode, gradientEnabled, fontScale,
-    setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale,
+    theme, vibe, colorMode, gradientEnabled, fontScale, elementSize,
+    setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale, setElementSize,
   } = useTheme()
 
   const activeCategory = useMemo(() => findCategoryForTheme(theme), [theme])
@@ -351,7 +351,7 @@ export function ThemeSelector() {
             <div className="flex items-center gap-1 flex-shrink-0">
               <Type size={12} style={{ color: 'var(--color-text-secondary)' }} />
               <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-                Size
+                Text
               </span>
             </div>
             <div className="flex gap-1 flex-1">
@@ -368,6 +368,37 @@ export function ThemeSelector() {
                   }}
                 >
                   {fs.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Element Size — inline row */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Maximize2 size={12} style={{ color: 'var(--color-text-secondary)' }} />
+              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+                Elements
+              </span>
+            </div>
+            <div className="flex gap-1 flex-1">
+              {([
+                { key: 'small' as const, label: 'S' },
+                { key: 'default' as const, label: 'M' },
+                { key: 'large' as const, label: 'L' },
+              ]).map(es => (
+                <button
+                  key={es.key}
+                  onClick={() => setElementSize(es.key)}
+                  className="btn-chip flex-1 flex items-center justify-center py-1 rounded-md text-[11px] font-medium"
+                  style={{
+                    background: elementSize === es.key ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
+                    color: elementSize === es.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {es.label}
                 </button>
               ))}
             </div>
