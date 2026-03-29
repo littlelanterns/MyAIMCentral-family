@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { CircleCheck, Circle, CalendarDays } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 
-export function BooleanCheckinTracker({ widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
+export function BooleanCheckinTracker({ widget: _widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
   const today = new Date().toISOString().slice(0, 10)
 
   const isDoneToday = useMemo(() => {
