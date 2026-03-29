@@ -11,7 +11,6 @@ import { useShell } from './ShellProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
-import { FEATURE_FLAGS } from '@/config/featureFlags'
 
 interface NavItem {
   label: string
