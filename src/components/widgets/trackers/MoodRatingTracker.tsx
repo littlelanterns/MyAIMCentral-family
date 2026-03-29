@@ -6,11 +6,6 @@ import { useMemo } from 'react'
 import { Frown, Annoyed, Meh, Smile, Laugh } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 
-interface MoodConfig {
-  scale_type?: '1-5' | '1-10' | 'custom'
-  scale_labels?: string[]
-  frequency?: 'once_daily' | 'multiple'
-}
 
 const MOOD_ICONS = [
   { Icon: Frown, label: 'Rough' },

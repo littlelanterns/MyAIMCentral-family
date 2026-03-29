@@ -116,7 +116,7 @@ function IntentionColorPicker({
           className="w-4 h-4 rounded-full shrink-0 border border-transparent hover:ring-2 hover:ring-offset-1 transition-shadow"
           style={{
             backgroundColor: active,
-            ringColor: active,
+            outlineColor: active,
           }}
           aria-label="Pick color"
         />
@@ -614,7 +614,7 @@ function AnalyticsTabContent({
     [intentions],
   )
 
-  const [timeFrame, setTimeFrame] = useState<'day' | 'week' | 'month'>('week')
+  const [timeFrame, setTimeFrame] = useState<'day' | 'week' | 'month' | 'custom'>('week')
   const [chartType, setChartType] = useState<'bar' | 'line' | 'both'>('bar')
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
 

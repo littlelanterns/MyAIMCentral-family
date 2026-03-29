@@ -362,7 +362,7 @@ export function Dashboard() {
         starterConfig={selectedStarterConfig}
         familyId={family?.id ?? ''}
         memberId={member?.id ?? ''}
-        familyMembers={(familyMembers ?? []).map(m => ({ id: m.id, display_name: m.display_name, assigned_color: (m as Record<string, unknown>).assigned_color as string | null }))}
+        familyMembers={(familyMembers ?? []).map(m => ({ id: m.id, display_name: m.display_name, assigned_color: (m as unknown as Record<string, unknown>).assigned_color as string | null ?? null }))}
         onDeploy={handleDeployWidget}
       />
 

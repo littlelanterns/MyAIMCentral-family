@@ -148,7 +148,6 @@ function getNextAvailableTime(
 function weightedRandomSelect<T>(items: T[], weights: number[], count: number): T[] {
   if (items.length === 0) return []
 
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0)
   const selected: T[] = []
   const remaining = [...items]
   const remainingWeights = [...weights]
@@ -179,7 +178,7 @@ function weightedRandomSelect<T>(items: T[], weights: number[], count: number): 
 export function useSmartDraw(
   items: ListItem[],
   poolMode: PoolMode,
-  memberId: string | undefined,
+  _memberId: string | undefined,
   memberTracking: ListItemMemberTracking[],
 ) {
   const eligibleItems = useMemo(() => {

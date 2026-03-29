@@ -6,10 +6,6 @@ import { CircleCheck, Circle, CalendarDays } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 
 export function BooleanCheckinTracker({ widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
-  const _config = widget.widget_config as {
-    title?: string
-  }
-
   const today = new Date().toISOString().slice(0, 10)
 
   const isDoneToday = useMemo(() => {
