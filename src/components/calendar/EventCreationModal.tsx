@@ -317,23 +317,43 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
         {/* Who's Involved */}
         {familyMembers && familyMembers.length > 0 && (
           <SectionCard title="Who's Involved?" icon={Users}>
-            <div className="space-y-1">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
               {familyMembers.map(m => {
                 const isSelected = attendees.has(m.id)
-                const role = attendees.get(m.id) ?? 'attending'
+                const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
                 return (
-                  <div key={m.id} className="flex items-center gap-2 py-1">
-                    <label className="flex items-center gap-2 flex-1 cursor-pointer text-sm">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleAttendee(m.id)}
-                        style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-                      />
-                      <span style={{ color: 'var(--color-text-primary)' }}>{m.display_name}</span>
-                      <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>({m.role})</span>
-                    </label>
-                    {isSelected && (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleAttendee(m.id)}
+                    className="rounded-full text-xs font-semibold transition-all duration-150"
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      backgroundColor: isSelected ? color : 'transparent',
+                      color: isSelected ? '#fff' : 'var(--color-text-primary)',
+                      border: `2px solid ${color}`,
+                      cursor: 'pointer',
+                      minHeight: 'unset',
+                      lineHeight: 1.2,
+                      opacity: isSelected ? 1 : 0.7,
+                    }}
+                  >
+                    {m.display_name.split(' ')[0]}
+                  </button>
+                )
+              })}
+            </div>
+            {/* Role selectors for selected attendees */}
+            {attendees.size > 0 && (
+              <div className="mt-2 space-y-1">
+                {familyMembers.filter(m => attendees.has(m.id)).map(m => {
+                  const role = attendees.get(m.id) ?? 'attending'
+                  const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                  return (
+                    <div key={m.id} className="flex items-center gap-2">
+                      <span className="text-xs font-medium" style={{ color, minWidth: '4rem' }}>
+                        {m.display_name.split(' ')[0]}
+                      </span>
                       <select
                         value={role}
                         onChange={(e) => setAttendeeRole(m.id, e.target.value)}
@@ -344,11 +364,11 @@ export function EventCreationModal({ isOpen, onClose, initialDate }: EventCreati
                         <option value="driving">Driving</option>
                         <option value="requested_presence">Requested</option>
                       </select>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </SectionCard>
         )}
 
