@@ -171,14 +171,6 @@ function sourceLabel(source?: string): string | null {
   return `From: ${source}`
 }
 
-function dashboardModeLabel(mode: string | null): string {
-  if (mode === 'independent') return 'Independent'
-  if (mode === 'guided') return 'Guided'
-  if (mode === 'play') return 'Play'
-  if (mode === 'adult') return 'Adult'
-  return ''
-}
-
 // ─── Sub-components ──────────────────────────────────────────
 
 /** Section card wrapper per the design system Rule 4 */
@@ -492,64 +484,49 @@ export function TaskCreationModal({
 
   function renderAssignmentRows() {
     return (
-      <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
         {assignableMembers.map((m) => {
-          const checked = data.assignments.some((a) => a.memberId === m.id)
+          const selected = data.assignments.some((a) => a.memberId === m.id)
+          const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
           return (
-            <label
+            <button
               key={m.id}
+              type="button"
+              onClick={() => toggleMember(m.id)}
+              className="rounded-full text-xs font-semibold transition-all duration-150"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.625rem',
-                padding: '0.5rem 0',
+                padding: '0.375rem 0.75rem',
+                backgroundColor: selected ? color : 'transparent',
+                color: selected ? '#fff' : 'var(--color-text-primary)',
+                border: `2px solid ${color}`,
                 cursor: 'pointer',
-                borderBottom: '1px solid color-mix(in srgb, var(--color-border) 40%, transparent)',
+                minHeight: 'unset',
+                lineHeight: 1.2,
+                opacity: selected ? 1 : 0.7,
               }}
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggleMember(m.id)}
-                style={{ accentColor: 'var(--color-btn-primary-bg)', flexShrink: 0 }}
-              />
-              <div>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                  {m.display_name}
-                </span>
-                {(m.age != null || m.dashboard_mode) && (
-                  <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', marginLeft: '0.375rem' }}>
-                    {m.age != null && `Age ${m.age}`}
-                    {m.age != null && m.dashboard_mode && ' — '}
-                    {m.dashboard_mode && dashboardModeLabel(m.dashboard_mode)}
-                  </span>
-                )}
-              </div>
-            </label>
+              {m.display_name.split(' ')[0]}
+            </button>
           )
         })}
-        {/* Whole Family separator + option */}
-        <div style={{ borderTop: '1px solid var(--color-border)', marginTop: '0.25rem', paddingTop: '0.25rem' }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.625rem',
-              padding: '0.5rem 0',
-              cursor: 'pointer',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={data.wholeFamily}
-              onChange={toggleFamily}
-              style={{ accentColor: 'var(--color-btn-primary-bg)', flexShrink: 0 }}
-            />
-            <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-              Whole Family
-            </span>
-          </label>
-        </div>
+        {/* Whole Family toggle */}
+        <button
+          type="button"
+          onClick={toggleFamily}
+          className="rounded-full text-xs font-semibold transition-all duration-150"
+          style={{
+            padding: '0.375rem 0.75rem',
+            backgroundColor: data.wholeFamily ? 'var(--color-btn-primary-bg)' : 'transparent',
+            color: data.wholeFamily ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+            border: '2px solid var(--color-btn-primary-bg)',
+            cursor: 'pointer',
+            minHeight: 'unset',
+            lineHeight: 1.2,
+            opacity: data.wholeFamily ? 1 : 0.7,
+          }}
+        >
+          Everyone
+        </button>
       </div>
     )
   }
