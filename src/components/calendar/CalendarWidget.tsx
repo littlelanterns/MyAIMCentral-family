@@ -98,8 +98,8 @@ export function CalendarWidget() {
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of familyMembers ?? []) {
-      if (m.calendar_color || m.assigned_color_token) {
-        map.set(m.id, m.calendar_color || m.assigned_color_token || 'var(--color-btn-primary-bg)')
+      if (m.calendar_color || m.assigned_color) {
+        map.set(m.id, m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)')
       }
     }
     return map

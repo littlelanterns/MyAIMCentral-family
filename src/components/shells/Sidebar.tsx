@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
@@ -422,7 +421,7 @@ function SidebarInner({
           </button>
         </div>
         {sidebarContent}
-        {shell === 'mom' && !collapsed && FEATURE_FLAGS.ENABLE_VIEW_AS && <ViewAsSwitcher />}
+        {/* View As removed from sidebar — lives in Family Overview only */}
       </aside>
     </>
   )

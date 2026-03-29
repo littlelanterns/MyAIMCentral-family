@@ -11,7 +11,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
   Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Settings as SettingsIcon,
 } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
@@ -118,7 +117,7 @@ export function CalendarPage() {
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of familyMembers ?? []) {
-      map.set(m.id, (m as Record<string, unknown>).calendar_color as string || (m as Record<string, unknown>).assigned_color_token as string || 'var(--color-btn-primary-bg)')
+      map.set(m.id, m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)')
     }
     return map
   }, [familyMembers])

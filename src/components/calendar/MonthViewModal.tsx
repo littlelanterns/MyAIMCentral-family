@@ -12,10 +12,6 @@ import { ModalV2 } from '@/components/shared/ModalV2'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import { useEventsForRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 
-function toISODate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 interface MonthViewModalProps {
   isOpen: boolean
   onClose: () => void
@@ -27,7 +23,7 @@ export function MonthViewModal({ isOpen, onClose, onDateSelect }: MonthViewModal
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
 
   const today = new Date()
-  const [viewDate, setViewDate] = useState(today)
+  const [viewDate, _setViewDate] = useState(today)
 
   // Get first and last day of month for query range
   const monthStart = useMemo(() => new Date(viewDate.getFullYear(), viewDate.getMonth(), 1), [viewDate])

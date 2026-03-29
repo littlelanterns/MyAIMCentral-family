@@ -16,10 +16,6 @@ import { useEventsForDate, useTasksDueInRange, useApproveEvent, useRejectEvent, 
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import type { CalendarEvent, EventAttendee, TaskDueDate } from '@/types/calendar'
 
-function toISODate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function addDays(d: Date, n: number): Date {
   const result = new Date(d)
   result.setDate(result.getDate() + n)
