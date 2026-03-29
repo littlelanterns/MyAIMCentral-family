@@ -157,11 +157,14 @@ function applyTokens(
   root.style.setProperty('--font-heading', vibe.fontHeading)
   root.style.setProperty('--font-body', vibe.fontBody)
 
-  // Font scale
-  root.classList.remove('font-scale-small', 'font-scale-large', 'font-scale-extra-large')
-  if (fontScale === 'small') root.classList.add('font-scale-small')
-  if (fontScale === 'large') root.classList.add('font-scale-large')
-  if (fontScale === 'extra-large') root.classList.add('font-scale-extra-large')
+  // Font scale — set directly on root to avoid Tailwind CSS cascade issues
+  const fontSizeMap: Record<string, string> = {
+    'small': '14px',
+    'default': '16px',
+    'large': '18px',
+    'extra-large': '20px',
+  }
+  root.style.fontSize = fontSizeMap[fontScale] || '16px'
 
   // Scrollbar colors derive from --color-bg-secondary, --color-btn-primary-bg,
   // --gradient-primary, and --color-accent — all already set above. No extra vars needed.

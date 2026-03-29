@@ -19,7 +19,7 @@ import {
   BookOpen,
   MessageCircle,
 } from 'lucide-react'
-import { FeatureGuide, FeatureIcon, Modal, BulkAddWithAI, CollapsibleGroup } from '@/components/shared'
+import { FeatureGuide, FeatureIcon, Modal, BulkAddWithAI, CollapsibleGroup, Tooltip } from '@/components/shared'
 import {
   DndContext,
   closestCenter,
@@ -101,14 +101,14 @@ function SortableStarCard({
       </button>
 
       {/* Heart toggle */}
-      <button
-        onClick={() => onToggleAI(star)}
-        className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
-        title={
+      <Tooltip content={
           star.is_included_in_ai
             ? 'Included in AI context — click to exclude'
             : 'Excluded from AI context — click to include'
-        }
+        }>
+      <button
+        onClick={() => onToggleAI(star)}
+        className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
         style={{
           color: star.is_included_in_ai
             ? 'var(--color-btn-primary-bg)'
@@ -121,6 +121,7 @@ function SortableStarCard({
           <HeartOff size={16} />
         )}
       </button>
+      </Tooltip>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
@@ -154,22 +155,24 @@ function SortableStarCard({
 
       {/* Actions */}
       <div className="flex gap-0.5 flex-shrink-0">
+        <Tooltip content="Edit">
         <button
           onClick={() => onEdit(star)}
           className="p-1.5 rounded hover:opacity-70"
           style={{ color: 'var(--color-text-secondary)' }}
-          title="Edit"
         >
           <Pencil size={14} />
         </button>
+        </Tooltip>
+        <Tooltip content="Archive">
         <button
           onClick={() => onArchive(star)}
           className="p-1.5 rounded hover:opacity-70"
           style={{ color: 'var(--color-text-secondary)' }}
-          title="Archive"
         >
           <Archive size={14} />
         </button>
+        </Tooltip>
       </div>
     </div>
   )
@@ -370,6 +373,7 @@ export function GuidingStarsPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          <Tooltip content="Craft with LiLa">
           <button
             onClick={() => {
               // STUB: Craft with LiLa — PRD-06
@@ -382,11 +386,12 @@ export function GuidingStarsPage() {
               color: 'var(--color-btn-primary-bg)',
               border: '1px solid var(--color-border)',
             }}
-            title="Craft with LiLa"
           >
             <MessageCircle size={14} />
             <span className="hidden sm:inline">Craft</span>
           </button>
+          </Tooltip>
+          <Tooltip content="Bulk add guiding stars with AI">
           <button
             onClick={() => setShowBulkAdd(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
@@ -395,11 +400,11 @@ export function GuidingStarsPage() {
               color: 'var(--color-btn-primary-bg)',
               border: '1px solid var(--color-border)',
             }}
-            title="Bulk add guiding stars with AI"
           >
             <Sparkles size={14} />
             <span className="hidden sm:inline">Bulk</span>
           </button>
+          </Tooltip>
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
@@ -728,6 +733,7 @@ export function GuidingStarsPage() {
                       )?.label ?? 'Value'}
                     </span>
                   </div>
+                  <Tooltip content="Restore">
                   <button
                     onClick={() => handleRestore(star)}
                     className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
@@ -735,11 +741,11 @@ export function GuidingStarsPage() {
                       color: 'var(--color-btn-primary-bg)',
                       backgroundColor: 'var(--color-bg-secondary)',
                     }}
-                    title="Restore"
                   >
                     <ArchiveRestore size={12} />
                     Restore
                   </button>
+                  </Tooltip>
                 </div>
               ))}
             </div>

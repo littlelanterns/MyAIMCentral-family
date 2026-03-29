@@ -34,6 +34,7 @@ import {
   LoadingSpinner,
   EmptyState,
   FeatureGuide,
+  Tooltip,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { useFamily } from '@/hooks/useFamily'
@@ -150,11 +151,11 @@ function ContextItemRow({
             </button>
           </div>
         ) : (
+          <Tooltip content="Click to edit">
           <button
             onClick={() => setEditing(true)}
             className="text-left text-sm w-full hover:underline"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Click to edit"
           >
             {item.context_field && (
               <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
@@ -163,6 +164,7 @@ function ContextItemRow({
             )}
             {item.context_value}
           </button>
+          </Tooltip>
         )}
 
         {sourceLabel && (
@@ -180,25 +182,27 @@ function ContextItemRow({
       </div>
 
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+        <Tooltip content={item.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
         <button
           onClick={() => onToggleAI(!item.is_included_in_ai)}
           className="p-1.5 rounded transition-colors"
-          title={item.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}
           style={{
             color: item.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
           }}
         >
           {item.is_included_in_ai ? <Heart size={14} fill="currentColor" /> : <HeartOff size={14} />}
         </button>
+        </Tooltip>
 
+        <Tooltip content="Archive this item">
         <button
           onClick={onArchive}
           className="p-1.5 rounded transition-colors"
-          title="Archive this item"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           <Trash2 size={14} />
         </button>
+        </Tooltip>
       </div>
     </div>
   )
@@ -300,17 +304,17 @@ function OverviewSection({
         </div>
 
         {/* Category-level heart toggle */}
+        <Tooltip content={
+            section.folder.is_included_in_ai
+              ? 'Category included in LiLa — click to exclude all'
+              : 'Category excluded from LiLa — click to include all'
+          }>
         <button
           onClick={(e) => {
             e.stopPropagation()
             handleToggleFolderAI()
           }}
           className="p-1.5 rounded transition-colors flex-shrink-0"
-          title={
-            section.folder.is_included_in_ai
-              ? 'Category included in LiLa — click to exclude all'
-              : 'Category excluded from LiLa — click to include all'
-          }
           style={{
             color: section.folder.is_included_in_ai
               ? 'var(--color-btn-primary-bg)'
@@ -323,6 +327,7 @@ function OverviewSection({
             <HeartOff size={16} />
           )}
         </button>
+        </Tooltip>
 
         <div className="flex-shrink-0">
           {expanded ? (
@@ -466,16 +471,17 @@ function GuidingStarRow({
           </Badge>
         )}
       </div>
+      <Tooltip content={star.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
       <button
         onClick={() => onToggleAI(!star.is_included_in_ai)}
         className="p-1.5 rounded transition-colors flex-shrink-0 opacity-70 group-hover:opacity-100"
-        title={star.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}
         style={{
           color: star.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
         }}
       >
         {star.is_included_in_ai ? <Heart size={14} fill="currentColor" /> : <HeartOff size={14} />}
       </button>
+      </Tooltip>
     </div>
   )
 }

@@ -30,7 +30,7 @@ import {
   Check,
   Clock,
 } from 'lucide-react'
-import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner } from '@/components/shared'
+import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
 import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion } from '@/hooks/useTasks'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -1032,23 +1032,25 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
+                  <Tooltip content="Approve">
                   <button
                     onClick={() => handleApprove(task)}
                     disabled={approveCompletion.isPending}
                     className="p-1.5 rounded-lg"
                     style={{ backgroundColor: 'var(--color-success, #22c55e)', color: '#fff' }}
-                    title="Approve"
                   >
                     <Check size={14} />
                   </button>
+                  </Tooltip>
+                  <Tooltip content="Reject">
                   <button
                     onClick={() => setRejectingTaskId(task.id)}
                     className="p-1.5 rounded-lg"
                     style={{ backgroundColor: 'var(--color-error, #ef4444)', color: '#fff' }}
-                    title="Reject"
                   >
                     <X size={14} />
                   </button>
+                  </Tooltip>
                 </div>
               )}
             </div>

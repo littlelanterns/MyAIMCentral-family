@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Tooltip } from '@/components/shared'
 import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
@@ -268,6 +269,7 @@ function SidebarInner({
                   cursor: 'pointer',
                   letterSpacing: '0.05em',
                   fontSize: 'var(--font-size-xs, 0.7rem)',
+                  fontFamily: 'var(--font-heading)',
                 }}
               >
                 <span>{section.title}</span>
@@ -288,6 +290,7 @@ function SidebarInner({
                   padding: '0.375rem 0.75rem',
                   letterSpacing: '0.05em',
                   fontSize: 'var(--font-size-xs, 0.7rem)',
+                  fontFamily: 'var(--font-heading)',
                 }}
               >
                 {section.title}
@@ -309,10 +312,9 @@ function SidebarInner({
             if (tierLocked && !isMom) return null
 
             return (
+              <Tooltip content={collapsed ? `${item.label} — ${item.tooltip}` : item.tooltip} key={item.path}>
               <NavLink
-                key={item.path}
                 to={tierLocked ? '#' : item.path}
-                title={collapsed ? `${item.label} — ${item.tooltip}` : item.tooltip}
                 onClick={(e) => {
                   if (tierLocked) { e.preventDefault(); return }
                   setMobileOpen(false)
@@ -341,6 +343,7 @@ function SidebarInner({
                   </>
                 )}
               </NavLink>
+              </Tooltip>
             )
           })}
           </div>
@@ -410,14 +413,15 @@ function SidebarInner({
         }}
       >
         <div className="flex items-center justify-end p-2">
+          <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="p-1 rounded"
             style={{ color: 'var(--color-text-secondary)' }}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
+          </Tooltip>
         </div>
         {sidebarContent}
         {/* View As removed from sidebar — lives in Family Overview only */}

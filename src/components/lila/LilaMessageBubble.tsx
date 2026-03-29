@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Copy, FileEdit, ArrowRightLeft, ListTodo, Trophy, Check } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { LilaAvatar } from './LilaAvatar'
 import { HumanInTheMix } from '@/components/HumanInTheMix'
 import { useNotepadContext } from '@/components/notepad'
@@ -166,15 +167,16 @@ function ActionChip({
   title?: string
 }) {
   return (
+    <Tooltip content={title || label}>
     <button
       onClick={onClick}
       disabled={disabled}
-      title={title || label}
       className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:opacity-80 transition-opacity disabled:opacity-30"
       style={{ color: 'var(--color-text-secondary)' }}
     >
       <Icon size={10} />
       <span>{label}</span>
     </button>
+    </Tooltip>
   )
 }

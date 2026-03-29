@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
 import { Target, Plus, Pencil, Archive, Heart, HeartOff, Sparkles, Check, RotateCcw, ToggleLeft, ToggleRight } from 'lucide-react'
-import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge } from '@/components/shared'
+import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge, Tooltip } from '@/components/shared'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
@@ -56,6 +56,7 @@ function CelebrateButton({
 
   return (
     <div className="flex items-center gap-2">
+      <Tooltip content="Celebrate this intention">
       <button
         ref={btnRef}
         onClick={handleCelebrate}
@@ -68,11 +69,11 @@ function CelebrateButton({
           border: '2px solid var(--color-btn-primary-bg)',
           color: 'var(--color-btn-primary-bg)',
         }}
-        title="Celebrate this intention"
         aria-label={`Celebrate: ${intention.statement}`}
       >
         <Check size={22} strokeWidth={3} />
       </button>
+      </Tooltip>
       {todayCount > 0 && (
         <Badge variant="accent" size="sm">
           &times;{todayCount} today
@@ -187,6 +188,11 @@ function IntentionCard({
         {/* Actions column */}
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {/* AI toggle */}
+          <Tooltip content={
+              intention.is_included_in_ai
+                ? 'LiLa is using this intention'
+                : 'LiLa is not using this intention'
+            }>
           <button
             onClick={() =>
               toggleAI.mutate({
@@ -200,11 +206,6 @@ function IntentionCard({
                 ? 'var(--color-btn-primary-bg)'
                 : 'var(--color-text-secondary)',
             }}
-            title={
-              intention.is_included_in_ai
-                ? 'LiLa is using this intention'
-                : 'LiLa is not using this intention'
-            }
           >
             {intention.is_included_in_ai ? (
               <Heart size={16} fill="currentColor" />
@@ -212,8 +213,10 @@ function IntentionCard({
               <HeartOff size={16} />
             )}
           </button>
+          </Tooltip>
 
           {/* Active / Resting toggle */}
+          <Tooltip content={isActive ? 'Move to Resting' : 'Reactivate'}>
           <button
             onClick={() =>
               toggleActive.mutate({
@@ -223,30 +226,32 @@ function IntentionCard({
             }
             className="p-1.5 rounded"
             style={{ color: 'var(--color-text-secondary)' }}
-            title={isActive ? 'Move to Resting' : 'Reactivate'}
           >
             {isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
           </button>
+          </Tooltip>
 
           {/* Edit */}
+          <Tooltip content="Edit">
           <button
             onClick={() => onEdit(intention)}
             className="p-1.5 rounded"
             style={{ color: 'var(--color-text-secondary)' }}
-            title="Edit"
           >
             <Pencil size={14} />
           </button>
+          </Tooltip>
 
           {/* Archive */}
+          <Tooltip content="Archive">
           <button
             onClick={() => archiveIntention.mutate(intention.id)}
             className="p-1.5 rounded"
             style={{ color: 'var(--color-text-secondary)' }}
-            title="Archive"
           >
             <Archive size={14} />
           </button>
+          </Tooltip>
         </div>
       </div>
     </div>
@@ -277,22 +282,24 @@ function ArchivedIntentionCard({
         {intention.statement}
       </p>
       <div className="flex items-center gap-1 shrink-0">
+        <Tooltip content="Restore">
         <button
           onClick={() => restoreIntention.mutate(intention.id)}
           className="p-1.5 rounded text-xs flex items-center gap-1"
           style={{ color: 'var(--color-btn-primary-bg)' }}
-          title="Restore"
         >
           <RotateCcw size={14} />
         </button>
+        </Tooltip>
+        <Tooltip content="Edit">
         <button
           onClick={() => onEdit(intention)}
           className="p-1.5 rounded"
           style={{ color: 'var(--color-text-secondary)' }}
-          title="Edit"
         >
           <Pencil size={14} />
         </button>
+        </Tooltip>
       </div>
     </div>
   )
@@ -594,6 +601,7 @@ export function BestIntentionsPage() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
+            <Tooltip content="Bulk add intentions with AI">
             <button
               onClick={() => setShowBulkAdd(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
@@ -602,11 +610,11 @@ export function BestIntentionsPage() {
                 color: 'var(--color-btn-primary-bg)',
                 border: '1px solid var(--color-border)',
               }}
-              title="Bulk add intentions with AI"
             >
               <Sparkles size={14} />
               <span className="hidden sm:inline">Bulk</span>
             </button>
+            </Tooltip>
             <button
               onClick={() => {
                 setShowCreate(true)

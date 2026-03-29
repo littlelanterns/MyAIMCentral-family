@@ -25,6 +25,7 @@ import {
   EmptyState,
   Modal,
   Select,
+  Tooltip,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -99,16 +100,16 @@ function PrivacyFilteredItem({
 
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          <Tooltip content={
+              item.is_included_in_ai
+                ? 'Included in your LiLa context -- click to exclude'
+                : 'Excluded from your LiLa context -- click to include'
+            }>
           <button
             onClick={() =>
               onToggleAI(item.id, item.folder_id, !item.is_included_in_ai)
             }
             className="p-1.5 rounded transition-colors"
-            title={
-              item.is_included_in_ai
-                ? 'Included in your LiLa context -- click to exclude'
-                : 'Excluded from your LiLa context -- click to include'
-            }
             style={{
               color: item.is_included_in_ai
                 ? 'var(--color-btn-primary-bg)'
@@ -121,15 +122,17 @@ function PrivacyFilteredItem({
               <HeartOff size={16} />
             )}
           </button>
+          </Tooltip>
 
+          <Tooltip content="Move to Archive">
           <button
             onClick={() => onMoveToArchive(item.id)}
             className="p-1.5 rounded transition-colors"
-            title="Move to Archive"
             style={{ color: 'var(--color-text-secondary)' }}
           >
             <ArrowRightFromLine size={16} />
           </button>
+          </Tooltip>
         </div>
       </div>
     </div>

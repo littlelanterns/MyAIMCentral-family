@@ -9,6 +9,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Heart, HeartOff } from 'lucide-react'
+import { Tooltip } from './Tooltip'
 
 interface CollapsibleGroupProps {
   label: string
@@ -47,11 +48,11 @@ export function CollapsibleGroup({
       }}
     >
       {/* Header */}
+      <Tooltip content={description ?? ''} disabled={!description}>
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-expanded={isOpen}
-        title={description}
         style={{
           width: '100%',
           display: 'flex',
@@ -117,6 +118,7 @@ export function CollapsibleGroup({
           </button>
         )}
       </button>
+      </Tooltip>
 
       {/* Content */}
       {isOpen && (

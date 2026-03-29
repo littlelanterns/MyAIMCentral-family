@@ -314,6 +314,10 @@ export function CalendarWidget() {
             setEventCreationDate(toISODate(d))
             setShowEventCreation(true)
           }}
+          onEditEvent={() => {
+            // STUB: Edit from widget opens EventCreationModal pre-populated (Session 5)
+            setShowEventCreation(true)
+          }}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { Pencil, Check, RefreshCw, X } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 
 interface HumanInTheMixProps {
   onEdit: () => void
@@ -25,6 +26,7 @@ export function HumanInTheMix({
       className="flex items-center gap-2 pt-2 border-t mt-2"
       style={{ borderColor: 'var(--color-border)' }}
     >
+      <Tooltip content="Edit this response">
       <button
         onClick={onEdit}
         disabled={isLoading}
@@ -33,11 +35,12 @@ export function HumanInTheMix({
           backgroundColor: 'var(--color-bg-secondary)',
           color: 'var(--color-text-primary)',
         }}
-        title="Edit this response"
       >
         <Pencil size={12} />
         Edit
       </button>
+      </Tooltip>
+      <Tooltip content="Approve and save">
       <button
         onClick={onApprove}
         disabled={isLoading}
@@ -46,11 +49,12 @@ export function HumanInTheMix({
           backgroundColor: 'var(--color-btn-primary-bg)',
           color: 'var(--color-btn-primary-text)',
         }}
-        title="Approve and save"
       >
         <Check size={12} />
         Approve
       </button>
+      </Tooltip>
+      <Tooltip content="Generate a new response">
       <button
         onClick={onRegenerate}
         disabled={isLoading}
@@ -59,11 +63,12 @@ export function HumanInTheMix({
           backgroundColor: 'var(--color-bg-secondary)',
           color: 'var(--color-text-primary)',
         }}
-        title="Generate a new response"
       >
         <RefreshCw size={12} />
         Regenerate
       </button>
+      </Tooltip>
+      <Tooltip content="Discard this response">
       <button
         onClick={onReject}
         disabled={isLoading}
@@ -71,11 +76,11 @@ export function HumanInTheMix({
         style={{
           color: 'var(--color-text-secondary)',
         }}
-        title="Discard this response"
       >
         <X size={12} />
         Reject
       </button>
+      </Tooltip>
     </div>
   )
 }

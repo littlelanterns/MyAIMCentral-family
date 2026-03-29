@@ -35,6 +35,7 @@ import {
   EmptyState,
   Modal,
   FeatureGuide,
+  Tooltip,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { getOptimalColumnCount } from '@/lib/utils/gridColumns'
@@ -156,11 +157,11 @@ function ContextItemRow({
             </button>
           </div>
         ) : (
+          <Tooltip content="Click to edit">
           <button
             onClick={() => setEditing(true)}
             className="text-left text-sm w-full hover:underline"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Click to edit"
           >
             {item.context_field && (
               <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
@@ -169,6 +170,7 @@ function ContextItemRow({
             )}
             {item.context_value}
           </button>
+          </Tooltip>
         )}
 
         {sourceLabel && (
@@ -187,25 +189,27 @@ function ContextItemRow({
 
       {/* Actions */}
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+        <Tooltip content={item.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
         <button
           onClick={() => onToggleAI(!item.is_included_in_ai)}
           className="p-1.5 rounded transition-colors"
-          title={item.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}
           style={{
             color: item.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
           }}
         >
           {item.is_included_in_ai ? <Heart size={14} fill="currentColor" /> : <HeartOff size={14} />}
         </button>
+        </Tooltip>
 
+        <Tooltip content="Archive this item">
         <button
           onClick={onArchive}
           className="p-1.5 rounded transition-colors"
-          title="Archive this item"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           <Trash2 size={14} />
         </button>
+        </Tooltip>
       </div>
     </div>
   )
@@ -331,16 +335,17 @@ function FolderGroup({
         </button>
 
         {/* Category-level heart toggle */}
+        <Tooltip content={folder.is_included_in_ai ? 'Folder included in LiLa' : 'Folder excluded from LiLa'}>
         <button
           onClick={(e) => { e.stopPropagation(); handleToggleFolderAI() }}
           className="p-1 rounded transition-colors flex-shrink-0"
-          title={folder.is_included_in_ai ? 'Folder included in LiLa' : 'Folder excluded from LiLa'}
           style={{
             color: folder.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
           }}
         >
           {folder.is_included_in_ai ? <Heart size={14} fill="currentColor" /> : <HeartOff size={14} />}
         </button>
+        </Tooltip>
 
         {/* Overflow menu for custom folders */}
         {!folder.is_system && (
@@ -554,6 +559,7 @@ function AggregatedSourceSection({ group }: { group: AggregatedSourceGroup }) {
                     </Badge>
                   )}
 
+                  <Tooltip content={entry.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
                   <button
                     onClick={() =>
                       toggleAI.mutate({
@@ -564,13 +570,13 @@ function AggregatedSourceSection({ group }: { group: AggregatedSourceGroup }) {
                       })
                     }
                     className="p-1 rounded transition-colors flex-shrink-0 opacity-70 group-hover:opacity-100"
-                    title={entry.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}
                     style={{
                       color: entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
                     }}
                   >
                     {entry.is_included_in_ai ? <Heart size={14} fill="currentColor" /> : <HeartOff size={14} />}
                   </button>
+                  </Tooltip>
                 </div>
               ))}
             </div>

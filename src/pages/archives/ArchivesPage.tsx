@@ -36,6 +36,7 @@ import {
   RoleBadge,
   LoadingSpinner,
   EmptyState,
+  Tooltip,
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -310,14 +311,15 @@ function MemberArchiveListCard({
               : 'No context items yet'}
           </p>
         </div>
+        <Tooltip content={isIncluded ? 'Included in AI context — click to exclude' : 'Excluded from AI context — click to include'}>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleAI() }}
           className="p-1.5 rounded transition-colors flex-shrink-0"
-          title={isIncluded ? 'Included in AI context — click to exclude' : 'Excluded from AI context — click to include'}
           style={{ color: isIncluded ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
         >
           {isIncluded ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
         </button>
+        </Tooltip>
       </div>
     </Card>
   )
@@ -541,6 +543,7 @@ export function ArchivesPage() {
           <div className="flex items-center gap-2">
             {/* Grid/List toggle — hidden on mobile */}
             <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+                <Tooltip content="Grid view">
                 <button
                   onClick={() => setViewMode('grid')}
                   className="p-2 transition-colors"
@@ -548,10 +551,11 @@ export function ArchivesPage() {
                     backgroundColor: effectiveView === 'grid' ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)' : 'transparent',
                     color: effectiveView === 'grid' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
                   }}
-                  title="Grid view"
                 >
                   <LayoutGrid size={16} />
                 </button>
+                </Tooltip>
+                <Tooltip content="List view">
                 <button
                   onClick={() => setViewMode('list')}
                   className="p-2 transition-colors"
@@ -559,12 +563,13 @@ export function ArchivesPage() {
                     backgroundColor: effectiveView === 'list' ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)' : 'transparent',
                     color: effectiveView === 'list' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
                   }}
-                  title="List view"
                 >
                   <List size={16} />
                 </button>
+                </Tooltip>
               </div>
 
+            <Tooltip content="Export Context">
             <button
               onClick={() => navigate('/archives/export')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
@@ -573,11 +578,11 @@ export function ArchivesPage() {
                 color: 'var(--color-btn-primary-bg)',
                 border: '1px solid var(--color-border)',
               }}
-              title="Export Context"
             >
               <Download size={14} />
               <span className="hidden sm:inline">Export</span>
             </button>
+            </Tooltip>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { LilaAvatar, getAvatarKeyForMode } from './LilaAvatar'
 import type { GuidedMode } from '@/hooks/useLila'
 
@@ -120,8 +121,8 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
               const label = DISPLAY_OVERRIDES[mode.mode_key] || mode.display_name
               const desc = MODE_DESCRIPTIONS[mode.mode_key] || ''
               return (
+                <Tooltip content={desc} disabled={!desc} key={mode.mode_key}>
                 <button
-                  key={mode.mode_key}
                   onClick={() => { onModeSelect(mode.mode_key); setOpen(false) }}
                   className={`flex items-center gap-2.5 w-full px-2 py-2 rounded text-left hover:opacity-80 transition-opacity ${
                     mode.mode_key === currentMode ? 'font-medium' : ''
@@ -130,7 +131,6 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
                     backgroundColor: mode.mode_key === currentMode ? 'var(--color-bg-secondary)' : 'transparent',
                     color: 'var(--color-text-primary)',
                   }}
-                  title={desc}
                 >
                   <LilaAvatar avatarKey={mode.avatar_key || getAvatarKeyForMode(mode.mode_key)} size={18} />
                   <div>
@@ -142,6 +142,7 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
                     )}
                   </div>
                 </button>
+                </Tooltip>
               )
             })}
           </div>
@@ -155,8 +156,8 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
               {groupModes.map(mode => {
                 const isBuilt = BUILT_MODES.has(mode.mode_key)
                 return (
+                  <Tooltip content={isBuilt ? mode.display_name : `${mode.display_name} — coming soon`} key={mode.mode_key}>
                   <button
-                    key={mode.mode_key}
                     onClick={() => { if (isBuilt) { onModeSelect(mode.mode_key); setOpen(false) } }}
                     disabled={!isBuilt}
                     className={`w-full px-3 py-1.5 rounded text-sm text-left transition-opacity ${
@@ -168,10 +169,10 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
                       opacity: isBuilt ? 1 : 0.4,
                       cursor: isBuilt ? 'pointer' : 'default',
                     }}
-                    title={isBuilt ? mode.display_name : `${mode.display_name} — coming soon`}
                   >
                     {mode.display_name}
                   </button>
+                  </Tooltip>
                 )
               })}
             </div>

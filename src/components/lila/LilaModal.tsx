@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Send, Mic, Loader } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
@@ -367,6 +368,7 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
         >
           {/* Voice input button — hidden behind feature flag */}
           {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceSupported ? (
+            <Tooltip content={voiceState === 'recording' ? 'Stop recording' : 'Voice input'}>
             <button
               type="button"
               onClick={handleVoiceMic}
@@ -377,18 +379,19 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
                 color: voiceState === 'recording' ? 'var(--color-error, #dc2626)' : 'var(--color-text-secondary)',
                 opacity: voiceState === 'transcribing' || isStreaming ? 0.4 : 1,
               }}
-              title={voiceState === 'recording' ? 'Stop recording' : 'Voice input'}
             >
               {voiceState === 'transcribing' ? <Loader size={16} className="animate-spin" /> : <Mic size={16} />}
             </button>
+            </Tooltip>
           ) : (
+            <Tooltip content="Voice input not supported in this browser">
             <button
               className="p-2 rounded-lg opacity-30"
               disabled
-              title="Voice input not supported in this browser"
             >
               <Mic size={16} style={{ color: 'var(--color-text-secondary)' }} />
             </button>
+            </Tooltip>
           ))}
 
           <input

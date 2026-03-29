@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Home, CheckSquare, BookOpen, Trophy, BarChart3, Settings, PenLine, X, Mic } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -52,14 +53,15 @@ export function GuidedShell({ children }: GuidedShellProps) {
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{dateStr}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Tooltip content="Write something">
           <button
             onClick={() => setNotepadOpen(true)}
             className="p-2 rounded-full"
             style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-            title="Write something"
           >
             <PenLine size={20} />
           </button>
+          </Tooltip>
           <LilaModalTrigger modeKey="guided_communication_coach" label="LiLa" />
           <button
             onClick={openSettings}
@@ -161,13 +163,14 @@ function GuidedNotepad({ memberId, onClose }: { memberId?: string; onClose: () =
             Write something
           </h3>
           <div className="flex items-center gap-2">
+            <Tooltip content="Voice input">
             <button
               className="p-1.5 rounded-full"
               style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-              title="Voice input"
             >
               <Mic size={18} />
             </button>
+            </Tooltip>
             <button
               onClick={onClose}
               className="p-1.5 rounded-full"

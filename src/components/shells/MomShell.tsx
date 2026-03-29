@@ -18,9 +18,12 @@ import { ViewAsShellWrapper } from '@/features/permissions'
 import { useTheme } from '@/lib/theme'
 import { useSettings } from '@/components/settings'
 import type { LilaConversation } from '@/hooks/useLila'
+import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
+import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { assembleContext, createContextSnapshot } from '@/lib/ai/context-assembly'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
 interface MomShellProps {
@@ -39,6 +42,44 @@ export function MomShell({ children }: MomShellProps) {
   const { mainRef, quickTasksAutoCollapsed } = useAutoCollapse()
   const { data: currentMember } = useFamilyMember()
   const { data: currentFamily } = useFamily()
+  const { data: familyMembers } = useFamilyMembers(currentFamily?.id)
+  const queryClient = useQueryClient()
+
+  // Task creation from Quick Create "+" button
+  const [showTaskCreate, setShowTaskCreate] = useState(false)
+  const handleCreateTask = useCallback(async (data: CreateTaskData) => {
+    if (!currentFamily?.id || !currentMember?.id) return
+    const taskBase = {
+      family_id: currentFamily.id,
+      created_by: currentMember.id,
+      title: data.title,
+      description: data.description || null,
+      task_type: data.taskType === 'opportunity' ? 'opportunity_repeatable' : data.taskType,
+      status: 'pending',
+      life_area_tag: data.lifeAreaTag || null,
+      duration_estimate: data.durationEstimate || null,
+      incomplete_action: data.incompleteAction,
+      require_approval: data.reward?.requireApproval ?? false,
+      victory_flagged: data.reward?.flagAsVictory ?? false,
+      source: 'manual',
+    }
+    if (data.wholeFamily && familyMembers && familyMembers.length > 0) {
+      const others = familyMembers.filter(m => m.id !== currentMember.id)
+      await supabase.from('tasks').insert(others.map(m => ({ ...taskBase, assignee_id: m.id })))
+    } else {
+      const primaryId = data.assignments?.length > 0 ? data.assignments[0].memberId : null
+      const { data: newTask } = await supabase.from('tasks').insert({ ...taskBase, assignee_id: primaryId }).select().single()
+      if (newTask && data.assignments?.length > 0) {
+        await supabase.from('task_assignments').insert(
+          data.assignments.map(a => ({ task_id: newTask.id, member_id: a.memberId, family_member_id: a.memberId, assigned_by: currentMember.id }))
+        )
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    setShowTaskCreate(false)
+  }, [currentFamily?.id, currentMember?.id, familyMembers, queryClient])
+
+  const openTaskCreate = useCallback(() => setShowTaskCreate(true), [])
 
   // Spotlight Search (Cmd+K)
   const [spotlightOpen, setSpotlightOpen] = useState(false)
@@ -127,7 +168,7 @@ export function MomShell({ children }: MomShellProps) {
         {/* Spacer for fixed FAB bar on mobile */}
         <div className="h-12 md:h-0" />
 
-        {/* QuickTasks strip — wired to NotepadProvider via bridge */}
+        {/* QuickTasks strip — navigation pills only */}
         <NotepadBridgedQuickTasks forceCollapsed={quickTasksAutoCollapsed} />
 
         {/* Main content — padding-bottom accounts for bottom nav on mobile + LiLa drawer */}
@@ -193,14 +234,22 @@ export function MomShell({ children }: MomShellProps) {
       {/* Smart Notepad right drawer — desktop pull tab, mobile hidden (accessible via More menu) */}
       <NotepadDrawer />
 
-      {/* Quick Create FAB — mobile only */}
-      <MobileQuickCreateFAB />
+      {/* Quick Create FAB — universal draggable, all screen sizes */}
+      <ShellQuickCreateFAB onAddTask={openTaskCreate} />
 
       {/* Bottom navigation — mobile only */}
       <BottomNav />
 
       {/* Spotlight Search — Cmd+K / Ctrl+K */}
       <SpotlightSearch isOpen={spotlightOpen} onClose={() => setSpotlightOpen(false)} />
+
+      {/* Task Creation Modal — opened from Quick Create "+" */}
+      <TaskCreationModal
+        isOpen={showTaskCreate}
+        onClose={() => setShowTaskCreate(false)}
+        onSave={handleCreateTask}
+        mode="quick"
+      />
     </div>
     </ToolLauncherProvider>
     </NotepadProvider>
@@ -224,13 +273,12 @@ function NotepadBridgedQuickTasks({ forceCollapsed }: { forceCollapsed?: boolean
   )
 }
 
-/** Mobile floating action button for Quick Create — sits above bottom nav */
-function MobileQuickCreateFAB() {
+/** Universal Quick Create FAB — draggable on all screen sizes */
+function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
   const { openNotepad } = useNotepadContext()
   return (
     <QuickCreate
-      mode="fab"
-      onAddTask={() => { window.location.href = '/tasks?new=1' }}
+      onAddTask={onAddTask}
       onQuickNote={openNotepad}
       onLogVictory={() => { window.location.href = '/victories?new=1' }}
       onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
@@ -269,7 +317,6 @@ function FloatingLilaButton({
           padding: 0,
         }}
         aria-label={`${label} — ${tooltip}`}
-        title={label}
       >
         <LilaAvatar avatarKey={avatarKey} size={22} />
       </button>

@@ -175,10 +175,45 @@ The Calendar system — a full standalone Calendar page accessible from the side
 
 ---
 
+## Post-Build Verification (2026-03-28)
+
+**Summary: 185 requirements — 155 Wired, 13 Stubbed, 17 Missing**
+
+### Missing Items (17)
+
+| # | Item | Cluster | Severity |
+|---|------|---------|----------|
+| 58 | Pick Members filter mode (third filter with member avatars) | Toolbar | Medium |
+| 59 | Color mode toggle (Dots/Stripe) | Toolbar | Low |
+| 60 | calendar_color_mode preference persistence | Toolbar | Low |
+| 80 | ?new=1 URL param auto-opens EventCreationModal | Toolbar | Low |
+| 93 | MiniCalendarPicker in CalendarWidget | Widget | Low |
+| 106 | [Edit] button on event in DateDetailModal | Detail | Medium |
+| 107 | [Delete] button on event in DateDetailModal | Detail | Medium |
+| 108 | Items-to-bring interactive checklist in event detail | Detail | Medium |
+| 109 | Leave-by time display in event detail | Detail | Low |
+| 110 | Attendees display with roles in event detail | Detail | Medium |
+| 111 | Recurrence info display in event detail | Detail | Low |
+| 112 | Rejection note input on reject | Detail | Low |
+| 146 | Required intake fields config in Settings | Settings | Medium |
+| 147 | Default view preference in Settings | Settings | Low |
+| 148 | Color mode preference in Settings | Settings | Low |
+| 163-166 | Task due date actions (Change Due Date, Mark Complete, View Task) | Tasks | Medium |
+
+### Stubbed Items (13) — all pre-approved, external dependencies
+
+Image OCR, LiLa guided creation, Queue Modal Calendar tab, Calendar context for LiLa, Guided/Play shell variants, Google Calendar sync, Push notifications, Notepad-to-Calendar, Event conflict detection, Drag-to-reschedule, LiLa items-to-bring suggestions, Camera/photo capture.
+
+### Wired Items (155)
+
+Full database layer (4 tables, RLS, indexes, triggers, seeds, feature keys), types, hooks (14 hooks), CalendarPage (Month/Week/Day views, navigation, filters, toolbar), CalendarWidget (week default, gradient header, event dots, task squares), DateDetailModal (approve/reject, pending treatment), EventCreationModal (all fields including scheduler, attendees, items-to-bring, transportation), MonthViewModal, CalendarSettingsModal (week start, drive time, auto-approve), MiniCalendarPicker (month dropdown, editable year, scheduler preview), approval workflow, task due dates on calendar.
+
+---
+
 ## Founder Sign-Off (Post-Build)
 
 - [ ] Verification table reviewed
+- [ ] 17 Missing items: build now or approve as stubs?
 - [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md
-- [ ] Zero Missing items confirmed
 - [ ] **Phase approved as complete**
 - **Completion date:**

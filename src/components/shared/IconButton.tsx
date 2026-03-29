@@ -1,4 +1,5 @@
 import type { ReactNode, MouseEvent, CSSProperties } from 'react'
+import { Tooltip } from './Tooltip'
 
 export interface IconButtonProps {
   icon: ReactNode
@@ -44,6 +45,7 @@ export function IconButton({
   }
 
   return (
+    <Tooltip content={label}>
     <button
       onClick={onClick}
       disabled={disabled}
@@ -55,9 +57,9 @@ export function IconButton({
         cursor: disabled ? 'not-allowed' : 'pointer',
       }}
       aria-label={label}
-      title={label}
     >
       {icon}
     </button>
+    </Tooltip>
   )
 }

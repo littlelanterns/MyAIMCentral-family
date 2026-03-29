@@ -1,3 +1,5 @@
+import { Tooltip } from '@/components/shared'
+
 /**
  * LiLa Avatar — PRD-05
  * Renders the correct character art for each LiLa mode/avatar state.
@@ -26,10 +28,10 @@ export function LilaAvatar({ avatarKey, size = 24, className = '' }: LilaAvatarP
   const config = AVATAR_CONFIG[avatarKey] || AVATAR_CONFIG.sitting
 
   return (
+    <Tooltip content={config.label}>
     <img
       src={config.src}
       alt={config.label}
-      title={config.label}
       className={`rounded-full object-cover shrink-0 ${className}`}
       style={{
         width: size + 8,
@@ -54,6 +56,7 @@ export function LilaAvatar({ avatarKey, size = 24, className = '' }: LilaAvatarP
         target.parentElement?.appendChild(fallback)
       }}
     />
+    </Tooltip>
   )
 }
 

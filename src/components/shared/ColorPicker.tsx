@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import { Check } from 'lucide-react'
+import { Tooltip } from './Tooltip'
 import { MEMBER_COLORS, getContrastText } from '@/config/member_colors'
 import { brand } from '@/lib/theme/tokens'
 
@@ -56,8 +57,8 @@ export function ColorPicker({ value, onChange, label = 'Member Color' }: ColorPi
         </p>
         <div className="flex flex-wrap gap-1.5">
           {BRAND_COLORS.map(c => (
+            <Tooltip content={c.name} key={c.hex}>
             <button
-              key={c.hex}
               onClick={() => onChange(c.hex)}
               className="w-7 h-7 rounded-full relative transition-transform hover:scale-110"
               style={{
@@ -66,7 +67,6 @@ export function ColorPicker({ value, onChange, label = 'Member Color' }: ColorPi
                   ? `2px solid var(--color-text-heading)`
                   : '2px solid transparent',
               }}
-              title={c.name}
             >
               {value === c.hex && (
                 <Check
@@ -76,6 +76,7 @@ export function ColorPicker({ value, onChange, label = 'Member Color' }: ColorPi
                 />
               )}
             </button>
+            </Tooltip>
           ))}
         </div>
       </div>

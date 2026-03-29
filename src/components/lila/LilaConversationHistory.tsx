@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { Search, Archive, Trash2, Pencil, Users } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
@@ -377,32 +378,35 @@ function ConversationRow({
         {/* Desktop action buttons (visible on non-touch) */}
         {!isFamilyView && (
           <div className="hidden md:flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <Tooltip content="Rename">
             <button
               onClick={onStartRename}
               className="p-1 rounded hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
-              title="Rename"
             >
               <Pencil size={12} />
             </button>
+            </Tooltip>
             {conv.status === 'active' && (
+              <Tooltip content="Archive">
               <button
                 onClick={onArchive}
                 className="p-1 rounded hover:opacity-70"
                 style={{ color: 'var(--color-text-secondary)' }}
-                title="Archive"
               >
                 <Archive size={12} />
               </button>
+              </Tooltip>
             )}
+            <Tooltip content="Delete">
             <button
               onClick={onDelete}
               className="p-1 rounded hover:opacity-70"
               style={{ color: 'var(--color-text-secondary)' }}
-              title="Delete"
             >
               <Trash2 size={12} />
             </button>
+            </Tooltip>
           </div>
         )}
       </div>

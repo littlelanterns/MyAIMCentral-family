@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Settings } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
@@ -27,6 +28,7 @@ export function AdultShell({ children }: AdultShellProps) {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
           <LilaModalTrigger modeKey="higgins_say" label="LiLa" />
+          <Tooltip content="Settings">
           <button
             onClick={openSettings}
             className="p-2 rounded-full"
@@ -35,10 +37,10 @@ export function AdultShell({ children }: AdultShellProps) {
               color: 'var(--color-text-secondary)',
               boxShadow: 'var(--shadow-sm)',
             }}
-            title="Settings"
           >
             <Settings size={20} />
           </button>
+          </Tooltip>
         </div>
 
         <AdultNotepadBridgedQuickTasks />

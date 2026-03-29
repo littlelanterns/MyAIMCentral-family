@@ -3,6 +3,7 @@
  */
 
 import type { MinimizedModal } from '@/contexts/ModalManagerContext'
+import { Tooltip } from './Tooltip'
 
 interface MinimizedPillProps {
   modal: MinimizedModal
@@ -19,11 +20,11 @@ export function MinimizedPill({ modal, onRestore, onClose }: MinimizedPillProps)
   }
 
   return (
+    <Tooltip content={`Restore: ${modal.title}`}>
     <button
       onClick={() => onRestore(modal.id)}
       onContextMenu={handleContextMenu}
       className="btn-inline"
-      title={`Restore: ${modal.title}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -49,5 +50,6 @@ export function MinimizedPill({ modal, onRestore, onClose }: MinimizedPillProps)
         <span style={{ color: 'var(--color-accent, orange)', fontSize: '0.6rem' }}>●</span>
       )}
     </button>
+    </Tooltip>
   )
 }

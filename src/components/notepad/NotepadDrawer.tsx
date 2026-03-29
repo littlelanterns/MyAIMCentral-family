@@ -4,7 +4,7 @@ import {
   Maximize2, Minimize2, Clock, AlertCircle, Loader2,
   ChevronsRight, Search, ArrowDownUp, Trash2,
 } from 'lucide-react'
-import { Tooltip } from '@/components/Tooltip'
+import { Tooltip } from '@/components/shared'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { PullTab } from '@/components/shared/PullTab'
 import { HScrollArrows } from '@/components/shared/HScrollArrows'
@@ -332,6 +332,7 @@ export function NotepadDrawer() {
             </div>
             <div className="flex items-center gap-1">
               {/* History */}
+              <Tooltip content="History">
               <button
                 onClick={() => setView(view === 'history' ? 'editor' : 'history')}
                 className="p-1 rounded"
@@ -340,28 +341,30 @@ export function NotepadDrawer() {
                   background: 'transparent',
                   minHeight: 'unset',
                 }}
-                title="History"
               >
                 <Clock size={14} />
               </button>
+              </Tooltip>
               {/* Expand / Collapse */}
+              <Tooltip content={isFullPage ? 'Collapse to drawer' : 'Expand to full page'}>
               <button
                 onClick={() => setFullPage(!isFullPage)}
                 className="p-1 hidden md:block"
                 style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-                title={isFullPage ? 'Collapse to drawer' : 'Expand to full page'}
               >
                 {isFullPage ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               </button>
+              </Tooltip>
               {/* X button to close — always visible on all screen sizes */}
+              <Tooltip content="Close (your content is saved)">
               <button
                 onClick={closeNotepad}
                 className="p-1"
                 style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-                title="Close (your content is saved)"
               >
                 <X size={14} />
               </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -518,6 +521,7 @@ function EditorView({
                   }}
                 />
               ) : (
+                <Tooltip content={`${tab.title} — double-click to rename`}>
                 <button
                   onClick={() => onSelectTab(tab.id)}
                   onDoubleClick={() => onStartRename(tab.id)}
@@ -529,20 +533,21 @@ function EditorView({
                     borderBottom: activeTabId === tab.id ? '2px solid var(--color-btn-primary-bg)' : '2px solid transparent',
                     minHeight: 'unset',
                   }}
-                  title={`${tab.title} — double-click to rename`}
                 >
                   {tab.title}
                 </button>
+                </Tooltip>
               )}
               {activeTabId === tab.id && (
+                <Tooltip content="Close tab (archives to history)">
                 <button
                   onClick={() => onCloseTab(tab.id)}
                   className="p-0.5 ml-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-                  title="Close tab (archives to history)"
                 >
                   <X size={10} />
                 </button>
+                </Tooltip>
               )}
             </div>
           ))}
@@ -622,6 +627,7 @@ function EditorView({
               </span>
             </div>
           ) : (
+            <Tooltip content={voice.state === 'recording' ? 'Stop recording' : 'Start voice input'}>
             <button
               onClick={handleVoiceToggle}
               disabled={!voice.isSupported}
@@ -631,10 +637,10 @@ function EditorView({
                 backgroundColor: voice.state === 'recording' ? 'var(--color-error, #e53e3e)' : 'transparent',
                 minHeight: 'unset',
               }}
-              title={voice.state === 'recording' ? 'Stop recording' : 'Start voice input'}
             >
               {voice.state === 'recording' ? <MicOff size={16} /> : <Mic size={16} />}
             </button>
+            </Tooltip>
           ))}
 
           {/* Word/char count */}
@@ -783,6 +789,7 @@ function HistoryView({ historyTabs, onReopen, onDelete, onBack }: {
             </div>
           </HScrollArrows>
 
+          <Tooltip content={`Sort: ${sort}`}>
           <button
             onClick={() => setSort(sort === 'newest' ? 'oldest' : sort === 'oldest' ? 'by_status' : 'newest')}
             className="flex items-center gap-1 px-1.5 py-1 rounded text-[10px] shrink-0 ml-1"
@@ -791,11 +798,11 @@ function HistoryView({ historyTabs, onReopen, onDelete, onBack }: {
               backgroundColor: 'var(--color-bg-secondary)',
               minHeight: 'unset',
             }}
-            title={`Sort: ${sort}`}
           >
             <ArrowDownUp size={10} />
             {sort === 'newest' ? 'Newest' : sort === 'oldest' ? 'Oldest' : 'Status'}
           </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -852,14 +859,15 @@ function HistoryView({ historyTabs, onReopen, onDelete, onBack }: {
                         Confirm
                       </button>
                     ) : (
+                      <Tooltip content="Delete">
                       <button
                         onClick={() => setConfirmDeleteId(tab.id)}
                         className="p-0.5 rounded opacity-60 hover:opacity-100 transition-opacity"
                         style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-                        title="Delete"
                       >
                         <Trash2 size={11} />
                       </button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type TouchEvent as ReactTouchEvent } from 'react'
 import { ChevronUp, ChevronDown, Send, X, History, Mic, Loader, Maximize2 } from 'lucide-react'
+import { Tooltip } from '@/components/shared'
 import { useLocation } from 'react-router-dom'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -450,6 +451,7 @@ export function LilaDrawer({
 
               {/* Conversation title (click to rename) */}
               {conversation?.title && !editingTitle && (
+                <Tooltip content="Click to rename">
                 <button
                   onClick={() => {
                     setEditingTitle(true)
@@ -457,10 +459,10 @@ export function LilaDrawer({
                   }}
                   className="text-xs truncate max-w-[200px] hover:underline block"
                   style={{ color: 'rgba(255,255,255,0.7)' }}
-                  title="Click to rename"
                 >
                   {conversation.title}
                 </button>
+                </Tooltip>
               )}
               {editingTitle && (
                 <input
@@ -484,47 +486,51 @@ export function LilaDrawer({
           <div className="flex items-center gap-1">
             {/* Expand to fullscreen modal */}
             {onExpandToModal && conversation && (
+              <Tooltip content="Expand to fullscreen">
               <button
                 onClick={onExpandToModal}
                 className="p-1.5 rounded-full"
                 style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
-                title="Expand to fullscreen"
               >
                 <Maximize2 size={14} />
               </button>
+              </Tooltip>
             )}
 
             {/* Expand/collapse toggle */}
             {drawerState === 'peek' && (
+              <Tooltip content="Expand">
               <button
                 onClick={() => setDrawerState('full')}
                 className="p-1.5 rounded-full"
                 style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
-                title="Expand"
               >
                 <ChevronUp size={16} />
               </button>
+              </Tooltip>
             )}
             {drawerState === 'full' && (
+              <Tooltip content="Shrink">
               <button
                 onClick={() => setDrawerState('peek')}
                 className="p-1.5 rounded-full"
                 style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
-                title="Shrink"
               >
                 <ChevronDown size={16} />
               </button>
+              </Tooltip>
             )}
 
             {/* History button */}
+            <Tooltip content="Conversation history">
             <button
               onClick={onHistoryOpen}
               className="p-1.5 rounded-full"
               style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
-              title="Conversation history"
             >
               <History size={16} />
             </button>
+            </Tooltip>
 
             {/* Close */}
             <button
@@ -678,6 +684,7 @@ export function LilaDrawer({
           <div className="flex items-center gap-2 px-4 py-3">
             {/* Voice input button — hidden behind feature flag */}
             {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceSupported ? (
+              <Tooltip content={voiceState === 'recording' ? 'Stop recording' : 'Voice input'}>
               <button
                 type="button"
                 onClick={handleVoiceMic}
@@ -689,19 +696,20 @@ export function LilaDrawer({
                   minHeight: 'unset',
                   opacity: voiceState === 'transcribing' || isStreaming ? 0.4 : 1,
                 }}
-                title={voiceState === 'recording' ? 'Stop recording' : 'Voice input'}
               >
                 {voiceState === 'transcribing' ? <Loader size={16} className="animate-spin" /> : <Mic size={16} />}
               </button>
+              </Tooltip>
             ) : (
+              <Tooltip content="Voice input not supported in this browser">
               <button
                 className="p-2 rounded-full opacity-30"
                 style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
                 disabled
-                title="Voice input not supported in this browser"
               >
                 <Mic size={16} />
               </button>
+              </Tooltip>
             ))}
 
             <input

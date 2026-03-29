@@ -6,7 +6,7 @@
  * This file provides structural defaults and responsive foundation.
  */
 
-/* Font scale accessibility — sizes defined once, near bottom of file */
+/* Font scale — applied directly via ThemeProvider root.style.fontSize */
 html { font-size: 16px; }
 
 /* Base styles */
@@ -344,10 +344,7 @@ select:focus {
 /* ============================================================
  * Font scale classes (PRD-03)
  * ============================================================ */
-html.font-scale-small { font-size: 14px; }
-/* html default is 16px (Medium) */
-html.font-scale-large { font-size: 18px; }
-html.font-scale-extra-large { font-size: 20px; }
+/* Font scale sizes now set via inline style in ThemeProvider (avoids Tailwind cascade) */
 
 /* Heading scale — vibes like Cozy Journal (Amatic SC) need larger headings */
 h1, h2, h3, h4, h5, h6,

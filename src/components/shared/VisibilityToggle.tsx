@@ -1,4 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react'
+import { Tooltip } from './Tooltip'
 
 export interface VisibilityToggleProps {
   visible: boolean
@@ -11,6 +12,7 @@ export function VisibilityToggle({ visible, onChange, label, size = 18 }: Visibi
   const Icon = visible ? Eye : EyeOff
 
   return (
+    <Tooltip content={label ?? (visible ? 'Hide' : 'Show')}>
     <button
       onClick={() => onChange(!visible)}
       className="p-1.5 rounded-lg transition-colors"
@@ -18,10 +20,10 @@ export function VisibilityToggle({ visible, onChange, label, size = 18 }: Visibi
         color: visible ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
         backgroundColor: 'transparent',
       }}
-      title={label ?? (visible ? 'Hide' : 'Show')}
       aria-label={label ?? (visible ? 'Hide' : 'Show')}
     >
       <Icon size={size} />
     </button>
+    </Tooltip>
   )
 }

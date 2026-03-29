@@ -23,7 +23,7 @@ import {
   useUncheckAllItems, usePromoteListItem, useArchiveList,
   useReorderListItems, useSaveListAsTemplate,
 } from '@/hooks/useLists'
-import { FeatureGuide, FeatureIcon, BulkAddWithAI } from '@/components/shared'
+import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { Sparkles } from 'lucide-react'
 import type { ListItem, ListType } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
@@ -152,6 +152,7 @@ export function ListsPage() {
         <div className="flex items-center gap-2">
           {/* Grid/List toggle */}
           <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <Tooltip content="Grid view">
             <button
               onClick={() => setViewMode('grid')}
               className="p-2 transition-colors"
@@ -161,10 +162,11 @@ export function ListsPage() {
                   : 'transparent',
                 color: viewMode === 'grid' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
               }}
-              title="Grid view"
             >
               <LayoutGrid size={16} />
             </button>
+            </Tooltip>
+            <Tooltip content="List view">
             <button
               onClick={() => setViewMode('list')}
               className="p-2 transition-colors"
@@ -174,10 +176,10 @@ export function ListsPage() {
                   : 'transparent',
                 color: viewMode === 'list' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
               }}
-              title="List view"
             >
               <List size={16} />
             </button>
+            </Tooltip>
           </div>
           <button
             onClick={() => setShowCreate(true)}
@@ -521,6 +523,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           {list.title}
         </h1>
         <div className="flex items-center gap-1.5">
+          <Tooltip content={savedAsTemplate ? 'Saved!' : 'Save as template'}>
           <button
             onClick={async () => {
               if (!family || !member || !list || savedAsTemplate) return
@@ -537,26 +540,28 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
             disabled={saveAsTemplate.isPending || savedAsTemplate}
             className="p-1.5 rounded-lg text-xs"
             style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-            title={savedAsTemplate ? 'Saved!' : 'Save as template'}
           >
             <Save size={16} />
           </button>
+          </Tooltip>
+          <Tooltip content="Uncheck all">
           <button
             onClick={() => uncheckAll.mutate(listId)}
             className="p-1.5 rounded-lg text-xs"
             style={{ color: 'var(--color-text-secondary)' }}
-            title="Uncheck all"
           >
             <RotateCcw size={16} />
           </button>
+          </Tooltip>
+          <Tooltip content="Archive">
           <button
             onClick={() => { archiveList.mutate(listId); onBack() }}
             className="p-1.5 rounded-lg text-xs"
             style={{ color: 'var(--color-text-secondary)' }}
-            title="Archive"
           >
             <Archive size={16} />
           </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -666,15 +671,16 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
         >
           <Plus size={16} />
         </button>
+        <Tooltip content="Bulk add items with AI">
         <button
           onClick={() => setShowBulkAdd(true)}
           className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
           style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
-          title="Bulk add items with AI"
         >
           <Sparkles size={14} />
           <span className="hidden sm:inline">Bulk</span>
         </button>
+        </Tooltip>
       </div>
 
       {/* AI Bulk Add Modal */}

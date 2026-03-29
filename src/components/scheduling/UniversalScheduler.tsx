@@ -34,6 +34,7 @@ export function UniversalScheduler({
   compactMode = false,
   allowedFrequencies: _allowedFrequencies,
   timezone = 'America/Chicago',
+  weekStartDay = 0,
 }: UniversalSchedulerProps) {
   const stableOnChange = useCallback((v: SchedulerOutput) => onChange(v), [onChange])
   const { state, dispatch, output } = useSchedulerState(value, stableOnChange, showTimeDefault, timezone)
@@ -184,6 +185,7 @@ export function UniversalScheduler({
                     selected={state.selectedDays}
                     onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
                     label=""
+                    weekStartDay={weekStartDay}
                   />
                   {showTimeDefault && (
                     <div className="flex items-center gap-2">
@@ -781,6 +783,7 @@ function CustomConfig({ state, dispatch, inputStyle }: {
           selected={state.selectedDays}
           onToggle={(day) => dispatch({ type: 'TOGGLE_DAY', day })}
           label="On these days"
+          weekStartDay={weekStartDay}
         />
       )}
 
@@ -815,11 +818,13 @@ function AlternatingConfig({ state, dispatch, inputStyle }: {
         selected={state.weekADays}
         onToggle={(d) => dispatch({ type: 'TOGGLE_WEEK_A_DAY', day: d })}
         label="Week A"
+        weekStartDay={weekStartDay}
       />
       <WeekdayCircles
         selected={state.weekBDays}
         onToggle={(d) => dispatch({ type: 'TOGGLE_WEEK_B_DAY', day: d })}
         label="Week B"
+        weekStartDay={weekStartDay}
       />
     </div>
   )

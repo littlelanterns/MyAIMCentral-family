@@ -66,6 +66,8 @@ export interface UniversalSchedulerProps {
   allowedFrequencies?: FrequencyType[]
   /** Family timezone (defaults to America/Chicago) */
   timezone?: string
+  /** Week start day: 0=Sunday (default), 1=Monday. Passed to WeekdayCircles and MiniCalendarPicker. */
+  weekStartDay?: 0 | 1
 }
 
 // ─── Internal State ─────────────────────────────────────────────────────

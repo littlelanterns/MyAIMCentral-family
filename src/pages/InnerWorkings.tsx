@@ -9,7 +9,7 @@ import {
   Heart, HeartOff, Plus, Pencil, Archive, Upload, Loader2,
   ChevronDown, Check, Sparkles, GripVertical, Brain, MessageCircle, Users, RotateCcw,
 } from 'lucide-react'
-import { FeatureGuide, FeatureIcon, BulkAddWithAI, CollapsibleGroup } from '@/components/shared'
+import { FeatureGuide, FeatureIcon, BulkAddWithAI, CollapsibleGroup, Tooltip } from '@/components/shared'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -673,15 +673,16 @@ export function InnerWorkingsPage() {
                           {SELF_KNOWLEDGE_CATEGORIES.find(c => c.value === entry.category)?.label ?? entry.category}
                         </p>
                       </div>
+                      <Tooltip content="Restore">
                       <button
                         onClick={() => handleRestore(entry)}
                         className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium flex-shrink-0"
                         style={{ color: 'var(--color-btn-primary-bg)', minHeight: '44px' }}
-                        title="Restore"
                       >
                         <RotateCcw size={14} />
                         Restore
                       </button>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -749,24 +750,26 @@ function SortableEntryCard({
       {...attributes}
     >
       {/* Drag handle */}
+      <Tooltip content="Drag to reorder">
       <button
         {...listeners}
         className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
         style={{ color: 'var(--color-text-secondary)', minWidth: '28px', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        title="Drag to reorder"
       >
         <GripVertical size={14} />
       </button>
+      </Tooltip>
 
       {/* Heart toggle */}
+      <Tooltip content={entry.is_included_in_ai ? 'Exclude from AI context' : 'Include in AI context'}>
       <button
         onClick={onToggleAI}
         className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
         style={{ color: entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)', minWidth: '28px', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        title={entry.is_included_in_ai ? 'Exclude from AI context' : 'Include in AI context'}
       >
         {entry.is_included_in_ai ? <Heart size={16} fill="currentColor" /> : <HeartOff size={16} />}
       </button>
+      </Tooltip>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
@@ -792,22 +795,24 @@ function SortableEntryCard({
 
       {/* Actions */}
       <div className="flex gap-0.5 flex-shrink-0">
+        <Tooltip content="Edit">
         <button
           onClick={onEdit}
           className="p-1.5 rounded hover:opacity-70"
           style={{ color: 'var(--color-text-secondary)', minWidth: '32px', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          title="Edit"
         >
           <Pencil size={14} />
         </button>
+        </Tooltip>
+        <Tooltip content="Archive">
         <button
           onClick={onArchive}
           className="p-1.5 rounded hover:opacity-70"
           style={{ color: 'var(--color-text-secondary)', minWidth: '32px', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          title="Archive"
         >
           <Archive size={14} />
         </button>
+        </Tooltip>
       </div>
     </div>
   )

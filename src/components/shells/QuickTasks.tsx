@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useRef, useCallback, createContext, useContext, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, BookOpen, FileText, Trophy, Calendar, Brain, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
+import { BookOpen, CheckSquare, Trophy, Calendar, Brain, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
@@ -25,7 +25,7 @@ import { getFeatureIcons } from '@/lib/assets'
 import { useFamily } from '@/hooks/useFamily'
 import { useStudioQueueCount } from '@/hooks/useStudioQueue'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
-import { QuickCreate } from '@/components/global/QuickCreate'
+// QuickCreate now renders as FAB at shell level — no longer in the strip
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -57,37 +57,15 @@ const PINNED_ACTIONS: QuickAction[] = [
   },
 ]
 
+// Navigation pills only — creation actions go through Quick Create "+"
 const QUICK_ACTIONS: QuickAction[] = [
-  {
-    key: 'add_task',
-    label: 'Add Task',
-    icon: Plus,
-    featureKey: 'tasks',
-    kind: 'path',
-    path: '/tasks?new=1',
-  },
   {
     key: 'journal_entry',
     label: 'Journal',
     icon: BookOpen,
     featureKey: 'journal',
     kind: 'path',
-    path: '/journal?new=1',
-  },
-  {
-    key: 'quick_note',
-    label: 'Quick Note',
-    icon: FileText,
-    featureKey: 'notepad_basic',
-    kind: 'notepad',
-  },
-  {
-    key: 'log_victory',
-    label: 'Victory',
-    icon: Trophy,
-    featureKey: 'victories',
-    kind: 'path',
-    path: '/victories?new=1',
+    path: '/journal',
   },
   {
     key: 'calendar',
@@ -96,6 +74,22 @@ const QUICK_ACTIONS: QuickAction[] = [
     featureKey: 'calendar',
     kind: 'path',
     path: '/calendar',
+  },
+  {
+    key: 'victories',
+    label: 'Victories',
+    icon: Trophy,
+    featureKey: 'victories',
+    kind: 'path',
+    path: '/victories',
+  },
+  {
+    key: 'tasks',
+    label: 'Tasks',
+    icon: CheckSquare,
+    featureKey: 'tasks',
+    kind: 'path',
+    path: '/tasks',
   },
   {
     key: 'mind_sweep',
@@ -366,9 +360,12 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         position: 'relative',
       }}
     >
-      {/* CSS for hidden scrollbar */}
+      {/* CSS for hidden scrollbar + desktop right constraint for floating buttons */}
       <style>{`
         .qt-scroll::-webkit-scrollbar { display: none; }
+        @media (min-width: 768px) {
+          .quicktasks-strip { margin-right: 17rem; }
+        }
       `}</style>
 
       {/* Left scroll arrow — desktop only, visible when can scroll left */}
@@ -409,23 +406,6 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         {sortedActions.map((item) => (
           <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
         ))}
-
-        {/* Quick Create "+" button — always anchored rightmost */}
-        <QuickCreate
-          mode="strip"
-          onAddTask={() => navigate('/tasks?new=1')}
-          onQuickNote={() => {
-            if (notepadBridge) notepadBridge.openNotepad()
-            else navigate('/notepad')
-          }}
-          onLogVictory={() => navigate('/victories?new=1')}
-          onCalendarEvent={() => navigate('/calendar?new=1')}
-          onSendRequest={() => {
-            // TODO: Open request creation modal when PRD-15 is built
-            if (notepadBridge) notepadBridge.openNotepad()
-          }}
-          onMindSweep={() => navigate('/sweep')}
-        />
       </div>
 
       {/* Right fade gradient — visible when items overflow right */}

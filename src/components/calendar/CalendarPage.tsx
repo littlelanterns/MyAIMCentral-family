@@ -10,7 +10,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import {
-  Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon,
+  Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Settings,
 } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
@@ -20,6 +20,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { DateDetailModal } from './DateDetailModal'
 import { EventCreationModal } from './EventCreationModal'
+import { CalendarSettingsModal } from './CalendarSettingsModal'
 import type { CalendarView, CalendarFilter } from '@/types/calendar'
 import type { CalendarEvent, EventAttendee, TaskDueDate } from '@/types/calendar'
 
@@ -68,13 +69,21 @@ export function CalendarPage() {
   const dayHeaders = weekStartDay === 1 ? DAY_HEADERS_MON : DAY_HEADERS_SUN
 
   const today = new Date()
-  const [view, setView] = useState<CalendarView>('month')
+  const [view, setView] = useState<CalendarView>(() => {
+    try {
+      const stored = localStorage.getItem('myaim-calendar-default-view')
+      if (stored === 'month' || stored === 'week' || stored === 'day') return stored
+    } catch { /* ignore */ }
+    return 'month'
+  })
   const [currentDate, setCurrentDate] = useState(today)
   const [filter, setFilter] = useState<CalendarFilter>('family')
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [showEventCreation, setShowEventCreation] = useState(false)
   const [eventCreationDate, setEventCreationDate] = useState<string | undefined>()
   const [showMiniPicker, setShowMiniPicker] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
 
   // Calculate date range based on view
   const { rangeStart, rangeEnd } = useMemo(() => {
@@ -304,6 +313,15 @@ export function CalendarPage() {
                 </button>
               ))}
             </div>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-1.5 rounded"
+              style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }}
+              aria-label="Calendar settings"
+            >
+              <Settings size={14} />
+            </button>
           </div>
         </div>
       </div>
@@ -602,6 +620,10 @@ export function CalendarPage() {
           onClose={() => setSelectedDate(null)}
           onDateChange={setSelectedDate}
           onAddEvent={handleAddEvent}
+          onEditEvent={(ev) => {
+            setEditingEvent(ev)
+            setShowEventCreation(true)
+          }}
         />
       )}
 
@@ -610,6 +632,13 @@ export function CalendarPage() {
         isOpen={showEventCreation}
         onClose={() => setShowEventCreation(false)}
         initialDate={eventCreationDate}
+      />
+
+      {/* Calendar Settings */}
+      <CalendarSettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onDefaultViewChange={(v) => setView(v as CalendarView)}
       />
     </div>
   )

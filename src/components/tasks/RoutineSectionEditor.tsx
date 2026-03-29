@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles } from 'lucide-react'
-import { Button, Toggle, BulkAddWithAI } from '@/components/shared'
+import { Button, Toggle, BulkAddWithAI, Tooltip } from '@/components/shared'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -131,10 +131,10 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
 
         {/* Action buttons */}
         <div className="flex items-center gap-0.5">
+          <Tooltip content="Add notes">
           <button
             type="button"
             onClick={() => onChange({ ...step, showNotes: !step.showNotes })}
-            title="Add notes"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -146,10 +146,11 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           >
             <Edit2 size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Break down this step">
           <button
             type="button"
             onClick={onBreakDown}
-            title="Break down this step"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -161,10 +162,11 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           >
             <Zap size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Require photo on completion">
           <button
             type="button"
             onClick={() => onChange({ ...step, requirePhoto: !step.requirePhoto })}
-            title="Require photo on completion"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -176,11 +178,12 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           >
             <Camera size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Move up">
           <button
             type="button"
             onClick={onMoveUp}
             disabled={isFirst}
-            title="Move up"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -192,11 +195,12 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           >
             <ChevronUp size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Move down">
           <button
             type="button"
             onClick={onMoveDown}
             disabled={isLast}
-            title="Move down"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -208,10 +212,11 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           >
             <ChevronDown size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Remove step">
           <button
             type="button"
             onClick={onRemove}
-            title="Remove step"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -223,6 +228,7 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           >
             <X size={13} />
           </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -433,10 +439,10 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
         </div>
 
         <div className="flex items-center gap-0.5">
+          <Tooltip content="Edit section">
           <button
             type="button"
             onClick={() => onChange({ ...section, isEditing: !section.isEditing })}
-            title="Edit section"
             style={{
               padding: '0.25rem',
               background: section.isEditing ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))' : 'transparent',
@@ -448,11 +454,12 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
           >
             <Edit2 size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Move section up">
           <button
             type="button"
             onClick={onMoveUp}
             disabled={isFirst}
-            title="Move section up"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -464,11 +471,12 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
           >
             <ChevronUp size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Move section down">
           <button
             type="button"
             onClick={onMoveDown}
             disabled={isLast}
-            title="Move section down"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -480,10 +488,11 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
           >
             <ChevronDown size={13} />
           </button>
+          </Tooltip>
+          <Tooltip content="Remove section">
           <button
             type="button"
             onClick={onRemove}
-            title="Remove section"
             style={{
               padding: '0.25rem',
               background: 'transparent',
@@ -495,6 +504,7 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
           >
             <X size={13} />
           </button>
+          </Tooltip>
         </div>
       </div>
 
