@@ -1,0 +1,5 @@
+export { InfoUpcomingTasks } from './InfoUpcomingTasks'
+export { InfoCalendarToday } from './InfoCalendarToday'
+export { InfoRecentVictories } from './InfoRecentVictories'
+export { InfoGuidingStarsRotation } from './InfoGuidingStarsRotation'
+export { InfoQuickStats } from './InfoQuickStats'

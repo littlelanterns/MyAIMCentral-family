@@ -467,3 +467,125 @@ export function getTrackerMeta(type: TrackerType | string): TrackerTypeMeta | un
 export function getPhaseATrackers(): TrackerTypeMeta[] {
   return TRACKER_TYPE_REGISTRY.filter(t => t.phaseA)
 }
+
+// ============================================================
+// Widget Kind — separates tracker engines from display-only widgets
+// ============================================================
+
+export type WidgetKind = 'tracker' | 'info_display' | 'quick_action'
+
+// Info Display widget types — read-only cards pulling from other features
+export type InfoDisplayType =
+  | 'info_best_intentions'
+  | 'info_upcoming_tasks'
+  | 'info_calendar_today'
+  | 'info_recent_victories'
+  | 'info_guiding_stars_rotation'
+  | 'info_quick_stats'
+
+// Quick Action widget types — single-tap shortcut buttons
+export type QuickActionType =
+  | 'action_add_task'
+  | 'action_mind_sweep'
+  | 'action_add_intention'
+  | 'action_track_this'
+
+export function getWidgetKind(templateType: string): WidgetKind {
+  if (templateType.startsWith('info_')) return 'info_display'
+  if (templateType.startsWith('action_')) return 'quick_action'
+  return 'tracker'
+}
+
+// Info widget metadata for picker
+export interface InfoWidgetMeta {
+  type: InfoDisplayType
+  label: string
+  description: string
+  icon: string
+  defaultSize: WidgetSize
+}
+
+export const INFO_WIDGET_REGISTRY: InfoWidgetMeta[] = [
+  {
+    type: 'info_best_intentions',
+    label: 'Best Intentions',
+    description: 'All active intentions with today\'s count and tap-to-celebrate.',
+    icon: 'Heart',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_upcoming_tasks',
+    label: 'Upcoming Tasks',
+    description: 'Next tasks due, sorted by date.',
+    icon: 'CheckSquare',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_calendar_today',
+    label: 'Calendar Today',
+    description: 'Today\'s events at a glance.',
+    icon: 'Calendar',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_recent_victories',
+    label: 'Recent Victories',
+    description: 'Latest victories and celebrations.',
+    icon: 'Trophy',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_guiding_stars_rotation',
+    label: 'Guiding Stars',
+    description: 'Rotates through your active Guiding Stars.',
+    icon: 'Star',
+    defaultSize: 'small',
+  },
+  {
+    type: 'info_quick_stats',
+    label: 'Quick Stats',
+    description: 'Task completion %, active streaks, widgets tracked.',
+    icon: 'BarChart3',
+    defaultSize: 'small',
+  },
+]
+
+export interface QuickActionMeta {
+  type: QuickActionType
+  label: string
+  description: string
+  icon: string
+}
+
+export const QUICK_ACTION_REGISTRY: QuickActionMeta[] = [
+  { type: 'action_add_task', label: 'Quick Add Task', description: 'Opens task creation', icon: 'Plus' },
+  { type: 'action_mind_sweep', label: 'Quick Mind Sweep', description: 'Opens notepad for capture', icon: 'StickyNote' },
+  { type: 'action_add_intention', label: 'Quick Add Intention', description: 'Add a Best Intention', icon: 'Sparkles' },
+  { type: 'action_track_this', label: 'Track This', description: 'Start tracking something new', icon: 'BarChart3' },
+]
+
+// ============================================================
+// Multiplayer Configuration Types
+// ============================================================
+
+export type MultiplayerMode = 'collaborative' | 'competitive' | 'both'
+
+export type MultiplayerVisualStyle =
+  | 'colored_bars'
+  | 'colored_segments'
+  | 'colored_markers'
+  | 'colored_stars'
+
+export interface MultiplayerConfig {
+  enabled: boolean
+  participants: string[]
+  mode: MultiplayerMode
+  visualStyle: MultiplayerVisualStyle
+  sharedTarget?: number
+}
+
+// Tracker types that support multiplayer
+export const MULTIPLAYER_TRACKER_TYPES: TrackerType[] = [
+  'tally', 'streak', 'percentage', 'boolean_checkin',
+  'multi_habit_grid', 'mood_rating', 'timer_duration', 'xp_level',
+]

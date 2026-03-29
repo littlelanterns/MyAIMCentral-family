@@ -98,6 +98,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
   { key: 'best_intentions', label: 'Best Intentions', icon: Heart, featureKey: 'my_foundation', accent: 'rose' },
   { key: 'victory', label: 'Victory', icon: Trophy, featureKey: 'victories', accent: 'warm' },
   { key: 'track', label: 'Track', icon: BarChart3, featureKey: 'widgets_trackers', accent: 'teal' },
+  { key: 'track_this', label: 'Track This', icon: BarChart3, featureKey: 'widgets_trackers', accent: 'warm' },
   { key: 'message', label: 'Message', icon: MessageCircle, featureKey: 'messages', accent: 'rose' },
   { key: 'agenda', label: 'Agenda', icon: ListChecks, featureKey: 'meetings', accent: 'rose' },
   {
@@ -123,7 +124,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
 const CONTEXT_FILTERS: Record<RoutingContext, string[]> = {
   notepad_send_to: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'agenda', 'innerworkings', 'optimizer', 'ideas', 'backburner', 'quick_note',
+    'victory', 'track', 'track_this', 'message', 'agenda', 'innerworkings', 'optimizer', 'ideas', 'backburner', 'quick_note',
   ],
   request_accept: ['calendar', 'tasks', 'list', 'acknowledge'],
   meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'backburner', 'skip'],

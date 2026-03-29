@@ -1,12 +1,13 @@
-// PRD-10 Screen 4: Widget Configuration — adaptive form per tracker type
+// PRD-10 Screen 4: Widget Configuration — ModalV2 with adaptive form per tracker type
 // Common fields: title, assigned to, size, goal, unit
 // Template-specific fields loaded per tracker type
-// Live preview updates as fields change
+// Multiplayer configuration section for supported types
 
 import { useState, useCallback } from 'react'
-import { X, LayoutDashboard, Save } from 'lucide-react'
-import type { WidgetStarterConfig, WidgetSize, CreateWidget, TrackerType } from '@/types/widgets'
-import { getTrackerMeta } from '@/types/widgets'
+import { LayoutDashboard, Save, Settings, Users, ChevronDown, ChevronRight } from 'lucide-react'
+import { ModalV2 } from '@/components/shared'
+import type { WidgetStarterConfig, WidgetSize, CreateWidget, TrackerType, MultiplayerMode, MultiplayerVisualStyle } from '@/types/widgets'
+import { getTrackerMeta, MULTIPLAYER_TRACKER_TYPES } from '@/types/widgets'
 
 interface WidgetConfigurationProps {
   isOpen: boolean
@@ -15,7 +16,7 @@ interface WidgetConfigurationProps {
   editingWidget?: CreateWidget | null
   familyId: string
   memberId: string
-  familyMembers: { id: string; display_name: string }[]
+  familyMembers: { id: string; display_name: string; assigned_color?: string | null }[]
   onDeploy: (widget: CreateWidget) => void
   onSaveAsTemplate?: (widget: CreateWidget) => void
 }
@@ -31,7 +32,6 @@ export function WidgetConfiguration({
   onDeploy,
   onSaveAsTemplate,
 }: WidgetConfigurationProps) {
-  // Initialize from starter config or editing widget
   const defaultConfig = starterConfig?.default_config ?? editingWidget?.widget_config ?? {}
 
   const [title, setTitle] = useState(
@@ -48,15 +48,36 @@ export function WidgetConfiguration({
   const [visualVariant] = useState<string | undefined>(
     editingWidget?.visual_variant ?? starterConfig?.visual_variant ?? undefined
   )
-
-  // Config fields (merged from default + user edits)
   const [configFields, setConfigFields] = useState<Record<string, unknown>>(defaultConfig)
+
+  // Multiplayer state
+  const supportsMultiplayer = MULTIPLAYER_TRACKER_TYPES.includes(trackerType as TrackerType)
+  const [mpEnabled, setMpEnabled] = useState(false)
+  const [mpParticipants, setMpParticipants] = useState<string[]>([])
+  const [mpMode, setMpMode] = useState<MultiplayerMode>('both')
+  const [mpVisualStyle, setMpVisualStyle] = useState<MultiplayerVisualStyle>('colored_bars')
+  const [mpSharedTarget, setMpSharedTarget] = useState<number | null>(null)
+  const [mpExpanded, setMpExpanded] = useState(false)
 
   const updateField = useCallback((key: string, value: unknown) => {
     setConfigFields(prev => ({ ...prev, [key]: value }))
   }, [])
 
   const meta = getTrackerMeta(trackerType)
+
+  const toggleParticipant = (id: string) => {
+    setMpParticipants(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    )
+  }
+
+  const selectAllParticipants = () => {
+    if (mpParticipants.length === familyMembers.length) {
+      setMpParticipants([])
+    } else {
+      setMpParticipants(familyMembers.map(m => m.id))
+    }
+  }
 
   const handleDeploy = () => {
     const widget: CreateWidget = {
@@ -66,161 +87,322 @@ export function WidgetConfiguration({
       visual_variant: visualVariant ?? null,
       title: title.replace('[Name]', familyMembers.find(m => m.id === assignedTo)?.display_name ?? ''),
       size,
-      widget_config: configFields,
+      widget_config: {
+        ...configFields,
+        ...(mpEnabled ? {
+          multiplayer_enabled: true,
+          multiplayer_participants: mpParticipants,
+          multiplayer_mode: mpMode,
+          multiplayer_visual_style: mpVisualStyle,
+          multiplayer_shared_target: mpSharedTarget,
+        } : {}),
+      },
       assigned_member_id: assignedTo !== memberId ? assignedTo : undefined,
     }
     onDeploy(widget)
     onClose()
   }
 
-  if (!isOpen) return null
+  const footer = (
+    <div className="flex gap-3">
+      <button
+        onClick={handleDeploy}
+        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
+        style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
+      >
+        <LayoutDashboard size={16} />
+        Deploy to Dashboard
+      </button>
+      {onSaveAsTemplate && (
+        <button
+          onClick={() => {
+            onSaveAsTemplate({
+              family_id: familyId,
+              family_member_id: memberId,
+              template_type: trackerType as TrackerType,
+              visual_variant: visualVariant,
+              title,
+              size,
+              widget_config: configFields,
+              assigned_member_id: assignedTo !== memberId ? assignedTo : undefined,
+            })
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
+          style={{
+            background: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border-default)',
+          }}
+        >
+          <Save size={16} />
+          Save as Template
+        </button>
+      )}
+    </div>
+  )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-      {/* Modal */}
-      <div
-        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl mx-4"
-        style={{ background: 'var(--color-bg-primary)' }}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b"
-          style={{ background: 'var(--color-bg-primary)', borderColor: 'var(--color-border-default)' }}
-        >
-          <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            {editingWidget ? 'Edit Widget' : 'Configure Widget'}
-          </h2>
-          <button onClick={onClose} className="p-1" style={{ color: 'var(--color-text-secondary)' }}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-5">
-          {/* Tracker type info */}
-          {meta && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{ background: 'var(--color-bg-secondary)' }}
-            >
-              <span className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>
-                {meta.label}
+    <ModalV2
+      id="widget-configuration"
+      isOpen={isOpen}
+      onClose={onClose}
+      type="transient"
+      size="md"
+      title={editingWidget ? 'Edit Widget' : 'Configure Widget'}
+      icon={Settings}
+      footer={footer}
+    >
+      <div className="p-4 space-y-5">
+        {/* Tracker type info */}
+        {meta && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+            style={{ background: 'var(--color-bg-secondary)' }}
+          >
+            <span className="text-sm font-medium" style={{ color: 'var(--color-accent)' }}>{meta.label}</span>
+            {visualVariant && (
+              <span className="text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
+              >
+                {visualVariant.replace(/_/g, ' ')}
               </span>
-              {visualVariant && (
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-secondary)' }}
-                >
-                  {visualVariant.replace(/_/g, ' ')}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Common fields */}
-          <div className="space-y-3">
-            {/* Title */}
-            <label className="block">
-              <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Title</span>
-              <input
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-border-default)',
-                }}
-              />
-            </label>
-
-            {/* Assigned To */}
-            <label className="block">
-              <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Assigned To</span>
-              <select
-                value={assignedTo}
-                onChange={e => setAssignedTo(e.target.value)}
-                className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-border-default)',
-                }}
-              >
-                {familyMembers.map(m => (
-                  <option key={m.id} value={m.id}>{m.display_name}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* Size */}
-            <div>
-              <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Size</span>
-              <div className="flex gap-2 mt-1">
-                {(['small', 'medium', 'large'] as WidgetSize[]).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setSize(s)}
-                    className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                    style={{
-                      background: size === s ? 'var(--surface-primary)' : 'var(--color-bg-secondary)',
-                      color: size === s ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
-                      border: size === s ? 'none' : '1px solid var(--color-border-default)',
-                    }}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Template-specific fields */}
-            <TemplateSpecificFields
-              trackerType={trackerType}
-              config={configFields}
-              onChange={updateField}
-            />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={handleDeploy}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
-              style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
-            >
-              <LayoutDashboard size={16} />
-              Deploy to Dashboard
-            </button>
-            {onSaveAsTemplate && (
-              <button
-                onClick={() => {
-                  onSaveAsTemplate({
-                    family_id: familyId,
-                    family_member_id: memberId,
-                    template_type: trackerType as TrackerType,
-                    visual_variant: visualVariant,
-                    title,
-                    size,
-                    widget_config: configFields,
-                    assigned_member_id: assignedTo !== memberId ? assignedTo : undefined,
-                  })
-                }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-border-default)',
-                }}
-              >
-                <Save size={16} />
-                Save as Template
-              </button>
             )}
           </div>
+        )}
+
+        {/* Common fields */}
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Title</span>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border-default)',
+              }}
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Assigned To</span>
+            <select
+              value={assignedTo}
+              onChange={e => setAssignedTo(e.target.value)}
+              className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
+              style={{
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border-default)',
+              }}
+            >
+              {familyMembers.map(m => (
+                <option key={m.id} value={m.id}>{m.display_name}</option>
+              ))}
+            </select>
+          </label>
+
+          <div>
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Size</span>
+            <div className="flex gap-2 mt-1">
+              {(['small', 'medium', 'large'] as WidgetSize[]).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSize(s)}
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={{
+                    background: size === s ? 'var(--surface-primary)' : 'var(--color-bg-secondary)',
+                    color: size === s ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
+                    border: size === s ? 'none' : '1px solid var(--color-border-default)',
+                  }}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Template-specific fields */}
+          <TemplateSpecificFields trackerType={trackerType} config={configFields} onChange={updateField} />
         </div>
+
+        {/* Multiplayer Configuration */}
+        {supportsMultiplayer && (
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ border: '1px solid var(--color-border-default)' }}
+          >
+            <button
+              onClick={() => setMpExpanded(!mpExpanded)}
+              className="w-full flex items-center gap-2 px-3 py-2.5"
+              style={{ background: 'var(--color-bg-secondary)' }}
+            >
+              <Users size={16} style={{ color: 'var(--color-accent)' }} />
+              <span className="text-sm font-medium flex-1 text-left" style={{ color: 'var(--color-text-primary)' }}>
+                Multiplayer
+              </span>
+              {mpEnabled && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}>
+                  ON
+                </span>
+              )}
+              {mpExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+
+            {mpExpanded && (
+              <div className="p-3 space-y-4" style={{ background: 'var(--color-bg-primary)' }}>
+                {/* Enable toggle */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Enable Multiplayer</span>
+                  <button
+                    onClick={() => setMpEnabled(!mpEnabled)}
+                    className="w-10 h-5 rounded-full relative transition-colors"
+                    style={{ background: mpEnabled ? 'var(--color-accent)' : 'var(--color-bg-tertiary)' }}
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full absolute top-0.5 transition-all"
+                      style={{
+                        background: 'var(--color-bg-primary)',
+                        left: mpEnabled ? '22px' : '2px',
+                      }}
+                    />
+                  </button>
+                </div>
+
+                {mpEnabled && (
+                  <>
+                    {/* Participants — colored pill selector */}
+                    <div>
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Participants</span>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <button
+                          onClick={selectAllParticipants}
+                          className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                          style={{
+                            background: mpParticipants.length === familyMembers.length ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                            color: mpParticipants.length === familyMembers.length ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
+                            border: '1px solid var(--color-border-default)',
+                          }}
+                        >
+                          Everyone
+                        </button>
+                        {familyMembers.map(m => {
+                          const isSelected = mpParticipants.includes(m.id)
+                          const color = m.assigned_color || 'var(--color-accent)'
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => toggleParticipant(m.id)}
+                              className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                              style={{
+                                background: isSelected ? color : 'transparent',
+                                color: isSelected ? 'var(--color-text-on-primary)' : 'var(--color-text-primary)',
+                                border: `2px solid ${color}`,
+                              }}
+                            >
+                              {m.display_name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Mode — radio cards */}
+                    <div>
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Mode</span>
+                      <div className="space-y-1.5 mt-1.5">
+                        {([
+                          { value: 'collaborative' as MultiplayerMode, label: 'Collaborative', desc: 'Work together toward a shared goal' },
+                          { value: 'competitive' as MultiplayerMode, label: 'Competitive', desc: 'See who\'s doing the most' },
+                          { value: 'both' as MultiplayerMode, label: 'Both', desc: 'Shared goal + individual tracking', recommended: true },
+                        ]).map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setMpMode(opt.value)}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
+                            style={{
+                              background: mpMode === opt.value ? 'color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-primary))' : 'var(--color-bg-secondary)',
+                              border: mpMode === opt.value ? '2px solid var(--color-accent)' : '1px solid var(--color-border-default)',
+                            }}
+                          >
+                            <div
+                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
+                              style={{ borderColor: mpMode === opt.value ? 'var(--color-accent)' : 'var(--color-border-default)' }}
+                            >
+                              {mpMode === opt.value && (
+                                <div className="w-2 h-2 rounded-full" style={{ background: 'var(--color-accent)' }} />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                                {opt.label}
+                                {opt.recommended && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}>
+                                    Recommended
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{opt.desc}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Visual Style */}
+                    <div>
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Visual Style</span>
+                      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                        {([
+                          { value: 'colored_bars' as MultiplayerVisualStyle, label: 'Colored Bars' },
+                          { value: 'colored_segments' as MultiplayerVisualStyle, label: 'Stacked Segments' },
+                          { value: 'colored_markers' as MultiplayerVisualStyle, label: 'Colored Markers' },
+                          { value: 'colored_stars' as MultiplayerVisualStyle, label: 'Colored Stars' },
+                        ]).map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setMpVisualStyle(opt.value)}
+                            className="px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center"
+                            style={{
+                              background: mpVisualStyle === opt.value ? 'var(--surface-primary)' : 'var(--color-bg-secondary)',
+                              color: mpVisualStyle === opt.value ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
+                              border: mpVisualStyle === opt.value ? 'none' : '1px solid var(--color-border-default)',
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Shared Target (collaborative/both) */}
+                    {(mpMode === 'collaborative' || mpMode === 'both') && (
+                      <label className="block">
+                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Shared Target (optional)</span>
+                        <input
+                          type="number"
+                          value={mpSharedTarget ?? ''}
+                          onChange={e => setMpSharedTarget(e.target.value ? Number(e.target.value) : null)}
+                          placeholder="Combined goal"
+                          className="mt-1 w-full px-3 py-2 rounded-lg text-sm"
+                          style={{
+                            background: 'var(--color-bg-secondary)',
+                            color: 'var(--color-text-primary)',
+                            border: '1px solid var(--color-border-default)',
+                          }}
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </ModalV2>
   )
 }
 

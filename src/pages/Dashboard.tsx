@@ -18,9 +18,10 @@ import { CalendarWidget } from '@/components/calendar'
 import { WidgetPicker } from '@/components/widgets/WidgetPicker'
 import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
 import { WidgetDetailView } from '@/components/widgets/WidgetDetailView'
+import { TrackThisModal } from '@/components/widgets/TrackThisModal'
 import { useWidgets, useWidgetFolders, useWidgetStarterConfigs, useCreateWidget, useDeleteWidget, useUpdateWidget, useRecordWidgetData, useUpdateDashboardLayout } from '@/hooks/useWidgets'
 import { useDashboardConfig, useUpdateDashboardConfig } from '@/hooks/useDashboardConfig'
-import type { DashboardWidget, WidgetStarterConfig, CreateWidget, DashboardWidgetFolder } from '@/types/widgets'
+import type { DashboardWidget, WidgetStarterConfig, CreateWidget, DashboardWidgetFolder, InfoDisplayType, QuickActionType } from '@/types/widgets'
 
 export function Dashboard() {
   const { signOut } = useAuth()
@@ -46,6 +47,7 @@ export function Dashboard() {
   const [selectedStarterConfig, setSelectedStarterConfig] = useState<WidgetStarterConfig | null>(null)
   const [detailWidget, setDetailWidget] = useState<DashboardWidget | null>(null)
   const [openFolder, setOpenFolder] = useState<DashboardWidgetFolder | null>(null)
+  const [trackThisOpen, setTrackThisOpen] = useState(false)
 
   const displayMemberId = (isViewingAs && viewingAsMember?.id) || member?.id
   const displayFamilyId = family?.id
@@ -94,6 +96,50 @@ export function Dashboard() {
     setWidgetPickerOpen(false)
     setWidgetConfigOpen(true)
   }, [])
+
+  // PRD-10 B-2: Add info display widget directly
+  const handleAddInfoWidget = useCallback((type: InfoDisplayType) => {
+    if (!displayFamilyId || !displayMemberId) return
+    const sizeMap: Record<string, 'small' | 'medium'> = {
+      info_guiding_stars_rotation: 'small',
+      info_quick_stats: 'small',
+    }
+    const labelMap: Record<string, string> = {
+      info_best_intentions: 'Best Intentions',
+      info_upcoming_tasks: 'Upcoming Tasks',
+      info_calendar_today: 'Calendar Today',
+      info_recent_victories: 'Recent Victories',
+      info_guiding_stars_rotation: 'Guiding Stars',
+      info_quick_stats: 'Quick Stats',
+    }
+    createWidget.mutate({
+      family_id: displayFamilyId,
+      family_member_id: displayMemberId,
+      template_type: type,
+      title: labelMap[type] ?? type,
+      size: sizeMap[type] ?? 'medium',
+    })
+    setWidgetPickerOpen(false)
+  }, [createWidget, displayFamilyId, displayMemberId])
+
+  // PRD-10 B-2: Add quick action widget directly
+  const handleAddQuickAction = useCallback((type: QuickActionType) => {
+    if (!displayFamilyId || !displayMemberId) return
+    const labelMap: Record<string, string> = {
+      action_add_task: 'Quick Add Task',
+      action_mind_sweep: 'Quick Mind Sweep',
+      action_add_intention: 'Quick Add Intention',
+      action_track_this: 'Track This',
+    }
+    createWidget.mutate({
+      family_id: displayFamilyId,
+      family_member_id: displayMemberId,
+      template_type: type,
+      title: labelMap[type] ?? type,
+      size: 'small',
+    })
+    setWidgetPickerOpen(false)
+  }, [createWidget, displayFamilyId, displayMemberId])
 
   const handleDeployWidget = useCallback((widget: CreateWidget) => {
     createWidget.mutate(widget)
@@ -304,6 +350,9 @@ export function Dashboard() {
         onClose={() => setWidgetPickerOpen(false)}
         starterConfigs={starterConfigs}
         onSelectStarterConfig={handleSelectStarterConfig}
+        onAddInfoWidget={handleAddInfoWidget}
+        onAddQuickAction={handleAddQuickAction}
+        onOpenTrackThis={() => { setWidgetPickerOpen(false); setTrackThisOpen(true) }}
       />
 
       {/* PRD-10: Widget Configuration Modal */}
@@ -311,6 +360,16 @@ export function Dashboard() {
         isOpen={widgetConfigOpen}
         onClose={() => { setWidgetConfigOpen(false); setSelectedStarterConfig(null) }}
         starterConfig={selectedStarterConfig}
+        familyId={family?.id ?? ''}
+        memberId={member?.id ?? ''}
+        familyMembers={(familyMembers ?? []).map(m => ({ id: m.id, display_name: m.display_name, assigned_color: (m as Record<string, unknown>).assigned_color as string | null }))}
+        onDeploy={handleDeployWidget}
+      />
+
+      {/* PRD-10 B-2: Track This Modal */}
+      <TrackThisModal
+        isOpen={trackThisOpen}
+        onClose={() => setTrackThisOpen(false)}
         familyId={family?.id ?? ''}
         memberId={member?.id ?? ''}
         familyMembers={(familyMembers ?? []).map(m => ({ id: m.id, display_name: m.display_name }))}

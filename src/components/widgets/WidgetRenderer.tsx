@@ -1,8 +1,10 @@
-// PRD-10: Widget Renderer — dispatches to correct tracker type component
-// Widgets are portable: render identically regardless of host dashboard.
-// Props: themeTokens via CSS vars, widgetConfig, dataSource.
+// PRD-10: Widget Renderer — dispatches to correct tracker, info, or quick-action component
+// Handles three WidgetKinds: tracker, info_display, quick_action
 
+import { useNavigate } from 'react-router-dom'
+import { Plus, StickyNote, Sparkles, BarChart3 } from 'lucide-react'
 import type { DashboardWidget, WidgetDataPoint } from '@/types/widgets'
+import { getWidgetKind } from '@/types/widgets'
 import { TallyTracker } from './trackers/TallyTracker'
 import { StreakTracker } from './trackers/StreakTracker'
 import { PercentageTracker } from './trackers/PercentageTracker'
@@ -20,176 +22,139 @@ import { CountdownTracker } from './trackers/CountdownTracker'
 import { TimerDurationTracker } from './trackers/TimerDurationTracker'
 import { SnapshotComparisonTracker } from './trackers/SnapshotComparisonTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
+import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats } from './info'
 
 interface WidgetRendererProps {
   widget: DashboardWidget
   dataPoints: WidgetDataPoint[]
   onRecordData?: (value: number, metadata?: Record<string, unknown>) => void
-  isCompact?: boolean // true when rendered in folder or small size
+  isCompact?: boolean
+  onOpenTrackThis?: () => void
 }
 
-export function WidgetRenderer({ widget, dataPoints, onRecordData, isCompact }: WidgetRendererProps) {
+export function WidgetRenderer({ widget, dataPoints, onRecordData, isCompact, onOpenTrackThis }: WidgetRendererProps) {
+  const kind = getWidgetKind(widget.template_type)
+
+  if (kind === 'info_display') {
+    return <InfoWidgetDispatcher widget={widget} isCompact={isCompact} />
+  }
+
+  if (kind === 'quick_action') {
+    return <QuickActionDispatcher widget={widget} onOpenTrackThis={onOpenTrackThis} />
+  }
+
+  // Tracker widgets
   const variant = widget.visual_variant ?? undefined
 
   switch (widget.template_type) {
     case 'tally':
-      return (
-        <TallyTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <TallyTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'streak':
-      return (
-        <StreakTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <StreakTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'percentage':
-      return (
-        <PercentageTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <PercentageTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'checklist':
-      return (
-        <ChecklistTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <ChecklistTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'multi_habit_grid':
-      return (
-        <HabitGridTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <HabitGridTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'boolean_checkin':
-      return (
-        <BooleanCheckinTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <BooleanCheckinTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'sequential_path':
-      return (
-        <SequentialPathTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <SequentialPathTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'achievement_badge':
-      return (
-        <AchievementBadgeTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <AchievementBadgeTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'xp_level':
-      return (
-        <XpLevelTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <XpLevelTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'timer_duration':
-      return (
-        <TimerDurationTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <TimerDurationTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'allowance_calculator':
-      return (
-        <AllowanceCalculatorTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <AllowanceCalculatorTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'leaderboard':
-      return (
-        <LeaderboardTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <LeaderboardTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'mood_rating':
-      return (
-        <MoodRatingTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <MoodRatingTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'countdown':
-      return (
-        <CountdownTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <CountdownTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'snapshot_comparison':
-      return (
-        <SnapshotComparisonTracker
-          widget={widget}
-          dataPoints={dataPoints}
-          onRecordData={onRecordData}
-          variant={variant}
-          isCompact={isCompact}
-        />
-      )
+      return <SnapshotComparisonTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
     case 'best_intention':
-      return (
-        <BestIntentionTracker
-          widget={widget}
-          isCompact={isCompact}
-        />
-      )
+      return <BestIntentionTracker widget={widget} isCompact={isCompact} />
     default:
       return <PlannedTrackerStub trackerType={widget.template_type} />
   }
+}
+
+// ── Info Widget Dispatcher ──────────────────────────────────
+
+function InfoWidgetDispatcher({ widget, isCompact }: { widget: DashboardWidget; isCompact?: boolean }) {
+  switch (widget.template_type) {
+    case 'info_best_intentions':
+      return <BestIntentionTracker widget={widget} isCompact={isCompact} />
+    case 'info_upcoming_tasks':
+      return <InfoUpcomingTasks widget={widget} isCompact={isCompact} />
+    case 'info_calendar_today':
+      return <InfoCalendarToday widget={widget} isCompact={isCompact} />
+    case 'info_recent_victories':
+      return <InfoRecentVictories widget={widget} isCompact={isCompact} />
+    case 'info_guiding_stars_rotation':
+      return <InfoGuidingStarsRotation widget={widget} isCompact={isCompact} />
+    case 'info_quick_stats':
+      return <InfoQuickStats widget={widget} isCompact={isCompact} />
+    default:
+      return (
+        <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+          Unknown info widget
+        </div>
+      )
+  }
+}
+
+// ── Quick Action Dispatcher ─────────────────────────────────
+
+function QuickActionDispatcher({ widget, onOpenTrackThis }: { widget: DashboardWidget; onOpenTrackThis?: () => void }) {
+  const navigate = useNavigate()
+
+  const actions: Record<string, { icon: React.ReactNode; label: string; action: () => void }> = {
+    action_add_task: {
+      icon: <Plus size={20} />,
+      label: 'Add Task',
+      action: () => navigate('/tasks?new=1'),
+    },
+    action_mind_sweep: {
+      icon: <StickyNote size={20} />,
+      label: 'Mind Sweep',
+      action: () => navigate('/notepad'),
+    },
+    action_add_intention: {
+      icon: <Sparkles size={20} />,
+      label: 'Add Intention',
+      action: () => navigate('/best-intentions?new=1'),
+    },
+    action_track_this: {
+      icon: <BarChart3 size={20} />,
+      label: 'Track This',
+      action: () => onOpenTrackThis?.(),
+    },
+  }
+
+  const config = actions[widget.template_type]
+  if (!config) return null
+
+  return (
+    <button
+      onClick={config.action}
+      className="w-full h-full flex flex-col items-center justify-center gap-2 transition-colors rounded-lg"
+      style={{ background: 'transparent' }}
+    >
+      <div
+        className="w-10 h-10 rounded-full flex items-center justify-center"
+        style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
+      >
+        {config.icon}
+      </div>
+      <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+        {config.label}
+      </span>
+    </button>
+  )
 }
