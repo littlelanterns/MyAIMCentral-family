@@ -33,6 +33,8 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | PRD-01 | Auth Gaps: Accept-invite flow + RPC, session duration per role, inactivity warning banner | 2026-03-24 |
 | PRD-02 | Permissions Repair: 21 audit findings — RPC role mapping, trigger defaults, teen panel column fix, Permission Hub UI (emergency lockout, global permissions, dad personal features, shift log, View As exclusions, profile Layer 3) | 2026-03-25 |
 | PRD-04 | Shell Routing Repair: 11 audit findings — Settings overlay stub, Hub layout, sidebar persistence, auto-collapse, tier-locking, Guided notepad, journal sub-routes, QuickTasks auto-sort, View As full shell+theme, gradient consistency | 2026-03-25 |
+| UX S1-S5 | UX Overhaul: density system, ModalV2, hardcoded color audit, QuickCreate FAB, calendar visual overhaul, DateDetailModal, calendar settings, tooltip conversion, list task type, tracker quick-create, element size | 2026-03-28 |
+| PRD-14 | Dashboard Reconciliation: data-driven section system, Guiding Stars greeting, starter widgets, perspective switcher expansion, View As full shell modal, acted_by attribution, theme persistence per member, BookShelf + ThemeSelector for Independent/Adult | 2026-03-30 |
 
 ## Feature Phases (Pending)
 
@@ -44,7 +46,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 11 | PRD-10 | Widgets, Trackers & Dashboard Layout | Phase 10 | **Complete** | 2026-03-25 |
 | 12 | PRD-11, PRD-11B | Victory Recorder & Family Celebration | Phase 07, 10, 11 | Pending |  |
 | 13 | PRD-13 | Archives & Context | Phase 07, 08, 09 | **Complete** | 2026-03-25 |
-| 14 | PRD-14, PRD-14B | Personal Dashboard & Calendar | Phase 05, 10, 11 | Pending |
+| 14 | PRD-14, PRD-14B | Personal Dashboard & Calendar | Phase 05, 10, 11 | **Complete** | 2026-03-30 |
 | 15 | PRD-14C, PRD-14D, PRD-14E | Family Overview, Hub & TV Mode | Phase 14 | Pending |
 | 16 | PRD-15 | Messages, Requests & Notifications | Phase 06 | Pending |
 | 17 | PRD-16 | Meetings | Phase 10, 16 | Pending |

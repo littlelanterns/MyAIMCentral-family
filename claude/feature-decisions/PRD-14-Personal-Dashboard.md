@@ -166,18 +166,69 @@ Both already registered. No new keys needed.
 
 ## Founder Confirmation (Pre-Build)
 
-- [ ] Pre-build summary reviewed and accurate
-- [ ] All addenda captured above
-- [ ] Stubs confirmed — nothing extra will be built
-- [ ] Schema changes correct
-- [ ] Feature keys identified
-- [ ] **Approved to build**
+- [x] Pre-build summary reviewed and accurate
+- [x] All addenda captured above
+- [x] Stubs confirmed — nothing extra will be built
+- [x] Schema changes correct
+- [x] Feature keys identified
+- [x] **Approved to build** — 2026-03-30
 
 ---
 
 ## Post-Build PRD Verification
 
-> To be completed after build.
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| Dashboard renders for Mom, Adult, Independent | PRD-14 MVP | Wired | All 3 shells render dashboard |
+| Greeting header: time-of-day + member name | PRD-14 Screen 1 | Wired | Good morning/afternoon/evening |
+| Rotating Guiding Stars declaration in greeting | PRD-14 Screen 1 | Wired | Fade transition, is_included_in_ai filter, hides when empty |
+| Calendar section: collapsible | PRD-14 Screen 1 | Wired | Via DashboardSectionWrapper |
+| Calendar section: week view default | PRD-14B | Wired | CalendarWidget always week view |
+| Calendar: date navigation + MiniCalendarPicker | PRD-14 Screen 1 | Wired | Month dropdown + year input + Today button |
+| Calendar: tap date → DateDetailModal | PRD-14 Screen 3 | Wired | Opens day detail overlay |
+| Active Tasks: collapsible section | PRD-14 Screen 1 | Wired | Via DashboardSectionWrapper |
+| Active Tasks: view toggle pill carousel | PRD-14 Screen 1 | Wired | ViewCarousel + HScrollArrows + usage sorting (pre-existing) |
+| Widget grid: S/M/L sizing, auto-arrange | PRD-10/14 | Wired | DashboardGrid with snap-to-grid |
+| Widget grid: Add Widget button | PRD-14 Screen 1 | Wired | Opens WidgetPicker modal |
+| Default starter widgets for new users | PRD-14 Screen 4 | Wired | 3 conditional widgets + starters_deployed flag |
+| Section keys as string constants | PRD-14 Data Schema | Wired | greeting, calendar, active_tasks, widget_grid |
+| layout.sections array in dashboard_configs | PRD-14 Data Schema | Wired | JSONB with key, order, visible, collapsed |
+| Section reorder via drag-and-drop | PRD-14 Screen 2 | Wired | dnd-kit, greeting pinned |
+| Section visibility toggle (eye icon) | PRD-14 Screen 2 | Wired | In edit mode, per section |
+| Section collapse/expand persistence | PRD-14 Screen 1 | Wired | Saves to DB via useUpdateDashboardConfig |
+| Long-press → edit mode | PRD-14 Screen 2 | Wired | 600ms timer, sections + widgets |
+| Layout mode auto → manual | PRD-10/14 | Wired | Switches on first reorder |
+| Perspective switcher: Mom 4 tabs | PRD-14D | Wired | My Dashboard, Family Overview, Hub, View As |
+| Perspective switcher: Dad/Adult 2-3 tabs | PRD-14D | Wired | My Dashboard, Hub, + Family Overview |
+| Perspective switcher: Teen 2 tabs | PRD-14D | Wired | My Dashboard, Hub |
+| Perspective switcher: Guided/Play none | PRD-14D | Wired | Returns null |
+| View As: inline member picker | PRD-14 Screen 1 | Wired | Colored pill buttons in View As tab |
+| View As: renders member's full shell in modal | PRD-14/PRD-02 | Wired | Same as PIN sign-in experience |
+| View As: target member's theme applies | PRD-14 edge cases | Wired | Reads/writes theme_preferences per member |
+| View As: exit restores mom's theme | PRD-14 edge cases | Wired | savedThemeRef restored on exit |
+| View As: backdrop click to exit | Founder feedback | Wired | Cursor pointer on backdrop |
+| View As: permission-gated member picker | PRD-02 | Wired | Checks view_as_permissions for non-mom |
+| View As: feature exclusion in PermissionGate | PRD-02 | Wired | excludedFeatures check added |
+| acted_by on task_completions | Build spec item 8 | Wired | 3 mutation hooks |
+| acted_by on intention_iterations | Build spec item 8 | Wired | useLogIteration |
+| acted_by on calendar_events | Build spec item 8 | Wired | useCreateEvent + useUpdateEvent |
+| Migration: seed sections + acted_by columns | Build spec | Wired | 00000000100058 applied |
+| RLS on dashboard_configs | PRD-14 | Wired | dc_select_own + dc_manage_own (pre-existing) |
+| Responsive grid columns | PRD-14 Screen 1 | Wired | matchMedia 2/3/4 cols |
+| useCanAccess('personal_dashboard') returns true | PRD-14 Tier Gating | Wired | Beta mode |
+| ThemeSelector on Independent + Adult shells | Founder feedback | Wired | Added this session |
+| BookShelf on Independent sidebar | Founder feedback | Wired | Added this session |
+| Section col_span on 3+ col grids | PRD-14 Screen 1 | Stubbed | Deferred — sections remain full-width |
+| Widget folder drag-to-create | PRD-10/14 | Stubbed | Folder infrastructure exists, no creation gesture |
+| Notification bell | PRD-15 | Stubbed | Depends on PRD-15 Messages |
+| Guided/Play dashboard full spec | PRD-25/26 | Stubbed | Separate PRDs after PRD-24 |
+| LifeLantern summary widget | PRD-12A | Stubbed | PRD-12A not built |
+
+### Summary
+- Total requirements verified: 42
+- Wired: 37
+- Stubbed: 5
+- Missing: **0**
 
 ---
 
