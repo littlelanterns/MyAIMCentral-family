@@ -1,14 +1,30 @@
 // PRD-06 + PRD-10: Best Intention tracker widget for dashboard
 // Shows ALL active intentions with colored dots, today counts, celebrate buttons,
-// and mini sparklines (7-day trend) for medium/large sizes.
+// mini sparklines (7-day trend), and drag-to-reorder (persists sort_order).
 
 import { useState, useRef, useCallback, useMemo } from 'react'
-import { Check } from 'lucide-react'
+import { Check, GripVertical } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { DashboardWidget } from '@/types/widgets'
 import {
   useBestIntentions,
   useTodaysIterations,
   useLogIteration,
+  useReorderIntentions,
   useAllIntentionIterations,
   INTENTION_COLORS,
 } from '@/hooks/useBestIntentions'
@@ -30,7 +46,6 @@ function MiniSparkline({
   height?: number
 }) {
   if (data.length < 2) {
-    // Not enough data — render a flat line
     return (
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
         <line
@@ -66,9 +81,9 @@ function MiniSparkline({
   )
 }
 
-// ---- Single intention row with celebrate ----
+// ---- Sortable intention row with celebrate ----
 
-function IntentionRow({
+function SortableIntentionRow({
   intention,
   familyId,
   compact,
@@ -79,6 +94,21 @@ function IntentionRow({
   compact: boolean
   sparklineData?: number[]
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: intention.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
   const { data: member } = useFamilyMember()
   const { data: todayCount = 0 } = useTodaysIterations(intention.id)
   const logIteration = useLogIteration()
@@ -106,7 +136,24 @@ function IntentionRow({
   }, [intention.id, familyId, member, logIteration])
 
   return (
-    <div className="flex items-center gap-2 min-h-[28px]">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 min-h-[28px]"
+    >
+      {/* Drag handle */}
+      {!compact && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-0.5 rounded cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          style={{ color: 'var(--color-text-tertiary)' }}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+
       {/* Color dot */}
       <span
         className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -173,10 +220,30 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
   const memberId = widget.assigned_member_id ?? member?.id
 
   const { data: intentions = [] } = useBestIntentions(memberId)
+  const reorderIntentions = useReorderIntentions()
   const activeIntentions = useMemo(
     () => intentions.filter((i) => i.is_active),
     [intentions],
   )
+
+  // Drag sensors — activate after 5px movement to allow clicks
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  )
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = activeIntentions.findIndex((i) => i.id === active.id)
+    const newIndex = activeIntentions.findIndex((i) => i.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = arrayMove(activeIntentions, oldIndex, newIndex)
+    reorderIntentions.mutate(
+      reordered.map((item, idx) => ({ id: item.id, sort_order: idx })),
+    )
+  }, [activeIntentions, reorderIntentions])
 
   // Sparkline data: last 7 days of iterations for all active intentions
   const sevenDaysAgo = useMemo(() => {
@@ -200,7 +267,6 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
   // Build sparkline data per intention: array of 7 numbers (one per day)
   const sparklineMap = useMemo(() => {
     const map = new Map<string, number[]>()
-    // Generate 7 date strings
     const dates: string[] = []
     const cur = new Date(sevenDaysAgo + 'T00:00:00')
     for (let i = 0; i < 7; i++) {
@@ -208,7 +274,6 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
       cur.setDate(cur.getDate() + 1)
     }
 
-    // Group by intention_id + day_date
     const grouped = new Map<string, Map<string, number>>()
     for (const iter of recentIterations) {
       if (!grouped.has(iter.intention_id)) grouped.set(iter.intention_id, new Map())
@@ -234,7 +299,6 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
     )
   }
 
-  // Small size: max 3 intentions + overflow indicator
   const compact = isCompact ?? (widget.size === 'small')
   const maxShow = compact ? 3 : activeIntentions.length
   const visible = activeIntentions.slice(0, maxShow)
@@ -245,15 +309,26 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
       className="flex flex-col gap-1.5 h-full overflow-hidden"
       onClick={(e) => e.stopPropagation()}
     >
-      {visible.map((intention) => (
-        <IntentionRow
-          key={intention.id}
-          intention={intention}
-          familyId={widget.family_id}
-          compact={compact}
-          sparklineData={compact ? undefined : sparklineMap.get(intention.id)}
-        />
-      ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={visible.map((i) => i.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {visible.map((intention) => (
+            <SortableIntentionRow
+              key={intention.id}
+              intention={intention}
+              familyId={widget.family_id}
+              compact={compact}
+              sparklineData={compact ? undefined : sparklineMap.get(intention.id)}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {overflowCount > 0 && (
         <span

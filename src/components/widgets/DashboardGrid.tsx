@@ -419,16 +419,23 @@ export function DashboardGrid({
 
       {/* Edit mode banner */}
       {isEditMode && (
-        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2 mb-3 rounded-lg"
-          style={{ background: 'var(--color-bg-tertiary)' }}
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2.5 mb-3 rounded-lg shadow-md"
+          style={{
+            background: 'var(--surface-primary)',
+            color: 'var(--color-text-on-primary)',
+          }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            Editing layout{layoutMode === 'manual' ? ' (manual)' : ''}
+          <span className="text-sm font-medium">
+            Editing layout{layoutMode === 'manual' ? ' (manual)' : ''} — long press to drag
           </span>
           <button
             onClick={handleExitEditMode}
-            className="px-3 py-1 rounded-lg text-sm font-medium"
-            style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
+            className="px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+            style={{
+              background: 'rgba(255,255,255,0.25)',
+              color: 'var(--color-text-on-primary)',
+              border: '1px solid rgba(255,255,255,0.4)',
+            }}
           >
             Done
           </button>

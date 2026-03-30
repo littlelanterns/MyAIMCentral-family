@@ -1,9 +1,12 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
-import { Target, Plus, Pencil, Archive, Heart, HeartOff, Sparkles, Check, RotateCcw, ToggleLeft, ToggleRight, BarChart3 } from 'lucide-react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Target, Plus, Pencil, Archive, Heart, HeartOff, Sparkles, Check, RotateCcw, ToggleLeft, ToggleRight, BarChart3, Trash2, LayoutDashboard } from 'lucide-react'
 import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge, Tooltip, TrackerAnalyticsView } from '@/components/shared'
 import type { TrackerAnalyticsDataSeries } from '@/components/shared'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useWidgets, useCreateWidget } from '@/hooks/useWidgets'
+import { MEMBER_COLORS } from '@/config/member_colors'
 import {
   useBestIntentions,
   useArchivedIntentions,
@@ -13,6 +16,7 @@ import {
   useToggleIntentionAI,
   useArchiveIntention,
   useRestoreIntention,
+  useDeleteIntention,
   useLogIteration,
   useTodaysIterations,
   useUpdateIntentionColor,
@@ -123,28 +127,32 @@ function IntentionColorPicker({
       </Tooltip>
       {open && (
         <div
-          className="absolute z-30 left-0 top-6 flex gap-1.5 p-2 rounded-lg shadow-lg"
+          className="absolute z-30 left-0 top-6 p-2 rounded-lg shadow-lg"
           style={{
             backgroundColor: 'var(--color-bg-primary)',
             border: '1px solid var(--color-border)',
+            width: 200,
           }}
         >
-          {INTENTION_COLORS.map((c) => (
-            <button
-              key={c}
-              onClick={() => {
-                updateColor.mutate({ id: intentionId, color: c })
-                setOpen(false)
-              }}
-              className="w-5 h-5 rounded-full transition-transform hover:scale-125"
-              style={{
-                backgroundColor: c,
-                outline: c === active ? '2px solid var(--color-text-primary)' : 'none',
-                outlineOffset: '2px',
-              }}
-              aria-label={`Color ${c}`}
-            />
-          ))}
+          <div className="flex flex-wrap gap-1">
+            {MEMBER_COLORS.map((c) => (
+              <button
+                key={c.hex}
+                onClick={() => {
+                  updateColor.mutate({ id: intentionId, color: c.hex })
+                  setOpen(false)
+                }}
+                className="w-5 h-5 rounded-full transition-transform hover:scale-125"
+                style={{
+                  backgroundColor: c.hex,
+                  outline: c.hex === active ? '2px solid var(--color-text-primary)' : 'none',
+                  outlineOffset: '2px',
+                }}
+                title={c.name}
+                aria-label={c.name}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -169,6 +177,7 @@ function IntentionCard({
   const toggleActive = useToggleIntentionActive()
   const toggleAI = useToggleIntentionAI()
   const archiveIntention = useArchiveIntention()
+  const deleteIntention = useDeleteIntention()
 
   return (
     <div
@@ -316,6 +325,21 @@ function IntentionCard({
             <Archive size={14} />
           </button>
           </Tooltip>
+
+          {/* Delete */}
+          <Tooltip content="Delete permanently">
+          <button
+            onClick={() => {
+              if (confirm('Permanently delete this intention and all its iterations? This cannot be undone.')) {
+                deleteIntention.mutate({ id: intention.id, memberId })
+              }
+            }}
+            className="p-1.5 rounded transition-colors hover:text-red-500"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <Trash2 size={14} />
+          </button>
+          </Tooltip>
         </div>
       </div>
     </div>
@@ -332,6 +356,7 @@ function ArchivedIntentionCard({
   onEdit: (i: BestIntention) => void
 }) {
   const restoreIntention = useRestoreIntention()
+  const deleteIntention = useDeleteIntention()
 
   return (
     <div
@@ -362,6 +387,19 @@ function ArchivedIntentionCard({
           style={{ color: 'var(--color-text-secondary)' }}
         >
           <Pencil size={14} />
+        </button>
+        </Tooltip>
+        <Tooltip content="Delete permanently">
+        <button
+          onClick={() => {
+            if (confirm('Permanently delete this intention and all its iterations? This cannot be undone.')) {
+              deleteIntention.mutate({ id: intention.id, memberId: intention.member_id })
+            }
+          }}
+          className="p-1.5 rounded transition-colors hover:text-red-500"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          <Trash2 size={14} />
         </button>
         </Tooltip>
       </div>
@@ -765,18 +803,36 @@ function AnalyticsTabContent({
 type PageTab = 'intentions' | 'analytics'
 
 export function BestIntentionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { data: intentions = [], isLoading } = useBestIntentions(member?.id)
   const { data: archivedIntentions = [] } = useArchivedIntentions(member?.id)
   const createIntention = useCreateBestIntention()
   const updateIntention = useUpdateBestIntention()
+  const createWidget = useCreateWidget()
+
+  // Check if Best Intentions widget already on dashboard
+  const { data: widgets = [] } = useWidgets(family?.id, member?.id)
+  const hasWidgetOnDashboard = useMemo(
+    () => widgets.some((w) => w.template_type === 'info_best_intentions' || w.template_type === 'best_intention'),
+    [widgets],
+  )
 
   const [activeTab, setActiveTab] = useState<PageTab>('intentions')
   const [showCreate, setShowCreate] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<BestIntention | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  // ?new=1 URL param → auto-open create form
+  useEffect(() => {
+    if (searchParams.get('new') === '1' && member && family) {
+      setShowCreate(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, member, family, setSearchParams])
 
   // Split active vs resting
   const activeIntentions = useMemo(
@@ -806,17 +862,31 @@ export function BestIntentionsPage() {
     tracker_style: TrackerStyle
     related_member_ids: string[]
   }) {
-    if (!member || !family) return
-    await createIntention.mutateAsync({
-      family_id: family.id,
-      member_id: member.id,
-      statement: data.statement,
-      description: data.description || undefined,
-      tags: data.tags.length > 0 ? data.tags : undefined,
-      tracker_style: data.tracker_style,
-      related_member_ids: data.related_member_ids.length > 0 ? data.related_member_ids : undefined,
-    })
-    resetForm()
+    if (!member || !family) {
+      setCreateError('Still loading your profile. Please try again in a moment.')
+      return
+    }
+    setCreateError(null)
+    try {
+      await createIntention.mutateAsync({
+        family_id: family.id,
+        member_id: member.id,
+        statement: data.statement,
+        description: data.description || undefined,
+        tags: data.tags.length > 0 ? data.tags : undefined,
+        tracker_style: data.tracker_style,
+        related_member_ids: data.related_member_ids.length > 0 ? data.related_member_ids : undefined,
+      })
+      resetForm()
+    } catch (err: unknown) {
+      console.error('Failed to create intention:', err)
+      const msg = err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Unknown error'
+      setCreateError(`Failed to create intention: ${msg}`)
+    }
   }
 
   async function handleUpdate(data: {
@@ -827,15 +897,23 @@ export function BestIntentionsPage() {
     related_member_ids: string[]
   }) {
     if (!editing) return
-    await updateIntention.mutateAsync({
-      id: editing.id,
-      statement: data.statement,
-      description: data.description || null,
-      tags: data.tags.length > 0 ? data.tags : null,
-      tracker_style: data.tracker_style,
-      related_member_ids: data.related_member_ids.length > 0 ? data.related_member_ids : null,
-    })
-    resetForm()
+    setCreateError(null)
+    try {
+      await updateIntention.mutateAsync({
+        id: editing.id,
+        statement: data.statement,
+        description: data.description || null,
+        tags: data.tags.length > 0 ? data.tags : null,
+        tracker_style: data.tracker_style,
+        related_member_ids: data.related_member_ids.length > 0 ? data.related_member_ids : null,
+      })
+      resetForm()
+    } catch (err) {
+      console.error('Failed to update intention:', err)
+      setCreateError(
+        err instanceof Error ? err.message : 'Failed to save changes. Please try again.',
+      )
+    }
   }
 
   function handleEdit(intention: BestIntention) {
@@ -914,16 +992,66 @@ export function BestIntentionsPage() {
           )}
         </div>
 
-        {/* AI summary */}
-        {intentions.length > 0 && (
-          <p
-            className="text-xs mt-2"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            LiLa is drawing from {aiCount}/{intentions.length} intentions
-          </p>
-        )}
+        {/* AI summary + Add to Dashboard */}
+        <div className="flex items-center justify-between mt-2">
+          {intentions.length > 0 && (
+            <p
+              className="text-xs"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              LiLa is drawing from {aiCount}/{intentions.length} intentions
+            </p>
+          )}
+          {!hasWidgetOnDashboard && intentions.length > 0 && (
+            <Tooltip content="Show all active intentions as a widget on your dashboard">
+            <button
+              onClick={() => {
+                if (!family?.id || !member?.id) return
+                createWidget.mutate({
+                  family_id: family.id,
+                  family_member_id: member.id,
+                  template_type: 'info_best_intentions',
+                  title: 'Best Intentions',
+                  size: 'medium',
+                })
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <LayoutDashboard size={14} />
+              Add to Dashboard
+            </button>
+            </Tooltip>
+          )}
+          {hasWidgetOnDashboard && (
+            <span
+              className="flex items-center gap-1 text-xs"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              <LayoutDashboard size={12} />
+              On your dashboard
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Error feedback */}
+      {createError && (
+        <div
+          className="p-3 rounded-lg text-sm"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--color-accent-deep, #8e3e3c) 12%, transparent)',
+            color: 'var(--color-accent-deep, #8e3e3c)',
+            border: '1px solid color-mix(in srgb, var(--color-accent-deep, #8e3e3c) 30%, transparent)',
+          }}
+        >
+          {createError}
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="flex gap-1">

@@ -276,14 +276,14 @@ select:focus {
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* Wiggle (attention) */
+/* Wiggle (gentle sway for edit/drag mode) */
 @keyframes wiggle {
   0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-5deg); }
-  75% { transform: rotate(5deg); }
+  25% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1.5deg); }
 }
 .animate-wiggle {
-  animation: wiggle 0.5s ease-in-out;
+  animation: wiggle 0.8s ease-in-out;
 }
 
 /* Glow (pending items, breathing glow) */

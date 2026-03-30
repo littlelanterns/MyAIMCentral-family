@@ -1,10 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { MEMBER_COLORS } from '@/config/member_colors'
 
-export const INTENTION_COLORS = [
-  '#4e79a7', '#f28e2b', '#e15759', '#76b7b2',
-  '#59a14f', '#edc948', '#b07aa1', '#ff9da7',
-] as const
+/** Full AIMfM 44-color palette for intention color assignment */
+export const INTENTION_COLORS = MEMBER_COLORS.map((c) => c.hex)
 
 export interface BestIntention {
   id: string
@@ -126,13 +125,12 @@ export function useTodaysIterations(intentionId: string | undefined) {
   })
 }
 
-/** Pick the next unused color from INTENTION_COLORS, cycling if all 8 are used. */
+/** Pick the next unused color from INTENTION_COLORS, cycling when all are used. */
 function pickNextColor(existingColors: (string | null)[]): string {
   const used = new Set(existingColors.filter(Boolean))
   for (const c of INTENTION_COLORS) {
     if (!used.has(c)) return c
   }
-  // All 8 used — cycle from the start
   return INTENTION_COLORS[existingColors.length % INTENTION_COLORS.length]
 }
 
@@ -299,6 +297,33 @@ export function useRestoreIntention() {
   })
 }
 
+// Hard delete: permanently remove intention and its iterations
+export function useDeleteIntention() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, memberId }: { id: string; memberId: string }) => {
+      // Delete iterations first (FK constraint)
+      await supabase
+        .from('intention_iterations')
+        .delete()
+        .eq('intention_id', id)
+
+      const { error } = await supabase
+        .from('best_intentions')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      return memberId
+    },
+    onSuccess: (memberId) => {
+      queryClient.invalidateQueries({ queryKey: ['best-intentions', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['best-intentions-archived', memberId] })
+    },
+  })
+}
+
 // Reorder intentions by updating sort_order for each
 export function useReorderIntentions() {
   const queryClient = useQueryClient()
@@ -401,19 +426,7 @@ export function useLogIteration() {
 
       if (error) throw error
 
-      // Increment the denormalized iteration_count on the intention
-      const { data: current } = await supabase
-        .from('best_intentions')
-        .select('iteration_count')
-        .eq('id', intentionId)
-        .single()
-
-      if (current) {
-        await supabase
-          .from('best_intentions')
-          .update({ iteration_count: (current.iteration_count ?? 0) + 1 })
-          .eq('id', intentionId)
-      }
+      // iteration_count is auto-incremented by DB trigger (trg_increment_iteration_count)
 
       return data as IntentionIteration
     },
