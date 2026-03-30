@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamily } from './useFamily'
 import { useFamilyMember } from './useFamilyMember'
+import { useActedBy } from './useActedBy'
 import type {
   CalendarEvent,
   EventAttendee,
@@ -150,6 +151,7 @@ export function useTasksDueInRange(start: Date, end: Date) {
 /** Create a new calendar event */
 export function useCreateEvent() {
   const queryClient = useQueryClient()
+  const actedBy = useActedBy()
   const { data: family } = useFamily()
   const { data: member } = useFamilyMember()
 
@@ -184,6 +186,7 @@ export function useCreateEvent() {
           created_by: member.id,
           status,
           items_to_bring: eventFields.items_to_bring ?? [],
+          acted_by: actedBy,
         })
         .select()
         .single()
@@ -216,6 +219,7 @@ export function useCreateEvent() {
 /** Update an existing calendar event */
 export function useUpdateEvent() {
   const queryClient = useQueryClient()
+  const actedBy = useActedBy()
 
   return useMutation({
     mutationFn: async ({ eventId, updates }: { eventId: string; updates: Partial<CreateEventInput> }) => {
@@ -223,7 +227,7 @@ export function useUpdateEvent() {
 
       const { data, error } = await supabase
         .from('calendar_events')
-        .update(eventUpdates)
+        .update({ ...eventUpdates, acted_by: actedBy })
         .eq('id', eventId)
         .select()
         .single()

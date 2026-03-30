@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useCanAccess } from './useCanAccess'
 import { usePermission } from './usePermission'
+import { useViewAs } from './ViewAsProvider'
 import { Lock, ArrowUpCircle } from 'lucide-react'
 
 interface PermissionGateProps {
@@ -35,8 +36,14 @@ export function PermissionGate({
 }: PermissionGateProps) {
   const access = useCanAccess(featureKey, memberId)
   const { allowed: roleAllowed, level, loading: roleLoading } = usePermission(featureKey, targetMemberId)
+  const { isViewingAs, excludedFeatures } = useViewAs()
 
   if (access.loading || roleLoading) return null
+
+  // View As feature exclusion check — if this feature is excluded during View As, block it
+  if (isViewingAs && excludedFeatures.includes(featureKey)) {
+    return <>{fallback}</>
+  }
 
   // Layer 1+2: Tier and toggle check
   if (!access.allowed) {

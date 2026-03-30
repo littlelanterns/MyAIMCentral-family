@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { useActedBy } from './useActedBy'
 import { MEMBER_COLORS } from '@/config/member_colors'
 
 /** Full AIMfM 44-color palette for intention color assignment */
@@ -397,6 +398,7 @@ export function useAllIntentionIterations(
 
 export function useLogIteration() {
   const queryClient = useQueryClient()
+  const actedBy = useActedBy()
 
   return useMutation({
     mutationFn: async ({
@@ -420,6 +422,7 @@ export function useLogIteration() {
           member_id: memberId,
           victory_reference: victoryReference ?? null,
           day_date: today,
+          acted_by: actedBy,
         })
         .select()
         .single()

@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { supabase } from '@/lib/supabase/client'
 
 export interface ViewAsMemberPickerProps {
   open: boolean
@@ -127,17 +128,46 @@ export function ViewAsMemberPicker({ open, onClose }: ViewAsMemberPickerProps) {
     }
   }, [open])
 
+  // Load view_as_permissions for non-mom viewers
+  const [permittedMemberIds, setPermittedMemberIds] = useState<Set<string> | null>(null)
+  const isMom = selfMember?.role === 'primary_parent'
+
+  useEffect(() => {
+    if (!open || !selfMember || !family) return
+    // Mom has implicit full access — skip permission check
+    if (isMom) {
+      setPermittedMemberIds(null) // null = no filtering
+      return
+    }
+    // Non-mom: check view_as_permissions
+    supabase
+      .from('view_as_permissions')
+      .select('target_member_id')
+      .eq('family_id', family.id)
+      .eq('viewer_id', selfMember.id)
+      .eq('enabled', true)
+      .then(({ data }) => {
+        if (data) {
+          setPermittedMemberIds(new Set(data.map(r => r.target_member_id)))
+        } else {
+          setPermittedMemberIds(new Set()) // no permissions = can't view anyone
+        }
+      })
+  }, [open, selfMember?.id, family?.id, isMom])
+
   if (!open) return null
 
   // The real viewer is: realViewerId when already in View As, otherwise selfMember.id
   const realId = realViewerId ?? selfMember?.id
 
   // Exclude: the real viewer themselves, out-of-nest members, inactive members
+  // Non-mom: also filter by view_as_permissions
   const pickableMembers = allMembers.filter(
     (m) =>
       m.id !== realId &&
       m.is_active &&
-      !m.out_of_nest,
+      !m.out_of_nest &&
+      (isMom || permittedMemberIds === null || permittedMemberIds.has(m.id)),
   )
 
   function handleSelect(member: FamilyMember) {

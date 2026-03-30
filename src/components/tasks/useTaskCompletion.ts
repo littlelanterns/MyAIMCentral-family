@@ -18,6 +18,7 @@ import { useState, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { Task } from '@/hooks/useTasks'
+import { useActedBy } from '@/hooks/useActedBy'
 
 interface UseTaskCompletionOptions {
   memberId: string
@@ -49,6 +50,7 @@ export async function uploadCompletionPhoto(file: File, taskId: string): Promise
 
 export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskCompletionOptions) {
   const queryClient = useQueryClient()
+  const actedBy = useActedBy()
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
 
   const completeTask = useMutation({
@@ -82,6 +84,7 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
           member_id: memberId,
           completion_note: completionNote ?? null,
           photo_url: photoUrl ?? null,
+          acted_by: actedBy,
         })
 
       if (completionError) {

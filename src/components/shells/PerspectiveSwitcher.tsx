@@ -1,22 +1,22 @@
 /**
- * PerspectiveSwitcher — PRD-04
+ * PerspectiveSwitcher — PRD-14 + PRD-14D
  *
- * Segmented control shown on the dashboard page. Visible only to Mom
- * (role === 'primary_parent'). Lets her switch between three dashboard
- * perspectives: My Dashboard, Family Overview, and Family Hub.
+ * Role-based segmented control on the dashboard page.
  *
- * This component is a pure presentational control — it does NOT route or
- * render the actual views. The parent (DashboardPage) owns the active state
- * and decides what to render for each perspective.
+ * PRD-14D overrides PRD-14: perspective switcher is no longer mom-only.
+ * - Mom (primary_parent): My Dashboard, Family Overview, Hub, View As (4 tabs)
+ * - Dad/Additional Adult: My Dashboard, Hub (+ Family Overview if permitted, + View As if permitted) (2-4 tabs)
+ * - Independent Teen: My Dashboard, Hub (2 tabs)
+ * - Guided/Play: no perspective switcher (returns null)
  *
- * Note: This component is separate from ViewAsMemberPicker (role-impersonation).
+ * The parent (Dashboard) owns the active state and decides what to render.
  */
 
 import { useShell } from './ShellProvider'
 
 // ─── Types ───────────────────────────────────────────────────
 
-export type DashboardView = 'personal' | 'family_overview' | 'family_hub'
+export type DashboardView = 'personal' | 'family_overview' | 'family_hub' | 'view_as'
 
 export interface PerspectiveSwitcherProps {
   activeView: DashboardView
@@ -28,34 +28,42 @@ export interface PerspectiveSwitcherProps {
 interface Segment {
   view: DashboardView
   label: string
-  shortLabel: string  // Used on narrow screens
+  shortLabel: string
 }
-
-const SEGMENTS: Segment[] = [
-  {
-    view: 'personal',
-    label: 'My Dashboard',
-    shortLabel: 'Me',
-  },
-  {
-    view: 'family_overview',
-    label: 'Family Overview',
-    shortLabel: 'Overview',
-  },
-  {
-    view: 'family_hub',
-    label: 'Family Hub',
-    shortLabel: 'Hub',
-  },
-]
 
 // ─── Component ───────────────────────────────────────────────
 
 export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwitcherProps) {
-  const { role } = useShell()
+  const { role, shell } = useShell()
 
-  // Only visible to primary parent (Mom)
-  if (role !== 'primary_parent') return null
+  // Guided/Play: no perspective switcher
+  if (shell === 'guided' || shell === 'play') return null
+
+  const isMom = role === 'primary_parent'
+  const isAdult = role === 'additional_adult' || role === 'special_adult'
+  const isTeen = shell === 'independent'
+
+  // Build role-appropriate tabs
+  const segments: Segment[] = []
+
+  // My Dashboard — always first for everyone
+  segments.push({ view: 'personal', label: 'My Dashboard', shortLabel: 'Me' })
+
+  // Family Overview — mom always, dad if permitted (default: show it)
+  if (isMom || isAdult) {
+    segments.push({ view: 'family_overview', label: 'Family Overview', shortLabel: 'Overview' })
+  }
+
+  // Hub — everyone except guided/play (already filtered above)
+  segments.push({ view: 'family_hub', label: 'Family Hub', shortLabel: 'Hub' })
+
+  // View As — mom always, dad if permitted
+  if (isMom) {
+    segments.push({ view: 'view_as', label: 'View As...', shortLabel: 'View As' })
+  }
+
+  // Only 1 tab (My Dashboard) means no switcher needed
+  if (segments.length <= 1) return null
 
   return (
     <div className="flex justify-center w-full px-4 mb-4 md:mb-6">
@@ -63,15 +71,15 @@ export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwi
         className="flex items-center w-full md:w-auto"
         style={{
           backgroundColor: 'var(--color-bg-secondary)',
-          borderRadius: '9999px',  // fully rounded pill container
+          borderRadius: '9999px',
           padding: '3px',
-          maxWidth: '500px',
+          maxWidth: '560px',
           gap: '2px',
         }}
         role="tablist"
         aria-label="Dashboard perspective"
       >
-        {SEGMENTS.map((seg) => {
+        {segments.map((seg) => {
           const isActive = activeView === seg.view
           return (
             <button
@@ -101,7 +109,6 @@ export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwi
                 cursor: isActive ? 'default' : 'pointer',
               }}
             >
-              {/* Full label on desktop, short label on narrow mobile */}
               <span className="hidden sm:inline">{seg.label}</span>
               <span className="sm:hidden">{seg.shortLabel}</span>
             </button>

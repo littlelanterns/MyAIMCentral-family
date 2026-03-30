@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Tooltip } from '@/components/shared'
 import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
@@ -105,8 +107,10 @@ function getSidebarSections(shell: ShellType): NavSection[] {
         items: grow.items.filter(i => i.label !== 'LifeLantern'),
       }, {
         title: 'AI & Tools',
+        collapsible: true,
         items: [
           { label: 'AI Vault', path: '/vault', featureKey: 'vault_consume', icon: <Gem size={20} />, tooltip: 'AI tutorials and tools' },
+          { label: 'BookShelf', path: '/bookshelf', featureKey: 'bookshelf', icon: <BookCopy size={20} />, tooltip: 'Upload books, extract wisdom with LiLa' },
         ],
       }]
     case 'guided':
@@ -167,6 +171,83 @@ function useSidebarPersistence(memberId: string | null) {
   }, [memberId])
 
   return { collapsed, setCollapsed, loaded }
+}
+
+/**
+ * SidebarNavItem — renders either a real NavLink (normal mode)
+ * or a button that uses ViewAsNav (when inside View As modal).
+ */
+function SidebarNavItem({
+  path, icon, label, tierLocked, collapsed, onNavigate,
+}: {
+  path: string; icon: React.ReactNode; label: string
+  tierLocked: boolean; collapsed: boolean; onNavigate: () => void
+}) {
+  const { isViewingAs } = useViewAs()
+  const { currentPath, navigate: viewAsNav } = useViewAsNav()
+  const location = useLocation()
+
+  // Determine active state based on context
+  const isActive = isViewingAs ? currentPath === path : location.pathname === path
+
+  if (isViewingAs) {
+    // In View As: use state-based navigation, not real router
+    return (
+      <button
+        onClick={() => {
+          if (tierLocked) return
+          viewAsNav(path)
+          onNavigate()
+        }}
+        className={`flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-colors w-full text-left ${isActive && !tierLocked ? 'font-medium' : ''}`}
+        style={{
+          backgroundColor: isActive && !tierLocked ? 'var(--surface-primary, var(--color-bg-secondary))' : 'transparent',
+          color: tierLocked ? 'var(--color-text-secondary)' : isActive ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
+          borderRight: isActive && !tierLocked ? '3px solid var(--surface-primary, var(--color-btn-primary-bg))' : '3px solid transparent',
+          opacity: tierLocked ? 0.45 : 1,
+          cursor: tierLocked ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {icon}
+        {!collapsed && (
+          <>
+            <span>{label}</span>
+            {tierLocked && <Lock size={12} className="ml-auto shrink-0" />}
+          </>
+        )}
+      </button>
+    )
+  }
+
+  // Normal mode: real NavLink
+  return (
+    <NavLink
+      to={tierLocked ? '#' : path}
+      onClick={(e) => {
+        if (tierLocked) { e.preventDefault(); return }
+        onNavigate()
+      }}
+      className={({ isActive: active }) =>
+        `flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-colors ${active && !tierLocked ? 'font-medium' : ''}`
+      }
+      style={({ isActive: active }) => ({
+        backgroundColor: active && !tierLocked ? 'var(--surface-primary, var(--color-bg-secondary))' : 'transparent',
+        color: tierLocked ? 'var(--color-text-secondary)' : active ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
+        borderRight: active && !tierLocked ? '3px solid var(--surface-primary, var(--color-btn-primary-bg))' : '3px solid transparent',
+        opacity: tierLocked ? 0.45 : 1,
+        filter: tierLocked ? 'blur(0.5px)' : 'none',
+        cursor: tierLocked ? 'not-allowed' : 'pointer',
+      })}
+    >
+      {icon}
+      {!collapsed && (
+        <>
+          <span>{label}</span>
+          {tierLocked && <Lock size={12} className="ml-auto shrink-0" />}
+        </>
+      )}
+    </NavLink>
+  )
 }
 
 export function Sidebar() {
@@ -313,36 +394,14 @@ function SidebarInner({
 
             return (
               <Tooltip content={collapsed ? `${item.label} — ${item.tooltip}` : item.tooltip} key={item.path}>
-              <NavLink
-                to={tierLocked ? '#' : item.path}
-                onClick={(e) => {
-                  if (tierLocked) { e.preventDefault(); return }
-                  setMobileOpen(false)
-                }}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2 mx-2 rounded-lg text-sm transition-colors ${
-                    isActive && !tierLocked ? 'font-medium' : ''
-                  }`
-                }
-                style={({ isActive }) => ({
-                  backgroundColor: isActive && !tierLocked ? 'var(--surface-primary, var(--color-bg-secondary))' : 'transparent',
-                  color: tierLocked
-                    ? 'var(--color-text-secondary)'
-                    : isActive ? 'var(--color-text-heading)' : 'var(--color-text-primary)',
-                  borderRight: isActive && !tierLocked ? '3px solid var(--surface-primary, var(--color-btn-primary-bg))' : '3px solid transparent',
-                  opacity: tierLocked ? 0.45 : 1,
-                  filter: tierLocked ? 'blur(0.5px)' : 'none',
-                  cursor: tierLocked ? 'not-allowed' : 'pointer',
-                })}
-              >
-                {item.icon}
-                {!collapsed && (
-                  <>
-                    <span>{item.label}</span>
-                    {tierLocked && <Lock size={12} className="ml-auto shrink-0" />}
-                  </>
-                )}
-              </NavLink>
+              <SidebarNavItem
+                path={item.path}
+                icon={item.icon}
+                label={item.label}
+                tierLocked={tierLocked}
+                collapsed={collapsed}
+                onNavigate={() => setMobileOpen(false)}
+              />
               </Tooltip>
             )
           })}

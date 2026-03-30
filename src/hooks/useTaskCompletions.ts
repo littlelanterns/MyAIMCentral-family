@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { useActedBy } from './useActedBy'
 import type {
   TaskCompletion,
   CreateTaskCompletion,
@@ -98,6 +99,7 @@ export function usePendingApprovals(familyId: string | undefined) {
 
 export function useCreateTaskCompletion() {
   const queryClient = useQueryClient()
+  const actedBy = useActedBy()
 
   return useMutation({
     mutationFn: async (completion: CreateTaskCompletion) => {
@@ -107,6 +109,7 @@ export function useCreateTaskCompletion() {
           rejected: false,
           ...completion,
           family_member_id: completion.member_id,
+          acted_by: actedBy,
         })
         .select()
         .single()

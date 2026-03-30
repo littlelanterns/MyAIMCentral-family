@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
 import type {
   Task,
@@ -187,6 +188,7 @@ export function useUpdateTask() {
 
 export function useCompleteTask() {
   const queryClient = useQueryClient()
+  const actedBy = useActedBy()
 
   return useMutation({
     mutationFn: async ({
@@ -218,6 +220,7 @@ export function useCompleteTask() {
           photo_url: photoUrl ?? null,
           rejected: false,
           approval_status: requireApproval ? 'pending' : null,
+          acted_by: actedBy,
         })
         .select()
         .single()

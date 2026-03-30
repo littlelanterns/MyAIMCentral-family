@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from './ThemeProvider'
 
 interface ThemePreferences {
@@ -14,79 +15,75 @@ interface ThemePreferences {
 /**
  * Syncs theme preferences bidirectionally with Supabase.
  *
- * - On mount: loads theme prefs from family_members.theme_preferences JSONB.
- *   If DB value exists and differs from localStorage, DB wins.
- * - On theme/vibe/colorMode/gradient/fontScale change: debounces 1 second,
- *   then persists to family_members.theme_preferences.
+ * When View As is active, reads/writes the VIEWED member's row (fresh DB fetch).
+ * When not in View As, reads/writes the logged-in member's row.
  *
  * PRD-03 — Theme Persistence
  */
 export function useThemePersistence(): void {
   const { data: member } = useFamilyMember()
+  const { isViewingAs, viewingAsMember } = useViewAs()
   const { theme, vibe, colorMode, gradientEnabled, fontScale, setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale } = useTheme()
 
-  // Track whether we've done the initial load from DB yet
-  const loadedFromDb = useRef(false)
+  const targetMemberId = isViewingAs ? viewingAsMember?.id : member?.id
 
-  // Load from DB on mount (once we have member data)
+  // Track which member we last loaded for
+  const loadedForRef = useRef<string | null>(null)
+  // Suppress persist while we're applying DB values
+  const applyingRef = useRef(false)
+
+  // Load from DB — fresh fetch every time target member changes
   useEffect(() => {
-    if (!member || loadedFromDb.current) return
+    if (!targetMemberId) return
+    if (loadedForRef.current === targetMemberId) return
 
-    const prefs = member.theme_preferences as Partial<ThemePreferences> | null
-    if (!prefs) {
-      loadedFromDb.current = true
-      return
-    }
+    loadedForRef.current = targetMemberId
+    applyingRef.current = true
 
-    // DB is source of truth — apply any values that exist
-    if (prefs.theme && prefs.theme !== theme) {
-      setTheme(prefs.theme as Parameters<typeof setTheme>[0])
-    }
-    if (prefs.vibe && prefs.vibe !== vibe) {
-      setVibe(prefs.vibe as Parameters<typeof setVibe>[0])
-    }
-    if (prefs.colorMode && prefs.colorMode !== colorMode) {
-      setColorMode(prefs.colorMode as Parameters<typeof setColorMode>[0])
-    }
-    if (typeof prefs.gradientEnabled === 'boolean' && prefs.gradientEnabled !== gradientEnabled) {
-      setGradientEnabled(prefs.gradientEnabled)
-    }
-    if (prefs.fontScale && prefs.fontScale !== fontScale) {
-      setFontScale(prefs.fontScale as Parameters<typeof setFontScale>[0])
-    }
+    supabase
+      .from('family_members')
+      .select('theme_preferences')
+      .eq('id', targetMemberId)
+      .single()
+      .then(({ data }) => {
+        const prefs = data?.theme_preferences as Partial<ThemePreferences> | null
+        if (prefs) {
+          if (prefs.theme) setTheme(prefs.theme as Parameters<typeof setTheme>[0])
+          if (prefs.vibe) setVibe(prefs.vibe as Parameters<typeof setVibe>[0])
+          if (prefs.colorMode) setColorMode(prefs.colorMode as Parameters<typeof setColorMode>[0])
+          if (typeof prefs.gradientEnabled === 'boolean') setGradientEnabled(prefs.gradientEnabled)
+          if (prefs.fontScale) setFontScale(prefs.fontScale as Parameters<typeof setFontScale>[0])
+        }
+        // Allow persist after a tick so the DB values settle
+        setTimeout(() => { applyingRef.current = false }, 100)
+      })
+  }, [targetMemberId, setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale])
 
-    loadedFromDb.current = true
-    // Intentionally run only on initial member load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [member])
+  // Reset loaded state when member changes so we re-fetch
+  useEffect(() => {
+    return () => { loadedForRef.current = null }
+  }, [targetMemberId])
 
-  // Debounced persist on preference change
+  // Debounced persist — writes to the target member's row
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Don't persist until we've resolved the initial DB load
-    if (!member || !loadedFromDb.current) return
+    if (!targetMemberId || !loadedForRef.current || applyingRef.current) return
 
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     debounceRef.current = setTimeout(async () => {
       const prefs: ThemePreferences = {
-        theme,
-        vibe,
-        colorMode,
-        gradientEnabled,
-        fontScale,
+        theme, vibe, colorMode, gradientEnabled, fontScale,
       }
-
       await supabase
         .from('family_members')
         .update({ theme_preferences: prefs })
-        .eq('id', member.id)
-      // Fire-and-forget: errors are non-fatal; localStorage already has the value
+        .eq('id', targetMemberId)
     }, 1000)
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [member, theme, vibe, colorMode, gradientEnabled, fontScale])
+  }, [targetMemberId, theme, vibe, colorMode, gradientEnabled, fontScale])
 }

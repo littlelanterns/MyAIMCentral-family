@@ -3,51 +3,126 @@
 > Auto-loaded every session via CLAUDE.md. Must be fully populated before any build begins.
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 
-## Status: ACTIVE — UX Overhaul Session 5
+## Status: ACTIVE — PRD-14 Personal Dashboard Reconciliation
 
 ### PRD Files
-- `prds/dashboards/PRD-14B-Calendar.md` (Calendar toolbar completion)
-- `prds/personal-growth/PRD-09A-Tasks-Routines-Opportunities.md` (List task type)
-- `prds/personal-growth/PRD-09B-Lists-Studio-Templates.md` (List task type)
-- `prds/personal-growth/PRD-10-Widgets-Trackers-Dashboard-Layout.md` (Tracker quick-create)
+- `prds/dashboards/PRD-14-Personal-Dashboard.md` (full PRD — read every word)
+- `prds/dashboards/PRD-14D-Family-Hub.md` (perspective switcher changes)
 
-### Spec File
-`specs/List-Task-Type-and-Tracker-Quick-Create-Spec.md` — founder-approved spec with PRD reconciliation decisions.
+### Addenda Read
+- `prds/addenda/PRD-14-Cross-PRD-Impact-Addendum.md`
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md`
+- `prds/addenda/PRD-Template-and-Audit-Updates.md`
 
 ### Feature Decision File
-`claude/feature-decisions/PRD-14B-Calendar.md`
+`claude/feature-decisions/PRD-14-Personal-Dashboard.md`
 
-### Superseding Spec
-`specs/Universal-Scheduler-Calendar-Consolidated-Update.md` — founder-approved consolidated decisions that override any conflicts in other specs.
+### Build Spec
+User-provided reconciliation build spec with 7 build items, derived from 37-item audit (9 MISSING, 14 PARTIAL).
 
-### Session Items (UX Overhaul Session 5)
-1. **Calendar Toolbar & Widget Completion** — COMPLETE. Pick Members filter, Dots/Stripe toggle, ?new=1 param, MiniCalendarPicker in widget, task due dates with click detail, member color dots/stripes on all views.
-2. **List as 5th Task Type** — COMPLETE. Migration (00000000100054), TaskType union updated, 5th full-width button in TaskCreationModal, 3-decision inline sub-section (source/delivery/schedule), "What's the difference?" updated.
-3. **Tracker Quick-Create** — COMPLETE. 7th Quick Create action, TrackerQuickCreateModal (persistent, gradient header), quick-pick pills with Lucide icons, visualization picker, assign/size.
-4. **Element Size Preference** — COMPLETE. S/M/L toggle in ThemeSelector, --density-multiplier on :root, persisted to localStorage.
+### Investigation File
+`claude/feature-decisions/PRD-04-repair.md` — View As sign-off (marked WIRED but investigation shows ViewAsShellWrapper is a passthrough)
 
-### Schema Reconciliation (Founder-Confirmed)
-- Date storage: separate `event_date DATE` + `start_time TIME` + `end_time TIME` + `end_date DATE`
-- Category: `category_id UUID` FK to `event_categories.id` (not slug text)
-- 11 system categories: Learning, Sports, Medical, Family, Social, Faith, Music & Arts, Travel, Celebration, Work, Other
-- Recurrence: `recurrence_details JSONB` (RRULE) + `recurrence_rule TEXT` (quick-filter). No individual recurrence columns.
-- `items_to_bring JSONB` [{text, checked, ai_suggested}]
-- `transportation_notes TEXT`
-- `reminder_minutes INTEGER[]`
-- `default_drive_time_minutes DEFAULT 30`
-- `required_intake_fields JSONB DEFAULT '[]'` in calendar_settings
-- `event_categories.family_id` nullable (NULL = system)
-- Universal Scheduler redesign: radio-button primary interface, MiniCalendarPicker shared component
+---
 
-### Stubs (Not Building This Phase)
-- Image-to-event OCR (Edge Function)
-- LiLa guided event creation
-- Universal Queue Modal Calendar tab (approval in DateDetailModal)
-- Calendar context for LiLa
-- Guided/Play shell calendar variants
-- Google Calendar sync
-- Push notification reminders
-- "Send to Calendar" from Notepad
+### Pre-Build Summary
+
+#### Context
+PRD-14 was never formally built. Dashboard features arrived incrementally via PRD-04, PRD-09A, PRD-10, PRD-14B, and UX overhaul sessions S1-S5. A 37-item reconciliation audit identified:
+- 13 WIRED (already working)
+- 14 PARTIAL (exist but incomplete)
+- 9 MISSING (not implemented)
+- 0 SUPERSEDED
+
+#### Build Items (7 total — items 1-7 all priority)
+
+**1. Data-Driven Section System** (gaps A2, A3, A4, A5, G2)
+- Define section key constants: `greeting`, `calendar`, `active_tasks`, `widget_grid`
+- Add `sections` array to `dashboard_configs.layout` JSONB
+- Each entry: `{ key, order, visible, collapsed }`
+- Greeting: always order 0, always visible, never collapsible, never draggable
+- Default order: greeting(0), calendar(1), active_tasks(2), widget_grid(3)
+- Section renderer component: loops over sections, renders correct component per key
+- Drag-to-reorder sections in edit mode (greeting pinned)
+- Section visibility toggle (eye icon) in edit mode
+- Collapse persistence to DB via `useUpdateDashboardConfig`
+- Migration to seed defaults for existing dashboard_configs rows
+- NOT building: `col_span` (sections remain full-width)
+
+**2. Guiding Stars in Greeting Header** (gap B2)
+- Rotating declaration below greeting text, NOT a widget
+- Filters by `is_included_in_ai = true` AND `archived_at IS NULL`
+- Smooth fade transition between entries
+- Default 30-second interval (configurable via `preferences.greeting_rotation_interval_seconds`)
+- Hides entirely if no eligible entries
+- Coexists with InfoGuidingStarsRotation widget in the picker
+- Font: `--font-display` for name, `--font-body` for declaration
+
+**3. Starter Widget Auto-Deploy** (gap E3)
+- On first dashboard load when member has 0 widgets:
+  - Guiding Stars Rotation (Small) — only if member has >=1 star
+  - Best Intentions Celebration (Medium) — only if member has >=1 intention
+  - Today's Victories (Small) — always
+- Track `preferences.starters_deployed` flag to prevent re-triggering
+- Warm onboarding card (dismissible, tracked via `preferences.onboarding_dismissed`)
+
+**4. Tasks View Pills Carousel** (gap D1)
+- Replace `<select>` dropdown with horizontal scroll pill buttons
+- Track usage counts in `dashboard_configs.preferences.task_view_usage` JSONB
+- Sort pills by count descending (most-used first)
+- 0-use views at end in default order
+
+**5. Collapsible Calendar Section** (gap C1)
+- Wrap CalendarWidget in DashboardSectionWrapper
+- Section header: "Calendar" with chevron collapse toggle
+- Collapse state managed by section system (`layout.sections[key='calendar'].collapsed`)
+
+**6. Perspective Switcher Expansion** (gaps F1, F2, F3)
+- PRD-14D overrides PRD-14: perspective switcher is no longer mom-only
+- **Mom (primary_parent):** 4 tabs — My Dashboard, Family Overview, Hub, View As
+  - View As tab: inline member picker with colored pill buttons
+- **Dad/Additional Adult:** 2-4 tabs — My Dashboard (always), Hub, Family Overview (if permitted), View As (if permitted)
+  - Hub tab: PlannedExpansionCard inline (not /hub navigation)
+- **Independent Teen:** 2 tabs — My Dashboard, Hub
+  - Hub tab: PlannedExpansionCard inline
+- **Guided/Play:** no perspective switcher (unchanged)
+- Family Overview for dad: uses existing FamilyOverviewStrip, filtered by PRD-02 permissions
+
+**7. View As Theme/Shell Investigation & Fix** (gap F4)
+- **Investigation complete:** ViewAsShellWrapper is a passthrough. Theme/shell loading was NEVER built — it was marked WIRED in PRD-04 repair but the passthrough was intentional to avoid breaking MomShell component tree.
+- **Fix needed:**
+  - View As should load target member's `theme_preferences` and apply their theme tokens
+  - View As should render target member's shell type if different from mom's
+  - Keep View As exit banner visible (z-45)
+  - Restore mom's shell and theme on exit
+
+**8. View As Rework (PRD-02/04)** — folded into this build
+- **`acted_by` attribution on writes:** No `acted_by` column exists on task_completions, intention_iterations, or calendar_events. `widget_data_points` already has `recorded_by_member_id` (sufficient). Migration adds nullable `acted_by UUID FK` to those 3 tables. When mom acts in View As: `member_id = target child`, `acted_by = mom's member_id`. NULL = member acted for themselves.
+- **`view_as_permissions` wiring:** Table exists (migration 00000000000009) with `enabled` boolean + `excluded_features` JSONB but is completely unwired. Member picker currently does zero permission checks. Need to: check `view_as_permissions.enabled` in member picker, merge permanent + session exclusions.
+- **View As shell rendering:** Extends item 7. Guided child → GuidedShell. Play child → PlayShell. Teen → IndependentShell. Dad → AdultShell. Banner (z-45) overlays target shell.
+- **Member switching:** Direct switch without closing View As. Compact switcher in View As banner or perspective switcher tab.
+- **Feature exclusion enforcement:** Two layers — `view_as_permissions.excluded_features` (permanent) + `view_as_feature_exclusions` (per-session). Merge both in PermissionGate + nav filtering during View As.
+- **Feature key:** `view_as_mode` already registered, Enhanced tier, mom role group.
+
+### Stubs (NOT Building This Phase)
+- Section `col_span` on 3+ column grids (complex layout for marginal desktop gain)
+- Widget folder drag-to-create gesture (folder infrastructure exists, no creation UX)
+- Notification bell (depends on PRD-15 Messages/Notifications)
+- Calendar week/month toggle on dashboard (always week view per PRD-14B)
+- LifeLantern summary widget (PRD-12A not built)
+- Special Adult shift-scoped dashboard read (requires PRD-27 shift infrastructure)
+
+### Key Decisions from PRD + Addenda
+1. PRD-14D **overrides** PRD-14 on perspective switcher scope (no longer mom-only)
+2. Greeting header uses `--font-display` (The Seasons) for member name, `--font-body` (DM Sans) for declaration
+3. Section keys are string constants, not DB enums
+4. Layout sections array lives inside existing `layout` JSONB column (no schema change)
+5. View As per PRD-14 line 514: "renders using that member's dashboard_configs row, that member's theme tokens, and that member's data"
+6. Empty state: collapsed calendar + expanded tasks + starter widgets + onboarding card
+7. Edit mode: long-press triggers for BOTH sections AND widgets simultaneously
+8. `acted_by` pattern: record's `member_id` = target child, `acted_by` = mom. `widget_data_points.recorded_by_member_id` already covers widgets. Need new column on 3 tables.
+9. `view_as_permissions` table exists but is completely unwired — member picker does zero permission checks currently
+10. Feature exclusion has two layers: permanent (view_as_permissions.excluded_features) + per-session (view_as_feature_exclusions table). ViewAsProvider already has setFeatureExclusions() method.
 
 ---
 

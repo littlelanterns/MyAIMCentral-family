@@ -7,6 +7,7 @@ import { TimerProvider } from '@/features/timer'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
 import { useSettings } from '@/components/settings'
+import { ThemeSelector } from '@/components/ThemeSelector'
 
 interface AdultShellProps {
   children: ReactNode
@@ -28,6 +29,7 @@ export function AdultShell({ children }: AdultShellProps) {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
           <LilaModalTrigger modeKey="higgins_say" label="LiLa" />
+          <ThemeSelector />
           <Tooltip content="Settings">
           <button
             onClick={openSettings}
