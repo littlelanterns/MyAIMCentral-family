@@ -41,7 +41,6 @@ export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwi
 
   const isMom = role === 'primary_parent'
   const isAdult = role === 'additional_adult' || role === 'special_adult'
-  const isTeen = shell === 'independent'
 
   // Build role-appropriate tabs
   const segments: Segment[] = []
