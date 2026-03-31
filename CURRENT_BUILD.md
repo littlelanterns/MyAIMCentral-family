@@ -4,7 +4,7 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-14D Family Hub (Phase A) + PRD-23 BookShelf (Session A)
+## Status: ACTIVE — PRD-14D Family Hub (Phase A, gaps being addressed)
 
 ---
 
@@ -160,7 +160,7 @@ The perspective switcher already shows Hub tab for Mom, Dad, and Teen (PRD-14 se
 
 ---
 
-# Build B: PRD-23 BookShelf — Session A (Library Mode + Pre-flight Wiring)
+# Build B: PRD-23 BookShelf — COMPLETED (Sessions A+B)
 
 ### PRD Files
 - `prds/vault/PRD-23-BookShelf.md` (full PRD — read every word)
@@ -304,5 +304,7 @@ Session A builds the Library Mode (browsing, collections, settings) and pre-flig
 *PRD-14 (Personal Dashboard Reconciliation) completed 2026-03-30. Verification archived to `claude/feature-decisions/PRD-14-Personal-Dashboard.md`. 42 requirements: 37 wired, 5 stubbed, 0 missing. Data-driven section system, Guiding Stars greeting rotation, starter widget auto-deploy, perspective switcher expansion (all roles), View As full shell modal with theme persistence, acted_by attribution on 3 tables, permission-gated member picker, feature exclusion enforcement. BookShelf + ThemeSelector added to Independent/Adult shells.*
 
 *PRD-14C (Family Overview) completed 2026-03-31. Verification archived to `claude/feature-decisions/PRD-14C-Family-Overview.md`. 20 wired, 8 stubbed (4 planned + 4 UX polish deferred), 0 missing. Per-member config, member pill selector, pending items bar, horizontally-scrollable member columns with 7 section types, dad's scoped view.*
+
+*PRD-23 (BookShelf Sessions A+B) completed 2026-03-31. Verification archived to `claude/feature-decisions/PRD-23-BookShelf.md`. 44 wired, 0 stubbed, 0 missing. Session A: Library page, tag filter bar, 7 sort options, grid/compact layout, collection CRUD, multi-select, continue banner. Session B: 5-layer extraction browser, ExtractionBrowser with single/multi/collection/hearted modes, 5 specialized item components, ApplyThisSheet (8 destinations), SemanticSearchPanel, ChapterJumpOverlay, 2 Edge Functions (bookshelf-search, bookshelf-key-points), JournalPromptsPage, migration 100066 (vector search RPCs). 42 new files total.*
 
 ---

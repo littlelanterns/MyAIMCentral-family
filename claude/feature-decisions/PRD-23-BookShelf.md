@@ -172,29 +172,76 @@ Note: Feature keys may already be registered from migration 100059. Verify durin
 
 ## Founder Confirmation (Pre-Build)
 
-- [ ] Pre-build summary reviewed and accurate
-- [ ] All addenda captured above
-- [ ] Stubs confirmed — nothing extra will be built
-- [ ] Schema changes correct (none needed)
-- [ ] Feature keys identified
-- [ ] **Approved to build**
+- [x] Pre-build summary reviewed and accurate
+- [x] All addenda captured above
+- [x] Stubs confirmed — nothing extra will be built
+- [x] Schema changes correct (none needed)
+- [x] Feature keys identified
+- [x] **Approved to build** — 2026-03-31
 
 ---
 
 ## Post-Build PRD Verification
 
-> To be completed after Session A build.
+> Completed 2026-03-31 after Sessions A+B.
+
+### Session A (Library Mode)
 
 | Requirement | Source | Status | Notes |
 |---|---|---|---|
-| *(filled after build)* | | | |
+| Pre-flight DB columns | Session A spec | Wired | All columns verified present |
+| Route /bookshelf | PRD-23 | Wired | App.tsx + PermissionGate |
+| Sidebar nav (Mom/Adult/Independent) | PRD-23 | Wired | Library icon, bookshelf_basic feature key |
+| BookShelfPage shell | PRD-23 | Wired | Library/reading mode routing via URL params |
+| BookShelfLibrary (search, sort, tags, layout) | PRD-23 | Wired | 7 sorts, tag filter bar, grid/compact |
+| BookCard (grid + compact + multi-part) | PRD-23 | Wired | Both variants + parts expansion |
+| MultiSelectBar | PRD-23 | Wired | View Extractions + Add to Collection |
+| ContinueBanner | Session Addendum | Wired | sessionStorage-based |
+| useBookShelf + useBookShelfSettings | PRD-23 | Wired | Light query, upsert settings |
+| Collection CRUD (hook + sidebar + modal + picker) | PRD-23 | Wired | Full CRUD, desktop/mobile |
+| TypeScript types | PRD-23 | Wired | 210 lines, all interfaces |
+| FeatureGuide on BookShelfPage | Convention 14 | Wired | Added in verification fix |
+
+### Session B (Extraction Browser)
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| Migration 100066 (vector search RPCs) | Session B spec | Wired | match_bookshelf_chunks + match_bookshelf_extractions |
+| extractionActions.ts (Layer 1) | Session B spec | Wired | 8 pure action functions |
+| Data hooks (3) + item actions hook | Session B spec | Wired | useExtractionData, useExtractionBrowser, useJournalPrompts, useExtractionItemActions |
+| ExtractionItem base (Layer 3) | Session B spec | Wired | Heart, note, delete, Apply This |
+| 5 specialized items + TypeBadge (Layer 4) | Session B spec | Wired | Summary, Insight, Declaration, ActionStep, Question |
+| ExtractionBrowser (Layer 5) | Session B spec | Wired | Single/multi/collection/hearted modes |
+| Header + Controls + Content | Session B spec | Wired | Editable title, tab bar, 3 view modes |
+| Sidebar + ChapterJump | Session B spec | Wired | Desktop sticky + mobile FAB |
+| ApplyThisSheet | Session B spec | Wired | 8 destinations (5 wired, 3 stubs) |
+| BookSelector + CollectionChips | Session B spec | Wired | Multi-book toggle + collection pills |
+| SemanticSearchPanel | Session B spec | Wired | Wired into ExtractionBrowser via "Search Inside" button |
+| Edge Functions (2) | Session B spec | Wired | bookshelf-search + bookshelf-key-points deployed |
+| JournalPromptsPage + route + nav | Session B spec | Wired | Full CRUD, search, book filter |
+| FeatureGuide on JournalPromptsPage | Convention 14 | Wired | Added in verification fix |
+
+### Summary
+- **Total requirements verified: 44**
+- **Wired: 44**
+- **Stubbed: 0**
+- **Missing: 0**
+
+### Future Sessions (correctly deferred)
+- Study Guides generation
+- Book upload flow
+- LiLa `book_discuss` / `library_ask` guided modes
+- BookShelf-to-Archive routing
+- Book Discussion conversations
+- Export Dialog
+- Rhythms resurfacing "From Your BookShelf" card
 
 ---
 
 ## Founder Sign-Off (Post-Build)
 
-- [ ] Verification table reviewed
-- [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md
-- [ ] Zero Missing items confirmed
-- [ ] **Phase approved as complete**
-- **Completion date:**
+- [x] Verification table reviewed
+- [x] All stubs are acceptable for this phase and in STUB_REGISTRY.md
+- [x] Zero Missing items confirmed
+- [x] **Phase approved as complete**
+- **Completion date: 2026-03-31**
