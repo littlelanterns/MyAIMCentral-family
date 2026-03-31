@@ -4,19 +4,28 @@
 // Each advisor call receives full history INCLUDING prior advisor responses from current turn.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
+import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const MODEL_SONNET = 'anthropic/claude-sonnet-4'
 const MODEL_HAIKU = 'anthropic/claude-haiku-4-5-20251001'
 
-const CRISIS_KEYWORDS = ['suicide', 'kill myself', 'want to die', 'end my life', 'self-harm', 'cutting myself', 'hurting myself', 'being abused', 'abusing me', 'hits me', 'molest', 'eating disorder', 'starving myself', 'purging', 'overdose']
-const CRISIS_RESPONSE = `I hear you, and help is available right now.\n\n**988 Suicide & Crisis Lifeline** — Call or text 988 (24/7)\n**Crisis Text Line** — Text HOME to 741741\n**National Domestic Violence Hotline** — 1-800-799-7233\n**Emergency** — Call 911\n\nYou don't have to face this alone.`
+// ── Zod input schema ────────────────────────────────────────
+
+const InputSchema = z.object({
+  conversation_id: z.string().uuid(),
+  content: z.string().optional(),
+  action: z.enum(['chat', 'create_persona', 'generate_prayer_seat', 'content_policy_check']).optional(),
+  // Additional fields used by specific actions — validated inline
+}).passthrough()
 
 // ── Content Policy Gate (Haiku pre-screen) ──────────────────
 
@@ -263,60 +272,58 @@ ${userContext}
 // ── Main handler ─────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey' },
-    })
-  }
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
-    const { data: { user }, error } = await anonClient.auth.getUser(
-      (req.headers.get('Authorization') || '').replace('Bearer ', '')
-    )
-    if (error || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
 
-    const body = await req.json()
-    const {
-      conversation_id,
-      content,
-      action, // 'chat' | 'create_persona' | 'generate_prayer_seat' | 'content_policy_check'
-    } = body
+    const rawBody = await req.json()
+    const parsed = InputSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: 'Invalid input', details: parsed.error.flatten() }), { status: 400, headers: jsonHeaders })
+    }
 
-    if (!conversation_id) return new Response(JSON.stringify({ error: 'Missing conversation_id' }), { status: 400 })
+    const body = rawBody as Record<string, unknown>
+    const { conversation_id, content, action } = parsed.data
 
     const { data: conv } = await supabase.from('lila_conversations').select('*').eq('id', conversation_id).single()
-    if (!conv) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
+    if (!conv) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: jsonHeaders })
 
     // ── Action: Content policy check ─────────────────────────
     if (action === 'content_policy_check') {
-      const { name, description } = body
-      if (!name) return new Response(JSON.stringify({ error: 'Missing name' }), { status: 400 })
-      const result = await contentPolicyCheck(name, description || '')
-      return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      })
+      const name = body.name as string | undefined
+      if (!name) return new Response(JSON.stringify({ error: 'Missing name' }), { status: 400, headers: jsonHeaders })
+      const description = (body.description as string) || ''
+      const result = await contentPolicyCheck(name, description)
+      return new Response(JSON.stringify(result), { headers: jsonHeaders })
     }
 
     // ── Action: Create persona ───────────────────────────────
     if (action === 'create_persona') {
-      const { name, description, relationship, follow_up, persona_type, family_id, member_id } = body
+      const name = body.name as string | undefined
+      const description = (body.description as string) || ''
+      const relationship = (body.relationship as string) || 'advisor'
+      const follow_up = (body.follow_up as string) || ''
+      const persona_type = body.persona_type as string | undefined
+      const family_id = body.family_id as string | undefined
+      const member_id = body.member_id as string | undefined
 
       // Persona caching: check by name (case-insensitive) before generating
       const { data: existing } = await supabase
         .from('board_personas')
         .select('*')
-        .ilike('persona_name', name)
+        .ilike('persona_name', name || '')
         .eq('content_policy_status', 'approved')
         .limit(1)
 
       if (existing && existing.length > 0) {
-        return new Response(JSON.stringify({ persona: existing[0], cached: true }), {
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        })
+        return new Response(JSON.stringify({ persona: existing[0], cached: true }), { headers: jsonHeaders })
       }
 
       // Generate personality profile via Sonnet
-      const profile = await generatePersona(name, description || '', relationship || 'advisor', follow_up || '')
+      const profile = await generatePersona(name || '', description, relationship, follow_up)
 
       const isPersonal = persona_type === 'personal_custom'
       const newPersona = {
@@ -338,45 +345,40 @@ Deno.serve(async (req) => {
         .single()
 
       if (insertError) {
-        return new Response(JSON.stringify({ error: 'Failed to create persona' }), { status: 500 })
+        return new Response(JSON.stringify({ error: 'Failed to create persona' }), { status: 500, headers: jsonHeaders })
       }
 
       // Log generation cost
-      supabase.from('ai_usage_tracking').insert({
-        family_id: conv.family_id,
-        member_id: conv.member_id,
-        feature_key: 'lila_persona_generation',
+      logAICost({
+        familyId: conv.family_id,
+        memberId: conv.member_id,
+        featureKey: 'lila_persona_generation',
         model: MODEL_SONNET,
-        tokens_used: 1500, // estimate
-        estimated_cost: 0.025,
-      }).catch(() => {})
-
-      return new Response(JSON.stringify({ persona: inserted, cached: false }), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        inputTokens: 500,
+        outputTokens: 1000,
       })
+
+      return new Response(JSON.stringify({ persona: inserted, cached: false }), { headers: jsonHeaders })
     }
 
     // ── Action: Generate prayer seat ─────────────────────────
     if (action === 'generate_prayer_seat') {
-      const { situation, deity_name } = body
-      const questions = await generatePrayerQuestions(situation || 'a difficult decision', deity_name || 'God')
-      return new Response(JSON.stringify({ questions }), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      })
+      const situation = (body.situation as string) || 'a difficult decision'
+      const deity_name = (body.deity_name as string) || 'God'
+      const questions = await generatePrayerQuestions(situation, deity_name)
+      return new Response(JSON.stringify({ questions }), { headers: jsonHeaders })
     }
 
     // ── Action: Chat (default) — sequential multi-advisor ────
-    if (!content) return new Response(JSON.stringify({ error: 'Missing content' }), { status: 400 })
+    if (!content) return new Response(JSON.stringify({ error: 'Missing content' }), { status: 400, headers: jsonHeaders })
 
     // Crisis check
-    if (CRISIS_KEYWORDS.some(k => content.toLowerCase().includes(k))) {
+    if (detectCrisis(content)) {
       await supabase.from('lila_messages').insert([
         { conversation_id, role: 'user', content, metadata: {} },
         { conversation_id, role: 'assistant', content: CRISIS_RESPONSE, metadata: { source: 'crisis_override' } },
       ])
-      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      })
+      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
     // Save user message
@@ -451,7 +453,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ model: MODEL_SONNET, messages: suggestMessages, stream: true, max_tokens: 512 }),
       })
 
-      if (!aiRes.ok || !aiRes.body) return new Response(JSON.stringify({ error: 'AI error' }), { status: 502 })
+      if (!aiRes.ok || !aiRes.body) return new Response(JSON.stringify({ error: 'AI error' }), { status: 502, headers: jsonHeaders })
 
       let suggestFull = ''
       const stream = new ReadableStream({
@@ -473,7 +475,7 @@ Deno.serve(async (req) => {
           }
         },
       })
-      return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' } })
+      return new Response(stream, { headers: sseHeaders })
     }
 
     // ── Sequential multi-advisor streaming ────────────────────
@@ -644,15 +646,22 @@ Deno.serve(async (req) => {
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         } finally {
           await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + personas.length + 2, model_used: 'sonnet' }).eq('id', conversation_id)
-          supabase.from('ai_usage_tracking').insert({ family_id: conv.family_id, member_id: conv.member_id, feature_key: 'lila_board_of_directors', model: MODEL_SONNET, tokens_used: totalInTok + totalOutTok, estimated_cost: (totalInTok * 3.0 + totalOutTok * 15.0) / 1_000_000 }).catch(() => {})
+          logAICost({
+            familyId: conv.family_id,
+            memberId: conv.member_id,
+            featureKey: 'lila_board_of_directors',
+            model: MODEL_SONNET,
+            inputTokens: totalInTok,
+            outputTokens: totalOutTok,
+          })
           controller.close()
         }
       },
     })
 
-    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' } })
+    return new Response(stream, { headers: sseHeaders })
   } catch (err) {
     console.error('Board of Directors error:', err)
-    return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
+    return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: jsonHeaders })
   }
 })

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Check, Loader2 } from 'lucide-react'
-import { Modal } from '@/components/shared/Modal'
+import { ModalV2 } from '@/components/shared/ModalV2'
 import { supabase } from '@/lib/supabase/client'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -127,7 +127,37 @@ export function MemberAssignmentModal({ open, onClose, item }: Props) {
   const childMembers = members.filter(m => m.role === 'member')
 
   return (
-    <Modal open={open} onClose={onClose} title="Add to AI Toolbox" size="sm">
+    <ModalV2
+      id="member-assignment-modal"
+      isOpen={open}
+      onClose={onClose}
+      type="transient"
+      size="sm"
+      title="Add to AI Toolbox"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-3 py-2 rounded-lg text-sm"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={selected.size === 0 || saving || saved}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{
+              backgroundColor: saved ? 'var(--color-success, #22c55e)' : 'var(--color-btn-primary-bg)',
+              color: saved ? '#fff' : 'var(--color-btn-primary-text)',
+            }}
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
+            {saved ? 'Added!' : 'Add to Toolbox'}
+          </button>
+        </div>
+      }
+    >
       <div className="p-4">
         {/* Tool name */}
         <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
@@ -171,31 +201,8 @@ export function MemberAssignmentModal({ open, onClose, item }: Props) {
             </>
           )}
         </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 mt-5">
-          <button
-            onClick={onClose}
-            className="px-3 py-2 rounded-lg text-sm"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={selected.size === 0 || saving || saved}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{
-              backgroundColor: saved ? 'var(--color-success, #22c55e)' : 'var(--color-btn-primary-bg)',
-              color: saved ? '#fff' : 'var(--color-btn-primary-text)',
-            }}
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} /> : null}
-            {saved ? 'Added!' : 'Add to Toolbox'}
-          </button>
-        </div>
       </div>
-    </Modal>
+    </ModalV2>
   )
 }
 

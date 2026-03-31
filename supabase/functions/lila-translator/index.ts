@@ -2,15 +2,23 @@
 // Model: Haiku (NOT Sonnet). No conversation history. No context loading.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
+import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const MODEL = 'anthropic/claude-haiku-4-5-20251001'
+
+const InputSchema = z.object({
+  conversation_id: z.string().uuid(),
+  content: z.string().min(1),
+  tone: z.string().min(1),
+})
 
 function buildSystemPrompt(tone: string): string {
   return `You are LiLa in Translator mode. Single-turn text transformation only.
@@ -39,28 +47,19 @@ Requested tone: ${tone}`
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
-      },
-    })
-  }
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
-    const { data: { user }, error } = await anonClient.auth.getUser(
-      (req.headers.get('Authorization') || '').replace('Bearer ', '')
-    )
-    if (error || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
-    }
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
 
-    const { conversation_id, content, tone } = await req.json()
-    if (!conversation_id || !content || !tone) {
-      return new Response(JSON.stringify({ error: 'Missing params: conversation_id, content, tone' }), { status: 400 })
+    const body = await req.json()
+    const parsed = InputSchema.safeParse(body)
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: 'Missing params: conversation_id, content, tone' }), { status: 400, headers: jsonHeaders })
     }
+    const { conversation_id, content, tone } = parsed.data
 
     const { data: conv } = await supabase
       .from('lila_conversations')
@@ -68,7 +67,7 @@ Deno.serve(async (req) => {
       .eq('id', conversation_id)
       .single()
     if (!conv) {
-      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404 })
+      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: jsonHeaders })
     }
 
     // Save user message
@@ -79,11 +78,9 @@ Deno.serve(async (req) => {
       metadata: { tone, mode: 'translator' },
     })
 
-    const systemPrompt = buildSystemPrompt(tone)
-
     // Single-turn: just system + this message, no history
     const messages = [
-      { role: 'system' as const, content: systemPrompt },
+      { role: 'system' as const, content: buildSystemPrompt(tone) },
       { role: 'user' as const, content },
     ]
 
@@ -95,16 +92,11 @@ Deno.serve(async (req) => {
         'HTTP-Referer': 'https://myaimcentral.com',
         'X-Title': 'MyAIM Central - Translator',
       },
-      body: JSON.stringify({
-        model: MODEL,
-        messages,
-        stream: false,
-        max_tokens: 2048,
-      }),
+      body: JSON.stringify({ model: MODEL, messages, stream: false, max_tokens: 2048 }),
     })
 
     if (!aiRes.ok) {
-      return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502 })
+      return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502, headers: jsonHeaders })
     }
 
     const aiJson = await aiRes.json()
@@ -126,27 +118,18 @@ Deno.serve(async (req) => {
       .update({ model_used: 'haiku', message_count: 2 })
       .eq('id', conversation_id)
 
-    // Log usage (fire-and-forget)
-    supabase.from('ai_usage_tracking').insert({
-      family_id: conv.family_id,
-      member_id: conv.member_id,
-      feature_key: 'lila_translator',
+    logAICost({
+      familyId: conv.family_id,
+      memberId: conv.member_id,
+      featureKey: 'lila_translator',
       model: MODEL,
-      tokens_used: inTok + outTok,
-      estimated_cost: (inTok * 0.8 + outTok * 4.0) / 1_000_000,
-    }).catch(() => {})
-
-    return new Response(JSON.stringify({ rewrite, tone }), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      inputTokens: inTok,
+      outputTokens: outTok,
     })
+
+    return new Response(JSON.stringify({ rewrite, tone }), { headers: jsonHeaders })
   } catch (err) {
     console.error('Translator error:', err)
-    return new Response(JSON.stringify({ error: 'Internal error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    })
+    return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: jsonHeaders })
   }
 })

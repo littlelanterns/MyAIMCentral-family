@@ -2,17 +2,19 @@
 // Handles conversation AI processing: context assembly, model routing, streaming response.
 // Uses service role for cross-table context reads.
 
+import { z } from 'https://esm.sh/zod@3.23.8'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 // Service role client for data operations (bypasses RLS)
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-// Anon client for JWT verification
-const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const MODELS = {
   sonnet: 'anthropic/claude-sonnet-4',
@@ -20,37 +22,13 @@ const MODELS = {
 } as const
 
 // ============================================================
-// Crisis Detection — Layer 1 (server-side backup)
+// Input Validation
 // ============================================================
 
-const CRISIS_KEYWORDS = [
-  'suicide', 'kill myself', 'want to die', 'end my life',
-  'self-harm', 'cutting myself', 'hurting myself',
-  'being abused', 'abusing me', 'hits me', 'molest',
-  'eating disorder', 'starving myself', 'purging',
-  'overdose',
-]
-
-const CRISIS_RESPONSE = `I hear you, and I want you to know that help is available right now.
-
-**988 Suicide & Crisis Lifeline**
-Call or text 988 (24/7)
-
-**Crisis Text Line**
-Text HOME to 741741
-
-**National Domestic Violence Hotline**
-1-800-799-7233 (24/7)
-
-**Emergency**
-Call 911 if you're in immediate danger
-
-These trained professionals can provide the care you need right now. You don't have to face this alone.`
-
-function detectCrisis(message: string): boolean {
-  const lower = message.toLowerCase()
-  return CRISIS_KEYWORDS.some(k => lower.includes(k))
-}
+const RequestSchema = z.object({
+  conversation_id: z.string().uuid(),
+  content: z.string().min(1),
+})
 
 // ============================================================
 // System Prompt Assembly
@@ -107,7 +85,7 @@ interface ContextData {
   faithContext: string
 }
 
-async function assembleServerContext(familyId: string, _memberId: string): Promise<ContextData> {
+async function assembleServerContext(familyId: string): Promise<ContextData> {
   // Load all family members first
   const fmRes = await supabase
     .from('family_members')
@@ -225,7 +203,7 @@ async function loadArchiveContextServer(
 
     const enabledFolderIds = enabledFolders.map(f => f.id)
     const folderMap = new Map(enabledFolders.map(f => [f.id, f.folder_name]))
-    // Map folder_id → member_id so we can attribute items to the correct person
+    // Map folder_id -> member_id so we can attribute items to the correct person
     const folderOwnerMap = new Map(enabledFolders.map(f => [f.id, f.member_id]))
 
     // Step 3: Load items — include member_id for direct attribution
@@ -359,35 +337,25 @@ function buildSystemPrompt(
 // ============================================================
 
 Deno.serve(async (req) => {
-  // CORS
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
-      },
-    })
-  }
+  // CORS preflight
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
-    // Authenticate
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No authorization header' }), { status: 401 })
-    }
+    // Authenticate via shared utility
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    // Parse and validate request body
+    const body = await req.json()
+    const parsed = RequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request', details: parsed.error.flatten().fieldErrors }),
+        { status: 400, headers: jsonHeaders },
+      )
     }
-
-    // Parse request
-    const { conversation_id, content } = await req.json()
-    if (!conversation_id || !content) {
-      return new Response(JSON.stringify({ error: 'Missing conversation_id or content' }), { status: 400 })
-    }
+    const { conversation_id, content } = parsed.data
 
     // Crisis detection — server-side backup
     if (detectCrisis(content)) {
@@ -415,9 +383,10 @@ Deno.serve(async (req) => {
           .eq('id', conversation_id)
       })
 
-      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      })
+      return new Response(
+        JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
     }
 
     // Load conversation
@@ -428,7 +397,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (convError || !conversation) {
-      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404 })
+      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: jsonHeaders })
     }
 
     // Get member info
@@ -458,7 +427,7 @@ Deno.serve(async (req) => {
     })
 
     // Assemble context
-    const context = await assembleServerContext(conversation.family_id, conversation.member_id)
+    const context = await assembleServerContext(conversation.family_id)
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt(
@@ -507,10 +476,13 @@ Deno.serve(async (req) => {
       console.error('OpenRouter error:', aiResponse.status, errText)
       console.error('Model used:', modelId)
       console.error('API key present:', !!OPENROUTER_API_KEY, 'length:', OPENROUTER_API_KEY?.length)
-      return new Response(JSON.stringify({ error: 'AI service error', details: errText, status: aiResponse.status }), { status: 502 })
+      return new Response(
+        JSON.stringify({ error: 'AI service error', details: errText, status: aiResponse.status }),
+        { status: 502, headers: jsonHeaders },
+      )
     }
 
-    // Stream response back via SSE
+    // Stream response back via SSE (manual ReadableStream for custom event types)
     const encoder = new TextEncoder()
     let fullResponse = ''
     let inputTokens = 0
@@ -610,20 +582,15 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Log AI usage (fire-and-forget)
-          const pricing = modelTier === 'sonnet'
-            ? { input: 3.0, output: 15.0 }
-            : { input: 0.25, output: 1.25 }
-          const estimatedCost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000
-
-          supabase.from('ai_usage_tracking').insert({
-            family_id: conversation.family_id,
-            member_id: conversation.member_id,
-            feature_key: `lila_${modeKey}`,
+          // Log AI usage via shared utility (fire-and-forget)
+          logAICost({
+            familyId: conversation.family_id,
+            memberId: conversation.member_id,
+            featureKey: `lila_${modeKey}`,
             model: modelId,
-            tokens_used: inputTokens + outputTokens,
-            estimated_cost: estimatedCost,
-          }).then(() => {}).catch(() => {}) // fire-and-forget
+            inputTokens,
+            outputTokens,
+          })
 
           // Send metadata and done signal
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
@@ -643,19 +610,12 @@ Deno.serve(async (req) => {
       },
     })
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-      },
-    })
+    return new Response(stream, { headers: sseHeaders })
   } catch (err) {
     console.error('LiLa chat error:', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    })
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: jsonHeaders },
+    )
   }
 })

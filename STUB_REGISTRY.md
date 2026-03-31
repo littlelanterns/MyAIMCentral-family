@@ -186,6 +186,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | PRD-21C Engagement (hearts, comments, discussions) | PRD-21A | PRD-21C | ⏳ Unwired (MVP) | Phase 26 |
 | Learning paths (multi-item sequences) | PRD-21A | — | 📌 Post-MVP | — |
 | Creator economy / user-submitted tools | PRD-21A | — | 📌 Post-MVP (Phase 4) | — |
+| UpgradeModal (tier gating prompt) | PRD-21A | — | ❌ Deleted during /simplify — rebuild when tier gating activates post-beta | /simplify Phase 1 |
 | Content versioning | PRD-21B | — | 📌 Post-MVP | — |
 | Scheduled publishing | PRD-21B | — | 📌 Post-MVP | — |
 | Collaborative filtering recommendations | PRD-21C | — | 📌 Post-MVP | — |

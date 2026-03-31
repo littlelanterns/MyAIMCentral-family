@@ -17,7 +17,7 @@ import {
   ArrowRight, ArrowLeft, Users, Sparkles, Check,
   FileText, BookOpen, Heart,
 } from 'lucide-react'
-import { Modal } from '@/components/shared/Modal'
+import { ModalV2 } from '@/components/shared/ModalV2'
 import { Button } from '@/components/shared/Button'
 import { Toggle } from '@/components/shared/Toggle'
 import { GuidedFormSectionEditor } from './GuidedFormSectionEditor'
@@ -216,9 +216,11 @@ export function GuidedFormAssignModal({
   )
 
   return (
-    <Modal
-      open={open}
+    <ModalV2
+      id="guided-form-assign-modal"
+      isOpen={open}
       onClose={handleClose}
+      type="transient"
       title={`Assign ${getSubtypeLabel(subtype)}`}
       size="lg"
       footer={step === 1 ? footerStep1 : footerStep2}
@@ -410,7 +412,7 @@ export function GuidedFormAssignModal({
           </div>
         </div>
       )}
-    </Modal>
+    </ModalV2>
   )
 }
 

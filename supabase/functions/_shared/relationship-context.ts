@@ -21,7 +21,7 @@ export interface PersonContext {
   age?: number | null
   dashboardMode?: string | null
   relationship?: string | null
-  loveLangage?: string | null
+  loveLanguage?: string | null
   personalityType?: string | null
   howToReachMe?: string | null
   archiveItems: string[]
@@ -200,7 +200,7 @@ export async function loadRelationshipContext(
 
   // Extract love language from self-knowledge for user
   const userLl = userSk.find(s => s.category === 'personality_type' && s.content.toLowerCase().includes('love language'))
-  if (userLl) userContext.loveLangage = userLl.content
+  if (userLl) userContext.loveLanguage = userLl.content
 
   return {
     userContext,
@@ -252,11 +252,11 @@ async function loadPersonContext(
   const selfKnowledge = (skRes.data || []) as Array<{ content: string; category: string }>
 
   // Extract love language and personality from self-knowledge
-  let loveLangage: string | undefined
+  let loveLanguage: string | undefined
   let personalityType: string | undefined
   for (const sk of selfKnowledge) {
     if (sk.category === 'personality_type' && sk.content.toLowerCase().includes('love language')) {
-      loveLangage = sk.content
+      loveLanguage = sk.content
     }
     if (sk.category === 'personality_type' && !sk.content.toLowerCase().includes('love language')) {
       personalityType = sk.content
@@ -279,7 +279,7 @@ async function loadPersonContext(
     age: member?.age,
     dashboardMode: member?.dashboard_mode,
     relationship: member?.relationship,
-    loveLangage,
+    loveLanguage,
     personalityType,
     howToReachMe,
     archiveItems: archiveItems.map(a => a.content),
@@ -347,8 +347,8 @@ export function formatPersonContextBlock(person: PersonContext): string {
     lines.push(person.howToReachMe)
   }
 
-  if (person.loveLangage) {
-    lines.push(`\nLove Language: ${person.loveLangage}`)
+  if (person.loveLanguage) {
+    lines.push(`\nLove Language: ${person.loveLanguage}`)
   }
   if (person.personalityType) {
     lines.push(`Personality: ${person.personalityType}`)

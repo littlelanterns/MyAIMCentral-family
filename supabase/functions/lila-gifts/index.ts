@@ -1,16 +1,25 @@
 // PRD-21: Gifts — Personalized gift suggestions with wishlist integration and veto memory
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
+import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
+import { logAICost } from '../_shared/cost-logger.ts'
 import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../_shared/relationship-context.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const MODEL = 'anthropic/claude-sonnet-4'
+
+const InputSchema = z.object({
+  conversation_id: z.string().uuid(),
+  content: z.string().min(1),
+})
 
 function buildSystemPrompt(ctx: string): string {
   return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
@@ -62,25 +71,30 @@ ${ctx}
 `
 }
 
-const CRISIS_KEYWORDS = ['suicide', 'kill myself', 'want to die', 'end my life', 'self-harm', 'cutting myself', 'hurting myself', 'being abused', 'abusing me', 'hits me', 'molest', 'eating disorder', 'starving myself', 'purging', 'overdose']
-const CRISIS_RESPONSE = `I hear you, and I want you to know that help is available right now.\n\n**988 Suicide & Crisis Lifeline** — Call or text 988 (24/7)\n**Crisis Text Line** — Text HOME to 741741\n**National Domestic Violence Hotline** — 1-800-799-7233 (24/7)\n**Emergency** — Call 911\n\nYou don't have to face this alone.`
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey' } })
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
-    const { data: { user }, error } = await anonClient.auth.getUser((req.headers.get('Authorization') || '').replace('Bearer ', ''))
-    if (error || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
 
-    const { conversation_id, content } = await req.json()
-    if (!conversation_id || !content) return new Response(JSON.stringify({ error: 'Missing params' }), { status: 400 })
+    const body = await req.json()
+    const parsed = InputSchema.safeParse(body)
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: 'Missing params' }), { status: 400, headers: jsonHeaders })
+    }
+    const { conversation_id, content } = parsed.data
 
     const { data: conv } = await supabase.from('lila_conversations').select('*').eq('id', conversation_id).single()
-    if (!conv) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 })
+    if (!conv) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: jsonHeaders })
 
-    if (CRISIS_KEYWORDS.some(k => content.toLowerCase().includes(k))) {
-      await supabase.from('lila_messages').insert([{ conversation_id, role: 'user', content, metadata: {} }, { conversation_id, role: 'assistant', content: CRISIS_RESPONSE, metadata: { source: 'crisis_override' } }])
-      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } })
+    if (detectCrisis(content)) {
+      await supabase.from('lila_messages').insert([
+        { conversation_id, role: 'user', content, metadata: {} },
+        { conversation_id, role: 'assistant', content: CRISIS_RESPONSE, metadata: { source: 'crisis_override' } },
+      ])
+      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
     const personIds = conv.guided_mode_reference_id ? [conv.guided_mode_reference_id] : []
@@ -90,29 +104,30 @@ Deno.serve(async (req) => {
     await supabase.from('lila_messages').insert({ conversation_id, role: 'user', content, metadata: {} })
     const { data: history } = await supabase.from('lila_messages').select('role, content').eq('conversation_id', conversation_id).order('created_at', { ascending: true }).limit(30)
 
-    const messages = [{ role: 'system' as const, content: systemPrompt }, ...((history || []) as Array<{ role: string; content: string }>).map(m => ({ role: (m.role === 'system' ? 'assistant' : m.role) as 'user' | 'assistant', content: m.content }))]
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...((history || []) as Array<{ role: string; content: string }>).map(m => ({
+        role: (m.role === 'system' ? 'assistant' : m.role) as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ]
 
-    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - Gifts' }, body: JSON.stringify({ model: MODEL, messages, stream: true, max_tokens: 2048 }) })
-    if (!aiRes.ok || !aiRes.body) return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502 })
-
-    let full = '', inTok = 0, outTok = 0
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = aiRes.body!.getReader(); const dec = new TextDecoder(); let buf = ''
-        try {
-          while (true) {
-            const { done, value } = await reader.read(); if (done) break
-            buf += dec.decode(value, { stream: true }); const lines = buf.split('\n'); buf = lines.pop() || ''
-            for (const line of lines) { if (!line.startsWith('data: ')) continue; const d = line.slice(6).trim(); if (d === '[DONE]') { controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n')); continue }; try { const p = JSON.parse(d); const c = p.choices?.[0]?.delta?.content || ''; if (c) { full += c; controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'chunk', content: c })}\n\n`)) }; if (p.usage) { inTok = p.usage.prompt_tokens || 0; outTok = p.usage.completion_tokens || 0 } } catch { /* skip */ } }
-          }
-        } finally {
-          await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: full, metadata: { model: MODEL, mode: 'gifts' }, token_count: outTok })
-          await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + 1, model_used: 'sonnet' }).eq('id', conversation_id)
-          supabase.from('ai_usage_tracking').insert({ family_id: conv.family_id, member_id: conv.member_id, feature_key: 'lila_gifts', model: MODEL, tokens_used: inTok + outTok, estimated_cost: (inTok * 3.0 + outTok * 15.0) / 1_000_000 }).catch(() => {})
-          controller.close()
-        }
-      },
+    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - Gifts' },
+      body: JSON.stringify({ model: MODEL, messages, stream: true, max_tokens: 2048 }),
     })
-    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' } })
-  } catch (err) { console.error('Gifts error:', err); return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }) }
+    if (!aiRes.ok || !aiRes.body) return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502, headers: jsonHeaders })
+
+    return createSSEStream(async (enqueue) => {
+      const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiRes.body!, enqueue)
+
+      await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: { model: MODEL, mode: 'gifts' }, token_count: outputTokens })
+      await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + 1, model_used: 'sonnet' }).eq('id', conversation_id)
+      logAICost({ familyId: conv.family_id, memberId: conv.member_id, featureKey: 'lila_gifts', model: MODEL, inputTokens, outputTokens })
+    })
+  } catch (err) {
+    console.error('Gifts error:', err)
+    return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: jsonHeaders })
+  }
 })

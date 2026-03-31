@@ -4,6 +4,7 @@
 // Called by pg_cron every 10 seconds or manually via HTTP POST.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -279,6 +280,19 @@ Deno.serve(async (req) => {
       const bcResult = await processBookCache(budgetLeft)
       totalProcessed += bcResult.processed
       totalFailed += bcResult.failed
+    }
+
+    // Log aggregate embedding cost (fire-and-forget). Embedding cost is per-token input only.
+    // Estimate ~500 tokens per text chunk on average.
+    if (totalProcessed > 0) {
+      logAICost({
+        familyId: '00000000-0000-0000-0000-000000000000', // system-level batch
+        memberId: '00000000-0000-0000-0000-000000000000',
+        featureKey: 'embedding_batch',
+        model: 'text-embedding-3-small',
+        inputTokens: totalProcessed * 500, // estimate
+        outputTokens: 0,
+      })
     }
 
     return new Response(

@@ -1,11 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://esm.sh/zod@3.23.8';
 import { extractCleanTextFromPDF } from '../_shared/pdf-utils.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { handleCors, jsonHeaders } from '../_shared/cors.ts';
+import { logAICost } from '../_shared/cost-logger.ts';
 
 const ASSESSMENT_KEYWORDS = [
   'enneagram', 'mbti', 'disc', 'strengthsfinder', 'cliftonstrengths',
@@ -65,21 +63,25 @@ Valid categories: value (core values and beliefs), declaration (commitment state
 
 Extract each principle as a standalone statement. Keep the original wording where possible. If the document contains lists, extract each list item individually.`;
 
+const InputSchema = z.object({
+  file_storage_path: z.string().min(1),
+  file_type: z.string().optional(),
+  extraction_target: z.enum(['spouse', 'keel', 'mast']),
+});
+
 serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const cors = handleCors(req);
+  if (cors) return cors;
 
   try {
-    // Validate JWT
+    // Validate JWT — decode for user_id
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 401, headers: jsonHeaders },
       );
     }
-    // Supabase validates JWT before Edge Function runs — decode for user_id
     const jwt = authHeader.replace('Bearer ', '');
     const payloadB64 = jwt.split('.')[1];
     const b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
@@ -88,19 +90,20 @@ serve(async (req: Request) => {
     if (!userId) {
       return new Response(
         JSON.stringify({ error: 'Invalid token payload' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 401, headers: jsonHeaders },
       );
     }
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
-    const { file_storage_path, file_type, extraction_target } = await req.json();
-
-    if (!file_storage_path || !extraction_target) {
+    const body = await req.json();
+    const parsed = InputSchema.safeParse(body);
+    if (!parsed.success) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: file_storage_path, extraction_target' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 400, headers: jsonHeaders },
       );
     }
+    const { file_storage_path, file_type, extraction_target } = parsed.data;
 
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -111,7 +114,7 @@ serve(async (req: Request) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: 'No API key configured.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 500, headers: jsonHeaders },
       );
     }
 
@@ -124,7 +127,7 @@ serve(async (req: Request) => {
     if (downloadErr || !fileData) {
       return new Response(
         JSON.stringify({ error: `Failed to download file: ${downloadErr?.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 500, headers: jsonHeaders },
       );
     }
 
@@ -184,7 +187,7 @@ serve(async (req: Request) => {
       if (!fullText || fullText.trim().length === 0) {
         return new Response(
           JSON.stringify({ error: 'Could not extract text from the file. Try uploading screenshots of the key pages as images instead.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          { status: 400, headers: jsonHeaders },
         );
       }
 
@@ -218,28 +221,28 @@ serve(async (req: Request) => {
       const errBody = await response.text();
       return new Response(
         JSON.stringify({ error: `AI error: ${errBody}` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 502, headers: jsonHeaders },
       );
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
 
-    // Log AI cost (fire-and-forget) — Sonnet calls are expensive for PDF extraction
+    // Log AI cost (fire-and-forget)
     const inputTokens = data.usage?.prompt_tokens || 0;
     const outputTokens = data.usage?.completion_tokens || 0;
-    // Resolve family_id and member_id from user_id
+    // Resolve family_id and member_id from user_id for cost attribution
     supabase.from('family_members').select('id, family_id').eq('user_id', userId).limit(1).single()
       .then(({ data: fm }) => {
         if (fm) {
-          supabase.from('ai_usage_tracking').insert({
-            family_id: fm.family_id,
-            member_id: fm.id,
-            feature_key: 'extract_insights',
-            model: 'sonnet',
-            tokens_used: inputTokens + outputTokens,
-            estimated_cost: (inputTokens * 3.0 + outputTokens * 15.0) / 1_000_000,
-          }).then(() => {}).catch(() => {});
+          logAICost({
+            familyId: fm.family_id,
+            memberId: fm.id,
+            featureKey: 'extract_insights',
+            model: 'anthropic/claude-sonnet-4',
+            inputTokens,
+            outputTokens,
+          });
         }
       }).catch(() => {});
 
@@ -272,7 +275,7 @@ serve(async (req: Request) => {
           extracted_text_length: extractedTextLength,
           error: 'Could not parse AI response as JSON array.',
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: jsonHeaders },
       );
     }
 
@@ -288,7 +291,7 @@ serve(async (req: Request) => {
           extracted_text_length: extractedTextLength,
           error: 'The AI response could not be parsed. This can happen with very large assessments. Try uploading screenshots of key pages instead.',
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: jsonHeaders },
       );
     }
 
@@ -304,12 +307,12 @@ serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({ insights, extracted_text_length: extractedTextLength }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { headers: jsonHeaders },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: `Extraction failed: ${(err as Error).message}` }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 500, headers: jsonHeaders },
     );
   }
 });

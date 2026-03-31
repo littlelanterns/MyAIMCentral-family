@@ -2,21 +2,30 @@
 // NOT a drafting tool. Five-phase flow: Listen → Validate → Curiosity → Options → Empower.
 // Three-tier safety: coaching → professional referral → crisis override.
 
+import { z } from 'https://esm.sh/zod@3.23.8'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   loadRelationshipContext,
   formatRelationshipContextForPrompt,
 } from '../_shared/relationship-context.ts'
+import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
+import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const MODEL = 'anthropic/claude-sonnet-4'
+
+const InputSchema = z.object({
+  conversation_id: z.string().uuid(),
+  content: z.string().min(1),
+})
 
 // ── System Prompt ───────────────────────────────────────────────
 
@@ -147,54 +156,21 @@ ${ctx}
 `
 }
 
-// ── Crisis detection ─────────────────────────────────────────────
-
-const CRISIS_KEYWORDS = [
-  'suicide', 'kill myself', 'want to die', 'end my life',
-  'self-harm', 'cutting myself', 'hurting myself',
-  'being abused', 'abusing me', 'hits me', 'molest',
-  'eating disorder', 'starving myself', 'purging', 'overdose',
-]
-
-const CRISIS_RESPONSE = `I hear you, and I want you to know that help is available right now.
-
-**988 Suicide & Crisis Lifeline** — Call or text 988 (24/7)
-**Crisis Text Line** — Text HOME to 741741
-**National Domestic Violence Hotline** — 1-800-799-7233 (24/7)
-**Emergency** — Call 911 if you're in immediate danger
-
-These trained professionals can provide the care you need right now. You don't have to face this alone.`
-
-function detectCrisis(message: string): boolean {
-  const lower = message.toLowerCase()
-  return CRISIS_KEYWORDS.some(k => lower.includes(k))
-}
-
 // ── Main handler ────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
-      },
-    })
-  }
+  const cors = handleCors(req)
+  if (cors) return cors
 
   try {
-    const authHeader = req.headers.get('Authorization') || ''
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token)
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
-    }
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
 
-    const { conversation_id, content } = await req.json()
-    if (!conversation_id || !content) {
-      return new Response(JSON.stringify({ error: 'Missing conversation_id or content' }), { status: 400 })
+    const parsed = InputSchema.safeParse(await req.json())
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: 'Invalid input', details: parsed.error.flatten() }), { status: 400, headers: jsonHeaders })
     }
+    const { conversation_id, content } = parsed.data
 
     const { data: conversation } = await supabase
       .from('lila_conversations')
@@ -203,7 +179,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (!conversation) {
-      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404 })
+      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: jsonHeaders })
     }
 
     const familyId = conversation.family_id
@@ -224,9 +200,7 @@ Deno.serve(async (req) => {
         { conversation_id, role: 'user', content, metadata: {} },
         { conversation_id, role: 'assistant', content: CRISIS_RESPONSE, metadata: { source: 'crisis_override' } },
       ])
-      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      })
+      return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
     const ctx = await loadRelationshipContext(familyId, memberId, personIds, 'higgins_navigate')
@@ -264,86 +238,29 @@ Deno.serve(async (req) => {
     })
 
     if (!aiResponse.ok || !aiResponse.body) {
-      return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502 })
+      return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502, headers: jsonHeaders })
     }
 
-    let fullResponse = ''
-    let inputTokens = 0
-    let outputTokens = 0
+    return createSSEStream(async (enqueue) => {
+      const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiResponse.body!, enqueue)
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = aiResponse.body!.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
+      await supabase.from('lila_messages').insert({
+        conversation_id,
+        role: 'assistant',
+        content: fullText,
+        metadata: { model: MODEL, mode: 'higgins_navigate' },
+        token_count: outputTokens,
+      })
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
-            for (const line of lines) {
-              if (!line.startsWith('data: ')) continue
-              const data = line.slice(6).trim()
-              if (data === '[DONE]') {
-                controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'))
-                continue
-              }
-              try {
-                const parsed = JSON.parse(data)
-                const chunk = parsed.choices?.[0]?.delta?.content || ''
-                if (chunk) {
-                  fullResponse += chunk
-                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`))
-                }
-                if (parsed.usage) {
-                  inputTokens = parsed.usage.prompt_tokens || 0
-                  outputTokens = parsed.usage.completion_tokens || 0
-                }
-              } catch { /* skip */ }
-            }
-          }
-        } finally {
-          await supabase.from('lila_messages').insert({
-            conversation_id,
-            role: 'assistant',
-            content: fullResponse,
-            metadata: { model: MODEL, mode: 'higgins_navigate' },
-            token_count: outputTokens,
-          })
+      await supabase.from('lila_conversations').update({
+        message_count: (history?.length || 0) + 1,
+        model_used: 'sonnet',
+      }).eq('id', conversation_id)
 
-          await supabase.from('lila_conversations').update({
-            message_count: (history?.length || 0) + 1,
-            model_used: 'sonnet',
-          }).eq('id', conversation_id)
-
-          const cost = (inputTokens * 3.0 + outputTokens * 15.0) / 1_000_000
-          supabase.from('ai_usage_tracking').insert({
-            family_id: familyId, member_id: memberId,
-            feature_key: 'lila_higgins_navigate', model: MODEL,
-            tokens_used: inputTokens + outputTokens, estimated_cost: cost,
-          }).then(() => {}).catch(() => {})
-
-          controller.close()
-        }
-      },
-    })
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-      },
+      logAICost({ familyId, memberId, featureKey: 'lila_higgins_navigate', model: MODEL, inputTokens, outputTokens })
     })
   } catch (err) {
     console.error('Higgins Navigate error:', err)
-    return new Response(JSON.stringify({ error: 'Internal error', details: String(err) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    })
+    return new Response(JSON.stringify({ error: 'Internal error', details: String(err) }), { status: 500, headers: jsonHeaders })
   }
 })
