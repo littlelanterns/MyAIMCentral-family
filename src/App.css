@@ -220,11 +220,6 @@ select:focus {
   background: linear-gradient(135deg, var(--color-accent, #d6a461), var(--color-btn-primary-bg, #68a395));
 }
 
-/* Firefox scrollbar theming */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-default) transparent;
-}
 
 /* ============================================================
  * Keyframe Animations

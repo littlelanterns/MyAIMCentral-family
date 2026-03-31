@@ -105,6 +105,29 @@ All persistent modals: gradient header, section-card body, sticky footer with Ca
 
 ---
 
+## Rule 15: Scrollbar CSS — Do Not Touch
+
+The scrollbar theming in `src/App.css` uses exactly 3 WebKit pseudo-element rules. These are the ONLY scrollbar rules that work. Do NOT add, modify, or "improve" them.
+
+```css
+/* These 3 rules are the complete scrollbar system. Do not add to them. */
+::-webkit-scrollbar-thumb { background: var(--color-btn-primary-bg); }
+.gradient-on ::-webkit-scrollbar-thumb { background: var(--gradient-primary); }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, var(--color-accent), var(--color-btn-primary-bg)); }
+```
+
+**NEVER add any of these — they break the gradient scrollbars:**
+- `scrollbar-color` property (overrides WebKit pseudo-elements in modern browsers)
+- `scrollbar-width` property
+- `* { }` selectors targeting scrollbars
+- Any Firefox-specific scrollbar fallbacks
+
+This has been broken and fixed twice. The standard `scrollbar-color` CSS property conflicts with `::-webkit-scrollbar` pseudo-elements — browsers that support both prefer the standard property, which only accepts solid colors (no gradients). The result is gradient scrollbars silently replaced with flat colors.
+
+If a specific panel needs a different scrollbar track color, use `.scrollbar-card::-webkit-scrollbar-track` — but be careful it doesn't break the `.gradient-on` thumb rule by specificity.
+
+---
+
 ## Quick Reference: Common Token Names
 
 | Purpose | Token |
