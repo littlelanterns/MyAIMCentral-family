@@ -1,6 +1,6 @@
 // PRD-10: Countdown tracker — target date countdown display
 // Visual variants: big_number, calendar_tearaway, advent_calendar
-// Read-only display: no onRecordData needed
+// Supports emoji display, recurring_annually, show_on_target_day
 
 import { useMemo } from 'react'
 import { PartyPopper, Hourglass } from 'lucide-react'
@@ -8,6 +8,9 @@ import type { TrackerProps } from './TrackerProps'
 
 interface CountdownConfig {
   target_date?: string
+  emoji?: string
+  recurring_annually?: boolean
+  show_on_target_day?: boolean
   zero_action?: 'celebration' | 'reset' | 'archive'
   title_at_zero?: string
 }
@@ -19,13 +22,36 @@ function differenceInDays(targetStr: string, now: Date): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+function getEffectiveTargetDate(targetStr: string, recurring: boolean): string {
+  if (!recurring) return targetStr
+  const now = new Date()
+  const target = new Date(targetStr + 'T00:00:00')
+  // If target has passed this year, use next year
+  const thisYear = new Date(now.getFullYear(), target.getMonth(), target.getDate())
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (thisYear.getTime() < today.getTime()) {
+    // Past this year — use next year
+    return `${now.getFullYear() + 1}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`
+  }
+  // This year's date is today or in the future
+  return `${now.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`
+}
+
 export function CountdownTracker({
   widget,
   isCompact,
 }: TrackerProps) {
   const config = widget.widget_config as CountdownConfig
-  const targetDate = config.target_date ?? ''
-  const titleAtZero = config.title_at_zero ?? "It's here!"
+  const rawTargetDate = config.target_date ?? ''
+  const emoji = config.emoji ?? ''
+  const recurringAnnually = config.recurring_annually ?? false
+  const showOnTargetDay = config.show_on_target_day !== false // default true
+  const titleAtZero = config.title_at_zero ?? 'Today is the day!'
+
+  const targetDate = useMemo(() => {
+    if (!rawTargetDate) return ''
+    return getEffectiveTargetDate(rawTargetDate, recurringAnnually)
+  }, [rawTargetDate, recurringAnnually])
 
   const { daysRemaining, progress, colorToken } = useMemo(() => {
     if (!targetDate) {
@@ -46,8 +72,6 @@ export function CountdownTracker({
       color = 'var(--color-accent)'
     } else if (remaining <= 2) {
       color = 'var(--color-accent-deep)'
-    } else if (remaining <= 7) {
-      color = 'var(--color-accent)'
     } else {
       color = 'var(--color-accent)'
     }
@@ -67,15 +91,24 @@ export function CountdownTracker({
     )
   }
 
+  // Target day reached — hide if showOnTargetDay is false and not recurring
+  if (daysRemaining <= 0 && !showOnTargetDay && !recurringAnnually) {
+    return null
+  }
+
   // Celebration state (day has arrived or passed)
   if (daysRemaining <= 0) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-2 text-center">
-        <PartyPopper
-          size={isCompact ? 28 : 40}
-          style={{ color: 'var(--color-accent)' }}
-          className="animate-bounce"
-        />
+        {emoji ? (
+          <span className={`${isCompact ? 'text-3xl' : 'text-5xl'} leading-none`}>{emoji}</span>
+        ) : (
+          <PartyPopper
+            size={isCompact ? 28 : 40}
+            style={{ color: 'var(--color-accent)' }}
+            className="animate-bounce"
+          />
+        )}
         <div
           className={`${isCompact ? 'text-sm' : 'text-lg'} font-bold`}
           style={{ color: 'var(--color-accent)' }}
@@ -91,10 +124,11 @@ export function CountdownTracker({
     )
   }
 
-  // Compact: just the big number + "days"
+  // Compact: emoji + big number + "days"
   if (isCompact) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-1">
+        {emoji && <span className="text-2xl leading-none">{emoji}</span>}
         <div
           className="text-3xl font-bold tabular-nums"
           style={{ color: colorToken }}
@@ -111,6 +145,9 @@ export function CountdownTracker({
   // Full big_number variant
   return (
     <div className="flex flex-col h-full items-center justify-center gap-3">
+      {/* Emoji */}
+      {emoji && <span className="text-4xl leading-none">{emoji}</span>}
+
       {/* Big number */}
       <div className="text-center">
         <div

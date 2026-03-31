@@ -91,6 +91,7 @@ interface SortableWidgetCellProps {
   isEditMode: boolean
   canReorderOnly: boolean
   onRecordData?: (value: number, metadata?: Record<string, unknown>) => void
+  onUpdateConfig?: (config: Record<string, unknown>) => void
   onRemove?: () => void
   onResize?: (size: WidgetSize) => void
   onOpenDetail?: () => void
@@ -103,6 +104,7 @@ function SortableWidgetCell({
   isEditMode,
   canReorderOnly,
   onRecordData,
+  onUpdateConfig,
   onRemove,
   onResize,
   onOpenDetail,
@@ -161,6 +163,7 @@ function SortableWidgetCell({
           widget={widget}
           dataPoints={dataPoints}
           onRecordData={onRecordData}
+          onUpdateConfig={onUpdateConfig}
           isEditMode={isEditMode}
           onRemove={isEditMode && !canReorderOnly ? onRemove : undefined}
           onResize={isEditMode && !canReorderOnly ? onResize : undefined}
@@ -181,6 +184,7 @@ interface DashboardGridProps {
   folders: DashboardWidgetFolder[]
   dataPointsByWidget: Record<string, WidgetDataPoint[]>
   onRecordData?: (widgetId: string, value: number, metadata?: Record<string, unknown>) => void
+  onUpdateWidgetConfig?: (widgetId: string, config: Record<string, unknown>) => void
   onOpenWidgetPicker?: () => void
   onOpenWidgetDetail?: (widget: DashboardWidget) => void
   onOpenWidgetConfig?: (widget: DashboardWidget) => void
@@ -199,6 +203,7 @@ export function DashboardGrid({
   folders,
   dataPointsByWidget,
   onRecordData,
+  onUpdateWidgetConfig,
   onOpenWidgetPicker,
   onOpenWidgetDetail,
   onOpenWidgetConfig,
@@ -483,6 +488,7 @@ export function DashboardGrid({
                 isEditMode={isEditMode}
                 canReorderOnly={canReorderOnly}
                 onRecordData={onRecordData ? (v, m) => onRecordData(widget.id, v, m) : undefined}
+                onUpdateConfig={onUpdateWidgetConfig ? (c) => onUpdateWidgetConfig(widget.id, c) : undefined}
                 onRemove={() => onRemoveWidget?.(widget.id)}
                 onResize={(s) => onResizeWidget?.(widget.id, s)}
                 onOpenDetail={() => onOpenWidgetDetail?.(widget)}

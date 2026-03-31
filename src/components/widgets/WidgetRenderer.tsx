@@ -22,21 +22,22 @@ import { CountdownTracker } from './trackers/CountdownTracker'
 import { TimerDurationTracker } from './trackers/TimerDurationTracker'
 import { SnapshotComparisonTracker } from './trackers/SnapshotComparisonTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
-import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats } from './info'
+import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget } from './info'
 
 interface WidgetRendererProps {
   widget: DashboardWidget
   dataPoints: WidgetDataPoint[]
   onRecordData?: (value: number, metadata?: Record<string, unknown>) => void
+  onUpdateConfig?: (config: Record<string, unknown>) => void
   isCompact?: boolean
   onOpenTrackThis?: () => void
 }
 
-export function WidgetRenderer({ widget, dataPoints, onRecordData, isCompact, onOpenTrackThis }: WidgetRendererProps) {
+export function WidgetRenderer({ widget, dataPoints, onRecordData, onUpdateConfig, isCompact, onOpenTrackThis }: WidgetRendererProps) {
   const kind = getWidgetKind(widget.template_type)
 
   if (kind === 'info_display') {
-    return <InfoWidgetDispatcher widget={widget} isCompact={isCompact} />
+    return <InfoWidgetDispatcher widget={widget} isCompact={isCompact} onUpdateConfig={onUpdateConfig} />
   }
 
   if (kind === 'quick_action') {
@@ -86,7 +87,7 @@ export function WidgetRenderer({ widget, dataPoints, onRecordData, isCompact, on
 
 // ── Info Widget Dispatcher ──────────────────────────────────
 
-function InfoWidgetDispatcher({ widget, isCompact }: { widget: DashboardWidget; isCompact?: boolean }) {
+function InfoWidgetDispatcher({ widget, isCompact, onUpdateConfig }: { widget: DashboardWidget; isCompact?: boolean; onUpdateConfig?: (config: Record<string, unknown>) => void }) {
   switch (widget.template_type) {
     case 'info_best_intentions':
       return <BestIntentionTracker widget={widget} isCompact={isCompact} />
@@ -100,6 +101,12 @@ function InfoWidgetDispatcher({ widget, isCompact }: { widget: DashboardWidget; 
       return <InfoGuidingStarsRotation widget={widget} isCompact={isCompact} />
     case 'info_quick_stats':
       return <InfoQuickStats widget={widget} isCompact={isCompact} />
+    case 'info_today_is':
+      return <TodayIsWidget widget={widget} isCompact={isCompact} />
+    case 'info_hub_menu':
+      return <MenuWidget widget={widget} isCompact={isCompact} onUpdateConfig={onUpdateConfig} />
+    case 'info_hub_job_board':
+      return <JobBoardWidget widget={widget} isCompact={isCompact} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--color-text-tertiary)' }}>

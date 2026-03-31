@@ -548,10 +548,40 @@ function TemplateSpecificFields({
               }}
             />
           </label>
-          <SelectField label="At Zero" field="zero_action" config={config} onChange={onChange}
-            options={[{ value: 'celebration', label: 'Celebration!' }, { value: 'reset', label: 'Reset countdown' }, { value: 'archive', label: 'Archive widget' }]}
-          />
-          <TextField label="Message at Zero" field="title_at_zero" config={config} onChange={onChange} placeholder="It's here!" />
+          <TextField label="Emoji (optional)" field="emoji" config={config} onChange={onChange} placeholder="e.g. 🏖 🎂 🎄" />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Recurring Annually</span>
+            <button
+              onClick={() => onChange('recurring_annually', !config.recurring_annually)}
+              className="w-10 h-5 rounded-full relative transition-colors"
+              style={{ background: config.recurring_annually ? 'var(--color-accent)' : 'var(--color-bg-tertiary)' }}
+            >
+              <div
+                className="w-4 h-4 rounded-full absolute top-0.5 transition-all"
+                style={{
+                  background: 'var(--color-bg-primary)',
+                  left: config.recurring_annually ? '22px' : '2px',
+                }}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Show &quot;Today is the day!&quot;</span>
+            <button
+              onClick={() => onChange('show_on_target_day', config.show_on_target_day === false ? true : false)}
+              className="w-10 h-5 rounded-full relative transition-colors"
+              style={{ background: config.show_on_target_day !== false ? 'var(--color-accent)' : 'var(--color-bg-tertiary)' }}
+            >
+              <div
+                className="w-4 h-4 rounded-full absolute top-0.5 transition-all"
+                style={{
+                  background: 'var(--color-bg-primary)',
+                  left: config.show_on_target_day !== false ? '22px' : '2px',
+                }}
+              />
+            </button>
+          </div>
+          <TextField label="Message at Zero" field="title_at_zero" config={config} onChange={onChange} placeholder="Today is the day!" />
         </div>
       )
     case 'timer_duration':

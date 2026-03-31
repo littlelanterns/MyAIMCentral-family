@@ -10,6 +10,7 @@ interface WidgetCardProps {
   widget: DashboardWidget
   dataPoints: WidgetDataPoint[]
   onRecordData?: (value: number, metadata?: Record<string, unknown>) => void
+  onUpdateConfig?: (config: Record<string, unknown>) => void
   isEditMode?: boolean
   onRemove?: () => void
   onResize?: (newSize: WidgetSize) => void
@@ -29,6 +30,7 @@ export function WidgetCard({
   widget,
   dataPoints,
   onRecordData,
+  onUpdateConfig,
   isEditMode,
   onRemove,
   onResize,
@@ -122,6 +124,7 @@ export function WidgetCard({
             widget={widget}
             dataPoints={dataPoints}
             onRecordData={onRecordData}
+            onUpdateConfig={onUpdateConfig}
             isCompact={isCompact}
           />
         </div>

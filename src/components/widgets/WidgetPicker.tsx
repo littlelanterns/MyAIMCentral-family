@@ -3,14 +3,16 @@
 // Each template card shows icon, name, description, [Customize] button
 
 import { useState, useMemo } from 'react'
-import { Search, ChevronDown, ChevronRight, LayoutDashboard } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, LayoutDashboard, Home } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import { ModalV2 } from '@/components/shared'
 import type { WidgetStarterConfig } from '@/types/widgets'
 import {
   getTrackerMeta, TRACKER_TYPE_REGISTRY,
   INFO_WIDGET_REGISTRY, QUICK_ACTION_REGISTRY,
+  HUB_WIDGET_RECOMMENDATIONS,
   type InfoDisplayType, type QuickActionType,
+  type HubWidgetRecommendation,
 } from '@/types/widgets'
 
 interface WidgetPickerProps {
@@ -20,9 +22,10 @@ interface WidgetPickerProps {
   offDashboardWidgets?: { id: string; title: string; template_type: string }[]
   onSelectStarterConfig: (config: WidgetStarterConfig) => void
   onReAddWidget?: (widgetId: string) => void
-  onAddInfoWidget?: (type: InfoDisplayType) => void
+  onAddInfoWidget?: (type: InfoDisplayType, destination?: 'personal' | 'hub') => void
   onAddQuickAction?: (type: QuickActionType) => void
   onOpenTrackThis?: () => void
+  context?: 'personal' | 'hub' // Which dashboard opened the picker
 }
 
 // Category display config — Lucide icons, no emoji
@@ -51,6 +54,7 @@ export function WidgetPicker({
   onAddInfoWidget,
   onAddQuickAction,
   onOpenTrackThis,
+  context,
 }: WidgetPickerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
@@ -163,6 +167,48 @@ export function WidgetPicker({
                   </button>
                 )
               })}
+            </div>
+          </section>
+        )}
+
+        {/* Section: Great for Family Hub */}
+        {!searchQuery.trim() && (
+          <section>
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
+              <Home size={14} style={{ color: 'var(--color-accent)' }} />
+              Great for Family Hub
+            </h3>
+            <div className="space-y-2">
+              {HUB_WIDGET_RECOMMENDATIONS.map(rec => (
+                <HubRecommendationCard
+                  key={rec.templateType}
+                  recommendation={rec}
+                  onSelect={() => {
+                    if (rec.kind === 'info_display') {
+                      onAddInfoWidget?.(rec.templateType as InfoDisplayType, 'hub')
+                    } else {
+                      // For tracker types (countdown, tally), create synthetic starter config
+                      const meta = getTrackerMeta(rec.templateType)
+                      if (meta) {
+                        const syntheticConfig: WidgetStarterConfig = {
+                          id: `hub-${meta.type}`,
+                          tracker_type: meta.type,
+                          visual_variant: meta.defaultVariant,
+                          config_name: rec.label,
+                          description: rec.hubDescription,
+                          category: meta.category,
+                          default_config: {},
+                          is_example: false,
+                          sort_order: 0,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        }
+                        onSelectStarterConfig(syntheticConfig)
+                      }
+                    }
+                  }}
+                />
+              ))}
             </div>
           </section>
         )}
@@ -359,6 +405,40 @@ function StarterConfigCard({ config, onSelect }: { config: WidgetStarterConfig; 
         style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
       >
         Customize
+      </button>
+    </div>
+  )
+}
+
+// ── Hub Recommendation Card ────────────────────────────────
+
+function HubRecommendationCard({ recommendation, onSelect }: { recommendation: HubWidgetRecommendation; onSelect: () => void }) {
+  const Icon = getLucideIcon(recommendation.icon)
+
+  return (
+    <div
+      className="flex items-start gap-3 p-3 rounded-lg"
+      style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border-default)',
+      }}
+    >
+      <div
+        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+        style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)', color: 'var(--color-accent)' }}
+      >
+        {Icon ? <Icon size={16} /> : <LucideIcons.Box size={16} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{recommendation.label}</div>
+        <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{recommendation.hubDescription}</div>
+      </div>
+      <button
+        onClick={onSelect}
+        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+        style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
+      >
+        Add
       </button>
     </div>
   )

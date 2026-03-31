@@ -482,6 +482,9 @@ export type InfoDisplayType =
   | 'info_recent_victories'
   | 'info_guiding_stars_rotation'
   | 'info_quick_stats'
+  | 'info_today_is'
+  | 'info_hub_menu'
+  | 'info_hub_job_board'
 
 // Quick Action widget types — single-tap shortcut buttons
 export type QuickActionType =
@@ -548,6 +551,84 @@ export const INFO_WIDGET_REGISTRY: InfoWidgetMeta[] = [
     icon: 'BarChart3',
     defaultSize: 'small',
   },
+  {
+    type: 'info_today_is',
+    label: 'Today Is...',
+    description: 'Discover fun and quirky holidays the whole family can celebrate today.',
+    icon: 'PartyPopper',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_hub_menu',
+    label: 'Dinner Menu',
+    description: 'Let everyone know what\'s for dinner tonight.',
+    icon: 'UtensilsCrossed',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_hub_job_board',
+    label: 'Job Board',
+    description: 'Post extra chores or opportunities kids can claim for rewards.',
+    icon: 'ClipboardList',
+    defaultSize: 'medium',
+  },
+]
+
+// ============================================================
+// "Great for Family Hub" widget recommendations
+// ============================================================
+
+export interface HubWidgetRecommendation {
+  templateType: string // tracker type or info widget type
+  label: string
+  hubDescription: string
+  icon: string
+  kind: WidgetKind
+}
+
+export const HUB_WIDGET_RECOMMENDATIONS: HubWidgetRecommendation[] = [
+  {
+    templateType: 'countdown',
+    label: 'Countdown',
+    hubDescription: 'Count down to birthdays, vacations, and holidays together',
+    icon: 'Hourglass',
+    kind: 'tracker',
+  },
+  {
+    templateType: 'info_today_is',
+    label: 'Today Is...',
+    hubDescription: 'Discover fun and quirky holidays the whole family can celebrate',
+    icon: 'PartyPopper',
+    kind: 'info_display',
+  },
+  {
+    templateType: 'info_hub_menu',
+    label: 'Dinner Menu',
+    hubDescription: 'Let everyone know what\'s for dinner tonight',
+    icon: 'UtensilsCrossed',
+    kind: 'info_display',
+  },
+  {
+    templateType: 'info_hub_job_board',
+    label: 'Job Board',
+    hubDescription: 'Post extra chores or opportunities kids can claim',
+    icon: 'ClipboardList',
+    kind: 'info_display',
+  },
+  {
+    templateType: 'info_best_intentions',
+    label: 'Family Best Intentions',
+    hubDescription: 'Practice being the family you want to be together',
+    icon: 'Heart',
+    kind: 'info_display',
+  },
+  {
+    templateType: 'tally',
+    label: 'Family Reading Challenge',
+    hubDescription: 'Track your family\'s reading goal as a team',
+    icon: 'BookOpen',
+    kind: 'tracker',
+  },
 ]
 
 export interface QuickActionMeta {
@@ -563,6 +644,27 @@ export const QUICK_ACTION_REGISTRY: QuickActionMeta[] = [
   { type: 'action_add_intention', label: 'Quick Add Intention', description: 'Add a Best Intention', icon: 'Sparkles' },
   { type: 'action_track_this', label: 'Track This', description: 'Start tracking something new', icon: 'BarChart3' },
 ]
+
+// ============================================================
+// Daily Holiday type (for Today Is... widget)
+// ============================================================
+
+export interface DailyHoliday {
+  id: string
+  name: string
+  description: string | null
+  date_month: number
+  date_day: number
+  date_type: 'fixed' | 'floating'
+  floating_rule: string | null
+  tags: string[]
+  is_kid_friendly: boolean
+  silliness_score: number
+  obscurity_score: number
+  is_excluded: boolean
+  source: string | null
+  created_at: string
+}
 
 // ============================================================
 // Multiplayer Configuration Types
