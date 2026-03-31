@@ -240,6 +240,15 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | External calendar sync | PRD-14B | — | 📌 Post-MVP | — |
 | Google Calendar integration | PRD-14B | — | 📌 Post-MVP | — |
 
+## Family Overview Stubs (PRD-14C)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Calendar week/month toggle on Family Overview | PRD-14C | — | 📌 Post-MVP | UX polish pass |
+| Column drag-to-reorder (dnd-kit on headers) | PRD-14C | — | 📌 Post-MVP | UX polish pass |
+| Section per-column override (long-press gesture) | PRD-14C | — | 📌 Post-MVP | UX polish pass |
+| Section drag-to-reorder (dnd-kit on section headers) | PRD-14C | — | 📌 Post-MVP | UX polish pass |
+
 ## Infrastructure Stubs
 
 | Stub | Created By | Wired By | Status | Build Phase |

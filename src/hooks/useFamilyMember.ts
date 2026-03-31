@@ -30,6 +30,28 @@ export interface FamilyMember {
   created_at: string
 }
 
+// ─── Active family persistence (for future multi-family support) ─────────────
+
+const ACTIVE_FAMILY_KEY = 'myaim_active_family_id'
+
+export function getActiveFamilyId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_FAMILY_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setActiveFamilyId(familyId: string): void {
+  try {
+    localStorage.setItem(ACTIVE_FAMILY_KEY, familyId)
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+// ─── Hooks ───────────────────────────────────────────────────────────────────
+
 export function useFamilyMember() {
   const { user } = useAuth()
 

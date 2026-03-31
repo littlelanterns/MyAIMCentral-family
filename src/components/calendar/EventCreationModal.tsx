@@ -11,7 +11,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
   Calendar as CalendarIcon, Clock, MapPin, FileText,
-  Repeat, Users, Car, Tag, Bell,
+  Repeat, Users, Car, Tag, Bell, Home,
 } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useCreateEvent, useUpdateEvent, useEventCategories, useCalendarSettings } from '@/hooks/useCalendarEvents'
@@ -65,6 +65,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
   const [itemsToBring, setItemsToBring] = useState<ItemToBring[]>([])
   const [newItemText, setNewItemText] = useState('')
   const [notes, setNotes] = useState('')
+  const [showOnHub, setShowOnHub] = useState(true)
   const [scheduleValue, setScheduleValue] = useState<SchedulerOutput | null>(null)
 
   // Reset / populate form when modal opens
@@ -90,6 +91,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         setTransportationNotes(initialEvent.transportation_notes ?? '')
         setItemsToBring(initialEvent.items_to_bring ?? [])
         setNotes(initialEvent.notes ?? '')
+        setShowOnHub(initialEvent.show_on_hub ?? true)
         // Restore recurrence if present
         if (initialEvent.recurrence_details) {
           setScheduleValue(initialEvent.recurrence_details as unknown as SchedulerOutput)
@@ -112,6 +114,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         setTransportationNotes('')
         setItemsToBring([])
         setNotes('')
+        setShowOnHub(true)
         setScheduleValue(null)
       }
       setNewItemText('')
@@ -177,6 +180,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
       items_to_bring: itemsToBring.length > 0 ? itemsToBring : undefined,
       notes: notes || undefined,
       attendees: attendeeInputs.length > 0 ? attendeeInputs : undefined,
+      show_on_hub: showOnHub,
     }
 
     // Apply recurrence from scheduler
@@ -197,7 +201,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
       await createEvent.mutateAsync(input)
     }
     onClose()
-  }, [title, eventDate, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
+  }, [title, eventDate, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
 
   const isSaving = createEvent.isPending || updateEvent.isPending
   const hasUnsavedChanges = title.trim().length > 0
@@ -532,6 +536,22 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
             className="flex-1 text-sm rounded-lg px-3 py-2 resize-none"
             style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
           />
+        </div>
+
+        {/* Hub visibility — PRD-14D */}
+        <div className="flex items-center gap-2">
+          <Home size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+          <label className="flex items-center gap-2 flex-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showOnHub}
+              onChange={(e) => setShowOnHub(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+              Show on Family Hub
+            </span>
+          </label>
         </div>
       </div>
     </ModalV2>

@@ -5,6 +5,7 @@ import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge, To
 import type { TrackerAnalyticsDataSeries } from '@/components/shared'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useWidgets, useCreateWidget } from '@/hooks/useWidgets'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import {
@@ -806,14 +807,16 @@ export function BestIntentionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { data: intentions = [], isLoading } = useBestIntentions(member?.id)
-  const { data: archivedIntentions = [] } = useArchivedIntentions(member?.id)
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { data: intentions = [], isLoading } = useBestIntentions(activeMember?.id)
+  const { data: archivedIntentions = [] } = useArchivedIntentions(activeMember?.id)
   const createIntention = useCreateBestIntention()
   const updateIntention = useUpdateBestIntention()
   const createWidget = useCreateWidget()
 
   // Check if Best Intentions widget already on dashboard
-  const { data: widgets = [] } = useWidgets(family?.id, member?.id)
+  const { data: widgets = [] } = useWidgets(family?.id, activeMember?.id)
   const hasWidgetOnDashboard = useMemo(
     () => widgets.some((w) => w.template_type === 'info_best_intentions' || w.template_type === 'best_intention'),
     [widgets],
@@ -828,7 +831,7 @@ export function BestIntentionsPage() {
 
   // ?new=1 URL param → auto-open create form
   useEffect(() => {
-    if (searchParams.get('new') === '1' && member && family) {
+    if (searchParams.get('new') === '1' && activeMember && family) {
       setShowCreate(true)
       setSearchParams({}, { replace: true })
     }
@@ -862,7 +865,7 @@ export function BestIntentionsPage() {
     tracker_style: TrackerStyle
     related_member_ids: string[]
   }) {
-    if (!member || !family) {
+    if (!activeMember || !family) {
       setCreateError('Still loading your profile. Please try again in a moment.')
       return
     }
@@ -870,7 +873,7 @@ export function BestIntentionsPage() {
     try {
       await createIntention.mutateAsync({
         family_id: family.id,
-        member_id: member.id,
+        member_id: activeMember.id,
         statement: data.statement,
         description: data.description || undefined,
         tags: data.tags.length > 0 ? data.tags : undefined,

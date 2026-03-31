@@ -27,7 +27,8 @@ import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
-import { BookShelfStub } from '@/pages/BookShelfStub'
+import { BookShelfPage } from '@/pages/BookShelfPage'
+import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
 import { FamilyOverviewDetail } from '@/pages/archives/FamilyOverviewDetail'
@@ -41,6 +42,18 @@ import { ThemeProvider } from '@/lib/theme'
 import { SettingsProvider } from '@/components/settings'
 import { ModalManagerProvider } from '@/contexts/ModalManagerContext'
 import { MinimizedPillBar } from '@/components/shared/MinimizedPillBar'
+import { PlannedExpansionCard } from '@/components/shared'
+
+/** PRD-14E stub — TV Mode route placeholder */
+function HubTvStub() {
+  return (
+    <div className="min-h-svh flex items-center justify-center p-6" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+      <div style={{ maxWidth: '600px', width: '100%' }}>
+        <PlannedExpansionCard featureKey="family_hub_tv_route" />
+      </div>
+    </div>
+  )
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +83,8 @@ function App() {
 
               {/* Hub — standalone tablet/family display (no shell chrome) */}
               <Route path="/hub" element={<ProtectedRouteNoShell><HubPage /></ProtectedRouteNoShell>} />
+              {/* Hub TV Mode — PRD-14E stub */}
+              <Route path="/hub/tv" element={<ProtectedRouteNoShell><HubTvStub /></ProtectedRouteNoShell>} />
 
               {/* Dev preview — browse without auth */}
               <Route path="/preview/*" element={<DevPreview />} />
@@ -108,7 +123,8 @@ function App() {
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
-              <Route path="/bookshelf" element={<ProtectedRoute><BookShelfStub /></ProtectedRoute>} />
+              <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
+              <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />
               {/* Catch-all */}
               <Route path="*" element={<Welcome />} />
             </Routes>

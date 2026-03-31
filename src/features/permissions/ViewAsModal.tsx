@@ -200,7 +200,7 @@ export function ViewAsModal() {
             transform: translateZ(0) creates a new containing block so that
             fixed-position elements inside the shell (floating buttons, etc.)
             position relative to this container, not the viewport. */}
-        <div className="flex-1 overflow-hidden" style={{ transform: 'translateZ(0)' }}>
+        <div className="flex-1 overflow-y-auto" style={{ transform: 'translateZ(0)' }}>
           <ViewAsNavContext.Provider value={{ currentPath, navigate }}>
             <SettingsProvider>
               <ShellWrapper shell={targetShell}>

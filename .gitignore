@@ -54,3 +54,6 @@ content-staging/
 vault-thumbnails/
 seed-assets/
 vault-tutorials/
+
+# Reference codebases (not part of this project)
+reference/

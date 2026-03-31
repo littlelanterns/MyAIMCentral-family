@@ -45,7 +45,7 @@ function toISODate(d: Date): string {
 // ─── Events Queries ──────────────────────────────────────────
 
 /** Get events for a date range (family-scoped) */
-export function useEventsForRange(start: Date, end: Date, memberFilter?: string[]) {
+export function useEventsForRange(start: Date, end: Date, memberFilter?: string[], hubOnly?: boolean) {
   const { data: family } = useFamily()
   const familyId = family?.id
 
@@ -64,6 +64,11 @@ export function useEventsForRange(start: Date, end: Date, memberFilter?: string[
 
       if (memberFilter && memberFilter.length > 0) {
         query = query.in('created_by', memberFilter)
+      }
+
+      // PRD-14D: Hub calendar filters by show_on_hub
+      if (hubOnly) {
+        query = query.eq('show_on_hub', true)
       }
 
       const { data, error } = await query

@@ -78,6 +78,10 @@ export interface CreateTaskData {
   templateName: string
   sourceQueueItemId?: string
   sourceBatchIds?: string[]
+  /** Source feature that created this task (e.g. 'bookshelf', 'notepad_routed') */
+  source?: string
+  /** ID of the specific item that created this task (e.g. bookshelf_action_steps.id) */
+  sourceReferenceId?: string
 }
 
 interface TaskCreationModalProps {
@@ -89,6 +93,12 @@ interface TaskCreationModalProps {
   batchMode?: 'group' | 'sequential'
   batchItems?: StudioQueueItem[]
   initialTaskType?: string
+  /** Pre-fill title (e.g. from BookShelf action step) */
+  defaultTitle?: string
+  /** Pre-fill description (e.g. from BookShelf extraction) */
+  defaultDescription?: string
+  /** Track which source item created this task (e.g. bookshelf extraction ID) */
+  sourceReferenceId?: string
 }
 
 // ─── Defaults ────────────────────────────────────────────────
@@ -375,6 +385,9 @@ export function TaskCreationModal({
   batchMode,
   batchItems,
   initialTaskType,
+  defaultTitle,
+  defaultDescription,
+  sourceReferenceId,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
@@ -382,6 +395,9 @@ export function TaskCreationModal({
   const [data, setData] = useState<CreateTaskData>(() => {
     const d = defaultTaskData(queueItem)
     if (initialTaskType) d.taskType = initialTaskType as TaskType
+    if (defaultTitle) d.title = defaultTitle
+    if (defaultDescription) d.description = defaultDescription
+    if (sourceReferenceId) d.sourceReferenceId = sourceReferenceId
     return d
   })
   const [loading, setLoading] = useState(false)

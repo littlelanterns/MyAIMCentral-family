@@ -111,6 +111,7 @@ export interface CreateEventInput {
   notes?: string
   reminder_minutes?: number[]
   attendees?: AttendeeInput[]
+  show_on_hub?: boolean
 }
 
 export interface AttendeeInput {

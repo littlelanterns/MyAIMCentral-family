@@ -7,7 +7,7 @@ import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
   LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, Rss, BookCopy,
+  Palette, Lock, Gem, Rss, Library,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -87,20 +87,28 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     items: [
       { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
       { label: 'Archives', path: '/archives', featureKey: 'archives', icon: <Archive size={20} />, tooltip: 'Context and documents' },
-      { label: 'BookShelf', path: '/bookshelf', featureKey: 'bookshelf', icon: <BookCopy size={20} />, tooltip: 'Upload books, extract wisdom with LiLa' },
+    ],
+  }
+
+  const bookshelf: NavSection = {
+    title: 'BookShelf',
+    collapsible: true,
+    items: [
+      { label: 'Library', path: '/bookshelf', featureKey: 'bookshelf_basic', icon: <Library size={20} />, tooltip: 'Browse your book library' },
+      { label: 'Journal Prompts', path: '/bookshelf/prompts', featureKey: 'bookshelf_basic', icon: <BookOpen size={20} />, tooltip: 'Reflection prompts from books' },
     ],
   }
 
   switch (shell) {
     case 'mom':
-      return [home, tools, capture, plan, grow, family]
+      return [home, tools, bookshelf, capture, plan, grow, family]
     case 'adult':
       return [home, capture, plan, grow, family, {
         title: 'AI & Tools',
         items: [
           { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
         ],
-      }]
+      }, bookshelf]
     case 'independent':
       return [home, capture, plan, {
         ...grow,
@@ -110,9 +118,8 @@ function getSidebarSections(shell: ShellType): NavSection[] {
         collapsible: true,
         items: [
           { label: 'AI Vault', path: '/vault', featureKey: 'vault_consume', icon: <Gem size={20} />, tooltip: 'AI tutorials and tools' },
-          { label: 'BookShelf', path: '/bookshelf', featureKey: 'bookshelf', icon: <BookCopy size={20} />, tooltip: 'Upload books, extract wisdom with LiLa' },
         ],
-      }]
+      }, bookshelf]
     case 'guided':
       return [home, {
         title: 'My Day',

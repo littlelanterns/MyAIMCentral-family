@@ -6,6 +6,7 @@ import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
+import { ShellQuickCreateFAB } from './ShellQuickCreateFAB'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
 
@@ -52,11 +53,16 @@ export function IndependentShell({ children }: IndependentShellProps) {
         </main>
       </div>
 
+      <IndependentQuickCreateFAB />
       <NotepadDrawer />
     </div>
     </NotepadProvider>
     </TimerProvider>
   )
+}
+
+function IndependentQuickCreateFAB() {
+  return <ShellQuickCreateFAB />
 }
 
 function IndependentNotepadBridgedQuickTasks() {
