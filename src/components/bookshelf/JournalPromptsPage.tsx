@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Search, X, BookOpen, CheckSquare, Archive, PenLine } from 'lucide-react'
 import { useJournalPrompts } from '@/hooks/useJournalPrompts'
 import { ModalV2 } from '@/components/shared/ModalV2'
+import { FeatureGuide } from '@/components/shared'
 import type { JournalPrompt } from '@/types/bookshelf'
 
 export function JournalPromptsPage() {
@@ -44,6 +45,12 @@ export function JournalPromptsPage() {
 
   return (
     <div className="density-comfortable max-w-3xl mx-auto">
+      <FeatureGuide
+        featureKey="bookshelf_basic"
+        title="Journal Prompts"
+        description="Prompts extracted from your BookShelf books and custom prompts you create. Use these to spark journal entries, reflections, and discussions."
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-bold text-[var(--color-text-primary)]">Journal Prompts</h1>

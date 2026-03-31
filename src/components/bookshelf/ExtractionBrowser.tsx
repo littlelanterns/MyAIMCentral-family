@@ -13,6 +13,7 @@ import { ExtractionSidebar } from './ExtractionSidebar'
 import { ChapterJumpOverlay } from './ChapterJumpOverlay'
 import { BookSelector } from './BookSelector'
 import { CollectionChips } from './CollectionChips'
+import { SemanticSearchPanel } from './SemanticSearchPanel'
 import { useExtractionData } from '@/hooks/useExtractionData'
 import { useExtractionBrowser } from '@/hooks/useExtractionBrowser'
 import { useExtractionItemActions } from '@/hooks/useExtractionItemActions'
@@ -97,6 +98,7 @@ export function ExtractionBrowser({
 
   // Task creation modal
   const [taskModalOpen, setTaskModalOpen] = useState(false)
+  const [showSemanticSearch, setShowSemanticSearch] = useState(false)
   const [taskDefaults, setTaskDefaults] = useState<{ title: string; description: string; taskType?: string; sourceTable?: ExtractionTable; sourceItemId?: string }>({ title: '', description: '' })
 
   const handleOpenTaskCreation = useCallback((title: string, description: string, taskType?: string) => {
@@ -204,6 +206,7 @@ export function ExtractionBrowser({
         refreshingKeyPoints={refreshingKeyPoints}
         siblingBooks={siblingBooks}
         onNavigateToBook={bid => navigate(`/bookshelf?book=${bid}`)}
+        onOpenSemanticSearch={() => setShowSemanticSearch(true)}
       />
 
       {collectionId && (
@@ -301,6 +304,17 @@ export function ExtractionBrowser({
         allItems={[...summaries, ...insights, ...declarations, ...actionSteps, ...questions]}
         viewMode={browserState.viewMode}
         activeTab={browserState.activeTab}
+      />
+
+      {/* Semantic Search */}
+      <SemanticSearchPanel
+        isOpen={showSemanticSearch}
+        onClose={() => setShowSemanticSearch(false)}
+        onNavigateToResult={(bid, tab) => {
+          setShowSemanticSearch(false)
+          navigate(`/bookshelf?book=${bid}${tab ? `&tab=${tab}` : ''}`)
+        }}
+        bookIds={resolvedBookIds}
       />
 
       {/* Task Creation Modal */}

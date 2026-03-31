@@ -3,7 +3,7 @@
  * Back button, title (editable for single-book), book info collapsible section.
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react'
 import type { BookShelfItem } from '@/types/bookshelf'
 
 interface ExtractionHeaderProps {
@@ -18,12 +18,13 @@ interface ExtractionHeaderProps {
   /** For multi-part navigation */
   siblingBooks?: BookShelfItem[]
   onNavigateToBook?: (bookId: string) => void
+  onOpenSemanticSearch?: () => void
 }
 
 export function ExtractionHeader({
   books, collectionName, showHearted, onBack,
   onTitleChange, onAuthorChange, onRefreshKeyPoints, refreshingKeyPoints,
-  siblingBooks, onNavigateToBook,
+  siblingBooks, onNavigateToBook, onOpenSemanticSearch,
 }: ExtractionHeaderProps) {
   const isSingleBook = books.length === 1
   const book = isSingleBook ? books[0] : null
@@ -161,6 +162,16 @@ export function ExtractionHeader({
                   >
                     <RefreshCw size={12} className={refreshingKeyPoints ? 'animate-spin' : ''} />
                     Refresh Key Points
+                  </button>
+                )}
+
+                {onOpenSemanticSearch && (
+                  <button
+                    onClick={onOpenSemanticSearch}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    <Search size={12} />
+                    Search Inside
                   </button>
                 )}
               </div>

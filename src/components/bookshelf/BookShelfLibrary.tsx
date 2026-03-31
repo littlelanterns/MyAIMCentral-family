@@ -7,7 +7,7 @@ import {
   Search, Grid3X3, List, ChevronDown, ChevronLeft, ChevronRight,
   X, Library, Sparkles, RefreshCw, Tag,
 } from 'lucide-react'
-import { Button } from '@/components/shared'
+import { Button, FeatureGuide } from '@/components/shared'
 import { useBookShelf } from '@/hooks/useBookShelf'
 import { useBookShelfSettings } from '@/hooks/useBookShelfSettings'
 import { useBookShelfCollections } from '@/hooks/useBookShelfCollections'
@@ -234,6 +234,13 @@ export function BookShelfLibrary() {
                 : `${displayBooks.length} of ${parentBooks.length} books`}
             </span>
           </div>
+
+          {/* Feature guide */}
+          <FeatureGuide
+            featureKey="bookshelf_basic"
+            title="BookShelf"
+            description="Your family's book wisdom library. Upload books, extract structured knowledge, and route insights into Guiding Stars, tasks, journal prompts, and LiLa context."
+          />
 
           {/* Continue banner */}
           <ContinueBanner />
