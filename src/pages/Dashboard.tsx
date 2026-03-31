@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -10,8 +10,7 @@ import type { DashboardView } from '@/components/shells/PerspectiveSwitcher'
 import { DashboardTasksSection } from '@/components/tasks/DashboardTasksSection'
 import { FeatureGuide } from '@/components/shared'
 import { useTasks } from '@/hooks/useTasks'
-import { LogOut, Users, Star, BookOpen, CheckSquare, List, Brain, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
-import { FeatureIcon } from '@/components/shared'
+import { LogOut, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import { DashboardGrid } from '@/components/widgets/DashboardGrid'
 import { FolderOverlayModal } from '@/components/widgets/FolderOverlayModal'
 import { CalendarWidget } from '@/components/calendar'
@@ -19,6 +18,7 @@ import { WidgetPicker } from '@/components/widgets/WidgetPicker'
 import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
 import { WidgetDetailView } from '@/components/widgets/WidgetDetailView'
 import { TrackThisModal } from '@/components/widgets/TrackThisModal'
+import { useQueryClient } from '@tanstack/react-query'
 import { useWidgets, useWidgetFolders, useWidgetStarterConfigs, useCreateWidget, useDeleteWidget, useUpdateWidget, useRecordWidgetData, useUpdateDashboardLayout } from '@/hooks/useWidgets'
 import { useDashboardConfig, useUpdateDashboardConfig } from '@/hooks/useDashboardConfig'
 import type { DashboardWidget, WidgetStarterConfig, CreateWidget, DashboardWidgetFolder, InfoDisplayType, QuickActionType } from '@/types/widgets'
@@ -29,6 +29,8 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { supabase } from '@/lib/supabase/client'
 import { PlannedExpansionCard } from '@/components/shared'
+import FamilyOverview from '@/components/family-overview/FamilyOverview'
+import { FamilyHub } from '@/components/hub/FamilyHub'
 
 interface DashboardProps {
   /** When true, this instance is inside the ViewAsModal overlay */
@@ -43,15 +45,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   const { shell: _shell } = useShell()
   const { isViewingAs, viewingAsMember, startViewAs, stopViewAs: _stopViewAs } = useViewAs()
   const [perspective, setPerspective] = useState<DashboardView>('personal')
-  const navigate = useNavigate()
-
-  // Navigate to /hub when Family Hub perspective is selected (mom only — others see inline stub)
-  useEffect(() => {
-    if (perspective === 'family_hub' && member?.role === 'primary_parent') {
-      navigate('/hub')
-      setPerspective('personal')
-    }
-  }, [perspective, navigate, member?.role])
+  // PRD-14D: Hub renders INLINE on perspective tab — no navigation to /hub
 
   // PRD-10: Widget state
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -66,7 +60,8 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   const displayMemberId = (isViewAsOverlay && viewingAsMember?.id) || member?.id
   const displayFamilyId = family?.id
 
-  const { data: widgets = [] } = useWidgets(displayFamilyId, displayMemberId)
+  const queryClient = useQueryClient()
+  const { data: widgets = [], isLoading: widgetsLoading } = useWidgets(displayFamilyId, displayMemberId)
   const { data: folders = [] } = useWidgetFolders(displayFamilyId, displayMemberId)
   const { data: starterConfigs = [] } = useWidgetStarterConfigs()
   const createWidget = useCreateWidget()
@@ -199,19 +194,39 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 
   const [startersChecked, setStartersChecked] = useState(false)
 
+  // Ref to prevent concurrent deploys — survives across renders unlike state
+  const deployingRef = useRef(false)
+
   useEffect(() => {
-    if (isViewAsOverlay) { setStartersChecked(true); return } // never auto-deploy in View As
+    if (isViewAsOverlay) { setStartersChecked(true); return }
     if (!displayFamilyId || !displayMemberId || startersChecked) return
-    if (!dashboardConfig) return // wait for config to load
+    if (!dashboardConfig) return
+    if (widgetsLoading) return
     const prefs = dashboardConfig.preferences as Record<string, unknown> | null
     if (prefs?.starters_deployed) { setStartersChecked(true); return }
     if (widgets.length > 0) { setStartersChecked(true); return }
+    // Guard against concurrent runs
+    if (deployingRef.current) return
+    deployingRef.current = true
+    setStartersChecked(true) // Set immediately to prevent any re-trigger
 
-    // Auto-deploy starter widgets
     async function deployStarters() {
+      // Double-check DB to prevent duplicates if flag wasn't persisted
+      const { count: existingCount } = await supabase
+        .from('dashboard_widgets')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', displayFamilyId!)
+        .eq('family_member_id', displayMemberId!)
+        .is('archived_at', null)
+        .eq('is_on_dashboard', true)
+
+      if ((existingCount ?? 0) > 0) {
+        deployingRef.current = false
+        return
+      }
+
       const starterWidgets: CreateWidget[] = []
 
-      // Check if member has Guiding Stars
       const { count: gsCount } = await supabase
         .from('guiding_stars')
         .select('id', { count: 'exact', head: true })
@@ -229,7 +244,6 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         })
       }
 
-      // Check if member has Best Intentions
       const { count: biCount } = await supabase
         .from('best_intentions')
         .select('id', { count: 'exact', head: true })
@@ -248,7 +262,6 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         })
       }
 
-      // Always deploy Today's Victories
       starterWidgets.push({
         family_id: displayFamilyId!,
         family_member_id: displayMemberId!,
@@ -257,8 +270,16 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         size: 'small',
       })
 
+      // Insert sequentially with await to avoid race conditions
       for (const w of starterWidgets) {
-        createWidget.mutate(w)
+        await supabase.from('dashboard_widgets').insert({
+          ...w,
+          size: w.size ?? 'medium',
+          position_x: 0,
+          position_y: 0,
+          widget_config: {},
+          data_source_ids: [],
+        })
       }
 
       // Mark starters as deployed
@@ -271,11 +292,14 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         layout: { ...currentLayout, sections: sections },
         preferences: { ...currentPrefs, starters_deployed: true },
       })
+
+      // Refresh widget list
+      queryClient.invalidateQueries({ queryKey: ['widgets', displayFamilyId, displayMemberId] })
+      deployingRef.current = false
     }
 
     deployStarters()
-    setStartersChecked(true)
-  }, [displayFamilyId, displayMemberId, dashboardConfig, widgets.length, startersChecked])
+  }, [displayFamilyId, displayMemberId, dashboardConfig, widgetsLoading, startersChecked])
 
   // ─── Responsive grid columns ───────────────────────────────
 
@@ -484,17 +508,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
               </div>
             )}
 
-            {/* Quick Navigation Cards */}
-            {!isViewAsOverlay && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                <NavCard to="/guiding-stars" featureKey="guiding_stars" icon={<Star size={20} />} label="Guiding Stars" color="var(--color-golden-honey, #d6a461)" />
-                <NavCard to="/journal" featureKey="journal" icon={<BookOpen size={20} />} label="Journal" color="var(--color-sage-teal, #68a395)" />
-                <NavCard to="/tasks" featureKey="tasks" icon={<CheckSquare size={20} />} label="Tasks" color="var(--color-deep-ocean, #2c5d60)" />
-                <NavCard to="/lists" featureKey="lists" icon={<List size={20} />} label="Lists" color="var(--color-dusty-rose, #d69a84)" />
-                <NavCard to="/inner-workings" featureKey="my_foundation" icon={<Brain size={20} />} label="InnerWorkings" color="var(--color-warm-earth, #5a4033)" />
-                <NavCard to="/best-intentions" featureKey="best_intentions" icon={<Sparkles size={20} />} label="Best Intentions" color="var(--color-soft-gold, #f4dcb7)" textColor="var(--color-warm-earth, #5a4033)" />
-              </div>
-            )}
+            {/* Nav cards removed — redundant with sidebar navigation */}
           </>
         )
 
@@ -632,19 +646,14 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         </div>
       )}
 
-      {/* ── FAMILY OVERVIEW view ── */}
+      {/* ── FAMILY OVERVIEW view (PRD-14C) ── */}
       {perspective === 'family_overview' && !isViewAsOverlay && (
-        <FamilyOverviewStrip
-          members={familyMembers ?? []}
-          currentMemberId={member?.id ?? ''}
-          familyId={family?.id ?? ''}
-          onViewAs={(m) => startViewAs(m, member!.id, family!.id)}
-        />
+        <FamilyOverview />
       )}
 
-      {/* ── HUB view (non-mom: inline PlannedExpansionCard) ── */}
-      {perspective === 'family_hub' && !isMom && !isViewAsOverlay && (
-        <PlannedExpansionCard featureKey="family_hub" />
+      {/* ── HUB view: inline FamilyHub for all roles ── */}
+      {perspective === 'family_hub' && !isViewAsOverlay && (
+        <FamilyHub context="tab" />
       )}
 
       {/* ── VIEW AS tab: inline member picker ── */}
@@ -715,156 +724,6 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         onRemoveWidget={(id) => { deleteWidget.mutate({ id, familyId: family!.id }); setOpenFolder(null) }}
         onResizeWidget={(id, size) => updateWidget.mutate({ id, size })}
       />
-    </div>
-  )
-}
-
-// ─── Family Overview: horizontal member carousel ──────────
-
-interface FamilyOverviewStripProps {
-  members: Array<{ id: string; display_name: string; role: string; member_color?: string | null }>
-  currentMemberId: string
-  familyId: string
-  onViewAs: (member: any) => void
-}
-
-function FamilyOverviewStrip({ members, currentMemberId, familyId, onViewAs }: FamilyOverviewStripProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
-  const otherMembers = members.filter(m => m.id !== currentMemberId)
-
-  function scroll(dir: 'left' | 'right') {
-    scrollRef.current?.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
-  }
-
-  function handleMemberClick(m: typeof members[0]) {
-    setSelectedMemberId(m.id === selectedMemberId ? null : m.id)
-  }
-
-  const selectedMember = members.find(m => m.id === selectedMemberId)
-
-  return (
-    <div className="space-y-4">
-      <div className="relative">
-        <button
-          onClick={() => scroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full hidden md:flex items-center justify-center"
-          style={{
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <button
-          onClick={() => scroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full hidden md:flex items-center justify-center"
-          style={{
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          <ChevronRight size={16} />
-        </button>
-
-        <div
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scrollbar-hide px-1 py-2 md:px-8 snap-x snap-mandatory"
-          style={{ scrollbarWidth: 'none' }}
-        >
-          {otherMembers.map((m) => {
-            const isSelected = selectedMemberId === m.id
-            const color = m.member_color || 'var(--color-btn-primary-bg)'
-            return (
-              <button
-                key={m.id}
-                onClick={() => handleMemberClick(m)}
-                className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl snap-start transition-all duration-300 shrink-0 min-w-25"
-                style={{
-                  background: isSelected
-                    ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 70%, var(--color-bg-card)))`
-                    : 'var(--color-bg-card)',
-                  border: `2px solid ${isSelected ? color : 'var(--color-border)'}`,
-                  boxShadow: isSelected
-                    ? `0 4px 16px color-mix(in srgb, ${color} 30%, transparent)`
-                    : '0 1px 4px rgba(0,0,0,0.05)',
-                  transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                }}
-              >
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold transition-all duration-300"
-                  style={{
-                    backgroundColor: isSelected ? 'rgba(255,255,255,0.3)' : `color-mix(in srgb, ${color} 15%, var(--color-bg-card))`,
-                    color: isSelected ? 'var(--color-text-on-primary, #fff)' : color,
-                    border: `2px solid ${isSelected ? 'rgba(255,255,255,0.5)' : color}`,
-                  }}
-                >
-                  {m.display_name.charAt(0)}
-                </div>
-                <span
-                  className="text-sm font-semibold whitespace-nowrap"
-                  style={{
-                    color: isSelected ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-heading)',
-                    fontFamily: 'var(--font-heading)',
-                  }}
-                >
-                  {m.display_name}
-                </span>
-                <span
-                  className="text-[10px] capitalize"
-                  style={{
-                    color: isSelected ? 'rgba(255,255,255,0.8)' : 'var(--color-text-secondary)',
-                  }}
-                >
-                  {m.role === 'additional_adult' ? 'Adult' : m.role === 'primary_parent' ? 'Mom' : m.role}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {selectedMember && (
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{
-            border: `2px solid ${selectedMember.member_color || 'var(--color-btn-primary-bg)'}`,
-            background: 'var(--color-bg-card)',
-          }}
-        >
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{
-              background: `linear-gradient(135deg, ${selectedMember.member_color || 'var(--color-btn-primary-bg)'}20, transparent)`,
-              borderBottom: '1px solid var(--color-border)',
-            }}
-          >
-            <h3
-              className="text-base font-semibold"
-              style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
-            >
-              {selectedMember.display_name}'s Dashboard
-            </h3>
-            <button
-              onClick={() => onViewAs(selectedMember)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105"
-              style={{
-                background: selectedMember.member_color || 'var(--color-btn-primary-bg)',
-                color: 'var(--color-text-on-primary, #fff)',
-              }}
-            >
-              View As {selectedMember.display_name}
-            </button>
-          </div>
-          <div className="p-4">
-            <MemberTasksSection familyId={familyId} memberId={selectedMember.id} />
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -941,33 +800,3 @@ function ViewAsMemberPills({
   )
 }
 
-function NavCard({
-  to,
-  featureKey,
-  icon,
-  label,
-  color,
-  textColor,
-}: {
-  to: string
-  featureKey: string
-  icon: React.ReactNode
-  label: string
-  color: string
-  textColor?: string
-}) {
-  return (
-    <Link
-      to={to}
-      className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md"
-      style={{
-        backgroundColor: color + '15',
-        border: `1px solid ${color}30`,
-        color: textColor || color,
-      }}
-    >
-      <FeatureIcon featureKey={featureKey} fallback={icon} size={48} />
-      <span className="text-sm font-medium">{label}</span>
-    </Link>
-  )
-}

@@ -21,7 +21,17 @@ const DISPLAY_OVERRIDES: Record<string, string> = {
   general: 'General Chat',
 }
 
-/** Modes that have a working Edge Function deployed */
+/**
+ * Modes visible in the LiLa drawer mode picker.
+ * Tool-specific modes (Cyrano, Gifts, Board of Directors, etc.) are accessed
+ * through their respective AI tools, NOT from the drawer switcher.
+ */
+const DRAWER_MODES = new Set([
+  'general', 'help', 'assist', 'optimizer',
+  'task_breaker', 'task_breaker_image',
+])
+
+/** Modes that have a working Edge Function deployed (superset — includes tool modes) */
 const BUILT_MODES = new Set([
   'general', 'help', 'assist', 'optimizer',
   'cyrano', 'higgins_say', 'higgins_navigate',
@@ -31,17 +41,7 @@ const BUILT_MODES = new Set([
 ])
 
 const GROUP_LABELS: Record<string, string> = {
-  relationship_action: 'Relationship Tools',
-  crew_action: 'Communication',
-  personal_growth: 'Personal Growth',
-  calendar_meeting: 'Calendar & Meetings',
-  safe_harbor: 'Safe Harbor',
-  inner_wisdom: 'ThoughtSift',
-  bigplans: 'BigPlans',
-  bookshelf: 'BookShelf',
-  compliance: 'Compliance',
-  guided_tools: 'Guided Shell Tools',
-  family_context: 'Family Context',
+  guided_tools: 'Tools',
 }
 
 interface LilaModeSwitcherProps {
@@ -77,8 +77,10 @@ export function LilaModeSwitcher({ currentMode, modes, onModeSelect }: LilaModeS
 
   const currentModeData = modes.find(m => m.mode_key === currentMode)
   const currentLabel = DISPLAY_OVERRIDES[currentMode] || currentModeData?.display_name || 'General Chat'
-  const coreModes = modes.filter(m => ['general', 'help', 'assist', 'optimizer'].includes(m.mode_key))
-  const guidedModes = modes.filter(m => !['general', 'help', 'assist', 'optimizer'].includes(m.mode_key))
+  // Only show modes meant for the drawer — tool-specific modes are accessed via their tools
+  const drawerModes = modes.filter(m => DRAWER_MODES.has(m.mode_key))
+  const coreModes = drawerModes.filter(m => ['general', 'help', 'assist', 'optimizer'].includes(m.mode_key))
+  const guidedModes = drawerModes.filter(m => !['general', 'help', 'assist', 'optimizer'].includes(m.mode_key))
 
   const guidedGroups = new Map<string, GuidedMode[]>()
   for (const mode of guidedModes) {

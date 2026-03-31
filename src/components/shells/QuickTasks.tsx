@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, createContext, useContext, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, CheckSquare, Trophy, Calendar, Brain, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -25,11 +26,18 @@ import { getFeatureIcons } from '@/lib/assets'
 import { useFamily } from '@/hooks/useFamily'
 import { useStudioQueueCount } from '@/hooks/useStudioQueue'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
+import { supabase } from '@/lib/supabase/client'
 // QuickCreate now renders as FAB at shell level — no longer in the strip
 
 // ─── Types ───────────────────────────────────────────────────
 
-type QuickActionKind = 'path' | 'notepad' | 'tool'
+type QuickActionKind = 'path' | 'notepad' | 'tool' | 'submenu'
+
+interface ToolSubmenuItem {
+  key: string
+  label: string
+  toolModeKey: string
+}
 
 interface QuickAction {
   key: string
@@ -41,6 +49,8 @@ interface QuickAction {
   path?: string
   /** Populated when kind === 'tool' — the guided mode key to launch */
   toolModeKey?: string
+  /** Populated when kind === 'submenu' — list of tool options */
+  submenuItems?: ToolSubmenuItem[]
 }
 
 // ─── Action Definitions ──────────────────────────────────────
@@ -105,8 +115,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     label: 'Love Languages',
     icon: Heart,
     featureKey: 'tool_quality_time',
-    kind: 'tool',
-    toolModeKey: 'quality_time',
+    kind: 'submenu',
+    submenuItems: [
+      { key: 'quality_time', label: 'Quality Time', toolModeKey: 'quality_time' },
+      { key: 'gifts', label: 'Gifts', toolModeKey: 'gifts' },
+      { key: 'observe_serve', label: 'Observe & Serve', toolModeKey: 'observe_serve' },
+      { key: 'words_affirmation', label: 'Words of Affirmation', toolModeKey: 'words_affirmation' },
+      { key: 'gratitude', label: 'Gratitude', toolModeKey: 'gratitude' },
+    ],
   },
   {
     key: 'cyrano',
@@ -121,8 +137,26 @@ const QUICK_ACTIONS: QuickAction[] = [
     label: 'Higgins',
     icon: GraduationCap,
     featureKey: 'tool_higgins_say',
-    kind: 'tool',
-    toolModeKey: 'higgins_say',
+    kind: 'submenu',
+    submenuItems: [
+      { key: 'higgins_say', label: 'Help Me Say Something', toolModeKey: 'higgins_say' },
+      { key: 'higgins_navigate', label: 'Help Me Navigate This', toolModeKey: 'higgins_navigate' },
+    ],
+  },
+  // PRD-34: ThoughtSift tools
+  {
+    key: 'thoughtsift',
+    label: 'ThoughtSift',
+    icon: Brain,
+    featureKey: 'thoughtsift_board_of_directors',
+    kind: 'submenu',
+    submenuItems: [
+      { key: 'board_of_directors', label: 'Board of Directors', toolModeKey: 'board_of_directors' },
+      { key: 'perspective_shifter', label: 'Perspective Shifter', toolModeKey: 'perspective_shifter' },
+      { key: 'decision_guide', label: 'Decision Guide', toolModeKey: 'decision_guide' },
+      { key: 'mediator', label: 'Mediator', toolModeKey: 'mediator' },
+      { key: 'translator', label: 'Translator', toolModeKey: 'translator' },
+    ],
   },
 ]
 
@@ -291,12 +325,17 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
     } catch { /* Non-critical */ }
   }
 
-  function handleAction(action: QuickAction) {
+  function handleAction(action: QuickAction, submenuModeKey?: string) {
     incrementUsage(action.key)
-    if (action.kind === 'path' && action.path) {
+    if (submenuModeKey) {
+      // Launched from a submenu item
+      openTool(submenuModeKey)
+    } else if (action.kind === 'path' && action.path) {
       navigate(action.path)
     } else if (action.kind === 'tool' && action.toolModeKey) {
       openTool(action.toolModeKey)
+    } else if (action.kind === 'submenu') {
+      // Submenu pills handle their own popover — no default action
     } else {
       if (notepadBridge) {
         notepadBridge.openNotepad()
@@ -404,7 +443,13 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         }}
       >
         {sortedActions.map((item) => (
-          <QuickPill key={item.key} item={item} onAction={() => handleAction(item)} illustratedUrl={iconUrls[item.featureKey] ?? null} />
+          <QuickPill
+            key={item.key}
+            item={item}
+            onAction={() => handleAction(item)}
+            onSubmenuSelect={(modeKey) => handleAction(item, modeKey)}
+            illustratedUrl={iconUrls[item.featureKey] ?? null}
+          />
         ))}
       </div>
 
@@ -495,11 +540,79 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
 
 // ─── Individual Pill ─────────────────────────────────────────
 
-function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAction: () => void; illustratedUrl: string | null }) {
+/** Load vault thumbnails for submenu items — fetches directly from vault_items
+ *  by guided_mode_key so thumbnails always match what the AI Vault page shows. */
+function useSubmenuThumbnails(items: ToolSubmenuItem[] | undefined) {
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!items?.length) return
+    const modeKeys = items.map(i => i.toolModeKey)
+
+    let cancelled = false
+    supabase
+      .from('vault_items')
+      .select('guided_mode_key, thumbnail_url')
+      .in('guided_mode_key', modeKeys)
+      .eq('status', 'published')
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        const map: Record<string, string> = {}
+        for (const item of items) {
+          const match = data.find(d => d.guided_mode_key === item.toolModeKey)
+          if (match?.thumbnail_url) map[item.key] = match.thumbnail_url
+        }
+        setThumbnails(map)
+      })
+    return () => { cancelled = true }
+  }, [items])
+
+  return thumbnails
+}
+
+function QuickPill({
+  item,
+  onAction,
+  onSubmenuSelect,
+  illustratedUrl,
+}: {
+  item: QuickAction
+  onAction: () => void
+  onSubmenuSelect: (modeKey: string) => void
+  illustratedUrl: string | null
+}) {
   const [hovered, setHovered] = useState(false)
   const [attentionGlow, setAttentionGlow] = useState(false)
+  const [submenuOpen, setSubmenuOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
   const Icon = item.icon
   const isPinned = PINNED_ACTIONS.some(p => p.key === item.key)
+  const hasSubmenu = item.kind === 'submenu' && item.submenuItems
+  const thumbnails = useSubmenuThumbnails(hasSubmenu ? item.submenuItems : undefined)
+
+  // Close submenu on outside click
+  useEffect(() => {
+    if (!submenuOpen) return
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node
+      if (dropdownRef.current && !dropdownRef.current.contains(target) &&
+          triggerRef.current && !triggerRef.current.contains(target)) {
+        setSubmenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [submenuOpen])
+
+  // Position dropdown below trigger (portal-based)
+  useEffect(() => {
+    if (submenuOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left })
+    }
+  }, [submenuOpen])
 
   // Listen for tour dismissal to trigger attention animation
   useEffect(() => {
@@ -511,6 +624,70 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
     window.addEventListener('tour-dismissed-glow', handleGlow)
     return () => window.removeEventListener('tour-dismissed-glow', handleGlow)
   }, [isPinned])
+
+  const handleClick = () => {
+    if (hasSubmenu) {
+      setSubmenuOpen(!submenuOpen)
+    } else {
+      onAction()
+    }
+  }
+
+  const submenuPortal = hasSubmenu && submenuOpen && createPortal(
+    <div
+      ref={dropdownRef}
+      className="fixed rounded-xl shadow-xl overflow-hidden"
+      style={{
+        top: `${dropdownPos.top}px`,
+        left: `${dropdownPos.left}px`,
+        zIndex: 9999,
+        backgroundColor: 'var(--color-bg-card)',
+        border: '1px solid var(--color-border)',
+        minWidth: '220px',
+      }}
+    >
+      {item.submenuItems!.map(sub => (
+        <button
+          key={sub.key}
+          onClick={() => {
+            onSubmenuSelect(sub.toolModeKey)
+            setSubmenuOpen(false)
+          }}
+          className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors"
+          style={{
+            color: 'var(--color-text-primary)',
+            background: 'transparent',
+            border: 'none',
+            minHeight: 'unset',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+        >
+          {thumbnails[sub.key] ? (
+            <img
+              src={thumbnails[sub.key]}
+              alt=""
+              className="shrink-0 rounded"
+              style={{ width: '28px', height: '28px', objectFit: 'cover' }}
+            />
+          ) : (
+            <span
+              className="shrink-0 rounded flex items-center justify-center"
+              style={{
+                width: '28px',
+                height: '28px',
+                backgroundColor: 'var(--color-bg-secondary)',
+              }}
+            >
+              <Icon size={14} style={{ color: 'var(--color-text-secondary)' }} />
+            </span>
+          )}
+          {sub.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  )
 
   if (isPinned) {
     return (
@@ -529,7 +706,8 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
           }
         `}</style>
         <button
-          onClick={onAction}
+          ref={triggerRef}
+          onClick={handleClick}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-bold whitespace-nowrap"
@@ -549,35 +727,41 @@ function QuickPill({ item, onAction, illustratedUrl }: { item: QuickAction; onAc
           <Icon size={16} />
           {item.label}
         </button>
+        {submenuPortal}
       </>
     )
   }
 
   return (
-    <button
-      onClick={onAction}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap"
-      style={{
-        padding: '6px 12px',
-        backgroundColor: hovered
-          ? 'var(--color-btn-primary-bg)'
-          : 'var(--color-bg-secondary)',
-        color: hovered
-          ? 'var(--color-btn-primary-text)'
-          : 'var(--color-text-primary)',
-        border: 'none',
-        minHeight: 'unset',
-        lineHeight: 1.2,
-      }}
-    >
-      {illustratedUrl ? (
-        <img src={illustratedUrl} alt="" width={16} height={16} className="shrink-0 rounded-sm" />
-      ) : (
-        <Icon size={16} />
-      )}
-      {item.label}
-    </button>
+    <>
+      <button
+        ref={triggerRef}
+        onClick={handleClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="shrink-0 flex items-center gap-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap"
+        style={{
+          padding: '6px 12px',
+          backgroundColor: (hovered || submenuOpen)
+            ? 'var(--color-btn-primary-bg)'
+            : 'var(--color-bg-secondary)',
+          color: (hovered || submenuOpen)
+            ? 'var(--color-btn-primary-text)'
+            : 'var(--color-text-primary)',
+          border: 'none',
+          minHeight: 'unset',
+          lineHeight: 1.2,
+        }}
+      >
+        {illustratedUrl ? (
+          <img src={illustratedUrl} alt="" width={16} height={16} className="shrink-0 rounded-sm" />
+        ) : (
+          <Icon size={16} />
+        )}
+        {item.label}
+        {hasSubmenu && <ChevronDown size={12} style={{ marginLeft: '-2px' }} />}
+      </button>
+      {submenuPortal}
+    </>
   )
 }

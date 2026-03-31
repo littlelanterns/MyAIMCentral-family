@@ -470,8 +470,8 @@ export function ToolConversationModal({
     if (!notepad) return
     const title = content.split('\n')[0]?.slice(0, 60) || 'From LiLa conversation'
     notepad.openNotepad({ content, title, sourceType: 'lila_conversation' as any, sourceReferenceId: conversation?.id })
-    onClose()
-  }, [notepad, conversation?.id, onClose])
+    // Don't close the modal — notepad opens as a drawer on top
+  }, [notepad, conversation?.id])
 
   const handleSaveToJournal = useCallback(async (content: string) => {
     if (!member || !family) return
@@ -547,11 +547,11 @@ export function ToolConversationModal({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — always closeable, even while streaming */}
       <div
         className="fixed inset-0 z-40"
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-        onClick={() => !isStreaming && onClose()}
+        onClick={() => onClose()}
       />
 
       {/* Modal */}

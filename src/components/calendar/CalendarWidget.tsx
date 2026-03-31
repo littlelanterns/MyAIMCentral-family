@@ -41,7 +41,7 @@ function getWeekStart(date: Date, weekStartDay: 0 | 1): Date {
 const DAY_NAMES_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-export function CalendarWidget() {
+export function CalendarWidget({ hubMode }: { hubMode?: boolean } = {}) {
   const { data: settings } = useCalendarSettings()
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayNames = weekStartDay === 1 ? DAY_NAMES_MON : DAY_NAMES_SUN
@@ -58,7 +58,7 @@ export function CalendarWidget() {
   const weekEnd = addDays(weekStart, 6)
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
-  const { data: events } = useEventsForRange(weekStart, weekEnd)
+  const { data: events } = useEventsForRange(weekStart, weekEnd, undefined, hubMode)
   const { data: tasksDue } = useTasksDueInRange(weekStart, weekEnd)
   const { data: family } = useFamily()
   const { data: familyMembers } = useFamilyMembers(family?.id)
@@ -291,9 +291,9 @@ export function CalendarWidget() {
                   </span>
                 </div>
 
-                {/* Day body */}
+                {/* Day body — auto-height to fit event text */}
                 <div
-                  className="flex-1 flex flex-col items-center justify-center px-1 py-1.5"
+                  className="flex-1 flex flex-col gap-0.5 px-0.5 py-1"
                   style={{
                     background: isToday
                       ? 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-card))'
@@ -301,42 +301,65 @@ export function CalendarWidget() {
                   }}
                 >
                   {totalItems > 0 ? (
-                    <div className="flex gap-0.5 flex-wrap justify-center" style={{ maxWidth: '50px' }}>
-                      {dayEvents.slice(0, 3).map((ev) => (
-                        <span
-                          key={ev.id}
-                          className="rounded-full"
-                          style={{
-                            width: '7px',
-                            height: '7px',
-                            backgroundColor: ev.status === 'pending_approval'
-                              ? 'var(--color-text-secondary)'
-                              : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)',
-                            opacity: ev.status === 'pending_approval' ? 0.5 : 1,
-                          }}
-                        />
-                      ))}
+                    <>
+                      {dayEvents.slice(0, 4).map((ev) => {
+                        const evColor = ev.status === 'pending_approval'
+                          ? 'var(--color-text-secondary)'
+                          : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'
+                        return (
+                          <div
+                            key={ev.id}
+                            className="flex items-start gap-0.5 text-left"
+                            style={{ opacity: ev.status === 'pending_approval' ? 0.5 : 1 }}
+                          >
+                            <span
+                              className="rounded-full shrink-0 mt-[3px]"
+                              style={{
+                                width: '5px',
+                                height: '5px',
+                                backgroundColor: evColor,
+                              }}
+                            />
+                            <span
+                              className="text-[9px] leading-tight truncate"
+                              style={{ color: 'var(--color-text-primary)' }}
+                            >
+                              {ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}{ev.title}
+                            </span>
+                          </div>
+                        )
+                      })}
                       {dayTasks.slice(0, 2).map((t) => (
-                        <span
+                        <div
                           key={t.id}
-                          className="rounded-sm"
-                          style={{
-                            width: '7px',
-                            height: '7px',
-                            backgroundColor: memberColorMap.get(t.assignee_id ?? t.created_by) ?? 'var(--color-text-secondary)',
-                            opacity: 0.6,
-                          }}
-                        />
+                          className="flex items-start gap-0.5 text-left"
+                          style={{ opacity: 0.7 }}
+                        >
+                          <span
+                            className="rounded-sm shrink-0 mt-[3px]"
+                            style={{
+                              width: '5px',
+                              height: '5px',
+                              backgroundColor: memberColorMap.get(t.assignee_id ?? t.created_by) ?? 'var(--color-text-secondary)',
+                            }}
+                          />
+                          <span
+                            className="text-[9px] leading-tight truncate italic"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                          >
+                            {t.title}
+                          </span>
+                        </div>
                       ))}
-                      {totalItems > 5 && (
-                        <span className="text-[8px]" style={{ color: 'var(--color-text-secondary)' }}>
-                          +{totalItems - 5}
+                      {totalItems > 6 && (
+                        <span className="text-[8px] text-center" style={{ color: 'var(--color-text-secondary)' }}>
+                          +{totalItems - 6} more
                         </span>
                       )}
-                    </div>
+                    </>
                   ) : (
                     <span
-                      className="text-[10px] italic"
+                      className="text-[10px] italic text-center flex-1 flex items-center justify-center"
                       style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }}
                     >
                       No events

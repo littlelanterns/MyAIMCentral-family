@@ -22,7 +22,7 @@ interface FamilyMember {
 
 interface PersonPillSelectorProps {
   members: FamilyMember[]
-  /** Current user's member ID — excluded from the list */
+  /** Current user's member ID — used to label "Me" pill */
   currentMemberId: string
   selectedIds: string[]
   onToggle: (memberId: string) => void
@@ -44,11 +44,12 @@ export function PersonPillSelector({
   label,
 }: PersonPillSelectorProps) {
   const selectableMembers = useMemo(() => {
-    let list = members.filter(m => m.id !== currentMemberId)
+    // Include ALL members (including current user) — mom needs to select herself
+    let list = [...members]
 
     if (partnerOnly) {
       // Cyrano: only show spouse/partner (additional_adult role)
-      list = list.filter(m => m.role === 'additional_adult')
+      list = list.filter(m => m.id !== currentMemberId && m.role === 'additional_adult')
     }
 
     return list
@@ -79,6 +80,8 @@ export function PersonPillSelector({
         {selectableMembers.map(fm => {
           const isSelected = selectedIds.includes(fm.id)
           const pillColor = fm.calendar_color || fm.assigned_color || fm.member_color || 'var(--color-btn-primary-bg)'
+          const isMe = fm.id === currentMemberId
+          const displayLabel = isMe ? `Me (${fm.display_name.split(' ')[0]})` : fm.display_name.split(' ')[0]
 
           return (
             <button
@@ -86,12 +89,12 @@ export function PersonPillSelector({
               onClick={() => onToggle(fm.id)}
               className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
               style={{
-                backgroundColor: isSelected ? pillColor : 'transparent',
-                color: isSelected ? 'var(--color-bg-card, #fff)' : 'var(--color-text-primary)',
-                border: `1.5px solid ${isSelected ? pillColor : 'var(--color-border)'}`,
+                backgroundColor: isSelected ? pillColor : `color-mix(in srgb, ${pillColor} 10%, transparent)`,
+                color: isSelected ? 'var(--color-bg-card, #fff)' : pillColor,
+                border: `2px solid ${pillColor}`,
               }}
             >
-              {fm.display_name.split(' ')[0]}
+              {displayLabel}
             </button>
           )
         })}
