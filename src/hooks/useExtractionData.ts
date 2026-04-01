@@ -64,7 +64,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .from('bookshelf_summaries')
           .select(`${EXTRACTION_SELECT}, content_type, text`)
           .in('bookshelf_item_id', bookIds)
-          .eq('family_member_id', member.id)
+          .eq('family_id', member.family_id)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -72,7 +72,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .from('bookshelf_insights')
           .select(`${EXTRACTION_SELECT}, content_type, text, is_user_added`)
           .in('bookshelf_item_id', bookIds)
-          .eq('family_member_id', member.id)
+          .eq('family_id', member.family_id)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -80,7 +80,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .from('bookshelf_declarations')
           .select(`${EXTRACTION_SELECT}, value_name, declaration_text, style_variant, richness, sent_to_guiding_stars, guiding_star_id`)
           .in('bookshelf_item_id', bookIds)
-          .eq('family_member_id', member.id)
+          .eq('family_id', member.family_id)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -88,7 +88,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .from('bookshelf_action_steps')
           .select(`${EXTRACTION_SELECT}, content_type, text, sent_to_tasks, task_id`)
           .in('bookshelf_item_id', bookIds)
-          .eq('family_member_id', member.id)
+          .eq('family_id', member.family_id)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -96,7 +96,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .from('bookshelf_questions')
           .select(`${EXTRACTION_SELECT}, content_type, text, sent_to_prompts, journal_prompt_id, sent_to_tasks, task_id`)
           .in('bookshelf_item_id', bookIds)
-          .eq('family_member_id', member.id)
+          .eq('family_id', member.family_id)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),

@@ -130,7 +130,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
           { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
           { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
         ],
-      }]
+      }, bookshelf]
     case 'play':
       return [] // Play shell has no sidebar
   }
