@@ -9,6 +9,7 @@ import { X, PenLine, MessageCircle, Sparkles } from 'lucide-react'
 import { useWriteDrawer } from '@/hooks/useWriteDrawer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useGuidedDashboardConfig } from '@/hooks/useGuidedDashboardConfig'
 import { WriteDrawerNotepad } from './WriteDrawerNotepad'
 import { WriteDrawerMessages } from './WriteDrawerMessages'
@@ -18,7 +19,9 @@ export function WriteDrawer() {
   const { isOpen, activeTab, setActiveTab, closeDrawer } = useWriteDrawer()
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { preferences } = useGuidedDashboardConfig(family?.id, member?.id)
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { preferences } = useGuidedDashboardConfig(family?.id, activeMember?.id)
   const drawerRef = useRef<HTMLDivElement>(null)
 
   // Notepad content persisted in session
@@ -72,7 +75,7 @@ export function WriteDrawer() {
   if (!isOpen) return null
 
   const familyId = family?.id
-  const memberId = member?.id
+  const memberId = activeMember?.id
   if (!familyId || !memberId) return null
 
   const showReflections = preferences.reflections_in_drawer

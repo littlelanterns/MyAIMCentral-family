@@ -101,6 +101,8 @@ export function TasksPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [guidedNewTask, setGuidedNewTask] = useState('')
+  const [guidedCreating, setGuidedCreating] = useState(false)
 
   const { toggle, isCompleting } = useTaskCompletion({
     memberId: member?.id ?? '',
@@ -115,6 +117,25 @@ export function TasksPage() {
 
   // Guided member detection — simplified UI
   const isGuidedMember = activeMember?.dashboard_mode === 'guided'
+
+  // Guided quick-create: simple title-only task, assigned to self
+  const handleGuidedCreate = useCallback(async () => {
+    const title = guidedNewTask.trim()
+    if (!title || !family?.id || !member?.id || !activeMember?.id) return
+    setGuidedCreating(true)
+    await supabase.from('tasks').insert({
+      family_id: family.id,
+      created_by: activeMember.id,
+      assignee_id: activeMember.id,
+      title,
+      task_type: 'task',
+      status: 'pending',
+      source: 'manual',
+    })
+    setGuidedNewTask('')
+    setGuidedCreating(false)
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+  }, [guidedNewTask, family?.id, member?.id, activeMember?.id, queryClient])
 
   const handleCreateTask = useCallback(
     async (data: CreateTaskData) => {
@@ -332,10 +353,18 @@ export function TasksPage() {
             {isViewingAs ? `${activeMember?.display_name}'s Tasks` : 'Tasks'}
           </h1>
         </div>
-        {!isGuidedMember && (
+        {!isGuidedMember ? (
           <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
             <Plus size={16} />
             Create
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" onClick={() => {
+            const input = document.getElementById('guided-quick-add')
+            if (input) input.focus()
+          }}>
+            <Plus size={16} />
+            Add
           </Button>
         )}
       </div>
@@ -371,6 +400,36 @@ export function TasksPage() {
           familyMembers={familyMembers ?? []}
           approverId={member?.id ?? ''}
         />
+      )}
+
+      {/* ── Guided quick-add input ── */}
+      {isGuidedMember && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleGuidedCreate() }}
+          className="flex items-center gap-2 py-3"
+        >
+          <input
+            id="guided-quick-add"
+            type="text"
+            value={guidedNewTask}
+            onChange={(e) => setGuidedNewTask(e.target.value)}
+            placeholder="Add something to do..."
+            className="flex-1 px-3 py-2 rounded-lg text-sm"
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleGuidedCreate}
+            disabled={!guidedNewTask.trim() || guidedCreating}
+          >
+            {guidedCreating ? 'Adding...' : 'Save'}
+          </Button>
+        </form>
       )}
 
       {/* ── Filter bar (below tabs) — hidden for Guided members ── */}
@@ -454,7 +513,7 @@ export function TasksPage() {
             }
             description={
               isGuidedMember
-                ? 'Enjoy your free time. Check back later for new tasks!'
+                ? 'Nothing to do right now! Use the box above to add something.'
                 : activeTab === 'routines'
                   ? 'Create a routine template to build daily, weekly, or custom checklists.'
                   : 'Create a task to get started, or browse Studio templates for inspiration.'

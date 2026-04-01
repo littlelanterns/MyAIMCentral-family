@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { LilaModalTrigger } from '@/components/lila'
@@ -8,6 +8,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import { WriteDrawerProvider, useWriteDrawer } from '@/hooks/useWriteDrawer'
 import { WriteDrawer } from '@/components/guided/WriteDrawer'
 
@@ -94,39 +95,67 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* Bottom navigation */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t py-2 z-20"
-        style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-      >
-        {routeNavItems.map((item, idx) => {
-          // Insert Write button after Tasks (index 1)
-          const elements = []
+      {/* Bottom navigation — View As-aware */}
+      <GuidedBottomNav />
+    </div>
+  )
+}
+
+/** Bottom nav that works both in real routing and View As modal */
+function GuidedBottomNav() {
+  const { isViewingAs } = useViewAs()
+  const { currentPath, navigate: viewAsNav } = useViewAsNav()
+  const location = useLocation()
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t py-2 z-20"
+      style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+    >
+      {routeNavItems.map((item, idx) => {
+        const elements = []
+        const isActive = isViewingAs
+          ? currentPath === item.path
+          : location.pathname === item.path
+
+        if (isViewingAs) {
+          elements.push(
+            <button
+              key={item.path}
+              onClick={() => viewAsNav(item.path)}
+              className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
+              style={{
+                color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
+                background: 'transparent',
+              }}
+            >
+              {item.icon}
+              <span className="text-xs">{item.label}</span>
+            </button>
+          )
+        } else {
           elements.push(
             <NavLink
               key={item.path}
               to={item.path}
               className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
-              style={({ isActive }) => ({
-                color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
+              style={({ isActive: active }) => ({
+                color: active ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
               })}
             >
               {item.icon}
               <span className="text-xs">{item.label}</span>
             </NavLink>
           )
+        }
 
-          if (idx === 1) {
-            // Write button — opens drawer instead of navigating
-            elements.push(
-              <WriteNavButton key="write" />
-            )
-          }
+        if (idx === 1) {
+          elements.push(<WriteNavButton key="write" />)
+        }
 
-          return elements
-        })}
-      </nav>
-    </div>
+        return elements
+      })}
+    </nav>
   )
 }
 
