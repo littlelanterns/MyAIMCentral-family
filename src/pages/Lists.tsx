@@ -356,7 +356,7 @@ function getBulkAddPlaceholder(listType: string): string {
 
 function getBulkAddHint(listType: string): string {
   switch (listType) {
-    case 'shopping': return 'Works with recipes, grocery lists, and brain dumps. AI detects quantities.'
+    case 'shopping': return 'Works with recipes, grocery lists, and brain dumps. AI detects quantities and store names.'
     case 'wishlist': return 'Paste product names, URLs, or wishlists from other apps.'
     case 'expenses': return 'Include amounts with items. AI extracts prices automatically.'
     case 'packing': return 'Use "Category:" headers to group items into sections.'
@@ -365,8 +365,12 @@ function getBulkAddHint(listType: string): string {
 }
 
 function getBulkAddCategories(listType: string, sections: string[]): { value: string; label: string }[] | undefined {
-  if (listType === 'shopping' || listType === 'packing') {
-    // Use existing sections as categories, plus a default
+  if (listType === 'shopping') {
+    // Always return an array for shopping to enable category-aware parsing.
+    // Existing sections are included; AI can also detect new store names.
+    return sections.map(s => ({ value: s, label: s }))
+  }
+  if (listType === 'packing') {
     const cats = sections.map(s => ({ value: s, label: s }))
     if (cats.length > 0) return cats
   }
@@ -377,7 +381,12 @@ function getBulkAddPrompt(listType: string): string {
   const base = 'Parse the following text into individual list items. Return a JSON array.'
   switch (listType) {
     case 'shopping':
-      return `${base} Each item should be a string representing a grocery/shopping item. Extract quantities if present (e.g., "2 lbs chicken" stays as one item). If the text is a recipe, extract the ingredients only. Return ["item1", "item2", ...].`
+      return `${base} Each item should be a grocery/shopping item. Extract quantities if present (e.g., "2 lbs chicken" stays as one item). If the text is a recipe, extract the ingredients only.
+
+IMPORTANT: If the text contains store names, section headers, or category labels (lines ending with ":" like "Mama Jeans:", "Aldi:", "Produce:", "Frozen:"), use them as category values to group items by store or section.
+
+Always return objects with "text" and "category" fields: [{"text": "item name", "category": "Store or Section Name"}, ...].
+If no stores or sections are detected, use "" as the category. Never invent store names — only use ones mentioned in the text.`
     case 'wishlist':
       return `${base} Each item should be a product name or gift idea. Keep descriptions concise. Return ["item1", "item2", ...].`
     case 'expenses':

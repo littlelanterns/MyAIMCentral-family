@@ -93,9 +93,10 @@ export function BulkAddWithAI({
             }
             if (item && typeof item === 'object' && 'text' in item) {
               const obj = item as Record<string, unknown>
-              const cat = categories
-                ? (categories.some(c => c.value === obj.category) ? obj.category as string : defaultCategory)
-                : undefined
+              // Accept any non-empty category the AI returns (e.g. detected store names)
+              // Fall back to defaultCategory only when AI returned nothing
+              const aiCat = typeof obj.category === 'string' && obj.category.trim() ? obj.category.trim() : undefined
+              const cat = categories ? (aiCat || defaultCategory) : undefined
               return {
                 text: (obj.text as string).trim(),
                 category: cat,
@@ -286,23 +287,31 @@ export function BulkAddWithAI({
                   }}
                 />
 
-                {categories && (
-                  <select
-                    value={item.category || ''}
-                    onChange={(e) => handleEditCategory(index, e.target.value)}
-                    className="text-xs px-1 py-0.5 rounded"
-                    style={{
-                      backgroundColor: 'var(--color-bg-secondary)',
-                      color: 'var(--color-text-primary)',
-                      border: '1px solid var(--color-border)',
-                      minHeight: 'unset',
-                    }}
-                  >
-                    {categories.map(cat => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
-                    ))}
-                  </select>
-                )}
+                {categories && (() => {
+                  // Merge predefined categories with any AI-detected ones
+                  const allCats = new Map(categories.map(c => [c.value, c.label]))
+                  parsedItems.forEach(p => {
+                    if (p.category && !allCats.has(p.category)) allCats.set(p.category, p.category)
+                  })
+                  return (
+                    <select
+                      value={item.category || ''}
+                      onChange={(e) => handleEditCategory(index, e.target.value)}
+                      className="text-xs px-1 py-0.5 rounded"
+                      style={{
+                        backgroundColor: 'var(--color-bg-secondary)',
+                        color: 'var(--color-text-primary)',
+                        border: '1px solid var(--color-border)',
+                        minHeight: 'unset',
+                      }}
+                    >
+                      <option value="">No section</option>
+                      {Array.from(allCats.entries()).map(([val, label]) => (
+                        <option key={val} value={val}>{label}</option>
+                      ))}
+                    </select>
+                  )
+                })()}
 
                 <button
                   onClick={() => handleRemoveItem(index)}
