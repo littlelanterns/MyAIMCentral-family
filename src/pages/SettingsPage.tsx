@@ -302,12 +302,26 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
     if (!familyId) return
     supabase
       .from('family_members')
-      .select('id, display_name, role, auth_method, is_active')
+      .select('id, display_name, role, auth_method, is_active, date_of_birth')
       .eq('family_id', familyId)
       .eq('is_active', true)
-      .order('created_at')
       .then(({ data }) => {
-        if (data) setMembers(data)
+        if (data) {
+          const roleOrder: Record<string, number> = {
+            primary_parent: 0, additional_adult: 1, special_adult: 2, member: 3,
+          }
+          data.sort((a, b) => {
+            const ra = roleOrder[a.role] ?? 9
+            const rb = roleOrder[b.role] ?? 9
+            if (ra !== rb) return ra - rb
+            // Within same role group, oldest first (earliest DOB)
+            if (a.date_of_birth && b.date_of_birth) return a.date_of_birth.localeCompare(b.date_of_birth)
+            if (a.date_of_birth) return -1
+            if (b.date_of_birth) return 1
+            return 0
+          })
+          setMembers(data)
+        }
       })
   }, [familyId])
 
