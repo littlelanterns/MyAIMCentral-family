@@ -6,6 +6,7 @@ import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSettings } from '@/components/settings'
+import { ThemeSelector } from '@/components/ThemeSelector'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { WriteDrawerProvider, useWriteDrawer } from '@/hooks/useWriteDrawer'
 import { WriteDrawer } from '@/components/guided/WriteDrawer'
@@ -74,6 +75,7 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
             </button>
           </Tooltip>
           <LilaModalTrigger modeKey="guided_communication_coach" label="LiLa" />
+          <ThemeSelector />
           <button
             onClick={openSettings}
             className="p-2 rounded-full"
