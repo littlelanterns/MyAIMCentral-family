@@ -834,13 +834,58 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
     const qty = item.quantity ? `${item.quantity}${item.quantity_unit ? ' ' + item.quantity_unit : ''}` : null
     const [editing, setEditing] = useState(false)
     const [editText, setEditText] = useState(label)
+    const [editNotes, setEditNotes] = useState(item.notes || '')
+
+    function openEdit() {
+      setEditText(label)
+      setEditNotes(item.notes || '')
+      setEditing(true)
+    }
 
     function commitEdit() {
-      const trimmed = editText.trim()
-      if (trimmed && trimmed !== label) {
-        updateItem.mutate({ id: item.id, listId, content: trimmed })
+      const trimmedText = editText.trim()
+      const trimmedNotes = editNotes.trim()
+      const changes: Record<string, unknown> = {}
+      if (trimmedText && trimmedText !== label) changes.content = trimmedText
+      if (trimmedNotes !== (item.notes || '')) changes.notes = trimmedNotes || null
+      if (Object.keys(changes).length > 0) {
+        updateItem.mutate({ id: item.id, listId, ...changes })
       }
       setEditing(false)
+    }
+
+    if (editing) {
+      return (
+        <div className="py-1.5 px-1 space-y-1.5 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              value={editText}
+              onChange={e => setEditText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(false) }}
+              placeholder="Item name"
+              className="flex-1 px-2 py-1 rounded text-sm"
+              style={{ color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', outline: 'none' }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={editNotes}
+              onChange={e => setEditNotes(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(false) }}
+              placeholder="Add a note (e.g., without corn syrup)"
+              className="flex-1 px-2 py-1 rounded text-xs"
+              style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', outline: 'none' }}
+            />
+            <button onClick={commitEdit} className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+              Done
+            </button>
+            <button onClick={() => setEditing(false)} className="px-2 py-1 rounded text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )
     }
 
     return (
@@ -862,37 +907,28 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             {item.checked && <Check size={10} style={{ color: 'var(--color-btn-primary-text)' }} />}
           </div>
         </button>
-        {editing ? (
-          <input
-            autoFocus
-            value={editText}
-            onChange={e => setEditText(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(false) }}
-            className="text-sm flex-1 min-w-0 px-1 py-0 rounded"
-            style={{ color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', outline: 'none' }}
-          />
-        ) : (
-          <span
-            className={`text-sm flex-1 min-w-0 truncate cursor-text ${item.checked ? 'line-through' : ''}`}
-            style={{ color: 'var(--color-text-primary)' }}
-            onClick={() => { setEditText(label); setEditing(true) }}
-          >
+        <div className="flex-1 min-w-0">
+          <span className={`text-sm truncate block ${item.checked ? 'line-through' : ''}`} style={{ color: 'var(--color-text-primary)' }}>
             {label}
+            {qty && <span className="text-xs ml-1" style={{ color: 'var(--color-text-secondary)' }}>{qty}</span>}
           </span>
-        )}
-        {qty && !editing && (
-          <span className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
-            {qty}
-          </span>
-        )}
-        {item.notes && !editing && (
-          <span className="text-xs shrink-0 italic hidden sm:inline" style={{ color: 'var(--color-text-secondary)' }}>
-            {item.notes}
-          </span>
-        )}
-        {/* Move to section (hover-only when sections exist) */}
-        {allSectionNames.length > 1 && !editing && (
+          {item.notes && (
+            <span className="text-[11px] italic block truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              {item.notes}
+            </span>
+          )}
+        </div>
+        {/* Pencil to edit */}
+        <button
+          onClick={openEdit}
+          className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          style={{ color: 'var(--color-text-secondary)' }}
+          title="Edit item"
+        >
+          <Pencil size={12} />
+        </button>
+        {/* Move to section */}
+        {allSectionNames.length > 1 && (
           <select
             value={item.section_name || ''}
             onChange={e => { e.stopPropagation(); moveItemToSection(item.id, e.target.value) }}
