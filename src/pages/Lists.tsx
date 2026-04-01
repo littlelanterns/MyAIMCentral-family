@@ -384,11 +384,12 @@ function getBulkAddPrompt(listType: string): string {
       return `${base} Parse natural-language shopping lists, even conversational ones. Rules:
 
 1. STORES: Detect store names mentioned in the text (e.g., "from Mama Jeans", "at Sam's Club", "from Aldi"). Use them as the "category" to group items by store.
-2. QUANTITIES: Keep quantities with the item (e.g., "12 bags of chocolate chips" → text: "Chocolate chips", but keep "12 bags" in the text).
-3. NOTES: If the text mentions special instructions for an item (e.g., "needs to stay cold", "Gideon's choice", "whatever dips you wanted"), put them in a "note" field.
-4. MULTI-STORE ITEMS: If an item could come from multiple stores (e.g., "birthday cake from either Nothing Bundt Cake, Hy-Vee, or Sam's"), set category to "" and put the store options in the "note" field (e.g., "Could get from: Nothing Bundt Cake, Hy-Vee, or Sam's").
-5. VAGUE ITEMS: Keep vague descriptions as-is (e.g., "an assortment of produce" stays as one item, don't split into individual produce items).
-6. UNCLEAR: If something is ambiguous (could be a store name, an errand, not clearly a list item), add "unclear": true.
+2. STORE CONTINUITY: Items between store mentions belong to the most recently mentioned store. For example, "From Sam's we need eggs, we need milk, we need cheese. From Aldi we need pizza" means eggs, milk, AND cheese all belong to Sam's because they appear after "From Sam's" and before "From Aldi." Only switch stores when a new store is explicitly named.
+3. QUANTITIES: Keep quantities with the item (e.g., "12 bags of chocolate chips" stays as "12 bags of chocolate chips"). Keep the full quantity in the text.
+4. NOTES: If the text mentions special instructions for an item (e.g., "needs to stay cold", "Gideon's choice", "whatever dips you wanted"), put them in a "note" field.
+5. MULTI-STORE ITEMS: If an item could come from multiple stores (e.g., "birthday cake from either Nothing Bundt Cake, Hy-Vee, or Sam's"), set category to "" and put the store options in the "note" field (e.g., "Could get from: Nothing Bundt Cake, Hy-Vee, or Sam's").
+6. VAGUE ITEMS: Keep vague descriptions as-is (e.g., "an assortment of produce" stays as one item, don't split).
+7. UNCLEAR: If something is ambiguous (could be a store name, an errand, not clearly a list item), add "unclear": true.
 
 Return objects: [{"text": "item name", "category": "Store Name", "note": "optional note"}, ...].
 If no store is detected for an item, use "" as category. Never invent store names.`
