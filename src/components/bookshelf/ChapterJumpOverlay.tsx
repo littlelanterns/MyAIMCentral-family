@@ -96,13 +96,13 @@ export function ChapterJumpOverlay({
             className="md:hidden fixed inset-0 bg-black/30 z-40"
             onClick={() => setOpen(false)}
           />
-          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[var(--color-surface-primary)] rounded-t-2xl max-h-[60vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-subtle)]">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl max-h-[60vh] overflow-y-auto shadow-xl" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {bookTitle || 'Sections'}
               </h3>
-              <button onClick={() => setOpen(false)} className="p-1">
-                <X size={18} className="text-[var(--color-text-tertiary)]" />
+              <button onClick={() => setOpen(false)} className="p-1" style={{ background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}>
+                <X size={18} style={{ color: 'var(--color-text-secondary)' }} />
               </button>
             </div>
 
@@ -111,7 +111,8 @@ export function ChapterJumpOverlay({
                 <button
                   key={entry.key}
                   onClick={() => scrollToSection(entry.key)}
-                  className="w-full text-left text-sm py-2 px-3 rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)] truncate"
+                  className="w-full text-left text-sm py-2 px-3 rounded-lg truncate"
+                  style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}
                 >
                   {entry.title}
                 </button>
@@ -119,7 +120,8 @@ export function ChapterJumpOverlay({
 
               <button
                 onClick={scrollToTop}
-                className="w-full text-left text-sm py-2 px-3 rounded-lg text-[var(--color-accent)] hover:bg-[var(--color-surface-tertiary)] flex items-center gap-2"
+                className="w-full text-left text-sm py-2 px-3 rounded-lg flex items-center gap-2"
+                style={{ color: 'var(--color-accent)', background: 'none', border: 'none', cursor: 'pointer', minHeight: 'unset' }}
               >
                 <ArrowUp size={14} />
                 Back to top

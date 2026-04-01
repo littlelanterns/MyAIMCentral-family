@@ -52,6 +52,8 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
   // Form state
   const [title, setTitle] = useState('')
   const [eventDate, setEventDate] = useState(initialDate ?? '')
+  const [endDate, setEndDate] = useState('')
+  const [isMultiDay, setIsMultiDay] = useState(false)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [isAllDay, setIsAllDay] = useState(false)
@@ -75,6 +77,8 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         // Edit mode — pre-populate from existing event
         setTitle(initialEvent.title ?? '')
         setEventDate(initialEvent.event_date ?? initialDate ?? '')
+        setEndDate(initialEvent.end_date ?? '')
+        setIsMultiDay(!!initialEvent.end_date && initialEvent.end_date !== initialEvent.event_date)
         setStartTime(initialEvent.start_time?.slice(0, 5) ?? '')
         setEndTime(initialEvent.end_time?.slice(0, 5) ?? '')
         setIsAllDay(initialEvent.is_all_day ?? false)
@@ -102,6 +106,8 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         // Create mode — reset to blank
         setTitle('')
         setEventDate(initialDate ?? '')
+        setEndDate('')
+        setIsMultiDay(false)
         setStartTime('')
         setEndTime('')
         setIsAllDay(false)
@@ -168,6 +174,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
     const input: CreateEventInput = {
       title: title.trim(),
       event_date: eventDate,
+      end_date: isMultiDay && endDate ? endDate : undefined,
       start_time: isAllDay ? undefined : startTime || undefined,
       end_time: isAllDay ? undefined : endTime || undefined,
       is_all_day: isAllDay,
@@ -201,7 +208,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
       await createEvent.mutateAsync(input)
     }
     onClose()
-  }, [title, eventDate, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
+  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
 
   const isSaving = createEvent.isPending || updateEvent.isPending
   const hasUnsavedChanges = title.trim().length > 0
@@ -277,18 +284,34 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
 
         {/* Date & Time Section Card */}
         <SectionCard title="Date & Time" icon={Clock}>
-          <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isAllDay}
-              onChange={(e) => setIsAllDay(e.target.checked)}
-              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-            />
-            <span style={{ color: 'var(--color-text-primary)' }}>All day event</span>
-          </label>
-          <div className={`grid gap-3 ${isAllDay ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className="flex gap-4 mb-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isAllDay}
+                onChange={(e) => setIsAllDay(e.target.checked)}
+                style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+              />
+              <span style={{ color: 'var(--color-text-primary)' }}>All day</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isMultiDay}
+                onChange={(e) => {
+                  setIsMultiDay(e.target.checked)
+                  if (!e.target.checked) setEndDate('')
+                }}
+                style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+              />
+              <span style={{ color: 'var(--color-text-primary)' }}>Multi-day</span>
+            </label>
+          </div>
+          <div className={`grid gap-3 ${isAllDay && !isMultiDay ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <div>
-              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>Date</label>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                {isMultiDay ? 'Start Date' : 'Date'}
+              </label>
               <input
                 type="date"
                 value={eventDate}
@@ -297,6 +320,19 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
                 style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
               />
             </div>
+            {isMultiDay && (
+              <div>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={eventDate || undefined}
+                  className="w-full text-sm rounded-lg px-3 py-2"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                />
+              </div>
+            )}
             {!isAllDay && (
               <>
                 <div>
