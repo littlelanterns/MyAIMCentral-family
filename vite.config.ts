@@ -7,8 +7,6 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // PWA plugin removed — vite-plugin-pwa@1.2.0 doesn't support vite 8 yet.
-    // PRD-33 (Offline/PWA) is post-MVP. Re-add when vite-plugin-pwa supports vite 8.
   ],
   resolve: {
     alias: {
