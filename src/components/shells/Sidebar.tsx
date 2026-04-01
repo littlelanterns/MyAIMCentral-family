@@ -290,7 +290,9 @@ export function Sidebar() {
   return <SidebarInner sections={sections} collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} shell={shell} isPreview={isPreview} />
 }
 
-/** Track expanded sections — default: only the section containing the current route */
+const SIDEBAR_SECTIONS_KEY = 'myaim-sidebar-sections'
+
+/** Track expanded sections — persisted to localStorage so choices survive across sessions */
 function useSectionCollapse(sections: NavSection[], currentPath: string) {
   // Find which section contains the active route
   const activeSectionTitle = sections.find(s =>
@@ -298,14 +300,29 @@ function useSectionCollapse(sections: NavSection[], currentPath: string) {
   )?.title
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
-    // Default: only expand the section containing the current route
-    return new Set(activeSectionTitle ? [activeSectionTitle] : ['Home'])
+    // Restore from localStorage if available
+    try {
+      const stored = localStorage.getItem(SIDEBAR_SECTIONS_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[]
+        const restored = new Set(parsed)
+        // Also include the active section so you always see where you are
+        if (activeSectionTitle) restored.add(activeSectionTitle)
+        return restored
+      }
+    } catch { /* ignore malformed storage */ }
+    // First visit: show everything open so the user can see the full nav map
+    return new Set(sections.map(s => s.title))
   })
 
   // When route changes, auto-expand the section containing the new route
   useEffect(() => {
     if (activeSectionTitle && !expandedSections.has(activeSectionTitle)) {
-      setExpandedSections(prev => new Set([...prev, activeSectionTitle]))
+      setExpandedSections(prev => {
+        const next = new Set([...prev, activeSectionTitle])
+        localStorage.setItem(SIDEBAR_SECTIONS_KEY, JSON.stringify([...next]))
+        return next
+      })
     }
   }, [currentPath, activeSectionTitle])
 
@@ -314,6 +331,7 @@ function useSectionCollapse(sections: NavSection[], currentPath: string) {
       const next = new Set(prev)
       if (next.has(title)) next.delete(title)
       else next.add(title)
+      localStorage.setItem(SIDEBAR_SECTIONS_KEY, JSON.stringify([...next]))
       return next
     })
   }, [])
