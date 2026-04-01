@@ -99,7 +99,7 @@ export function CollectionSidebar({
             if (editingCollection) {
               await updateCollection(editingCollection.id, { name, description })
             } else {
-              await createCollection(name, description)
+              await createCollection(name, description ?? undefined)
             }
             setShowCreateModal(false)
             setEditingCollection(null)

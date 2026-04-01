@@ -487,13 +487,21 @@ export function ArchivesPage() {
     setCropModalOpen(true)
   }
 
-  // Called when crop is confirmed
+  // Called when crop is confirmed — uses reference photos for members
   async function handleCropConfirm(croppedBlob: Blob) {
-    const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' })
+    const file = new File([croppedBlob], 'reference.jpg', { type: 'image/jpeg' })
 
     if (cropTargetMemberId) {
       setUploadingMemberId(cropTargetMemberId)
-      await avatarUpload.uploadMemberAvatar(cropTargetMemberId, file)
+      // Fetch current reference photos to append
+      const { data: settings } = await supabase
+        .from('archive_member_settings')
+        .select('reference_photos')
+        .eq('family_id', familyId!)
+        .eq('member_id', cropTargetMemberId)
+        .maybeSingle()
+      const existing: string[] = settings?.reference_photos ?? []
+      await avatarUpload.uploadReferencePhoto(cropTargetMemberId, file, existing)
       setUploadingMemberId(null)
     } else {
       setUploadingFamily(true)

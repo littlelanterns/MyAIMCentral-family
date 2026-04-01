@@ -12,7 +12,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, BarChart3, Brain } from 'lucide-react'
+import { Zap, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, BarChart3, Brain } from 'lucide-react'
 import { useShell } from '@/components/shells/ShellProvider'
 
 const QUICK_ACTIONS = [
@@ -273,13 +273,13 @@ export function QuickCreate({
           zIndex: 35, // above content, below modals (z-40+)
           opacity: isDragging ? 1 : isHovered || isOpen ? 1 : 0.75,
           cursor: isDragging ? 'grabbing' : 'pointer',
-          transform: isOpen ? 'rotate(45deg)' : 'none',
+          transform: 'none',
           touchAction: 'none', // prevent scroll interference
           userSelect: 'none',
         }}
         aria-label="Quick Create"
       >
-        <Plus size={24} />
+        <Zap size={22} />
       </button>
 
       {/* Popover */}

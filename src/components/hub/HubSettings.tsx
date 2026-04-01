@@ -15,9 +15,14 @@
 import { useState, useCallback } from 'react'
 import {
   Settings, Eye, EyeOff, GripVertical, Plus, Pencil, Archive,
-  Star, Trophy, Home, Lock, Frame, Trash2, Type, Image,
+  Star, Trophy, Home, Lock, Frame, Trash2, Type, Image as ImageIcon, Calendar,
 } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
+import { supabase } from '@/lib/supabase/client'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useFamilyHubConfig, useUpdateFamilyHubConfig, HUB_SECTION_KEYS } from '@/hooks/useFamilyHubConfig'
 import {
   useAllFamilyBestIntentions,
@@ -223,6 +228,21 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
 
   const victorySettings = config?.victory_settings ?? {}
   const slideshowConfig = (config?.slideshow_config ?? {}) as Record<string, unknown>
+
+  // @dnd-kit for section reorder
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  const handleSectionDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id || !familyId) return
+    const oldIndex = sectionOrder.indexOf(active.id as string)
+    const newIndex = sectionOrder.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+    const newOrder = [...sectionOrder]
+    const [moved] = newOrder.splice(oldIndex, 1)
+    newOrder.splice(newIndex, 0, moved)
+    updateConfig.mutate({ familyId, sectionOrder: newOrder })
+  }, [familyId, sectionOrder, updateConfig])
   const toggleVictorySetting = useCallback((key: string) => {
     if (!familyId) return
     const current = (victorySettings as Record<string, boolean>)[key] ?? true
@@ -291,31 +311,29 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
         </SettingsGroup>
 
         {/* ── 3. Section Visibility & Order ──────────────────────────── */}
-        <SettingsGroup icon={<Eye size={16} />} title="Section Visibility">
-          <div className="space-y-1">
-            {sectionOrder.map((key) => {
-              const visible = sectionVisibility[key] ?? true
-              return (
-                <div
-                  key={key}
-                  className="flex items-center gap-2 py-2 px-2 rounded-lg"
-                  style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-                >
-                  <GripVertical size={14} style={{ color: 'var(--color-text-muted, var(--color-text-secondary))' }} />
-                  <span className="flex-1 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                    {SECTION_LABELS[key] ?? key}
-                  </span>
-                  <button
-                    onClick={() => toggleSectionVisibility(key)}
-                    className="p-1 rounded"
-                    style={{ color: visible ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-                  >
-                    {visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+        <SettingsGroup icon={<Eye size={16} />} title="Section Visibility & Order">
+          <DndContext
+            sensors={dndSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSectionDragEnd}
+          >
+            <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {sectionOrder.map((key) => {
+                  const visible = sectionVisibility[key] ?? true
+                  return (
+                    <SortableSectionItem
+                      key={key}
+                      id={key}
+                      label={SECTION_LABELS[key] ?? key}
+                      visible={visible}
+                      onToggle={() => toggleSectionVisibility(key)}
+                    />
+                  )
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         </SettingsGroup>
 
         {/* ── 4. Family Best Intentions ──────────────────────────────── */}
@@ -571,7 +589,7 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
                     border: '1px solid var(--color-border)',
                   }}
                 >
-                  <Image size={12} /> Photo
+                  <ImageIcon size={12} /> Photo
                 </button>
                 <button
                   onClick={() => setSlideType('image_word_art')}
@@ -598,16 +616,25 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
                 />
               )}
 
-              {/* URL input for image slides (future: file upload via Supabase Storage) */}
+              {/* File upload for image slides */}
               {(slideType === 'image_photo' || slideType === 'image_word_art') && (
-                <input
-                  type="url"
-                  value={slideImageUrl}
-                  onChange={(e) => setSlideImageUrl(e.target.value)}
-                  placeholder="Image URL (file upload coming soon)"
-                  className="w-full text-sm rounded-lg px-3 py-2"
-                  style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-                />
+                <div>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) setSlideImageUrl(file.name) // Track that a file is selected
+                      // Store the actual File object for upload
+                      ;(window as unknown as Record<string, unknown>).__hubSlideFile = file
+                    }}
+                    className="w-full text-xs"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  />
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    JPG, PNG, WebP, or GIF. Max 10MB.
+                  </p>
+                </div>
               )}
 
               <div className="flex gap-2">
@@ -615,24 +642,43 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
                   onClick={async () => {
                     if (!familyId) return
                     if (slideType === 'text' && !slideText.trim()) return
-                    if (slideType !== 'text' && !slideImageUrl.trim()) return
+
+                    let imageUrl: string | undefined
+                    if (slideType !== 'text') {
+                      // Upload file to Supabase Storage
+                      const file = (window as unknown as Record<string, unknown>).__hubSlideFile as File | undefined
+                      if (!file) return
+                      const ext = file.name.split('.').pop() ?? 'jpg'
+                      const path = `${familyId}/${crypto.randomUUID()}.${ext}`
+                      const { error: uploadErr } = await supabase.storage
+                        .from('hub-slideshow')
+                        .upload(path, file, { contentType: file.type, upsert: false })
+                      if (uploadErr) {
+                        console.error('Upload failed:', uploadErr)
+                        return
+                      }
+                      const { data: urlData } = supabase.storage.from('hub-slideshow').getPublicUrl(path)
+                      imageUrl = urlData.publicUrl
+                      delete (window as unknown as Record<string, unknown>).__hubSlideFile
+                    }
+
                     await createSlide.mutateAsync({
                       familyId,
                       slideType,
                       textBody: slideType === 'text' ? slideText.trim() : undefined,
-                      imageUrl: slideType !== 'text' ? slideImageUrl.trim() : undefined,
+                      imageUrl,
                       sortOrder: (slides?.length ?? 0),
                     })
                     setSlideText('')
                     setSlideImageUrl('')
                     setShowSlideForm(false)
                   }}
-                  disabled={slideType === 'text' ? !slideText.trim() : !slideImageUrl.trim()}
+                  disabled={slideType === 'text' ? !slideText.trim() : !slideImageUrl}
                   className="text-xs px-4 py-2 rounded-lg font-medium"
                   style={{
                     backgroundColor: 'var(--surface-primary, var(--color-btn-primary-bg))',
                     color: 'var(--color-text-on-primary, #fff)',
-                    opacity: (slideType === 'text' ? slideText.trim() : slideImageUrl.trim()) ? 1 : 0.5,
+                    opacity: (slideType === 'text' ? slideText.trim() : slideImageUrl) ? 1 : 0.5,
                   }}
                 >
                   Add Slide
@@ -659,7 +705,7 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
                     {s.slide_type === 'text' ? (
                       <Type size={14} style={{ color: 'var(--color-text-secondary)' }} />
                     ) : (
-                      <Image size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                      <ImageIcon size={14} style={{ color: 'var(--color-text-secondary)' }} />
                     )}
                     <span className="flex-1 text-xs truncate" style={{ color: 'var(--color-text-primary)' }}>
                       {s.slide_type === 'text'
@@ -731,13 +777,88 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
           </div>
         </SettingsGroup>
 
-        {/* ── Calendar note ──────────────────────────────────────────── */}
-        <div className="text-xs p-3 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}>
-          Events are visible on the Hub by default. Hide individual events from the Hub when creating or editing them.
-        </div>
+        {/* ── 8. Calendar View ─────────────────────────────────────────── */}
+        <SettingsGroup icon={<Calendar size={16} />} title="Hub Calendar">
+          <div className="space-y-2">
+            <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Calendar view on Hub</label>
+            <div className="flex gap-2">
+              {(['week', 'month', 'both'] as const).map((view) => {
+                const currentView = ((config?.preferences as Record<string, unknown>)?.hub_calendar_view as string) ?? 'week'
+                const isActive = currentView === view
+                return (
+                  <button
+                    key={view}
+                    onClick={() => {
+                      if (!familyId) return
+                      updateConfig.mutate({
+                        familyId,
+                        preferences: {
+                          ...((config?.preferences as Record<string, unknown>) ?? {}),
+                          hub_calendar_view: view,
+                        },
+                      })
+                    }}
+                    className="flex-1 text-xs py-2 rounded-lg font-medium capitalize"
+                    style={{
+                      backgroundColor: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
+                      color: isActive ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-primary)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    {view}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              Events are visible on the Hub by default. Hide individual events from the Hub when creating or editing them.
+            </p>
+          </div>
+        </SettingsGroup>
 
       </div>
     </ModalV2>
+  )
+}
+
+// ─── Settings Group ─────────────────────────────────────────────────────────
+
+// ─── Sortable Section Item ──────────────────────────────────────────────────
+
+function SortableSectionItem({ id, label, visible, onToggle }: { id: string; label: string; visible: boolean; onToggle: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="flex items-center gap-2 py-2 px-2 rounded-lg"
+      style={{
+        backgroundColor: 'var(--color-bg-secondary)',
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 10 : undefined,
+      }}
+    >
+      <button
+        className="cursor-grab active:cursor-grabbing p-0.5 touch-none"
+        style={{ color: 'var(--color-text-muted, var(--color-text-secondary))', background: 'transparent', minHeight: 'unset' }}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={14} />
+      </button>
+      <span className="flex-1 text-sm" style={{ color: 'var(--color-text-primary)' }}>
+        {label}
+      </span>
+      <button
+        onClick={onToggle}
+        className="p-1 rounded"
+        style={{ color: visible ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+      >
+        {visible ? <Eye size={16} /> : <EyeOff size={16} />}
+      </button>
+    </div>
   )
 }
 

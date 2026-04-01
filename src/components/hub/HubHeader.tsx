@@ -7,17 +7,16 @@
  * Right: Frame toggle (opens slideshow) + settings gear
  */
 
-import { Users, Settings, Frame } from 'lucide-react'
+import { Settings, Frame } from 'lucide-react'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyHubConfig } from '@/hooks/useFamilyHubConfig'
 
 interface HubHeaderProps {
   onSettingsClick?: () => void
-  onMembersClick?: () => void
   onFrameClick?: () => void
 }
 
-export function HubHeader({ onSettingsClick, onMembersClick, onFrameClick }: HubHeaderProps) {
+export function HubHeader({ onSettingsClick, onFrameClick }: HubHeaderProps) {
   const { data: family } = useFamily()
   const { data: config } = useFamilyHubConfig(family?.id)
 
@@ -25,28 +24,15 @@ export function HubHeader({ onSettingsClick, onMembersClick, onFrameClick }: Hub
 
   return (
     <header
-      className="flex items-center justify-between px-4 py-3"
+      className="flex items-center justify-between px-4 py-3 sticky top-0 z-30"
       data-testid="hub-header"
       style={{
         borderBottom: '1px solid var(--color-border)',
         backgroundColor: 'var(--color-bg-card)',
       }}
     >
-      {/* Left: Member access shortcut */}
-      <button
-        onClick={onMembersClick}
-        className="flex items-center justify-center rounded-lg transition-colors"
-        style={{
-          width: 44,
-          height: 44,
-          color: 'var(--color-text-secondary)',
-          backgroundColor: 'transparent',
-        }}
-        title="Family Members"
-        aria-label="Family Members"
-      >
-        <Users size={20} />
-      </button>
+      {/* Left spacer (member access is via left-edge pull tab) */}
+      <div style={{ width: 44 }} />
 
       {/* Center: Title */}
       <h1

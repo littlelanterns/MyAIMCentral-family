@@ -20,6 +20,7 @@ import type { SlideshowSlide, SlideType } from '@/hooks/useSlideshowSlides'
 interface SlideshowOverlayProps {
   isOpen: boolean
   onClose: () => void
+  onOpenSettings?: () => void
 }
 
 // ─── Duration per slide type (seconds) ──────────────────────────────────────
@@ -43,7 +44,7 @@ function getDuration(
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function SlideshowOverlay({ isOpen, onClose }: SlideshowOverlayProps) {
+export function SlideshowOverlay({ isOpen, onClose, onOpenSettings }: SlideshowOverlayProps) {
   const { data: family } = useFamily()
   const { data: dbSlides } = useSlideshowSlides(family?.id)
   const { data: guidingStars } = useFamilyGuidingStars(family?.id)
@@ -127,30 +128,17 @@ export function SlideshowOverlay({ isOpen, onClose }: SlideshowOverlayProps) {
 
   const currentSlide = allSlides[currentIndex]
 
-  // Empty state
+  // Empty state — close slideshow and open settings if available
   if (!currentSlide || allSlides.length === 0) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ backgroundColor: 'var(--color-bg-page)' }}
-      >
-        <div className="text-center p-8">
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            No slides yet. Add photos or quotes in Hub Settings to start your slideshow.
-          </p>
-          <button
-            onClick={onClose}
-            className="mt-4 text-sm font-medium px-4 py-2 rounded-lg"
-            style={{
-              backgroundColor: 'var(--surface-primary, var(--color-btn-primary-bg))',
-              color: 'var(--color-text-on-primary, #fff)',
-            }}
-          >
-            Back to Hub
-          </button>
-        </div>
-      </div>
-    )
+    if (onOpenSettings) {
+      // Auto-close slideshow and open Hub Settings so mom can add slides
+      onClose()
+      onOpenSettings()
+      return null
+    }
+    // Non-mom: just close
+    onClose()
+    return null
   }
 
   return (

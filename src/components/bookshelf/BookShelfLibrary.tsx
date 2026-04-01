@@ -4,7 +4,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, Grid3X3, List, ChevronDown, ChevronLeft, ChevronRight,
+  Search, Grid3X3, List, ChevronDown,
   X, Library, Sparkles, RefreshCw, Tag,
 } from 'lucide-react'
 import { Button, FeatureGuide } from '@/components/shared'

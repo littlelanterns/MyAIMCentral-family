@@ -58,6 +58,7 @@ import {
   type ArchiveFolderNode,
 } from '@/hooks/useArchives'
 import type { ArchiveContextItem } from '@/types/archives'
+import { ReferencePhotosSection } from '@/components/archives/ReferencePhotosSection'
 
 // ---------------------------------------------------------------------------
 // Relative time helper
@@ -848,6 +849,15 @@ export function MemberArchiveDetail() {
             </p>
           </div>
         </div>
+
+        {/* Reference Photos */}
+        {familyId && memberId && (
+          <ReferencePhotosSection
+            familyId={familyId}
+            memberId={memberId}
+            memberName={targetMember.display_name}
+          />
+        )}
 
         {/* Person-level master toggle */}
         <Card variant="flat" padding="md">

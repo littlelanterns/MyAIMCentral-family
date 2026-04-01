@@ -32,9 +32,9 @@ export function useExtractionItemActions(
   const handleHeart = useCallback(async (
     table: ExtractionTable, id: string, currentHearted: boolean
   ) => {
-    const ok = await toggleExtractionHeart(table, id, !currentHearted)
-    if (ok) callbacks.onItemUpdated()
-  }, [callbacks])
+    // UI updates optimistically in ExtractionItem — no refetch needed
+    await toggleExtractionHeart(table, id, !currentHearted)
+  }, [])
 
   const handleNoteSave = useCallback(async (
     table: ExtractionTable, id: string, note: string

@@ -49,7 +49,22 @@
       "Write(postcss.config.*)",
       "Write(.gitignore)",
       "Write(tests/**)",
-      "Write(e2e/**)"
+      "Write(e2e/**)",
+      "Bash(scripts/_tmp_check2.sql:*)",
+      "Bash(rm -f scripts/_tmp_check2.sql)",
+      "Bash(scripts/_tmp_check3.sql:*)",
+      "Bash(rm -f scripts/_tmp_check3.sql)",
+      "Bash(scripts/_tmp_fix.sql:*)",
+      "Bash(rm -f scripts/_tmp_fix.sql)",
+      "Bash(scripts/_tmp_r1.sql:*)",
+      "Bash(rm -f scripts/_tmp_r1.sql)",
+      "Bash(scripts/_tmp_cols.sql:*)",
+      "Bash(rm -f scripts/_tmp_cols.sql)",
+      "Bash(npx tsx -e \":*)",
+      "Bash(node -e \":*)",
+      "Read(//c/dev/MyAIMCentral-family/MyAIMCentral-family/**)",
+      "Bash(EOSQL npx:*)",
+      "Bash(find /c/dev/MyAIMCentral-family/MyAIMCentral-family -type f \\\\\\(-name *.sql -o -name *schema* -o -name *migration* \\\\\\))"
     ],
     "deny": [
       "Write(.env.local)",
@@ -57,6 +72,9 @@
       "Write(prds/**)",
       "Write(specs/**)",
       "Write(reference/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\dev\\MyAIMCentral-family\\MyAIMCentral-family\\scripts"
     ]
   },
   "hooks": {

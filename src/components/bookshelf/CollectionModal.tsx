@@ -37,6 +37,7 @@ export function CollectionModal({ isOpen, collection, onClose, onSave }: Collect
 
   return (
     <ModalV2
+      id={collection ? `edit-collection-${collection.id}` : 'create-collection'}
       isOpen={isOpen}
       onClose={onClose}
       title={collection ? 'Edit Collection' : 'New Collection'}

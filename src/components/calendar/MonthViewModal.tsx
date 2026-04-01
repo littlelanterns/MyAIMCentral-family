@@ -22,6 +22,8 @@ interface MonthViewModalProps {
   isOpen: boolean
   onClose: () => void
   onDateSelect: (date: Date) => void
+  /** When true, renders inline (no modal wrapper) — used by Hub calendar */
+  inline?: boolean
 }
 
 function toISODate(d: Date): string {
@@ -47,7 +49,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const DAY_HEADERS_SUN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const DAY_HEADERS_MON = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
-export function MonthViewModal({ isOpen, onClose, onDateSelect }: MonthViewModalProps) {
+export function MonthViewModal({ isOpen, onClose, onDateSelect, inline }: MonthViewModalProps) {
   const { data: settings } = useCalendarSettings()
   const { data: family } = useFamily()
   const { data: familyMembers } = useFamilyMembers(family?.id)
@@ -99,15 +101,7 @@ export function MonthViewModal({ isOpen, onClose, onDateSelect }: MonthViewModal
     setViewMonth(d.getMonth())
   }
 
-  return (
-    <ModalV2
-      id="month-view"
-      isOpen={isOpen}
-      onClose={onClose}
-      type="transient"
-      size="md"
-      title="Family Calendar"
-    >
+  const content = (
       <div className="px-4 pt-3 pb-4">
         {/* Month + year nav */}
         <div className="flex items-center justify-between mb-4">
@@ -287,6 +281,29 @@ export function MonthViewModal({ isOpen, onClose, onDateSelect }: MonthViewModal
           ))}
         </div>
       </div>
+  )
+
+  if (inline) {
+    return (
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+      >
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <ModalV2
+      id="month-view"
+      isOpen={isOpen}
+      onClose={onClose}
+      type="transient"
+      size="md"
+      title="Family Calendar"
+    >
+      {content}
     </ModalV2>
   )
 }

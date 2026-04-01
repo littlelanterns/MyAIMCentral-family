@@ -1,7 +1,7 @@
 /**
  * BookCard — grid and compact variants (PRD-23)
  */
-import { FileText, FileType, BookOpen, CheckSquare, ChevronDown, ChevronRight } from 'lucide-react'
+import { FileText, FileType, BookOpen, ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import type { BookShelfItem } from '@/types/bookshelf'
 

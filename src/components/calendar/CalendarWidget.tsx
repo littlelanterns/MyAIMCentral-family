@@ -41,7 +41,9 @@ function getWeekStart(date: Date, weekStartDay: 0 | 1): Date {
 const DAY_NAMES_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-export function CalendarWidget({ hubMode }: { hubMode?: boolean } = {}) {
+export type CalendarViewMode = 'week' | 'month' | 'both'
+
+export function CalendarWidget({ hubMode, viewMode }: { hubMode?: boolean; viewMode?: CalendarViewMode } = {}) {
   const { data: settings } = useCalendarSettings()
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayNames = weekStartDay === 1 ? DAY_NAMES_MON : DAY_NAMES_SUN

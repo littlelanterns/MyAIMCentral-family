@@ -6,13 +6,14 @@
  * - 'tab': Inline in dashboard perspective switcher, no header, member access hidden.
  *
  * Reads useFamilyHubConfig for section order and visibility.
- * Auto-creates config via upsert if none exists.
- * Sections are NOT collapsible. Visibility controlled via Hub Settings only.
+ * Long-press enters edit mode (mom only, disabled in Hub Mode).
+ * Edit mode shows section labels with archive/restore toggles — no eyeballs.
  */
 
-import { useState, useEffect, useMemo } from 'react'
-import { Sparkles, Home, Settings, Frame } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { Sparkles, Home, Settings, Frame, GripVertical, ArchiveRestore, Archive, ChevronLeft, Lock, Users } from 'lucide-react'
+import { PullTab } from '@/components/shared/PullTab'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useFamilyHubConfig,
@@ -31,6 +32,18 @@ import { HubBestIntentionsSection } from './sections/HubBestIntentionsSection'
 import { HubCountdownsSection } from './sections/HubCountdownsSection'
 import { HubVictoriesSummarySection } from './sections/HubVictoriesSummarySection'
 import { HubMemberAccessSection } from './sections/HubMemberAccessSection'
+
+// ─── Section labels ──────────────────────────────────────────────────────────
+
+const SECTION_LABELS: Record<string, string> = {
+  family_calendar: 'Family Calendar',
+  family_vision: 'Family Vision',
+  family_best_intentions: 'Family Best Intentions',
+  victories_summary: 'Victories Summary',
+  countdowns: 'Countdowns',
+  widget_grid: 'Widget Grid',
+  member_access: 'Member Access',
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,8 +107,7 @@ function HubSectionRenderer({
     case 'family_calendar':
       return <HubCalendarSection />
     case 'family_vision':
-      // PRD-12B dependency — hidden when no data (which is always until PRD-12B is built)
-      return null
+      return null // PRD-12B dependency
     case 'family_best_intentions':
       return (
         <HubBestIntentionsSection
@@ -109,10 +121,9 @@ function HubSectionRenderer({
     case 'victories_summary':
       return <HubVictoriesSummarySection />
     case 'widget_grid':
-      return null // Wired when PRD-10 Hub widget deployment is built
+      return null // PRD-10 Hub widget deployment
     case 'member_access':
-      if (context !== 'standalone') return null
-      return <HubMemberAccessSection />
+      return null // Member access is via the left-edge pull tab drawer
     default:
       return null
   }
@@ -126,6 +137,8 @@ export function FamilyHub({ context }: FamilyHubProps) {
   const { data: config, isLoading: configLoading } = useFamilyHubConfig(family?.id)
   const updateConfig = useUpdateFamilyHubConfig()
 
+  const { data: familyMembers } = useFamilyMembers(family?.id)
+
   // Data queries for onboarding detection
   const { data: intentions } = useFamilyBestIntentions(family?.id)
   const { data: countdowns } = useVisibleCountdowns(family?.id)
@@ -133,6 +146,21 @@ export function FamilyHub({ context }: FamilyHubProps) {
   const isMom = member?.role === 'primary_parent'
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [slideshowOpen, setSlideshowOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [memberDrawerOpen, setMemberDrawerOpen] = useState(false)
+
+  // Long-press to enter edit mode (mom only)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handlePointerDown = useCallback(() => {
+    if (!isMom || editMode) return
+    longPressTimer.current = setTimeout(() => setEditMode(true), 500)
+  }, [isMom, editMode])
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }, [])
 
   // Auto-create config on first access (upsert)
   useEffect(() => {
@@ -144,7 +172,7 @@ export function FamilyHub({ context }: FamilyHubProps) {
     })
   }, [family?.id, config, configLoading, updateConfig])
 
-  // Determine section order and visibility
+  // Section order and visibility
   const sectionOrder = useMemo(() => {
     if (config?.section_order && config.section_order.length > 0) {
       return config.section_order
@@ -157,6 +185,15 @@ export function FamilyHub({ context }: FamilyHubProps) {
   const isSectionVisible = (key: string): boolean => {
     return sectionVisibility[key] !== false
   }
+
+  const toggleSectionVisibility = useCallback((key: string) => {
+    if (!family?.id) return
+    const current = sectionVisibility[key] ?? true
+    updateConfig.mutate({
+      familyId: family.id,
+      sectionVisibility: { ...sectionVisibility, [key]: !current },
+    })
+  }, [family?.id, sectionVisibility, updateConfig])
 
   // Onboarding state
   const isFirstTime =
@@ -193,6 +230,9 @@ export function FamilyHub({ context }: FamilyHubProps) {
     <div
       className="density-compact"
       data-testid="family-hub"
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
       style={{
         backgroundColor: context === 'standalone' ? 'var(--color-bg-page)' : undefined,
         minHeight: context === 'standalone' ? '100vh' : undefined,
@@ -202,16 +242,117 @@ export function FamilyHub({ context }: FamilyHubProps) {
       {context === 'standalone' && (
         <HubHeader
           onSettingsClick={() => isMom && setSettingsOpen(true)}
-          onMembersClick={() => {
-            const el = document.querySelector('[data-testid="hub-member-access-section"]')
-            el?.scrollIntoView({ behavior: 'smooth' })
-          }}
           onFrameClick={() => setSlideshowOpen(true)}
         />
       )}
 
       {/* Slideshow Overlay */}
-      <SlideshowOverlay isOpen={slideshowOpen} onClose={() => setSlideshowOpen(false)} />
+      <SlideshowOverlay
+        isOpen={slideshowOpen}
+        onClose={() => setSlideshowOpen(false)}
+        onOpenSettings={isMom ? () => setSettingsOpen(true) : undefined}
+      />
+
+      {/* Member pull tab — left edge near top, standalone only */}
+      {context === 'standalone' && !memberDrawerOpen && (
+        <div className="fixed left-0 z-30" style={{ top: 80 }}>
+          <PullTab
+            orientation="side"
+            onClick={() => setMemberDrawerOpen(true)}
+            className="rounded-l-none! rounded-r-lg!"
+          >
+            <Users size={16} />
+          </PullTab>
+        </div>
+      )}
+
+      {/* Member drawer — slides in from left, standalone only (PRD-04 / PRD-14D) */}
+      {context === 'standalone' && memberDrawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+            onClick={() => setMemberDrawerOpen(false)}
+          />
+          <aside
+            className="fixed inset-y-0 left-0 z-50 flex flex-col"
+            style={{
+              width: '280px',
+              backgroundColor: 'var(--color-bg-card)',
+              borderRight: '1px solid var(--color-border)',
+              boxShadow: '4px 0 20px rgba(0, 0, 0, 0.15)',
+              animation: 'hubDrawerSlide 200ms ease-out',
+            }}
+          >
+            <div
+              className="flex items-center justify-between p-4 border-b"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                Family Members
+              </span>
+              <button
+                onClick={() => setMemberDrawerOpen(false)}
+                className="p-1 rounded"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+            </div>
+            <p className="text-xs px-4 pt-2 pb-1" style={{ color: 'var(--color-text-secondary)' }}>
+              Tap your name to open your space
+            </p>
+            <div className="flex-1 overflow-y-auto py-1">
+              {(familyMembers ?? [])
+                .filter((m) => m.is_active && !m.out_of_nest)
+                .map((m) => {
+                  const color = m.calendar_color || m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                  const hasPin = m.auth_method === 'pin' || m.auth_method === 'visual_password'
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setMemberDrawerOpen(false)
+                        window.alert(`Member access for ${m.display_name} coming soon`)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                      style={{ minHeight: 48, color: 'var(--color-text-primary)' }}
+                    >
+                      <div className="relative shrink-0">
+                        <span
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                          style={{ backgroundColor: color, color: 'var(--color-text-on-primary, #fff)', display: 'flex' }}
+                        >
+                          {m.display_name.charAt(0).toUpperCase()}
+                        </span>
+                        {hasPin && (
+                          <span
+                            className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+                          >
+                            <Lock size={8} style={{ color: 'var(--color-text-secondary)' }} />
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium block">{m.display_name}</span>
+                        <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                          {m.role === 'primary_parent' ? 'Mom' : m.role === 'additional_adult' ? 'Adult' : m.dashboard_mode || 'Member'}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+            </div>
+          </aside>
+          <style>{`
+            @keyframes hubDrawerSlide {
+              from { transform: translateX(-100%); }
+              to { transform: translateX(0); }
+            }
+          `}</style>
+        </>
+      )}
 
       {/* Tab context: frame + settings controls */}
       {context === 'tab' && (
@@ -242,6 +383,31 @@ export function FamilyHub({ context }: FamilyHubProps) {
         <HubSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       )}
 
+      {/* Edit mode banner */}
+      {editMode && (
+        <div
+          className="flex items-center justify-between px-4 py-2"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+            Editing Hub — archive or restore sections
+          </span>
+          <button
+            onClick={() => setEditMode(false)}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg"
+            style={{
+              backgroundColor: 'var(--surface-primary, var(--color-btn-primary-bg))',
+              color: 'var(--color-text-on-primary, #fff)',
+            }}
+          >
+            Done
+          </button>
+        </div>
+      )}
+
       {/* Main content area */}
       <div className="px-4 py-4 space-y-4 max-w-3xl mx-auto">
         {/* Onboarding card */}
@@ -249,22 +415,63 @@ export function FamilyHub({ context }: FamilyHubProps) {
           <HubOnboardingCard onDismiss={handleDismissOnboarding} />
         )}
 
-        {/* Sections in config order — visibility controlled via Settings only */}
+        {/* Sections in config order */}
         {sectionOrder.map((key) => {
-          if (!isSectionVisible(key)) return null
+          const visible = isSectionVisible(key)
+          // Normal mode: skip hidden sections
+          if (!visible && !editMode) return null
+
           return (
-            <HubSectionRenderer
-              key={key}
-              sectionKey={key as HubSectionKey}
-              context={context}
-              currentMemberId={member.id}
-              isMom={isMom}
-            />
+            <div key={key} style={{ opacity: editMode && !visible ? 0.35 : 1 }}>
+              {/* Edit mode: section label with archive/restore toggle */}
+              {editMode && (
+                <div
+                  className="flex items-center gap-2 mb-1.5 px-2 py-1.5 rounded-lg"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-secondary))',
+                    border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                  }}
+                >
+                  <GripVertical size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                  <span className="flex-1 text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                    {SECTION_LABELS[key] ?? key}
+                  </span>
+                  <button
+                    onClick={() => toggleSectionVisibility(key)}
+                    className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded"
+                    style={{
+                      backgroundColor: visible
+                        ? 'var(--color-bg-secondary)'
+                        : 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)',
+                      color: visible
+                        ? 'var(--color-text-secondary)'
+                        : 'var(--color-btn-primary-bg)',
+                      minHeight: 'unset',
+                    }}
+                  >
+                    {visible ? (
+                      <><Archive size={10} /> Archive</>
+                    ) : (
+                      <><ArchiveRestore size={10} /> Restore</>
+                    )}
+                  </button>
+                </div>
+              )}
+              {/* Section content */}
+              {visible && (
+                <HubSectionRenderer
+                  sectionKey={key as HubSectionKey}
+                  context={context}
+                  currentMemberId={member.id}
+                  isMom={isMom}
+                />
+              )}
+            </div>
           )
         })}
 
         {/* Empty state — all sections hidden */}
-        {sectionOrder.every((key) => !isSectionVisible(key)) && (
+        {sectionOrder.every((key) => !isSectionVisible(key)) && !editMode && (
           <div
             className="rounded-lg p-8 text-center"
             style={{

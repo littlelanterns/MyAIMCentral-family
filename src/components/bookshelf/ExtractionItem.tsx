@@ -2,10 +2,14 @@
  * Layer 3: ExtractionItem (PRD-23)
  * Generic wrapper for extraction items with heart, note, delete, Apply This actions.
  * Uses slot pattern for type-specific rendering.
+ * Heart is optimistic — toggles immediately, no page refetch.
  */
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { Heart, StickyNote, Trash2, Sparkles, Sparkle } from 'lucide-react'
 import type { ExtractionTable } from '@/lib/extractionActions'
+
+/** Approved palette red for hearts — Rustic Rose from member_colors.ts */
+const HEART_COLOR = '#b25a58'
 
 interface ExtractionItemProps {
   id: string
@@ -32,30 +36,33 @@ interface ExtractionItemProps {
 }
 
 export function ExtractionItem({
-  id, table, text, isHearted, isKeyPoint, isFromGoDeeper, userNote,
+  id, table, text, isHearted: propHearted, isKeyPoint, isFromGoDeeper, userNote,
   sentIndicators, borderColorClass = 'border-l-[var(--color-border-default)]',
   isDeleting, isNoting, showApplyThis,
   renderMeta, renderText, onHeart, onNoteToggle, onNoteSave,
   onDelete, onApplyThisToggle, applyThisContent,
 }: ExtractionItemProps) {
-  const [noteText, setNoteText] = useState(userNote || '')
+  // Optimistic heart state — updates instantly, no page refetch needed
+  const [localHearted, setLocalHearted] = useState(propHearted)
   const [heartPulse, setHeartPulse] = useState(false)
+  const [noteText, setNoteText] = useState(userNote || '')
   const noteRef = useRef<HTMLTextAreaElement>(null)
 
+  // Sync with prop if parent data reloads
+  useEffect(() => { setLocalHearted(propHearted) }, [propHearted])
+
   useEffect(() => {
-    if (isNoting && noteRef.current) {
-      noteRef.current.focus()
-    }
+    if (isNoting && noteRef.current) noteRef.current.focus()
   }, [isNoting])
 
-  useEffect(() => {
-    setNoteText(userNote || '')
-  }, [userNote])
+  useEffect(() => { setNoteText(userNote || '') }, [userNote])
 
   const handleHeart = () => {
+    const newValue = !localHearted
+    setLocalHearted(newValue) // instant
     setHeartPulse(true)
     setTimeout(() => setHeartPulse(false), 300)
-    onHeart(table, id, isHearted)
+    onHeart(table, id, localHearted) // fire DB update (background)
   }
 
   const handleNoteSave = () => {
@@ -66,14 +73,15 @@ export function ExtractionItem({
     <div
       className={`relative border-l-4 ${borderColorClass} rounded-lg p-3 transition-all duration-300
         ${isDeleting ? 'opacity-0 scale-95' : 'opacity-100'}
-        ${isHearted ? 'bg-[color-mix(in_srgb,var(--color-accent-warm,#d4956a)_8%,transparent)]' : 'bg-[var(--color-surface-secondary)]'}
       `}
+      style={localHearted ? { backgroundColor: `${HEART_COLOR}0D` } : undefined}
     >
       {/* Go Deeper sparkle indicator */}
       {isFromGoDeeper && (
         <Sparkle
           size={14}
-          className="absolute top-2 right-2 text-[var(--color-accent-warm)]"
+          className="absolute top-2 right-2"
+          style={{ color: HEART_COLOR }}
           fill="currentColor"
         />
       )}
@@ -125,12 +133,13 @@ export function ExtractionItem({
       <div className="flex items-center gap-1 mt-2">
         <button
           onClick={handleHeart}
-          className={`p-1.5 rounded-md hover:bg-[var(--color-surface-tertiary)] transition-transform ${heartPulse ? 'scale-125' : 'scale-100'}`}
-          title={isHearted ? 'Remove from hearted' : 'Heart this'}
+          className={`p-1.5 rounded-md hover:bg-[var(--color-surface-tertiary)] transition-transform duration-200 ${heartPulse ? 'scale-125' : 'scale-100'}`}
+          title={localHearted ? 'Remove from hearted' : 'Heart this'}
         >
           <Heart
             size={16}
-            className={isHearted ? 'text-[var(--color-accent-warm)] fill-current' : 'text-[var(--color-text-tertiary)]'}
+            style={localHearted ? { color: HEART_COLOR } : undefined}
+            className={localHearted ? 'fill-current' : 'text-[var(--color-text-tertiary)]'}
           />
         </button>
 
