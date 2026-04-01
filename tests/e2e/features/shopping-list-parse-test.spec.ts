@@ -27,7 +27,7 @@ If no store is detected for an item, use "" as category. Never invent store name
 
 Return ONLY a JSON array. No other text.`
 
-test('Parse Tenise grocery dump via OpenRouter Haiku', async () => {
+test('Parse initial grocery dump', async () => {
   test.setTimeout(60000)
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -119,5 +119,64 @@ test('Parse Tenise grocery dump via OpenRouter Haiku', async () => {
   console.log('───────────────────────────────────────────')
   console.log(`TOTAL: ${totalItems} items | ${stores.length} stores: ${stores.join(', ')}`)
   if (unclear.length) console.log(`UNCLEAR: ${unclear.length} items need clarification`)
+  console.log('═══════════════════════════════════════════\n')
+})
+
+// ── Test 2: Follow-up add to existing list with known stores ───
+
+const FOLLOWUP_INPUT = `oh, we also need a 2 pack of white bread from Sam's and 2 sprouted breads from Aldi. Oh, and Naan Bread from Sam's`
+
+test('Parse follow-up add with existing store context', async () => {
+  test.setTimeout(60000)
+
+  // When adding to an existing list, the BulkAddWithAI prompt includes
+  // "Valid categories: Mama Jeans, Sam's Club, Aldi" from existing sections.
+  // Simulate that by appending to the system prompt.
+  const promptWithContext = SYSTEM_PROMPT + `\n\nValid categories: "Mama Jeans", "Sam's Club", "Aldi"\n\nReturn ONLY a JSON array. No other text.`
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENROUTER_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'anthropic/claude-haiku-4.5',
+      max_tokens: 2048,
+      messages: [
+        { role: 'system', content: promptWithContext },
+        { role: 'user', content: FOLLOWUP_INPUT },
+      ],
+    }),
+  })
+
+  const data = await res.json()
+  const response = data.choices?.[0]?.message?.content ?? ''
+
+  console.log('\n═══════════════════════════════════════════')
+  console.log('  FOLLOW-UP ADD TEST')
+  console.log('═══════════════════════════════════════════\n')
+  console.log('INPUT: ' + FOLLOWUP_INPUT + '\n')
+  console.log('RAW RESPONSE:\n' + response + '\n')
+
+  let parsed: unknown[] | null = null
+  try { parsed = JSON.parse(response) } catch {
+    const match = response.match(/\[[\s\S]*\]/)
+    if (match) parsed = JSON.parse(match[0])
+  }
+
+  if (!parsed) { console.log('FAILED TO PARSE'); return }
+
+  console.log('  ITEMS TO ADD:')
+  for (const raw of parsed) {
+    const item = raw as Record<string, unknown>
+    const store = (item.category as string) || '(Unsorted)'
+    const note = item.note ? ` — "${item.note}"` : ''
+    console.log(`    ☐ ${item.text}  →  ${store}${note}`)
+  }
+  console.log('')
+
+  const stores = [...new Set((parsed as Array<Record<string, unknown>>).map(i => i.category as string).filter(Boolean))]
+  console.log(`TOTAL: ${parsed.length} new items going to: ${stores.join(', ')}`)
   console.log('═══════════════════════════════════════════\n')
 })
