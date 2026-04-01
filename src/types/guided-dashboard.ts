@@ -42,7 +42,7 @@ export const GUIDED_PREFERENCES_DEFAULTS: GuidedDashboardPreferences = {
   nbt_last_suggestion_date: '',
   graduation_tutorial_completed: false,
   guided_task_view_default: 'simple_list',
-  child_can_create_best_intentions: false,
+  child_can_create_best_intentions: true,
   lila_homework_enabled: false,
   lila_communication_coach_enabled: false,
 }
