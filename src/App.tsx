@@ -22,6 +22,8 @@ import { DevPreview } from '@/pages/DevPreview'
 import {
   VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage, MorningRhythmPage, EveningReviewPage,
+  MessagesPage, SafeHarborPage, MeetingsPage, BigPlansPage,
+  ThoughtSiftPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
 import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
@@ -127,7 +129,17 @@ function App() {
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
               <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />
-              {/* Catch-all */}
+
+              {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
+              <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+              <Route path="/safe-harbor" element={<ProtectedRoute><SafeHarborPage /></ProtectedRoute>} />
+              <Route path="/meetings" element={<ProtectedRoute><MeetingsPage /></ProtectedRoute>} />
+              <Route path="/bigplans" element={<ProtectedRoute><BigPlansPage /></ProtectedRoute>} />
+              <Route path="/thoughtsift" element={<ProtectedRoute><ThoughtSiftPage /></ProtectedRoute>} />
+              <Route path="/family-feed" element={<ProtectedRoute><FamilyFeedPage /></ProtectedRoute>} />
+              <Route path="/notepad" element={<ProtectedRoute><NotepadPage /></ProtectedRoute>} />
+
+              {/* Catch-all — redirect to dashboard if authenticated, welcome if not */}
               <Route path="*" element={<Welcome />} />
             </Routes>
           </SettingsProvider>
