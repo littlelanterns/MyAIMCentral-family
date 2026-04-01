@@ -1,13 +1,16 @@
 /**
- * Settings Page — Light implementation for Vibeathon demo
+ * Settings Page — Hub for all platform settings
  *
  * Route: /settings
- * Sections: Profile, Appearance, Family Members & PINs, Lantern's Path
+ * Sections: Lantern's Path, Profile, Appearance, Family Management, Access & Security, Data
  */
 
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Palette, Users, Map, Moon, Sun, Sparkles, Eye, EyeOff, RotateCcw, ChevronLeft } from 'lucide-react'
+import {
+  User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
+  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn,
+} from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useTheme } from '@/lib/theme'
@@ -106,10 +109,34 @@ export function SettingsPage() {
         <AppearanceSection />
       </SettingsSection>
 
-      {/* Family Members & PINs (Mom only) */}
+      {/* Family Management (Mom only) */}
       {shell === 'mom' && (
-        <SettingsSection title="Family Members" icon={Users}>
-          <FamilyMembersSection familyId={family?.id} />
+        <SettingsSection title="Family Management" icon={Users}>
+          <FamilyManagementSection familyId={family?.id} loginName={family?.family_login_name} />
+        </SettingsSection>
+      )}
+
+      {/* Access & Security (Mom only) */}
+      {shell === 'mom' && (
+        <SettingsSection title="Access & Security" icon={Shield}>
+          <SettingsNavRow
+            icon={Shield}
+            label="Permissions Hub"
+            description="Configure who sees what for each family member"
+            to="/permissions"
+          />
+        </SettingsSection>
+      )}
+
+      {/* Data & Privacy (Mom only) */}
+      {shell === 'mom' && (
+        <SettingsSection title="Data & Privacy" icon={Download}>
+          <SettingsNavRow
+            icon={Download}
+            label="Export Family Data"
+            description="Download your family's context and archives"
+            to="/archives/export"
+          />
         </SettingsSection>
       )}
     </div>
@@ -135,6 +162,35 @@ function SettingsSection({ title, icon: Icon, children }: { title: string; icon:
   )
 }
 
+// ── Navigation Row ──────────────────────────────────────────────
+
+function SettingsNavRow({ icon: Icon, label, description, to }: {
+  icon: React.ElementType
+  label: string
+  description: string
+  to: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+    >
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)' }}
+      >
+        <Icon size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{label}</p>
+        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{description}</p>
+      </div>
+      <ChevronRight size={16} style={{ color: 'var(--color-text-tertiary)' }} />
+    </Link>
+  )
+}
+
 // ── Profile Section ──────────────────────────────────────────────
 
 function ProfileSection({ member }: { member: any }) {
@@ -143,7 +199,6 @@ function ProfileSection({ member }: { member: any }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        {/* Avatar */}
         <div
           className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
           style={{
@@ -175,7 +230,7 @@ function ProfileSection({ member }: { member: any }) {
 // ── Appearance Section ───────────────────────────────────────────
 
 function AppearanceSection() {
-  const { theme, setColorMode, effectiveColorMode, gradientEnabled, setGradientEnabled } = useTheme()
+  const { theme, effectiveColorMode, gradientEnabled, setColorMode, setGradientEnabled } = useTheme()
   const isDark = effectiveColorMode === 'dark'
 
   return (
@@ -187,6 +242,9 @@ function AppearanceSection() {
         </p>
         <p className="text-sm font-medium capitalize" style={{ color: 'var(--color-text-heading)' }}>
           {theme.replace(/_/g, ' ')}
+        </p>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+          Use the palette icon in the top bar to browse all 40+ themes
         </p>
       </div>
 
@@ -235,11 +293,10 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
   )
 }
 
-// ── Family Members Section ───────────────────────────────────────
+// ── Family Management Section ───────────────────────────────────
 
-function FamilyMembersSection({ familyId }: { familyId?: string }) {
+function FamilyManagementSection({ familyId, loginName }: { familyId?: string; loginName?: string }) {
   const [members, setMembers] = useState<any[]>([])
-  const [revealedPin, setRevealedPin] = useState<string | null>(null)
 
   useEffect(() => {
     if (!familyId) return
@@ -254,63 +311,61 @@ function FamilyMembersSection({ familyId }: { familyId?: string }) {
       })
   }, [familyId])
 
-  // Auto-hide PIN after 5 seconds
-  useEffect(() => {
-    if (!revealedPin) return
-    const timer = setTimeout(() => setRevealedPin(null), 5000)
-    return () => clearTimeout(timer)
-  }, [revealedPin])
-
   if (!familyId) return null
 
   return (
-    <div className="space-y-2">
-      {members.map((m) => (
-        <div
-          key={m.id}
-          className="flex items-center gap-3 p-2 rounded-lg"
-          style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-        >
+    <div className="space-y-3">
+      {/* Quick member overview */}
+      <div className="space-y-1.5">
+        {members.map((m) => (
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{
-              backgroundColor: 'var(--color-btn-primary-bg)',
-              color: 'var(--color-btn-primary-text)',
-            }}
+            key={m.id}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg"
+            style={{ backgroundColor: 'var(--color-bg-secondary)' }}
           >
-            {m.display_name?.charAt(0)?.toUpperCase() || '?'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-              {m.display_name}
-            </p>
-            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {m.role === 'primary_parent' ? 'Mom' : m.role === 'additional_adult' ? 'Adult' : m.role}
-              {m.auth_method ? ` · ${m.auth_method}` : ''}
-            </p>
-          </div>
-          {m.role !== 'primary_parent' && (
-            <button
-              onClick={() => setRevealedPin(revealedPin === m.id ? null : m.id)}
-              className="p-1.5 rounded-lg text-xs flex items-center gap-1"
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{
-                backgroundColor: 'var(--color-bg-card)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid var(--color-border)',
-                minHeight: 'unset',
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                color: 'var(--color-btn-primary-text)',
               }}
             >
-              {revealedPin === m.id ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span className="hidden sm:inline">{revealedPin === m.id ? 'Hide' : 'PIN'}</span>
-            </button>
-          )}
-        </div>
-      ))}
-      {members.length === 0 && (
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          No family members found.
-        </p>
-      )}
+              {m.display_name?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                {m.display_name}
+              </p>
+            </div>
+            <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+              {m.role === 'primary_parent' ? 'Mom' : m.role === 'additional_adult' ? 'Adult' : m.role === 'special_adult' ? 'Special Adult' : 'Member'}
+              {m.auth_method ? ` · ${m.auth_method}` : ''}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Navigation links */}
+      <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+        <SettingsNavRow
+          icon={KeyRound}
+          label="Manage Members & PINs"
+          description="Edit details, set PINs, send invites"
+          to="/family-members"
+        />
+        <SettingsNavRow
+          icon={UserPlus}
+          label="Add Family Members"
+          description="Add new members with AI-assisted setup"
+          to="/family-setup"
+        />
+        <SettingsNavRow
+          icon={LogIn}
+          label="Family Login Name"
+          description={loginName ? `Current: ${loginName}` : 'Set your family login name'}
+          to="/family-login-name"
+        />
+      </div>
     </div>
   )
 }
