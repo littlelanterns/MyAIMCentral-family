@@ -152,6 +152,7 @@ export const FAMILY_OVERVIEW_SECTIONS = [
   'Rhythms & Routines',
   'Current Focus',
   'Faith & Values',
+  'Out of Nest',
 ] as const
 
 export const FAITH_TRADITIONS = [

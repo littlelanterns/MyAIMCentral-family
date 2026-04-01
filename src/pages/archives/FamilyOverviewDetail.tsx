@@ -27,6 +27,7 @@ import {
   MessageSquare,
   Eye,
   Settings,
+  TreePine,
 } from 'lucide-react'
 import {
   Card,
@@ -72,6 +73,10 @@ const SECTION_META: Record<string, { icon: typeof Users; description: string }> 
   'Faith & Values': {
     icon: BookHeart,
     description: 'Faith preferences, spiritual practices, values context',
+  },
+  'Out of Nest': {
+    icon: TreePine,
+    description: 'Adult children, their spouses, grandchildren, and extended family context',
   },
 }
 

@@ -680,7 +680,7 @@ export function ArchivesPage() {
                         isIncludedInAI={false}
                         isFamilyOverview={false}
                         insightLabel={m.relationship}
-                        onNavigate={() => navigate(`/archives/out-of-nest/${m.id}`)}
+                        onNavigate={() => navigate('/archives/family-overview')}
                         onToggleAI={() => {}}
                       />
                     ))}
@@ -753,7 +753,7 @@ export function ArchivesPage() {
                       <OutOfNestCard
                         key={m.id}
                         member={m}
-                        onClick={() => navigate(`/archives/out-of-nest/${m.id}`)}
+                        onClick={() => navigate('/archives/family-overview')}
                       />
                     ))}
                   </div>
