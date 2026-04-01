@@ -11,7 +11,7 @@ import {
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
-  Share2, UserCheck, Check,
+  Share2, UserCheck, Check, Wand2,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -28,6 +28,7 @@ import {
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { Sparkles, Settings2 } from 'lucide-react'
+import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import type { ListItem, ListType, List as ListData } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
 import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/FrequencyRulesEditor'
@@ -623,6 +624,10 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const [_showAddSection, _setShowAddSection] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [localItems, setLocalItems] = useState<ListItem[] | null>(null)
+  const [showOrganize, setShowOrganize] = useState(false)
+  const [organizing, setOrganizing] = useState(false)
+  const [organizePreview, setOrganizePreview] = useState<Record<string, string[]> | null>(null)
+  const [organizeMapping, setOrganizeMapping] = useState<Map<string, string> | null>(null)
 
   // Sync local items when server items change (and no drag in progress)
   useEffect(() => {
@@ -729,7 +734,83 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     }
   }
 
+  async function handleOrganize(storeNames: string) {
+    if (items.length === 0) return
+    setOrganizing(true)
+    setOrganizePreview(null)
+    setOrganizeMapping(null)
+
+    try {
+      const itemNames = items.map(i => i.content || i.item_name || '').filter(Boolean)
+      const existingSections = Array.from(sections.keys())
+      const storesHint = storeNames.trim()
+        ? storeNames.split(',').map(s => s.trim()).filter(Boolean)
+        : existingSections.length > 0
+          ? existingSections
+          : []
+
+      const storeInstruction = storesHint.length > 0
+        ? `Group by these stores/sections: ${storesHint.join(', ')}`
+        : 'Group by logical store sections (e.g., Produce, Dairy, Meat, Frozen, Pantry, Household, Pharmacy)'
+
+      const response = await sendAIMessage(
+        `You are organizing a shopping list. ${storeInstruction}.
+Return ONLY a JSON object where each key is a section/store name and each value is an array of item names from the list.
+Every item must appear exactly once. Do not add items not in the list. Do not rename items.
+Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
+        [{ role: 'user', content: itemNames.join('\n') }],
+        2048,
+        'haiku',
+      )
+
+      const parsed = extractJSON<Record<string, string[]>>(response)
+      if (parsed && typeof parsed === 'object') {
+        setOrganizePreview(parsed)
+
+        // Build item → section mapping
+        const mapping = new Map<string, string>()
+        for (const [section, sectionItems] of Object.entries(parsed)) {
+          for (const itemName of sectionItems) {
+            // Find matching item (case-insensitive)
+            const match = items.find(i =>
+              (i.content || i.item_name || '').toLowerCase() === itemName.toLowerCase()
+            )
+            if (match) mapping.set(match.id, section)
+          }
+        }
+        setOrganizeMapping(mapping)
+      }
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setOrganizing(false)
+    }
+  }
+
+  async function applyOrganization() {
+    if (!organizeMapping) return
+    setOrganizing(true)
+    try {
+      for (const [itemId, section] of organizeMapping) {
+        await updateItem.mutateAsync({ id: itemId, listId, section_name: section })
+      }
+      setOrganizePreview(null)
+      setOrganizeMapping(null)
+      setShowOrganize(false)
+    } catch {
+      // Silently fail
+    } finally {
+      setOrganizing(false)
+    }
+  }
+
+  function moveItemToSection(itemId: string, newSection: string) {
+    updateItem.mutate({ id: itemId, listId, section_name: newSection || null })
+  }
+
   // ── Compact shopping list item row ─────────────────────
+  const allSectionNames = Array.from(sections.keys())
+
   function ShoppingItemRow({ item }: { item: ListItem }) {
     const label = item.content || item.item_name || ''
     const qty = item.quantity ? `${item.quantity}${item.quantity_unit ? ' ' + item.quantity_unit : ''}` : null
@@ -791,6 +872,19 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           <span className="text-xs shrink-0 italic hidden sm:inline" style={{ color: 'var(--color-text-secondary)' }}>
             {item.notes}
           </span>
+        )}
+        {/* Move to section (hover-only when sections exist) */}
+        {allSectionNames.length > 1 && !editing && (
+          <select
+            value={item.section_name || ''}
+            onChange={e => { e.stopPropagation(); moveItemToSection(item.id, e.target.value) }}
+            className="text-[10px] px-1 py-0 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0 max-w-20"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+            title="Move to section"
+          >
+            <option value="">Unsorted</option>
+            {allSectionNames.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         )}
         <button
           onClick={() => deleteItem.mutate({ id: item.id, listId })}
@@ -963,7 +1057,33 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
               <span className="hidden sm:inline">Bulk</span>
             </button>
           </Tooltip>
+          {items.length >= 3 && (
+            <Tooltip content="Organize by store with AI">
+              <button
+                onClick={() => setShowOrganize(true)}
+                disabled={organizing}
+                className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+              >
+                <Wand2 size={14} />
+                <span className="hidden sm:inline">Organize</span>
+              </button>
+            </Tooltip>
+          )}
         </div>
+
+        {/* Organize with AI modal */}
+        {showOrganize && (
+          <OrganizeModal
+            items={items}
+            existingSections={Array.from(sections.keys())}
+            preview={organizePreview}
+            organizing={organizing}
+            onOrganize={handleOrganize}
+            onApply={applyOrganization}
+            onClose={() => { setShowOrganize(false); setOrganizePreview(null); setOrganizeMapping(null) }}
+          />
+        )}
 
         {/* Share modal */}
         {showShareModal && (
@@ -1232,6 +1352,127 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           onClose={() => setShowBulkAdd(false)}
         />
       )}
+    </div>
+  )
+}
+
+// ── Organize with AI Modal ───────────────────────────────
+
+function OrganizeModal({
+  items,
+  existingSections,
+  preview,
+  organizing,
+  onOrganize,
+  onApply,
+  onClose,
+}: {
+  items: ListItem[]
+  existingSections: string[]
+  preview: Record<string, string[]> | null
+  organizing: boolean
+  onOrganize: (stores: string) => Promise<void>
+  onApply: () => Promise<void>
+  onClose: () => void
+}) {
+  const [storeInput, setStoreInput] = useState(existingSections.join(', '))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <div
+        className="w-full max-w-md rounded-xl overflow-hidden"
+        style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <Wand2 size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>Organize by Store</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded" style={{ color: 'var(--color-text-secondary)' }}><X size={16} /></button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {!preview ? (
+            <>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                AI will sort your {items.length} items into store sections. Enter store names or leave blank for auto-grouping by category.
+              </p>
+              <input
+                type="text"
+                value={storeInput}
+                onChange={e => setStoreInput(e.target.value)}
+                placeholder="e.g. Mama Jeans, Sam's, Aldi (or leave blank)"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onOrganize(storeInput)}
+                  disabled={organizing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+                >
+                  {organizing && <Loader2 size={14} className="animate-spin" />}
+                  {organizing ? 'Organizing...' : 'Organize'}
+                </button>
+                <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Preview — drag items between sections after applying, or re-organize with different stores.
+              </p>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {Object.entries(preview).map(([section, sectionItems]) => (
+                  <div key={section}>
+                    <div className="flex items-center gap-2 py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-btn-primary-bg)' }}>
+                        {section}
+                      </span>
+                      <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                        {sectionItems.length} items
+                      </span>
+                    </div>
+                    <div className="pl-2">
+                      {sectionItems.map((name, i) => (
+                        <p key={i} className="text-sm py-0.5" style={{ color: 'var(--color-text-primary)' }}>
+                          {name}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={onApply}
+                  disabled={organizing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+                >
+                  {organizing && <Loader2 size={14} className="animate-spin" />}
+                  {organizing ? 'Applying...' : 'Apply'}
+                </button>
+                <button
+                  onClick={() => onOrganize(storeInput)}
+                  disabled={organizing}
+                  className="px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                  style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-secondary)' }}
+                >
+                  Re-organize
+                </button>
+                <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
