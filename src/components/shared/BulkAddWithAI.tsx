@@ -354,18 +354,25 @@ export function BulkAddWithAI({
                   {item.selected && <Check size={12} />}
                 </button>
 
-                <input
-                  type="text"
-                  value={item.text}
-                  onChange={(e) => handleEditText(index, e.target.value)}
-                  className="flex-1 px-2 py-1 rounded text-sm bg-transparent"
-                  style={{
-                    color: 'var(--color-text-primary)',
-                    border: 'none',
-                    outline: 'none',
-                    minHeight: 'unset',
-                  }}
-                />
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={item.text}
+                    onChange={(e) => handleEditText(index, e.target.value)}
+                    className="w-full px-2 py-1 rounded text-sm bg-transparent"
+                    style={{
+                      color: 'var(--color-text-primary)',
+                      border: 'none',
+                      outline: 'none',
+                      minHeight: 'unset',
+                    }}
+                  />
+                  {typeof item.metadata?.note === 'string' && item.metadata.note && (
+                    <p className="px-2 text-[10px] italic" style={{ color: 'var(--color-text-secondary)' }}>
+                      {item.metadata.note}
+                    </p>
+                  )}
+                </div>
 
                 {categories && (
                   <select

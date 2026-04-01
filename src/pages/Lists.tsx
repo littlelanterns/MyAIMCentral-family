@@ -381,12 +381,17 @@ function getBulkAddPrompt(listType: string): string {
   const base = 'Parse the following text into individual list items. Return a JSON array.'
   switch (listType) {
     case 'shopping':
-      return `${base} Each item should be a grocery/shopping item. Extract quantities if present (e.g., "2 lbs chicken" stays as one item). If the text is a recipe, extract the ingredients only.
+      return `${base} Parse natural-language shopping lists, even conversational ones. Rules:
 
-IMPORTANT: If the text contains store names, section headers, or category labels (lines ending with ":" like "Mama Jeans:", "Aldi:", "Produce:", "Frozen:"), use them as category values to group items by store or section.
+1. STORES: Detect store names mentioned in the text (e.g., "from Mama Jeans", "at Sam's Club", "from Aldi"). Use them as the "category" to group items by store.
+2. QUANTITIES: Keep quantities with the item (e.g., "12 bags of chocolate chips" → text: "Chocolate chips", but keep "12 bags" in the text).
+3. NOTES: If the text mentions special instructions for an item (e.g., "needs to stay cold", "Gideon's choice", "whatever dips you wanted"), put them in a "note" field.
+4. MULTI-STORE ITEMS: If an item could come from multiple stores (e.g., "birthday cake from either Nothing Bundt Cake, Hy-Vee, or Sam's"), set category to "" and put the store options in the "note" field (e.g., "Could get from: Nothing Bundt Cake, Hy-Vee, or Sam's").
+5. VAGUE ITEMS: Keep vague descriptions as-is (e.g., "an assortment of produce" stays as one item, don't split into individual produce items).
+6. UNCLEAR: If something is ambiguous (could be a store name, an errand, not clearly a list item), add "unclear": true.
 
-Always return objects with "text" and "category" fields: [{"text": "item name", "category": "Store or Section Name"}, ...].
-If no stores or sections are detected, use "" as the category. Never invent store names — only use ones mentioned in the text.`
+Return objects: [{"text": "item name", "category": "Store Name", "note": "optional note"}, ...].
+If no store is detected for an item, use "" as category. Never invent store names.`
     case 'wishlist':
       return `${base} Each item should be a product name or gift idea. Keep descriptions concise. Return ["item1", "item2", ...].`
     case 'expenses':
@@ -1121,10 +1126,12 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             parsePrompt={getBulkAddPrompt(list.list_type as string)}
             onSave={async (parsed) => {
               for (const item of parsed.filter(i => i.selected)) {
+                const note = typeof item.metadata?.note === 'string' ? item.metadata.note : undefined
                 await createItem.mutateAsync({
                   list_id: listId,
                   content: item.text,
                   section_name: item.category || undefined,
+                  notes: note,
                   sort_order: items.length,
                 })
               }
@@ -1355,10 +1362,12 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           parsePrompt={getBulkAddPrompt(list.list_type as string)}
           onSave={async (parsed) => {
             for (const item of parsed.filter(i => i.selected)) {
+              const note = typeof item.metadata?.note === 'string' ? item.metadata.note : undefined
               await createItem.mutateAsync({
                 list_id: listId,
                 content: item.text,
                 section_name: item.category || undefined,
+                notes: note,
                 sort_order: items.length,
               })
             }

@@ -78,6 +78,7 @@ export function useCreateListItem() {
       list_id: string
       content: string
       section_name?: string
+      notes?: string
       sort_order?: number
     }) => {
       const { data, error } = await supabase
