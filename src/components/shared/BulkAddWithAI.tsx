@@ -22,6 +22,7 @@ export interface ParsedBulkItem {
   text: string
   category?: string
   selected: boolean
+  unclear?: boolean
   metadata?: Record<string, unknown>
 }
 
@@ -73,7 +74,7 @@ export function BulkAddWithAI({
         : ''
 
       const systemPrompt = categories
-        ? `${parsePrompt}\n\nValid categories: ${categoryList}\n\nReturn ONLY a JSON array of objects with "text" and "category" fields. Example: [{"text": "item text", "category": "category_value"}]. No other text.`
+        ? `${parsePrompt}\n\nValid categories: ${categoryList}\n\nReturn ONLY a JSON array of objects with "text" and "category" fields. If an entry is ambiguous (could be a store name, a category header, an errand, or not clearly a list item), include "unclear": true so the user can clarify. Example: [{"text": "item text", "category": "Store"}, {"text": "Walgreens", "category": "", "unclear": true}]. No other text.`
         : `${parsePrompt}\n\nReturn ONLY a JSON array of strings. Example: ["item 1", "item 2"]. No other text.`
 
       const response = await sendAIMessage(
@@ -94,13 +95,14 @@ export function BulkAddWithAI({
             if (item && typeof item === 'object' && 'text' in item) {
               const obj = item as Record<string, unknown>
               // Accept any non-empty category the AI returns (e.g. detected store names)
-              // Fall back to defaultCategory only when AI returned nothing
               const aiCat = typeof obj.category === 'string' && obj.category.trim() ? obj.category.trim() : undefined
               const cat = categories ? (aiCat || defaultCategory) : undefined
+              const isUnclear = obj.unclear === true
               return {
                 text: (obj.text as string).trim(),
-                category: cat,
-                selected: true,
+                category: isUnclear ? undefined : cat,
+                selected: !isUnclear, // Unclear items default to deselected
+                unclear: isUnclear,
                 metadata: obj,
               }
             }
@@ -143,6 +145,31 @@ export function BulkAddWithAI({
 
   const handleRemoveItem = useCallback((index: number) => {
     setParsedItems(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
+  /** Resolve an unclear item: classify it as a section header, a regular item, or skip it */
+  const handleResolveUnclear = useCallback((index: number, resolution: 'store' | 'item' | 'skip') => {
+    setParsedItems(prev => prev.map((item, i) => {
+      if (i !== index) return item
+      if (resolution === 'skip') return { ...item, unclear: false, selected: false }
+      if (resolution === 'store') {
+        // Convert to a store section — reassign all subsequent unsectioned items to this store
+        // and remove this entry (it's a header, not an item)
+        const storeName = item.text
+        const updated = [...prev]
+        // Mark items after this one that have no category to use this store name
+        for (let j = i + 1; j < updated.length; j++) {
+          if (updated[j].unclear) break // stop at next unclear
+          if (!updated[j].category) {
+            updated[j] = { ...updated[j], category: storeName }
+          }
+        }
+        // Mark this item as removed
+        return { ...item, unclear: false, selected: false }
+      }
+      // resolution === 'item' — keep as a regular item
+      return { ...item, unclear: false, selected: true, category: item.category || undefined }
+    }))
   }, [])
 
   const handleSave = useCallback(async () => {
@@ -243,16 +270,69 @@ export function BulkAddWithAI({
       )}
 
       {/* Step 2: Preview */}
-      {step === 'preview' && (
+      {step === 'preview' && (() => {
+        const unclearItems = parsedItems.map((item, i) => ({ item, index: i })).filter(({ item }) => item.unclear)
+        const regularItems = parsedItems.map((item, i) => ({ item, index: i })).filter(({ item }) => !item.unclear)
+
+        // Merge predefined categories with AI-detected ones for the dropdown
+        const allCats = new Map(categories?.map(c => [c.value, c.label]) ?? [])
+        parsedItems.forEach(p => {
+          if (p.category && !allCats.has(p.category)) allCats.set(p.category, p.category)
+        })
+
+        return (
         <div className="p-4 space-y-3">
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {parsedItems.length} item{parsedItems.length !== 1 ? 's' : ''} found.
-            {selectedCount < parsedItems.length && ` ${selectedCount} selected.`}
+            {regularItems.length} item{regularItems.length !== 1 ? 's' : ''} found.
+            {selectedCount < regularItems.length && ` ${selectedCount} selected.`}
             {' '}Edit, recategorize, or deselect before saving.
           </p>
 
+          {/* Needs Clarification section */}
+          {unclearItems.length > 0 && (
+            <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent, #D6A461) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-accent, #D6A461) 30%, transparent)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-accent, #D6A461)' }}>
+                Needs Clarification ({unclearItems.length})
+              </p>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                AI wasn't sure about these. Is each one a store, an item, or should it be skipped?
+              </p>
+              {unclearItems.map(({ item, index }) => (
+                <div key={index} className="flex items-center gap-2 py-1">
+                  <span className="text-sm font-medium flex-1 min-w-0" style={{ color: 'var(--color-text-primary)' }}>
+                    "{item.text}"
+                  </span>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => handleResolveUnclear(index, 'store')}
+                      className="px-2 py-0.5 rounded text-[10px] font-medium"
+                      style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', minHeight: 'unset' }}
+                    >
+                      Store
+                    </button>
+                    <button
+                      onClick={() => handleResolveUnclear(index, 'item')}
+                      className="px-2 py-0.5 rounded text-[10px] font-medium"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: 'unset' }}
+                    >
+                      Item
+                    </button>
+                    <button
+                      onClick={() => handleResolveUnclear(index, 'skip')}
+                      className="px-2 py-0.5 rounded text-[10px] font-medium"
+                      style={{ color: 'var(--color-text-secondary)', minHeight: 'unset' }}
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Regular items */}
           <div className="space-y-1 max-h-[400px] overflow-y-auto">
-            {parsedItems.map((item, index) => (
+            {regularItems.map(({ item, index }) => (
               <div
                 key={index}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
@@ -287,31 +367,24 @@ export function BulkAddWithAI({
                   }}
                 />
 
-                {categories && (() => {
-                  // Merge predefined categories with any AI-detected ones
-                  const allCats = new Map(categories.map(c => [c.value, c.label]))
-                  parsedItems.forEach(p => {
-                    if (p.category && !allCats.has(p.category)) allCats.set(p.category, p.category)
-                  })
-                  return (
-                    <select
-                      value={item.category || ''}
-                      onChange={(e) => handleEditCategory(index, e.target.value)}
-                      className="text-xs px-1 py-0.5 rounded"
-                      style={{
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        color: 'var(--color-text-primary)',
-                        border: '1px solid var(--color-border)',
-                        minHeight: 'unset',
-                      }}
-                    >
-                      <option value="">No section</option>
-                      {Array.from(allCats.entries()).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
-                  )
-                })()}
+                {categories && (
+                  <select
+                    value={item.category || ''}
+                    onChange={(e) => handleEditCategory(index, e.target.value)}
+                    className="text-xs px-1 py-0.5 rounded"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                      border: '1px solid var(--color-border)',
+                      minHeight: 'unset',
+                    }}
+                  >
+                    <option value="">No section</option>
+                    {Array.from(allCats.entries()).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                )}
 
                 <button
                   onClick={() => handleRemoveItem(index)}
@@ -351,7 +424,8 @@ export function BulkAddWithAI({
             </button>
           </div>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

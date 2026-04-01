@@ -637,6 +637,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const [organizing, setOrganizing] = useState(false)
   const [organizePreview, setOrganizePreview] = useState<Record<string, string[]> | null>(null)
   const [organizeMapping, setOrganizeMapping] = useState<Map<string, string> | null>(null)
+  const [organizeError, setOrganizeError] = useState<string | null>(null)
 
   // Sync local items when server items change (and no drag in progress)
   useEffect(() => {
@@ -748,6 +749,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     setOrganizing(true)
     setOrganizePreview(null)
     setOrganizeMapping(null)
+    setOrganizeError(null)
 
     try {
       const itemNames = items.map(i => i.content || i.item_name || '').filter(Boolean)
@@ -773,24 +775,26 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
       )
 
       const parsed = extractJSON<Record<string, string[]>>(response)
-      if (parsed && typeof parsed === 'object') {
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
         setOrganizePreview(parsed)
 
-        // Build item → section mapping
+        // Build item → section mapping (fuzzy match: trim + case-insensitive)
         const mapping = new Map<string, string>()
         for (const [section, sectionItems] of Object.entries(parsed)) {
           for (const itemName of sectionItems) {
-            // Find matching item (case-insensitive)
+            const needle = itemName.toLowerCase().trim()
             const match = items.find(i =>
-              (i.content || i.item_name || '').toLowerCase() === itemName.toLowerCase()
+              (i.content || i.item_name || '').toLowerCase().trim() === needle
             )
             if (match) mapping.set(match.id, section)
           }
         }
         setOrganizeMapping(mapping)
+      } else {
+        setOrganizeError('AI could not organize the items. Try entering store names.')
       }
-    } catch {
-      // Silently fail — user can retry
+    } catch (err) {
+      setOrganizeError((err as Error).message || 'Something went wrong. Please try again.')
     } finally {
       setOrganizing(false)
     }
@@ -1088,9 +1092,10 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             existingSections={Array.from(sections.keys())}
             preview={organizePreview}
             organizing={organizing}
+            error={organizeError}
             onOrganize={handleOrganize}
             onApply={applyOrganization}
-            onClose={() => { setShowOrganize(false); setOrganizePreview(null); setOrganizeMapping(null) }}
+            onClose={() => { setShowOrganize(false); setOrganizePreview(null); setOrganizeMapping(null); setOrganizeError(null) }}
           />
         )}
 
@@ -1372,6 +1377,7 @@ function OrganizeModal({
   existingSections,
   preview,
   organizing,
+  error,
   onOrganize,
   onApply,
   onClose,
@@ -1380,6 +1386,7 @@ function OrganizeModal({
   existingSections: string[]
   preview: Record<string, string[]> | null
   organizing: boolean
+  error: string | null
   onOrganize: (stores: string) => Promise<void>
   onApply: () => Promise<void>
   onClose: () => void
@@ -1402,6 +1409,11 @@ function OrganizeModal({
         </div>
 
         <div className="p-4 space-y-3">
+          {error && (
+            <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #c44) 10%, transparent)', color: 'var(--color-error, #c44)' }}>
+              {error}
+            </div>
+          )}
           {!preview ? (
             <>
               <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
