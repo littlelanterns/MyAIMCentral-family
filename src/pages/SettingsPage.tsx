@@ -112,7 +112,7 @@ export function SettingsPage() {
       {/* Family Management (Mom only) */}
       {shell === 'mom' && (
         <SettingsSection title="Family Management" icon={Users}>
-          <FamilyManagementSection familyId={family?.id} loginName={family?.family_login_name} />
+          <FamilyManagementSection familyId={family?.id} loginName={family?.family_login_name ?? undefined} />
         </SettingsSection>
       )}
 
