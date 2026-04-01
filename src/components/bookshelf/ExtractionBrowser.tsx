@@ -218,25 +218,6 @@ export function ExtractionBrowser({
     }
   }, [member, summaries, insights, declarations, actionSteps, questions, refetch])
 
-  // Key points refresh
-  const [refreshingKeyPoints, setRefreshingKeyPoints] = useState(false)
-  const handleRefreshKeyPoints = useCallback(async (bid: string) => {
-    setRefreshingKeyPoints(true)
-    try {
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bookshelf-key-points`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await import('@/lib/supabase/client')).supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
-        },
-        body: JSON.stringify({ bookshelf_item_id: bid, member_id: member?.id }),
-      })
-      if (resp.ok) await refetch()
-    } finally {
-      setRefreshingKeyPoints(false)
-    }
-  }, [member?.id, refetch])
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -265,8 +246,6 @@ export function ExtractionBrowser({
         onBack={onBack}
         onTitleChange={(bid, title) => updateBookTitle(bid, title)}
         onAuthorChange={(bid, author) => updateBookAuthor(bid, author)}
-        onRefreshKeyPoints={handleRefreshKeyPoints}
-        refreshingKeyPoints={refreshingKeyPoints}
         siblingBooks={siblingBooks}
         onNavigateToBook={bid => navigate(`/bookshelf?book=${bid}`)}
         onOpenSemanticSearch={() => setShowSemanticSearch(true)}

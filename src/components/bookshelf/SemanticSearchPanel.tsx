@@ -132,7 +132,7 @@ export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookI
           {Math.round(result.similarity * 100)}% match
         </span>
       </div>
-      <p className="text-sm text-[var(--color-text-primary)] line-clamp-3">
+      <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">
         {result.item_text}
       </p>
       <div className="flex items-center gap-2 mt-1.5 text-xs text-[var(--color-text-tertiary)]">
@@ -149,8 +149,15 @@ export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookI
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed inset-4 md:inset-8 lg:inset-16 z-50 bg-[var(--color-surface-primary)] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-page) 80%, transparent)' }} onClick={onClose} />
+      <div
+        className="fixed z-50 overflow-hidden flex flex-col rounded-xl shadow-2xl"
+        style={{
+          inset: '2rem',
+          backgroundColor: 'var(--color-bg-card, var(--color-surface-primary))',
+          border: '1px solid var(--color-border-default)',
+        }}
+      >
         {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-[var(--color-border-subtle)]">
           <Search size={20} className="text-[var(--color-text-tertiary)] shrink-0" />
@@ -159,7 +166,7 @@ export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookI
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
-            placeholder="Search across your book library..."
+            placeholder={bookIds && bookIds.length === 1 ? 'Search inside this book...' : bookIds && bookIds.length > 1 ? `Search across ${bookIds.length} books...` : 'Search across your book library...'}
             className="flex-1 text-sm bg-transparent text-[var(--color-text-primary)] focus:outline-none"
           />
           <button onClick={onClose} className="p-1">

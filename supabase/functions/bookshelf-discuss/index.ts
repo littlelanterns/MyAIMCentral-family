@@ -25,13 +25,14 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { assembleContext } from '../_shared/context-assembler.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
 
-const MODEL = 'anthropic/claude-sonnet-4-20250514'
+const MODEL = 'anthropic/claude-sonnet-4'
 
 // Service role client — needed for cross-table reads
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -141,12 +142,18 @@ function buildSystemPrompt(
 
 CRITICAL RULES:
 - Never use emoji
-- Reference book content specifically — cite chapters, concepts, and principles by name
-- Connect insights to the user's Guiding Stars and values when relevant
 - Be warm, substantive, and thought-provoking — not generic or surface-level
 - Keep responses focused and conversational (2-4 paragraphs typical)
-- When hearted content is available, prioritize it — it represents what resonated most with this reader
 - LiLa never cites a single book source to claim credit — apply synthesized universal principles
+
+SOURCE HONESTY (NON-NEGOTIABLE):
+- ONLY reference book content that actually appears in the BOOK CONTEXT section below. Never invent, assume, or fill in content from your training data about a book.
+- If hearted/favorited items are present, naturally reference them: "From what resonated with you..." or "Looking at the extractions you've saved..."
+- If passage-level RAG results are present, reference them naturally: "The book's own words on this..." or "There's a passage that speaks to this..."
+- If extraction content is present but not hearted, reference it as: "From the key ideas we extracted..."
+- If NO book content appears in the context below for a topic the user asks about, say so honestly: "I don't see specific content about that in what we've extracted so far" — never fabricate book content.
+- When hearted items exist, prioritize them — they represent what resonated most with this reader.
+- Connect insights to the user's Guiding Stars and values when both are present and relevant — but only reference user context that actually appears below.
 
 ${audienceGuidance}
 
@@ -292,7 +299,7 @@ async function buildBookContext(
       .from('bookshelf_summaries')
       .select('text, content_type, is_hearted')
       .eq('bookshelf_item_id', itemId)
-      .eq('user_id', memberId)
+      .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
       .order('created_at', { ascending: true })
 
@@ -320,7 +327,7 @@ async function buildBookContext(
       .from('bookshelf_insights')
       .select('text, content_type, is_hearted')
       .eq('bookshelf_item_id', itemId)
-      .eq('user_id', memberId)
+      .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
       .order('created_at', { ascending: true })
 
@@ -348,7 +355,7 @@ async function buildBookContext(
       .from('bookshelf_declarations')
       .select('declaration_text, style_variant, is_hearted')
       .eq('bookshelf_item_id', itemId)
-      .eq('user_id', memberId)
+      .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
       .order('created_at', { ascending: true })
 
@@ -376,7 +383,7 @@ async function buildBookContext(
       .from('bookshelf_action_steps')
       .select('text, action_type, is_hearted')
       .eq('bookshelf_item_id', itemId)
-      .eq('user_id', memberId)
+      .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
       .order('created_at', { ascending: true })
 
@@ -404,7 +411,7 @@ async function buildBookContext(
       .from('bookshelf_questions')
       .select('question_text, question_type, is_hearted')
       .eq('bookshelf_item_id', itemId)
-      .eq('user_id', memberId)
+      .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
       .order('created_at', { ascending: true })
 
@@ -517,72 +524,8 @@ async function buildBookContext(
   return { context: parts.join('\n\n'), titles }
 }
 
-// ============================================================
-// User Context Assembly
-// ============================================================
-
-async function buildUserContext(
-  familyId: string,
-  memberId: string,
-): Promise<string> {
-  const parts: string[] = []
-
-  // Guiding Stars — values and declarations
-  const { data: guidingStars } = await supabase
-    .from('guiding_stars')
-    .select('content, category, entry_type')
-    .eq('family_id', familyId)
-    .eq('member_id', memberId)
-    .eq('is_included_in_ai', true)
-    .is('archived_at', null)
-    .order('sort_order', { ascending: true })
-
-  if (guidingStars && guidingStars.length > 0) {
-    parts.push("User's Guiding Stars (values & declarations):")
-    const grouped = new Map<string, string[]>()
-    for (const g of guidingStars as Array<{
-      content: string
-      category: string | null
-      entry_type: string | null
-    }>) {
-      const key = g.entry_type || g.category || 'general'
-      const list = grouped.get(key) || []
-      list.push(g.content)
-      grouped.set(key, list)
-    }
-    for (const [type, entries] of grouped) {
-      parts.push(`${type.toUpperCase()}:`)
-      for (const text of entries) {
-        parts.push(`- ${text}`)
-      }
-    }
-  }
-
-  // Self-Knowledge — personality, traits, strengths
-  const { data: selfKnowledge } = await supabase
-    .from('self_knowledge')
-    .select('content, category')
-    .eq('family_id', familyId)
-    .eq('member_id', memberId)
-    .eq('is_included_in_ai', true)
-    .is('archived_at', null)
-    .order('created_at', { ascending: true })
-    .limit(20)
-
-  if (selfKnowledge && selfKnowledge.length > 0) {
-    parts.push('\nAbout the User (InnerWorkings):')
-    for (const s of selfKnowledge as Array<{
-      content: string
-      category: string
-    }>) {
-      const prefix =
-        s.category && s.category !== 'general' ? `[${s.category}] ` : ''
-      parts.push(`- ${prefix}${s.content.substring(0, 200)}`)
-    }
-  }
-
-  return parts.join('\n')
-}
+// User context assembly is now handled by _shared/context-assembler.ts
+// using the three-layer relevance-filtered pattern.
 
 // ============================================================
 // Opening Message Synthesis
@@ -649,12 +592,21 @@ Deno.serve(async (req) => {
 
     const isMultiBook = bookshelf_item_ids.length > 1
 
-    // Build context in parallel
-    const [{ context: bookContext, titles: bookTitles }, userContext] =
+    // Build context in parallel — book context + layered user/family context
+    const [{ context: bookContext, titles: bookTitles }, userCtx] =
       await Promise.all([
         buildBookContext(family_id, member_id, bookshelf_item_ids, message),
-        buildUserContext(family_id, member_id),
+        assembleContext({
+          familyId: family_id,
+          memberId: member_id,
+          userMessage: message || `Discussing books: ${bookshelf_item_ids.join(', ')}`,
+          recentMessages: conversation_history.slice(-4),
+          featureContext: '', // Book context is handled separately by buildBookContext
+        }),
       ])
+
+    // Combine layered context into a single string for the system prompt
+    const userContext = [userCtx.familyRoster, userCtx.relevantContext].filter(Boolean).join('\n')
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt(

@@ -1,20 +1,24 @@
 /**
  * BookShelfLibrary — main library view (PRD-23 Session A)
  */
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Grid3X3, List, ChevronDown,
-  X, Library, Sparkles, RefreshCw, Tag,
-  Upload, Download,
+  X, Library, Sparkles, Tag,
+  Upload, Download, Clock,
 } from 'lucide-react'
 import { Button, FeatureGuide } from '@/components/shared'
 import { BookUploadModal } from './BookUploadModal'
 import { ExportDialog } from './ExportDialog'
+import { SemanticSearchPanel } from './SemanticSearchPanel'
+import { BookShelfHistoryPanel } from './BookShelfHistoryPanel'
+import { BookDiscussionModal } from './BookDiscussionModal'
 import { useExtractionData } from '@/hooks/useExtractionData'
 import { useBookShelf } from '@/hooks/useBookShelf'
 import { useBookShelfSettings } from '@/hooks/useBookShelfSettings'
 import { useBookShelfCollections } from '@/hooks/useBookShelfCollections'
+import { useBookDiscussions } from '@/hooks/useBookDiscussions'
 import { BookCard } from './BookCard'
 import { CollectionSidebar } from './CollectionSidebar'
 import { MultiSelectBar } from './MultiSelectBar'
@@ -90,6 +94,18 @@ export function BookShelfLibrary() {
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [showUpload, setShowUpload] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showSemanticSearch, setShowSemanticSearch] = useState(false)
+  const [searchInitialQuery, setSearchInitialQuery] = useState<string | undefined>()
+  const [showHistory, setShowHistory] = useState(false)
+  const [showDiscussion, setShowDiscussion] = useState(false)
+  const [discussionContinueId, setDiscussionContinueId] = useState<string | undefined>()
+
+  const {
+    discussions, fetchDiscussions, deleteDiscussion,
+  } = useBookDiscussions()
+
+  // Fetch discussions on mount for history panel
+  useEffect(() => { fetchDiscussions() }, [fetchDiscussions])
 
   // Debounced search with tag auto-select (ref-based to prevent timer leaks)
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -137,6 +153,13 @@ export function BookShelfLibrary() {
     }
     return all
   }, [parentBooks, debouncedQuery])
+
+  // Book title map for history panel
+  const bookTitleMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    parentBooks.forEach(b => { map[b.id] = b.title })
+    return map
+  }, [parentBooks])
 
   // Filtered and sorted books
   const displayBooks = useMemo(() => {
@@ -433,16 +456,34 @@ export function BookShelfLibrary() {
             </div>
           )}
 
-          {/* Action buttons row (stubs) */}
-          <div className="flex gap-2 mb-4">
-            <Button variant="secondary" size="sm" disabled className="gap-1.5 opacity-50">
+          {/* Action buttons row */}
+          <div className="flex gap-2 mb-4 relative">
+            <Button variant="secondary" size="sm" onClick={() => setShowSemanticSearch(true)} className="gap-1.5">
               <Sparkles size={14} />
               Search Library
             </Button>
-            <Button variant="secondary" size="sm" disabled className="gap-1.5 opacity-50">
-              <RefreshCw size={14} />
-              Refresh Key Points
+            <Button variant="secondary" size="sm" onClick={() => setShowHistory(h => !h)} className="gap-1.5 ml-auto">
+              <Clock size={14} />
+              History
             </Button>
+
+            <BookShelfHistoryPanel
+              isOpen={showHistory}
+              onClose={() => setShowHistory(false)}
+              discussions={discussions}
+              bookTitleMap={bookTitleMap}
+              onRerunSearch={(q) => {
+                setShowHistory(false)
+                setSearchInitialQuery(q)
+                setShowSemanticSearch(true)
+              }}
+              onContinueDiscussion={(disc) => {
+                setShowHistory(false)
+                setDiscussionContinueId(disc.id)
+                setShowDiscussion(true)
+              }}
+              onDeleteDiscussion={deleteDiscussion}
+            />
           </div>
 
           {/* Collection panel — mobile only */}
@@ -531,6 +572,28 @@ export function BookShelfLibrary() {
         isOpen={showExport}
         onClose={() => setShowExport(false)}
         books={displayBooks}
+      />
+
+      {/* Semantic search panel */}
+      <SemanticSearchPanel
+        isOpen={showSemanticSearch}
+        onClose={() => { setShowSemanticSearch(false); setSearchInitialQuery(undefined) }}
+        onNavigateToResult={(bookId, tab) => {
+          setShowSemanticSearch(false)
+          setSearchInitialQuery(undefined)
+          navigate(`/bookshelf?book=${bookId}${tab ? `&tab=${tab}` : ''}`)
+        }}
+        initialQuery={searchInitialQuery}
+      />
+
+      {/* Discussion modal (for resuming from history) */}
+      <BookDiscussionModal
+        isOpen={showDiscussion}
+        onClose={() => { setShowDiscussion(false); setDiscussionContinueId(undefined); fetchDiscussions() }}
+        bookTitles={parentBooks.map(b => b.title)}
+        bookshelfItemIds={parentBooks.map(b => b.id)}
+        existingDiscussionId={discussionContinueId}
+        bookTitleMap={bookTitleMap}
       />
     </div>
   )

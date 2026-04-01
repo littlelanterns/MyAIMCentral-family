@@ -67,9 +67,9 @@ export function BookShelfHistoryPanel({
   const hasContent = searchHistory.length > 0 || discussions.length > 0
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-80 max-h-96 overflow-y-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-primary)] shadow-xl">
+    <div className="absolute right-0 top-full mt-1 z-50 w-80 max-h-96 overflow-y-auto rounded-lg shadow-xl" style={{ backgroundColor: 'var(--color-bg-card, var(--color-surface-primary))', border: '1px solid var(--color-border-default)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-[var(--color-surface-primary)] border-b border-[var(--color-border-default)]">
+      <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-default)]" style={{ backgroundColor: 'var(--color-bg-card, var(--color-surface-primary))' }}>
         <span className="text-xs font-medium text-[var(--color-text-secondary)]">BookShelf History</span>
         <button type="button" onClick={onClose} className="p-0.5 rounded hover:bg-[var(--color-surface-tertiary)]">
           <X size={14} className="text-[var(--color-text-tertiary)]" />

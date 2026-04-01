@@ -3,7 +3,7 @@
  * Back button, title (editable for single-book), book info collapsible section.
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, RefreshCw, Search, MessageSquare, Clock, Sparkles } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Search, MessageSquare, Clock, Sparkles } from 'lucide-react'
 import type { BookShelfItem } from '@/types/bookshelf'
 
 interface ExtractionHeaderProps {
@@ -13,8 +13,6 @@ interface ExtractionHeaderProps {
   onBack: () => void
   onTitleChange?: (bookId: string, title: string) => void
   onAuthorChange?: (bookId: string, author: string) => void
-  onRefreshKeyPoints?: (bookId: string) => void
-  refreshingKeyPoints?: boolean
   /** For multi-part navigation */
   siblingBooks?: BookShelfItem[]
   onNavigateToBook?: (bookId: string) => void
@@ -29,7 +27,7 @@ interface ExtractionHeaderProps {
 
 export function ExtractionHeader({
   books, collectionName, showHearted, onBack,
-  onTitleChange, onAuthorChange, onRefreshKeyPoints, refreshingKeyPoints,
+  onTitleChange, onAuthorChange,
   siblingBooks, onNavigateToBook, onOpenSemanticSearch,
   onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, historyOpen,
 }: ExtractionHeaderProps) {
@@ -151,7 +149,7 @@ export function ExtractionHeader({
                 </div>
               )}
 
-              {/* Book info collapsible + Refresh Key Points */}
+              {/* Book info collapsible + action links */}
               <div className="flex items-center gap-2 mt-2">
                 <button
                   onClick={() => setShowInfo(!showInfo)}
@@ -160,17 +158,6 @@ export function ExtractionHeader({
                   {showInfo ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   Book Info
                 </button>
-
-                {onRefreshKeyPoints && (
-                  <button
-                    onClick={() => onRefreshKeyPoints(book.id)}
-                    disabled={refreshingKeyPoints}
-                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
-                  >
-                    <RefreshCw size={12} className={refreshingKeyPoints ? 'animate-spin' : ''} />
-                    Refresh Key Points
-                  </button>
-                )}
 
                 {onOpenSemanticSearch && (
                   <button
@@ -263,6 +250,41 @@ export function ExtractionHeader({
               <p className="text-sm text-[var(--color-text-tertiary)] mt-0.5">
                 {books.length} books
               </p>
+
+              {/* Action buttons for multi-book view */}
+              <div className="flex items-center gap-3 mt-2">
+                {onOpenSemanticSearch && (
+                  <button
+                    onClick={onOpenSemanticSearch}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    <Search size={12} />
+                    Search Inside
+                  </button>
+                )}
+
+                {onOpenDiscussion && (
+                  <button
+                    onClick={onOpenDiscussion}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    <MessageSquare size={12} />
+                    Discuss
+                  </button>
+                )}
+
+                {onOpenHistory && (
+                  <div className="relative ml-auto">
+                    <button
+                      onClick={onOpenHistory}
+                      className="p-1 rounded hover:bg-[var(--color-surface-tertiary)]"
+                      title="Search & discussion history"
+                    >
+                      <Clock size={14} className={`text-[var(--color-text-tertiary)] ${historyOpen ? 'text-[var(--color-accent)]' : ''}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
