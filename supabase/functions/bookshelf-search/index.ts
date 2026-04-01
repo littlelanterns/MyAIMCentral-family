@@ -4,6 +4,7 @@
  * Uses OpenAI text-embedding-3-small to embed the query, then RPC functions for vector search.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
 import { corsHeaders, handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
@@ -14,29 +15,33 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+const InputSchema = z.object({
+  query: z.string().min(1),
+  family_id: z.string().uuid(),
+  member_id: z.string().uuid(),
+  scope: z.enum(['chunks', 'extractions', 'both']).default('both'),
+  book_ids: z.array(z.string().uuid()).optional(),
+  limit: z.number().int().min(1).max(100).default(20),
+})
+
 Deno.serve(async (req) => {
   const cors = handleCors(req)
   if (cors) return cors
 
   try {
-    // Auth
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
-    const user = auth.user
 
-    // Parse + validate input
     const body = await req.json()
-    const { query, scope, family_id, member_id, book_ids, limit = 20 } = body
-
-    if (!query || typeof query !== 'string' || !family_id || !member_id) {
+    const parsed = InputSchema.safeParse(body)
+    if (!parsed.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: query, family_id, member_id' }),
+        JSON.stringify({ error: 'Invalid input', details: parsed.error.flatten() }),
         { status: 400, headers: jsonHeaders }
       )
     }
 
-    const validScopes = ['chunks', 'extractions', 'both']
-    const searchScope = validScopes.includes(scope) ? scope : 'both'
+    const { query, scope: searchScope, family_id, member_id, book_ids, limit } = parsed.data
 
     // Generate query embedding
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
@@ -73,75 +78,56 @@ Deno.serve(async (req) => {
       outputTokens: 0,
     })
 
-    // Run searches based on scope
-    const results: Array<{
-      id: string
-      table_name: string
-      bookshelf_item_id: string
-      book_title: string
-      content_type: string
-      item_text: string
-      section_title: string | null
-      similarity: number
-    }> = []
+    // Run searches based on scope — parallel when both
+    type SearchResult = {
+      id: string; table_name: string; bookshelf_item_id: string
+      book_title: string; content_type: string; item_text: string
+      section_title: string | null; similarity: number
+    }
 
     const bookIdArray = book_ids?.length ? book_ids : null
 
-    if (searchScope === 'chunks' || searchScope === 'both') {
-      const { data: chunkResults, error: chunkError } = await supabase.rpc(
-        'match_bookshelf_chunks',
-        {
-          query_embedding: queryEmbedding,
-          p_family_id: family_id,
-          p_book_ids: bookIdArray,
-          match_threshold: 0.3,
-          match_count: limit,
-        }
-      )
-
-      if (!chunkError && chunkResults) {
-        for (const r of chunkResults) {
-          results.push({
-            id: r.id,
-            table_name: 'bookshelf_chunks',
-            bookshelf_item_id: r.bookshelf_item_id,
-            book_title: r.book_title,
-            content_type: 'passage',
-            item_text: r.chunk_text?.slice(0, 500) || '',
-            section_title: r.chapter_title,
-            similarity: r.similarity,
-          })
-        }
-      }
+    async function searchChunks(): Promise<SearchResult[]> {
+      const { data, error } = await supabase.rpc('match_bookshelf_chunks', {
+        query_embedding: queryEmbedding, p_family_id: family_id,
+        p_book_ids: bookIdArray, match_threshold: 0.3, match_count: limit,
+      })
+      if (error || !data) return []
+      return data.map((r: Record<string, unknown>) => ({
+        id: r.id as string, table_name: 'bookshelf_chunks',
+        bookshelf_item_id: r.bookshelf_item_id as string,
+        book_title: r.book_title as string, content_type: 'passage',
+        item_text: ((r.chunk_text as string) || '').slice(0, 500),
+        section_title: r.chapter_title as string | null,
+        similarity: r.similarity as number,
+      }))
     }
 
-    if (searchScope === 'extractions' || searchScope === 'both') {
-      const { data: extractionResults, error: extractionError } = await supabase.rpc(
-        'match_bookshelf_extractions',
-        {
-          query_embedding: queryEmbedding,
-          p_family_id: family_id,
-          p_member_id: member_id,
-          p_book_ids: bookIdArray,
-          match_threshold: 0.3,
-          match_count: limit,
-        }
-      )
+    async function searchExtractions(): Promise<SearchResult[]> {
+      const { data, error } = await supabase.rpc('match_bookshelf_extractions', {
+        query_embedding: queryEmbedding, p_family_id: family_id,
+        p_member_id: member_id, p_book_ids: bookIdArray,
+        match_threshold: 0.3, match_count: limit,
+      })
+      if (error || !data) return []
+      return data.map((r: Record<string, unknown>) => ({
+        id: r.id as string, table_name: r.table_name as string,
+        bookshelf_item_id: r.bookshelf_item_id as string,
+        book_title: r.book_title as string, content_type: (r.content_type as string) || '',
+        item_text: ((r.item_text as string) || '').slice(0, 500),
+        section_title: r.section_title as string | null,
+        similarity: r.similarity as number,
+      }))
+    }
 
-      if (!extractionError && extractionResults) {
-        for (const r of extractionResults) {
-          results.push({
-            id: r.id,
-            table_name: r.table_name,
-            bookshelf_item_id: r.bookshelf_item_id,
-            book_title: r.book_title,
-            content_type: r.content_type || '',
-            item_text: r.item_text?.slice(0, 500) || '',
-            section_title: r.section_title,
-            similarity: r.similarity,
-          })
-        }
-      }
+    let results: SearchResult[]
+    if (searchScope === 'both') {
+      const [chunks, extractions] = await Promise.all([searchChunks(), searchExtractions()])
+      results = [...chunks, ...extractions]
+    } else if (searchScope === 'chunks') {
+      results = await searchChunks()
+    } else {
+      results = await searchExtractions()
     }
 
     // Sort by similarity descending, deduplicate, limit

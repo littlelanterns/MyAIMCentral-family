@@ -8,8 +8,8 @@ import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { Heart, StickyNote, Trash2, Sparkles, Sparkle } from 'lucide-react'
 import type { ExtractionTable } from '@/lib/extractionActions'
 
-/** Approved palette red for hearts — Rustic Rose from member_colors.ts */
-const HEART_COLOR = '#b25a58'
+/** Heart color uses the error semantic token (warm red) */
+const HEART_COLOR = 'var(--color-error, #b25a58)'
 
 interface ExtractionItemProps {
   id: string
@@ -74,7 +74,7 @@ export function ExtractionItem({
       className={`relative border-l-4 ${borderColorClass} rounded-lg p-3 transition-all duration-300
         ${isDeleting ? 'opacity-0 scale-95' : 'opacity-100'}
       `}
-      style={localHearted ? { backgroundColor: `${HEART_COLOR}0D` } : undefined}
+      style={localHearted ? { backgroundColor: 'color-mix(in srgb, var(--color-error, #b25a58) 5%, transparent)' } : undefined}
     >
       {/* Go Deeper sparkle indicator */}
       {isFromGoDeeper && (

@@ -5,6 +5,7 @@
  * For sections with ≤2 items, all are marked as key points.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
 import { corsHeaders, handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
@@ -14,6 +15,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+const InputSchema = z.object({
+  bookshelf_item_id: z.string().uuid(),
+  member_id: z.string().uuid(),
+  family_id: z.string().uuid().optional(),
+})
 
 const EXTRACTION_TABLES = [
   { table: 'bookshelf_summaries', textCol: 'text' },
@@ -32,14 +39,15 @@ Deno.serve(async (req) => {
     if (auth instanceof Response) return auth
 
     const body = await req.json()
-    const { bookshelf_item_id, member_id } = body
-
-    if (!bookshelf_item_id || !member_id) {
+    const parsed = InputSchema.safeParse(body)
+    if (!parsed.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing required: bookshelf_item_id, member_id' }),
+        JSON.stringify({ error: 'Invalid input', details: parsed.error.flatten() }),
         { status: 400, headers: jsonHeaders }
       )
     }
+
+    const { bookshelf_item_id, member_id, family_id: providedFamilyId } = parsed.data
 
     let totalInput = 0
     let totalOutput = 0
@@ -158,18 +166,21 @@ ${itemTexts}`
       }
     }
 
-    // Log AI cost
+    // Log AI cost — use provided family_id or look up
     if (totalInput > 0 || totalOutput > 0) {
-      // Look up family_id from member
-      const { data: memberData } = await supabase
-        .from('family_members')
-        .select('family_id')
-        .eq('id', member_id)
-        .single()
+      let familyId = providedFamilyId
+      if (!familyId) {
+        const { data: memberData } = await supabase
+          .from('family_members')
+          .select('family_id')
+          .eq('id', member_id)
+          .single()
+        familyId = memberData?.family_id
+      }
 
-      if (memberData) {
+      if (familyId) {
         logAICost({
-          familyId: memberData.family_id,
+          familyId,
           memberId: member_id,
           featureKey: 'bookshelf_key_points',
           model: 'anthropic/claude-haiku-4.5',

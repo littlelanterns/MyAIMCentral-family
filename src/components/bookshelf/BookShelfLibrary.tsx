@@ -1,7 +1,7 @@
 /**
  * BookShelfLibrary — main library view (PRD-23 Session A)
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Grid3X3, List, ChevronDown,
@@ -85,18 +85,18 @@ export function BookShelfLibrary() {
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [activeTag, setActiveTag] = useState<string | null>(null)
 
-  // Debounced search with tag auto-select
+  // Debounced search with tag auto-select (ref-based to prevent timer leaks)
   const [debouncedQuery, setDebouncedQuery] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value)
-    const timer = setTimeout(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
       setDebouncedQuery(value)
-      // Auto-select tag if search exactly matches a tag name
       if (value.trim()) {
         const q = value.trim().toLowerCase().replace(/\s+/g, '_')
         const allTags = new Set<string>()
         parentBooks.forEach(b => b.tags.forEach(t => allTags.add(t)))
-        // Check for exact match (with underscore normalization)
         const exactMatch = Array.from(allTags).find(
           t => t.toLowerCase() === q || t.toLowerCase() === value.trim().toLowerCase()
         )
@@ -107,7 +107,6 @@ export function BookShelfLibrary() {
         }
       }
     }, 300)
-    return () => clearTimeout(timer)
   }, [parentBooks])
 
   // Extract unique tags sorted by frequency, reordered by search relevance

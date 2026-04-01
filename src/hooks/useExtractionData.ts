@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from './useFamilyMember'
 import type {
   BookShelfItem,
+  BookShelfChapter,
   BookShelfSummary,
   BookShelfInsight,
   BookShelfDeclaration,
@@ -14,15 +15,7 @@ import type {
   BookShelfQuestion,
 } from '@/types/bookshelf'
 
-export interface BookShelfChapter {
-  id: string
-  bookshelf_item_id: string
-  chapter_index: number
-  chapter_title: string
-  start_chunk_index: number | null
-  end_chunk_index: number | null
-  created_at: string
-}
+export type { BookShelfChapter }
 
 export interface UseExtractionDataReturn {
   summaries: BookShelfSummary[]
@@ -114,7 +107,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .order('chapter_index', { ascending: true }),
         supabase
           .from('bookshelf_items')
-          .select('*')
+          .select('id,family_id,uploaded_by_member_id,title,author,file_type,genres,tags,extraction_status,parent_bookshelf_item_id,part_number,part_count,created_at,updated_at')
           .in('id', bookIds),
       ])
 

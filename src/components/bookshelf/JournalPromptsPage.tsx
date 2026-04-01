@@ -5,8 +5,7 @@
 import { useState, useMemo } from 'react'
 import { Plus, Search, X, BookOpen, CheckSquare, Archive, PenLine } from 'lucide-react'
 import { useJournalPrompts } from '@/hooks/useJournalPrompts'
-import { ModalV2 } from '@/components/shared/ModalV2'
-import { FeatureGuide } from '@/components/shared'
+import { ModalV2, FeatureGuide } from '@/components/shared'
 import type { JournalPrompt } from '@/types/bookshelf'
 
 export function JournalPromptsPage() {
@@ -233,6 +232,7 @@ function CreatePromptModal({
 
   return (
     <ModalV2
+      id="create-journal-prompt"
       isOpen={isOpen}
       onClose={onClose}
       title="Add Custom Prompt"

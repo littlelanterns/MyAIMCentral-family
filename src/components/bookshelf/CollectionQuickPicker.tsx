@@ -18,9 +18,9 @@ export function CollectionQuickPicker({ bookIds, onClose }: CollectionQuickPicke
     collectionBookIds,
     addBooksToCollection,
     removeBookFromCollection,
+    createCollection,
   } = useBookShelfCollections()
   const [showCreate, setShowCreate] = useState(false)
-  const { createCollection } = useBookShelfCollections()
 
   function isBookInCollection(collectionId: string): boolean {
     const ids = collectionBookIds.get(collectionId) || []
