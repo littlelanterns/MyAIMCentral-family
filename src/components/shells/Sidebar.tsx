@@ -5,7 +5,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
-  LayoutDashboard, BookOpen, Sun, Moon as MoonIcon, CheckSquare, Calendar,
+  LayoutDashboard, BookOpen, BookHeart, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, Library,
   ChevronLeft, ChevronRight,
@@ -43,6 +43,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     collapsible: true,
     items: [
       { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
+      { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
       { label: 'Morning Rhythm', path: '/rhythms/morning', featureKey: 'morning_rhythm', icon: <Sun size={20} />, tooltip: 'Start your day with intention' },
       { label: 'Evening Review', path: '/rhythms/evening', featureKey: 'evening_review', icon: <MoonIcon size={20} />, tooltip: 'Reflect on your day' },
     ],
@@ -126,6 +127,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
         items: [
           { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
           { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
+          { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
           { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
         ],
       }]

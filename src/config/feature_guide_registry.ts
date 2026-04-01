@@ -51,6 +51,16 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
       'Toggle AI inclusion per entry',
     ],
   },
+  reflections: {
+    title: 'Daily Reflections',
+    description:
+      'A space for thoughtful daily questions. Answer what speaks to you — there\'s no right number. Your answers are automatically saved to your Journal. You can add your own questions or archive ones that don\'t resonate in the Manage tab.',
+    bullets: [
+      'Answer the questions that speak to you each day',
+      'Responses auto-save to your Journal under the Reflections filter',
+      'Add your own questions or archive ones you don\'t need in the Manage tab',
+    ],
+  },
   tasks: {
     title: 'Tasks & Routines',
     description:

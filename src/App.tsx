@@ -27,6 +27,7 @@ import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
+import { ReflectionsPage } from '@/pages/ReflectionsPage'
 import { BookShelfPage } from '@/pages/BookShelfPage'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
@@ -118,6 +119,7 @@ function App() {
               <Route path="/archives/export" element={<ProtectedRoute><ContextExportPage /></ProtectedRoute>} />
               <Route path="/vault" element={<ProtectedRoute><VaultBrowsePage /></ProtectedRoute>} />
               <Route path="/vault/my-prompts" element={<ProtectedRoute><PersonalPromptLibraryPage /></ProtectedRoute>} />
+              <Route path="/reflections" element={<ProtectedRoute><ReflectionsPage /></ProtectedRoute>} />
               <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
               <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />

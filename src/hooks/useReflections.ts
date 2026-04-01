@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 
 export type ReflectionCategory =
   | 'gratitude_joy' | 'growth_accountability' | 'identity_purpose'
-  | 'relationships_service' | 'curiosity_discovery' | 'kids_specific' | 'custom'
+  | 'relationships_service' | 'curiosity_discovery' | 'daily_life' | 'custom'
 
 export type ReflectionSource = 'default' | 'custom' | 'lila_dynamic'
 
@@ -48,7 +48,7 @@ export const REFLECTION_CATEGORIES: { value: ReflectionCategory; label: string }
   { value: 'identity_purpose', label: 'Identity & Purpose' },
   { value: 'relationships_service', label: 'Relationships & Service' },
   { value: 'curiosity_discovery', label: 'Curiosity & Discovery' },
-  { value: 'kids_specific', label: 'Kids' },
+  { value: 'daily_life', label: 'Daily Life' },
   { value: 'custom', label: 'Custom' },
 ]
 
@@ -58,7 +58,7 @@ const CATEGORY_TAGS: Record<ReflectionCategory, string[]> = {
   identity_purpose: ['reflection', 'identity'],
   relationships_service: ['reflection', 'relationships'],
   curiosity_discovery: ['reflection', 'curiosity'],
-  kids_specific: ['reflection', 'kids'],
+  daily_life: ['reflection', 'daily'],
   custom: ['reflection'],
 }
 
@@ -109,11 +109,11 @@ const DEFAULT_PROMPTS: DefaultPrompt[] = [
   { prompt_text: 'What did I see differently today than I would have a year ago?', category: 'curiosity_discovery', sort_order: 27 },
 
   // Kids-Specific (5)
-  { prompt_text: 'What was the best part of your day?', category: 'kids_specific', sort_order: 28 },
-  { prompt_text: 'Was there a moment you were brave today?', category: 'kids_specific', sort_order: 29 },
-  { prompt_text: 'Did you help someone today? How?', category: 'kids_specific', sort_order: 30 },
-  { prompt_text: 'What\'s something you tried that was hard?', category: 'kids_specific', sort_order: 31 },
-  { prompt_text: 'If you could do one thing over, what would it be?', category: 'kids_specific', sort_order: 32 },
+  { prompt_text: 'What was the best part of your day?', category: 'daily_life', sort_order: 28 },
+  { prompt_text: 'Was there a moment you were brave today?', category: 'daily_life', sort_order: 29 },
+  { prompt_text: 'Did you help someone today? How?', category: 'daily_life', sort_order: 30 },
+  { prompt_text: 'What\'s something you tried that was hard?', category: 'daily_life', sort_order: 31 },
+  { prompt_text: 'If you could do one thing over, what would it be?', category: 'daily_life', sort_order: 32 },
 ]
 
 // ─── Lazy Seed ───────────────────────────────────────────────
