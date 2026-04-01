@@ -33,10 +33,13 @@ import {
   Play,
   Square,
   GripVertical,
+  StickyNote,
+  Loader2,
 } from 'lucide-react'
 import { Badge } from '@/components/shared'
 import { useTimerContext } from '@/features/timer'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
+import { supabase } from '@/lib/supabase/client'
 import { TaskCompletionExpander } from './TaskCompletionExpander'
 import type { Task } from '@/hooks/useTasks'
 
@@ -112,6 +115,9 @@ export function TaskCard({
   const [isPressed, _setIsPressed] = useState(false)
   const [showExpander, setShowExpander] = useState(false)
   const [pendingOrigin, setPendingOrigin] = useState<{ x: number; y: number } | undefined>()
+  const [showNoteInput, setShowNoteInput] = useState(false)
+  const [pendingNote, setPendingNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkboxRef = useRef<HTMLButtonElement | null>(null)
 
@@ -160,16 +166,19 @@ export function TaskCard({
       return
     }
 
-    // For tasks requiring approval, always show the expander
+    // For tasks requiring approval, show the expander (note needed for review)
     if (task.require_approval) {
       setPendingOrigin(origin)
       setShowExpander(true)
       return
     }
 
-    // For normal tasks, show the expander for optional details
-    setPendingOrigin(origin)
-    setShowExpander(true)
+    // For normal tasks, complete immediately — include any pending note
+    onToggle(task, origin, {
+      completionNote: pendingNote.trim() || null,
+    })
+    setPendingNote('')
+    setShowNoteInput(false)
   }
 
   const handleExpanderConfirm = (extras: { completionNote?: string | null; photoUrl?: string | null }) => {
@@ -180,6 +189,37 @@ export function TaskCard({
   const handleExpanderCancel = () => {
     setShowExpander(false)
     setPendingOrigin(undefined)
+  }
+
+  const handleNoteToggle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!showNoteInput && isCompleted && task.completion_note) {
+      setPendingNote(task.completion_note)
+    }
+    setShowNoteInput(!showNoteInput)
+  }
+
+  const handleSaveNote = async () => {
+    if (!pendingNote.trim()) return
+    setSavingNote(true)
+    try {
+      const { data: latest } = await supabase
+        .from('task_completions')
+        .select('id')
+        .eq('task_id', task.id)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+
+      if (latest?.[0]) {
+        await supabase
+          .from('task_completions')
+          .update({ completion_note: pendingNote.trim() })
+          .eq('id', latest[0].id)
+      }
+      setShowNoteInput(false)
+    } finally {
+      setSavingNote(false)
+    }
   }
 
   const handleMenuAction = (action: () => void) => {
@@ -395,6 +435,21 @@ export function TaskCard({
           )}
         </div>
 
+        {/* Note icon */}
+        <button
+          onClick={handleNoteToggle}
+          className="flex-shrink-0 p-1 rounded"
+          style={{
+            color: (showNoteInput || pendingNote || task.completion_note)
+              ? 'var(--color-btn-primary-bg)'
+              : 'var(--color-text-secondary)',
+            opacity: (showNoteInput || pendingNote || task.completion_note) ? 1 : 0.5,
+          }}
+          aria-label={showNoteInput ? 'Close note' : 'Add note'}
+        >
+          <StickyNote size={15} />
+        </button>
+
         {/* Context menu trigger */}
         <button
           onClick={(e) => {
@@ -468,14 +523,70 @@ export function TaskCard({
         </>
       )}
 
-      {/* Completion Evidence Expander — PRD-09A photo + note */}
-      {showExpander && !isCompleted && (
+      {/* Completion Evidence Expander — only for approval-required tasks */}
+      {showExpander && !isCompleted && task.require_approval && (
         <TaskCompletionExpander
           taskId={task.id}
-          requireApproval={!!task.require_approval}
+          requireApproval
           onConfirm={handleExpanderConfirm}
           onCancel={handleExpanderCancel}
         />
+      )}
+
+      {/* Inline note input — toggled via note icon */}
+      {showNoteInput && (
+        <div
+          className="mt-2 rounded-lg"
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--vibe-radius-card, 0.5rem)',
+            padding: '0.75rem',
+          }}
+        >
+          <textarea
+            value={pendingNote}
+            onChange={(e) => setPendingNote(e.target.value)}
+            placeholder="Add a note..."
+            rows={2}
+            className="w-full text-sm resize-none"
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--vibe-radius-input, 0.375rem)',
+              padding: '0.5rem',
+              outline: 'none',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'var(--color-btn-primary-bg)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--color-border)'
+            }}
+          />
+          <div className="flex items-center justify-end gap-2 mt-2">
+            {isCompleted && pendingNote.trim() && (
+              <button
+                onClick={handleSaveNote}
+                disabled={savingNote}
+                className="flex items-center gap-1.5 text-xs font-semibold"
+                style={{
+                  color: 'var(--color-text-on-primary, #fff)',
+                  padding: '0.375rem 0.75rem',
+                  borderRadius: 'var(--vibe-radius-sm, 4px)',
+                  background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                  cursor: savingNote ? 'wait' : 'pointer',
+                  border: 'none',
+                  opacity: savingNote ? 0.7 : 1,
+                }}
+              >
+                {savingNote && <Loader2 size={12} className="animate-spin" />}
+                Save Note
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
