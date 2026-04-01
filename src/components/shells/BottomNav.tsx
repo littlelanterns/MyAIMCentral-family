@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, StickyNote, Gem, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
+import { Home, CheckSquare, Library, Gem, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useNotepadContextSafe } from '@/components/notepad'
 import { useShell } from './ShellProvider'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
@@ -77,8 +76,15 @@ const MORE_SECTIONS: MoreNavSection[] = [
     ],
   },
   {
+    title: 'Capture',
+    items: [
+      { path: '/notepad', label: 'Notepad', description: 'Quick capture workspace', featureKey: 'notepad' },
+    ],
+  },
+  {
     title: 'Tools',
     items: [
+      { path: '/bookshelf', label: 'BookShelf', description: 'Family book wisdom library', featureKey: 'bookshelf_basic' },
       { path: '/vault', label: 'AI Vault', description: 'Tutorials, tools, and prompts', featureKey: 'vault_browse' },
       { path: '/bigplans', label: 'BigPlans', description: 'Project planning', featureKey: 'bigplans' },
       { path: '/thoughtsift', label: 'ThoughtSift', description: 'Decision tools', featureKey: 'thoughtsift' },
@@ -116,7 +122,6 @@ export function BottomNav() {
   const { data: member } = useFamilyMember()
   const { shell } = useShell()
   const iconUrls = useBottomNavIcons()
-  const notepad = useNotepadContextSafe()
 
   // Guided and play shells handle their own navigation
   if (shell === 'guided' || shell === 'play') return null
@@ -160,10 +165,10 @@ export function BottomNav() {
         {/* Left items */}
         {NAV_LEFT.map(renderNavItem)}
 
-        {/* Center: Notepad — raised circle button */}
+        {/* Center: BookShelf — raised circle button */}
         <div className="flex-1 flex items-center justify-center" style={{ position: 'relative' }}>
-          <button
-            onClick={() => notepad?.toggleNotepad()}
+          <NavLink
+            to="/bookshelf"
             className="flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
             style={{
               width: '52px',
@@ -175,16 +180,17 @@ export function BottomNav() {
               top: '-14px',
               minHeight: 'unset',
               padding: 0,
+              textDecoration: 'none',
             }}
-            aria-label="Open Notepad"
+            aria-label="Open BookShelf"
           >
-            <StickyNote size={22} />
-          </button>
+            <Library size={22} />
+          </NavLink>
           <span
             className="text-[10px] font-medium absolute"
             style={{ bottom: '2px', color: 'var(--color-text-secondary)' }}
           >
-            Notepad
+            BookShelf
           </span>
         </div>
 
