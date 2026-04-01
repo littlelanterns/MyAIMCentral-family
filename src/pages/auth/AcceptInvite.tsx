@@ -330,15 +330,15 @@ export function AcceptInvite() {
     const messages: Record<typeof tokenState.reason, { heading: string; body: string }> = {
       no_token: {
         heading: 'Invalid invite link',
-        body: 'Please check your email for the correct invite link.',
+        body: 'This link is missing the invite token. Ask mom to generate a new invite link from Family Members in Settings.',
       },
       not_found: {
         heading: 'Invalid invite link',
-        body: 'This invite link is not recognized. Please check your email or ask your family admin to resend the invite.',
+        body: 'This invite link is not valid. Ask mom to generate a new invite link from Family Members in Settings.',
       },
       expired: {
         heading: 'This invite has expired',
-        body: 'Invite links are valid for a limited time. Please ask your family admin to send a new invite.',
+        body: 'Invite links are valid for 7 days. Ask mom to generate a new invite link from Family Members in Settings.',
       },
       already_used: {
         heading: 'This invite has already been accepted',
