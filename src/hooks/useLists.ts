@@ -224,12 +224,13 @@ export function useShareList() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ listId, memberId, canEdit }: { listId: string; memberId: string; canEdit?: boolean }) => {
+      const permission = canEdit !== false ? 'edit' : 'view'
       const { error } = await supabase.from('list_shares').insert({
         list_id: listId,
         shared_with: memberId,
         member_id: memberId,
-        permission: canEdit ? 'edit' : 'view',
-        can_edit: canEdit ?? true,
+        permission,
+        can_edit: permission === 'edit',
       })
       if (error) throw error
       // Flag the list as shared

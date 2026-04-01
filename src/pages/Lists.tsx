@@ -602,7 +602,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const createItem = useCreateListItem()
   const toggleItem = useToggleListItem()
   const deleteItem = useDeleteListItem()
-  useUpdateListItem() // available for future inline editing
+  const updateItem = useUpdateListItem()
   const uncheckAll = useUncheckAllItems()
   const promoteItem = usePromoteListItem()
   const archiveList = useArchiveList()
@@ -733,6 +733,17 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   function ShoppingItemRow({ item }: { item: ListItem }) {
     const label = item.content || item.item_name || ''
     const qty = item.quantity ? `${item.quantity}${item.quantity_unit ? ' ' + item.quantity_unit : ''}` : null
+    const [editing, setEditing] = useState(false)
+    const [editText, setEditText] = useState(label)
+
+    function commitEdit() {
+      const trimmed = editText.trim()
+      if (trimmed && trimmed !== label) {
+        updateItem.mutate({ id: item.id, listId, content: trimmed })
+      }
+      setEditing(false)
+    }
+
     return (
       <div
         className="flex items-center gap-2 py-1 px-1 group"
@@ -752,18 +763,31 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
             {item.checked && <Check size={10} style={{ color: 'var(--color-btn-primary-text)' }} />}
           </div>
         </button>
-        <span
-          className={`text-sm flex-1 min-w-0 truncate ${item.checked ? 'line-through' : ''}`}
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          {label}
-        </span>
-        {qty && (
+        {editing ? (
+          <input
+            autoFocus
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(false) }}
+            className="text-sm flex-1 min-w-0 px-1 py-0 rounded"
+            style={{ color: 'var(--color-text-primary)', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', outline: 'none' }}
+          />
+        ) : (
+          <span
+            className={`text-sm flex-1 min-w-0 truncate cursor-text ${item.checked ? 'line-through' : ''}`}
+            style={{ color: 'var(--color-text-primary)' }}
+            onClick={() => { setEditText(label); setEditing(true) }}
+          >
+            {label}
+          </span>
+        )}
+        {qty && !editing && (
           <span className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
             {qty}
           </span>
         )}
-        {item.notes && (
+        {item.notes && !editing && (
           <span className="text-xs shrink-0 italic hidden sm:inline" style={{ color: 'var(--color-text-secondary)' }}>
             {item.notes}
           </span>
