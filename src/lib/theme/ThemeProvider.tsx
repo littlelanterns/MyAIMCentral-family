@@ -189,6 +189,10 @@ function applyTokens(
   // Shell-specific token overrides (font-size-base, touch-target-min, etc.)
   applyShellTokens(shell)
 
+  // Update PWA status bar color to match theme
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+  if (metaThemeColor) metaThemeColor.setAttribute('content', colors.btnPrimaryBg)
+
   // Element size → --density-multiplier on :root
   const densityMap: Record<ElementSize, string> = {
     'small': '0.7',
