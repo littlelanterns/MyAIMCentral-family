@@ -119,7 +119,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
 
       // Duration timer + audio level check
       let levelCheckCount = 0
-      timerRef.current = setInterval(() => {
+      timerRef.current = window.setInterval(() => {
         setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
 
         // Log audio level every 3 seconds to verify mic is capturing
@@ -135,7 +135,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
             console.warn('[Voice] ⚠️ Mic appears silent — check your microphone input')
           }
         }
-      }, 500)
+      }, 500))
 
       // Start Web Speech API for live preview text
       startWebSpeech()
