@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake } from 'lucide-react'
+import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import { FeatureGuide } from '@/components/shared'
+import { GuidedManagementScreen } from '@/components/guided'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -189,7 +190,7 @@ function MemberRow({
   onOpenInvite,
   onSave,
 }: {
-  member: { id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null }
+  member: { id: string; family_id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null }
   isEditing: boolean
   onToggleEdit: () => void
   onOpenPin: () => void
@@ -201,6 +202,7 @@ function MemberRow({
   const [dob, setDob] = useState(member.date_of_birth || '')
   const [color, setColor] = useState(member.member_color || '')
   const [saving, setSaving] = useState(false)
+  const [manageDashboardOpen, setManageDashboardOpen] = useState(false)
 
   const roleLabel = member.role === 'additional_adult' ? 'Adult'
     : member.role === 'special_adult' ? (member.custom_role || 'Special Adult')
@@ -348,6 +350,28 @@ function MemberRow({
               Cancel
             </button>
           </div>
+          {/* PRD-25: Manage Dashboard button for Guided members */}
+          {mode === 'guided' && (
+            <button
+              onClick={() => setManageDashboardOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 25%, transparent)',
+              }}
+            >
+              <LayoutDashboard size={16} />
+              Manage {member.display_name}&rsquo;s Dashboard
+            </button>
+          )}
+          <GuidedManagementScreen
+            isOpen={manageDashboardOpen}
+            onClose={() => setManageDashboardOpen(false)}
+            memberId={member.id}
+            memberName={member.display_name}
+            familyId={member.family_id}
+          />
         </div>
       )}
     </div>

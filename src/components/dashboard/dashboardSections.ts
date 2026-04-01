@@ -10,6 +10,10 @@ export const SECTION_KEYS = {
   CALENDAR: 'calendar',
   ACTIVE_TASKS: 'active_tasks',
   WIDGET_GRID: 'widget_grid',
+  // PRD-25: Guided Dashboard section keys
+  BEST_INTENTIONS: 'best_intentions',
+  NEXT_BEST_THING: 'next_best_thing',
+  CELEBRATE: 'celebrate',
 } as const
 
 export type SectionKey = (typeof SECTION_KEYS)[keyof typeof SECTION_KEYS]
@@ -63,6 +67,31 @@ export const SECTION_META: Record<SectionKey, SectionMeta> = {
     key: 'widget_grid',
     label: 'Trackers & Widgets',
     icon: 'layout-grid',
+    collapsible: true,
+    hideable: true,
+    draggable: true,
+  },
+  // PRD-25: Guided Dashboard sections
+  best_intentions: {
+    key: 'best_intentions',
+    label: 'Best Intentions',
+    icon: 'heart',
+    collapsible: true,
+    hideable: false,
+    draggable: true,
+  },
+  next_best_thing: {
+    key: 'next_best_thing',
+    label: 'Next Best Thing',
+    icon: 'sparkles',
+    collapsible: false,
+    hideable: false,
+    draggable: true,
+  },
+  celebrate: {
+    key: 'celebrate',
+    label: 'Celebrate',
+    icon: 'trophy',
     collapsible: true,
     hideable: true,
     draggable: true,

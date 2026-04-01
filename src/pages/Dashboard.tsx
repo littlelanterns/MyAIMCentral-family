@@ -30,6 +30,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { supabase } from '@/lib/supabase/client'
 import FamilyOverview from '@/components/family-overview/FamilyOverview'
 import { FamilyHub } from '@/components/hub/FamilyHub'
+import { GuidedDashboard } from '@/pages/GuidedDashboard'
 
 interface DashboardProps {
   /** When true, this instance is inside the ViewAsModal overlay */
@@ -565,6 +566,14 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   const sortableSectionIds = activeSections
     .filter(s => s.key !== 'greeting') // greeting is pinned, not sortable
     .map(s => `section-${s.key}`)
+
+  // ─── PRD-25: Route Guided members to GuidedDashboard ──────
+  const memberDashboardMode = (displayMember as Record<string, unknown> | undefined)?.dashboard_mode as string | undefined
+  const isGuidedMember = memberDashboardMode === 'guided'
+
+  if (isGuidedMember) {
+    return <GuidedDashboard isViewAsOverlay={isViewAsOverlay} />
+  }
 
   // ─── Render ────────────────────────────────────────────────
 

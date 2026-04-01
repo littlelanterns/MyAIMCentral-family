@@ -33,7 +33,8 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const speechRecognitionRef = useRef<any>(null)
   const webSpeechFinalRef = useRef<string>('')
   const webSpeechInterimRef = useRef<string>('')
-  const timerRef = useRef<number | undefined>(undefined)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const timerRef = useRef<any>(undefined)
   const startTimeRef = useRef<number>(0)
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -135,7 +136,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
             console.warn('[Voice] ⚠️ Mic appears silent — check your microphone input')
           }
         }
-      }, 500))
+      }, 500)
 
       // Start Web Speech API for live preview text
       startWebSpeech()

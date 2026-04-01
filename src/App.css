@@ -480,3 +480,37 @@ h1, h2, h3, h4, h5, h6,
     margin: 1.5cm;
   }
 }
+
+/* ─── PRD-25: Guided Reading Support ─────────────────────── */
+
+.guided-reading-support {
+  --guided-font-scale: 1.25;
+  font-size: calc(1rem * var(--guided-font-scale));
+}
+
+/* TTS speaker icons — hidden by default, visible when reading support is active */
+.reading-support-tts {
+  display: none;
+}
+
+.guided-reading-support .reading-support-tts {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Voice input prominence in reading support mode */
+.guided-reading-support .voice-input-prominent {
+  transform: scale(1.3);
+}
+
+/* Task completion celebration animation */
+@keyframes guided-task-celebrate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.guided-task-celebrate {
+  animation: guided-task-celebrate 0.4s ease-in-out;
+}

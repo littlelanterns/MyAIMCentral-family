@@ -1,0 +1,288 @@
+/**
+ * PRD-25: Guided Active Tasks Section ("My Tasks")
+ * Two views: Simple List (default) | Now/Next/Optional
+ * Task completion triggers celebration animation.
+ */
+
+import { useState, useCallback } from 'react'
+import { CheckCircle2, Circle, Clock, Star, ChevronDown, ChevronRight, Volume2 } from 'lucide-react'
+import { useTasks, useCompleteTask } from '@/hooks/useTasks'
+import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
+
+interface GuidedActiveTasksSectionProps {
+  familyId: string
+  memberId: string
+  preferences: GuidedDashboardPreferences
+  readingSupport: boolean
+}
+
+export function GuidedActiveTasksSection({
+  familyId,
+  memberId,
+  preferences,
+  readingSupport,
+}: GuidedActiveTasksSectionProps) {
+  const { data: tasks = [] } = useTasks(familyId, {
+    assigneeId: memberId,
+    status: ['pending', 'in_progress'],
+    archived: false,
+  })
+  const completeTask = useCompleteTask()
+
+  const [viewMode, setViewMode] = useState<'simple_list' | 'now_next_optional'>(
+    preferences.guided_task_view_default
+  )
+  const [celebratingId, setCelebratingId] = useState<string | null>(null)
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(new Set())
+
+  const handleComplete = useCallback((taskId: string) => {
+    setCelebratingId(taskId)
+    completeTask.mutate({ taskId, memberId })
+    setTimeout(() => setCelebratingId(null), 800)
+  }, [completeTask, memberId])
+
+  const toggleRoutine = (taskId: string) => {
+    setExpandedRoutines(prev => {
+      const next = new Set(prev)
+      if (next.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+      return next
+    })
+  }
+
+  const speak = (text: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = 0.9
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+
+  // Separate tasks and opportunities
+  const regularTasks = tasks.filter(
+    t => !t.task_type?.startsWith('opportunity')
+  )
+  const opportunities = tasks.filter(
+    t => t.task_type?.startsWith('opportunity')
+  )
+
+  if (tasks.length === 0) {
+    return (
+      <div
+        className="p-4 rounded-xl text-center"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+      >
+        <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>
+          No tasks for today! Ask your mom if there&rsquo;s anything she&rsquo;d like you to
+          work on, or enjoy your free time.
+        </p>
+      </div>
+    )
+  }
+
+  // Group tasks for Now/Next/Optional view
+  const nowTasks = regularTasks.filter(t => t.priority === 'now' || t.status === 'in_progress')
+  const nextTasks = regularTasks.filter(t => t.priority === 'next' && t.status !== 'in_progress')
+  const optionalTasks = regularTasks.filter(
+    t => !nowTasks.includes(t) && !nextTasks.includes(t)
+  )
+
+  const renderTask = (task: (typeof tasks)[0]) => {
+    const isCelebrating = celebratingId === task.id
+    const isRoutine = task.task_type === 'routine'
+    const isExpanded = expandedRoutines.has(task.id)
+    const requiresApproval = task.require_approval
+
+    return (
+      <div key={task.id} className="space-y-0">
+        <div
+          className="flex items-center gap-3 py-2.5 px-3 rounded-lg transition-all"
+          style={{
+            backgroundColor: isCelebrating
+              ? 'color-mix(in srgb, var(--color-accent-warm) 15%, var(--color-bg-card))'
+              : 'transparent',
+            transform: isCelebrating ? 'scale(1.02)' : 'scale(1)',
+          }}
+        >
+          <button
+            onClick={() => handleComplete(task.id)}
+            className="shrink-0"
+            style={{
+              color: isCelebrating
+                ? 'var(--color-accent-warm, #22c55e)'
+                : 'var(--color-text-tertiary)',
+              background: 'transparent',
+              padding: 0,
+              minHeight: 'unset',
+              minWidth: 'unset',
+            }}
+          >
+            {isCelebrating ? (
+              <CheckCircle2 size={22} style={{ color: 'var(--color-accent-warm, #22c55e)' }} />
+            ) : (
+              <Circle size={22} />
+            )}
+          </button>
+
+          <div
+            className="flex-1 min-w-0 cursor-pointer"
+            onClick={() => isRoutine && toggleRoutine(task.id)}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="text-sm truncate"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {task.title}
+              </span>
+              {readingSupport && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); speak(task.title) }}
+                  className="reading-support-tts p-0.5 rounded shrink-0"
+                  style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                >
+                  <Volume2 size={12} />
+                </button>
+              )}
+            </div>
+            {requiresApproval && task.status === 'pending' && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Clock size={10} style={{ color: 'var(--color-text-tertiary)' }} />
+                <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Waiting for Mom
+                </span>
+              </div>
+            )}
+          </div>
+
+          {task.points_override && task.points_override > 0 && (
+            <span
+              className="flex items-center gap-0.5 text-xs shrink-0"
+              style={{ color: 'var(--color-accent-warm, #f59e0b)' }}
+            >
+              <Star size={12} />
+              {task.points_override}
+            </span>
+          )}
+
+          {isRoutine && (
+            <button
+              onClick={() => toggleRoutine(task.id)}
+              style={{ color: 'var(--color-text-tertiary)', background: 'transparent', padding: 0, minHeight: 'unset' }}
+            >
+              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </button>
+          )}
+        </div>
+
+        {/* Routine step expansion placeholder */}
+        {isRoutine && isExpanded && (
+          <div
+            className="ml-10 pl-3 py-1 border-l-2 text-xs space-y-1"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <p>Routine steps will show here</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* View mode toggle */}
+      <div className="flex gap-1 p-0.5 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+        <button
+          onClick={() => setViewMode('simple_list')}
+          className="flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          style={{
+            backgroundColor: viewMode === 'simple_list' ? 'var(--color-bg-card)' : 'transparent',
+            color: viewMode === 'simple_list' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            boxShadow: viewMode === 'simple_list' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+          }}
+        >
+          Simple List
+        </button>
+        <button
+          onClick={() => setViewMode('now_next_optional')}
+          className="flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+          style={{
+            backgroundColor: viewMode === 'now_next_optional' ? 'var(--color-bg-card)' : 'transparent',
+            color: viewMode === 'now_next_optional' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            boxShadow: viewMode === 'now_next_optional' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+          }}
+        >
+          Now / Next / Optional
+        </button>
+      </div>
+
+      {/* Task list */}
+      {viewMode === 'simple_list' ? (
+        <div className="space-y-0.5">
+          {regularTasks.map(renderTask)}
+          {opportunities.length > 0 && (
+            <>
+              <div
+                className="text-xs font-medium uppercase tracking-wider py-2 px-3 mt-2"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Opportunities
+              </div>
+              {opportunities.map(renderTask)}
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {nowTasks.length > 0 && (
+            <div>
+              <h4
+                className="text-xs font-medium uppercase tracking-wider px-3 mb-1"
+                style={{ color: 'var(--color-accent-warm, var(--color-btn-primary-bg))' }}
+              >
+                Now
+              </h4>
+              {nowTasks.map(renderTask)}
+            </div>
+          )}
+          {nextTasks.length > 0 && (
+            <div>
+              <h4
+                className="text-xs font-medium uppercase tracking-wider px-3 mb-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Next
+              </h4>
+              {nextTasks.map(renderTask)}
+            </div>
+          )}
+          {optionalTasks.length > 0 && (
+            <div>
+              <h4
+                className="text-xs font-medium uppercase tracking-wider px-3 mb-1"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Optional
+              </h4>
+              {optionalTasks.map(renderTask)}
+            </div>
+          )}
+          {opportunities.length > 0 && (
+            <div>
+              <h4
+                className="text-xs font-medium uppercase tracking-wider px-3 mb-1"
+                style={{ color: 'var(--color-accent-warm, #f59e0b)' }}
+              >
+                Opportunities
+              </h4>
+              {opportunities.map(renderTask)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

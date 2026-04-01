@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Home, CheckSquare, BookOpen, Trophy, BarChart3, Settings, PenLine, X, Mic } from 'lucide-react'
+import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, X, Mic } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
@@ -16,7 +16,7 @@ interface GuidedShellProps {
 const navItems = [
   { path: '/dashboard', icon: <Home size={22} />, label: 'Home' },
   { path: '/tasks', icon: <CheckSquare size={22} />, label: 'Tasks' },
-  { path: '/journal', icon: <BookOpen size={22} />, label: 'Journal' },
+  { path: '/journal', icon: <PenLine size={22} />, label: 'Write' },
   { path: '/victories', icon: <Trophy size={22} />, label: 'Victories' },
   { path: '/trackers', icon: <BarChart3 size={22} />, label: 'Progress' },
 ]
