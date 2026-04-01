@@ -46,7 +46,7 @@ export function DeclarationItem({ item, ...props }: DeclarationItemProps) {
       }
       renderMeta={() => (
         <div className="flex items-center gap-2">
-          <TypeBadge label={STYLE_LABELS[item.style_variant] || item.style_variant} variant="declaration" />
+          <TypeBadge label={STYLE_LABELS[item.style_variant ?? ''] || item.style_variant || 'Declaration'} variant="declaration" />
           {item.value_name && (
             <span className="text-xs text-[var(--color-text-secondary)] font-medium">
               {item.value_name}

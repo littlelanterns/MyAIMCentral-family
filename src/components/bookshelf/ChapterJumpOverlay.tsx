@@ -12,7 +12,7 @@ import type { ViewMode } from '@/hooks/useExtractionBrowser'
 interface ChapterJumpOverlayProps {
   chapters: BookShelfChapter[]
   bookTitle?: string
-  allItems: BaseExtractionItem[]
+  allItems: Pick<BaseExtractionItem, 'section_title' | 'section_index'>[]
   viewMode: ViewMode
   activeTab: ExtractionTab
 }

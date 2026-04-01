@@ -3,8 +3,6 @@
 // Selected = solid fill + contrasting text. Deselected = outline + color text.
 // Reusable by Family Overview member selection and Calendar Pick Members filter.
 
-import React from 'react'
-
 export interface MemberPillItem {
   id: string
   display_name: string

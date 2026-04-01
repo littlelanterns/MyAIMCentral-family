@@ -2,7 +2,7 @@
 // Shows opportunity tasks that kids can claim. Read-only on Hub — no claim action.
 
 import { useQuery } from '@tanstack/react-query'
-import { ClipboardList, DollarSign, Star, Lock, User } from 'lucide-react'
+import { ClipboardList, Lock } from 'lucide-react'
 import type { DashboardWidget } from '@/types/widgets'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -24,7 +24,8 @@ interface OpportunityTask {
 }
 
 export function JobBoardWidget({ widget, isCompact }: JobBoardWidgetProps) {
-  const { familyId } = useFamilyMember()
+  const { data: currentMember } = useFamilyMember()
+  const familyId = currentMember?.family_id
 
   const { data: opportunities = [], isLoading } = useQuery({
     queryKey: ['hub-job-board', familyId],

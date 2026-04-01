@@ -43,7 +43,7 @@ const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export type CalendarViewMode = 'week' | 'month' | 'both'
 
-export function CalendarWidget({ hubMode, viewMode }: { hubMode?: boolean; viewMode?: CalendarViewMode } = {}) {
+export function CalendarWidget({ hubMode, viewMode: _viewMode }: { hubMode?: boolean; viewMode?: CalendarViewMode } = {}) {
   const { data: settings } = useCalendarSettings()
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayNames = weekStartDay === 1 ? DAY_NAMES_MON : DAY_NAMES_SUN

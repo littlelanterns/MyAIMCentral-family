@@ -13,7 +13,7 @@ import { Target, Check } from 'lucide-react'
 import { useFamilyBestIntentions, useTodayFamilyIterations, useLogFamilyIntentionTally } from '@/hooks/useFamilyBestIntentions'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import type { FamilyBestIntention, FamilyIntentionIteration } from '@/hooks/useFamilyBestIntentions'
+import type { FamilyBestIntention } from '@/hooks/useFamilyBestIntentions'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
 interface HubBestIntentionsSectionProps {
@@ -177,8 +177,8 @@ function IntentionCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function HubBestIntentionsSection({
-  context,
-  currentMemberId,
+  context: _context,
+  currentMemberId: _currentMemberId,
   isMom = false,
 }: HubBestIntentionsSectionProps) {
   const { data: family } = useFamily()

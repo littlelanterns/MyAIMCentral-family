@@ -40,7 +40,7 @@ export function ExtractionControls({
   const [searchOpen, setSearchOpen] = useState(!!searchQuery)
   const [searchDraft, setSearchDraft] = useState(searchQuery)
   const searchRef = useRef<HTMLInputElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     if (searchOpen && searchRef.current) searchRef.current.focus()

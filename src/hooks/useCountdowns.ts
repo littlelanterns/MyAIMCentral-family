@@ -25,10 +25,6 @@ export interface Countdown {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function daysUntil(targetDate: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -60,7 +56,6 @@ export function useCountdowns(familyId: string | undefined) {
 
 export function useVisibleCountdowns(familyId: string | undefined) {
   const { data: countdowns, ...rest } = useCountdowns(familyId)
-  const today = todayStr()
 
   const visible = (countdowns ?? []).filter((cd) => {
     const days = daysUntil(cd.target_date)

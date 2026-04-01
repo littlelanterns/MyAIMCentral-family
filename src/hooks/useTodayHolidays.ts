@@ -59,8 +59,6 @@ function resolveFloatingRule(rule: string, year: number): { month: number; day: 
   // weekday-N-M (Nth occurrence of weekday M in the month stored on the record)
   const wdMatch = rule.match(/^weekday-(\d+)-(\d+)$/)
   if (wdMatch) {
-    const occurrence = parseInt(wdMatch[1])
-    const targetWeekday = parseInt(wdMatch[2])
     // We need the month from the record itself — not available here
     // Caller must provide fallback month. Return null to use record's date_month.
     return null

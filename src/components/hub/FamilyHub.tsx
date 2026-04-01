@@ -31,7 +31,7 @@ import { HubCalendarSection } from './sections/HubCalendarSection'
 import { HubBestIntentionsSection } from './sections/HubBestIntentionsSection'
 import { HubCountdownsSection } from './sections/HubCountdownsSection'
 import { HubVictoriesSummarySection } from './sections/HubVictoriesSummarySection'
-import { HubMemberAccessSection } from './sections/HubMemberAccessSection'
+// HubMemberAccessSection — deferred, not yet wired
 
 // ─── Section labels ──────────────────────────────────────────────────────────
 

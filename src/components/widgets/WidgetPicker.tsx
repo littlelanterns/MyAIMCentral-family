@@ -54,7 +54,7 @@ export function WidgetPicker({
   onAddInfoWidget,
   onAddQuickAction,
   onOpenTrackThis,
-  context,
+  context: _context,
 }: WidgetPickerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())

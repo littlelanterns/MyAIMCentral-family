@@ -8,7 +8,7 @@
  */
 
 import { useRef, useState, useCallback } from 'react'
-import { Camera, X, ImagePlus, Star, Trash2, UserCircle } from 'lucide-react'
+import { Camera, ImagePlus, Star, Trash2, UserCircle } from 'lucide-react'
 import { Card, LoadingSpinner } from '@/components/shared'
 import { CropPreviewModal } from './CropPreviewModal'
 import { useAvatarUpload, MAX_REFERENCE_PHOTOS } from '@/hooks/useAvatarUpload'

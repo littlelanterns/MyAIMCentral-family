@@ -4,7 +4,7 @@
  * Handles tabs, filters, abridged logic, item actions, sidebar, chapter jump.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { ExtractionHeader } from './ExtractionHeader'
 import { ExtractionControls, buildTabs } from './ExtractionControls'
@@ -37,7 +37,6 @@ export function ExtractionBrowser({
   bookId, bookIds: propBookIds, collectionId, showHearted, onBack,
 }: ExtractionBrowserProps) {
   const navigate = useNavigate()
-  const [, setSearchParams] = useSearchParams()
   const { data: member } = useFamilyMember()
   const { books: allBooks, updateBookTitle, updateBookAuthor, updateLastViewedAt } = useBookShelf()
   const { getBookIdsForCollection, collections } = useBookShelfCollections()
@@ -110,7 +109,7 @@ export function ExtractionBrowser({
     setTaskModalOpen(true)
   }, [itemActions.applyThisItemId])
 
-  const handleTaskSave = useCallback(async (task: CreateTaskData) => {
+  const handleTaskSave = useCallback(async (_task: CreateTaskData) => {
     // The parent page handles actual task saving. Here we just track the source.
     if (taskDefaults.sourceItemId && taskDefaults.sourceTable) {
       // This would be handled by the task save callback

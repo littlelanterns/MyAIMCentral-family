@@ -2,7 +2,7 @@
 // Shows today's fun/quirky holidays. Tap to see full list with filter tabs.
 
 import { useState } from 'react'
-import { PartyPopper, X, Sparkles, Eye, HelpCircle, Filter } from 'lucide-react'
+import { PartyPopper, Sparkles, Eye, HelpCircle, Filter } from 'lucide-react'
 import type { DashboardWidget, DailyHoliday } from '@/types/widgets'
 import { useTodayHolidays } from '@/hooks/useTodayHolidays'
 import { ModalV2 } from '@/components/shared'

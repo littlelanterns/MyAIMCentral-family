@@ -2,7 +2,7 @@
  * ExtractionSection (PRD-23)
  * Renders a group of extraction items with a sticky header, abridged/expand toggle.
  */
-import { useMemo, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { BaseExtractionItem } from '@/types/bookshelf'
 

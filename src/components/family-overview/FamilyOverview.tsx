@@ -107,7 +107,7 @@ function EventsSection({ memberId, events }: { memberId: string; events: Array<R
             opacity: ev.status === 'pending_approval' ? 0.5 : 1,
           }}
         >
-          {ev.start_time && (
+          {!!ev.start_time && (
             <span className="flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
               {formatTime(ev.start_time as string)}
             </span>

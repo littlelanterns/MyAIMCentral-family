@@ -2,7 +2,7 @@
  * ExtractionContent (PRD-23)
  * Renders extraction items in 3 view modes: Tabs, Chapters, Notes.
  */
-import { useMemo, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import { ExtractionSection, getAbridgedItems } from './ExtractionSection'
 import { SummaryItem } from './items/SummaryItem'
 import { InsightItem } from './items/InsightItem'
@@ -53,7 +53,7 @@ interface ExtractionContentProps {
 
 // Text column accessor per table
 function getItemText(item: BaseExtractionItem, tab: ExtractionTab): string {
-  if (tab === 'declarations') return (item as BookShelfDeclaration).declaration_text
+  if (tab === 'declarations') return (item as unknown as BookShelfDeclaration).declaration_text
   return (item as { text: string }).text
 }
 
@@ -88,12 +88,7 @@ function groupBySection<T extends BaseExtractionItem>(items: T[]): Map<string, T
 }
 
 export function ExtractionContent(props: ExtractionContentProps) {
-  const {
-    viewMode, activeTab, filterMode, abridged, searchQuery,
-    expandedAbridgedSections, collapsedSections,
-    onToggleExpand, onToggleCollapse,
-    summaries, insights, declarations, actionSteps, questions, chapters, books,
-  } = props
+  const { viewMode } = props
 
   if (viewMode === 'notes') return <NotesView {...props} />
   if (viewMode === 'chapters') return <ChaptersView {...props} />
@@ -104,13 +99,13 @@ export function ExtractionContent(props: ExtractionContentProps) {
 
 function TabsView(props: ExtractionContentProps) {
   const {
-    activeTab, filterMode, abridged, searchQuery,
+    activeTab, searchQuery,
     expandedAbridgedSections, collapsedSections,
     onToggleExpand, onToggleCollapse,
   } = props
 
   const items = getItemsForTab(props, activeTab)
-  const filtered = filterItems(items, activeTab, filterMode, searchQuery)
+  const filtered = filterItems(items, activeTab, props.filterMode, searchQuery)
   const sections = groupBySection(filtered)
 
   if (filtered.length === 0) {
@@ -121,7 +116,7 @@ function TabsView(props: ExtractionContentProps) {
     <div>
       {Array.from(sections.entries()).map(([sectionTitle, sectionItems]) => {
         const key = `tab-${activeTab}-${sectionTitle}`
-        const { visible, hiddenCount } = abridged
+        const { visible, hiddenCount } = props.abridged
           ? getAbridgedItems(sectionItems, expandedAbridgedSections.has(key))
           : { visible: sectionItems, hiddenCount: 0 }
 
@@ -131,7 +126,7 @@ function TabsView(props: ExtractionContentProps) {
             sectionKey={key}
             title={sectionTitle}
             itemCount={sectionItems.length}
-            abridged={abridged}
+            abridged={props.abridged}
             isExpanded={expandedAbridgedSections.has(key)}
             isCollapsed={collapsedSections.has(key)}
             onToggleExpand={onToggleExpand}
@@ -149,11 +144,7 @@ function TabsView(props: ExtractionContentProps) {
 // ── Chapters View ──────────────────────────────────────────────────────────
 
 function ChaptersView(props: ExtractionContentProps) {
-  const {
-    filterMode, abridged, searchQuery, chapters, books,
-    expandedAbridgedSections, collapsedSections,
-    onToggleExpand, onToggleCollapse,
-  } = props
+  const { chapters, books } = props
 
   const allTabs: ExtractionTab[] = ['summaries', 'insights', 'declarations', 'action_steps', 'questions']
   const tabLabels: Record<ExtractionTab, string> = {
@@ -273,7 +264,7 @@ function renderChapterSections(
 // ── Notes View ─────────────────────────────────────────────────────────────
 
 function NotesView(props: ExtractionContentProps) {
-  const { filterMode, searchQuery, books } = props
+  const { filterMode, searchQuery } = props
   const allTabs: ExtractionTab[] = ['summaries', 'insights', 'declarations', 'action_steps', 'questions']
   const tabLabels: Record<ExtractionTab, string> = {
     summaries: 'Summary', insights: 'Insight', declarations: 'Declaration',
@@ -317,7 +308,7 @@ function getItemsForTab(props: ExtractionContentProps, tab: ExtractionTab): Base
   switch (tab) {
     case 'summaries': return props.summaries
     case 'insights': return props.insights
-    case 'declarations': return props.declarations
+    case 'declarations': return props.declarations as unknown as BaseExtractionItem[]
     case 'action_steps': return props.actionSteps
     case 'questions': return props.questions
   }
@@ -371,7 +362,7 @@ function renderItem(item: BaseExtractionItem, tab: ExtractionTab, props: Extract
     case 'insights':
       return <InsightItem key={item.id} item={item as BookShelfInsight} {...shared} />
     case 'declarations':
-      return <DeclarationItem key={item.id} item={item as BookShelfDeclaration} {...shared} />
+      return <DeclarationItem key={item.id} item={item as unknown as BookShelfDeclaration} {...shared} />
     case 'action_steps':
       return <ActionStepItem key={item.id} item={item as BookShelfActionStep} {...shared} />
     case 'questions':

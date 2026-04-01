@@ -41,6 +41,7 @@ export interface CalendarEvent {
   leave_by_time: string | null // TIME as 'HH:MM:SS'
   notes: string | null
   reminder_minutes: number[] | null
+  show_on_hub: boolean
   is_included_in_ai: boolean
   created_at: string
   updated_at: string
