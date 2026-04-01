@@ -3,7 +3,7 @@
  * Back button, title (editable for single-book), book info collapsible section.
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, RefreshCw, Search, MessageSquare, Clock, Sparkles } from 'lucide-react'
 import type { BookShelfItem } from '@/types/bookshelf'
 
 interface ExtractionHeaderProps {
@@ -19,12 +19,19 @@ interface ExtractionHeaderProps {
   siblingBooks?: BookShelfItem[]
   onNavigateToBook?: (bookId: string) => void
   onOpenSemanticSearch?: () => void
+  onOpenDiscussion?: () => void
+  onOpenHistory?: () => void
+  onGoDeeper?: (bookId: string, tab: string, sectionTitle?: string) => void
+  goingDeeper?: boolean
+  /** Whether the history panel is currently open */
+  historyOpen?: boolean
 }
 
 export function ExtractionHeader({
   books, collectionName, showHearted, onBack,
   onTitleChange, onAuthorChange, onRefreshKeyPoints, refreshingKeyPoints,
   siblingBooks, onNavigateToBook, onOpenSemanticSearch,
+  onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, historyOpen,
 }: ExtractionHeaderProps) {
   const isSingleBook = books.length === 1
   const book = isSingleBook ? books[0] : null
@@ -173,6 +180,40 @@ export function ExtractionHeader({
                     <Search size={12} />
                     Search Inside
                   </button>
+                )}
+
+                {onOpenDiscussion && (
+                  <button
+                    onClick={onOpenDiscussion}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    <MessageSquare size={12} />
+                    Discuss
+                  </button>
+                )}
+
+                {onGoDeeper && book && (
+                  <button
+                    onClick={() => onGoDeeper(book.id, 'summaries')}
+                    disabled={goingDeeper}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                  >
+                    <Sparkles size={12} className={goingDeeper ? 'animate-pulse' : ''} />
+                    Go Deeper
+                  </button>
+                )}
+
+                {/* History clock icon */}
+                {onOpenHistory && (
+                  <div className="relative ml-auto">
+                    <button
+                      onClick={onOpenHistory}
+                      className={`p-1 rounded hover:bg-[var(--color-surface-tertiary)] ${historyOpen ? 'bg-[var(--color-surface-tertiary)]' : ''}`}
+                      title="Search & discussion history"
+                    >
+                      <Clock size={14} className="text-[var(--color-text-tertiary)]" />
+                    </button>
+                  </div>
                 )}
               </div>
 

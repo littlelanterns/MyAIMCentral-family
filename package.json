@@ -28,6 +28,7 @@
     "@tiptap/pm": "^3.20.5",
     "@tiptap/react": "^3.20.5",
     "@tiptap/starter-kit": "^3.20.5",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.0.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.4",

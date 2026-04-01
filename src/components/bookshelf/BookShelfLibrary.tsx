@@ -6,8 +6,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Grid3X3, List, ChevronDown,
   X, Library, Sparkles, RefreshCw, Tag,
+  Upload, Download,
 } from 'lucide-react'
 import { Button, FeatureGuide } from '@/components/shared'
+import { BookUploadModal } from './BookUploadModal'
+import { ExportDialog } from './ExportDialog'
+import { useExtractionData } from '@/hooks/useExtractionData'
 import { useBookShelf } from '@/hooks/useBookShelf'
 import { useBookShelfSettings } from '@/hooks/useBookShelfSettings'
 import { useBookShelfCollections } from '@/hooks/useBookShelfCollections'
@@ -84,6 +88,8 @@ export function BookShelfLibrary() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [showUpload, setShowUpload] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   // Debounced search with tag auto-select (ref-based to prevent timer leaks)
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -224,14 +230,38 @@ export function BookShelfLibrary() {
             >
               BookShelf
             </h1>
-            <span
-              className="text-sm ml-auto"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              {displayBooks.length === parentBooks.length
-                ? `${parentBooks.length} books`
-                : `${displayBooks.length} of ${parentBooks.length} books`}
-            </span>
+            <div className="flex items-center gap-2 ml-auto">
+              <span
+                className="text-sm"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                {displayBooks.length === parentBooks.length
+                  ? `${parentBooks.length} books`
+                  : `${displayBooks.length} of ${parentBooks.length} books`}
+              </span>
+              <button
+                onClick={() => setShowUpload(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  background: 'var(--surface-primary)',
+                  color: 'var(--color-text-on-primary, #fff)',
+                }}
+              >
+                <Upload size={14} />
+                Upload
+              </button>
+              <button
+                onClick={() => setShowExport(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border"
+                style={{
+                  borderColor: 'var(--color-border-default)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                <Download size={14} />
+                Export
+              </button>
+            </div>
           </div>
 
           {/* Feature guide */}
@@ -485,6 +515,42 @@ export function BookShelfLibrary() {
           selectedIds={selectedIds}
         />
       )}
+
+      {/* Upload modal */}
+      <BookUploadModal
+        isOpen={showUpload}
+        onClose={() => setShowUpload(false)}
+        existingBooks={parentBooks}
+        onUploadComplete={() => {
+          // Refetch will happen via useBookShelf's polling/query invalidation
+        }}
+      />
+
+      {/* Export dialog */}
+      <ExportDialogWrapper
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        books={displayBooks}
+      />
     </div>
+  )
+}
+
+/** Wrapper that fetches extraction data for the ExportDialog */
+function ExportDialogWrapper({ isOpen, onClose, books }: { isOpen: boolean; onClose: () => void; books: BookShelfItem[] }) {
+  const bookIds = books.map(b => b.id)
+  const { summaries, insights, declarations, actionSteps, questions } = useExtractionData(isOpen ? bookIds : [])
+
+  return (
+    <ExportDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      books={books}
+      summaries={summaries}
+      insights={insights}
+      declarations={declarations}
+      actionSteps={actionSteps}
+      questions={questions}
+    />
   )
 }

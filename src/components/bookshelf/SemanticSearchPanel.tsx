@@ -7,12 +7,15 @@ import { useState, useCallback } from 'react'
 import { Search, X, BookOpen, FileText, Layers, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useBookShelfSearchHistory } from '@/hooks/useBookShelfSearchHistory'
 
 interface SemanticSearchPanelProps {
   isOpen: boolean
   onClose: () => void
   onNavigateToResult: (bookId: string, tab?: string) => void
   bookIds?: string[]
+  /** Pre-fill query from external trigger (e.g. history re-run) */
+  initialQuery?: string
 }
 
 type SearchMode = 'any' | 'together' | 'separate'
@@ -34,9 +37,10 @@ interface GroupedResults {
   results: SearchResult[]
 }
 
-export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookIds }: SemanticSearchPanelProps) {
+export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookIds, initialQuery }: SemanticSearchPanelProps) {
   const { data: member } = useFamilyMember()
-  const [query, setQuery] = useState('')
+  const { saveSearch } = useBookShelfSearchHistory()
+  const [query, setQuery] = useState(initialQuery || '')
   const [mode, setMode] = useState<SearchMode>('any')
   const [scope, setScope] = useState<SearchScope>('both')
   const [searching, setSearching] = useState(false)
@@ -73,6 +77,8 @@ export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookI
           grouped.push({ term, results: data?.results || [] })
         }
         setGroupedResults(grouped)
+        const totalResults = grouped.reduce((sum, g) => sum + g.results.length, 0)
+        saveSearch(query.trim(), mode, scope, totalResults)
       } else {
         // 'any' splits but merges; 'together' sends whole query
         const searchQuery = mode === 'together' ? query : query
@@ -87,7 +93,9 @@ export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookI
           },
         })
         if (fetchError) throw fetchError
-        setResults(data?.results || [])
+        const resultList = data?.results || []
+        setResults(resultList)
+        saveSearch(query.trim(), mode, scope, resultList.length)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed')

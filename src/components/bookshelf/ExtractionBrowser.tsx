@@ -14,7 +14,10 @@ import { ChapterJumpOverlay } from './ChapterJumpOverlay'
 import { BookSelector } from './BookSelector'
 import { CollectionChips } from './CollectionChips'
 import { SemanticSearchPanel } from './SemanticSearchPanel'
+import { BookDiscussionModal } from './BookDiscussionModal'
+import { BookShelfHistoryPanel } from './BookShelfHistoryPanel'
 import { useExtractionData } from '@/hooks/useExtractionData'
+import { useBookDiscussions } from '@/hooks/useBookDiscussions'
 import { useExtractionBrowser } from '@/hooks/useExtractionBrowser'
 import { useExtractionItemActions } from '@/hooks/useExtractionItemActions'
 import { useBookShelf } from '@/hooks/useBookShelf'
@@ -95,6 +98,21 @@ export function ExtractionBrowser({
     { onItemUpdated: refetch }
   )
 
+  // Discussion state
+  const {
+    discussions, fetchDiscussions, deleteDiscussion,
+  } = useBookDiscussions()
+  const [showDiscussion, setShowDiscussion] = useState(false)
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
+  const [discussionContinueId, setDiscussionContinueId] = useState<string | undefined>()
+  const [searchInitialQuery, setSearchInitialQuery] = useState<string | undefined>()
+
+  // Go Deeper state
+  const [goingDeeper, setGoingDeeper] = useState(false)
+
+  // Fetch discussions on mount
+  useEffect(() => { fetchDiscussions() }, [fetchDiscussions])
+
   // Task creation modal
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [showSemanticSearch, setShowSemanticSearch] = useState(false)
@@ -154,6 +172,52 @@ export function ExtractionBrowser({
 
   const isSingleBook = books.length === 1
 
+  // Book title map for history panel
+  const bookTitleMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const b of allBooks) map[b.id] = b.title
+    return map
+  }, [allBooks])
+
+  // Go Deeper handler
+  const handleGoDeeper = useCallback(async (bookId: string, tab: string, sectionTitle?: string) => {
+    if (!member) return
+    setGoingDeeper(true)
+    try {
+      // Get existing items for the tab to prevent duplicates
+      const tabItems: { text?: string; declaration_text?: string }[] =
+        tab === 'summaries' ? summaries.filter(s => s.bookshelf_item_id === bookId) :
+        tab === 'insights' ? insights.filter(s => s.bookshelf_item_id === bookId) :
+        tab === 'declarations' ? declarations.filter(s => s.bookshelf_item_id === bookId) :
+        tab === 'action_steps' ? actionSteps.filter(s => s.bookshelf_item_id === bookId) :
+        questions.filter(s => s.bookshelf_item_id === bookId)
+
+      const existingTexts = tabItems
+        .filter(i => !sectionTitle || (i as { section_title?: string | null }).section_title === sectionTitle)
+        .map(i => ('declaration_text' in i ? (i as { declaration_text: string }).declaration_text : (i as { text?: string }).text) || '')
+
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bookshelf-extract`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await import('@/lib/supabase/client')).supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+        },
+        body: JSON.stringify({
+          bookshelf_item_id: bookId,
+          extraction_type: tab,
+          go_deeper: true,
+          existing_items: existingTexts,
+          section_title: sectionTitle,
+          family_id: member.family_id,
+          member_id: member.id,
+        }),
+      })
+      if (resp.ok) await refetch()
+    } finally {
+      setGoingDeeper(false)
+    }
+  }, [member, summaries, insights, declarations, actionSteps, questions, refetch])
+
   // Key points refresh
   const [refreshingKeyPoints, setRefreshingKeyPoints] = useState(false)
   const handleRefreshKeyPoints = useCallback(async (bid: string) => {
@@ -206,6 +270,14 @@ export function ExtractionBrowser({
         siblingBooks={siblingBooks}
         onNavigateToBook={bid => navigate(`/bookshelf?book=${bid}`)}
         onOpenSemanticSearch={() => setShowSemanticSearch(true)}
+        onOpenDiscussion={() => {
+          setDiscussionContinueId(undefined)
+          setShowDiscussion(true)
+        }}
+        onOpenHistory={() => setShowHistoryPanel(v => !v)}
+        historyOpen={showHistoryPanel}
+        onGoDeeper={(bid, tab, section) => handleGoDeeper(bid, tab, section)}
+        goingDeeper={goingDeeper}
       />
 
       {collectionId && (
@@ -308,12 +380,46 @@ export function ExtractionBrowser({
       {/* Semantic Search */}
       <SemanticSearchPanel
         isOpen={showSemanticSearch}
-        onClose={() => setShowSemanticSearch(false)}
+        onClose={() => { setShowSemanticSearch(false); setSearchInitialQuery(undefined) }}
         onNavigateToResult={(bid, tab) => {
           setShowSemanticSearch(false)
           navigate(`/bookshelf?book=${bid}${tab ? `&tab=${tab}` : ''}`)
         }}
         bookIds={resolvedBookIds}
+        initialQuery={searchInitialQuery}
+      />
+
+      {/* History Panel */}
+      {showHistoryPanel && (
+        <div className="relative">
+          <BookShelfHistoryPanel
+            isOpen={showHistoryPanel}
+            onClose={() => setShowHistoryPanel(false)}
+            discussions={discussions}
+            bookTitleMap={bookTitleMap}
+            onRerunSearch={(query, _mode) => {
+              setShowHistoryPanel(false)
+              setSearchInitialQuery(query)
+              setShowSemanticSearch(true)
+            }}
+            onContinueDiscussion={disc => {
+              setShowHistoryPanel(false)
+              setDiscussionContinueId(disc.id)
+              setShowDiscussion(true)
+            }}
+            onDeleteDiscussion={deleteDiscussion}
+          />
+        </div>
+      )}
+
+      {/* Book Discussion Modal */}
+      <BookDiscussionModal
+        isOpen={showDiscussion}
+        onClose={() => { setShowDiscussion(false); setDiscussionContinueId(undefined); fetchDiscussions() }}
+        bookTitles={books.map(b => b.title)}
+        bookshelfItemIds={activeBookIds}
+        existingDiscussionId={discussionContinueId}
+        bookTitleMap={bookTitleMap}
       />
 
       {/* Task Creation Modal */}

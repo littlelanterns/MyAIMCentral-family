@@ -180,15 +180,40 @@ export interface BookShelfQuestion extends BaseExtractionItem {
 
 // ─── Discussions ────────────────────────────────────────────
 
+export type DiscussionType = 'discuss' | 'generate_goals' | 'generate_questions' | 'generate_tasks' | 'generate_tracker'
+
 export interface BookShelfDiscussion {
   id: string
   family_id: string
   family_member_id: string
   bookshelf_item_ids: string[]
+  discussion_type: DiscussionType
   audience: DiscussionAudience
   title: string | null
   created_at: string
   updated_at: string
+}
+
+export interface BookShelfDiscussionMessage {
+  id: string
+  discussion_id: string
+  role: 'user' | 'assistant'
+  content: string
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+// ─── Search History ────────────────────────────────────────
+
+export interface BookShelfSearchHistoryEntry {
+  id: string
+  family_id: string
+  member_id: string
+  query: string
+  mode: string
+  scope: string
+  result_count: number
+  created_at: string
 }
 
 // ─── Journal Prompts ────────────────────────────────────────
