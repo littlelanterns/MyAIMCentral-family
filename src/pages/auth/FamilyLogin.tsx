@@ -225,6 +225,20 @@ export function FamilyLogin() {
     const result = data as PinVerifyResult
 
     if (result.success) {
+      // PIN verified — now create a real Supabase auth session
+      // PIN members have auth accounts with email: {member_id}@pin.myaimcentral.app
+      const pinEmail = `${selectedMember!.member_id}@pin.myaimcentral.app`
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: pinEmail,
+        password: pin,
+      })
+
+      if (signInError) {
+        // If sign-in fails (account not created yet), still navigate
+        // but the session won't persist — mom may need to re-set the PIN
+        console.warn('PIN auth session failed:', signInError.message)
+      }
+
       navigate('/dashboard')
       return
     }

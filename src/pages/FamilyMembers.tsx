@@ -378,6 +378,11 @@ function PinModal({ memberId, memberName, onClose }: { memberId: string; memberN
       return
     }
 
+    // TODO: Sync PIN change to auth account password via Edge Function
+    // PIN members have auth accounts ({member_id}@pin.myaimcentral.app)
+    // whose password must match the PIN for session creation on login.
+    // Admin API requires service role key — needs server-side Edge Function.
+
     setSaved(true)
     setSaving(false)
   }
