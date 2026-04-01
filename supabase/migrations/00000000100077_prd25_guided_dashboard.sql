@@ -44,7 +44,7 @@ DO $$ BEGIN
   ) THEN
     CREATE TRIGGER set_spelling_coaching_cache_updated_at
       BEFORE UPDATE ON spelling_coaching_cache
-      FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+      FOR EACH ROW EXECUTE FUNCTION util.set_updated_at();
   END IF;
 END $$;
 

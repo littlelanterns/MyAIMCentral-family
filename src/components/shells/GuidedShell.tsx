@@ -1,31 +1,43 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, X, Mic } from 'lucide-react'
+import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSettings } from '@/components/settings'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
-import { supabase } from '@/lib/supabase/client'
+import { WriteDrawerProvider, useWriteDrawer } from '@/hooks/useWriteDrawer'
+import { WriteDrawer } from '@/components/guided/WriteDrawer'
 
 interface GuidedShellProps {
   children: ReactNode
 }
 
-const navItems = [
+/** Nav items that use NavLink routing */
+const routeNavItems = [
   { path: '/dashboard', icon: <Home size={22} />, label: 'Home' },
   { path: '/tasks', icon: <CheckSquare size={22} />, label: 'Tasks' },
-  { path: '/journal', icon: <PenLine size={22} />, label: 'Write' },
+  // "Write" is handled separately as a drawer trigger (not a route)
   { path: '/victories', icon: <Trophy size={22} />, label: 'Victories' },
   { path: '/trackers', icon: <BarChart3 size={22} />, label: 'Progress' },
 ]
 
 export function GuidedShell({ children }: GuidedShellProps) {
+  return (
+    <WriteDrawerProvider>
+      <TimerProvider>
+        <GuidedShellInner>{children}</GuidedShellInner>
+      </TimerProvider>
+    </WriteDrawerProvider>
+  )
+}
+
+function GuidedShellInner({ children }: { children: ReactNode }) {
   const { data: member } = useFamilyMember()
   const { openSettings } = useSettings()
   const { isViewingAs, viewingAsMember } = useViewAs()
-  const [notepadOpen, setNotepadOpen] = useState(false)
+  const { openDrawer } = useWriteDrawer()
 
   // Show the viewed-as member's name when in View As mode
   const displayMember = isViewingAs && viewingAsMember ? viewingAsMember : member
@@ -36,7 +48,6 @@ export function GuidedShell({ children }: GuidedShellProps) {
   const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <TimerProvider>
     <div className="flex flex-col min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       {/* Header */}
       <header
@@ -54,13 +65,13 @@ export function GuidedShell({ children }: GuidedShellProps) {
         </div>
         <div className="flex items-center gap-2">
           <Tooltip content="Write something">
-          <button
-            onClick={() => setNotepadOpen(true)}
-            className="p-2 rounded-full"
-            style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-          >
-            <PenLine size={20} />
-          </button>
+            <button
+              onClick={() => openDrawer('notepad')}
+              className="p-2 rounded-full"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+            >
+              <PenLine size={20} />
+            </button>
           </Tooltip>
           <LilaModalTrigger modeKey="guided_communication_coach" label="LiLa" />
           <button
@@ -73,10 +84,8 @@ export function GuidedShell({ children }: GuidedShellProps) {
         </div>
       </header>
 
-      {/* Lightweight Notepad drawer — PRD-04: single tab, saves to journal */}
-      {notepadOpen && (
-        <GuidedNotepad memberId={member?.id} onClose={() => setNotepadOpen(false)} />
-      )}
+      {/* Write Drawer — slides from right */}
+      <WriteDrawer />
 
       {/* Main content */}
       <main className="flex-1 p-4 md:p-6 pb-20">
@@ -88,128 +97,52 @@ export function GuidedShell({ children }: GuidedShellProps) {
         className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t py-2 z-20"
         style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
       >
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
-            style={({ isActive }) => ({
-              color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
-            })}
-          >
-            {item.icon}
-            <span className="text-xs">{item.label}</span>
-          </NavLink>
-        ))}
+        {routeNavItems.map((item, idx) => {
+          // Insert Write button after Tasks (index 1)
+          const elements = []
+          elements.push(
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
+              style={({ isActive }) => ({
+                color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
+              })}
+            >
+              {item.icon}
+              <span className="text-xs">{item.label}</span>
+            </NavLink>
+          )
+
+          if (idx === 1) {
+            // Write button — opens drawer instead of navigating
+            elements.push(
+              <WriteNavButton key="write" />
+            )
+          }
+
+          return elements
+        })}
       </nav>
     </div>
-    </TimerProvider>
   )
 }
 
-/**
- * GuidedNotepad — PRD-04 lightweight notepad for Guided shell.
- * Single tab, freeform text, larger font, saves directly to journal.
- * No routing grid, no multi-tab, no Review & Route.
- */
-function GuidedNotepad({ memberId, onClose }: { memberId?: string; onClose: () => void }) {
-  const [content, setContent] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  async function handleSave() {
-    if (!content.trim() || !memberId) return
-    setSaving(true)
-    try {
-      const { data: member } = await supabase
-        .from('family_members')
-        .select('family_id')
-        .eq('id', memberId)
-        .single()
-      if (member) {
-        await supabase.from('journal_entries').insert({
-          family_id: member.family_id,
-          member_id: memberId,
-          entry_type: 'journal_entry',
-          content: content.trim(),
-          visibility: 'shared_parents',
-          is_included_in_ai: true,
-        })
-        setContent('')
-        onClose()
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
+/** Write button in bottom nav — opens drawer instead of routing */
+function WriteNavButton() {
+  const { openDrawer, isOpen } = useWriteDrawer()
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end md:items-center justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    <button
+      onClick={() => openDrawer('notepad')}
+      className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
+      style={{
+        color: isOpen ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
+        background: 'transparent',
+      }}
     >
-      <div
-        className="w-full md:max-w-lg md:mx-4 rounded-t-xl md:rounded-xl flex flex-col"
-        style={{
-          backgroundColor: 'var(--color-bg-card)',
-          maxHeight: '80dvh',
-        }}
-      >
-        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
-          <h3
-            className="text-base font-medium"
-            style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
-          >
-            Write something
-          </h3>
-          <div className="flex items-center gap-2">
-            <Tooltip content="Voice input">
-            <button
-              className="p-1.5 rounded-full"
-              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-            >
-              <Mic size={18} />
-            </button>
-            </Tooltip>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-full"
-              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What's on your mind?"
-          className="flex-1 p-4 resize-none focus:outline-none"
-          style={{
-            backgroundColor: 'transparent',
-            color: 'var(--color-text-primary)',
-            fontSize: '18px',
-            lineHeight: 1.6,
-            minHeight: '200px',
-            border: 'none',
-          }}
-          autoFocus
-        />
-        <div className="flex justify-end p-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-          <button
-            onClick={handleSave}
-            disabled={!content.trim() || saving}
-            className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{
-              backgroundColor: content.trim() ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-bg-secondary)',
-              color: content.trim() ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-              opacity: saving ? 0.6 : 1,
-            }}
-          >
-            {saving ? 'Saving...' : 'Save to Journal'}
-          </button>
-        </div>
-      </div>
-    </div>
+      <PenLine size={22} />
+      <span className="text-xs">Write</span>
+    </button>
   )
 }
