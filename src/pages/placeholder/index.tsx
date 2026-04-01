@@ -1,7 +1,12 @@
 import { Trophy, Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings, MessageCircle, Shield, Video, Map, Brain, Rss, StickyNote } from 'lucide-react'
 import { PlaceholderPage } from './PlaceholderPage'
+import { GuidedVictories } from '@/pages/GuidedVictories'
+import { GuidedProgress } from '@/pages/GuidedProgress'
+import { useShell } from '@/components/shells/ShellProvider'
 
 export function VictoriesPage() {
+  const { shell } = useShell()
+  if (shell === 'guided') return <GuidedVictories />
   return <PlaceholderPage title="Victories" description="Celebrate your wins. This is a Ta-Da list — no punishment, only celebration." icon={Trophy} prd="PRD-11" featureKey="victories" />
 }
 
@@ -10,6 +15,8 @@ export function CalendarPage() {
 }
 
 export function TrackersPage() {
+  const { shell } = useShell()
+  if (shell === 'guided') return <GuidedProgress />
   return <PlaceholderPage title="Trackers" description="Dashboard widgets and visual trackers for habits, goals, and progress." icon={BarChart3} prd="PRD-10" featureKey="widgets" />
 }
 

@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Mic, MicOff, Send, Sparkles } from 'lucide-react'
+import { Mic, MicOff, Send, Sparkles, Eye } from 'lucide-react'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 import { SpellCheckOverlay, useSpellCheckOverlay } from './SpellCheckOverlay'
 import { SendToGrid } from './SendToGrid'
@@ -96,6 +96,15 @@ export function WriteDrawerNotepad({
 
   return (
     <div className="flex flex-col h-full">
+      {/* PRD-25 Phase C: Transparency indicator */}
+      <p
+        className="flex items-center gap-1.5 text-xs px-4 pt-2"
+        style={{ color: 'var(--color-text-tertiary)' }}
+      >
+        <Eye size={12} />
+        Your parent can see what you write
+      </p>
+
       {/* Voice input interim preview */}
       {voice.state === 'recording' && voice.interimText && (
         <div

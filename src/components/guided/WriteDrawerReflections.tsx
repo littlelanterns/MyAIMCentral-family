@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { Check, Edit3, Volume2 } from 'lucide-react'
+import { Check, Edit3, Volume2, Eye } from 'lucide-react'
 import {
   useReflectionPrompts,
   useTodaysResponses,
@@ -54,6 +54,15 @@ export function WriteDrawerReflections({
 
   return (
     <div className="space-y-3 p-3">
+      {/* PRD-25 Phase C: Transparency indicator */}
+      <p
+        className="flex items-center gap-1.5 text-xs px-1"
+        style={{ color: 'var(--color-text-tertiary)' }}
+      >
+        <Eye size={12} />
+        Your parent can see your reflections
+      </p>
+
       {/* Progress indicator */}
       <div className="flex items-center justify-between px-1">
         <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>

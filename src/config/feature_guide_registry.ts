@@ -240,4 +240,16 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
     title: 'By Member View',
     description: 'Every family member\'s tasks in their own column. Spot imbalances instantly.',
   },
+
+  // ── Guided Dashboard (PRD-25) ──────────────────────────────────
+  guided_dashboard: {
+    title: 'This is your home!',
+    description:
+      'Your dashboard shows everything you need for today — tasks, goals, and your calendar. Tap the heart to celebrate when you honor a Best Intention, and check the Next Best Thing for what to do next.',
+    bullets: [
+      'Tap the heart on any Best Intention to celebrate it',
+      'The Next Best Thing card suggests what to do next',
+      'Tap "Write" at the bottom to jot something down',
+    ],
+  },
 };

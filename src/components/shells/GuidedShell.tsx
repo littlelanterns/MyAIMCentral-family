@@ -132,10 +132,13 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
 function WriteNavButton() {
   const { openDrawer, isOpen } = useWriteDrawer()
 
+  // PRD-25 Phase C: Unread message badge placeholder — wired when PRD-15 is built
+  const unreadCount = 0
+
   return (
     <button
       onClick={() => openDrawer('notepad')}
-      className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
+      className="relative flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px] min-h-[48px] justify-center"
       style={{
         color: isOpen ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
         background: 'transparent',
@@ -143,6 +146,17 @@ function WriteNavButton() {
     >
       <PenLine size={22} />
       <span className="text-xs">Write</span>
+      {unreadCount > 0 && (
+        <span
+          className="absolute top-0.5 right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold"
+          style={{
+            backgroundColor: 'var(--color-btn-primary-bg)',
+            color: 'var(--color-btn-primary-text)',
+          }}
+        >
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
     </button>
   )
 }

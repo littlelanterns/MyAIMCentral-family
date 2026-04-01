@@ -36,11 +36,29 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
   const displayBullets = bullets ?? registryEntry?.bullets
 
   useEffect(() => {
+    // Check localStorage first (fast)
     const prefs = getPreferences()
     if (prefs.all_guides_dismissed) return
     if (prefs.dismissed_guides.includes(featureKey)) return
+
+    // Sync from DB if member has saved guide prefs (cross-device)
+    if (member?.id && member.preferences) {
+      const dbPrefs = (member.preferences as Record<string, unknown>)?.guide_prefs as
+        { dismissed_guides?: string[]; all_guides_dismissed?: boolean } | undefined
+      if (dbPrefs) {
+        if (dbPrefs.all_guides_dismissed) {
+          savePreferences({ ...prefs, all_guides_dismissed: true })
+          return
+        }
+        if (dbPrefs.dismissed_guides?.includes(featureKey)) {
+          savePreferences({ ...prefs, dismissed_guides: [...new Set([...prefs.dismissed_guides, ...dbPrefs.dismissed_guides])] })
+          return
+        }
+      }
+    }
+
     setVisible(true)
-  }, [featureKey])
+  }, [featureKey, member?.id])
 
   const dismiss = useCallback(
     (dismissAll: boolean) => {
@@ -57,15 +75,22 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
         }
         savePreferences(prefs)
 
-        // Persist to DB if member available (fire-and-forget)
+        // Persist to DB if member available (fire-and-forget, merge into existing preferences)
         if (member?.id) {
           supabase
             .from('family_members')
-            .update({
-              preferences: prefs,
-            })
+            .select('preferences')
             .eq('id', member.id)
-            .then(() => {})
+            .single()
+            .then(({ data }) => {
+              const existing = (data?.preferences as Record<string, unknown>) || {}
+              return supabase
+                .from('family_members')
+                .update({
+                  preferences: { ...existing, guide_prefs: prefs },
+                })
+                .eq('id', member.id)
+            })
         }
       }, 300)
     },

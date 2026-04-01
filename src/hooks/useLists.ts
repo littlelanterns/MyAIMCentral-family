@@ -232,9 +232,27 @@ export function useShareList() {
         can_edit: canEdit ?? true,
       })
       if (error) throw error
+      // Flag the list as shared
+      await supabase.from('lists').update({ is_shared: true }).eq('id', listId)
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['list-shares', vars.listId] })
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+    },
+  })
+}
+
+export function useUnshareList() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ shareId, listId }: { shareId: string; listId: string }) => {
+      const { error } = await supabase.from('list_shares').delete().eq('id', shareId)
+      if (error) throw error
+      return listId
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['list-shares', vars.listId] })
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
     },
   })
 }

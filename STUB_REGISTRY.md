@@ -249,6 +249,29 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Section per-column override (long-press gesture) | PRD-14C | — | 📌 Post-MVP | UX polish pass |
 | Section drag-to-reorder (dnd-kit on section headers) | PRD-14C | — | 📌 Post-MVP | UX polish pass |
 
+## Guided Dashboard Stubs (PRD-25)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Celebrate section | PRD-25 (Phase A) | PRD-11 (Victory Recorder) | ⏳ Unwired (MVP) | PlannedExpansionCard stub |
+| DailyCelebration Reflections Step 2.5 | PRD-25 (Phase C) | PRD-11 | ⏳ Unwired (MVP) | Code comment insertion point |
+| Victories page (Guided) | PRD-25 (Phase C) | PRD-11 | ⏳ Unwired (MVP) | GuidedVictories.tsx warm stub |
+| Progress page (Guided) | PRD-25 (Phase C) | PRD-24 (Gamification) | ⏳ Unwired (MVP) | GuidedProgress.tsx warm stub |
+| Gamification header indicators | PRD-25 (Phase A) | PRD-24 | ⏳ Unwired (MVP) | Display from family_members columns |
+| Task point values | PRD-25 (Phase A) | PRD-24 | ⏳ Unwired (MVP) | Read from tasks table |
+| Messages tab in Write drawer | PRD-25 (Phase B) | PRD-15 (Messages) | ⏳ Unwired (MVP) | "Coming soon" placeholder |
+| Unread message badge on Write button | PRD-25 (Phase C) | PRD-15 | ⏳ Unwired (MVP) | Hardcoded 0 |
+| Before-send coaching in Messages tab | PRD-25 | PRD-15 | 📌 Post-MVP | LiLa reviews message tone |
+| LiLa Homework Help modal | PRD-25 (Phase C) | PRD-05 (guided modes) | ⏳ Unwired (MVP) | "Coming soon" modal |
+| LiLa Communication Coach modal | PRD-25 (Phase C) | PRD-05 + PRD-21 | ⏳ Unwired (MVP) | "Coming soon" modal |
+| Visual World theme skinning | PRD-25 | PRD-24A (Visual Worlds) | 📌 Post-MVP | Dashboard themed by active Visual World |
+| Gamification widgets in grid | PRD-25 | PRD-24 + PRD-10 | 📌 Post-MVP | Gamification widget types for Guided grid |
+| Graduation celebration + tutorial | PRD-25 (Phase C) | Post-MVP | 📌 Post-MVP | Data flag only (graduation_tutorial_completed) |
+| Advanced NBT (energy, Best Intentions, family context) | PRD-25 | Post-MVP | 📌 Post-MVP | Enhancement to NBT priority engine |
+| "Ask Mom" from NBT | PRD-25 | PRD-15 | 📌 Post-MVP | Quick-request when child disagrees with all suggestions |
+
+---
+
 ## Infrastructure Stubs
 
 | Stub | Created By | Wired By | Status | Build Phase |

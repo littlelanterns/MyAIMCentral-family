@@ -113,6 +113,9 @@ export function TasksPage() {
 
   const queryClient = useQueryClient()
 
+  // Guided member detection — simplified UI
+  const isGuidedMember = activeMember?.dashboard_mode === 'guided'
+
   const handleCreateTask = useCallback(
     async (data: CreateTaskData) => {
       if (!family?.id || !member?.id) {
@@ -212,33 +215,23 @@ export function TasksPage() {
   )
 
   // ── Tab definitions ──
-  const tabs: TabItem[] = [
-    {
-      key: 'my_tasks',
-      label: 'My Tasks',
-      icon: <CheckSquare size={15} />,
-    },
-    {
-      key: 'routines',
-      label: 'Routines',
-      icon: <RefreshCw size={15} />,
-    },
-    {
-      key: 'opportunities',
-      label: 'Opportunities',
-      icon: <Star size={15} />,
-    },
-    {
-      key: 'sequential',
-      label: 'Sequential',
-      icon: <BookOpen size={15} />,
-    },
-    {
-      key: 'queue',
-      label: `Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`,
-      icon: <Inbox size={15} />,
-    },
-  ]
+  // Guided members get only My Tasks + Opportunities (PRD-25 Phase C)
+  const tabs: TabItem[] = isGuidedMember
+    ? [
+        { key: 'my_tasks', label: 'My Tasks', icon: <CheckSquare size={15} /> },
+        { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
+      ]
+    : [
+        { key: 'my_tasks', label: 'My Tasks', icon: <CheckSquare size={15} /> },
+        { key: 'routines', label: 'Routines', icon: <RefreshCw size={15} /> },
+        { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
+        { key: 'sequential', label: 'Sequential', icon: <BookOpen size={15} /> },
+        {
+          key: 'queue',
+          label: `Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`,
+          icon: <Inbox size={15} />,
+        },
+      ]
 
   // ── Filter tasks for each tab ──
   // "My Tasks" shows only tasks assigned to me (or created by me with no assignee).
@@ -339,26 +332,30 @@ export function TasksPage() {
             {isViewingAs ? `${activeMember?.display_name}'s Tasks` : 'Tasks'}
           </h1>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
-          <Plus size={16} />
-          Create
-        </Button>
+        {!isGuidedMember && (
+          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} />
+            Create
+          </Button>
+        )}
       </div>
 
-      {/* ── Feature Guide ── */}
-      <div className="pb-4">
-        <FeatureGuide
-          featureKey="tasks_management_page"
-          title="Task Management"
-          description="Create, configure, and deploy tasks across your family. This is your system headquarters — the daily active view lives on each member's dashboard."
-          bullets={[
-            'Create tasks, routines, and opportunities once — deploy to multiple members',
-            'Routines auto-reset each period (no guilt for yesterday)',
-            'Opportunities let kids earn rewards by claiming available jobs',
-            'Queue collects drafts from Notepad, LiLa, and meeting action items',
-          ]}
-        />
-      </div>
+      {/* ── Feature Guide (hidden for Guided members) ── */}
+      {!isGuidedMember && (
+        <div className="pb-4">
+          <FeatureGuide
+            featureKey="tasks_management_page"
+            title="Task Management"
+            description="Create, configure, and deploy tasks across your family. This is your system headquarters — the daily active view lives on each member's dashboard."
+            bullets={[
+              'Create tasks, routines, and opportunities once — deploy to multiple members',
+              'Routines auto-reset each period (no guilt for yesterday)',
+              'Opportunities let kids earn rewards by claiming available jobs',
+              'Queue collects drafts from Notepad, LiLa, and meeting action items',
+            ]}
+          />
+        </div>
+      )}
 
       {/* ── Tabs ── */}
       <Tabs
@@ -376,8 +373,8 @@ export function TasksPage() {
         />
       )}
 
-      {/* ── Filter bar (below tabs) ── */}
-      {activeTab !== 'queue' && (
+      {/* ── Filter bar (below tabs) — hidden for Guided members ── */}
+      {activeTab !== 'queue' && !isGuidedMember && (
         <div className="flex items-center gap-2 py-3 flex-wrap">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -449,26 +446,32 @@ export function TasksPage() {
           <EmptyState
             icon={<CheckSquare size={36} />}
             title={
-              activeTab === 'routines'
-                ? 'No routines yet'
-                : 'No tasks yet'
+              isGuidedMember
+                ? 'No tasks for today!'
+                : activeTab === 'routines'
+                  ? 'No routines yet'
+                  : 'No tasks yet'
             }
             description={
-              activeTab === 'routines'
-                ? 'Create a routine template to build daily, weekly, or custom checklists.'
-                : 'Create a task to get started, or browse Studio templates for inspiration.'
+              isGuidedMember
+                ? 'Enjoy your free time. Check back later for new tasks!'
+                : activeTab === 'routines'
+                  ? 'Create a routine template to build daily, weekly, or custom checklists.'
+                  : 'Create a task to get started, or browse Studio templates for inspiration.'
             }
             action={
-              <div className="flex gap-2 flex-wrap justify-center">
-                <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
-                  <Plus size={14} />
-                  Create
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => {}}>
-                  <Layers size={14} />
-                  Browse Templates
-                </Button>
-              </div>
+              isGuidedMember ? undefined : (
+                <div className="flex gap-2 flex-wrap justify-center">
+                  <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+                    <Plus size={14} />
+                    Create
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => {}}>
+                    <Layers size={14} />
+                    Browse Templates
+                  </Button>
+                </div>
+              )
             }
           />
         ) : (

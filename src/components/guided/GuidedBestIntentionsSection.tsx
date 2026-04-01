@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react'
-import { Heart, Plus, Users, Volume2 } from 'lucide-react'
+import { Heart, Plus, Users, Volume2, Eye } from 'lucide-react'
 import { useBestIntentions, useLogIteration, useCreateBestIntention } from '@/hooks/useBestIntentions'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
@@ -225,6 +225,15 @@ export function GuidedBestIntentionsSection({
           )}
         </>
       )}
+
+      {/* PRD-25 Phase C: Transparency indicator */}
+      <p
+        className="flex items-center gap-1.5 text-xs pt-1"
+        style={{ color: 'var(--color-text-tertiary)' }}
+      >
+        <Eye size={12} />
+        Your parent can see your Best Intentions
+      </p>
     </div>
   )
 }

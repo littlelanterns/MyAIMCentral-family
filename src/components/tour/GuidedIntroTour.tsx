@@ -18,6 +18,9 @@ import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
 import { useNotepadContextSafe } from '@/components/notepad'
 
 const STORAGE_KEY = 'myaim_intro_tour_dismissed'
+const SESSION_COUNT_KEY = 'myaim_intro_tour_session_count'
+const SESSION_SEEN_KEY = 'myaim_intro_tour_seen_this_session'
+const MAX_AUTO_SHOW_SESSIONS = 3
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Star, Heart, Sparkles, FileText, CheckSquare, Archive, Feather, Brain,
@@ -29,15 +32,33 @@ function getIcon(name: string): LucideIcon {
 
 function isTourDismissed(): boolean {
   try {
-    return sessionStorage.getItem(STORAGE_KEY) === 'true'
+    // Permanently dismissed by user
+    if (localStorage.getItem(STORAGE_KEY) === 'true') return true
+    // Already dismissed this session (via X or "Dismiss Guide")
+    if (sessionStorage.getItem(SESSION_SEEN_KEY) === 'true') return true
+    // Auto-show limit reached (only show first N sessions)
+    const count = parseInt(localStorage.getItem(SESSION_COUNT_KEY) || '0', 10)
+    if (count >= MAX_AUTO_SHOW_SESSIONS) return true
+    return false
   } catch {
     return false
   }
 }
 
-function dismissTour() {
+/** Increment session counter (called once per app load when tour shows) */
+function incrementSessionCount() {
   try {
-    sessionStorage.setItem(STORAGE_KEY, 'true')
+    const count = parseInt(localStorage.getItem(SESSION_COUNT_KEY) || '0', 10)
+    localStorage.setItem(SESSION_COUNT_KEY, String(count + 1))
+  } catch { /* noop */ }
+}
+
+function dismissTour(permanent = false) {
+  try {
+    sessionStorage.setItem(SESSION_SEEN_KEY, 'true')
+    if (permanent) {
+      localStorage.setItem(STORAGE_KEY, 'true')
+    }
   } catch { /* noop */ }
 }
 
@@ -60,13 +81,14 @@ export function GuidedIntroTour() {
   useEffect(() => {
     if (!isTourDismissed()) {
       setVisible(true)
+      incrementSessionCount()
     }
   }, [])
 
   if (!visible || tourFeatures.length === 0) return null
 
   const handleDismiss = () => {
-    dismissTour()
+    dismissTour(true) // permanent dismiss — user explicitly asked to stop
     setVisible(false)
     triggerLanternsPathGlow()
   }

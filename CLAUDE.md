@@ -295,6 +295,23 @@ This process exists because weeks of careful planning went into every PRD and ad
 119. **Member selection uses compact colored pill buttons.** First name only, member's `assigned_color` as fill (selected) or border (unselected), wrapping flex layout. "Everyone" pill selects all. Replaces full-width checkbox rows everywhere members are assigned. This pattern applies to: TaskCreationModal, EventCreationModal attendees, meetings/agenda items (PRD-16), list sharing (PRD-09B), trackers (PRD-10). Exceptions: Guided Forms (always "each" — worksheets are personal), Vault tool permissions (always "each" — per-member access).
 120. **Default assignMode varies by feature.** Tasks/routines/trackers default to "each" (most common: everyone does their own). Calendar events default to shared (one event, multiple attendees). Meetings default to shared. The `assignMode: 'any' | 'each'` field on creation data drives the save logic; `is_shared: boolean` on the record flags the mode for display.
 
+## Guided Dashboard (PRD-25)
+
+122. **Guided Dashboard section keys:** `'greeting'`, `'best_intentions'`, `'next_best_thing'`, `'calendar'`, `'active_tasks'`, `'widget_grid'`, `'celebrate'`. All are valid section key constants.
+123. **Guided sections that CANNOT be hidden by mom:** `'greeting'`, `'next_best_thing'`, `'best_intentions'`. Mom can hide all others.
+124. **Bottom nav for Guided shell:** Home, Tasks, Write, Victories, Progress. "Write" opens the Write drawer (right-side slide-in), NOT a page navigation.
+125. **Write drawer is the Guided shell's upgraded notepad.** Three tabs: Notepad, Messages, Reflections. Reflections tab hidden when reflections not enabled. Messages tab is a stub until PRD-15.
+126. **Next Best Thing suggestion priority order:** overdue > active routine > time-block > mom-priority > next due > opportunities > unscheduled > best intention reminder. Deterministic, not random. AI glaze is Haiku-class, cached per suggestion per session.
+127. **Best Intentions for Guided members:** mom creates/manages. Child can also create when `child_can_create_best_intentions = true`. Child creation includes coaching helper text.
+128. **Family Best Intentions also appear on Guided dashboard** with "family" badge.
+129. **Reading Support** is a per-member setting in `dashboard_configs.preferences.reading_support_enabled`, NOT a separate dashboard mode. Adds TTS icons, larger font, icon pairing.
+130. **Spelling & Grammar Coaching:** 3-tier lookup (static JSON > `spelling_coaching_cache` table > Haiku AI). Globally cached. AI results write back to cache for everyone. Mom toggle controls whether explanations show.
+131. **"Send To..." routing in Write drawer:** Journal, Homework (`entry_category = 'homework'`), Message (stub), Task Note. Homework is the first brick in the PRD-37 > PRD-28B portfolio pipeline.
+132. **Graduation (Guided > Independent):** tracked via `graduation_tutorial_completed` preference flag. Full ceremony is Post-MVP.
+133. **All Guided dashboard content is visible to mom.** TransparencyIndicator placed on Best Intentions, Write drawer Notepad, and Write drawer Reflections.
+134. **View As renders full GuidedDashboard** for Guided members. Mom can interact with `useActedBy` attribution.
+135. **Guided Tasks page shows 2 tabs only** (My Tasks, Opportunities). No task creation for Guided members. No filter bar.
+
 ## Build Strictness (Non-Negotiable)
 
 121. **Before completing any build session, run `npx tsc --noEmit` and verify zero errors.** The production build (Vercel) uses strict TypeScript checking with `noUnusedLocals` and `noUnusedParameters` enabled. Vite's dev server does NOT type-check — it uses esbuild which ignores these flags. Code that works in `vite dev` can still fail on deploy. Never commit code that passes `vite dev` but would fail `npx tsc --noEmit`. Run the check before declaring any phase complete.

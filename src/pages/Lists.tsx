@@ -11,6 +11,7 @@ import {
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
+  Share2, UserCheck, Check,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -23,6 +24,7 @@ import {
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
   useUncheckAllItems, usePromoteListItem, useArchiveList,
   useReorderListItems, useSaveListAsTemplate,
+  useListShares, useShareList, useUnshareList,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { Sparkles, Settings2 } from 'lucide-react'
@@ -608,12 +610,15 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const saveAsTemplate = useSaveListAsTemplate()
   const [savedAsTemplate, setSavedAsTemplate] = useState(false)
   const { data: familyMembers = [] } = useFamilyMembers(list?.family_id)
+  const { data: shares = [] } = useListShares(listId)
+  const shareList = useShareList()
+  const unshareList = useUnshareList()
+  const [showShareModal, setShowShareModal] = useState(false)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   const [newItemText, setNewItemText] = useState('')
   const [newItemSection, setNewItemSection] = useState('')
-  void setNewItemSection // setter available for section input field
   const [editingId, setEditingId] = useState<string | null>(null)
   const [_showAddSection, _setShowAddSection] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
@@ -644,6 +649,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
 
   const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
   const Icon = cfg.icon
+  const isShopping = list.list_type === 'shopping'
 
   // Group items by section
   const sections = new Map<string, ListItem[]>()
@@ -660,6 +666,8 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const totalItems = items.length
   const checkedItems = items.filter(i => i.checked).length
   const totalPrice = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
+
+  const sharedMemberIds = new Set(shares.map(s => s.member_id).filter(Boolean))
 
   async function addItem() {
     if (!newItemText.trim()) return
@@ -712,6 +720,265 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     )
   }
 
+  async function handleToggleShare(memberId: string) {
+    const existing = shares.find(s => s.member_id === memberId)
+    if (existing) {
+      await unshareList.mutateAsync({ shareId: existing.id, listId })
+    } else {
+      await shareList.mutateAsync({ listId, memberId, canEdit: true })
+    }
+  }
+
+  // ── Compact shopping list item row ─────────────────────
+  function ShoppingItemRow({ item }: { item: ListItem }) {
+    const label = item.content || item.item_name || ''
+    const qty = item.quantity ? `${item.quantity}${item.quantity_unit ? ' ' + item.quantity_unit : ''}` : null
+    return (
+      <div
+        className="flex items-center gap-2 py-1 px-1 group"
+        style={{ opacity: item.checked ? 0.5 : 1 }}
+      >
+        <button
+          onClick={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
+          className="shrink-0"
+        >
+          <div
+            className="w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors"
+            style={{
+              borderColor: item.checked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
+              backgroundColor: item.checked ? 'var(--color-btn-primary-bg)' : 'transparent',
+            }}
+          >
+            {item.checked && <Check size={10} style={{ color: 'var(--color-btn-primary-text)' }} />}
+          </div>
+        </button>
+        <span
+          className={`text-sm flex-1 min-w-0 truncate ${item.checked ? 'line-through' : ''}`}
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          {label}
+        </span>
+        {qty && (
+          <span className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+            {qty}
+          </span>
+        )}
+        {item.notes && (
+          <span className="text-xs shrink-0 italic hidden sm:inline" style={{ color: 'var(--color-text-secondary)' }}>
+            {item.notes}
+          </span>
+        )}
+        <button
+          onClick={() => deleteItem.mutate({ id: item.id, listId })}
+          className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          <X size={12} />
+        </button>
+      </div>
+    )
+  }
+
+  // ── Render: Shopping compact layout ────────────────────
+  if (isShopping) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-3">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+            <ChevronDown size={20} className="rotate-90" />
+          </button>
+          <Icon size={20} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <h1 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
+            {list.title}
+          </h1>
+          <div className="flex items-center gap-1.5">
+            <Tooltip content="Share with family">
+              <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
+                <Share2 size={16} />
+                {shares.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
+                    style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                    {shares.length}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip content={savedAsTemplate ? 'Saved!' : 'Save as template'}>
+              <button
+                onClick={async () => {
+                  if (!family || !member || !list || savedAsTemplate) return
+                  await saveAsTemplate.mutateAsync({ familyId: family.id, createdBy: member.id, title: list.title, listType: list.list_type, items })
+                  setSavedAsTemplate(true)
+                  setTimeout(() => setSavedAsTemplate(false), 3000)
+                }}
+                disabled={saveAsTemplate.isPending || savedAsTemplate}
+                className="p-1.5 rounded-lg" style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+              ><Save size={16} /></button>
+            </Tooltip>
+            <Tooltip content="Uncheck all">
+              <button onClick={() => uncheckAll.mutate(listId)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><RotateCcw size={16} /></button>
+            </Tooltip>
+            <Tooltip content="Archive">
+              <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Archive size={16} /></button>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Shared with indicator */}
+        {shares.length > 0 && (
+          <div className="flex items-center gap-1.5 px-1">
+            <UserCheck size={12} style={{ color: 'var(--color-text-secondary)' }} />
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              Shared with {shares.map(s => {
+                const m = familyMembers.find(fm => fm.id === s.member_id)
+                return m?.display_name ?? 'someone'
+              }).join(', ')}
+            </span>
+          </div>
+        )}
+
+        {/* Single-card compact list */}
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+        >
+          {/* Progress bar inside card */}
+          {totalItems > 0 && (
+            <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(checkedItems / totalItems) * 100}%`, backgroundColor: 'var(--color-btn-primary-bg)' }} />
+              </div>
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{checkedItems}/{totalItems}</span>
+            </div>
+          )}
+
+          {/* Sectioned items */}
+          <div className="px-3 pb-3 pt-1">
+            {Array.from(sections.entries()).map(([sectionName, sectionItems]) => {
+              const sorted = sectionItems.sort((a, b) => a.sort_order - b.sort_order)
+              const sectionChecked = sorted.filter(i => i.checked).length
+              return (
+                <div key={sectionName} className="mt-2 first:mt-0">
+                  <div className="flex items-center gap-2 py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-btn-primary-bg)' }}>
+                      {sectionName}
+                    </span>
+                    <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                      {sectionChecked}/{sorted.length}
+                    </span>
+                  </div>
+                  {sorted.map(item => <ShoppingItemRow key={item.id} item={item} />)}
+                </div>
+              )
+            })}
+
+            {/* Unsectioned items */}
+            {unsectioned.length > 0 && (
+              <div className={sections.size > 0 ? 'mt-2' : ''}>
+                {sections.size > 0 && (
+                  <div className="flex items-center gap-2 py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Other</span>
+                  </div>
+                )}
+                {unsectioned.sort((a, b) => a.sort_order - b.sort_order).map(item => (
+                  <ShoppingItemRow key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+
+            {/* Empty state inside card */}
+            {items.length === 0 && !isLoading && (
+              <div className="py-6 text-center">
+                <ShoppingCart size={24} className="mx-auto mb-2" style={{ color: 'var(--color-text-secondary)' }} />
+                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                  Start adding items below
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Add item (with section picker for shopping) */}
+        <div className="flex gap-2">
+          <div className="flex-1 flex gap-1.5">
+            <input
+              type="text"
+              value={newItemText}
+              onChange={e => setNewItemText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addItem()}
+              placeholder="Add an item..."
+              className="flex-1 px-3 py-2 rounded-lg text-sm"
+              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            />
+            {sections.size > 0 && (
+              <select
+                value={newItemSection}
+                onChange={e => setNewItemSection(e.target.value)}
+                className="px-2 py-2 rounded-lg text-xs max-w-[120px]"
+                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                <option value="">No section</option>
+                {Array.from(sections.keys()).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+          </div>
+          <button
+            onClick={addItem}
+            disabled={!newItemText.trim()}
+            className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          ><Plus size={16} /></button>
+          <Tooltip content="Bulk add items with AI">
+            <button
+              onClick={() => setShowBulkAdd(true)}
+              className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+            >
+              <Sparkles size={14} />
+              <span className="hidden sm:inline">Bulk</span>
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Share modal */}
+        {showShareModal && (
+          <ShareListModal
+            familyMembers={familyMembers}
+            currentMemberId={member?.id ?? ''}
+            sharedMemberIds={sharedMemberIds}
+            onToggle={handleToggleShare}
+            isPending={shareList.isPending || unshareList.isPending}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+
+        {/* AI Bulk Add Modal */}
+        {showBulkAdd && (
+          <BulkAddWithAI
+            title={`Bulk Add — ${list.title}`}
+            placeholder={getBulkAddPlaceholder(list.list_type as string)}
+            hint={getBulkAddHint(list.list_type as string)}
+            categories={getBulkAddCategories(list.list_type as string, Array.from(sections.keys()))}
+            parsePrompt={getBulkAddPrompt(list.list_type as string)}
+            onSave={async (parsed) => {
+              for (const item of parsed.filter(i => i.selected)) {
+                await createItem.mutateAsync({
+                  list_id: listId,
+                  content: item.text,
+                  section_name: item.category || undefined,
+                  sort_order: items.length,
+                })
+              }
+            }}
+            onClose={() => setShowBulkAdd(false)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // ── Render: Standard layout (non-shopping) ─────────────
   return (
     <div className="max-w-3xl mx-auto space-y-4">
       {/* Header */}
@@ -724,6 +991,17 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           {list.title}
         </h1>
         <div className="flex items-center gap-1.5">
+          <Tooltip content="Share with family">
+            <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
+              <Share2 size={16} />
+              {shares.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                  {shares.length}
+                </span>
+              )}
+            </button>
+          </Tooltip>
           <Tooltip content={savedAsTemplate ? 'Saved!' : 'Save as template'}>
           <button
             onClick={async () => {
@@ -765,6 +1043,19 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           </Tooltip>
         </div>
       </div>
+
+      {/* Shared with indicator */}
+      {shares.length > 0 && (
+        <div className="flex items-center gap-1.5 px-1">
+          <UserCheck size={12} style={{ color: 'var(--color-text-secondary)' }} />
+          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            Shared with {shares.map(s => {
+              const m = familyMembers.find(fm => fm.id === s.member_id)
+              return m?.display_name ?? 'someone'
+            }).join(', ')}
+          </span>
+        </div>
+      )}
 
       {/* Progress */}
       {totalItems > 0 && (
@@ -884,6 +1175,18 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
         </Tooltip>
       </div>
 
+      {/* Share modal */}
+      {showShareModal && (
+        <ShareListModal
+          familyMembers={familyMembers}
+          currentMemberId={member?.id ?? ''}
+          sharedMemberIds={sharedMemberIds}
+          onToggle={handleToggleShare}
+          isPending={shareList.isPending || unshareList.isPending}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
+
       {/* AI Bulk Add Modal */}
       {showBulkAdd && (
         <BulkAddWithAI
@@ -905,6 +1208,78 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
           onClose={() => setShowBulkAdd(false)}
         />
       )}
+    </div>
+  )
+}
+
+// ── Share List Modal ─────────────────────────────────────
+
+function ShareListModal({
+  familyMembers,
+  currentMemberId,
+  sharedMemberIds,
+  onToggle,
+  isPending,
+  onClose,
+}: {
+  familyMembers: FamilyMember[]
+  currentMemberId: string
+  sharedMemberIds: Set<string | null>
+  onToggle: (memberId: string) => Promise<void>
+  isPending: boolean
+  onClose: () => void
+}) {
+  const otherMembers = familyMembers.filter(m => m.id !== currentMemberId)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <div
+        className="w-full max-w-sm rounded-xl p-4 space-y-3"
+        style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>Share List</h3>
+          <button onClick={onClose} className="p-1 rounded" style={{ color: 'var(--color-text-secondary)' }}><X size={16} /></button>
+        </div>
+        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          Shared members can view and check off items.
+        </p>
+        {otherMembers.length === 0 ? (
+          <p className="text-xs py-2" style={{ color: 'var(--color-text-secondary)' }}>No other family members to share with.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {otherMembers.map(m => {
+              const isShared = sharedMemberIds.has(m.id)
+              const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => onToggle(m.id)}
+                  disabled={isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
+                  style={{
+                    backgroundColor: isShared ? color : 'transparent',
+                    color: isShared ? '#fff' : color,
+                    border: `2px solid ${color}`,
+                  }}
+                >
+                  {isShared && <Check size={12} />}
+                  {m.display_name}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <div className="flex justify-end pt-1">
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
