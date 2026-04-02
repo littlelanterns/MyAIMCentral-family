@@ -49,21 +49,102 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     let referenceId: string | undefined
 
     // Create actual records at the destination
-    if (destination === 'victory') {
-      const { data, error } = await supabase
-        .from('victories')
-        .insert({
-          family_id: familyId,
-          family_member_id: tab.member_id,
-          description: item.extracted_content,
-          source: 'notepad_routed',
-          source_reference_id: item.id,
-          member_type: 'adult',
-          importance: 'standard',
-        })
-        .select('id')
-        .single()
-      if (!error && data) referenceId = data.id
+    switch (destination) {
+      case 'victory': {
+        const { data, error } = await supabase
+          .from('victories')
+          .insert({
+            family_id: familyId,
+            family_member_id: tab.member_id,
+            description: item.extracted_content,
+            source: 'notepad_routed',
+            source_reference_id: item.id,
+            member_type: 'adult',
+            importance: 'standard',
+          })
+          .select('id')
+          .single()
+        if (!error && data) referenceId = data.id
+        break
+      }
+      case 'journal':
+      case 'quick_note': {
+        const { data, error } = await supabase
+          .from('journal_entries')
+          .insert({
+            family_id: familyId,
+            member_id: tab.member_id,
+            entry_type: destination === 'quick_note' ? 'quick_note' : (_subType || 'journal_entry'),
+            content: item.extracted_content,
+            visibility: 'private',
+            tags: [],
+          })
+          .select('id')
+          .single()
+        if (!error && data) referenceId = data.id
+        break
+      }
+      case 'guiding_stars': {
+        const { data, error } = await supabase
+          .from('guiding_stars')
+          .insert({
+            family_id: familyId,
+            member_id: tab.member_id,
+            content: item.extracted_content,
+            source: 'manual',
+          })
+          .select('id')
+          .single()
+        if (!error && data) referenceId = data.id
+        break
+      }
+      case 'best_intentions': {
+        const { data, error } = await supabase
+          .from('best_intentions')
+          .insert({
+            family_id: familyId,
+            member_id: tab.member_id,
+            statement: item.extracted_content,
+            source: 'manual',
+          })
+          .select('id')
+          .single()
+        if (!error && data) referenceId = data.id
+        break
+      }
+      case 'innerworkings': {
+        const { data, error } = await supabase
+          .from('self_knowledge')
+          .insert({
+            family_id: familyId,
+            member_id: tab.member_id,
+            category: _subType || 'general',
+            content: item.extracted_content,
+            source_type: 'manual',
+          })
+          .select('id')
+          .single()
+        if (!error && data) referenceId = data.id
+        break
+      }
+      default: {
+        // Tasks, lists, calendar, track, agenda, message, optimizer — deposit to studio_queue
+        const { data, error } = await supabase
+          .from('studio_queue')
+          .insert({
+            family_id: familyId,
+            owner_id: tab.member_id,
+            destination: destination === 'tasks' ? 'task' : destination,
+            content: item.extracted_content,
+            source: 'review_route',
+            source_reference_id: item.id,
+            structure_flag: _subType || null,
+          })
+          .select('id')
+          .single()
+        if (!error && data) referenceId = data.id
+        break
+      }
     }
 
     await routeItemMutation.mutateAsync({
@@ -89,11 +170,8 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
 
   async function handleRouteAll() {
     for (const item of pendingItems) {
-      await routeItemMutation.mutateAsync({
-        id: item.id,
-        status: 'routed',
-        actual_destination: item.suggested_destination || item.routing_destination,
-      })
+      const dest = item.suggested_destination || item.routing_destination
+      await handleRouteItem(item, dest)
     }
     onAllRouted()
   }
