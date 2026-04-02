@@ -4,7 +4,199 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-14D Family Hub (Phase A, gaps) + PRD-25 Guided Dashboard (Phase A)
+## Status: ACTIVE — PRD-11 Victory Recorder (Phase 12A) + PRD-14D Family Hub (Phase A, gaps) + PRD-25 Guided Dashboard (Phase A)
+
+---
+
+# Build D: PRD-11 Victory Recorder (Phase 12A)
+
+### PRD Files
+- `prds/personal-growth/PRD-11-Victory-Recorder-Daily-Celebration.md` (full PRD — read every word)
+- `prds/personal-growth/PRD-11B-Family-Celebration.md` (companion — read for awareness, NOT building)
+
+### Addenda Read
+- `audit/UNRESOLVED_CROSS_PRD_ACTIONS.md` (PRD-11 section: 15+ cross-PRD source enum values — already in migration)
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md`
+- 17 other addenda reference PRD-11 but contain no PRD-11-specific overrides
+
+### Feature Decision File
+`claude/feature-decisions/PRD-11-Victory-Recorder.md`
+
+### Build Spec
+Founder-provided session prompt with 5 critical design overrides (see below).
+
+---
+
+### Pre-Build Summary
+
+#### Context
+Victory Recorder is the emotional heartbeat of MyAIM — a celebration-only surface that asks "What did you do right?" It captures meaningful accomplishments and generates identity-based AI celebration narratives that connect what users *did* to who they *are becoming*. Phase 12A builds core recording, browsing, collection celebration, and the Celebration Archive for adults and teens.
+
+All 3 database tables already exist (migration 00000000000009): `victories`, `victory_celebrations`, `victory_voice_preferences` — all empty, ready to use. Extensive stub infrastructure exists: VictoriesPage placeholder, GuidedVictories stub, CelebrateSection on Guided Dashboard, InfoRecentVictories widget, sidebar nav, BottomNav, QuickCreate FAB, RoutingStrip destination, SpotlightSearch entry. SparkleOverlay component already exists and is fully functional.
+
+#### Founder Design Overrides (Supersede PRD)
+1. **NO AI on individual victory save.** Type, save, gold sparkle, done. AI reserved for collection "Celebrate This!" only.
+2. **"Celebrate This!" is user-triggered, never automatic.**
+3. **Model split:** Sonnet for adults/teens, Haiku for kids' DailyCelebration.
+4. **Victories are claimed, not auto-generated.** Auto-routing from tasks is Phase 12B.
+5. **"What Actually Got Done" prompt** as empty-state behavior.
+
+#### Dependencies Already Built
+- SparkleOverlay component (`src/components/shared/SparkleOverlay.tsx`) — full celebration effects
+- VictoriesPage placeholder with shell-aware routing (`src/pages/placeholder/index.tsx`)
+- GuidedVictories stub page (`src/pages/GuidedVictories.tsx`)
+- `/victories` route in App.tsx
+- Sidebar nav "Victories" entry in "Grow" section
+- BottomNav "Victories" in "Daily" section of More menu
+- QuickCreate FAB "Log Victory" action → `/victories?new=1`
+- RoutingStrip victory destination (key: 'victory')
+- SpotlightSearch victory entry
+- CelebrateSection stub on Guided Dashboard (PRD-25)
+- InfoRecentVictories widget stub
+- HubVictoriesSummarySection stub (PRD-14D)
+- `dashboardSections.ts` celebrate section config
+- Guiding Stars + Best Intentions hooks (PRD-06)
+- InnerWorkings / self_knowledge data (PRD-07)
+- ModalV2 shared component
+- Density system + theme conventions
+- Edge Function shared utilities: cors, auth, cost-logger, streaming, context-assembler, crisis-detection
+- Feature keys seeded: victory_recorder_basic, victory_recorder_celebrate, victory_moms_picks, daily_celebration
+- activity_log_entries table with RLS
+
+#### Dependencies NOT Yet Built (Stubs for Phase 12A)
+- celebrate-victory Edge Function (new)
+- VictoryRecorder page component (replaces placeholder)
+- RecordVictory modal (new)
+- VictoryDetail modal (new)
+- CelebrationModal (new)
+- CelebrationArchive (new)
+- useVictories hook (new)
+- useCelebrationArchive hook (new)
+- Activity log trigger on victories INSERT (new migration)
+
+#### Build Items (Phase 12A — 11 items)
+
+**1. Migration: Schema gaps + activity log trigger**
+- ALTER `victory_celebrations` mode CHECK to add 'monthly'
+- CREATE INDEX `idx_v_member_area` ON victories (family_id, family_member_id, life_area_tag)
+- ADD RLS policies: mom INSERT for family, mom UPDATE for family, parent SELECT on victory_celebrations
+- CREATE trigger function `log_victory_created()` → inserts into activity_log_entries
+- CREATE trigger AFTER INSERT ON victories
+
+**2. TypeScript types**
+- `src/types/victories.ts` — Victory, VictoryCelebration, VoicePreference, CreateVictory, VictoryFilters
+
+**3. useVictories hook**
+- Family-member scoped CRUD with optimistic updates
+- Period filtering (today, this_week, this_month, all, custom range)
+- Life area filtering (multi-select)
+- Mom's Pick operations (toggle + note)
+- Archive/restore
+- Victory count by period
+- Recent victories query
+
+**4. useCelebrationArchive hook**
+- Save celebration narrative to victory_celebrations
+- Fetch celebrations by member, ordered by date
+- Delete celebration
+- Copy celebration text
+
+**5. celebrate-victory Edge Function**
+- Non-streaming JSON response (narrative is a single block, not conversational)
+- Modes: collection, review, monthly (no individual mode per founder override)
+- Context loading: Guiding Stars, Best Intentions, InnerWorkings (is_included_in_ai = true)
+- LifeLantern context: stub (empty array)
+- Model selection: Sonnet for adults/teens, Haiku for guided/play
+- Identity-based celebration rules in system prompt with few-shot examples
+- Cost logging via logAICost
+- Zod input validation, auth, crisis detection
+
+**6. VictoryRecorder page**
+- Replace VictoriesPage placeholder
+- Page title: "Victory Recorder" + subtitle "What did you do right?"
+- Period filter chips: Today | This Week | This Month | All Time | Custom Range
+- Life area filter chips: multi-selectable, auto-sorted by frequency, "+ Add Custom"
+- Special filter modes: Best Intentions | Guiding Stars (LifeLantern stub)
+- Victory count summary
+- "Celebrate This!" button (only when victories exist for period)
+- "Past Celebrations" link
+- Victory cards: description, life area tag, source icon, timestamp, Mom's Pick star, gold left border
+- FAB: "Record a Victory"
+- Empty state: "What Actually Got Done" prompt
+- Long-press quick actions on cards
+
+**7. RecordVictory modal**
+- ModalV2 transient
+- Text area: "What did you accomplish?"
+- Quick-add category buttons (7 categories)
+- Importance selector: Small Win | Standard | Big Win | Major Achievement
+- NO AI call on save
+- Gold SparkleOverlay quick_burst on save
+- Toast: "Victory recorded!"
+- Support for ?new=1 URL param auto-open
+- Bulk mode toggle (paste multiple → separate records)
+
+**8. VictoryDetail modal**
+- ModalV2 transient
+- Full description (editable)
+- Celebration text if present (editable)
+- Life area tag (editable dropdown/chips)
+- Guiding Stars connection (add/change/remove)
+- Best Intentions connection (add/change/remove)
+- Source info with link (or "Original source no longer available")
+- Date and time
+- Mom's Pick toggle + note field (mom only for children's; self for own)
+- Importance indicator (editable)
+- Custom tags (add/remove)
+- Archive button, Copy button
+
+**9. CelebrationModal**
+- ModalV2 persistent (stays open during generation)
+- Opens immediately — gold firework animation while AI generates
+- Loading state: "Reflecting on your accomplishments..." with gold particle effects
+- Narrative display in warm typography
+- Human-in-the-Mix: Edit button on narrative
+- Actions: Save to Archive | Copy | Dismiss
+- "Save to Journal" stub for future
+- Auto-saves to victory_celebrations
+- Firework burst + gold rain effects (adapt SparkleOverlay patterns)
+
+**10. CelebrationArchive**
+- ModalV2 transient
+- Title: "Past Celebrations"
+- Cards by date, newest first
+- Each card: date header, victory count, period label, narrative text, Copy + Delete
+- Scrollable, pagination
+
+**11. TypeScript check**
+- `tsc -b` — zero errors before declaring complete
+
+### Stubs (NOT Building Phase 12A)
+- DailyCelebration 5-step sequence (Phase 12C)
+- Voice personality selection UI (Phase 12C)
+- Auto-routing from tasks/trackers/intentions/widgets/lists (Phase 12B — AIR pipeline)
+- Activity Log scan intelligence / suggested victories (Phase 12B)
+- Dashboard victory widget wiring (Phase 12B)
+- Notepad "Flag as Victory" routing (Phase 12B)
+- LiLa victory detection action chip (Phase 12B)
+- Family Celebration mode (PRD-11B)
+- LifeLantern context in celebrations (future)
+- Evening Rhythm integration (PRD-18)
+- Victory Reports (post-MVP)
+- TTS audio (post-MVP)
+- Celebration Cards visual (post-MVP)
+
+### Key Decisions
+1. **NO AI on individual save** — gold sparkle only. AI reserved for "Celebrate This!" collection.
+2. **Non-streaming Edge Function** — narrative is a single block, not conversational SSE.
+3. **Tables already exist** — migration only adds missing indexes, RLS policies, trigger, and CHECK fix.
+4. **Replace placeholder page** — VictoriesPage in placeholder/index.tsx replaced with real component.
+5. **Shell routing preserved** — guided → GuidedVictories stub, all others → real VictoryRecorder.
+6. **Adults' victories are private** — mom can't see dad's, dad can't see mom's.
+7. **Mom sees all children's victories** — RLS parent policy already exists for SELECT.
+8. **Custom tags are TEXT[]** — not a separate table. Stored directly on victory record.
+9. **Auto-routing deferred to Phase 12B** — Phase 12A is manual entry only.
+10. **InfoRecentVictories widget** — wire to show actual data (simple query, no new widget type).
 
 ---
 

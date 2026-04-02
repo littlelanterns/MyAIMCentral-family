@@ -181,8 +181,6 @@ export function ModalV2({
 
   if (!isOpen) return null
 
-  const isFullSize = size === 'full' || size === 'xl' || size === 'lg'
-
   const content = (
     <div
       style={{
@@ -190,7 +188,7 @@ export function ModalV2({
         inset: 0,
         zIndex: 'var(--z-modal-content, 55)' as unknown as number,
         display: 'flex',
-        alignItems: isFullSize ? 'center' : 'flex-end',
+        alignItems: 'center',
         justifyContent: 'center',
         padding: 0,
       }}
