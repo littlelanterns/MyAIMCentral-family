@@ -11,7 +11,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Bug } from 'lucide-react'
-import html2canvas from 'html2canvas'
+import domtoimage from 'dom-to-image-more'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import { useAuth } from '@/hooks/useAuth'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -59,19 +59,54 @@ export function GlitchReporterFAB() {
   const needsMathGate = shellType === 'guided' || shellType === 'play'
 
   const captureScreenshot = useCallback(async (): Promise<string | null> => {
+    // Find the main content area — more reliable than document.body
+    const target = document.querySelector('main') || document.getElementById('root') || document.body
+
+    // Strategy 1: dom-to-image-more — better CSS variable support
     try {
-      const canvas = await html2canvas(document.body, {
-        logging: false,
-        useCORS: true,
-        scale: 0.5,
-        ignoreElements: (el) => {
-          return el.classList?.contains('glitch-reporter-fab') || el.classList?.contains('glitch-reporter-overlay')
+      const dataUrl = await domtoimage.toPng(target, {
+        quality: 0.6,
+        bgcolor: '#ffffff',
+        width: target.scrollWidth,
+        height: Math.min(target.scrollHeight, window.innerHeight),
+        style: { overflow: 'hidden' },
+        filter: (node: Node) => {
+          if (node instanceof HTMLElement) {
+            return !node.classList?.contains('glitch-reporter-fab') &&
+              !node.classList?.contains('glitch-reporter-overlay')
+          }
+          return true
         },
       })
-      return canvas.toDataURL('image/png', 0.6)
+      if (dataUrl && dataUrl !== 'data:,') return dataUrl
     } catch {
-      return null
+      // fall through
     }
+
+    // Strategy 2: native Canvas from viewport (no permission prompt)
+    try {
+      const canvas = document.createElement('canvas')
+      const scale = 0.5
+      canvas.width = window.innerWidth * scale
+      canvas.height = window.innerHeight * scale
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.scale(scale, scale)
+        // Draw a simple representation — background + text note
+        ctx.fillStyle = '#f5f5f5'
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight)
+        ctx.fillStyle = '#666'
+        ctx.font = '14px sans-serif'
+        ctx.fillText(`Page: ${window.location.pathname}`, 16, 30)
+        ctx.fillText(`Viewport: ${window.innerWidth}x${window.innerHeight}`, 16, 50)
+        ctx.fillText('(Auto-screenshot unavailable — see attached image)', 16, 80)
+        return canvas.toDataURL('image/png', 0.6)
+      }
+    } catch {
+      // fall through
+    }
+
+    return null
   }, [])
 
   const handleFabClick = useCallback(async () => {

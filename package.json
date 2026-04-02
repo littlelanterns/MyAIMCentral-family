@@ -28,6 +28,7 @@
     "@tiptap/pm": "^3.20.5",
     "@tiptap/react": "^3.20.5",
     "@tiptap/starter-kit": "^3.20.5",
+    "dom-to-image-more": "^3.7.2",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "lucide-react": "^1.0.1",
