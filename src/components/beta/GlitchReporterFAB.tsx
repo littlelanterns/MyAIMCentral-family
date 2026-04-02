@@ -55,7 +55,7 @@ export function GlitchReporterFAB() {
 
   const enabled = FEATURE_FLAGS.ENABLE_BETA_FEEDBACK && !!user
 
-  const shellType = member?.dashboard_mode || (member?.role === 'primary_parent' ? 'mom' : 'adult')
+  const shellType = member?.role === 'primary_parent' ? 'mom' : (member?.dashboard_mode || 'adult')
   const needsMathGate = shellType === 'guided' || shellType === 'play'
 
   const captureScreenshot = useCallback(async (): Promise<string | null> => {

@@ -74,12 +74,20 @@ export function CropPreviewModal({
 
     setProcessing(true)
     try {
-      const blob = await getCroppedImage(imageSrc, {
-        x: completedCrop.x,
-        y: completedCrop.y,
-        width: completedCrop.width,
-        height: completedCrop.height,
-      })
+      // Pass rendered image dimensions so crop coordinates scale correctly
+      const renderedWidth = imgRef.current?.width
+      const renderedHeight = imgRef.current?.height
+      const blob = await getCroppedImage(
+        imageSrc,
+        {
+          x: completedCrop.x,
+          y: completedCrop.y,
+          width: completedCrop.width,
+          height: completedCrop.height,
+        },
+        renderedWidth,
+        renderedHeight,
+      )
       onCropConfirm(blob)
     } catch {
       // Fallback: upload original file

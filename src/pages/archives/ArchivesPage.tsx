@@ -491,26 +491,30 @@ export function ArchivesPage() {
   async function handleCropConfirm(croppedBlob: Blob) {
     const file = new File([croppedBlob], 'reference.jpg', { type: 'image/jpeg' })
 
-    if (cropTargetMemberId) {
-      setUploadingMemberId(cropTargetMemberId)
-      // Fetch current reference photos to append
-      const { data: settings } = await supabase
-        .from('archive_member_settings')
-        .select('reference_photos')
-        .eq('family_id', familyId!)
-        .eq('member_id', cropTargetMemberId)
-        .maybeSingle()
-      const existing: string[] = settings?.reference_photos ?? []
-      await avatarUpload.uploadReferencePhoto(cropTargetMemberId, file, existing)
+    try {
+      if (cropTargetMemberId) {
+        setUploadingMemberId(cropTargetMemberId)
+        // Fetch current reference photos to append
+        const { data: settings } = await supabase
+          .from('archive_member_settings')
+          .select('reference_photos')
+          .eq('family_id', familyId!)
+          .eq('member_id', cropTargetMemberId)
+          .maybeSingle()
+        const existing: string[] = settings?.reference_photos ?? []
+        await avatarUpload.uploadReferencePhoto(cropTargetMemberId, file, existing)
+      } else {
+        setUploadingFamily(true)
+        await avatarUpload.uploadFamilyPhoto(file)
+      }
+    } catch (err) {
+      console.error('Photo upload failed:', err)
+    } finally {
       setUploadingMemberId(null)
-    } else {
-      setUploadingFamily(true)
-      await avatarUpload.uploadFamilyPhoto(file)
       setUploadingFamily(false)
+      setCropModalOpen(false)
+      setCropFile(null)
     }
-
-    setCropModalOpen(false)
-    setCropFile(null)
   }
 
   function handleVoiceTranscript(text: string) {
