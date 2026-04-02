@@ -60,7 +60,7 @@ export interface AssembledContext {
   loadedSources: LoadedSource[]
 }
 
-interface FamilyMember {
+export interface FamilyMember {
   id: string
   display_name: string
   role: string
@@ -74,7 +74,7 @@ interface FamilyMember {
 // Topic → Category Mapping
 // ════════════════════════════════════════════════════════════
 
-const TOPIC_PATTERNS: Array<{ pattern: RegExp; categories: string[] }> = [
+export const TOPIC_PATTERNS: Array<{ pattern: RegExp; categories: string[] }> = [
   {
     pattern: /\b(faith|spiritual|pray|prayer|church|god|scripture|bible|worship|religion)\b/i,
     categories: ['Faith & Values', 'faith'],
@@ -125,7 +125,7 @@ const TOPIC_PATTERNS: Array<{ pattern: RegExp; categories: string[] }> = [
  * Detect family member names in text using word-boundary regex.
  * Checks display_name and nicknames. Case-insensitive.
  */
-function detectMentionedMembers(
+export function detectMentionedMembers(
   text: string,
   roster: FamilyMember[],
 ): Set<string> {
@@ -167,7 +167,7 @@ function escapeRegex(str: string): string {
 /**
  * Detect topic categories from text using keyword patterns.
  */
-function detectTopics(text: string): Set<string> {
+export function detectTopics(text: string): Set<string> {
   const categories = new Set<string>()
   for (const { pattern, categories: cats } of TOPIC_PATTERNS) {
     if (pattern.test(text)) {

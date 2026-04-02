@@ -8,6 +8,7 @@ import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { assembleContext, type AssembledContext } from '../_shared/context-assembler.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -46,7 +47,14 @@ You are a processing partner, NOT a friend, therapist, or companion.
 You are warm, empathetic, and appropriately boundaried.
 You strengthen human connections — never replace them.
 You never guilt, shame, or manipulate.
-Every suggestion is a starting point — the human always has final say.`
+Every suggestion is a starting point — the human always has final say.
+
+CONTEXT REFERENCE RULES — NON-NEGOTIABLE:
+When referencing context items (book extractions, guiding stars, intentions, archive data) in your responses:
+- Frame through growth and aspiration, never deficit or diagnosis. Say "your intention to stay calm" not "anger management." Say "building patience" not "controlling temper."
+- When referencing a book extraction, quote the actual text or closely paraphrase it. Do not relabel it with clinical or negative terminology the user never used.
+- Never label the user. "You've been thinking about..." not "Your issue with..." — "An area you're growing in" not "A problem you have."
+- If the source material uses clinical language (the book might say "anger management"), translate it into the user's own framing before presenting it.`
 
 const MODE_PROMPTS: Record<string, string> = {
   general: `Mode: General Chat. You can chat about anything. Be attentive for signals that a specialized tool would help.`,
@@ -63,190 +71,13 @@ const VOICE_ADJUSTMENTS: Record<string, string> = {
 }
 
 // ============================================================
-// Context Assembly (Server-Side)
+// System Prompt Assembly (using layered context)
 // ============================================================
-
-/** Per-member context bundle — everything grouped by the person it belongs to */
-interface MemberContext {
-  display_name: string
-  role: string
-  age?: number
-  dashboard_mode?: string
-  relationship?: string
-  guidingStars: string[]
-  bestIntentions: string[]
-  selfKnowledge: Array<{ content: string; category: string }>
-  archiveItems: Array<{ content: string; folder_name?: string }>
-}
-
-interface ContextData {
-  memberContexts: MemberContext[]
-  familyArchiveItems: Array<{ content: string; folder_name?: string }>
-  faithContext: string
-}
-
-async function assembleServerContext(familyId: string): Promise<ContextData> {
-  // Load all family members first
-  const fmRes = await supabase
-    .from('family_members')
-    .select('id, display_name, role, age, date_of_birth, dashboard_mode, relationship')
-    .eq('family_id', familyId)
-    .eq('is_active', true)
-
-  const members = (fmRes.data || []) as Array<{
-    id: string; display_name: string; role: string;
-    age?: number; date_of_birth?: string; dashboard_mode?: string; relationship?: string
-  }>
-  const allMemberIds = members.map(m => m.id)
-
-  // Load ALL context in parallel — each query includes member_id for grouping
-  const [gsRes, biRes, skRes, fpRes, archiveData] = await Promise.all([
-    supabase.from('guiding_stars').select('content, member_id').eq('family_id', familyId).eq('is_included_in_ai', true).is('archived_at', null),
-    supabase.from('best_intentions').select('statement, member_id').eq('family_id', familyId).eq('is_included_in_ai', true).eq('is_active', true).is('archived_at', null),
-    supabase.from('self_knowledge').select('content, category, member_id').eq('family_id', familyId).eq('is_included_in_ai', true).is('archived_at', null),
-    supabase.from('faith_preferences').select('faith_tradition, denomination, special_instructions').eq('family_id', familyId).maybeSingle(),
-    loadArchiveContextServer(familyId, allMemberIds),
-  ])
-
-  // Group guiding stars by member_id
-  const gsByMember = new Map<string, string[]>()
-  for (const g of (gsRes.data || []) as Array<{ content: string; member_id: string }>) {
-    const list = gsByMember.get(g.member_id) || []
-    list.push(g.content)
-    gsByMember.set(g.member_id, list)
-  }
-
-  // Group best intentions by member_id
-  const biByMember = new Map<string, string[]>()
-  for (const b of (biRes.data || []) as Array<{ statement: string; member_id: string }>) {
-    const list = biByMember.get(b.member_id) || []
-    list.push(b.statement)
-    biByMember.set(b.member_id, list)
-  }
-
-  // Group self-knowledge by member_id
-  const skByMember = new Map<string, Array<{ content: string; category: string }>>()
-  for (const s of (skRes.data || []) as Array<{ content: string; category: string; member_id: string }>) {
-    const list = skByMember.get(s.member_id) || []
-    list.push({ content: s.content, category: s.category })
-    skByMember.set(s.member_id, list)
-  }
-
-  // Build per-member context bundles
-  const memberContexts: MemberContext[] = members.map(m => ({
-    display_name: m.display_name,
-    role: m.role,
-    age: m.age,
-    dashboard_mode: m.dashboard_mode,
-    relationship: m.relationship,
-    guidingStars: gsByMember.get(m.id) || [],
-    bestIntentions: biByMember.get(m.id) || [],
-    selfKnowledge: skByMember.get(m.id) || [],
-    archiveItems: archiveData.byMember.get(m.id) || [],
-  }))
-
-  // Faith context
-  let faithContext = ''
-  const fp = fpRes.data as { faith_tradition?: string; denomination?: string; special_instructions?: string } | null
-  if (fp?.faith_tradition) {
-    faithContext = `Faith: This family identifies with ${fp.faith_tradition}${fp.denomination ? ` (${fp.denomination})` : ''}. Reference when naturally relevant. Never force.`
-    if (fp.special_instructions) {
-      faithContext += ` Family instructions: ${fp.special_instructions}`
-    }
-  }
-
-  return {
-    memberContexts,
-    familyArchiveItems: archiveData.familyItems,
-    faithContext,
-  }
-}
-
-/** Load archive context items grouped by member, with three-tier filtering */
-async function loadArchiveContextServer(
-  familyId: string,
-  memberIds: string[],
-): Promise<{
-  byMember: Map<string, Array<{ content: string; folder_name?: string }>>;
-  familyItems: Array<{ content: string; folder_name?: string }>;
-}> {
-  const empty = { byMember: new Map(), familyItems: [] }
-  if (memberIds.length === 0) return empty
-
-  try {
-    // Step 1: Check person-level toggles
-    const { data: memberSettings } = await supabase
-      .from('archive_member_settings')
-      .select('member_id, is_included_in_ai')
-      .eq('family_id', familyId)
-
-    const excludedMembers = new Set(
-      (memberSettings ?? [])
-        .filter((s: { is_included_in_ai: boolean }) => !s.is_included_in_ai)
-        .map((s: { member_id: string }) => s.member_id)
-    )
-    const enabledMembers = memberIds.filter(id => !excludedMembers.has(id))
-    if (enabledMembers.length === 0) return empty
-
-    // Step 2: Load enabled folders (category level)
-    const { data: folders } = await supabase
-      .from('archive_folders')
-      .select('id, folder_name, is_included_in_ai, member_id')
-      .eq('family_id', familyId)
-      .eq('is_included_in_ai', true)
-
-    if (!folders || folders.length === 0) return empty
-
-    const enabledFolders = (folders as Array<{ id: string; folder_name: string; member_id: string | null }>)
-      .filter(f => f.member_id === null || enabledMembers.includes(f.member_id))
-    if (enabledFolders.length === 0) return empty
-
-    const enabledFolderIds = enabledFolders.map(f => f.id)
-    const folderMap = new Map(enabledFolders.map(f => [f.id, f.folder_name]))
-    // Map folder_id -> member_id so we can attribute items to the correct person
-    const folderOwnerMap = new Map(enabledFolders.map(f => [f.id, f.member_id]))
-
-    // Step 3: Load items — include member_id for direct attribution
-    const { data: items } = await supabase
-      .from('archive_context_items')
-      .select('context_value, folder_id, member_id')
-      .eq('family_id', familyId)
-      .in('folder_id', enabledFolderIds)
-      .eq('is_included_in_ai', true)
-      .is('archived_at', null)
-      .limit(200)
-
-    if (!items || items.length === 0) return empty
-
-    // Group items by member
-    const byMember = new Map<string, Array<{ content: string; folder_name?: string }>>()
-    const familyItems: Array<{ content: string; folder_name?: string }> = []
-
-    for (const item of items as Array<{ context_value: string; folder_id: string; member_id: string | null }>) {
-      const formatted = { content: item.context_value, folder_name: folderMap.get(item.folder_id) }
-      // Use item.member_id first, fall back to folder owner
-      const ownerId = item.member_id || folderOwnerMap.get(item.folder_id)
-      if (ownerId) {
-        const list = byMember.get(ownerId) || []
-        list.push(formatted)
-        byMember.set(ownerId, list)
-      } else {
-        // Family-level items (no member owner)
-        familyItems.push(formatted)
-      }
-    }
-
-    return { byMember, familyItems }
-  } catch (err) {
-    console.error('Archive context loading failed:', err)
-    return empty
-  }
-}
 
 function buildSystemPrompt(
   modeKey: string,
   memberRole: string,
-  context: ContextData,
+  ctx: AssembledContext,
   pageContext?: string,
 ): string {
   const parts: string[] = [CRISIS_OVERRIDE, BASE_IDENTITY]
@@ -259,74 +90,19 @@ function buildSystemPrompt(
   const voice = VOICE_ADJUSTMENTS[memberRole]
   if (voice) parts.push(voice)
 
-  // Faith
-  if (context.faithContext) parts.push(context.faithContext)
+  // Family roster (Layer 1 — always present)
+  if (ctx.familyRoster) parts.push(ctx.familyRoster)
 
-  // Per-member context — each person's data grouped under their name
-  let hasAnyContext = false
-  if (context.memberContexts.length > 0) {
-    const memberSections: string[] = []
-
-    for (const mc of context.memberContexts) {
-      const header: string[] = [mc.role]
-      if (mc.age) header.push(`age ${mc.age}`)
-      if (mc.relationship) header.push(mc.relationship)
-
-      const lines: string[] = []
-
-      if (mc.archiveItems.length > 0) {
-        for (const item of mc.archiveItems) {
-          lines.push(`- ${item.content}${item.folder_name ? ` [${item.folder_name}]` : ''}`)
-        }
-      }
-
-      if (mc.selfKnowledge.length > 0) {
-        for (const sk of mc.selfKnowledge) {
-          lines.push(`- [${sk.category}] ${sk.content}`)
-        }
-      }
-
-      if (mc.guidingStars.length > 0) {
-        lines.push('Guiding Stars:')
-        for (const gs of mc.guidingStars) {
-          lines.push(`  - ${gs}`)
-        }
-      }
-
-      if (mc.bestIntentions.length > 0) {
-        lines.push('Active Intentions:')
-        for (const bi of mc.bestIntentions) {
-          lines.push(`  - ${bi}`)
-        }
-      }
-
-      if (lines.length > 0) {
-        hasAnyContext = true
-        memberSections.push(`--- ${mc.display_name} (${header.join(', ')}) ---\n${lines.join('\n')}`)
-      } else {
-        // Still list the member even without context
-        memberSections.push(`--- ${mc.display_name} (${header.join(', ')}) ---\n(no detailed context yet)`)
-      }
-    }
-
-    parts.push(`## Family Context\n\n${memberSections.join('\n\n')}`)
-  }
-
-  // Family-level archive items (not owned by any specific member)
-  if (context.familyArchiveItems.length > 0) {
-    hasAnyContext = true
-    parts.push(`## Family-Level Context\n${context.familyArchiveItems.map(a =>
-      `- ${a.content}${a.folder_name ? ` [${a.folder_name}]` : ''}`
-    ).join('\n')}`)
+  // Relevance-filtered context (Layer 2 — loaded by name detection + topic matching)
+  if (ctx.relevantContext) {
+    parts.push(`## Family Context\n${ctx.relevantContext}`)
+  } else {
+    parts.push('No detailed family context loaded yet. Give helpful but more generic responses. Encourage the user to add context through Archives, Guiding Stars, or InnerWorkings for more personalized help.')
   }
 
   // Page context
   if (pageContext) {
     parts.push(`Current page: ${pageContext}`)
-  }
-
-  if (!hasAnyContext) {
-    parts.push('No detailed family context loaded yet. Give helpful but more generic responses. Encourage the user to add context through Archives, Guiding Stars, or InnerWorkings for more personalized help.')
   }
 
   return parts.join('\n\n')
@@ -426,17 +202,6 @@ Deno.serve(async (req) => {
       metadata: {},
     })
 
-    // Assemble context
-    const context = await assembleServerContext(conversation.family_id)
-
-    // Build system prompt
-    const systemPrompt = buildSystemPrompt(
-      modeKey,
-      member?.role || 'primary_parent',
-      context,
-      conversation.page_context,
-    )
-
     // Load conversation history (last 20 messages for context window management)
     const { data: history } = await supabase
       .from('lila_messages')
@@ -444,6 +209,24 @@ Deno.serve(async (req) => {
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: true })
       .limit(20)
+
+    // Assemble context using layered approach (name detection + topic matching)
+    const recentMessages = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+    const ctx = await assembleContext({
+      familyId: conversation.family_id,
+      memberId: conversation.member_id,
+      userMessage: content,
+      recentMessages,
+      featureContext: '',
+    })
+
+    // Build system prompt
+    const systemPrompt = buildSystemPrompt(
+      modeKey,
+      member?.role || 'primary_parent',
+      ctx,
+      conversation.page_context,
+    )
 
     const messages = [
       { role: 'system', content: systemPrompt },

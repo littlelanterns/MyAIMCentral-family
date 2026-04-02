@@ -163,9 +163,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Load user context (guiding stars, self-knowledge, etc.)
+    // Load history first for layered context detection
+    const { data: history } = await supabase
+      .from('lila_messages')
+      .select('role, content')
+      .eq('conversation_id', conversation_id)
+      .order('created_at', { ascending: true })
+      .limit(40)
+
+    const recentMsgs = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+
+    // Load user context (guiding stars, self-knowledge, etc.) with layered filtering
     const personIds = person_id ? [person_id] : []
-    const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, personIds, 'perspective_shifter')
+    const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, personIds, 'perspective_shifter', content, recentMsgs)
     const userCtx = formatRelationshipContextForPrompt(ctx)
 
     // Build synthesized family context for family-context lenses
@@ -191,14 +201,6 @@ Deno.serve(async (req) => {
     }
     if (person_id) userMeta.person_id = person_id
     await supabase.from('lila_messages').insert({ conversation_id, role: 'user', content, metadata: userMeta })
-
-    // Load history
-    const { data: history } = await supabase
-      .from('lila_messages')
-      .select('role, content')
-      .eq('conversation_id', conversation_id)
-      .order('created_at', { ascending: true })
-      .limit(40)
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },

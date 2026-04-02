@@ -204,8 +204,16 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Load relationship context
-    const ctx = await loadRelationshipContext(familyId, memberId, personIds, 'cyrano')
+    // Load relationship context (layered: topic-filtered by user message)
+    const { data: history } = await supabase
+      .from('lila_messages')
+      .select('role, content')
+      .eq('conversation_id', conversation_id)
+      .order('created_at', { ascending: true })
+      .limit(30)
+
+    const recentMsgs = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+    const ctx = await loadRelationshipContext(familyId, memberId, personIds, 'cyrano', content, recentMsgs)
 
     // Pick teaching skill
     const skillToTeach = pickNextSkill([...CYRANO_SKILLS], ctx.recentSkills)
@@ -218,14 +226,6 @@ Deno.serve(async (req) => {
     await supabase.from('lila_messages').insert({
       conversation_id, role: 'user', content, metadata: {},
     })
-
-    // Load conversation history
-    const { data: history } = await supabase
-      .from('lila_messages')
-      .select('role, content')
-      .eq('conversation_id', conversation_id)
-      .order('created_at', { ascending: true })
-      .limit(30)
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },

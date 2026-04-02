@@ -277,20 +277,27 @@ Deno.serve(async (req) => {
     const contextMode = mediation_context || 'solo'
     const resolvedPersonIds: string[] = person_ids || []
 
-    // Load context based on mode
+    // Load history first for layered context detection
+    const { data: history } = await supabase
+      .from('lila_messages')
+      .select('role, content')
+      .eq('conversation_id', conversation_id)
+      .order('created_at', { ascending: true })
+      .limit(40)
+
+    const recentMsgs = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+
+    // Load context based on mode (with layered relevance filtering)
     let userCtx = ''
     if (contextMode === 'full_picture' && resolvedPersonIds.length >= 2) {
-      // Full Picture: load all perspectives for the pair
       const fullPictureCtx = await loadFullPictureContext(conv.family_id, resolvedPersonIds[0], resolvedPersonIds[1])
-      const baseCtx = await loadRelationshipContext(conv.family_id, conv.member_id, resolvedPersonIds, 'mediator')
+      const baseCtx = await loadRelationshipContext(conv.family_id, conv.member_id, resolvedPersonIds, 'mediator', content, recentMsgs)
       userCtx = formatRelationshipContextForPrompt(baseCtx) + '\n\n' + fullPictureCtx
     } else if (contextMode !== 'workplace') {
-      // All family contexts load person data
-      const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, resolvedPersonIds, 'mediator')
+      const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, resolvedPersonIds, 'mediator', content, recentMsgs)
       userCtx = formatRelationshipContextForPrompt(ctx)
     } else {
-      // Workplace: only load user's guiding stars and self-knowledge (no family context)
-      const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, [], 'mediator')
+      const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, [], 'mediator', content, recentMsgs)
       userCtx = formatRelationshipContextForPrompt(ctx)
     }
 
@@ -303,14 +310,6 @@ Deno.serve(async (req) => {
     }
     if (resolvedPersonIds.length > 0) userMeta.person_ids = resolvedPersonIds
     await supabase.from('lila_messages').insert({ conversation_id, role: 'user', content, metadata: userMeta })
-
-    // Load history
-    const { data: history } = await supabase
-      .from('lila_messages')
-      .select('role, content')
-      .eq('conversation_id', conversation_id)
-      .order('created_at', { ascending: true })
-      .limit(40)
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },

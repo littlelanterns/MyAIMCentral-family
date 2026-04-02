@@ -98,11 +98,14 @@ Deno.serve(async (req) => {
     }
 
     const personIds = conv.guided_mode_reference_id ? [conv.guided_mode_reference_id] : []
-    const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, personIds, 'gifts')
+
+    const { data: history } = await supabase.from('lila_messages').select('role, content').eq('conversation_id', conversation_id).order('created_at', { ascending: true }).limit(30)
+    const recentMsgs = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+
+    const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, personIds, 'gifts', content, recentMsgs)
     const systemPrompt = buildSystemPrompt(formatRelationshipContextForPrompt(ctx))
 
     await supabase.from('lila_messages').insert({ conversation_id, role: 'user', content, metadata: {} })
-    const { data: history } = await supabase.from('lila_messages').select('role, content').eq('conversation_id', conversation_id).order('created_at', { ascending: true }).limit(30)
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },

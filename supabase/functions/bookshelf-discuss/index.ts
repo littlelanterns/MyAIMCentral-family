@@ -155,6 +155,12 @@ SOURCE HONESTY (NON-NEGOTIABLE):
 - When hearted items exist, prioritize them — they represent what resonated most with this reader.
 - Connect insights to the user's Guiding Stars and values when both are present and relevant — but only reference user context that actually appears below.
 
+CONTEXT REFERENCE TONE (NON-NEGOTIABLE):
+- Frame everything through growth and aspiration, never deficit or diagnosis. Say "building patience" not "anger management." Say "staying calm under pressure" not "controlling your temper."
+- When referencing an extraction, quote the actual text or closely paraphrase it. Do not relabel it with clinical or negative terminology.
+- Never label the user. "An area you're growing in" not "a problem you have." "You've been exploring..." not "Your issue with..."
+- If a book uses clinical language, translate it into the user's own framing before presenting.
+
 ${audienceGuidance}
 
 BOOK CONTEXT:

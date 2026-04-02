@@ -203,20 +203,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
-    const ctx = await loadRelationshipContext(familyId, memberId, personIds, 'higgins_navigate')
-    const contextBlock = formatRelationshipContextForPrompt(ctx)
-    const systemPrompt = buildSystemPrompt(contextBlock, ctx.totalInteractions)
-
-    await supabase.from('lila_messages').insert({
-      conversation_id, role: 'user', content, metadata: {},
-    })
-
+    // Load history first for layered context detection
     const { data: history } = await supabase
       .from('lila_messages')
       .select('role, content')
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: true })
       .limit(40) // Navigate conversations can be longer
+
+    const recentMsgs = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+    const ctx = await loadRelationshipContext(familyId, memberId, personIds, 'higgins_navigate', content, recentMsgs)
+    const contextBlock = formatRelationshipContextForPrompt(ctx)
+    const systemPrompt = buildSystemPrompt(contextBlock, ctx.totalInteractions)
+
+    await supabase.from('lila_messages').insert({
+      conversation_id, role: 'user', content, metadata: {},
+    })
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },

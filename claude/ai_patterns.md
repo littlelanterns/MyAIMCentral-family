@@ -114,18 +114,61 @@ Five SEPARATE tools, NOT sub-modes of a single tool:
 
 ---
 
-## Context Assembly Pipeline (PRD-05 / PRD-13)
+## Context Assembly Pipeline — Layered Architecture (PRD-05 / PRD-13)
 
-The context assembly system builds the full prompt sent to the AI model on every turn. Steps execute in order:
+All LiLa Edge Functions use a three-layer context assembly system implemented in `_shared/context-assembler.ts`. The principle: **"LiLa appears smarter by knowing less at the right time."** Relevance filtering runs ON TOP of the existing three-tier toggle system (`is_included_in_ai`), not instead of it.
 
-1. **Identify the member** — Who is talking to LiLa?
-2. **Identify the mode** — Which guided mode is active?
-3. **Identify the people** — Who should be included in context?
-4. **Apply three-tier toggles** — `is_included_in_ai` checked at person level, category level, and item level
-5. **Apply permission filters** — What did mom allow this member to see?
-6. **Apply Privacy Filtered exclusion** — Always exclude Privacy Filtered items for non-mom members
-7. **Apply page context** — Which feature is the user currently on?
-8. **Assemble the prompt** — Combine everything into structured context sections
+### Layer 1 — Always Loaded (~200 tokens)
+
+Loaded on every turn, every Edge Function, no filtering:
+- **Family roster**: display_name, age, role, relationship for all active members
+- **Current user**: identified as `[current user]` in the roster
+- **Feature context**: book titles, tool mode, page context — grounds the conversation
+
+### Layer 2 — On-Demand by Relevance
+
+Fetched only when the conversation references a specific person or topic. Two triggers:
+
+**Trigger A: Name Detection** — Scans the current message + last 4 conversation messages for family member names (word-boundary regex, case-insensitive, checks `display_name` and `nicknames`). When detected, loads that member's archive context items and self-knowledge.
+
+**Trigger B: Topic Matching** — Matches the conversation text against keyword patterns to determine which context categories are relevant:
+- `faith|spiritual|prayer|church` → faith preferences + faith-category Guiding Stars
+- `goal|intention|plan|grow` → Guiding Stars (all) + Best Intentions
+- `schedule|busy|time|week` → Schedule & Activities archive items
+- `personality|trait|strength` → Self-Knowledge entries
+- `food|meal|diet|cook` → Preferences archive items
+- `school|learn|homework` → School & Learning archive items
+- `health|medical|therapy|disability` → Health & Medical archive items
+- `hobby|interest|sport|music` → Interests & Hobbies archive items
+- `love|marriage|spouse|relationship` → Relationships context
+- **Default** (no topic detected): user's top 5 Guiding Stars only
+
+### Layer 3 — Search Only, Never Bulk Loaded
+
+Accessed via semantic search (embedding similarity) for deep grounding:
+- `bookshelf_chunks` via `match_bookshelf_chunks` RPC (BookShelf discuss)
+- Full extraction sets via `match_bookshelf_extractions` RPC (BookShelf search)
+- Journal entries (future: semantic search RPC)
+
+### Per-Tool Overrides
+
+| Tool | Always load (Layer 1+) | Layer 2 trigger |
+|------|----------------------|-----------------|
+| lila-chat | Nothing extra | Name detection + topic matching per turn |
+| Cyrano | Partner always included | Topic matching filters depth |
+| Higgins Say/Navigate | Nothing extra | Name detection (multi-person) + topic matching |
+| Love Language tools | Partner always included | Topic matching only |
+| BookShelf Discuss | Book metadata + hearted extractions | Name detection + topic matching |
+| Safe Harbor | Nothing extra (privacy-first) | Minimal — only user's own context |
+| Mediator | Depends on context mode | Name detection + topic matching |
+| Perspective Shifter | Person's context if selected | Topic matching |
+
+### Invariants (unchanged by layered loading)
+
+- **Three-tier toggles** still respected: person-level → folder-level → item-level `is_included_in_ai`
+- **Privacy Filtered items** still always excluded for non-mom
+- **Safe Harbor** still exempt from all context aggregation
+- **Crisis Override** still global, checked on every message before context assembly
 
 ### Context Sources
 
@@ -138,7 +181,7 @@ The context assembly system builds the full prompt sent to the AI model on every
 - Relationship notes, partner context
 - Faith preferences
 - BookShelf knowledge (per-member settings: `hearted_only` / `all` / `principles_only` / `none`)
-- Recent conversation history
+- Recent conversation history (sliding 4-message window for detection)
 - Page/feature context
 
 ---
@@ -155,7 +198,7 @@ The context assembly system builds the full prompt sent to the AI model on every
 | P6 | Caching and Reuse | Cache synthesized frameworks in `platform_intelligence`; do not regenerate |
 | P7 | Time-Based Sampling | Process a sample of messages for patterns, extrapolate |
 | P8 | User-Controlled Scope | Let users opt in/out of specific AI features via toggles |
-| P9 | Per-Turn Semantic Refresh | Do not carry stale startup context through long conversations |
+| P9 | Per-Turn Semantic Refresh | Sliding 4-message detection window re-evaluates context relevance each turn (implemented via `assembleContext()`) |
 
 ---
 

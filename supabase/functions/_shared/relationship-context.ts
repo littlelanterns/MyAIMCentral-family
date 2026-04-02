@@ -4,6 +4,7 @@
 //          lila-words-affirmation, lila-gratitude
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { detectTopics } from './context-assembler.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -61,7 +62,22 @@ export async function loadRelationshipContext(
   memberId: string,
   personIds: string[],
   toolMode: string,
+  /** Optional: current user message for relevance filtering */
+  userMessage?: string,
+  /** Optional: recent conversation messages for broader detection */
+  recentMessages?: Array<{ role: string; content: string }>,
 ): Promise<RelationshipContext> {
+  // Detect topics from user message for relevance filtering
+  const detectionText = [
+    userMessage || '',
+    ...(recentMessages || []).slice(-4).map(m => m.content),
+  ].join(' ')
+  const detectedTopics = detectionText.trim() ? detectTopics(detectionText) : new Set<string>()
+
+  // Determine scoping: if topics detected, filter; otherwise load conservatively
+  const loadAllGuidingStars = detectedTopics.has('guiding_stars') || detectedTopics.has('best_intentions')
+  const guidingStarsLimit = loadAllGuidingStars ? 20 : 5
+
   // Load all family members for name resolution
   const { data: allMembers } = await supabase
     .from('family_members')
@@ -105,28 +121,32 @@ export async function loadRelationshipContext(
     faithRes,
     ...personLoads
   ] = await Promise.all([
-    // User's guiding stars
+    // User's guiding stars (scoped by topic relevance)
     supabase.from('guiding_stars')
       .select('content')
       .eq('family_id', familyId)
       .eq('member_id', memberId)
       .eq('is_included_in_ai', true)
-      .is('archived_at', null),
-    // User's best intentions
+      .is('archived_at', null)
+      .order('sort_order', { ascending: true })
+      .limit(guidingStarsLimit),
+    // User's best intentions (always relevant for relationship tools)
     supabase.from('best_intentions')
       .select('statement')
       .eq('family_id', familyId)
       .eq('member_id', memberId)
       .eq('is_included_in_ai', true)
       .eq('is_active', true)
-      .is('archived_at', null),
-    // User's self-knowledge
+      .is('archived_at', null)
+      .limit(10),
+    // User's self-knowledge (always load for relationship tools — defines who they are)
     supabase.from('self_knowledge')
       .select('content, category')
       .eq('family_id', familyId)
       .eq('member_id', memberId)
       .eq('is_included_in_ai', true)
-      .is('archived_at', null),
+      .is('archived_at', null)
+      .limit(15),
     // User's private notes about selected persons
     personIds.length > 0
       ? supabase.from('private_notes')
@@ -161,8 +181,8 @@ export async function loadRelationshipContext(
       .select('faith_tradition, denomination, special_instructions')
       .eq('family_id', familyId)
       .maybeSingle(),
-    // Load context for each selected person
-    ...personIds.map(pid => loadPersonContext(familyId, memberId, pid, members)),
+    // Load context for each selected person (with topic filtering)
+    ...personIds.map(pid => loadPersonContext(familyId, memberId, pid, members, detectedTopics)),
   ])
 
   // Filter relationship notes to only relevant pairs
@@ -225,20 +245,22 @@ async function loadPersonContext(
   _requestingMemberId: string,
   personId: string,
   allMembers: Array<{ id: string; display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }>,
+  detectedTopics?: Set<string>,
 ): Promise<PersonContext> {
   const member = allMembers.find(m => m.id === personId)
 
   // Parallel load person-specific context
   const [skRes, archiveRes, negPrefRes] = await Promise.all([
-    // Person's self-knowledge (only if share flags allow — simplified: load all for now)
+    // Person's self-knowledge (always load — defines who they are for relationship tools)
     supabase.from('self_knowledge')
       .select('content, category')
       .eq('family_id', familyId)
       .eq('member_id', personId)
       .eq('is_included_in_ai', true)
-      .is('archived_at', null),
-    // Person's archive items (enabled folders + items, 3-tier filtered)
-    loadPersonArchiveItems(familyId, personId),
+      .is('archived_at', null)
+      .limit(15),
+    // Person's archive items (3-tier filtered, topic-scoped when available)
+    loadPersonArchiveItems(familyId, personId, detectedTopics),
     // Negative preferences (veto items)
     supabase.from('archive_context_items')
       .select('context_value')
@@ -288,10 +310,11 @@ async function loadPersonContext(
   }
 }
 
-/** Load archive items for a specific person with 3-tier toggle filtering */
+/** Load archive items for a specific person with 3-tier toggle filtering + topic scoping */
 async function loadPersonArchiveItems(
   familyId: string,
   personId: string,
+  detectedTopics?: Set<string>,
 ): Promise<Array<{ content: string; type?: string }>> {
   // Check person-level toggle
   const { data: memberSettings } = await supabase
@@ -313,9 +336,33 @@ async function loadPersonArchiveItems(
 
   if (!folders || folders.length === 0) return []
 
-  const folderIds = folders.map(f => f.id)
+  // Topic-scope folders if topics were detected
+  let filteredFolders = folders as Array<{ id: string; folder_name: string }>
+  if (detectedTopics && detectedTopics.size > 0) {
+    // Build set of topic-matching folder names
+    const topicFolderNames = new Set<string>()
+    for (const topic of detectedTopics) {
+      if (topic.includes('&') || topic.includes(' ')) {
+        topicFolderNames.add(topic) // e.g. "Health & Medical", "Personality & Traits"
+      }
+    }
 
-  // Load items from enabled folders
+    if (topicFolderNames.size > 0) {
+      filteredFolders = filteredFolders.filter(f => {
+        // Always include General and Preferences (widely relevant for relationship tools)
+        if (f.folder_name === 'General' || f.folder_name === 'Preferences') return true
+        for (const topicName of topicFolderNames) {
+          if (f.folder_name.toLowerCase().includes(topicName.toLowerCase())) return true
+        }
+        return false
+      })
+    }
+  }
+
+  if (filteredFolders.length === 0) return []
+  const folderIds = filteredFolders.map(f => f.id)
+
+  // Load items from enabled (and topic-scoped) folders
   const { data: items } = await supabase
     .from('archive_context_items')
     .select('context_value, context_type, is_negative_preference')
@@ -324,7 +371,7 @@ async function loadPersonArchiveItems(
     .eq('is_included_in_ai', true)
     .eq('is_negative_preference', false)
     .is('archived_at', null)
-    .limit(100)
+    .limit(50)
 
   return (items || []).map((item: { context_value: string; context_type?: string }) => ({
     content: item.context_value,
@@ -380,7 +427,9 @@ export function formatPersonContextBlock(person: PersonContext): string {
 
 /** Format the full context for injection into system prompt */
 export function formatRelationshipContextForPrompt(ctx: RelationshipContext): string {
-  const sections: string[] = []
+  const sections: string[] = [
+    `CONTEXT REFERENCE RULES: When referencing any context below in your response, frame through growth and aspiration — never deficit or diagnosis. Say "building patience" not "anger management." Quote the user's own words when possible. Never label the user or family members with clinical terminology they did not use themselves.`,
+  ]
 
   // User's own context (brief)
   if (ctx.guidingStars.length > 0) {
