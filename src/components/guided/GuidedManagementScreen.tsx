@@ -529,16 +529,36 @@ export function GuidedManagementScreen({
           </div>
         </SectionGroup>
 
-        {/* ── 5. REFLECTIONS (Phase B stub) ────────────────────────── */}
+        {/* ── 5. REFLECTIONS ───────────────────────────────────────── */}
         <SectionGroup title="REFLECTIONS">
-          <div style={{ opacity: 0.5 }}>
+          <div className="flex flex-col gap-4">
             <FeatureToggle
-              label="Daily Reflections"
-              description="Coming soon"
-              checked={false}
-              onChange={() => {}}
-              disabled
+              label="In Write drawer"
+              description="Adds a Reflections tab to the Write drawer"
+              checked={preferences.reflections_in_drawer}
+              onChange={(val) => updatePreference('reflections_in_drawer', val)}
             />
+            <FeatureToggle
+              label="In evening celebration"
+              description="Adds a reflection step to the DailyCelebration sequence"
+              checked={preferences.reflections_in_celebration}
+              onChange={(val) => updatePreference('reflections_in_celebration', val)}
+            />
+            {(preferences.reflections_in_drawer || preferences.reflections_in_celebration) && (
+              <SettingDropdown
+                label="Prompts per day"
+                value={String(preferences.reflection_daily_count)}
+                onChange={(val) => updatePreference('reflection_daily_count', Number(val))}
+                options={[
+                  { value: '1', label: '1' },
+                  { value: '3', label: '3' },
+                  { value: '5', label: '5' },
+                  { value: '10', label: '10' },
+                  { value: '32', label: 'All' },
+                ]}
+                description="How many reflection prompts appear each day"
+              />
+            )}
           </div>
         </SectionGroup>
 
