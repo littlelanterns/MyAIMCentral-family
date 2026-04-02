@@ -1058,7 +1058,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             {qty && <span className="text-xs ml-1" style={{ color: 'var(--color-text-secondary)' }}>{qty}</span>}
           </span>
           {item.notes && (
-            <span className="text-[11px] italic block truncate" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="text-[11px] italic block whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>
               {item.notes}
             </span>
           )}
@@ -1945,11 +1945,6 @@ function ListItemRow({
               ${item.price.toFixed(2)}
             </span>
           )}
-          {item.notes && (
-            <span className="text-xs italic" style={{ color: 'var(--color-text-secondary)' }}>
-              {item.notes}
-            </span>
-          )}
           {item.promoted_to_task && (
             <span
               className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium"
@@ -1963,6 +1958,11 @@ function ListItemRow({
             </span>
           )}
         </div>
+        {item.notes && (
+          <p className="text-xs italic whitespace-pre-wrap mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+            {item.notes}
+          </p>
+        )}
       </div>
 
       {/* Actions */}
