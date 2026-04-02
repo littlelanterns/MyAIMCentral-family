@@ -46,6 +46,8 @@ import { SettingsProvider } from '@/components/settings'
 import { ModalManagerProvider } from '@/contexts/ModalManagerContext'
 import { MinimizedPillBar } from '@/components/shared/MinimizedPillBar'
 import { PlannedExpansionCard } from '@/components/shared'
+import { GlitchReporterFAB } from '@/components/beta/GlitchReporterFAB'
+import { DiagnosticCaptureInit } from '@/components/beta/DiagnosticCaptureInit'
 
 /** PRD-14E stub — TV Mode route placeholder */
 function HubTvStub() {
@@ -146,6 +148,8 @@ function App() {
           </BrowserRouter>
         </ViewAsProvider>
         <MinimizedPillBar />
+        <GlitchReporterFAB />
+        <DiagnosticCaptureInit />
         </ModalManagerProvider>
       </ThemeProvider>
     </QueryClientProvider>
