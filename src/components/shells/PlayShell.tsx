@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { Settings, PartyPopper } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { useSettings } from '@/components/settings'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamily } from '@/hooks/useFamily'
+import { DailyCelebration } from '@/components/victories/DailyCelebration'
 
 interface PlayShellProps {
   children: ReactNode
@@ -17,8 +21,10 @@ const navItems = [
 ]
 
 export function PlayShell({ children }: PlayShellProps) {
-  const navigate = useNavigate()
   const { openSettings } = useSettings()
+  const { data: member } = useFamilyMember()
+  const { data: family } = useFamily()
+  const [showCelebration, setShowCelebration] = useState(false)
 
   return (
     <TimerProvider>
@@ -41,24 +47,51 @@ export function PlayShell({ children }: PlayShellProps) {
 
       {/* Main content — extra padding for big touch targets */}
       <main className="flex-1 p-6 pb-24">
-        {/* Prominent Celebrate! button */}
+        {/* Prominent Celebrate! button — launches DailyCelebration overlay */}
         <div className="flex justify-center mb-4">
           <button
-            onClick={() => navigate('/victories?new=1')}
-            className="flex items-center gap-2 px-6 py-3 rounded-full text-lg font-bold transition-transform active:scale-95"
+            onClick={() => setShowCelebration(true)}
+            className="celebrate-play-btn w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl text-xl font-bold transition-transform active:scale-95"
             style={{
-              backgroundColor: 'var(--color-victory, #d6a461)',
+              background: 'linear-gradient(135deg, var(--color-sparkle-gold, #D4AF37), var(--color-sparkle-gold-light, #E8C547))',
               color: 'white',
               minHeight: '56px',
+              border: 'none',
+              boxShadow: '0 4px 12px color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) 35%, transparent)',
             }}
           >
-            <PartyPopper size={24} />
+            <PartyPopper size={28} />
             Celebrate!
           </button>
         </div>
 
         {children}
+
+        {/* DailyCelebration overlay */}
+        {showCelebration && member?.id && family?.id && (
+          <DailyCelebration
+            shell="play"
+            memberId={member.id}
+            familyId={family.id}
+            memberName={member.display_name ?? 'Friend'}
+            onClose={() => setShowCelebration(false)}
+          />
+        )}
       </main>
+
+      {/* Bouncy idle animation for Celebrate button */}
+      <style>{`
+        .celebrate-play-btn {
+          animation: celebratePulse 2s ease-in-out infinite;
+        }
+        @keyframes celebratePulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .celebrate-play-btn { animation: none; }
+        }
+      `}</style>
 
       {/* Big bottom navigation for little fingers — emoji icons with text labels */}
       <nav

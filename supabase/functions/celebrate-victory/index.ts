@@ -26,6 +26,7 @@ const RequestSchema = z.object({
   victory_ids: z.array(z.string().uuid()).min(1),
   custom_start: z.string().optional(),
   custom_end: z.string().optional(),
+  voice: z.string().optional(),
 })
 
 // ─── Context Loaders ──────────────────────────────────────────
@@ -80,13 +81,16 @@ async function loadVictories(victoryIds: string[]) {
 async function getMemberInfo(memberId: string) {
   const { data } = await supabase
     .from('family_members')
-    .select('id, family_id, display_name, role')
+    .select('id, family_id, display_name, role, dashboard_mode')
     .eq('id', memberId)
     .single()
   return data
 }
 
-function roleToMemberType(role: string): 'adult' | 'teen' | 'guided' | 'play' {
+function roleToMemberType(role: string, dashboardMode: string | null): 'adult' | 'teen' | 'guided' | 'play' {
+  if (dashboardMode === 'guided') return 'guided'
+  if (dashboardMode === 'play') return 'play'
+  if (dashboardMode === 'independent') return 'teen'
   switch (role) {
     case 'primary_parent':
     case 'additional_adult':
@@ -104,6 +108,31 @@ function selectModel(memberType: string): string {
   return MODELS.sonnet
 }
 
+// ─── Voice Personality ────────────────────────────────────────
+
+const VOICE_INSTRUCTIONS: Record<string, string> = {
+  enthusiastic_coach: 'Warm, energetic encouragement. Sports/team metaphors. "You crushed it!" energy but always specific to what was accomplished.',
+  calm_mentor: 'Wise, gentle, measured. Like a trusted teacher. Thoughtful observations over exclamations.',
+  fun_friend: 'Casual, relatable. Uses "honestly" and "like" naturally. Feels like texting a supportive friend.',
+  silly_character: 'Playful, goofy, uses fun words. "Holy moly!" and "No way!" Lighthearted but still identity-based.',
+  proud_parent: 'Warm parental pride. "I want you to know..." Tender, specific noticing of what the child did.',
+  pirate_captain: 'Full pirate dialect. "Arrr!" "Ye did it!" "Shiver me timbers!" But still identity-based celebration.',
+  princess: 'Regal warmth. "How wonderfully brave!" Fairy tale language. Elegant, gracious encouragement.',
+  sports_announcer: 'Exciting play-by-play. "AND THEY DO IT!" High energy broadcast style with dramatic flair.',
+  british_nobleman: 'Proper British. "I say, most impressive." Understated elegance and dry wit.',
+  scottish_rogue: 'Scottish warmth. "Ach, ye did grand today!" Hearty, boisterous encouragement.',
+  gen_z_influencer: '"No cap, that was literally so fire." Current slang, genuine enthusiasm, supportive energy.',
+  news_reporter: '"Breaking news tonight..." Dramatic, authoritative, celebratory reporting style.',
+  wizard: 'Mystical wisdom. "The stars foretold great things..." Magical, wonder-filled language.',
+  superhero: 'Hero narrative. "With great power comes great responsibility — and you used yours well today."',
+  astronaut: 'Space metaphors. "Mission accomplished." Calm, confident, mission-oriented celebration.',
+}
+
+function buildVoiceSection(voice: string | undefined): string {
+  if (!voice || !VOICE_INSTRUCTIONS[voice]) return ''
+  return `\n\nVOICE PERSONALITY: ${voice}\nAdjust your tone and word choice to match this personality:\n${VOICE_INSTRUCTIONS[voice]}\nThe personality affects TONE and WORD CHOICE only. All identity-based celebration rules still apply.`
+}
+
 // ─── System Prompt ────────────────────────────────────────────
 
 function buildSystemPrompt(
@@ -112,6 +141,7 @@ function buildSystemPrompt(
   guidingStars: { content: string; category?: string; title?: string }[],
   bestIntentions: { statement: string; description?: string }[],
   innerWorkings: { content: string; category: string }[],
+  voice?: string,
 ) {
   const gsSection = guidingStars.length > 0
     ? `\n\nThis person's Guiding Stars (values/declarations they live by):\n${guidingStars.map(gs => `- ${gs.title || gs.content}`).join('\n')}`
@@ -155,7 +185,7 @@ EXAMPLE OF WHAT TO NEVER WRITE:
 "Great job today! You completed 8 tasks including making the bed, doing laundry, and cooking dinner. Keep up the great work! I'm so proud of you!"
 ${gsSection}${biSection}${iwSection}
 
-The person's name is ${memberName}. Address them directly but don't overuse their name.`
+The person's name is ${memberName}. Address them directly but don't overuse their name.${buildVoiceSection(voice)}`
 }
 
 // ─── Main Handler ─────────────────────────────────────────────
@@ -177,7 +207,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { family_member_id, mode, period, victory_ids } = parsed.data
+    const { family_member_id, mode, period, victory_ids, voice } = parsed.data
 
     // Load member info
     const memberInfo = await getMemberInfo(family_member_id)
@@ -189,7 +219,7 @@ Deno.serve(async (req) => {
     }
 
     const familyId = memberInfo.family_id
-    const memberType = roleToMemberType(memberInfo.role)
+    const memberType = roleToMemberType(memberInfo.role, memberInfo.dashboard_mode)
     const modelId = selectModel(memberType)
 
     // Load context in parallel
@@ -214,6 +244,7 @@ Deno.serve(async (req) => {
       guidingStars,
       bestIntentions,
       innerWorkings,
+      voice,
     )
 
     const victorySummary = victories.map((v, i) => {

@@ -4,7 +4,60 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-11 Victory Recorder (Phase 12B) + PRD-14D Family Hub (Phase A, gaps) + PRD-25 Guided Dashboard (Phase A)
+## Status: ACTIVE — PRD-11 Victory Recorder (Phase 12C) + PRD-14D Family Hub (Phase A, gaps) + PRD-25 Guided Dashboard (Phase A)
+
+---
+
+# Build E: PRD-11 Victory Recorder (Phase 12C — DailyCelebration for Kids + Voice Personalities)
+
+### PRD Files
+- `prds/personal-growth/PRD-11-Victory-Recorder-Daily-Celebration.md` (Screen 5 DailyCelebration, voice personalities, shell behavior, AI rules 9-12)
+- `prds/dashboards/PRD-25-Guided-Dashboard.md` (Celebrate button, DailyCelebration integration, Step 2.5 Reflections)
+- `prds/dashboards/PRD-26-Play-Dashboard.md` (giant Celebrate button, maximum delight, task tiles)
+
+### Feature Decision File
+`claude/feature-decisions/PRD-11-Victory-Recorder.md` (Phase 12A + 12B + 12C sections)
+
+---
+
+### Pre-Build Summary
+
+#### Context
+Phases 12A+12B built core recording/celebration for adults+teens and the intelligence layer. Phase 12C builds the kid-facing experience: DailyCelebration (5-step sequence for Guided/Play) plus voice personalities (15 text-style variations for ALL members).
+
+#### Build Items (Phase 12C — 12 items, all complete)
+
+1. **Fix + enhance celebrate-victory Edge Function** — Added `voice` param, fixed `roleToMemberType()` bug (was returning 'adult' for all members — now reads `dashboard_mode`), added 15 voice personality instructions to system prompt
+2. **Voice personality types + constants** — `VoicePersonality` type (15 keys), `VOICE_PERSONALITIES` constant, `getDefaultVoice()`, voice on request type
+3. **useVoicePreference hook** — Read/write `victory_voice_preferences` with shell-aware defaults
+4. **VoiceSelector component** — Grid of 15 voices with labels, descriptions, sample lines
+5. **DailyCelebration component** — 5-step full-screen overlay (opener, victories, streak stub, theme stub, close). Shell-aware: Play=maximum delight, Guided=moderate. Zero-victory warm path.
+6. **SimplifiedRecordVictory** — Kid-friendly recording (description + category only)
+7. **ConfettiBurst component** — Full-screen confetti, moderate/maximum intensity, CSS animations, reduced-motion
+8. **AnimatedList component** — Staggered item reveals with configurable delay
+9. **Wire CelebrateSection in GuidedDashboard** — Replaced stub with real gold gradient button launching overlay
+10. **Wire Celebrate button in PlayShell** — Rewired from navigate to DailyCelebration overlay with bouncy pulse
+11. **VoiceSelector on VictoryRecorder** — Collapsible voice picker for adults/teens
+12. **TypeScript check** — `tsc -b` zero errors
+
+### Key Decisions
+1. DailyCelebration is a full-screen overlay, not a page navigation
+2. Play mode = maximum delight (56px targets, confetti, bouncing text)
+3. Guided mode = moderate (48px targets, clean animations, specific praise)
+4. Steps 3+4 auto-skip (stubs for PRD-24 gamification)
+5. Zero-victory path: greeting plays, encouraging message, manual entry, close
+6. Voice affects text style only (no TTS audio for MVP)
+7. All 15 voices available during beta
+8. roleToMemberType() fixed — reads dashboard_mode for Haiku/Sonnet selection
+
+### Stubs (NOT Building Phase 12C)
+- Step 2.5 Reflections UI (PRD-25 Phase B)
+- Step 3 streak data (PRD-24)
+- Step 4 Visual World (PRD-24)
+- "Share with Mom" notification push (PRD-15)
+- Voice in Settings page (PRD-22)
+- TTS audio (post-MVP)
+- Family Celebration (PRD-11B)
 
 ---
 

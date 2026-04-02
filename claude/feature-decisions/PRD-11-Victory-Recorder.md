@@ -226,7 +226,79 @@ Already seeded in migration 00000000000009:
 
 ---
 
-## Founder Sign-Off (Post-Build)
+## Founder Sign-Off (Post-Build — Phase 12B)
+
+- [ ] Verification table reviewed
+- [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md
+- [ ] Zero Missing items confirmed
+- [ ] **Phase approved as complete**
+- **Completion date:**
+
+---
+
+## Phase 12C — DailyCelebration for Kids + Voice Personalities
+
+> **Started:** 2026-04-02
+> **PRDs read:** PRD-11 (Screen 5, voice keys, shell behavior, AI rules 9-12), PRD-25 (Celebrate button, Step 2.5), PRD-26 (Play dashboard, maximum delight)
+> **Founder approved:** 2026-04-02
+
+### What Is Being Built
+
+DailyCelebration — 5-step sequenced celebration for Guided/Play dashboards. Voice personalities — 15 text-style variations for ALL members' celebrations. Completes PRD-11 (excluding PRD-11B Family Celebration).
+
+### Critical Bug Fixed
+
+**`roleToMemberType()` in celebrate-victory Edge Function always returned 'adult'** — checked `role` (which is 'member' for kids) instead of `dashboard_mode`. Fixed to read `dashboard_mode`, ensuring Haiku for guided/play kids.
+
+### Build Items (12 — all complete)
+
+1. celebrate-victory Edge Function: `voice` param + `roleToMemberType()` fix + 15 voice instructions
+2. VoicePersonality type (15 keys: 5 essential + 10 full_magic) + constants + defaults
+3. useVoicePreference hook (read/write victory_voice_preferences, shell-aware defaults)
+4. VoiceSelector component (grid with labels, descriptions, sample lines)
+5. DailyCelebration component (5-step overlay, shell-aware Play/Guided rendering)
+6. SimplifiedRecordVictory (kid-friendly: description + category only)
+7. ConfettiBurst (full-screen confetti, moderate/maximum, CSS animations, reduced-motion)
+8. AnimatedList (staggered item reveal with configurable delay)
+9. CelebrateSection wired in GuidedDashboard (replaced disabled stub)
+10. PlayShell Celebrate button rewired to launch DailyCelebration overlay
+11. VoiceSelector integrated on VictoryRecorder page
+12. TypeScript check — tsc -b zero errors
+
+### Key Decisions
+
+1. DailyCelebration is a full-screen overlay, not page navigation
+2. Play = maximum delight (56px targets, confetti, bouncing, simple excited language)
+3. Guided = moderate (48px targets, clean animations, specific praise)
+4. Steps 3+4 auto-skip (stubs for PRD-24)
+5. Zero-victory path: greeting → "Every day is a new chance!" → manual entry → close
+6. Narrative triggers during Step 2 (Haiku review, non-blocking)
+7. Voice affects text style only — no TTS for MVP
+8. All 15 voices available during beta
+9. "Share with Mom" saves celebration record — no notification push until PRD-15
+
+### Stubs (NOT Building)
+
+- [ ] Step 2.5 Reflections UI (PRD-25 Phase B)
+- [ ] Step 3 streak data (PRD-24)
+- [ ] Step 4 Visual World + Overlay (PRD-24)
+- [ ] "Share with Mom" notification delivery (PRD-15)
+- [ ] Voice in Settings page (PRD-22)
+- [ ] Premium voice tier gating (PRD-31)
+- [ ] TTS audio (post-MVP)
+- [ ] Family Celebration (PRD-11B)
+
+### Post-Build PRD Verification (Phase 12C)
+
+> To be completed after build verification.
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| | | | |
+
+---
+
+## Founder Sign-Off (Post-Build — Phase 12C)
 
 - [ ] Verification table reviewed
 - [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md

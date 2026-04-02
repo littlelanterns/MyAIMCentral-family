@@ -9,9 +9,12 @@ import { VictoryDetail } from '@/components/victories/VictoryDetail'
 import { CelebrationModal } from '@/components/victories/CelebrationModal'
 import { CelebrationArchive } from '@/components/victories/CelebrationArchive'
 import { VictorySuggestions } from '@/components/victories/VictorySuggestions'
+import { VoiceSelector } from '@/components/victories/VoiceSelector'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
+import { useVoicePreference } from '@/hooks/useVoicePreference'
+import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
-import type { Victory, VictoryFilters, VictoryPeriodFilter } from '@/types/victories'
+import type { Victory, VictoryFilters, VictoryPeriodFilter, VoicePersonality } from '@/types/victories'
 import { SOURCE_LABELS } from '@/types/victories'
 
 const PERIOD_OPTIONS: { value: VictoryPeriodFilter; label: string }[] = [
@@ -48,6 +51,9 @@ export function VictoryRecorder() {
   const [showCelebration, setShowCelebration] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
+  const [showVoiceSelector, setShowVoiceSelector] = useState(false)
+  const { data: family } = useFamily()
+  const { selectedVoice, setVoice, isSaving: voiceSaving } = useVoicePreference(family?.id, member?.id)
 
   const memberId = member?.id
   const { data: victories = [], isLoading } = useVictories(memberId, filters)
@@ -231,8 +237,39 @@ export function VictoryRecorder() {
             Past Celebrations
             <ChevronRight size={12} />
           </button>
+          <button
+            onClick={() => setShowVoiceSelector(!showVoiceSelector)}
+            className="flex items-center gap-1 text-xs"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            Voice: {selectedVoice.replace(/_/g, ' ')}
+            <ChevronRight size={12} className={`transition-transform ${showVoiceSelector ? 'rotate-90' : ''}`} />
+          </button>
         </div>
       </div>
+
+      {/* Voice Selector (collapsible) */}
+      {showVoiceSelector && memberId && (
+        <div
+          className="mb-4 rounded-xl p-4"
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-heading)' }}>
+            Celebration Voice
+          </h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+            Choose how LiLa celebrates your victories
+          </p>
+          <VoiceSelector
+            selectedVoice={selectedVoice}
+            onSelect={(voice: VoicePersonality) => setVoice(memberId, voice)}
+            isSaving={voiceSaving}
+          />
+        </div>
+      )}
 
       {/* "What Actually Got Done" prompt — shows when activity is sparse and no victories today */}
       {activitySparse && todayVictoryCount === 0 && filters.period === 'today' && !isLoading && (

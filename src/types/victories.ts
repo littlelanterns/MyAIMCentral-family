@@ -157,6 +157,7 @@ export interface CelebrateVictoryRequest {
   victory_ids: string[]
   custom_start?: string
   custom_end?: string
+  voice?: string
 }
 
 export interface CelebrateVictoryResponse {
@@ -164,6 +165,138 @@ export interface CelebrateVictoryResponse {
   context_sources: Record<string, unknown>
   model_used: string
   token_count: { input: number; output: number }
+}
+
+// ============================================================
+// Voice Personalities (Phase 12C)
+// ============================================================
+
+export type VoicePersonality =
+  // Essential tier (5)
+  | 'enthusiastic_coach'
+  | 'calm_mentor'
+  | 'fun_friend'
+  | 'silly_character'
+  | 'proud_parent'
+  // Full Magic tier (10)
+  | 'princess'
+  | 'pirate_captain'
+  | 'sports_announcer'
+  | 'british_nobleman'
+  | 'scottish_rogue'
+  | 'gen_z_influencer'
+  | 'news_reporter'
+  | 'wizard'
+  | 'superhero'
+  | 'astronaut'
+
+export interface VoicePersonalityInfo {
+  label: string
+  description: string
+  tier: 'essential' | 'full_magic'
+  defaultFor?: ('guided' | 'play')[]
+  sampleLine: string
+}
+
+export const VOICE_PERSONALITIES: Record<VoicePersonality, VoicePersonalityInfo> = {
+  enthusiastic_coach: {
+    label: 'Enthusiastic Coach',
+    description: 'Warm, energetic encouragement',
+    tier: 'essential',
+    defaultFor: ['guided'],
+    sampleLine: 'You showed up and gave it everything — that\'s what champions do.',
+  },
+  calm_mentor: {
+    label: 'Calm Mentor',
+    description: 'Wise, gentle guidance',
+    tier: 'essential',
+    sampleLine: 'There\'s something meaningful in what you did today. Take a moment to notice it.',
+  },
+  fun_friend: {
+    label: 'Fun Friend',
+    description: 'Casual, warm, relatable',
+    tier: 'essential',
+    defaultFor: ['play'],
+    sampleLine: 'Okay wait, you actually did ALL of that today? That\'s awesome!',
+  },
+  silly_character: {
+    label: 'Silly Character',
+    description: 'Playful, goofy, lighthearted',
+    tier: 'essential',
+    sampleLine: 'Holy moly guacamole! You did so many cool things today!',
+  },
+  proud_parent: {
+    label: 'Proud Parent',
+    description: 'Warm parental pride',
+    tier: 'essential',
+    sampleLine: 'I want you to know — what you did today really matters.',
+  },
+  pirate_captain: {
+    label: 'Pirate Captain',
+    description: 'Swashbuckling encouragement',
+    tier: 'full_magic',
+    sampleLine: 'Shiver me timbers! Ye conquered the day like a true captain!',
+  },
+  princess: {
+    label: 'Princess',
+    description: 'Regal warmth and fairy tale grace',
+    tier: 'full_magic',
+    sampleLine: 'How wonderfully brave of you! The kingdom rejoices at your deeds today.',
+  },
+  sports_announcer: {
+    label: 'Sports Announcer',
+    description: 'Exciting play-by-play energy',
+    tier: 'full_magic',
+    sampleLine: 'AND THEY DO IT! What a performance today, folks — absolutely legendary!',
+  },
+  british_nobleman: {
+    label: 'British Nobleman',
+    description: 'Understated elegance and dry wit',
+    tier: 'full_magic',
+    sampleLine: 'I say, most impressive. One does not see this caliber of effort every day.',
+  },
+  scottish_rogue: {
+    label: 'Scottish Rogue',
+    description: 'Hearty, boisterous encouragement',
+    tier: 'full_magic',
+    sampleLine: 'Ach, ye did grand today! A finer effort I\'ve nae seen in many a moon.',
+  },
+  gen_z_influencer: {
+    label: 'Gen Z Influencer',
+    description: 'Current slang, genuine enthusiasm',
+    tier: 'full_magic',
+    sampleLine: 'No cap, that was literally so fire. You ate and left no crumbs today.',
+  },
+  news_reporter: {
+    label: 'News Reporter',
+    description: 'Dramatic, authoritative reporting',
+    tier: 'full_magic',
+    sampleLine: 'Breaking news tonight — extraordinary achievements reported across the board.',
+  },
+  wizard: {
+    label: 'Wizard',
+    description: 'Mystical wisdom and wonder',
+    tier: 'full_magic',
+    sampleLine: 'The stars foretold great things, and today you proved them right.',
+  },
+  superhero: {
+    label: 'Superhero',
+    description: 'Hero narrative and mission focus',
+    tier: 'full_magic',
+    sampleLine: 'With great power comes great responsibility — and you used yours well today.',
+  },
+  astronaut: {
+    label: 'Astronaut',
+    description: 'Calm, confident, mission-oriented',
+    tier: 'full_magic',
+    sampleLine: 'Mission accomplished. All objectives met. Outstanding work up there today.',
+  },
+}
+
+export function getDefaultVoice(shell: string): VoicePersonality {
+  if (shell === 'play') return 'fun_friend'
+  if (shell === 'guided') return 'enthusiastic_coach'
+  return 'calm_mentor'
 }
 
 // ============================================================
