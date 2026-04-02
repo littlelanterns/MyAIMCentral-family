@@ -19,12 +19,13 @@ import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
   useUncheckAllItems, usePromoteListItem, useArchiveList, useDeleteList, useRestoreList,
   useReorderListItems, useSaveListAsTemplate,
-  useListShares, useShareList, useUnshareList,
+  useListShares, useShareList, useUnshareList, useSharedListIds,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { Sparkles, Settings2 } from 'lucide-react'
@@ -92,7 +93,10 @@ function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
 export function ListsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { data: lists = [], isLoading } = useLists(family?.id)
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { data: allLists = [], isLoading } = useLists(family?.id)
+  const { data: sharedListIds = [] } = useSharedListIds(isViewingAs ? activeMember?.id : undefined)
   const createList = useCreateList()
   const restoreList = useRestoreList()
   const deleteList = useDeleteList()
@@ -115,6 +119,11 @@ export function ListsPage() {
       setSearchParams({}, { replace: true })
     }
   }, [])
+
+  // When viewing as another member, show only their owned + shared-with lists
+  const lists = isViewingAs && activeMember
+    ? allLists.filter(l => l.owner_id === activeMember.id || sharedListIds.includes(l.id))
+    : allLists
 
   // Filter lists
   const activeLists = lists.filter(l => !l.archived_at)

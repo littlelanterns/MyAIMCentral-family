@@ -15,6 +15,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { supabase } from '@/lib/supabase/client'
 import {
   useSelfKnowledge,
@@ -45,8 +46,10 @@ type PageMode = 'list' | 'create' | 'edit' | 'review' | 'bulk'
 export function InnerWorkingsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { data: entries = [], isLoading } = useSelfKnowledge(member?.id)
-  const { data: archivedEntries = [] } = useArchivedSelfKnowledge(member?.id)
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { data: entries = [], isLoading } = useSelfKnowledge(activeMember?.id)
+  const { data: archivedEntries = [] } = useArchivedSelfKnowledge(activeMember?.id)
   const createEntry = useCreateSelfKnowledge()
   const updateEntry = useUpdateSelfKnowledge()
   const deleteEntry = useDeleteSelfKnowledge()

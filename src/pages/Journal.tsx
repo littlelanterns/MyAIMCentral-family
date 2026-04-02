@@ -15,6 +15,7 @@ import { FeatureIcon } from '@/components/shared'
 import { HScrollArrows } from '@/components/shared/HScrollArrows'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useNotepadContext } from '@/components/notepad/NotepadContext'
 import {
   useJournalEntries,
@@ -32,7 +33,9 @@ const VISIBILITY_ICONS: Record<string, typeof Lock> = {
 export function JournalPage() {
   const { data: member } = useFamilyMember()
   const { data: _family } = useFamily()
-  const { data: entries = [], isLoading } = useJournalEntries(member?.id)
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { data: entries = [], isLoading } = useJournalEntries(activeMember?.id)
   const deleteEntry = useDeleteJournalEntry()
   const { openNotepad } = useNotepadContext()
   const location = useLocation()

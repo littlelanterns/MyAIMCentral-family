@@ -39,6 +39,7 @@ import { CSS } from '@dnd-kit/utilities'
 import declarationsArticle from '../../reference/The-Art-of-Honest-Declarations.md?raw'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import {
   useGuidingStars,
   useArchivedGuidingStars,
@@ -187,8 +188,10 @@ function SortableStarCard({
 export function GuidingStarsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { data: stars = [], isLoading } = useGuidingStars(member?.id)
-  const { data: archivedStars = [] } = useArchivedGuidingStars(member?.id)
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { data: stars = [], isLoading } = useGuidingStars(activeMember?.id)
+  const { data: archivedStars = [] } = useArchivedGuidingStars(activeMember?.id)
   const createStar = useCreateGuidingStar()
   const updateStar = useUpdateGuidingStar()
   const deleteStar = useDeleteGuidingStar()

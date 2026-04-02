@@ -253,6 +253,23 @@ export function useListShares(listId: string | undefined) {
   })
 }
 
+/** List IDs shared WITH a specific member (for View As filtering) */
+export function useSharedListIds(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['shared-list-ids', memberId],
+    queryFn: async () => {
+      if (!memberId) return [] as string[]
+      const { data, error } = await supabase
+        .from('list_shares')
+        .select('list_id')
+        .eq('shared_with', memberId)
+      if (error) throw error
+      return (data ?? []).map(r => r.list_id)
+    },
+    enabled: !!memberId,
+  })
+}
+
 export function useShareList() {
   const queryClient = useQueryClient()
   return useMutation({

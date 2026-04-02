@@ -13,6 +13,7 @@ import { FeatureIcon } from '@/components/shared'
 import { Tooltip } from '@/components/shared'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useShell } from '@/components/shells/ShellProvider'
 import { ReflectionsTodayTab } from '@/components/reflections/ReflectionsTodayTab'
 import { ReflectionsPastTab } from '@/components/reflections/ReflectionsPastTab'
@@ -29,11 +30,13 @@ const TABS: { key: TabKey; label: string }[] = [
 export function ReflectionsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
+  const { isViewingAs, viewingAsMember } = useViewAs()
+  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
   const { shell } = useShell()
   const [activeTab, setActiveTab] = useState<TabKey>('today')
 
   const familyId = family?.id
-  const memberId = member?.id
+  const memberId = activeMember?.id
   const showTransparency = shell === 'independent'
 
   if (!familyId || !memberId) {
