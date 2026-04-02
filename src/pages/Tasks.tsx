@@ -220,6 +220,81 @@ export function TasksPage() {
         }
       }
 
+      // ── Persist routine sections if this is a routine ──────────
+      if (data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0) {
+        // Create a task_templates record to hold the routine structure
+        const { data: template, error: tmplError } = await supabase
+          .from('task_templates')
+          .insert({
+            family_id: family.id,
+            created_by: member.id,
+            title: data.title,
+            description: data.description || null,
+            task_type: 'routine',
+            template_type: 'routine',
+          })
+          .select('id')
+          .single()
+
+        if (!tmplError && template) {
+          // Insert sections with frequency data
+          for (const section of data.routineSections) {
+            // Map frequency to frequency_rule + frequency_days
+            let frequencyRule = section.frequency
+            let frequencyDays: number[] | null = null
+            if (section.frequency === 'custom') {
+              frequencyDays = section.customDays
+            } else if (section.frequency === 'mwf') {
+              frequencyRule = 'custom'
+              frequencyDays = [1, 3, 5] // Mon, Wed, Fri
+            } else if (section.frequency === 't_th') {
+              frequencyRule = 'custom'
+              frequencyDays = [2, 4] // Tue, Thu
+            }
+
+            const { data: sectionRow, error: secError } = await supabase
+              .from('task_template_sections')
+              .insert({
+                template_id: template.id,
+                title: section.name,
+                section_name: section.name,
+                frequency_rule: frequencyRule,
+                frequency_days: frequencyDays,
+                show_until_complete: section.showUntilComplete,
+                sort_order: section.sort_order,
+              })
+              .select('id')
+              .single()
+
+            if (!secError && sectionRow) {
+              // Insert steps for this section
+              const stepInserts = section.steps.map((step) => ({
+                section_id: sectionRow.id,
+                title: step.title,
+                step_name: step.title,
+                step_notes: step.notes || null,
+                instance_count: step.instanceCount,
+                require_photo: step.requirePhoto,
+                sort_order: step.sort_order,
+              }))
+
+              if (stepInserts.length > 0) {
+                const { error: stepError } = await supabase
+                  .from('task_template_steps')
+                  .insert(stepInserts)
+                if (stepError) {
+                  console.error('Failed to insert routine steps:', stepError)
+                }
+              }
+            } else if (secError) {
+              console.error('Failed to insert routine section:', secError)
+            }
+          }
+        } else if (tmplError) {
+          console.error('Failed to create routine template:', tmplError)
+        }
+      }
+
       // Mark queue item as processed if creating from queue
       if (data.sourceQueueItemId) {
         await supabase

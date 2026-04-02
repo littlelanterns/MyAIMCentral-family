@@ -8,8 +8,9 @@
  */
 
 import { useState } from 'react'
-import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles } from 'lucide-react'
+import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles, MessageSquareText } from 'lucide-react'
 import { Button, Toggle, BulkAddWithAI, Tooltip } from '@/components/shared'
+import { RoutineBrainDump } from './RoutineBrainDump'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -705,6 +706,8 @@ interface RoutineSectionEditorProps {
 }
 
 export function RoutineSectionEditor({ sections, onChange, onBreakDown }: RoutineSectionEditorProps) {
+  const [showBrainDump, setShowBrainDump] = useState(false)
+
   const addSection = () => {
     const maxOrder = sections.reduce((m, s) => Math.max(m, s.sort_order), -1)
     onChange([...sections, makeBlankSection(maxOrder + 1)])
@@ -748,18 +751,47 @@ export function RoutineSectionEditor({ sections, onChange, onBreakDown }: Routin
         </Button>
       </div>
 
-      {sorted.length === 0 && (
+      {/* Brain dump overlay */}
+      {showBrainDump && (
+        <RoutineBrainDump
+          appendMode={sections.length > 0}
+          onAccept={(newSections) => {
+            if (sections.length > 0) {
+              // Append mode: add new sections after existing ones
+              const maxOrder = sections.reduce((m, s) => Math.max(m, s.sort_order), -1)
+              const adjusted = newSections.map((s, i) => ({ ...s, sort_order: maxOrder + 1 + i }))
+              onChange([...sections, ...adjusted])
+            } else {
+              onChange(newSections)
+            }
+            setShowBrainDump(false)
+          }}
+          onClose={() => setShowBrainDump(false)}
+        />
+      )}
+
+      {sorted.length === 0 && !showBrainDump && (
         <div
           style={{
             padding: '1.5rem',
             textAlign: 'center',
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-sm, 0.875rem)',
             border: '2px dashed var(--color-border)',
             borderRadius: 'var(--vibe-radius-input, 8px)',
           }}
+          className="space-y-3"
         >
-          Add sections to organize your routine steps.
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm, 0.875rem)' }}>
+            Add sections to organize your routine steps, or describe the whole routine and let AI sort it out.
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setShowBrainDump(true)}
+            type="button"
+          >
+            <MessageSquareText size={14} />
+            Describe it to AI
+          </Button>
         </div>
       )}
 
@@ -778,25 +810,48 @@ export function RoutineSectionEditor({ sections, onChange, onBreakDown }: Routin
       ))}
 
       {sorted.length > 0 && (
-        <button
-          type="button"
-          onClick={addSection}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.375rem',
-            padding: '0.375rem 0.5rem',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--color-btn-primary-bg)',
-            fontSize: 'var(--font-size-sm, 0.875rem)',
-            fontWeight: 500,
-          }}
-        >
-          <Plus size={14} />
-          Add section
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={addSection}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              padding: '0.375rem 0.5rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-btn-primary-bg)',
+              fontSize: 'var(--font-size-sm, 0.875rem)',
+              fontWeight: 500,
+            }}
+          >
+            <Plus size={14} />
+            Add section
+          </button>
+          {!showBrainDump && (
+            <button
+              type="button"
+              onClick={() => setShowBrainDump(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                padding: '0.375rem 0.5rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--font-size-sm, 0.875rem)',
+                fontWeight: 500,
+              }}
+            >
+              <MessageSquareText size={14} />
+              Describe more to AI
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

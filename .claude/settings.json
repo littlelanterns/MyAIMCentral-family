@@ -64,7 +64,19 @@
       "Bash(node -e \":*)",
       "Read(//c/dev/MyAIMCentral-family/MyAIMCentral-family/**)",
       "Bash(EOSQL npx:*)",
-      "Bash(find /c/dev/MyAIMCentral-family/MyAIMCentral-family -type f \\\\\\(-name *.sql -o -name *schema* -o -name *migration* \\\\\\))"
+      "Bash(find /c/dev/MyAIMCentral-family/MyAIMCentral-family -type f \\\\\\(-name *.sql -o -name *schema* -o -name *migration* \\\\\\))",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); ids=set\\(r[''''family_id''''] for r in data\\); print\\(f''''Total rows fetched: {len\\(data\\)}''''\\); [print\\(f''''  {fid}: {sum\\(1 for r in data if r[family_id]==fid\\)} books''''\\) for fid in sorted\\(ids\\)]\")",
+      "Bash(SB_URL=\"https://vjfbzpliqialqmabfnxs.supabase.co\")",
+      "Bash(SB_KEY=\"***REMOVED***\")",
+      "Bash(curl -s -X PATCH \"$SB_URL/rest/v1/families?id=eq.4bc86323-545b-4faf-b31f-3926fdd8c5a6\" -H \"apikey: $SB_KEY\" -H \"Authorization: Bearer $SB_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '{\"\"\"\"family_login_name\"\"\"\": \"\"\"\"WarmthWisdomWork\"\"\"\", \"\"\"\"family_login_name_lower\"\"\"\": \"\"\"\"warmthwisdomwork\"\"\"\", \"\"\"\"family_name\"\"\"\": \"\"\"\"OurFamily\"\"\"\", \"\"\"\"primary_parent_id\"\"\"\": \"\"\"\"7434224b-ebb4-4138-8bd8-9fbc62259c42\"\"\"\"}')",
+      "Bash(curl -s -X PATCH \"$SB_URL/rest/v1/families?id=eq.e28051fb-db40-458a-88b0-d85c880b1153\" -H \"apikey: $SB_KEY\" -H \"Authorization: Bearer $SB_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '{\"\"\"\"family_login_name\"\"\"\": \"\"\"\"TO_DELETE_WWW\"\"\"\", \"\"\"\"family_login_name_lower\"\"\"\": \"\"\"\"to_delete_www\"\"\"\"}')",
+      "Bash(curl -s -X PATCH \"$SB_URL/rest/v1/family_members?id=eq.fcac562b-b7f2-412b-8e25-33a1e94cc13b\" -H \"apikey: $SB_KEY\" -H \"Authorization: Bearer $SB_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '{\"\"\"\"user_id\"\"\"\": \"\"\"\"7434224b-ebb4-4138-8bd8-9fbc62259c42\"\"\"\", \"\"\"\"date_of_birth\"\"\"\": \"\"\"\"1980-11-18\"\"\"\"}')",
+      "Bash(curl -s -X PATCH \"$SB_URL/rest/v1/family_members?id=eq.3554dacd-f541-4f41-9e3d-815731a671b5\" -H \"apikey: $SB_KEY\" -H \"Authorization: Bearer $SB_KEY\" -H \"Content-Type: application/json\" -H \"Prefer: return=representation\" -d '{\"\"\"\"date_of_birth\"\"\"\": \"\"\"\"2012-12-17\"\"\"\"}')",
+      "Bash(curl -s -X DELETE \"$SB_URL/rest/v1/lila_messages?conversation_id=in.\\(select%20id%20from%20lila_conversations%20where%20family_id%20%3D%20''4bc86323-545b-4faf-b31f-3926fdd8c5a6''\\)\" -H \"apikey: $SB_KEY\" -H \"Authorization: Bearer $SB_KEY\" -H \"Prefer: return=representation\" -o /dev/null -w \"Messages delete HTTP status: %{http_code}\\\\n\")",
+      "Bash(mv supabase/migrations/00000000100072_bookshelf_shared_extractions.sql supabase/migrations/00000000100073_bookshelf_shared_extractions.sql)",
+      "Bash(find /c/dev/MyAIMCentral-family/MyAIMCentral-family/src -type f \\\\\\(-name *theme* -o -name *config* -o -name *color* \\\\\\))",
+      "Read(//c/dev//**)",
+      "Bash(xargs wc:*)"
     ],
     "deny": [
       "Write(.env.local)",
@@ -74,7 +86,8 @@
       "Write(reference/**)"
     ],
     "additionalDirectories": [
-      "c:\\dev\\MyAIMCentral-family\\MyAIMCentral-family\\scripts"
+      "c:\\dev\\MyAIMCentral-family\\MyAIMCentral-family\\scripts",
+      "c:\\dev\\MyAIMCentral-family\\MyAIMCentral-family"
     ]
   },
   "hooks": {
