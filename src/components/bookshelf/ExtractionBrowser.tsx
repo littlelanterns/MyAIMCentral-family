@@ -76,6 +76,12 @@ export function ExtractionBrowser({
   // Browser state (tabs, filters, etc.)
   const browserState = useExtractionBrowser()
 
+  // For display: when viewing a parent, treat it as a single-book view with the parent's info
+  const primaryBook = useMemo(() => {
+    if (books.length === 0) return undefined
+    return books.find(b => !b.parent_bookshelf_item_id) || books[0]
+  }, [books])
+
   // Update last_viewed_at for single book
   useEffect(() => {
     if (bookId) updateLastViewedAt(bookId)
@@ -83,13 +89,13 @@ export function ExtractionBrowser({
 
   // Save to sessionStorage for "Continue Where You Left Off"
   useEffect(() => {
-    if (books.length === 1) {
+    if (primaryBook) {
       try {
-        sessionStorage.setItem('bookshelf-last-book-id', books[0].id)
-        sessionStorage.setItem('bookshelf-last-book-title', books[0].title)
+        sessionStorage.setItem('bookshelf-last-book-id', primaryBook.id)
+        sessionStorage.setItem('bookshelf-last-book-title', primaryBook.title)
       } catch { /* */ }
     }
-  }, [books])
+  }, [primaryBook])
 
   // Item actions
   const itemActions = useExtractionItemActions(
@@ -162,15 +168,27 @@ export function ExtractionBrowser({
     ? collections.find(c => c.id === collectionId)?.name
     : undefined
 
-  // Multi-part siblings
+  // Multi-part siblings — works for both parent view and child part view
   const siblingBooks = useMemo(() => {
-    if (books.length !== 1 || !books[0].parent_bookshelf_item_id) return undefined
-    return allBooks
-      .filter(b => b.parent_bookshelf_item_id === books[0].parent_bookshelf_item_id)
-      .sort((a, b) => (a.part_number || 0) - (b.part_number || 0))
+    if (books.length === 0) return undefined
+    // Case 1: Viewing a child part — show all siblings (parts with same parent)
+    if (books.length === 1 && books[0].parent_bookshelf_item_id) {
+      return allBooks
+        .filter(b => b.parent_bookshelf_item_id === books[0].parent_bookshelf_item_id)
+        .sort((a, b) => (a.part_number || 0) - (b.part_number || 0))
+    }
+    // Case 2: Viewing a parent — books array includes parent + children from useExtractionData
+    const parentBook = books.find(b => !b.parent_bookshelf_item_id)
+    if (parentBook) {
+      const children = books.filter(b => b.parent_bookshelf_item_id === parentBook.id)
+      if (children.length > 0) {
+        return children.sort((a, b) => (a.part_number || 0) - (b.part_number || 0))
+      }
+    }
+    return undefined
   }, [books, allBooks])
 
-  const isSingleBook = books.length === 1
+  const isSingleBook = books.length === 1 || (books.length > 1 && books.some(b => !b.parent_bookshelf_item_id))
 
   // Book title map for history panel
   const bookTitleMap = useMemo(() => {
@@ -240,7 +258,7 @@ export function ExtractionBrowser({
   return (
     <div className="density-comfortable">
       <ExtractionHeader
-        books={books}
+        books={primaryBook ? [primaryBook] : books}
         collectionName={collectionName}
         showHearted={!!showHearted}
         onBack={onBack}
@@ -350,7 +368,7 @@ export function ExtractionBrowser({
 
       <ChapterJumpOverlay
         chapters={chapters}
-        bookTitle={isSingleBook ? books[0]?.title : undefined}
+        bookTitle={isSingleBook ? primaryBook?.title : undefined}
         allItems={[...summaries, ...insights, ...declarations, ...actionSteps, ...questions]}
         viewMode={browserState.viewMode}
         activeTab={browserState.activeTab}
@@ -395,7 +413,7 @@ export function ExtractionBrowser({
       <BookDiscussionModal
         isOpen={showDiscussion}
         onClose={() => { setShowDiscussion(false); setDiscussionContinueId(undefined); fetchDiscussions() }}
-        bookTitles={books.map(b => b.title)}
+        bookTitles={primaryBook ? [primaryBook.title] : books.map(b => b.title)}
         bookshelfItemIds={activeBookIds}
         existingDiscussionId={discussionContinueId}
         bookTitleMap={bookTitleMap}

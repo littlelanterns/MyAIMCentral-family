@@ -33,13 +33,29 @@ interface ExtractionSidebarProps {
 }
 
 export function ExtractionSidebar({
-  chapters, books, isSingleBook, allItems, viewMode, activeTab,
+  chapters, books, allItems, viewMode, activeTab,
 }: ExtractionSidebarProps) {
   const navigate = useNavigate()
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
-  const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set())
+  // Explicit user toggles — all books start collapsed
+  const [userExpanded, setUserExpanded] = useState<Set<string>>(new Set())
 
   // ── Build section entries with counts ────────────────────────────────────
+
+  // Build a part_number lookup for child books to sort sections across parts
+  const partNumberMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const b of books) {
+      if (b.part_number != null) map.set(b.id, b.part_number)
+    }
+    return map
+  }, [books])
+
+  // Sort helper: sort by part_number first (for multi-part parents), then section_index
+  const sortByPartThenIndex = (
+    a: { partNum: number; index: number },
+    b: { partNum: number; index: number },
+  ) => a.partNum !== b.partNum ? a.partNum - b.partNum : a.index - b.index
 
   const sectionEntries = useMemo((): SectionEntry[] => {
     if (viewMode === 'notes') return []
@@ -52,20 +68,29 @@ export function ExtractionSidebar({
 
     if (viewMode === 'chapters') {
       if (chapters.length > 0) {
-        return chapters.map(ch => ({
-          key: `ch-${ch.chapter_title}`,
-          title: ch.chapter_title,
-          count: countMap.get(ch.chapter_title) || 0,
-          bookId: ch.bookshelf_item_id,
-        }))
+        return [...chapters]
+          .sort((a, b) => sortByPartThenIndex(
+            { partNum: partNumberMap.get(a.bookshelf_item_id) ?? 0, index: a.chapter_index },
+            { partNum: partNumberMap.get(b.bookshelf_item_id) ?? 0, index: b.chapter_index },
+          ))
+          .map(ch => ({
+            key: `ch-${ch.chapter_title}`,
+            title: ch.chapter_title,
+            count: countMap.get(ch.chapter_title) || 0,
+            bookId: ch.bookshelf_item_id,
+          }))
       }
-      const seen = new Map<string, { index: number; bookId: string }>()
+      const seen = new Map<string, { index: number; bookId: string; partNum: number }>()
       for (const item of allItems) {
         const t = item.section_title || 'General'
-        if (!seen.has(t)) seen.set(t, { index: item.section_index ?? 999, bookId: item.bookshelf_item_id })
+        if (!seen.has(t)) seen.set(t, {
+          index: item.section_index ?? 999,
+          bookId: item.bookshelf_item_id,
+          partNum: partNumberMap.get(item.bookshelf_item_id) ?? 0,
+        })
       }
       return Array.from(seen.entries())
-        .sort((a, b) => a[1].index - b[1].index)
+        .sort((a, b) => sortByPartThenIndex(a[1], b[1]))
         .map(([title, info]) => ({
           key: `ch-${title}`,
           title,
@@ -75,26 +100,33 @@ export function ExtractionSidebar({
     }
 
     // Tabs view
-    const seen = new Map<string, { index: number; bookId: string }>()
+    const seen = new Map<string, { index: number; bookId: string; partNum: number }>()
     for (const item of allItems) {
       const t = item.section_title || 'General'
       const key = `tab-${activeTab}-${t}`
-      if (!seen.has(key)) seen.set(key, { index: item.section_index ?? 999, bookId: item.bookshelf_item_id })
+      if (!seen.has(key)) seen.set(key, {
+        index: item.section_index ?? 999,
+        bookId: item.bookshelf_item_id,
+        partNum: partNumberMap.get(item.bookshelf_item_id) ?? 0,
+      })
     }
     return Array.from(seen.entries())
-      .sort((a, b) => a[1].index - b[1].index)
+      .sort((a, b) => sortByPartThenIndex(a[1], b[1]))
       .map(([key, info]) => ({
         key,
         title: key.replace(`tab-${activeTab}-`, ''),
         count: countMap.get(key.replace(`tab-${activeTab}-`, '')) || 0,
         bookId: info.bookId,
       }))
-  }, [viewMode, activeTab, chapters, allItems])
+  }, [viewMode, activeTab, chapters, allItems, partNumberMap])
 
   // ── Group by book for multi-book ─────────────────────────────────────────
+  // Use collapsible book groups whenever sections span multiple book IDs
+  // (collections, multi-part parent views, multi-book selections)
 
   const sectionsByBook = useMemo(() => {
-    if (isSingleBook) return null
+    const uniqueBookIds = new Set(sectionEntries.map(s => s.bookId))
+    if (uniqueBookIds.size <= 1) return null
     const map = new Map<string, SectionEntry[]>()
     for (const sec of sectionEntries) {
       const arr = map.get(sec.bookId) || []
@@ -102,7 +134,7 @@ export function ExtractionSidebar({
       map.set(sec.bookId, arr)
     }
     return map
-  }, [sectionEntries, isSingleBook])
+  }, [sectionEntries])
 
   // Determine which book the user is currently scrolled into
   const activeBookId = useMemo(() => {
@@ -112,7 +144,7 @@ export function ExtractionSidebar({
   }, [activeSectionId, sectionEntries])
 
   const toggleBook = useCallback((bookId: string) => {
-    setManualExpanded(prev => {
+    setUserExpanded(prev => {
       const next = new Set(prev)
       if (next.has(bookId)) next.delete(bookId)
       else next.add(bookId)
@@ -120,11 +152,9 @@ export function ExtractionSidebar({
     })
   }, [])
 
-  // A book is expanded if it's the active one OR the user manually toggled it open
   const isBookExpanded = useCallback((bookId: string) => {
-    if (manualExpanded.has(bookId)) return true
-    return bookId === activeBookId
-  }, [manualExpanded, activeBookId])
+    return userExpanded.has(bookId)
+  }, [userExpanded])
 
   // ── IntersectionObserver scroll spy ──────────────────────────────────────
 
@@ -157,7 +187,7 @@ export function ExtractionSidebar({
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <aside className="hidden md:block w-64 shrink-0 sticky top-4 self-start max-h-[calc(100vh-6rem)] overflow-y-auto pr-3 pb-8">
+    <aside className="hidden md:block w-64 shrink-0 sticky top-4 self-start max-h-[calc(100vh-6rem)] overflow-y-auto pr-3 pb-8 scrollbar-thin">
       <button
         onClick={() => navigate('/bookshelf')}
         className="flex items-center gap-1.5 text-xs text-[var(--color-accent)] hover:underline mb-4"
@@ -166,8 +196,8 @@ export function ExtractionSidebar({
         Library
       </button>
 
-      {/* Single-book: flat section list */}
-      {isSingleBook && (
+      {/* Flat section list (single book, no multi-part children) */}
+      {!sectionsByBook && (
         <nav className="space-y-px">
           {sectionEntries.map(sec => (
             <SectionNavItem
@@ -180,8 +210,8 @@ export function ExtractionSidebar({
         </nav>
       )}
 
-      {/* Multi-book: collapsible book groups */}
-      {!isSingleBook && sectionsByBook && (
+      {/* Collapsible book groups (collections, multi-part parents, multi-book views) */}
+      {sectionsByBook && (
         <nav className="space-y-1">
           {Array.from(sectionsByBook.entries()).map(([bookId, secs]) => {
             const book = books.find(b => b.id === bookId)
