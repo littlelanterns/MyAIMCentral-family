@@ -1,9 +1,9 @@
 // PRD-11: Victory Recorder — adult/teen celebration-only surface
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Trophy, Plus, Star, Sparkles, Clock, ChevronRight, MessageSquarePlus } from 'lucide-react'
+import { Trophy, Plus, Star, Sparkles, Clock, ChevronRight, ChevronDown, MessageSquarePlus, Archive } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useVictories, useVictoryCount, useLifeAreaBreakdown } from '@/hooks/useVictories'
+import { useVictories, useVictoryCount, useLifeAreaBreakdown, useArchivedVictories } from '@/hooks/useVictories'
 import { RecordVictory } from '@/components/victories/RecordVictory'
 import { VictoryDetail } from '@/components/victories/VictoryDetail'
 import { CelebrationModal } from '@/components/victories/CelebrationModal'
@@ -55,10 +55,13 @@ export function VictoryRecorder() {
   const { data: family } = useFamily()
   const { selectedVoice, setVoice, isSaving: voiceSaving } = useVoicePreference(family?.id, member?.id)
 
+  const [showArchived, setShowArchived] = useState(false)
+
   const memberId = member?.id
   const { data: victories = [], isLoading } = useVictories(memberId, filters)
   const { data: lifeAreas = [] } = useLifeAreaBreakdown(memberId, filters.period)
   const { data: todayVictoryCount = 0 } = useVictoryCount(memberId, 'today')
+  const { data: archivedVictories = [] } = useArchivedVictories(showArchived ? memberId : undefined)
 
   // Check if activity log is sparse today (< 3 entries) for "What Actually Got Done" prompt
   const [activitySparse, setActivitySparse] = useState(false)
@@ -381,6 +384,67 @@ export function VictoryRecorder() {
           ))}
         </div>
       )}
+
+      {/* Archived Victories Section */}
+      <div className="mt-6">
+        <button
+          onClick={() => setShowArchived(!showArchived)}
+          className="flex items-center gap-2 text-sm font-medium transition-colors"
+          style={{ color: 'var(--color-text-tertiary)' }}
+        >
+          <Archive size={14} />
+          Archived{archivedVictories.length > 0 ? ` (${archivedVictories.length})` : ''}
+          {showArchived ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+
+        {showArchived && (
+          <div className="mt-3 space-y-3">
+            {archivedVictories.length === 0 ? (
+              <p className="text-xs py-4 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
+                No archived victories
+              </p>
+            ) : (
+              archivedVictories.map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedVictory(v)}
+                  className="w-full text-left rounded-lg p-4 transition-colors opacity-70"
+                  style={{
+                    background: 'var(--color-surface-secondary, var(--color-bg-secondary))',
+                    borderLeft: '3px solid var(--color-text-tertiary)',
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                        {v.description}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {v.life_area_tag && (
+                          <span className="text-xs px-2 py-0.5 rounded-full"
+                            style={{
+                              background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
+                              color: 'var(--color-accent)',
+                            }}>
+                            {v.life_area_tag}
+                          </span>
+                        )}
+                        <span className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                          <Clock size={10} />
+                          {formatDate(v.created_at)}
+                        </span>
+                        <span className="text-xs italic" style={{ color: 'var(--color-text-tertiary)' }}>
+                          archived {v.archived_at ? formatDate(v.archived_at) : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* FAB: Record a Victory */}
       <button

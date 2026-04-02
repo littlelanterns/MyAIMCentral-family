@@ -1,9 +1,25 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { brand } from '@/lib/theme/tokens'
+import { useAuth } from '@/hooks/useAuth'
 
 export function Welcome() {
   const [lilaHovered, setLilaHovered] = useState(false)
+  const { user, loading } = useAuth()
+
+  // If user is already authenticated, skip Welcome and go straight to dashboard
+  if (loading) {
+    return (
+      <div className="min-h-svh flex items-center justify-center"
+           style={{ background: `linear-gradient(135deg, ${brand.warmCream} 0%, ${brand.softSage} 100%)` }}>
+        <p style={{ color: brand.warmEarth }}>Loading...</p>
+      </div>
+    )
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   return (
     <div

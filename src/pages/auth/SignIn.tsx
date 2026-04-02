@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { signIn } from '@/lib/supabase/auth'
 import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
+import { useAuth } from '@/hooks/useAuth'
 
 export function SignIn() {
   const navigate = useNavigate()
+  const { user: existingUser, loading: authLoading } = useAuth()
+
+  // If already authenticated, redirect to dashboard
+  if (!authLoading && existingUser) {
+    return <Navigate to="/dashboard" replace />
+  }
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)

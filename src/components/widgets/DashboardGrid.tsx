@@ -451,7 +451,9 @@ export function DashboardGrid({
       <div
         className="grid gap-3"
         style={{
-          gridTemplateColumns: 'repeat(var(--grid-cols, 2), 1fr)',
+          gridTemplateColumns: 'repeat(var(--grid-cols, 2), minmax(0, 1fr))',
+          maxWidth: '100%',
+          overflow: 'hidden',
         }}
       >
         {/* Render folders (not sortable — folders are a separate system) */}

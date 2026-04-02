@@ -60,7 +60,15 @@ export function SimpleListView({
   )
 
   const completedTasks = useMemo(
-    () => tasks.filter((t) => t.status === 'completed' || t.status === 'cancelled'),
+    () => {
+      const todayStr = new Date().toDateString()
+      return tasks.filter((t) => {
+        if (t.status !== 'completed' && t.status !== 'cancelled') return false
+        // Only show tasks completed today on the dashboard
+        if (!t.completed_at) return false
+        return new Date(t.completed_at).toDateString() === todayStr
+      })
+    },
     [tasks],
   )
 

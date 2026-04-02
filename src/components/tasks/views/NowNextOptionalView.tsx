@@ -81,7 +81,11 @@ export function NowNextOptionalView({
     (t) => isOpportunity(t) || t.priority === 'optional' || t.priority === 'someday'
   )
 
-  const completedTasks = tasks.filter((t) => t.status === 'completed')
+  const completedTasks = tasks.filter((t) => {
+    if (t.status !== 'completed') return false
+    if (!t.completed_at) return false
+    return new Date(t.completed_at).toDateString() === new Date().toDateString()
+  })
 
   const isGuided = shell === 'guided'
   // Card component: isGuided ? TaskCardGuided : TaskCard (wired inline below)

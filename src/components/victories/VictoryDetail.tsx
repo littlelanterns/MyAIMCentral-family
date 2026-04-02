@@ -1,8 +1,8 @@
-// PRD-11: Victory Detail modal — edit, GS/BI connections, Mom's Picks, archive
+// PRD-11: Victory Detail modal — edit, GS/BI connections, Mom's Picks, archive, delete
 import { useState } from 'react'
-import { Trophy, Star, Archive, Copy, LinkIcon } from 'lucide-react'
+import { Trophy, Star, Archive, ArchiveRestore, Trash2, Copy, LinkIcon } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { useUpdateVictory, useArchiveVictory, useToggleMomsPick } from '@/hooks/useVictories'
+import { useUpdateVictory, useArchiveVictory, useUnarchiveVictory, useDeleteVictory, useToggleMomsPick } from '@/hooks/useVictories'
 import { SOURCE_LABELS, IMPORTANCE_OPTIONS } from '@/types/victories'
 import type { Victory, VictoryImportance } from '@/types/victories'
 
@@ -23,11 +23,15 @@ export function VictoryDetail({ victory, onClose, isMom, currentMemberId }: Vict
 
   const updateVictory = useUpdateVictory()
   const archiveVictory = useArchiveVictory()
+  const unarchiveVictory = useUnarchiveVictory()
+  const deleteVictory = useDeleteVictory()
   const toggleMomsPick = useToggleMomsPick()
+  const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null)
 
   const isOwnVictory = victory.family_member_id === currentMemberId
   const canEdit = isOwnVictory || isMom
   const canMomsPick = isMom || isOwnVictory
+  const isArchived = !!victory.archived_at
 
   async function handleSave() {
     await updateVictory.mutateAsync({
@@ -45,6 +49,16 @@ export function VictoryDetail({ victory, onClose, isMom, currentMemberId }: Vict
 
   async function handleArchive() {
     await archiveVictory.mutateAsync({ id: victory.id, memberId: victory.family_member_id })
+    onClose()
+  }
+
+  async function handleUnarchive() {
+    await unarchiveVictory.mutateAsync({ id: victory.id, memberId: victory.family_member_id })
+    onClose()
+  }
+
+  async function handleDelete() {
+    await deleteVictory.mutateAsync({ id: victory.id, memberId: victory.family_member_id })
     onClose()
   }
 
@@ -82,35 +96,99 @@ export function VictoryDetail({ victory, onClose, isMom, currentMemberId }: Vict
       title="Victory"
       icon={Trophy}
       footer={
-        <div className="flex items-center justify-between w-full">
-          <div className="flex gap-2">
-            <button
-              onClick={handleArchive}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors"
-              style={{ color: 'var(--color-text-tertiary)' }}
+        <div className="w-full">
+          {/* Confirmation dialog */}
+          {confirmAction && (
+            <div className="flex items-center justify-between mb-3 p-2.5 rounded-lg"
+              style={{
+                background: confirmAction === 'delete'
+                  ? 'color-mix(in srgb, var(--color-error, #ef4444) 10%, var(--color-bg-card))'
+                  : 'var(--color-bg-secondary)',
+                border: `1px solid ${confirmAction === 'delete' ? 'var(--color-error, #ef4444)' : 'var(--color-border-default)'}`,
+              }}
             >
-              <Archive size={13} />
-              Archive
-            </button>
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors"
-              style={{ color: 'var(--color-text-tertiary)' }}
-            >
-              <Copy size={13} />
-              Copy
-            </button>
-          </div>
-          {editing && (
-            <button
-              onClick={handleSave}
-              disabled={updateVictory.isPending}
-              className="px-4 py-1.5 rounded-lg text-sm font-semibold"
-              style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary, #fff)' }}
-            >
-              {updateVictory.isPending ? 'Saving...' : 'Save'}
-            </button>
+              <span className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                {confirmAction === 'delete'
+                  ? 'Permanently delete this victory?'
+                  : 'Move this victory to the archive?'}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfirmAction(null)}
+                  className="text-xs px-2.5 py-1 rounded"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirmAction === 'delete') handleDelete()
+                    else handleArchive()
+                    setConfirmAction(null)
+                  }}
+                  className="text-xs px-2.5 py-1 rounded font-medium"
+                  style={{
+                    background: confirmAction === 'delete' ? 'var(--color-error, #ef4444)' : 'var(--surface-primary)',
+                    color: '#fff',
+                  }}
+                >
+                  {confirmAction === 'delete' ? 'Delete' : 'Archive'}
+                </button>
+              </div>
+            </div>
           )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              {isArchived ? (
+                <>
+                  <button
+                    onClick={handleUnarchive}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
+                    <ArchiveRestore size={13} />
+                    Restore
+                  </button>
+                  <button
+                    onClick={() => setConfirmAction('delete')}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors"
+                    style={{ color: 'var(--color-error, #ef4444)' }}
+                  >
+                    <Trash2 size={13} />
+                    Delete
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmAction('archive')}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  <Archive size={13} />
+                  Archive
+                </button>
+              )}
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                <Copy size={13} />
+                Copy
+              </button>
+            </div>
+            {editing && (
+              <button
+                onClick={handleSave}
+                disabled={updateVictory.isPending}
+                className="px-4 py-1.5 rounded-lg text-sm font-semibold"
+                style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary, #fff)' }}
+              >
+                {updateVictory.isPending ? 'Saving...' : 'Save'}
+              </button>
+            )}
+          </div>
         </div>
       }
     >

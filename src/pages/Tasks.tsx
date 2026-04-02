@@ -29,6 +29,7 @@ import {
   Users,
   Check,
   Clock,
+  ListPlus,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
 import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion } from '@/hooks/useTasks'
@@ -41,6 +42,8 @@ import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
+import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
+import { ModalV2 } from '@/components/shared/ModalV2'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
@@ -81,7 +84,7 @@ function useStudioQueue(familyId: string | undefined, memberId: string | undefin
 // ─────────────────────────────────────────────
 type TaskTab = 'my_tasks' | 'routines' | 'opportunities' | 'sequential' | 'queue'
 type SortOrder = 'name' | 'last_deployed' | 'most_assigned' | 'recently_created'
-type FilterStatus = 'all' | 'active' | 'unassigned' | 'archived'
+type FilterStatus = 'all' | 'active' | 'completed' | 'unassigned' | 'archived'
 
 // ─────────────────────────────────────────────
 // Main page component
@@ -102,6 +105,7 @@ export function TasksPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [guidedNewTask, setGuidedNewTask] = useState('')
   const [guidedCreating, setGuidedCreating] = useState(false)
   const [completedTask, setCompletedTask] = useState<Task | null>(null)
@@ -139,6 +143,23 @@ export function TasksPage() {
     setGuidedCreating(false)
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
   }, [guidedNewTask, family?.id, member?.id, activeMember?.id, queryClient])
+
+  // Bulk AI quick-add: brain dump → individual task records
+  const handleBulkSave = useCallback(async (items: ParsedBulkItem[]) => {
+    if (!family?.id || !activeMember?.id) return
+    const rows = items.map(item => ({
+      family_id: family.id,
+      created_by: activeMember.id,
+      assignee_id: activeMember.id,
+      title: item.text,
+      task_type: 'task' as const,
+      status: 'pending' as const,
+      source: 'manual' as const,
+    }))
+    const { error } = await supabase.from('tasks').insert(rows)
+    if (error) throw error
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+  }, [family?.id, activeMember?.id, queryClient])
 
   const handleCreateTask = useCallback(
     async (data: CreateTaskData) => {
@@ -379,6 +400,14 @@ export function TasksPage() {
       case 'active':
         filtered = filtered.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && !t.archived_at)
         break
+      case 'completed':
+        filtered = filtered.filter((t) => t.status === 'completed')
+        filtered.sort((a, b) => {
+          const aDate = a.completed_at ? new Date(a.completed_at).getTime() : 0
+          const bDate = b.completed_at ? new Date(b.completed_at).getTime() : 0
+          return bDate - aDate // newest first
+        })
+        break
       case 'unassigned':
         filtered = filtered.filter((t) => !t.assignee_id)
         break
@@ -432,10 +461,16 @@ export function TasksPage() {
           </h1>
         </div>
         {!isGuidedMember ? (
-          <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
-            <Plus size={16} />
-            Create
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setShowBulkAdd(true)}>
+              <ListPlus size={16} />
+              <span className="hidden sm:inline">Bulk Add</span>
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
+              <Plus size={16} />
+              Create
+            </Button>
+          </div>
         ) : (
           <Button variant="primary" size="sm" onClick={() => {
             const input = document.getElementById('guided-quick-add')
@@ -527,7 +562,7 @@ export function TasksPage() {
           </button>
 
           {/* Status pills */}
-          {(['active', 'all', 'unassigned'] as FilterStatus[]).map((s) => (
+          {(['active', 'completed', 'all', 'unassigned'] as FilterStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -627,6 +662,29 @@ export function TasksPage() {
         onClose={() => setShowCreateModal(false)}
         onSave={handleCreateTask}
       />
+
+      {/* Bulk AI Quick Add modal */}
+      {showBulkAdd && (
+        <ModalV2
+          id="bulk-add-tasks"
+          isOpen
+          onClose={() => setShowBulkAdd(false)}
+          type="transient"
+          size="md"
+          title="Bulk Add Tasks"
+          icon={ListPlus}
+        >
+          <BulkAddWithAI
+            title="Brain Dump"
+            placeholder={"Type or paste your tasks here — any format works:\n\n- Take out the trash\n- Call the dentist on Monday\n- Buy birthday present for Sarah\n- Clean out the garage\n- Schedule car maintenance\n- Meal prep for the week"}
+            hint="Dump everything on your mind. One per line, a paragraph, a messy list — AI will sort it out into individual tasks."
+            parsePrompt="You are a task extraction assistant. Parse the user's text into individual actionable tasks. Each task should be a clear, standalone to-do item. If the user wrote paragraphs, extract the implied tasks. Remove any duplicates. Keep task titles concise (under 80 characters) but preserve the meaning."
+            onSave={handleBulkSave}
+            onClose={() => setShowBulkAdd(false)}
+            modelTier="haiku"
+          />
+        </ModalV2>
+      )}
 
       {/* CompletionNotePrompt — non-blocking toast after task completion */}
       {completedTask && (

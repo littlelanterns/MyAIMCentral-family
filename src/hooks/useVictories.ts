@@ -261,6 +261,76 @@ export function useArchiveVictory() {
   })
 }
 
+export function useArchivedVictories(memberId: string | undefined) {
+  const { data: member } = useFamilyMember()
+  const familyId = member?.family_id
+
+  return useQuery({
+    queryKey: ['victories-archived', memberId],
+    queryFn: async () => {
+      if (!memberId || !familyId) return []
+
+      const { data, error } = await supabase
+        .from('victories')
+        .select('*')
+        .eq('family_id', familyId)
+        .eq('family_member_id', memberId)
+        .not('archived_at', 'is', null)
+        .order('archived_at', { ascending: false })
+
+      if (error) throw error
+      return (data ?? []) as Victory[]
+    },
+    enabled: !!memberId && !!familyId,
+  })
+}
+
+export function useUnarchiveVictory() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, memberId }: { id: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('victories')
+        .update({ archived_at: null })
+        .eq('id', id)
+
+      if (error) throw error
+      return { memberId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['victories', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victories-archived', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victory-count', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['recent-victories', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victory-life-areas', data.memberId] })
+    },
+  })
+}
+
+export function useDeleteVictory() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, memberId }: { id: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('victories')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      return { memberId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['victories', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victories-archived', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victory-count', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['recent-victories', data.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victory-life-areas', data.memberId] })
+    },
+  })
+}
+
 export function useToggleMomsPick() {
   const queryClient = useQueryClient()
 
