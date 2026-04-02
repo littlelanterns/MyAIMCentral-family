@@ -9,7 +9,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
-  ArrowRight, ArrowUpRight, RotateCcw, Archive, Loader2, Save,
+  ArrowRight, ArrowUpRight, RotateCcw, Archive, ArchiveRestore, Trash2, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
   Share2, UserCheck, Check, Wand2,
 } from 'lucide-react'
@@ -22,7 +22,7 @@ import { useFamily } from '@/hooks/useFamily'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
-  useUncheckAllItems, usePromoteListItem, useArchiveList,
+  useUncheckAllItems, usePromoteListItem, useArchiveList, useDeleteList, useRestoreList,
   useReorderListItems, useSaveListAsTemplate,
   useListShares, useShareList, useUnshareList,
 } from '@/hooks/useLists'
@@ -63,6 +63,7 @@ const FILTER_TABS: { key: string; label: string }[] = [
   { key: 'ideas', label: 'Ideas' },
   { key: 'custom', label: 'Custom' },
   { key: 'shared', label: 'Shared' },
+  { key: 'archived', label: 'Archived' },
 ]
 
 // ── View mode persistence ─────────────────────────────────
@@ -93,6 +94,9 @@ export function ListsPage() {
   const { data: family } = useFamily()
   const { data: lists = [], isLoading } = useLists(family?.id)
   const createList = useCreateList()
+  const restoreList = useRestoreList()
+  const deleteList = useDeleteList()
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [viewMode, setViewMode] = useViewMode()
@@ -114,11 +118,14 @@ export function ListsPage() {
 
   // Filter lists
   const activeLists = lists.filter(l => !l.archived_at)
+  const archivedLists = lists.filter(l => !!l.archived_at)
   const filtered = filter === 'all'
     ? activeLists
     : filter === 'shared'
       ? activeLists.filter(l => l.is_shared)
-      : activeLists.filter(l => l.list_type === filter)
+      : filter === 'archived'
+        ? archivedLists
+        : activeLists.filter(l => l.list_type === filter)
 
   async function handleCreate() {
     if (!member || !family || !createTitle.trim() || !createType) return
@@ -213,6 +220,17 @@ export function ListsPage() {
             }}
           >
             {tab.label}
+            {tab.key === 'archived' && archivedLists.length > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
+                style={{
+                  backgroundColor: filter === 'archived' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                  color: filter === 'archived' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+                  opacity: filter === 'archived' ? 1 : 0.7,
+                }}
+              >
+                {archivedLists.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -281,11 +299,82 @@ export function ListsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="p-8 rounded-lg text-center" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-          <ListIcon size={32} className="mx-auto mb-3" style={{ color: 'var(--color-text-secondary)' }} />
-          <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>No lists yet</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            Create one to start organizing — shopping, packing, wishlists, and more.
-          </p>
+          {filter === 'archived' ? (
+            <>
+              <Archive size={32} className="mx-auto mb-3" style={{ color: 'var(--color-text-secondary)' }} />
+              <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>No archived lists</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Lists you archive will appear here. You can restore or permanently delete them.
+              </p>
+            </>
+          ) : (
+            <>
+              <ListIcon size={32} className="mx-auto mb-3" style={{ color: 'var(--color-text-secondary)' }} />
+              <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>No lists yet</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Create one to start organizing — shopping, packing, wishlists, and more.
+              </p>
+            </>
+          )}
+        </div>
+      ) : filter === 'archived' ? (
+        /* Archived lists view */
+        <div className="space-y-2">
+          {filtered.map(list => {
+            const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
+            const Icon = cfg.icon
+            const isConfirming = confirmDeleteId === list.id
+            return (
+              <div
+                key={list.id}
+                className="rounded-lg overflow-hidden"
+                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', opacity: 0.85 }}
+              >
+                <div className="flex items-center gap-3 p-4">
+                  <Icon size={18} style={{ color: 'var(--color-text-secondary)' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      {cfg.label} · Archived {list.archived_at ? new Date(list.archived_at).toLocaleDateString() : ''}
+                    </p>
+                  </div>
+                  <Tooltip content="Restore">
+                    <button
+                      onClick={() => restoreList.mutate(list.id)}
+                      className="p-1.5 rounded-lg"
+                      style={{ color: 'var(--color-btn-primary-bg)' }}
+                    >
+                      <ArchiveRestore size={16} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Delete permanently">
+                    <button
+                      onClick={() => setConfirmDeleteId(isConfirming ? null : list.id)}
+                      className="p-1.5 rounded-lg"
+                      style={{ color: 'var(--color-text-error, #ef4444)' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </Tooltip>
+                </div>
+                {isConfirming && (
+                  <div className="px-4 pb-3 flex items-center gap-2 justify-end" style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <span className="text-xs flex-1" style={{ color: 'var(--color-text-secondary)' }}>
+                      Delete permanently? This cannot be undone.
+                    </span>
+                    <button onClick={() => setConfirmDeleteId(null)} className="px-3 py-1 rounded-lg text-xs" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+                    <button
+                      onClick={() => { deleteList.mutate(list.id); setConfirmDeleteId(null) }}
+                      className="px-3 py-1 rounded-lg text-xs font-medium"
+                      style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -421,10 +510,16 @@ function RandomizerDetailView({
 }) {
   const [showSettings, setShowSettings] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [savedAsTemplate, setSavedAsTemplate] = useState(false)
   const updateList = useUpdateList()
   const createItem = useCreateListItem()
   const updateItem = useUpdateListItem()
   const deleteItem = useDeleteListItem()
+  const archiveList = useArchiveList()
+  const deleteListMut = useDeleteList()
+  const saveAsTemplate = useSaveListAsTemplate()
+  const { data: family } = useFamily()
   const [newItemText, setNewItemText] = useState('')
 
   const poolMode = list.pool_mode ?? 'individual'
@@ -463,6 +558,21 @@ function RandomizerDetailView({
         <h1 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
           {list.title}
         </h1>
+        <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
+          <button
+            onClick={async () => {
+              if (!family || !memberId || savedAsTemplate) return
+              await saveAsTemplate.mutateAsync({ familyId: family.id, createdBy: memberId, title: list.title, listType: list.list_type, items })
+              setSavedAsTemplate(true)
+              setTimeout(() => setSavedAsTemplate(false), 3000)
+            }}
+            disabled={saveAsTemplate.isPending || savedAsTemplate}
+            className="p-1.5 rounded-lg"
+            style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+          >
+            <Save size={16} />
+          </button>
+        </Tooltip>
         <Tooltip content="Pool settings">
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -472,7 +582,39 @@ function RandomizerDetailView({
             <Settings2 size={16} />
           </button>
         </Tooltip>
+        <Tooltip content="Archive">
+          <button onClick={() => { archiveList.mutate(list.id); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+            <Archive size={16} />
+          </button>
+        </Tooltip>
+        <Tooltip content="Delete permanently">
+          <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+            <Trash2 size={16} />
+          </button>
+        </Tooltip>
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+            Permanently delete "{list.title}"?
+          </p>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            This will delete the list and all its items. This cannot be undone.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+            <button
+              onClick={() => { deleteListMut.mutate(list.id); onBack() }}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Settings panel (collapsible) */}
       {showSettings && (
@@ -622,9 +764,11 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const uncheckAll = useUncheckAllItems()
   const promoteItem = usePromoteListItem()
   const archiveList = useArchiveList()
+  const deleteList = useDeleteList()
   const reorderItems = useReorderListItems()
   const saveAsTemplate = useSaveListAsTemplate()
   const [savedAsTemplate, setSavedAsTemplate] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { data: familyMembers = [] } = useFamilyMembers(list?.family_id)
   const { data: shares = [] } = useListShares(listId)
   const shareList = useShareList()
@@ -977,7 +1121,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                 )}
               </button>
             </Tooltip>
-            <Tooltip content={savedAsTemplate ? 'Saved!' : 'Save as template'}>
+            <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
               <button
                 onClick={async () => {
                   if (!family || !member || !list || savedAsTemplate) return
@@ -995,8 +1139,33 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             <Tooltip content="Archive">
               <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Archive size={16} /></button>
             </Tooltip>
+            <Tooltip content="Delete permanently">
+              <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Trash2 size={16} /></button>
+            </Tooltip>
           </div>
         </div>
+
+        {/* Delete confirmation */}
+        {confirmDelete && (
+          <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              Permanently delete "{list.title}"?
+            </p>
+            <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              This will delete the list and all its items. This cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+              <button
+                onClick={() => { deleteList.mutate(listId); onBack() }}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Shared with indicator */}
         {shares.length > 0 && (
@@ -1073,58 +1242,62 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         </div>
 
         {/* Add item (with section picker for shopping) */}
-        <div className="flex gap-2">
-          <div className="flex-1 flex gap-1.5">
-            <input
-              type="text"
-              value={newItemText}
-              onChange={e => setNewItemText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addItem()}
-              placeholder="Add an item..."
-              className="flex-1 px-3 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
-            />
-            {sections.size > 0 && (
-              <select
-                value={newItemSection}
-                onChange={e => setNewItemSection(e.target.value)}
-                className="px-2 py-2 rounded-lg text-xs max-w-[120px]"
-                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-              >
-                <option value="">No section</option>
-                {Array.from(sections.keys()).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            )}
-          </div>
-          <button
-            onClick={addItem}
-            disabled={!newItemText.trim()}
-            className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-          ><Plus size={16} /></button>
-          <Tooltip content="Bulk add items with AI">
+        <div className="space-y-2 pb-20 md:pb-0">
+          <div className="flex gap-2">
+            <div className="flex-1 flex gap-1.5">
+              <input
+                type="text"
+                value={newItemText}
+                onChange={e => setNewItemText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addItem()}
+                placeholder="Add an item..."
+                className="flex-1 px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+              />
+              {sections.size > 0 && (
+                <select
+                  value={newItemSection}
+                  onChange={e => setNewItemSection(e.target.value)}
+                  className="px-2 py-2 rounded-lg text-xs max-w-[120px]"
+                  style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+                >
+                  <option value="">No section</option>
+                  {Array.from(sections.keys()).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+            </div>
             <button
-              onClick={() => setShowBulkAdd(true)}
-              className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
-              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
-            >
-              <Sparkles size={14} />
-              <span className="hidden sm:inline">Bulk</span>
-            </button>
-          </Tooltip>
-          {items.length >= 3 && (
-            <Tooltip content="Organize by store with AI">
+              onClick={addItem}
+              disabled={!newItemText.trim()}
+              className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+            ><Plus size={16} /></button>
+          </div>
+          <div className="flex gap-2">
+            <Tooltip content="Bulk add items with AI">
               <button
-                onClick={() => setShowOrganize(true)}
-                disabled={organizing}
-                className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-50"
+                onClick={() => setShowBulkAdd(true)}
+                className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
                 style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
               >
-                <Wand2 size={14} />
-                <span className="hidden sm:inline">Organize</span>
+                <Sparkles size={14} />
+                Bulk Add
               </button>
             </Tooltip>
-          )}
+            {items.length >= 3 && (
+              <Tooltip content="Organize by store with AI">
+                <button
+                  onClick={() => setShowOrganize(true)}
+                  disabled={organizing}
+                  className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+                >
+                  <Wand2 size={14} />
+                  Organize
+                </button>
+              </Tooltip>
+            )}
+          </div>
         </div>
 
         {/* Organize with AI modal */}
@@ -1204,7 +1377,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               )}
             </button>
           </Tooltip>
-          <Tooltip content={savedAsTemplate ? 'Saved!' : 'Save as template'}>
+          <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
           <button
             onClick={async () => {
               if (!family || !member || !list || savedAsTemplate) return
@@ -1243,8 +1416,39 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             <Archive size={16} />
           </button>
           </Tooltip>
+          <Tooltip content="Delete permanently">
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="p-1.5 rounded-lg text-xs"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <Trash2 size={16} />
+          </button>
+          </Tooltip>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+            Permanently delete "{list.title}"?
+          </p>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            This will delete the list and all its items. This cannot be undone.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+            <button
+              onClick={() => { deleteList.mutate(listId); onBack() }}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Shared with indicator */}
       {shares.length > 0 && (
@@ -1347,34 +1551,38 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
       )}
 
       {/* Add item */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newItemText}
-          onChange={e => setNewItemText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addItem()}
-          placeholder="Add an item..."
-          className="flex-1 px-3 py-2 rounded-lg text-sm"
-          style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
-        />
-        <button
-          onClick={addItem}
-          disabled={!newItemText.trim()}
-          className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-          style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-        >
-          <Plus size={16} />
-        </button>
-        <Tooltip content="Bulk add items with AI">
-        <button
-          onClick={() => setShowBulkAdd(true)}
-          className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
-          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
-        >
-          <Sparkles size={14} />
-          <span className="hidden sm:inline">Bulk</span>
-        </button>
-        </Tooltip>
+      <div className="space-y-2 pb-20 md:pb-0">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newItemText}
+            onChange={e => setNewItemText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addItem()}
+            placeholder="Add an item..."
+            className="flex-1 px-3 py-2 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+          />
+          <button
+            onClick={addItem}
+            disabled={!newItemText.trim()}
+            className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <Tooltip content="Bulk add items with AI">
+          <button
+            onClick={() => setShowBulkAdd(true)}
+            className="px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-border)' }}
+          >
+            <Sparkles size={14} />
+            Bulk Add
+          </button>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Share modal */}

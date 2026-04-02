@@ -259,7 +259,7 @@ export function NotepadDrawer() {
 
           <div
             className="fixed right-0 z-30 md:hidden block"
-            style={{ bottom: 'calc(56px + 24px)' }}
+            style={{ bottom: 'calc(56px + 90px)' }}
           >
             <PullTab orientation="side" onClick={() => openNotepad()} height={70}>
               <StickyNote size={14} />

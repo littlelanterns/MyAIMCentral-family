@@ -174,6 +174,38 @@ export function useArchiveList() {
   })
 }
 
+export function useDeleteList() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (listId: string) => {
+      // Items cascade-delete via FK, but delete explicitly for safety
+      await supabase.from('list_items').delete().eq('list_id', listId)
+      await supabase.from('list_shares').delete().eq('list_id', listId)
+      const { error } = await supabase.from('lists').delete().eq('id', listId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+    },
+  })
+}
+
+export function useRestoreList() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (listId: string) => {
+      const { error } = await supabase
+        .from('lists')
+        .update({ archived_at: null })
+        .eq('id', listId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+    },
+  })
+}
+
 export function useDeleteListItem() {
   const queryClient = useQueryClient()
   return useMutation({

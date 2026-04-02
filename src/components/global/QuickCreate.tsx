@@ -61,9 +61,12 @@ function storePosition(pos: FabPosition) {
   } catch { /* ignore */ }
 }
 
+// Bottom nav is 56px; keep FAB above it with breathing room
+const BOTTOM_NAV_CLEARANCE = 70
+
 function clampPosition(x: number, y: number): FabPosition {
   const maxX = window.innerWidth - FAB_SIZE - EDGE_SNAP_MARGIN
-  const maxY = window.innerHeight - FAB_SIZE - EDGE_SNAP_MARGIN
+  const maxY = window.innerHeight - FAB_SIZE - BOTTOM_NAV_CLEARANCE
   return {
     x: Math.max(EDGE_SNAP_MARGIN, Math.min(x, maxX)),
     y: Math.max(EDGE_SNAP_MARGIN, Math.min(y, maxY)),
@@ -95,7 +98,16 @@ export function QuickCreate({
 }: QuickCreateProps) {
   const { shell } = useShell()
   const [isOpen, setIsOpen] = useState(false)
-  const [pos, setPos] = useState<FabPosition>(() => getStoredPosition() || defaultPosition())
+  const [pos, setPos] = useState<FabPosition>(() => {
+    const stored = getStoredPosition()
+    if (stored) {
+      // Re-clamp in case stored position is behind bottom nav from old clamp logic
+      const clamped = clampPosition(stored.x, stored.y)
+      if (clamped.x !== stored.x || clamped.y !== stored.y) storePosition(clamped)
+      return clamped
+    }
+    return defaultPosition()
+  })
   const [isDragging, setIsDragging] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const dragStartRef = useRef<{ startX: number; startY: number; fabX: number; fabY: number } | null>(null)
@@ -270,7 +282,7 @@ export function QuickCreate({
           color: 'var(--color-btn-primary-text, #fff)',
           border: 'none',
           minHeight: 'unset',
-          zIndex: 35, // above content, below modals (z-40+)
+          zIndex: 45, // above content + bottom nav (z-30), below modals (z-50+)
           opacity: isDragging ? 1 : isHovered || isOpen ? 1 : 0.75,
           cursor: isDragging ? 'grabbing' : 'pointer',
           transform: 'none',
