@@ -4,6 +4,7 @@
  * Four required text fields, optional image attachment,
  * auto-captured diagnostics, screenshot preview.
  * Submits directly to beta_glitch_reports via Supabase client.
+ * Uses theme tokens — no hardcoded colors.
  */
 
 import { useState, useRef } from 'react'
@@ -22,7 +23,6 @@ interface GlitchReportModalProps {
   shellType: string
 }
 
-const MIN_CHARS = 3
 const MAX_SUBMISSIONS = 5
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000 // 10 minutes
 
@@ -52,11 +52,9 @@ export function GlitchReportModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isValid =
-    whatDoing.trim().length >= MIN_CHARS &&
-    whatTried.trim().length >= MIN_CHARS &&
-    whatHappened.trim().length >= MIN_CHARS &&
-    whatExpected.trim().length >= MIN_CHARS
+  // At least one field or a screenshot must be provided
+  const hasAnyText = whatDoing.trim() || whatTried.trim() || whatHappened.trim() || whatExpected.trim()
+  const isValid = hasAnyText || !!screenshotDataUrl || !!imageFile
 
   const isRateLimited = (() => {
     const now = Date.now()
@@ -84,7 +82,6 @@ export function GlitchReportModal({
     setError(null)
 
     try {
-      // Upload user image if provided
       let userImageUrl: string | null = null
       if (imageFile) {
         const ext = imageFile.name.split('.').pop() || 'png'
@@ -100,14 +97,12 @@ export function GlitchReportModal({
         }
       }
 
-      // Gather diagnostics
       const diagnostics = {
         console_errors: getRecentErrors(),
         recent_routes: getRecentRoutes(),
         browser_info: getBrowserInfo(),
       }
 
-      // Insert report
       const { error: insertError } = await supabase
         .from('beta_glitch_reports')
         .insert({
@@ -116,10 +111,10 @@ export function GlitchReportModal({
           family_member_id: familyMemberId,
           shell_type: shellType,
           display_name: displayName,
-          what_doing: whatDoing.trim(),
-          what_tried: whatTried.trim(),
-          what_happened: whatHappened.trim(),
-          what_expected: whatExpected.trim(),
+          what_doing: whatDoing.trim() || '(not provided)',
+          what_tried: whatTried.trim() || '(not provided)',
+          what_happened: whatHappened.trim() || '(not provided)',
+          what_expected: whatExpected.trim() || '(not provided)',
           user_image_url: userImageUrl,
           screenshot_data_url: screenshotDataUrl,
           current_route: window.location.pathname + window.location.search,
@@ -143,31 +138,15 @@ export function GlitchReportModal({
   // ── Success state ──
   if (submitted) {
     return (
-      <div
-        className="glitch-reporter-overlay"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9998,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(0,0,0,0.5)',
-        }}
-      >
-        <div style={{
-          backgroundColor: 'var(--color-surface, #fff)',
-          borderRadius: 'var(--vibe-radius-card, 12px)',
-          padding: '32px',
-          textAlign: 'center',
-          maxWidth: '360px',
-          width: '90%',
-        }}>
-          <CheckCircle size={48} style={{ color: 'var(--color-success, #22c55e)', marginBottom: '12px' }} />
-          <p style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-primary, #333)' }}>
+      <div className="glitch-reporter-overlay fixed inset-0 z-9998 flex items-center justify-center"
+        style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="rounded-xl p-8 text-center w-[90%] max-w-[360px]"
+          style={{ backgroundColor: 'var(--color-bg-card)', borderRadius: 'var(--vibe-radius-card)' }}>
+          <CheckCircle size={48} className="mx-auto mb-3" style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <p className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-heading)' }}>
             Thank you!
           </p>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary, #666)', marginTop: '4px' }}>
+          <p className="mt-1" style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)' }}>
             Your report has been saved.
           </p>
         </div>
@@ -178,119 +157,74 @@ export function GlitchReportModal({
   // ── Full-size screenshot preview ──
   if (showScreenshot && screenshotDataUrl) {
     return (
-      <div
-        className="glitch-reporter-overlay"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          cursor: 'pointer',
-        }}
-        onClick={() => setShowScreenshot(false)}
-      >
-        <img
-          src={screenshotDataUrl}
-          alt="Screenshot preview"
-          style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px' }}
-        />
+      <div className="glitch-reporter-overlay fixed inset-0 z-9999 flex items-center justify-center cursor-pointer"
+        style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}
+        onClick={() => setShowScreenshot(false)}>
+        <img src={screenshotDataUrl} alt="Screenshot preview"
+          className="max-w-[90vw] max-h-[90vh]"
+          style={{ borderRadius: 'var(--vibe-radius-card)' }} />
       </div>
     )
   }
 
   return (
-    <div
-      className="glitch-reporter-overlay"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9998,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-      }}
-      onClick={onClose}
-    >
-      <div
+    <div className="glitch-reporter-overlay fixed inset-0 z-9998 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}>
+      <div className="w-[95%] max-w-[520px] max-h-[90vh] overflow-auto"
         style={{
-          backgroundColor: 'var(--color-surface, #fff)',
-          borderRadius: 'var(--vibe-radius-card, 12px)',
-          maxWidth: '520px',
-          width: '95%',
-          maxHeight: '90vh',
-          overflow: 'auto',
+          backgroundColor: 'var(--color-bg-card)',
+          borderRadius: 'var(--vibe-radius-modal)',
+          border: '1px solid var(--color-border)',
           boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
         }}
-        onClick={(e) => e.stopPropagation()}
-      >
+        onClick={(e) => e.stopPropagation()}>
+
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '16px 20px 12px',
-          borderBottom: '1px solid var(--color-border-default, #eee)',
-        }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--color-text-primary, #333)', margin: 0 }}>
+        <div className="flex justify-between items-center px-5 pt-4 pb-3"
+          style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <h2 className="text-lg font-semibold m-0"
+            style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-heading)' }}>
             Report a Glitch
           </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '4px',
-              cursor: 'pointer',
-              color: 'var(--color-text-secondary, #666)',
-            }}
-            aria-label="Close"
-          >
+          <button onClick={onClose} className="p-1 cursor-pointer border-none bg-transparent"
+            style={{ color: 'var(--color-text-secondary)' }} aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: '16px 20px 20px' }}>
+        <div className="px-5 pt-4 pb-5">
           {/* Screenshot preview */}
           {screenshotDataUrl && (
-            <div
-              onClick={() => setShowScreenshot(true)}
+            <div onClick={() => setShowScreenshot(true)}
+              className="mb-4 cursor-pointer overflow-hidden"
               style={{
-                marginBottom: '16px',
-                cursor: 'pointer',
-                borderRadius: 'var(--vibe-radius-input, 8px)',
-                overflow: 'hidden',
-                border: '1px solid var(--color-border-default, #ddd)',
+                borderRadius: 'var(--vibe-radius-input)',
+                border: '1px solid var(--color-border)',
                 maxHeight: '120px',
-              }}
-            >
-              <img
-                src={screenshotDataUrl}
-                alt="Captured screenshot"
-                style={{ width: '100%', height: '120px', objectFit: 'cover', display: 'block' }}
-              />
+              }}>
+              <img src={screenshotDataUrl} alt="Captured screenshot"
+                className="w-full block" style={{ height: '120px', objectFit: 'cover' }} />
             </div>
           )}
           {screenshotFailed && !screenshotDataUrl && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              marginBottom: '16px',
-              borderRadius: 'var(--vibe-radius-input, 8px)',
-              backgroundColor: 'var(--color-bg-secondary, #f5f5f5)',
-              fontSize: '13px',
-              color: 'var(--color-text-secondary, #666)',
-            }}>
+            <div className="flex items-center gap-2 px-3 py-2 mb-4"
+              style={{
+                borderRadius: 'var(--vibe-radius-input)',
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--font-size-xs)',
+              }}>
               <AlertTriangle size={16} />
               Screenshot capture failed — you can still attach an image manually.
             </div>
           )}
+
+          {/* Helper text */}
+          <p className="mb-3" style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)' }}>
+            Fill in whatever is helpful — all fields are optional. A screenshot alone is fine too.
+          </p>
 
           {/* Form fields */}
           <FieldGroup label="What were you doing?" value={whatDoing} onChange={setWhatDoing} />
@@ -299,65 +233,48 @@ export function GlitchReportModal({
           <FieldGroup label="What did you expect would happen?" value={whatExpected} onChange={setWhatExpected} />
 
           {/* Image attachment */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary, #333)', marginBottom: '6px' }}>
+          <div className="mb-4">
+            <label className="block mb-1.5 font-medium"
+              style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}>
               Attach an image (optional)
             </label>
-            <input
-              ref={fileInputRef}
-              type="file"
+            <input ref={fileInputRef} type="file"
               accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-              onChange={handleImageChange}
-              style={{ display: 'none' }}
-            />
+              onChange={handleImageChange} className="hidden" />
             {imagePreview ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <img
-                  src={imagePreview}
-                  alt="Attached"
+              <div className="flex items-center gap-2">
+                <img src={imagePreview} alt="Attached"
+                  className="w-[60px] h-[60px] object-cover"
                   style={{
-                    width: '60px',
-                    height: '60px',
-                    objectFit: 'cover',
-                    borderRadius: 'var(--vibe-radius-input, 8px)',
-                    border: '1px solid var(--color-border-default, #ddd)',
-                  }}
-                />
+                    borderRadius: 'var(--vibe-radius-input)',
+                    border: '1px solid var(--color-border)',
+                  }} />
                 <button
                   onClick={() => {
                     setImageFile(null)
                     setImagePreview(null)
                     if (fileInputRef.current) fileInputRef.current.value = ''
                   }}
+                  className="cursor-pointer bg-transparent px-3 py-1.5"
                   style={{
-                    background: 'none',
-                    border: '1px solid var(--color-border-default, #ddd)',
-                    borderRadius: 'var(--vibe-radius-input, 8px)',
-                    padding: '6px 12px',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    color: 'var(--color-text-secondary, #666)',
-                  }}
-                >
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--vibe-radius-input)',
+                    color: 'var(--color-text-secondary)',
+                    fontSize: 'var(--font-size-xs)',
+                  }}>
                   Remove
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => fileInputRef.current?.click()}
+              <button onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3.5 py-2 cursor-pointer"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  border: '1px dashed var(--color-border-default, #ccc)',
-                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: 'var(--vibe-radius-input)',
                   backgroundColor: 'transparent',
-                  color: 'var(--color-text-secondary, #666)',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                }}
-              >
+                  color: 'var(--color-text-secondary)',
+                  fontSize: 'var(--font-size-sm)',
+                }}>
                 <Camera size={16} />
                 Choose from camera / gallery
               </button>
@@ -366,42 +283,36 @@ export function GlitchReportModal({
 
           {/* Error message */}
           {error && (
-            <p style={{ color: 'var(--color-error, #ef4444)', fontSize: '13px', marginBottom: '12px' }}>
+            <p className="mb-3" style={{ color: 'var(--color-error, #ef4444)', fontSize: 'var(--font-size-xs)' }}>
               {error}
             </p>
           )}
 
           {/* Rate limit message */}
           {isRateLimited && (
-            <p style={{
-              fontSize: '13px',
-              color: 'var(--color-text-secondary, #666)',
-              backgroundColor: 'var(--color-bg-secondary, #f5f5f5)',
-              padding: '10px 12px',
-              borderRadius: 'var(--vibe-radius-input, 8px)',
-              marginBottom: '12px',
-            }}>
+            <p className="px-3 py-2.5 mb-3"
+              style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-secondary)',
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
+                borderRadius: 'var(--vibe-radius-input)',
+              }}>
               You've submitted several reports recently. Take a breather — your earlier reports are safe!
             </p>
           )}
 
           {/* Submit button */}
-          <button
-            onClick={handleSubmit}
+          <button onClick={handleSubmit}
             disabled={!isValid || submitting || isRateLimited}
+            className="w-full py-3 font-semibold border-none cursor-pointer"
             style={{
-              width: '100%',
-              padding: '12px',
-              fontSize: '16px',
-              fontWeight: 600,
-              borderRadius: 'var(--vibe-radius-input, 8px)',
-              border: 'none',
-              backgroundColor: 'var(--color-btn-primary-bg, #4f46e5)',
-              color: 'var(--color-btn-primary-text, #fff)',
-              cursor: isValid && !submitting && !isRateLimited ? 'pointer' : 'not-allowed',
+              fontSize: 'var(--font-size-base)',
+              borderRadius: 'var(--vibe-radius-input)',
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-text-on-primary)',
               opacity: isValid && !submitting && !isRateLimited ? 1 : 0.5,
-            }}
-          >
+              cursor: isValid && !submitting && !isRateLimited ? 'pointer' : 'not-allowed',
+            }}>
             {submitting ? 'Submitting...' : 'Submit Report'}
           </button>
         </div>
@@ -421,32 +332,25 @@ function FieldGroup({
   onChange: (v: string) => void
 }) {
   return (
-    <div style={{ marginBottom: '14px' }}>
-      <label style={{
-        display: 'block',
-        fontSize: '14px',
-        fontWeight: 500,
-        color: 'var(--color-text-primary, #333)',
-        marginBottom: '4px',
-      }}>
+    <div className="mb-3.5">
+      <label className="block mb-1 font-medium"
+        style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}>
         {label}
       </label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={2}
+        className="w-full resize-vertical box-border"
         style={{
-          width: '100%',
           padding: '8px 10px',
-          fontSize: '14px',
-          borderRadius: 'var(--vibe-radius-input, 8px)',
-          border: '1px solid var(--color-border-default, #ddd)',
-          backgroundColor: 'var(--color-bg-secondary, #f5f5f5)',
-          color: 'var(--color-text-primary, #333)',
+          fontSize: 'var(--font-size-sm)',
+          fontFamily: 'var(--font-body)',
+          borderRadius: 'var(--vibe-radius-input)',
+          border: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-bg-primary)',
+          color: 'var(--color-text-primary)',
           outline: 'none',
-          resize: 'vertical',
-          boxSizing: 'border-box',
-          fontFamily: 'inherit',
         }}
       />
     </div>

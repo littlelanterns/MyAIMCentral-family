@@ -233,7 +233,7 @@ export function GlitchReporterFAB() {
     <>
       {/* FAB button */}
       <button
-        className="glitch-reporter-fab"
+        className="glitch-reporter-fab fixed z-9990 rounded-full flex items-center justify-center p-0"
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
         onClick={(e) => {
@@ -243,25 +243,18 @@ export function GlitchReporterFAB() {
           }
         }}
         style={{
-          position: 'fixed',
           left: pos.x,
           top: pos.y,
           width: FAB_SIZE,
           height: FAB_SIZE,
-          zIndex: 9990,
-          borderRadius: '50%',
-          border: '1px solid var(--color-border-default, #ccc)',
-          backgroundColor: 'var(--color-surface, #fff)',
-          color: 'var(--color-text-secondary, #666)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          border: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-bg-card)',
+          color: 'var(--color-text-secondary)',
           cursor: isDragging ? 'grabbing' : 'grab',
           opacity: isDragging ? 0.9 : 0.6,
           transition: isDragging ? 'none' : 'opacity 200ms',
           touchAction: 'none',
           userSelect: 'none',
-          padding: 0,
           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
         }}
         title="Report a glitch"
