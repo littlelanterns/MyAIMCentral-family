@@ -175,7 +175,48 @@ Already seeded in migration 00000000000009:
 
 ---
 
-## Post-Build PRD Verification
+## Post-Build PRD Verification (Phase 12A)
+
+> Phase 12A completed 2026-04-01. Core recording, celebration, archive all wired.
+
+---
+
+## Phase 12B — Intelligence Layer & Cross-Feature Wiring
+
+> **Started:** 2026-04-02
+> **Founder approved:** 2026-04-02
+
+### Founder Design Overrides (Phase 12B)
+
+1. **No silent auto-routing** — PRD says auto-create victories from task completions. Founder override: Activity Log captures actions → Haiku scan surfaces meaningful patterns → user claims/edits/skips. Human-in-the-Mix applied to victory recognition.
+2. **Activity Log scan looks for meaning** — Not just "task X completed" but "You've been consistently working on that project every morning" and "Three separate conversations with your kids this week."
+3. **"What Actually Got Done" prompt** — Captures invisible labor when Activity Log is sparse. Source = 'reckoning_prompt'.
+4. **CompletionNotePrompt** — Non-blocking 8s auto-dismiss toast enriching activity data.
+5. **Evening Reckoning integration stub** — Hook for PRD-18 to consume.
+
+### Build Items (Phase 12B — 10 items)
+
+1. Add `reckoning_prompt` source type to VictorySource union + SOURCE_LABELS
+2. scan-activity-victories Edge Function (Haiku, ~$0.001/scan)
+3. Victory Suggestions UI (Scan My Activity button, suggestion cards, Claim/Edit/Skip)
+4. Enhanced "What Actually Got Done" prompt (sparse activity detection)
+5. CompletionNotePrompt component + wire into task completion flow
+6. Activity log entries for 4 missing sources (intention, widget, list item, routine)
+7. Notepad "Flag as Victory" routing (direct creation, source='notepad_routed')
+8. LiLa "Record Victory" action chip (enabled, no AI detection — user-initiated)
+9. useVictoryReckoningContext hook (stub API for PRD-18)
+10. TypeScript check — tsc -b zero errors
+
+### Stubs (NOT Building Phase 12B)
+
+- DailyCelebration 5-step sequence (Phase 12C)
+- Voice personalities (Phase 12C)
+- Family Celebration (PRD-11B)
+- Auto-route source configuration per member (Settings, future)
+- Reflection response → Victory routing (PRD-18)
+- Victory Reports, TTS audio, Celebration Cards, Pattern Insights (post-MVP)
+
+### Post-Build PRD Verification (Phase 12B)
 
 > To be completed after build.
 

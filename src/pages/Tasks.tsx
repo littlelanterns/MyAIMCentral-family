@@ -40,6 +40,7 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
+import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
@@ -103,6 +104,7 @@ export function TasksPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [guidedNewTask, setGuidedNewTask] = useState('')
   const [guidedCreating, setGuidedCreating] = useState(false)
+  const [completedTask, setCompletedTask] = useState<Task | null>(null)
 
   const { toggle, isCompleting } = useTaskCompletion({
     memberId: member?.id ?? '',
@@ -111,6 +113,7 @@ export function TasksPage() {
       setSparkleOrigin(origin ?? null)
       setTimeout(() => setSparkleOrigin(null), 1000)
     },
+    onComplete: (task) => setCompletedTask(task),
   })
 
   const queryClient = useQueryClient()
@@ -624,6 +627,24 @@ export function TasksPage() {
         onClose={() => setShowCreateModal(false)}
         onSave={handleCreateTask}
       />
+
+      {/* CompletionNotePrompt — non-blocking toast after task completion */}
+      {completedTask && (
+        <CompletionNotePrompt
+          taskTitle={completedTask.title}
+          taskId={completedTask.id}
+          onSaveNote={async (taskId, note) => {
+            await supabase
+              .from('task_completions')
+              .update({ completion_note: note })
+              .eq('task_id', taskId)
+              .eq('member_id', member?.id ?? '')
+              .order('completed_at', { ascending: false })
+              .limit(1)
+          }}
+          onDismiss={() => setCompletedTask(null)}
+        />
+      )}
     </div>
   )
 }

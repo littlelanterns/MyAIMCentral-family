@@ -46,10 +46,31 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
   }
 
   async function handleRouteItem(item: NotepadExtractedItem, destination: string, _subType?: string) {
+    let referenceId: string | undefined
+
+    // Create actual records at the destination
+    if (destination === 'victory') {
+      const { data, error } = await supabase
+        .from('victories')
+        .insert({
+          family_id: familyId,
+          family_member_id: tab.member_id,
+          description: item.extracted_content,
+          source: 'notepad_routed',
+          source_reference_id: item.id,
+          member_type: 'adult',
+          importance: 'standard',
+        })
+        .select('id')
+        .single()
+      if (!error && data) referenceId = data.id
+    }
+
     await routeItemMutation.mutateAsync({
       id: item.id,
       status: 'routed',
       actual_destination: destination,
+      routed_reference_id: referenceId,
     })
     setRoutingItemId(null)
 

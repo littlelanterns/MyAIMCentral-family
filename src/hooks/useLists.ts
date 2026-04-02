@@ -100,7 +100,10 @@ export function useToggleListItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, checked, listId, checkedBy }: { id: string; checked: boolean; listId: string; checkedBy?: string }) => {
+    mutationFn: async ({ id, checked, listId, checkedBy, familyId, itemContent }: {
+      id: string; checked: boolean; listId: string; checkedBy?: string
+      familyId?: string; itemContent?: string
+    }) => {
       const { error } = await supabase
         .from('list_items')
         .update({
@@ -111,6 +114,26 @@ export function useToggleListItem() {
         .eq('id', id)
 
       if (error) throw error
+
+      // Activity log entry for checked items (fire-and-forget)
+      if (checked && familyId && checkedBy) {
+        supabase
+          .from('activity_log_entries')
+          .insert({
+            family_id: familyId,
+            member_id: checkedBy,
+            event_type: 'list_item_completed',
+            source_table: 'list_items',
+            source_id: id,
+            source_reference_id: listId,
+            display_text: itemContent ? `Checked: ${itemContent}` : 'List item completed',
+            metadata: { list_id: listId },
+          })
+          .then(({ error: logErr }) => {
+            if (logErr) console.warn('activity log insert failed:', logErr.message)
+          })
+      }
+
       return listId
     },
     onSuccess: (listId) => {

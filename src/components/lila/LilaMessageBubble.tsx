@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Copy, FileEdit, ArrowRightLeft, ListTodo, Trophy, Check } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Tooltip } from '@/components/shared'
 import { LilaAvatar } from './LilaAvatar'
 import { HumanInTheMix } from '@/components/HumanInTheMix'
@@ -35,6 +36,7 @@ export function LilaMessageBubble({
   const isSystem = message.role === 'system'
   const isAssistant = message.role === 'assistant'
   const [copied, setCopied] = useState(false)
+  const navigate = useNavigate()
 
   // Safe notepad context access (may not be available in all shells)
   let notepad: ReturnType<typeof useNotepadContext> | null = null
@@ -127,9 +129,12 @@ export function LilaMessageBubble({
             <ActionChip
               icon={Trophy}
               label="Record Victory"
-              onClick={() => {/* STUB: wires to PRD-11 */}}
-              disabled
-              title="Coming soon — wires to Victory Recorder"
+              onClick={() => {
+                // Extract a concise description from the assistant message (first 200 chars)
+                const desc = message.content.slice(0, 200).replace(/\n/g, ' ').trim()
+                navigate(`/victories?new=1&prefill=${encodeURIComponent(desc)}`)
+              }}
+              title="Save this as a victory"
             />
           </div>
         )}

@@ -24,6 +24,7 @@ interface UseTaskCompletionOptions {
   memberId: string
   familyId: string
   onSparkle?: (origin?: { x: number; y: number }) => void
+  onComplete?: (task: Task) => void
 }
 
 interface CompletionResult {
@@ -48,7 +49,7 @@ export async function uploadCompletionPhoto(file: File, taskId: string): Promise
   return urlData.publicUrl
 }
 
-export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskCompletionOptions) {
+export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }: UseTaskCompletionOptions) {
   const queryClient = useQueryClient()
   const actedBy = useActedBy()
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
@@ -101,19 +102,24 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
       // if (task.victory_flagged) { create_victory({ source: 'task_completion', source_reference_id: task.id }) }
 
       // Step 5: Activity log entry (fire and forget)
+      const isRoutine = task.task_type === 'routine'
       supabase
         .from('activity_log_entries')
         .insert({
           family_id: familyId,
           member_id: memberId,
-          event_type: 'task_completed',
+          event_type: isRoutine ? 'routine_completed' : 'task_completed',
           source_table: 'tasks',
           source_id: task.id,
+          display_text: isRoutine
+            ? `Routine completed: ${task.title}`
+            : `Task completed: ${task.title}`,
           metadata: {
             task_title: task.title,
             task_type: task.task_type,
             has_photo: !!photoUrl,
             has_note: !!completionNote,
+            completion_note: completionNote ?? null,
           },
         })
         .then(({ error }) => {
@@ -213,6 +219,7 @@ export function useTaskCompletion({ memberId, familyId, onSparkle }: UseTaskComp
             completionNote: extras?.completionNote,
             photoUrl: extras?.photoUrl,
           })
+          onComplete?.(task)
         }
       } finally {
         setCompletingIds((prev) => {

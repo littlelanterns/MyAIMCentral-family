@@ -209,6 +209,25 @@ export function useRecordWidgetData() {
         .select()
         .single()
       if (error) throw error
+
+      // Activity log entry (fire-and-forget) — enriches data for victory scan
+      const widgetLabel = (dataPoint.metadata as Record<string, unknown>)?.widget_name ?? 'Tracker'
+      supabase
+        .from('activity_log_entries')
+        .insert({
+          family_id: dataPoint.family_id,
+          member_id: dataPoint.family_member_id,
+          event_type: 'tracker_entry',
+          source_table: 'widget_data_points',
+          source_id: data.id,
+          source_reference_id: dataPoint.widget_id,
+          display_text: `Tracked: ${widgetLabel} (${dataPoint.value})`,
+          metadata: { widget_id: dataPoint.widget_id, value: dataPoint.value },
+        })
+        .then(({ error: logErr }) => {
+          if (logErr) console.warn('activity log insert failed:', logErr.message)
+        })
+
       return data as WidgetDataPoint
     },
     onSuccess: (data) => {

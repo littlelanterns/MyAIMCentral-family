@@ -1048,7 +1048,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         style={{ opacity: item.checked ? 0.5 : 1 }}
       >
         <button
-          onClick={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
+          onClick={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined })}
           className="shrink-0"
         >
           <div
@@ -1510,7 +1510,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                       key={item.id}
                       item={item}
                       listType={list.list_type}
-                      onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
+                      onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined })}
                       onDelete={() => deleteItem.mutate({ id: item.id, listId })}
                       onPromote={() => handlePromote(item)}
                       isEditing={editingId === item.id}
@@ -1536,7 +1536,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                     key={item.id}
                     item={item}
                     listType={list.list_type}
-                    onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id })}
+                    onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined })}
                     onDelete={() => deleteItem.mutate({ id: item.id, listId })}
                     onPromote={() => handlePromote(item)}
                     isEditing={editingId === item.id}

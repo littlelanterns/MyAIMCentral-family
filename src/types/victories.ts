@@ -16,6 +16,7 @@ export type VictorySource =
   | 'reflection_routed'
   | 'list_item_completed'
   | 'routine_completion'
+  | 'reckoning_prompt'
   | 'homeschool_logged'
   | 'plan_completed'
   | 'milestone_completed'
@@ -186,6 +187,32 @@ export const IMPORTANCE_OPTIONS: { value: VictoryImportance; label: string }[] =
   { value: 'major_achievement', label: 'Major Achievement' },
 ]
 
+// ============================================================
+// Activity scan suggestions (Phase 12B)
+// ============================================================
+
+export interface VictorySuggestion {
+  description: string
+  pattern_note?: string
+  life_area_tag: string | null
+  guiding_star_id: string | null
+  best_intention_id: string | null
+  source_log_ids: string[]
+}
+
+export interface ScanActivityRequest {
+  family_member_id: string
+  period: 'today' | 'this_week' | 'this_month' | 'custom'
+  custom_start?: string
+  custom_end?: string
+}
+
+export interface ScanActivityResponse {
+  suggestions: VictorySuggestion[]
+  model_used: string
+  token_count: { input: number; output: number }
+}
+
 // Source display mapping for victory cards
 export const SOURCE_LABELS: Record<VictorySource, string> = {
   manual: 'Recorded manually',
@@ -198,6 +225,7 @@ export const SOURCE_LABELS: Record<VictorySource, string> = {
   reflection_routed: 'From Reflection',
   list_item_completed: 'List item completed',
   routine_completion: 'Routine completed',
+  reckoning_prompt: 'What Actually Got Done',
   homeschool_logged: 'Homeschool logged',
   plan_completed: 'Plan completed',
   milestone_completed: 'Milestone completed',

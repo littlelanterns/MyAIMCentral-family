@@ -1,14 +1,16 @@
 // PRD-11: Victory Recorder — adult/teen celebration-only surface
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Trophy, Plus, Star, Sparkles, Clock, ChevronRight } from 'lucide-react'
+import { Trophy, Plus, Star, Sparkles, Clock, ChevronRight, MessageSquarePlus } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useVictories, useLifeAreaBreakdown } from '@/hooks/useVictories'
+import { useVictories, useVictoryCount, useLifeAreaBreakdown } from '@/hooks/useVictories'
 import { RecordVictory } from '@/components/victories/RecordVictory'
 import { VictoryDetail } from '@/components/victories/VictoryDetail'
 import { CelebrationModal } from '@/components/victories/CelebrationModal'
 import { CelebrationArchive } from '@/components/victories/CelebrationArchive'
+import { VictorySuggestions } from '@/components/victories/VictorySuggestions'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
+import { supabase } from '@/lib/supabase/client'
 import type { Victory, VictoryFilters, VictoryPeriodFilter } from '@/types/victories'
 import { SOURCE_LABELS } from '@/types/victories'
 
@@ -39,6 +41,8 @@ export function VictoryRecorder() {
     lifeAreaTags: [],
     specialFilter: null,
   })
+  const prefillText = searchParams.get('prefill') ? decodeURIComponent(searchParams.get('prefill')!) : undefined
+  const prefillSource = searchParams.get('source') ?? undefined
   const [showRecord, setShowRecord] = useState(searchParams.get('new') === '1')
   const [selectedVictory, setSelectedVictory] = useState<Victory | null>(null)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -48,6 +52,24 @@ export function VictoryRecorder() {
   const memberId = member?.id
   const { data: victories = [], isLoading } = useVictories(memberId, filters)
   const { data: lifeAreas = [] } = useLifeAreaBreakdown(memberId, filters.period)
+  const { data: todayVictoryCount = 0 } = useVictoryCount(memberId, 'today')
+
+  // Check if activity log is sparse today (< 3 entries) for "What Actually Got Done" prompt
+  const [activitySparse, setActivitySparse] = useState(false)
+  useEffect(() => {
+    if (!memberId || !member?.family_id) return
+    const today = new Date().toISOString().slice(0, 10)
+    supabase
+      .from('activity_log_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('family_id', member.family_id)
+      .eq('member_id', memberId)
+      .gte('created_at', `${today}T00:00:00`)
+      .lte('created_at', `${today}T23:59:59.999`)
+      .then(({ count }) => {
+        setActivitySparse((count ?? 0) < 3)
+      })
+  }, [memberId, member?.family_id])
 
   const victoryIds = useMemo(() => victories.map(v => v.id), [victories])
 
@@ -76,6 +98,13 @@ export function VictoryRecorder() {
     if (origin) setSparkleOrigin(origin)
     setShowRecord(false)
   }, [])
+
+  // Auto-open celebrate if ?celebrate=1 (for reckoning hook)
+  useEffect(() => {
+    if (searchParams.get('celebrate') === '1' && victories.length > 0) {
+      setShowCelebration(true)
+    }
+  }, [searchParams, victories.length])
 
   if (!member) return null
 
@@ -205,6 +234,45 @@ export function VictoryRecorder() {
         </div>
       </div>
 
+      {/* "What Actually Got Done" prompt — shows when activity is sparse and no victories today */}
+      {activitySparse && todayVictoryCount === 0 && filters.period === 'today' && !isLoading && (
+        <button
+          onClick={() => setShowRecord(true)}
+          className="w-full mb-4 rounded-lg p-4 text-left transition-colors"
+          style={{
+            background: 'color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) 8%, var(--color-surface-secondary, var(--color-bg-secondary)))',
+            border: '1px dashed color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) 40%, transparent)',
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <MessageSquarePlus size={20} style={{ color: 'var(--color-sparkle-gold, #D4AF37)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--color-text-primary)' }}>
+                What happened today that didn't make it onto a list?
+              </p>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Calming a meltdown, handling a crisis, driving to appointments — the invisible work counts too.
+              </p>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* Victory Suggestions — Haiku-powered activity scan */}
+      {memberId && (
+        <VictorySuggestions
+          memberId={memberId}
+          familyId={member.family_id}
+          memberType={member.role === 'primary_parent' || member.role === 'additional_adult' || member.role === 'special_adult' ? 'adult' : 'teen'}
+          period={filters.period}
+          customStart={filters.customStart}
+          customEnd={filters.customEnd}
+          onVictoryClaimed={() => {
+            // Invalidation happens inside useCreateVictory already
+          }}
+        />
+      )}
+
       {/* Victory List */}
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -298,6 +366,8 @@ export function VictoryRecorder() {
           memberId={member.id}
           familyId={member.family_id}
           memberType={member.role === 'primary_parent' || member.role === 'additional_adult' || member.role === 'special_adult' ? 'adult' : 'teen'}
+          defaultDescription={prefillText}
+          defaultSource={prefillSource}
         />
       )}
 

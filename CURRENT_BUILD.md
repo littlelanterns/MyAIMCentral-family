@@ -4,11 +4,148 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-11 Victory Recorder (Phase 12A) + PRD-14D Family Hub (Phase A, gaps) + PRD-25 Guided Dashboard (Phase A)
+## Status: ACTIVE — PRD-11 Victory Recorder (Phase 12B) + PRD-14D Family Hub (Phase A, gaps) + PRD-25 Guided Dashboard (Phase A)
 
 ---
 
-# Build D: PRD-11 Victory Recorder (Phase 12A)
+# Build D: PRD-11 Victory Recorder (Phase 12B — Intelligence Layer & Cross-Feature Wiring)
+
+### PRD Files
+- `prds/personal-growth/PRD-11-Victory-Recorder-Daily-Celebration.md` (full PRD — re-read for incoming flows, auto-routing, cross-feature sections)
+- `prds/personal-growth/PRD-11B-Family-Celebration.md` (companion — read for awareness, NOT building)
+
+### Addenda Read
+- `audit/UNRESOLVED_CROSS_PRD_ACTIONS.md` (PRD-11 section: 15+ cross-PRD source enum values — already in types)
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md`
+- `prds/addenda/PRD-18-Cross-PRD-Impact-Addendum.md` (Evening Rhythm reads victories, reflection_routed source)
+- `prds/addenda/PRD-24-Cross-PRD-Impact-Addendum.md` (DailyCelebration Step 3/4 gamification data)
+- `prds/addenda/PRD-25-Cross-PRD-Impact-Addendum.md` (DailyCelebration Step 2.5 reflections)
+- `prds/addenda/PRD-28-Cross-PRD-Impact-Addendum.md` (homeschool_logged source)
+- `prds/addenda/PRD-29-Cross-PRD-Impact-Addendum.md` (plan_completed, milestone_completed sources)
+- 17 other addenda reference PRD-11 — none contain overrides relevant to Phase 12B
+
+### Feature Decision File
+`claude/feature-decisions/PRD-11-Victory-Recorder.md` (Phase 12A decisions + Phase 12B additions)
+
+### Build Spec
+Founder-provided Phase 12B build prompt with 5 critical design overrides.
+
+---
+
+### Pre-Build Summary
+
+#### Context
+Phase 12A built core recording, browsing, and celebration. Phase 12B makes the Victory Recorder smart — connecting it to the rest of the platform via an Activity Log intelligence scan, cross-feature activity logging, and targeted UI wiring. The key architectural decision: **victories are claimed, not auto-generated**. The Activity Log captures everything silently, a Haiku scan surfaces meaningful patterns, and the user decides what to celebrate.
+
+#### Founder Design Overrides (Supersede PRD)
+1. **No silent auto-routing.** PRD says auto-create victories from task completions. Founder override: Activity Log captures actions → Haiku scan suggests → user claims. Human-in-the-Mix applied to victory recognition.
+2. **Activity Log scan looks for meaning, not just completions.** Patterns, consistency, effort on hard things.
+3. **"What Actually Got Done" prompt** when Activity Log is sparse — captures invisible labor.
+4. **CompletionNotePrompt** — non-blocking toast on task completion (8s auto-dismiss). Enriches activity data.
+5. **Evening Reckoning integration** — stub hook for PRD-18 to consume.
+
+#### Dependencies Already Built (Phase 12A)
+- VictoryRecorder page with period/life area filters, victory cards, empty state
+- RecordVictory modal, VictoryDetail modal, CelebrationModal, CelebrationArchive
+- useVictories hook with full CRUD + queries
+- celebrate-victory Edge Function (Sonnet/Haiku)
+- InfoRecentVictories widget — already rendering real data
+- Activity log trigger on victories INSERT (`trg_victory_activity_log`)
+- Task completion activity log entry (`event_type: 'task_completed'`) in useTaskCompletion.ts
+- All 3 tables with RLS, all 16 source enum values in types
+- Notepad routing destination 'victory' registered
+- QuickCreate "Log Victory" navigates to `/victories?new=1`
+- LiLa "Record Victory" action chip (disabled stub)
+
+#### Dependencies NOT Yet Built
+- scan-activity-victories Edge Function (new)
+- Victory Suggestions UI section (new)
+- CompletionNotePrompt component (new)
+- Activity log entries for: intention iteration, widget data point, list item completion, routine completion (4 sources)
+- Notepad "Flag as Victory" actual handler (destination registered, handler missing)
+- useVictoryReckoningContext hook (new)
+- `reckoning_prompt` source type (new)
+
+#### Build Items (Phase 12B — 10 items)
+
+**1. Add `reckoning_prompt` source type**
+- Add to VictorySource union in `src/types/victories.ts`
+- Add to SOURCE_LABELS map
+- For "What Actually Got Done" entries captured from the proactive prompt
+
+**2. scan-activity-victories Edge Function**
+- Haiku-powered scan of activity_log_entries for a member + period
+- Loads Guiding Stars + Best Intentions for context matching
+- Loads existing victories to avoid duplicate suggestions
+- Returns JSON array: description, pattern_note, life_area_tag, GS/BI IDs, source_log_ids
+- Always Haiku (~$0.001/scan)
+- Uses _shared/ utilities (cors, auth, cost-logger)
+
+**3. Victory Suggestions UI on VictoryRecorder page**
+- "Scan My Activity" button (user-initiated)
+- Collapsible "LiLa noticed these..." section with suggestion cards
+- Each card: Claim / Edit & Claim / Skip
+- Session-only state (not persisted)
+- Gold sparkle on claim
+
+**4. Enhance "What Actually Got Done" prompt**
+- Currently exists as empty state — enhance to also show as a prompt card when activity is sparse (< 3 entries today + no victories today)
+- Opens RecordVictory with source = 'reckoning_prompt'
+
+**5. CompletionNotePrompt component**
+- Non-blocking toast on task completion: "Add a note?"
+- Auto-dismisses after 8 seconds
+- Expands to textarea on tap, pauses auto-dismiss
+- Saves to task_completions.completion_note
+- Wire into useTaskCompletion flow
+
+**6. Wire activity log entries for 4 missing sources**
+- Intention iteration: add to useLogIteration() in useBestIntentions.ts
+- Widget data point: add to useRecordWidgetData() in useWidgets.ts
+- List item completion: add to useToggleListItem() in useLists.ts
+- Routine completion: add to useTaskCompletion.ts for routine-type tasks
+
+**7. Wire Notepad "Flag as Victory" routing**
+- In NotepadReviewRoute.tsx, when destination='victory': create victory record with source='notepad_routed'
+- Direct creation — user explicitly chose this destination
+
+**8. Wire LiLa "Record Victory" action chip**
+- Enable disabled chip in LilaMessageBubble.tsx
+- On click: navigate to /victories?new=1 with prefilled text from conversation
+- Detection logic is STUB — chip always available, user decides
+
+**9. Build useVictoryReckoningContext hook**
+- Export hook providing: today's victory count, today's victories list, scan trigger, celebrate trigger
+- No consumer yet — API for PRD-18
+
+**10. TypeScript check**
+- `tsc -b` — zero errors before declaring complete
+
+### Stubs (NOT Building Phase 12B)
+- DailyCelebration 5-step sequence (Phase 12C)
+- Voice personalities (Phase 12C)
+- Family Celebration (PRD-11B)
+- Auto-route source configuration per member (Settings, future)
+- Reflection response → Victory routing (PRD-18)
+- Victory Reports (post-MVP)
+- TTS audio, Celebration Cards visual (post-MVP)
+- Pattern Insights for teens (post-MVP)
+- LifeLantern context in celebrations (future)
+
+### Key Decisions
+1. **No silent auto-routing** — founder override. Activity Log captures; scan suggests; user claims.
+2. **Scan is user-initiated** — "Scan My Activity" button, not automatic.
+3. **Suggestions are session-only** — not persisted to database.
+4. **Notepad "Flag as Victory" IS direct creation** — the ONE cross-feature path that creates records directly.
+5. **CompletionNotePrompt is non-blocking** — auto-dismisses 8s, never interrupts flow.
+6. **InfoRecentVictories widget already works** — no additional widget work needed.
+7. **LiLa detection is partial** — chip enabled for manual use, no AI detection logic.
+8. **Routine completion logged client-side** — since reset is a DB trigger, we log at completion time for routine-type tasks.
+9. **`reckoning_prompt`** added as new source type for "What Actually Got Done" entries.
+
+---
+
+# Build D (Previous): PRD-11 Victory Recorder (Phase 12A) — COMPLETED 2026-04-01
 
 ### PRD Files
 - `prds/personal-growth/PRD-11-Victory-Recorder-Daily-Celebration.md` (full PRD — read every word)

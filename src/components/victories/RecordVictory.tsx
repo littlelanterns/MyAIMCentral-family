@@ -12,10 +12,12 @@ interface RecordVictoryProps {
   memberId: string
   familyId: string
   memberType: MemberType
+  defaultDescription?: string
+  defaultSource?: string
 }
 
-export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType }: RecordVictoryProps) {
-  const [description, setDescription] = useState('')
+export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType, defaultDescription, defaultSource }: RecordVictoryProps) {
+  const [description, setDescription] = useState(defaultDescription ?? '')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [importance, setImportance] = useState<VictoryImportance>('standard')
   const [bulkMode, setBulkMode] = useState(false)
@@ -30,6 +32,8 @@ export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType
     const text = description.trim()
     if (!text) return
 
+    const source = (defaultSource ?? 'manual') as import('@/types/victories').VictorySource
+
     if (bulkMode) {
       // Split by newlines, create separate victories for each line
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
@@ -41,6 +45,7 @@ export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType
           life_area_tag: lifeAreaTag,
           member_type: memberType,
           importance,
+          source,
         })
       }
     } else {
@@ -51,6 +56,7 @@ export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType
         life_area_tag: lifeAreaTag,
         member_type: memberType,
         importance,
+        source,
       })
     }
 

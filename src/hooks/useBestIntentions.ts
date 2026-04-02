@@ -406,11 +406,13 @@ export function useLogIteration() {
       familyId,
       memberId,
       victoryReference,
+      intentionStatement,
     }: {
       intentionId: string
       familyId: string
       memberId: string
       victoryReference?: string
+      intentionStatement?: string
     }) => {
       const today = new Date().toISOString().split('T')[0]
 
@@ -430,6 +432,23 @@ export function useLogIteration() {
       if (error) throw error
 
       // iteration_count is auto-incremented by DB trigger (trg_increment_iteration_count)
+
+      // Activity log entry (fire-and-forget) — enriches data for victory scan
+      supabase
+        .from('activity_log_entries')
+        .insert({
+          family_id: familyId,
+          member_id: memberId,
+          event_type: 'intention_iterated',
+          source_table: 'intention_iterations',
+          source_id: data.id,
+          source_reference_id: intentionId,
+          display_text: intentionStatement ? `Celebrated: ${intentionStatement}` : 'Best Intention celebrated',
+          metadata: { intention_id: intentionId },
+        })
+        .then(({ error: logErr }) => {
+          if (logErr) console.warn('activity log insert failed:', logErr.message)
+        })
 
       return data as IntentionIteration
     },

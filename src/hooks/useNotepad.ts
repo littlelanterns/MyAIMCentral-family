@@ -513,10 +513,11 @@ export function useRouteContent() {
             .from('victories')
             .insert({
               family_id: familyId,
-              member_id: tab.member_id,
-              title: tab.title !== 'New Tab' ? tab.title : content.slice(0, 80),
+              family_member_id: tab.member_id,
               description: content,
-              source: 'manual',
+              source: 'notepad_routed',
+              member_type: 'adult',
+              importance: 'standard',
             })
             .select('id')
             .single()
