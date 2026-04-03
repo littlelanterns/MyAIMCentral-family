@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye } from 'lucide-react'
+import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, ChevronDown, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -152,6 +152,7 @@ function GuidedBottomNav() {
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
   const [showConversationHistory, setShowConversationHistory] = useState(false)
+  const [aiToolsExpanded, setAiToolsExpanded] = useState(false)
   const { openTool, resumeConversation } = useToolLauncher()
   const { data: member } = useFamilyMember()
 
@@ -316,36 +317,52 @@ function GuidedBottomNav() {
                 </div>
               ))}
 
-              {/* AI Tools — launch as modals, not page navigation */}
+              {/* AI Tools — collapsible section, default collapsed */}
               <div className="py-2">
-                <p
-                  className="px-5 py-1 text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: 'var(--color-btn-primary-bg)', opacity: 0.7 }}
+                <button
+                  onClick={() => setAiToolsExpanded(prev => !prev)}
+                  className="flex items-center justify-between w-full px-5 py-1.5"
+                  style={{ background: 'transparent' }}
                 >
-                  AI Tools
-                </p>
-                {GUIDED_AI_TOOLS.map((tool) => (
-                  <button
-                    key={tool.modeKey}
-                    onClick={() => { openTool(tool.modeKey); setMoreOpen(false) }}
-                    className="flex items-center gap-3 px-5 py-3 w-full text-left min-h-[48px]"
-                    style={{ color: 'var(--color-text-primary)', background: 'transparent' }}
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--color-btn-primary-bg)', opacity: 0.7 }}
                   >
-                    <span style={{ color: 'var(--color-text-secondary)' }}>{tool.icon}</span>
-                    <div className="flex-1">
-                      <span className="text-sm font-medium">{tool.label}</span>
-                      <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                        {tool.description}
-                      </span>
-                    </div>
-                    <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
-                  </button>
-                ))}
-                {/* My Conversations — view past AI tool conversations */}
+                    AI Tools
+                  </span>
+                  {aiToolsExpanded
+                    ? <ChevronDown size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }} />
+                    : <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }} />
+                  }
+                </button>
+
+                {aiToolsExpanded && (
+                  <>
+                    {GUIDED_AI_TOOLS.map((tool) => (
+                      <button
+                        key={tool.modeKey}
+                        onClick={() => { openTool(tool.modeKey); setMoreOpen(false) }}
+                        className="flex items-center gap-3 px-5 py-3 w-full text-left min-h-[48px]"
+                        style={{ color: 'var(--color-text-primary)', background: 'transparent' }}
+                      >
+                        <span style={{ color: 'var(--color-text-secondary)' }}>{tool.icon}</span>
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{tool.label}</span>
+                          <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                            {tool.description}
+                          </span>
+                        </div>
+                        <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {/* My Conversations — always visible regardless of collapse state */}
                 <button
                   onClick={() => { setShowConversationHistory(true); setMoreOpen(false) }}
-                  className="flex items-center gap-3 px-5 py-3 w-full text-left min-h-[48px] border-t"
-                  style={{ color: 'var(--color-text-primary)', background: 'transparent', borderColor: 'var(--color-border)' }}
+                  className="flex items-center gap-3 px-5 py-3 w-full text-left min-h-[48px]"
+                  style={{ color: 'var(--color-text-primary)', background: 'transparent' }}
                 >
                   <span style={{ color: 'var(--color-text-secondary)' }}><History size={20} /></span>
                   <div className="flex-1">
