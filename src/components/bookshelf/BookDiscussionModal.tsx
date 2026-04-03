@@ -265,7 +265,18 @@ export function BookDiscussionModal({
           )}
 
           {!loading && started && messages.length === 0 && !sending && !error && (
-            <div className="text-center text-sm text-[var(--color-text-tertiary)] py-8">Starting discussion...</div>
+            <div
+              className="rounded-xl px-4 py-3 text-sm space-y-2 mx-auto max-w-md"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+            >
+              <p>Ask a question about {bookTitles.length === 1
+                ? `"${bookTitles[0]}"`
+                : bookTitles.map(t => `"${t}"`).join(', ')
+              } and LiLa will draw from the content to answer.</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Try something like: <span className="italic">&ldquo;What are the main ideas in {bookTitles.length === 1 ? 'this book' : 'these books'}?&rdquo;</span>
+              </p>
+            </div>
           )}
 
           {messages.map(msg => (

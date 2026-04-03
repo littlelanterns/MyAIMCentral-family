@@ -19,7 +19,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   useLilaMessages,
   useCreateConversation,
-  useGuidedMode,
   detectCrisis,
   CRISIS_RESPONSE,
 } from '@/hooks/useLila'
@@ -137,7 +136,6 @@ async function callBoD(conversationId: string, action: string, payload: Record<s
 export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { data: mode } = useGuidedMode('board_of_directors')
   const createConversation = useCreateConversation()
   const queryClient = useQueryClient()
 
@@ -153,7 +151,6 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
   const [seatedPersonas, setSeatedPersonas] = useState<Persona[]>([])
   const [showPersonaSelector, setShowPersonaSelector] = useState(false)
   const [showCreatePersona, setShowCreatePersona] = useState(false)
-  const [openingMessage, setOpeningMessage] = useState<string | null>(null)
 
   // Persona selector state
   const [searchQuery, setSearchQuery] = useState('')
@@ -202,15 +199,7 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
       .then(({ data }) => { if (data) setFavorites(data.map(f => f.persona_id)) })
   }, [member])
 
-  // ── Opening message ──────────────────────────────────────
-
-  useEffect(() => {
-    if (messages.length > 0 || !mode) return
-    const openers = mode.opening_messages || []
-    if (openers.length > 0) {
-      setOpeningMessage(openers[Math.floor(Math.random() * openers.length)] as string)
-    }
-  }, [mode, messages.length])
+  // Static intro (replaces AI opening messages)
 
   // ── Scroll ───────────────────────────────────────────────
 
@@ -550,13 +539,16 @@ export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-          {/* Opening message */}
-          {messages.length === 0 && openingMessage && !isStreaming && (
-            <div className="flex gap-2">
-              <LilaAvatar avatarKey="sitting" size={16} className="mt-1" />
-              <div className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
-                <p>{openingMessage}</p>
-              </div>
+          {/* Static intro card */}
+          {messages.length === 0 && !isStreaming && (
+            <div
+              className="rounded-xl px-4 py-3 text-sm space-y-2"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+            >
+              <p>Seat your advisors, then share what you are working through. Each advisor will respond from their own perspective.</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Try something like: <span className="italic">&ldquo;I am thinking about starting a business — is this the right time?&rdquo;</span>
+              </p>
             </div>
           )}
 

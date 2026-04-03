@@ -69,6 +69,54 @@ const PARTNER_ONLY_TOOLS = new Set(['cyrano'])
 // Tools that support multi-select (all tools except partner-only Cyrano)
 const MULTI_SELECT_TOOLS = new Set(['higgins_say', 'higgins_navigate', 'quality_time', 'gifts', 'observe_serve', 'words_affirmation', 'gratitude', 'mediator'])
 
+// Static intro cards — shown instantly, no AI call needed
+const TOOL_INTROS: Record<string, { hint: string; example: string }> = {
+  cyrano: {
+    hint: 'Tell LiLa what you want to say to your partner. She\'ll draft it in your voice, elevated.',
+    example: 'I want to tell him how much I appreciate him stepping up this week',
+  },
+  higgins_say: {
+    hint: 'Describe what you want to say to someone. LiLa will draft it for you and teach you why it works.',
+    example: 'I need to talk to my teen about screen time without nagging',
+  },
+  higgins_navigate: {
+    hint: 'Describe a tricky situation you\'re facing. LiLa will help you figure out how to handle it.',
+    example: 'My daughter is having friendship drama and I want to help without overstepping',
+  },
+  quality_time: {
+    hint: 'Share who you want to connect with and what\'s going on. LiLa will suggest meaningful ways to spend time together.',
+    example: 'My son wants more one-on-one time but I\'m stretched thin with the younger kids',
+  },
+  gifts: {
+    hint: 'Tell LiLa about the person and the occasion. She\'ll help you find something that says "I was thinking about you."',
+    example: 'Our anniversary is coming up and he always says he doesn\'t need anything',
+  },
+  observe_serve: {
+    hint: 'Notice something someone did? Describe it and LiLa will help you acknowledge it in a way that lands.',
+    example: 'My teen has been doing his own laundry without being asked',
+  },
+  words_affirmation: {
+    hint: 'Share what someone did or who they are. LiLa will help you write something that goes beyond "good job."',
+    example: 'My daughter worked really hard on her art project for the showcase',
+  },
+  gratitude: {
+    hint: 'Share what you\'re grateful for. LiLa will help you deepen it and find the words to express it.',
+    example: 'He drove 3 hours to pick up curriculum and didn\'t even complain',
+  },
+  decision_guide: {
+    hint: 'Describe the decision you\'re stuck on. LiLa will help you think through it with the right framework.',
+    example: 'Should I put the kids in a co-op class or keep teaching at home?',
+  },
+  mediator: {
+    hint: 'Describe the disagreement or tension you\'re working through. LiLa will help you find clarity.',
+    example: 'We keep disagreeing about how much independence to give our teen',
+  },
+  perspective_shifter: {
+    hint: 'Share what you\'re working through. Try different lenses to see it from new angles.',
+    example: 'My teen wants a job but I\'m worried it will interfere with school',
+  },
+}
+
 // ── Streaming helper ────────────────────────────────────────────
 
 async function streamToolChat(
@@ -189,7 +237,6 @@ export function ToolConversationModal({
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [openingMessage, setOpeningMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Decision Guide framework state (PRD-34)
@@ -277,24 +324,8 @@ export function ToolConversationModal({
     })
   }, [isMultiSelect, isPartnerOnly])
 
-  // ── Opening message ────────────────────────────────────────
-
-  useEffect(() => {
-    if (messages.length > 0 || !mode) return
-    const openers = mode.opening_messages || []
-    if (openers.length > 0) {
-      let msg = openers[Math.floor(Math.random() * openers.length)] as string
-      // Personalize with selected person name
-      const personName = selectedPersonIds.length === 1
-        ? familyMembers.find(fm => fm.id === selectedPersonIds[0])?.display_name
-        : undefined
-      if (personName) {
-        msg = msg.replace(/\[Name\]/g, personName).replace(/\[Partner\]/g, personName)
-          .replace(/your partner/g, personName)
-      }
-      setOpeningMessage(msg)
-    }
-  }, [mode, messages.length, selectedPersonIds, familyMembers])
+  // Static intro card (replaces AI opening messages)
+  const toolIntro = TOOL_INTROS[modeKey] || null
 
   // ── Scroll & Escape ────────────────────────────────────────
 
@@ -665,21 +696,30 @@ export function ToolConversationModal({
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-          {messages.length === 0 && openingMessage && !isStreaming && (
-            <div className="flex gap-2">
-              <LilaAvatar avatarKey={avatarKey} size={16} className="mt-1" />
+          {messages.length === 0 && toolIntro && !isStreaming && (() => {
+            // Personalize hint with selected person's name
+            const personName = selectedPersonIds.length === 1
+              ? familyMembers.find(fm => fm.id === selectedPersonIds[0])?.display_name
+              : undefined
+            const hint = personName
+              ? toolIntro.hint.replace(/someone/i, personName).replace(/the person/i, personName)
+              : toolIntro.hint
+            return (
               <div
-                className="rounded-lg px-3 py-2 text-sm"
+                className="rounded-xl px-4 py-3 text-sm space-y-2"
                 style={{
-                  backgroundColor: 'var(--color-bg-primary)',
+                  backgroundColor: 'var(--color-bg-secondary)',
                   color: 'var(--color-text-primary)',
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <p>{openingMessage}</p>
+                <p>{hint}</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  Try something like: <span className="italic">&ldquo;{toolIntro.example}&rdquo;</span>
+                </p>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Decision Guide: Suggest/Pick buttons after first assistant response, before framework is selected */}
           {isDecisionGuide && !activeFrameworkKey && messages.length >= 2 && !isStreaming && (

@@ -208,6 +208,8 @@ Deno.serve(async (req) => {
         role: (m.role === 'system' ? 'assistant' : m.role) as 'user' | 'assistant',
         content: m.content,
       })),
+      // Current user message (not yet in history since we fetched before insert)
+      { role: 'user' as const, content },
     ]
 
     // Stream response

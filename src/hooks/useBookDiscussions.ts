@@ -76,53 +76,7 @@ export function useBookDiscussions() {
       setActiveDiscussion(discussion)
       setMessages([])
 
-      // Call Edge Function for AI opening
-      const { data: aiResponse, error: aiErr } = await supabase.functions.invoke('bookshelf-discuss', {
-        body: {
-          bookshelf_item_ids: bookshelfItemIds,
-          discussion_type: discussionType,
-          audience,
-          message: '',
-          conversation_history: [],
-          family_id: member.family_id,
-          member_id: member.id,
-        },
-      })
-
-      if (aiErr || aiResponse?.error) {
-        setError(aiErr?.message || aiResponse?.error || 'AI response failed')
-        return discussion
-      }
-
-      const aiContent = aiResponse?.content || ''
-      if (aiContent) {
-        // Save AI opening message
-        const { data: aiMsg } = await supabase
-          .from('bookshelf_discussion_messages')
-          .insert({
-            discussion_id: discussion.id,
-            role: 'assistant',
-            content: aiContent,
-            metadata: {},
-          })
-          .select('*')
-          .single()
-
-        if (aiMsg) setMessages([aiMsg])
-
-        // Auto-generate title
-        const snippet = aiContent.substring(0, 80).replace(/\n/g, ' ').trim()
-        const autoTitle = snippet.length >= 80 ? snippet.substring(0, 77) + '...' : snippet
-
-        await supabase
-          .from('bookshelf_discussions')
-          .update({ title: autoTitle })
-          .eq('id', discussion.id)
-
-        discussion.title = autoTitle
-        setActiveDiscussion({ ...discussion, title: autoTitle })
-      }
-
+      // No AI opening — user starts the conversation
       return discussion
     } catch (err) {
       setError((err as Error).message)
