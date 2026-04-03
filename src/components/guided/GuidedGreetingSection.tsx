@@ -3,9 +3,11 @@
  * Shows personalized greeting, Guiding Stars rotation, and gamification indicators.
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Star, Flame, Volume2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { speak } from '@/utils/speak'
 
 interface GuidedGreetingSectionProps {
   memberName: string
@@ -27,46 +29,41 @@ export function GuidedGreetingSection({
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  // Guiding Stars rotation
-  const [stars, setStars] = useState<Array<{ id: string; content: string }>>([])
+  // Guiding Stars rotation (cached via TanStack Query)
+  const { data: stars = [] } = useQuery({
+    queryKey: ['guiding-stars-greeting', familyId, memberId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('guiding_stars')
+        .select('id, content')
+        .eq('family_id', familyId)
+        .eq('member_id', memberId)
+        .eq('is_included_in_ai', true)
+        .is('archived_at', null)
+        .order('sort_order', { ascending: true })
+      return data ?? []
+    },
+    enabled: !!familyId && !!memberId,
+    staleTime: 5 * 60_000,
+  })
+
   const [activeIndex, setActiveIndex] = useState(0)
   const [fading, setFading] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined)
-
-  useEffect(() => {
-    if (!familyId || !memberId) return
-    supabase
-      .from('guiding_stars')
-      .select('id, content')
-      .eq('family_id', familyId)
-      .eq('member_id', memberId)
-      .eq('is_included_in_ai', true)
-      .is('archived_at', null)
-      .order('sort_order', { ascending: true })
-      .then(({ data }) => { if (data) setStars(data) })
-  }, [familyId, memberId])
 
   useEffect(() => {
     if (stars.length <= 1) return
-    timerRef.current = setInterval(() => {
+    const interval = setInterval(() => {
       setFading(true)
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         setActiveIndex(prev => (prev + 1) % stars.length)
         setFading(false)
       }, 400)
+      return () => clearTimeout(timeout)
     }, 30_000)
-    return () => clearInterval(timerRef.current)
+    return () => clearInterval(interval)
   }, [stars.length])
 
   const currentStar = stars[activeIndex]
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
-  }
 
   return (
     <div>

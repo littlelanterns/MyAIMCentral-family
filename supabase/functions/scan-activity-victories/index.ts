@@ -171,7 +171,11 @@ Deno.serve(async (req: Request) => {
     if (auth instanceof Response) return auth
 
     const body = await req.json()
-    const input = RequestSchema.parse(body)
+    const parsed = RequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: 'Invalid request', details: parsed.error.format() }), { status: 400, headers: jsonHeaders })
+    }
+    const input = parsed.data
 
     const member = await getMemberInfo(input.family_member_id)
     if (!member) {

@@ -21,6 +21,8 @@ export interface GuidedDashboardPreferences {
   nbt_last_suggestion_date: string // ISO date string, reset daily
   // Graduation (Post-MVP)
   graduation_tutorial_completed: boolean
+  // Calendar view
+  guided_calendar_view_default: 'day' | 'week'
   // Task view
   guided_task_view_default: 'simple_list' | 'now_next_optional'
   // Best Intentions
@@ -41,6 +43,7 @@ export const GUIDED_PREFERENCES_DEFAULTS: GuidedDashboardPreferences = {
   nbt_last_suggestion_index: 0,
   nbt_last_suggestion_date: '',
   graduation_tutorial_completed: false,
+  guided_calendar_view_default: 'day',
   guided_task_view_default: 'simple_list',
   child_can_create_best_intentions: true,
   lila_homework_enabled: false,

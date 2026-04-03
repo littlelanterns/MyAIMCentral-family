@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react'
 import { X, Volume2 } from 'lucide-react'
 import { useSpellCheckCoaching, type SpellCoachingResult } from '@/hooks/useSpellCheckCoaching'
+import { speak } from '@/utils/speak'
 
 interface SpellCheckOverlayProps {
   /** Visible coaching tooltip state */
@@ -30,14 +31,6 @@ export function SpellCheckOverlay({
   onClose,
 }: SpellCheckOverlayProps) {
   if (!position || (!coaching && !isLoading)) return null
-
-  function handleSpeak(text: string) {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.85
-      window.speechSynthesis.speak(utterance)
-    }
-  }
 
   return (
     <div
@@ -75,7 +68,7 @@ export function SpellCheckOverlay({
             </p>
             {readingSupport && (
               <button
-                onClick={() => handleSpeak(coaching.explanation)}
+                onClick={() => speak(coaching.explanation, 0.85)}
                 className="p-0.5 rounded-full flex-shrink-0 mt-0.5"
                 style={{ background: 'transparent', color: 'inherit', minHeight: 'unset' }}
                 aria-label="Read aloud"

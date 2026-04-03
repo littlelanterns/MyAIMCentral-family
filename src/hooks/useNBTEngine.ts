@@ -24,7 +24,7 @@ export function useNBTEngine(
 ): UseNBTEngineReturn {
   const [currentIndex, setCurrentIndex] = useState(0)
 
-  const { data: tasks = [], isLoading: tasksLoading } = useTasks(familyId ?? '', {
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks(familyId, {
     assigneeId: memberId,
     status: ['pending', 'in_progress'],
     archived: false,

@@ -6,9 +6,10 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { Loader, RefreshCw, ArrowLeft, Check, Sparkles } from 'lucide-react'
+import { Loader, RefreshCw, ArrowLeft, Check, Sparkles, Mic, MicOff } from 'lucide-react'
 import { ModalV2 } from '@/components/shared'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
+import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 import { useCreateArchiveContextItem } from '@/hooks/useArchives'
 import { supabase } from '@/lib/supabase/client'
 import { SYSTEM_FOLDER_NAMES } from '@/types/archives'
@@ -64,6 +65,18 @@ export function BulkAddSortModal({
   const [errorMessage, setErrorMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const createItem = useCreateArchiveContextItem()
+  const voice = useVoiceInput()
+
+  const handleVoiceToggle = useCallback(async () => {
+    if (voice.state === 'recording') {
+      const text = await voice.stopRecording()
+      if (text) {
+        setInputText(prev => prev ? prev + '\n' + text : text)
+      }
+    } else if (voice.state === 'idle') {
+      await voice.startRecording()
+    }
+  }, [voice])
 
   // Auto-trigger sort if initialText is provided (from Voice Dump)
   const [autoTriggered, setAutoTriggered] = useState(false)
@@ -361,19 +374,51 @@ Return this exact structure:
             Describe your family — paste notes, a list, anything. LiLa will sort each item to the right person and folder.
           </p>
 
-          <textarea
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder={`Jordan loves Minecraft and hates math worksheets.\nRuthie needs her weighted blanket during therapy.\nAlex is into music production.\nCasey's favorite series is Percy Jackson.\nFamily rule: no screens before breakfast.`}
-            rows={8}
-            className="w-full text-sm rounded-lg px-3 py-2.5 outline-none transition-colors resize-y"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
-              minHeight: '160px',
-            }}
-          />
+          <div className="relative">
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={`Jordan loves Minecraft and hates math worksheets.\nRuthie needs her weighted blanket during therapy.\nAlex is into music production.\nCasey's favorite series is Percy Jackson.\nFamily rule: no screens before breakfast.`}
+              rows={8}
+              className="w-full text-sm rounded-lg px-3 py-2.5 outline-none transition-colors resize-y"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+                minHeight: '160px',
+              }}
+            />
+            {voice.state === 'recording' && voice.interimText && (
+              <p className="text-xs italic px-3 pt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                {voice.interimText}
+              </p>
+            )}
+          </div>
+
+          {voice.isSupported && (
+            <button
+              type="button"
+              onClick={handleVoiceToggle}
+              disabled={voice.state === 'transcribing'}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+              style={{
+                backgroundColor: voice.state === 'recording'
+                  ? 'color-mix(in srgb, var(--color-error, #c44) 15%, transparent)'
+                  : 'var(--color-bg-secondary)',
+                color: voice.state === 'recording'
+                  ? 'var(--color-error, #c44)'
+                  : 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              {voice.state === 'recording' ? <MicOff size={16} /> : <Mic size={16} />}
+              {voice.state === 'recording'
+                ? `Stop Recording (${formatDuration(voice.duration)})`
+                : voice.state === 'transcribing'
+                  ? 'Transcribing...'
+                  : 'Dictate Instead'}
+            </button>
+          )}
 
           <button
             onClick={() => handleSort()}

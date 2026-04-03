@@ -15,7 +15,7 @@ import { useVoicePreference } from '@/hooks/useVoicePreference'
 import { useFamily } from '@/hooks/useFamily'
 import { supabase } from '@/lib/supabase/client'
 import type { Victory, VictoryFilters, VictoryPeriodFilter, VoicePersonality } from '@/types/victories'
-import { SOURCE_LABELS } from '@/types/victories'
+import { SOURCE_LABELS, VOICE_PERSONALITIES } from '@/types/victories'
 
 const PERIOD_OPTIONS: { value: VictoryPeriodFilter; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -245,7 +245,7 @@ export function VictoryRecorder() {
             className="flex items-center gap-1 text-xs"
             style={{ color: 'var(--color-text-tertiary)' }}
           >
-            Voice: {selectedVoice.replace(/_/g, ' ')}
+            Voice: {VOICE_PERSONALITIES[selectedVoice]?.label ?? selectedVoice.replace(/_/g, ' ')}
             <ChevronRight size={12} className={`transition-transform ${showVoiceSelector ? 'rotate-90' : ''}`} />
           </button>
         </div>

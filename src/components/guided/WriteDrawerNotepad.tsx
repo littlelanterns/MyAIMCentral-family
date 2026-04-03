@@ -77,9 +77,12 @@ export function WriteDrawerNotepad({
     }
   }, [overlay])
 
-  // Persist content to sessionStorage
+  // Persist content to sessionStorage (debounced)
   useEffect(() => {
-    sessionStorage.setItem('guided-write-drawer-content', content)
+    const timer = setTimeout(() => {
+      sessionStorage.setItem('guided-write-drawer-content', content)
+    }, 500)
+    return () => clearTimeout(timer)
   }, [content])
 
   if (showSendTo) {

@@ -4,10 +4,12 @@
  * Guided members can drag-reorder but not resize/delete/create.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { DashboardGrid } from '@/components/widgets/DashboardGrid'
 import { useWidgets, useWidgetFolders, useRecordWidgetData, useUpdateDashboardLayout } from '@/hooks/useWidgets'
 import type { WidgetDataPoint } from '@/types/widgets'
+
+const NO_OP = () => {}
 
 interface GuidedWidgetGridProps {
   familyId: string
@@ -20,7 +22,7 @@ export function GuidedWidgetGrid({ familyId, memberId }: GuidedWidgetGridProps) 
   const recordData = useRecordWidgetData()
   const updateLayout = useUpdateDashboardLayout()
 
-  const dataPointsByWidget: Record<string, WidgetDataPoint[]> = {}
+  const dataPointsByWidget = useMemo<Record<string, WidgetDataPoint[]>>(() => ({}), [])
 
   const handleRecordData = useCallback(
     (widgetId: string, value: number, metadata?: Record<string, unknown>) => {
@@ -52,17 +54,17 @@ export function GuidedWidgetGrid({ familyId, memberId }: GuidedWidgetGridProps) 
       folders={folders}
       dataPointsByWidget={dataPointsByWidget}
       onRecordData={handleRecordData}
-      onOpenWidgetPicker={() => {}} // Guided: no picker access
-      onOpenWidgetDetail={() => {}} // Guided: no detail view
-      onOpenWidgetConfig={() => {}} // Guided: no config access
-      onOpenFolder={() => {}}
-      onRemoveWidget={() => {}} // Guided: cannot remove
-      onResizeWidget={() => {}} // Guided: cannot resize
+      onOpenWidgetPicker={NO_OP}
+      onOpenWidgetDetail={NO_OP}
+      onOpenWidgetConfig={NO_OP}
+      onOpenFolder={NO_OP}
+      onRemoveWidget={NO_OP}
+      onResizeWidget={NO_OP}
       onUpdateLayout={handleUpdateLayout}
       canEdit={false}
       canReorderOnly={true}
       layoutMode="manual"
-      onLayoutModeChange={() => {}}
+      onLayoutModeChange={NO_OP}
     />
   )
 }

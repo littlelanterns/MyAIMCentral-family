@@ -4,6 +4,6 @@
  */
 export const FEATURE_FLAGS = {
   ENABLE_VIEW_AS: false,
-  ENABLE_VOICE_INPUT: false,
+  ENABLE_VOICE_INPUT: true,
   ENABLE_BETA_FEEDBACK: true,
 } as const

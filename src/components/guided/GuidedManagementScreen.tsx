@@ -282,8 +282,8 @@ export function GuidedManagementScreen({
             {/* Calendar default view */}
             <SettingDropdown
               label="Calendar default view"
-              value={preferences.guided_task_view_default === 'simple_list' ? 'day' : 'day'}
-              onChange={() => {/* Calendar view preference — stored separately if needed */}}
+              value={preferences.guided_calendar_view_default}
+              onChange={(val) => updatePreference('guided_calendar_view_default', val as 'day' | 'week')}
               options={[
                 { value: 'day', label: 'Day' },
                 { value: 'week', label: 'Week' },

@@ -7,6 +7,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, RefreshCw, Sparkles, Coffee, Volume2 } from 'lucide-react'
 import { useNBTGlaze } from '@/hooks/useNBTGlaze'
+import { speak } from '@/utils/speak'
 import type { NBTSuggestion } from '@/types/guided-dashboard'
 
 interface NextBestThingCardProps {
@@ -48,14 +49,6 @@ export function NextBestThingCard({
     memberId,
     suggestion?.pointValue,
   )
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
-  }
 
   // Empty state
   if (isEmpty) {

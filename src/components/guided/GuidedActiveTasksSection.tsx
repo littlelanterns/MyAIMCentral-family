@@ -7,6 +7,7 @@
 import { useState, useCallback } from 'react'
 import { CheckCircle2, Circle, Clock, Star, ChevronDown, ChevronRight, Volume2 } from 'lucide-react'
 import { useTasks, useCompleteTask } from '@/hooks/useTasks'
+import { speak } from '@/utils/speak'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
 interface GuidedActiveTasksSectionProps {
@@ -48,14 +49,6 @@ export function GuidedActiveTasksSection({
       else next.add(taskId)
       return next
     })
-  }
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
   }
 
   // Separate tasks and opportunities

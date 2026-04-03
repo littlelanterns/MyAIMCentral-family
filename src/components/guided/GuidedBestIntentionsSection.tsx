@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Heart, Plus, Users, Volume2, Eye } from 'lucide-react'
 import { useBestIntentions, useLogIteration, useCreateBestIntention } from '@/hooks/useBestIntentions'
+import { speak } from '@/utils/speak'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
 interface GuidedBestIntentionsSectionProps {
@@ -52,14 +53,6 @@ export function GuidedBestIntentionsSection({
     })
     setNewStatement('')
     setShowAddForm(false)
-  }
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
-    }
   }
 
   if (activeIntentions.length === 0 && !preferences.child_can_create_best_intentions) {

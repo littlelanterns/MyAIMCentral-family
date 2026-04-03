@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
-import { X, Trash2, Check, Loader } from 'lucide-react'
+import { X, Trash2, Check, Loader, Mic, MicOff } from 'lucide-react'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
+import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 
 /**
  * BulkAddWithAI — Universal reusable component (PRD-17 pattern)
@@ -58,6 +59,18 @@ export function BulkAddWithAI({
   const [saving, setSaving] = useState(false)
   const [step, setStep] = useState<'input' | 'preview'>('input')
   const [error, setError] = useState<string | null>(null)
+  const voice = useVoiceInput()
+
+  const handleVoiceToggle = useCallback(async () => {
+    if (voice.state === 'recording') {
+      const text = await voice.stopRecording()
+      if (text) {
+        setInputText(prev => prev ? prev + '\n' + text : text)
+      }
+    } else if (voice.state === 'idle') {
+      await voice.startRecording()
+    }
+  }, [voice])
 
   const defaultCategory = categories?.[0]?.value
 
@@ -225,22 +238,53 @@ export function BulkAddWithAI({
             {hint || 'Paste or type in natural language. Any format works — the AI will sort it out.'}
           </p>
 
-          <textarea
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder={placeholder}
-            rows={6}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-y"
-            style={{
-              backgroundColor: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-primary)',
-              minHeight: 'unset',
-            }}
-            autoFocus
-          />
+          <div className="relative">
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={placeholder}
+              rows={6}
+              className="w-full px-3 py-2 rounded-lg text-sm resize-y"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+                minHeight: 'unset',
+              }}
+              autoFocus
+            />
+            {voice.state === 'recording' && voice.interimText && (
+              <p className="text-xs italic px-3 pt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+                {voice.interimText}
+              </p>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
+            {voice.isSupported && (
+              <button
+                type="button"
+                onClick={handleVoiceToggle}
+                disabled={voice.state === 'transcribing' || parsing}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                style={{
+                  backgroundColor: voice.state === 'recording'
+                    ? 'color-mix(in srgb, var(--color-error, #c44) 15%, transparent)'
+                    : 'var(--color-bg-secondary)',
+                  color: voice.state === 'recording'
+                    ? 'var(--color-error, #c44)'
+                    : 'var(--color-text-secondary)',
+                  minHeight: 'unset',
+                }}
+              >
+                {voice.state === 'recording' ? <MicOff size={14} /> : <Mic size={14} />}
+                {voice.state === 'recording'
+                  ? formatDuration(voice.duration)
+                  : voice.state === 'transcribing'
+                    ? 'Transcribing...'
+                    : 'Dictate'}
+              </button>
+            )}
             <button
               onClick={handleParse}
               disabled={!inputText.trim() || parsing}
