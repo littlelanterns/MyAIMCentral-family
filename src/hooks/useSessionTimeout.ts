@@ -8,12 +8,15 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
  * primary_parent and additional_adult use 'adult'.
  * special_adult uses 'adult' (shift-scoped access, not session-scoped).
  * Members without a dashboard_mode default to 'adult'.
+ *
+ * Adults: no inactivity timeout (sign out manually).
+ * Teens/Guided/Play: 7 days of inactivity before sign-out.
  */
 const SESSION_DURATIONS: Record<string, number> = {
-  adult: 24 * 60 * 60 * 1000,      // 24 hours
-  independent: 4 * 60 * 60 * 1000, // 4 hours
-  guided: 60 * 60 * 1000,          // 1 hour
-  play: 30 * 60 * 1000,            // 30 minutes
+  adult: 0,                          // 0 = no timeout, stay signed in until manual sign-out
+  independent: 7 * 24 * 60 * 60 * 1000, // 7 days
+  guided: 7 * 24 * 60 * 60 * 1000,      // 7 days
+  play: 7 * 24 * 60 * 60 * 1000,        // 7 days
 }
 
 const WARNING_LEAD_MS = 2 * 60 * 1000    // Show warning 2 minutes before expiry
@@ -100,6 +103,10 @@ export function useSessionTimeout(): SessionTimeoutState {
     setShowWarning(false)
 
     const timeoutMs = getTimeoutMs()
+
+    // 0 = no timeout, stay signed in indefinitely
+    if (timeoutMs === 0) return
+
     const warningAt = timeoutMs - WARNING_LEAD_MS
 
     // Only show a warning if the session is long enough for a 2-minute lead
