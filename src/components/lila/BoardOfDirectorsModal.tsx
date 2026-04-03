@@ -41,6 +41,7 @@ interface Persona {
 
 interface BoardOfDirectorsModalProps {
   onClose: () => void
+  existingConversation?: LilaConversation | null
 }
 
 // ── Streaming helper for BoD (handles multi-advisor SSE) ────
@@ -133,13 +134,13 @@ async function callBoD(conversationId: string, action: string, payload: Record<s
 
 // ── Main Component ───────────────────────────────────────────
 
-export function BoardOfDirectorsModal({ onClose }: BoardOfDirectorsModalProps) {
+export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOfDirectorsModalProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const createConversation = useCreateConversation()
   const queryClient = useQueryClient()
 
-  const [conversation, setConversation] = useState<LilaConversation | null>(null)
+  const [conversation, setConversation] = useState<LilaConversation | null>(existingConversation || null)
   const [boardSessionId, setBoardSessionId] = useState<string | null>(null)
   const { data: messages = [] } = useLilaMessages(conversation?.id)
 

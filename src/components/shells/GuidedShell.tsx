@@ -1,8 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, Sparkles, Scale, Languages, MessageCircle, Compass, Heart } from 'lucide-react'
+import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
-import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSettings } from '@/components/settings'
@@ -12,6 +11,9 @@ import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import { WriteDrawerProvider, useWriteDrawer } from '@/hooks/useWriteDrawer'
 import { WriteDrawer } from '@/components/guided/WriteDrawer'
 import { ToolLauncherProvider, useToolLauncher } from '@/components/lila/ToolLauncherProvider'
+import { useConversationHistory } from '@/hooks/useLila'
+import type { LilaConversation } from '@/hooks/useLila'
+import { LilaAvatar, getAvatarKeyForMode, getModeDisplayName } from '@/components/lila/LilaAvatar'
 
 interface GuidedShellProps {
   children: ReactNode
@@ -77,7 +79,6 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
               <PenLine size={20} />
             </button>
           </Tooltip>
-          <LilaModalTrigger modeKey="guided_communication_coach" label="LiLa" />
           <ThemeSelector />
           <button
             onClick={openSettings}
@@ -150,7 +151,9 @@ function GuidedBottomNav() {
   const { currentPath, navigate: viewAsNav } = useViewAsNav()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
-  const { openTool } = useToolLauncher()
+  const [showConversationHistory, setShowConversationHistory] = useState(false)
+  const { openTool, resumeConversation } = useToolLauncher()
+  const { data: member } = useFamilyMember()
 
   return (
     <>
@@ -338,10 +341,34 @@ function GuidedBottomNav() {
                     <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
                   </button>
                 ))}
+                {/* My Conversations — view past AI tool conversations */}
+                <button
+                  onClick={() => { setShowConversationHistory(true); setMoreOpen(false) }}
+                  className="flex items-center gap-3 px-5 py-3 w-full text-left min-h-[48px] border-t"
+                  style={{ color: 'var(--color-text-primary)', background: 'transparent', borderColor: 'var(--color-border)' }}
+                >
+                  <span style={{ color: 'var(--color-text-secondary)' }}><History size={20} /></span>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium">My Conversations</span>
+                    <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      See and continue past conversations
+                    </span>
+                  </div>
+                  <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+                </button>
               </div>
             </div>
           </div>
         </>
+      )}
+
+      {/* Conversation History — full-screen overlay */}
+      {showConversationHistory && (
+        <GuidedConversationHistory
+          memberId={member?.id}
+          onSelect={(conv) => { resumeConversation(conv); setShowConversationHistory(false) }}
+          onClose={() => setShowConversationHistory(false)}
+        />
       )}
 
       <style>{`
@@ -350,6 +377,134 @@ function GuidedBottomNav() {
           to { transform: translateY(0); }
         }
       `}</style>
+    </>
+  )
+}
+
+/** Guided conversation history — full-screen overlay showing past tool conversations */
+function GuidedConversationHistory({
+  memberId,
+  onSelect,
+  onClose,
+}: {
+  memberId?: string
+  onSelect: (conv: LilaConversation) => void
+  onClose: () => void
+}) {
+  const { data: conversations = [] } = useConversationHistory(memberId, {})
+  const [search, setSearch] = useState('')
+
+  // Filter to tool conversations only + search
+  const filtered = conversations.filter(c => {
+    if (!(c.guided_mode || c.guided_subtype)) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return (c.title || '').toLowerCase().includes(q)
+    }
+    return true
+  })
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 animate-fadeIn"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
+        onClick={onClose}
+      />
+      <div
+        className="fixed inset-0 z-50 flex flex-col"
+        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+          style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-card)' }}
+        >
+          <div className="flex items-center gap-2">
+            <History size={18} style={{ color: 'var(--color-text-secondary)' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+              My Conversations
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full"
+            style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', minHeight: 'unset' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3" style={{ backgroundColor: 'var(--color-bg-card)' }}>
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-secondary)' }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search conversations..."
+              className="w-full pl-8 pr-3 py-2 rounded-lg text-sm"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Transparency indicator */}
+        <div
+          className="px-4 py-1.5 text-xs flex items-center gap-1"
+          style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-secondary)' }}
+        >
+          <Eye size={12} />
+          Your parent can see these conversations
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageCircle size={32} className="mx-auto mb-2 opacity-30" style={{ color: 'var(--color-text-secondary)' }} />
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                {search ? 'No matching conversations.' : 'No conversations yet. Try one of the AI tools!'}
+              </p>
+            </div>
+          ) : (
+            filtered.map(conv => {
+              const avatarKey = getAvatarKeyForMode(conv.mode || 'general')
+              const modeLabel = getModeDisplayName(conv.mode, conv.guided_subtype)
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => onSelect(conv)}
+                  className="flex items-start gap-3 px-4 py-3 w-full text-left border-b min-h-12"
+                  style={{ borderColor: 'var(--color-border)', background: 'transparent' }}
+                >
+                  <LilaAvatar avatarKey={avatarKey} size={16} className="mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className="px-1.5 py-0.5 rounded text-xs"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}
+                    >
+                      {modeLabel}
+                    </span>
+                    <p className="text-sm mt-1 truncate" style={{ color: 'var(--color-text-primary)' }}>
+                      {conv.title || 'Untitled conversation'}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                      {new Date(conv.updated_at).toLocaleDateString()} &middot; {conv.message_count} messages
+                    </p>
+                  </div>
+                  <ChevronRight size={14} className="mt-2 shrink-0" style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+                </button>
+              )
+            })
+          )}
+        </div>
+      </div>
     </>
   )
 }

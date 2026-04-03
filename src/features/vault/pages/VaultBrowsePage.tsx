@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Sparkles, MessageSquarePlus } from 'lucide-react'
+import { Search, Sparkles, MessageSquarePlus, MessageSquare, Library } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
@@ -9,11 +9,15 @@ import { VaultContentCard } from '../components/VaultContentCard'
 import { VaultSearchBar } from '../components/VaultSearchBar'
 import { VaultDetailView } from '../components/VaultDetailView'
 import { ContentRequestForm } from '../components/ContentRequestForm'
+import { VaultMyConversations } from '../components/VaultMyConversations'
 import { useVaultBrowse } from '../hooks/useVaultBrowse'
 import type { VaultItem } from '../hooks/useVaultBrowse'
 
+type VaultTab = 'browse' | 'conversations'
+
 export function VaultBrowsePage() {
   const { data: member } = useFamilyMember()
+  const [activeTab, setActiveTab] = useState<VaultTab>('browse')
   const {
     categories,
     itemsByCategory,
@@ -59,6 +63,36 @@ export function VaultBrowsePage() {
         </p>
       </div>
 
+      {/* Tab bar: Browse | My Conversations */}
+      <div className="flex border-b mb-4" style={{ borderColor: 'var(--color-border)' }}>
+        <button
+          onClick={() => setActiveTab('browse')}
+          className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+          style={{
+            borderColor: activeTab === 'browse' ? 'var(--color-btn-primary-bg)' : 'transparent',
+            color: activeTab === 'browse' ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
+          }}
+        >
+          <Library size={16} />
+          Browse
+        </button>
+        <button
+          onClick={() => setActiveTab('conversations')}
+          className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+          style={{
+            borderColor: activeTab === 'conversations' ? 'var(--color-btn-primary-bg)' : 'transparent',
+            color: activeTab === 'conversations' ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
+          }}
+        >
+          <MessageSquare size={16} />
+          My Conversations
+        </button>
+      </div>
+
+      {activeTab === 'conversations' ? (
+        <VaultMyConversations />
+      ) : (
+      <>
       {/* Search & Filters (sticky) */}
       <VaultSearchBar
         query={searchQuery}
@@ -181,6 +215,8 @@ export function VaultBrowsePage() {
         open={showRequestForm}
         onClose={() => setShowRequestForm(false)}
       />
+      </>
+      )}
     </div>
   )
 }

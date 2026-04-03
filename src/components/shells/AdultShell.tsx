@@ -3,8 +3,8 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { Settings } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
-import { LilaModalTrigger } from '@/components/lila'
 import { TimerProvider } from '@/features/timer'
+import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
 import { ShellQuickCreateFAB } from './ShellQuickCreateFAB'
@@ -23,7 +23,8 @@ interface AdultShellProps {
 
 /**
  * Adult Shell — PRD-04/05
- * Dad/additional adults get permission-gated LiLa modal access (no drawer).
+ * Dad/additional adults access AI tools via Vault and QuickTasks toolbar.
+ * ToolLauncherProvider enables tool modals from QuickTasks buttons.
  */
 export function AdultShell({ children }: AdultShellProps) {
   const { openSettings } = useSettings()
@@ -80,6 +81,7 @@ export function AdultShell({ children }: AdultShellProps) {
   const openTaskCreate = useCallback(() => setShowTaskCreate(true), [])
 
   return (
+    <ToolLauncherProvider>
     <TimerProvider>
     <NotepadProvider>
     <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
@@ -87,7 +89,6 @@ export function AdultShell({ children }: AdultShellProps) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
-          <LilaModalTrigger modeKey="higgins_say" label="LiLa" />
           <ThemeSelector />
           <Tooltip content="Settings">
           <button
@@ -123,6 +124,7 @@ export function AdultShell({ children }: AdultShellProps) {
     </div>
     </NotepadProvider>
     </TimerProvider>
+    </ToolLauncherProvider>
   )
 }
 

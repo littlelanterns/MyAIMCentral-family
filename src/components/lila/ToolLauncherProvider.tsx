@@ -10,10 +10,13 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { ToolConversationModal } from './ToolConversationModal'
 import { TranslatorModal } from './TranslatorModal'
 import { BoardOfDirectorsModal } from './BoardOfDirectorsModal'
+import type { LilaConversation } from '@/hooks/useLila'
 
 interface ToolLauncherState {
   /** Open a tool conversation modal by mode key */
   openTool: (modeKey: string, personId?: string) => void
+  /** Resume an existing conversation in its tool modal */
+  resumeConversation: (conversation: LilaConversation) => void
   /** Close the current tool modal */
   closeTool: () => void
   /** Whether a tool modal is currently open */
@@ -24,6 +27,7 @@ interface ToolLauncherState {
 
 const ToolLauncherContext = createContext<ToolLauncherState>({
   openTool: () => {},
+  resumeConversation: () => {},
   closeTool: () => {},
   isOpen: false,
   activeTool: null,
@@ -36,15 +40,25 @@ export function useToolLauncher() {
 export function ToolLauncherProvider({ children }: { children: ReactNode }) {
   const [activeTool, setActiveTool] = useState<string | null>(null)
   const [initialPersonId, setInitialPersonId] = useState<string | undefined>()
+  const [existingConversation, setExistingConversation] = useState<LilaConversation | null>(null)
 
   const openTool = useCallback((modeKey: string, personId?: string) => {
     setActiveTool(modeKey)
     setInitialPersonId(personId)
+    setExistingConversation(null)
+  }, [])
+
+  const resumeConversation = useCallback((conversation: LilaConversation) => {
+    const modeKey = conversation.guided_subtype || conversation.guided_mode || conversation.mode || 'general'
+    setActiveTool(modeKey)
+    setExistingConversation(conversation)
+    setInitialPersonId(undefined)
   }, [])
 
   const closeTool = useCallback(() => {
     setActiveTool(null)
     setInitialPersonId(undefined)
+    setExistingConversation(null)
   }, [])
 
   // Listen for mode-switch events from ToolConversationModal
@@ -61,17 +75,18 @@ export function ToolLauncherProvider({ children }: { children: ReactNode }) {
   }, [openTool])
 
   return (
-    <ToolLauncherContext.Provider value={{ openTool, closeTool, isOpen: !!activeTool, activeTool }}>
+    <ToolLauncherContext.Provider value={{ openTool, resumeConversation, closeTool, isOpen: !!activeTool, activeTool }}>
       {children}
       {activeTool === 'translator' ? (
         <TranslatorModal onClose={closeTool} />
       ) : activeTool === 'board_of_directors' ? (
-        <BoardOfDirectorsModal onClose={closeTool} />
+        <BoardOfDirectorsModal onClose={closeTool} existingConversation={existingConversation} />
       ) : activeTool ? (
         <ToolConversationModal
           modeKey={activeTool}
           onClose={closeTool}
           initialPersonId={initialPersonId}
+          existingConversation={existingConversation}
         />
       ) : null}
     </ToolLauncherContext.Provider>
