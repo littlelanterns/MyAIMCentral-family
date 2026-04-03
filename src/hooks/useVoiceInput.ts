@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
 /**
@@ -290,6 +290,14 @@ export function useVoiceInput(): UseVoiceInputReturn {
     }
     cleanup()
     setState('idle')
+  }, [cleanup])
+
+  // Clean up mic stream, timers, and speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      stoppedRef.current = true
+      cleanup()
+    }
   }, [cleanup])
 
   return {

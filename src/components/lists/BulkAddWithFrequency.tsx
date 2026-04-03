@@ -10,9 +10,9 @@
  */
 
 import { useState, useCallback } from 'react'
-import { X, Trash2, Check, Loader, Sparkles, ChevronDown, ChevronUp, Mic, MicOff } from 'lucide-react'
+import { X, Trash2, Check, Loader, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
-import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { VoiceInputButton } from '@/components/shared/VoiceInputButton'
 import { FrequencyRulesEditor, type FrequencyRules } from './FrequencyRulesEditor'
 import type { FrequencyPeriod } from '@/types/lists'
 
@@ -63,18 +63,10 @@ export function BulkAddWithFrequency({
   const [saving, setSaving] = useState(false)
   const [step, setStep] = useState<'input' | 'preview'>('input')
   const [error, setError] = useState<string | null>(null)
-  const voice = useVoiceInput()
 
-  const handleVoiceToggle = useCallback(async () => {
-    if (voice.state === 'recording') {
-      const text = await voice.stopRecording()
-      if (text) {
-        setInputText(prev => prev ? prev + '\n' + text : text)
-      }
-    } else if (voice.state === 'idle') {
-      await voice.startRecording()
-    }
-  }, [voice])
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInputText(prev => prev ? prev + '\n' + text : text)
+  }, [])
 
   const handleParse = useCallback(async () => {
     const trimmed = inputText.trim()
@@ -246,53 +238,27 @@ export function BulkAddWithFrequency({
             AI will suggest frequency rules for each item.
           </p>
 
-          <div className="relative">
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={'wash the windows\norganize the fridge\nclean up the toys\nwipe down the kitchen table\nclean out the van - $5\nmow the front yard - $10'}
-              rows={8}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-y"
-              style={{
-                backgroundColor: 'var(--color-bg-primary)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-text-primary)',
-                minHeight: 'unset',
-              }}
-              autoFocus
-            />
-            {voice.state === 'recording' && voice.interimText && (
-              <p className="text-xs italic px-3 pt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                {voice.interimText}
-              </p>
-            )}
-          </div>
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder={'wash the windows\norganize the fridge\nclean up the toys\nwipe down the kitchen table\nclean out the van - $5\nmow the front yard - $10'}
+            rows={8}
+            className="w-full px-3 py-2 rounded-lg text-sm resize-y"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+              minHeight: 'unset',
+            }}
+            autoFocus
+          />
 
           <div className="flex items-center gap-2">
-            {voice.isSupported && (
-              <button
-                type="button"
-                onClick={handleVoiceToggle}
-                disabled={voice.state === 'transcribing' || parsing}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                style={{
-                  backgroundColor: voice.state === 'recording'
-                    ? 'color-mix(in srgb, var(--color-error, #c44) 15%, transparent)'
-                    : 'var(--color-bg-secondary)',
-                  color: voice.state === 'recording'
-                    ? 'var(--color-error, #c44)'
-                    : 'var(--color-text-secondary)',
-                  minHeight: 'unset',
-                }}
-              >
-                {voice.state === 'recording' ? <MicOff size={14} /> : <Mic size={14} />}
-                {voice.state === 'recording'
-                  ? formatDuration(voice.duration)
-                  : voice.state === 'transcribing'
-                    ? 'Transcribing...'
-                    : 'Dictate'}
-              </button>
-            )}
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              disabled={parsing}
+              buttonClassName="px-3 py-2 text-sm"
+            />
             <button
               onClick={handleParse}
               disabled={!inputText.trim() || parsing}

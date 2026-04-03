@@ -1,8 +1,9 @@
 // PRD-11 Phase 12C: Simplified victory recording for kids (Guided/Play)
 // Description + category quick-select only — no importance/bulk/GS-BI
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { X, Check } from 'lucide-react'
+import { VoiceInputButton } from '@/components/shared/VoiceInputButton'
 import { VICTORY_CATEGORIES } from '@/types/victories'
 import type { VictorySource } from '@/types/victories'
 
@@ -26,6 +27,10 @@ export function SimplifiedRecordVictory({
 
   const isPlay = shell === 'play'
   const minTouchTarget = isPlay ? 56 : 48
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setDescription(prev => prev ? prev + ' ' + text : text)
+  }, [])
 
   function handleSave() {
     if (!description.trim()) return
@@ -69,7 +74,7 @@ export function SimplifiedRecordVictory({
       </div>
 
       {/* Description input */}
-      <div>
+      <div className="space-y-2">
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
@@ -82,6 +87,13 @@ export function SimplifiedRecordVictory({
             border: '1px solid var(--color-border)',
             minHeight: isPlay ? 100 : 72,
           }}
+        />
+        <VoiceInputButton
+          onTranscript={handleVoiceTranscript}
+          size={isPlay ? 22 : 16}
+          label={isPlay ? 'Say It!' : 'Dictate'}
+          minHeight={minTouchTarget}
+          buttonClassName={`rounded-xl border border-[var(--color-border)] ${isPlay ? 'px-4 py-3 text-base' : 'px-3 py-2 text-sm'}`}
         />
       </div>
 

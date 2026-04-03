@@ -1,6 +1,7 @@
 // PRD-11: Record a Victory modal — quick entry, NO AI on save, gold sparkle
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Trophy, ListPlus } from 'lucide-react'
+import { VoiceInputButton } from '@/components/shared/VoiceInputButton'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useCreateVictory } from '@/hooks/useVictories'
 import { VICTORY_CATEGORIES, IMPORTANCE_OPTIONS } from '@/types/victories'
@@ -23,6 +24,10 @@ export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType
   const [bulkMode, setBulkMode] = useState(false)
   const saveButtonRef = useRef<HTMLButtonElement>(null)
   const createVictory = useCreateVictory()
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setDescription(prev => prev ? prev + '\n' + text : text)
+  }, [])
 
   const lifeAreaTag = selectedCategory
     ? VICTORY_CATEGORIES.find(c => c.key === selectedCategory)?.tag ?? null
@@ -111,7 +116,7 @@ export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType
     >
       <div className="space-y-4">
         {/* Description */}
-        <div>
+        <div className="space-y-2">
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
@@ -124,6 +129,11 @@ export function RecordVictory({ onClose, onSaved, memberId, familyId, memberType
               color: 'var(--color-text-primary)',
               border: '1px solid var(--color-border-default)',
             }}
+          />
+          <VoiceInputButton
+            onTranscript={handleVoiceTranscript}
+            size={13}
+            buttonClassName="px-3 py-1.5 text-xs"
           />
         </div>
 

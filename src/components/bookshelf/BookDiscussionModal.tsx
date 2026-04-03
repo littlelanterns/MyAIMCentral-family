@@ -6,6 +6,7 @@
  */
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Send, Copy, Clock, Trash2, MessageSquare, Target, HelpCircle, CheckSquare, BarChart3, Users } from 'lucide-react'
+import { VoiceInputButton } from '@/components/shared/VoiceInputButton'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useBookDiscussions } from '@/hooks/useBookDiscussions'
 import type { DiscussionType, DiscussionAudience, BookShelfDiscussion } from '@/types/bookshelf'
@@ -62,6 +63,10 @@ export function BookDiscussionModal({
   const [started, setStarted] = useState(!!existingDiscussionId)
   const [showHistory, setShowHistory] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInputText(prev => prev ? prev + ' ' + text : text)
+  }, [])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -322,6 +327,14 @@ export function BookDiscussionModal({
               rows={1}
               disabled={sending || !activeDiscussion}
               className="flex-1 resize-none text-sm px-3 py-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
+            />
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              disabled={sending || !activeDiscussion}
+              size={16}
+              label={false}
+              showInterim={false}
+              buttonClassName="p-2"
             />
             <button
               type="button"

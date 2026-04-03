@@ -5,8 +5,8 @@
  */
 
 import { useState, useCallback } from 'react'
-import { Check, Edit3, Volume2, Eye, Mic, MicOff } from 'lucide-react'
-import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { Check, Edit3, Volume2, Eye } from 'lucide-react'
+import { VoiceInputButton } from '@/components/shared/VoiceInputButton'
 import { speak } from '@/utils/speak'
 import {
   useReflectionPrompts,
@@ -144,18 +144,10 @@ function ReflectionCard({
   const [editing, setEditing] = useState(!response)
   const [text, setText] = useState(response?.response_text || '')
   const [saving, setSaving] = useState(false)
-  const voice = useVoiceInput()
 
-  const handleVoiceToggle = useCallback(async () => {
-    if (voice.state === 'recording') {
-      const transcribed = await voice.stopRecording()
-      if (transcribed) {
-        setText(prev => prev ? prev + ' ' + transcribed : transcribed)
-      }
-    } else if (voice.state === 'idle') {
-      await voice.startRecording()
-    }
-  }, [voice])
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setText(prev => prev ? prev + ' ' + text : text)
+  }, [])
 
   const handleSave = useCallback(async () => {
     if (!text.trim()) return
@@ -225,40 +217,16 @@ function ReflectionCard({
               minHeight: '80px',
             }}
           />
-          {voice.state === 'recording' && voice.interimText && (
-            <p className="text-xs italic px-1" style={{ color: 'var(--color-text-tertiary)' }}>
-              {voice.interimText}
-            </p>
-          )}
-          <div className="flex items-center justify-between">
-            {voice.isSupported ? (
-              <button
-                type="button"
-                onClick={handleVoiceToggle}
-                disabled={voice.state === 'transcribing'}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-                style={{
-                  minHeight: '36px',
-                  backgroundColor: voice.state === 'recording'
-                    ? 'color-mix(in srgb, var(--color-error, #c44) 15%, transparent)'
-                    : 'var(--color-bg-secondary)',
-                  color: voice.state === 'recording'
-                    ? 'var(--color-error, #c44)'
-                    : 'var(--color-text-secondary)',
-                }}
-              >
-                {voice.state === 'recording' ? <MicOff size={14} /> : <Mic size={14} />}
-                {voice.state === 'recording'
-                  ? formatDuration(voice.duration)
-                  : voice.state === 'transcribing'
-                    ? 'Transcribing...'
-                    : 'Dictate'}
-              </button>
-            ) : <div />}
+          <div className="flex items-center gap-2">
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              minHeight={36}
+              buttonClassName="px-3 py-1.5 text-sm"
+            />
             <button
               onClick={handleSave}
               disabled={!text.trim() || saving}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium ml-auto"
               style={{
                 backgroundColor: text.trim()
                   ? 'var(--surface-primary, var(--color-btn-primary-bg))'
