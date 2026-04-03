@@ -8,6 +8,8 @@ import { useShell } from '@/components/shells/ShellProvider'
 export function VictoriesPage() {
   const { shell } = useShell()
   if (shell === 'guided') return <GuidedVictories />
+  // STUB: Play shell victories page — address when Play Dashboard is built (PRD-26)
+  if (shell === 'play') return <GuidedVictories />
   return <VictoryRecorder />
 }
 
