@@ -86,8 +86,8 @@ async function injectSession(
   // Navigate to the base URL first to set localStorage on the right origin
   await page.goto('/')
 
-  // Supabase stores session in localStorage with a specific key pattern
-  const storageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
+  // App uses a custom storage key (see src/lib/supabase/client.ts)
+  const storageKey = 'myaim-auth'
   const storageValue = JSON.stringify({
     access_token: session.access_token,
     refresh_token: session.refresh_token,

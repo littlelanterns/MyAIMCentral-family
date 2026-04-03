@@ -185,7 +185,7 @@ function buildRRule(state: SchedulerState): string {
   return parts.join(';')
 }
 
-function dayToRRule(day: number): string {
+export function dayToRRule(day: number): string {
   return ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][day] ?? 'MO'
 }
 

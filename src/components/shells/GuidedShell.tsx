@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, ChevronDown, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye } from 'lucide-react'
+import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, ChevronDown, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye, LogOut, GraduationCap, MessagesSquare } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -11,6 +11,9 @@ import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import { WriteDrawerProvider, useWriteDrawer } from '@/hooks/useWriteDrawer'
 import { WriteDrawer } from '@/components/guided/WriteDrawer'
 import { ToolLauncherProvider, useToolLauncher } from '@/components/lila/ToolLauncherProvider'
+import { useAuth } from '@/hooks/useAuth'
+import { useFamily } from '@/hooks/useFamily'
+import { useGuidedDashboardConfig } from '@/hooks/useGuidedDashboardConfig'
 import { useConversationHistory } from '@/hooks/useLila'
 import type { LilaConversation } from '@/hooks/useLila'
 import { LilaAvatar, getAvatarKeyForMode, getModeDisplayName } from '@/components/lila/LilaAvatar'
@@ -154,7 +157,27 @@ function GuidedBottomNav() {
   const [showConversationHistory, setShowConversationHistory] = useState(false)
   const [aiToolsExpanded, setAiToolsExpanded] = useState(false)
   const { openTool, resumeConversation } = useToolLauncher()
+  const { signOut } = useAuth()
   const { data: member } = useFamilyMember()
+  const { data: family } = useFamily()
+  const { preferences } = useGuidedDashboardConfig(family?.id, member?.id)
+
+  // Build AI tools list with preference-gated items
+  const aiTools = [
+    ...GUIDED_AI_TOOLS,
+    ...(preferences.lila_homework_enabled ? [{
+      modeKey: 'guided_homework_help',
+      icon: <GraduationCap size={20} />,
+      label: 'Homework Help',
+      description: 'Work through homework step by step',
+    }] : []),
+    ...(preferences.lila_communication_coach_enabled ? [{
+      modeKey: 'guided_communication_coach',
+      icon: <MessagesSquare size={20} />,
+      label: 'Talk It Out',
+      description: 'Practice what you want to say',
+    }] : []),
+  ]
 
   return (
     <>
@@ -338,7 +361,7 @@ function GuidedBottomNav() {
 
                 {aiToolsExpanded && (
                   <>
-                    {GUIDED_AI_TOOLS.map((tool) => (
+                    {aiTools.map((tool) => (
                       <button
                         key={tool.modeKey}
                         onClick={() => { openTool(tool.modeKey); setMoreOpen(false) }}
@@ -374,6 +397,20 @@ function GuidedBottomNav() {
                   <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
                 </button>
               </div>
+
+              {/* Sign Out */}
+              {!isViewingAs && (
+                <div className="py-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <button
+                    onClick={() => { setMoreOpen(false); signOut() }}
+                    className="flex items-center gap-3 px-5 py-3 w-full text-left min-h-[48px]"
+                    style={{ color: 'var(--color-text-secondary)', background: 'transparent' }}
+                  >
+                    <LogOut size={20} />
+                    <span className="text-sm font-medium">Sign Out</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </>

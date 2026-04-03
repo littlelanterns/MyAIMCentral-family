@@ -23,6 +23,19 @@ import type {
 } from '@/types/tasks'
 
 // ============================================================
+// Shared helper: fetch task IDs where a member has a task_assignment
+// ============================================================
+
+export async function fetchSharedTaskIds(memberId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('task_assignments')
+    .select('task_id')
+    .eq('family_member_id', memberId)
+    .eq('is_active', true)
+  return (data ?? []).map(a => a.task_id)
+}
+
+// ============================================================
 // useTasks — list tasks with optional filters
 // ============================================================
 
@@ -47,14 +60,7 @@ export function useTasks(familyId: string | undefined, filters?: TaskFilters) {
       }
 
       if (filters?.assigneeId) {
-        // Also include shared tasks where this member has a task_assignment record
-        const { data: assignments } = await supabase
-          .from('task_assignments')
-          .select('task_id')
-          .eq('family_member_id', filters.assigneeId)
-          .eq('is_active', true)
-        const sharedTaskIds = (assignments ?? []).map(a => a.task_id)
-
+        const sharedTaskIds = await fetchSharedTaskIds(filters.assigneeId)
         if (sharedTaskIds.length > 0) {
           query = query.or(`assignee_id.eq.${filters.assigneeId},id.in.(${sharedTaskIds.join(',')})`)
         } else {
@@ -390,14 +396,7 @@ export function useTasksByView(
 
       // For 'by_member' view, fetch all family tasks without assignee filter
       if (viewType !== 'by_member') {
-        // Include shared tasks where this member has a task_assignment record
-        const { data: assignments } = await supabase
-          .from('task_assignments')
-          .select('task_id')
-          .eq('family_member_id', assigneeId)
-          .eq('is_active', true)
-        const sharedTaskIds = (assignments ?? []).map(a => a.task_id)
-
+        const sharedTaskIds = await fetchSharedTaskIds(assigneeId)
         if (sharedTaskIds.length > 0) {
           query = query.or(`assignee_id.eq.${assigneeId},id.in.(${sharedTaskIds.join(',')})`)
         } else {

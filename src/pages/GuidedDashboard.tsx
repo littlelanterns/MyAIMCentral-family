@@ -141,7 +141,7 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
       className={`density-compact max-w-2xl mx-auto space-y-4 ${
         readingSupport ? 'guided-reading-support' : ''
       }`}
-      style={{ padding: '0.5rem 0' }}
+      style={{ padding: '0.5rem 0 2rem 0' }}
     >
       <FeatureGuide featureKey="guided_dashboard" />
 

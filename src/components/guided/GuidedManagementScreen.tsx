@@ -562,22 +562,20 @@ export function GuidedManagementScreen({
           </div>
         </SectionGroup>
 
-        {/* ── 6. LILA TOOLS (future stubs) ─────────────────────────── */}
+        {/* ── 6. LILA TOOLS ─────────────────────────── */}
         <SectionGroup title="LILA TOOLS">
-          <div className="flex flex-col gap-4" style={{ opacity: 0.5 }}>
+          <div className="flex flex-col gap-4">
             <FeatureToggle
               label="Homework Help"
-              description="Coming soon"
-              checked={false}
-              onChange={() => {}}
-              disabled
+              description={`LiLa helps ${memberName} think through homework problems step by step — without giving answers.`}
+              checked={preferences.lila_homework_enabled}
+              onChange={(val) => updatePreference('lila_homework_enabled', val)}
             />
             <FeatureToggle
               label="Communication Coach"
-              description="Coming soon"
-              checked={false}
-              onChange={() => {}}
-              disabled
+              description={`LiLa helps ${memberName} figure out how to talk to family about things on their mind.`}
+              checked={preferences.lila_communication_coach_enabled}
+              onChange={(val) => updatePreference('lila_communication_coach_enabled', val)}
             />
           </div>
         </SectionGroup>

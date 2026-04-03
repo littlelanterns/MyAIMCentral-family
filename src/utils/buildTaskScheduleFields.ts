@@ -1,9 +1,8 @@
-// Computes due_date, recurrence_rule, and recurrence_details from CreateTaskData schedule fields.
-// Used by all handleCreateTask handlers (Tasks.tsx, MomShell, AdultShell, IndependentShell).
+// Bridges modal schedule UI state to database columns (due_date, recurrence_rule, recurrence_details).
+// Without this, schedule data collected in TaskCreationModal was silently discarded.
 
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
-
-const RRULE_DAY_NAMES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+import { dayToRRule } from '@/components/scheduling/schedulerUtils'
 
 interface TaskScheduleFields {
   due_date: string | null
@@ -36,7 +35,7 @@ export function buildTaskScheduleFields(data: CreateTaskData): TaskScheduleField
     const nextDate = new Date(today)
     nextDate.setDate(nextDate.getDate() + daysUntil)
     const dueDate = nextDate.toISOString().split('T')[0]
-    const byDay = data.weeklyDays.map(d => RRULE_DAY_NAMES[d]).join(',')
+    const byDay = data.weeklyDays.map(d => dayToRRule(d)).join(',')
     return {
       due_date: dueDate,
       recurrence_rule: 'weekly',

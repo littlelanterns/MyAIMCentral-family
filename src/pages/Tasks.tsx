@@ -13,7 +13,7 @@
  * - Queue(N): studio_queue items waiting to be configured
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   CheckSquare,
   Plus,
@@ -32,7 +32,7 @@ import {
   ListPlus,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
-import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion } from '@/hooks/useTasks'
+import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamily } from '@/hooks/useFamily'
@@ -48,7 +48,7 @@ import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
-import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
+import { createTaskFromData } from '@/utils/createTaskFromData'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -101,21 +101,12 @@ export function TasksPage() {
   const { data: pendingApprovalTasks = [] } = useTasksWithPendingApprovals(family?.id)
 
   // Fetch task_assignments for the active member (for shared task visibility)
-  const { data: myAssignments = [] } = useQuery({
+  const { data: mySharedTaskIds = [] } = useQuery({
     queryKey: ['task-assignments-member', activeMember?.id],
-    queryFn: async () => {
-      if (!activeMember?.id) return []
-      const { data, error } = await supabase
-        .from('task_assignments')
-        .select('task_id')
-        .eq('family_member_id', activeMember.id)
-        .eq('is_active', true)
-      if (error) throw error
-      return data ?? []
-    },
+    queryFn: () => fetchSharedTaskIds(activeMember!.id),
     enabled: !!activeMember?.id,
   })
-  const myAssignedTaskIds = new Set(myAssignments.map(a => a.task_id))
+  const myAssignedTaskIds = useMemo(() => new Set(mySharedTaskIds), [mySharedTaskIds])
   const { data: queueItems = [] } = useStudioQueue(family?.id, member?.id, member?.role)
   const [activeTab, setActiveTab] = useState<TaskTab>('my_tasks')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recently_created')
@@ -187,173 +178,9 @@ export function TasksPage() {
         console.error('Cannot create task: family or member not loaded')
         return
       }
-
-      // ── Compute schedule fields from modal data ───────────────
-      const scheduleFields = buildTaskScheduleFields(data)
-
-      const taskBase = {
-        family_id: family.id,
-        created_by: member.id,
-        title: data.title,
-        description: data.description || null,
-        task_type: data.taskType === 'opportunity'
-          ? `opportunity_${data.opportunitySubType ?? 'repeatable'}`
-          : data.taskType,
-        status: 'pending',
-        due_date: scheduleFields.due_date,
-        recurrence_rule: scheduleFields.recurrence_rule,
-        recurrence_details: scheduleFields.recurrence_details,
-        life_area_tag: data.lifeAreaTag || null,
-        duration_estimate: data.durationEstimate || null,
-        incomplete_action: data.incompleteAction,
-        require_approval: data.reward?.requireApproval ?? false,
-        victory_flagged: data.reward?.flagAsVictory ?? false,
-        source: 'manual',
-        // Opportunity-specific fields
-        ...(data.taskType === 'opportunity' && {
-          max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,
-          claim_lock_duration: data.claimLockDuration ? parseInt(data.claimLockDuration, 10) : null,
-          claim_lock_unit: data.claimLockUnit || null,
-        }),
-      }
-
-      // Determine who gets the task
-      const assignees = data.wholeFamily
-        ? (familyMembers ?? []).filter(m => m.is_active)
-        : data.assignments ?? []
-      const mode = data.assignMode ?? 'each'
-
-      if (assignees.length >= 2 && mode === 'each') {
-        // "Each of them" — individual copies per person
-        const inserts = assignees.map(a => ({
-          ...taskBase,
-          assignee_id: 'memberId' in a ? a.memberId : a.id,
-          is_shared: false,
-        }))
-        const { error } = await supabase.from('tasks').insert(inserts)
-        if (error) {
-          console.error('Failed to create tasks:', error)
-          return
-        }
-      } else {
-        // "Any of them" (shared) or single assignee
-        const primaryId = assignees.length > 0
-          ? ('memberId' in assignees[0] ? assignees[0].memberId : assignees[0].id)
-          : null
-
-        const { data: newTask, error } = await supabase.from('tasks').insert({
-          ...taskBase,
-          assignee_id: primaryId,
-          is_shared: assignees.length >= 2,
-        }).select().single()
-
-        if (error) {
-          console.error('Failed to create task:', error)
-          return
-        }
-
-        // Create task_assignments for all assignees on shared task
-        if (newTask && assignees.length > 0) {
-          const assignments = assignees.map(a => {
-            const mid = 'memberId' in a ? a.memberId : a.id
-            return {
-              task_id: newTask.id,
-              member_id: mid,
-              family_member_id: mid,
-              assigned_by: member.id,
-            }
-          })
-          const { error: assignError } = await supabase.from('task_assignments').insert(assignments)
-          if (assignError) {
-            console.error('Failed to create task assignments:', assignError)
-          }
-        }
-      }
-
-      // ── Persist routine sections if this is a routine ──────────
-      if (data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0) {
-        // Create a task_templates record to hold the routine structure
-        const { data: template, error: tmplError } = await supabase
-          .from('task_templates')
-          .insert({
-            family_id: family.id,
-            created_by: member.id,
-            title: data.title,
-            description: data.description || null,
-            task_type: 'routine',
-            template_type: 'routine',
-          })
-          .select('id')
-          .single()
-
-        if (!tmplError && template) {
-          // Insert sections with frequency data
-          for (const section of data.routineSections) {
-            // Map frequency to frequency_rule + frequency_days
-            let frequencyRule = section.frequency
-            let frequencyDays: number[] | null = null
-            if (section.frequency === 'custom') {
-              frequencyDays = section.customDays
-            } else if (section.frequency === 'mwf') {
-              frequencyRule = 'custom'
-              frequencyDays = [1, 3, 5] // Mon, Wed, Fri
-            } else if (section.frequency === 't_th') {
-              frequencyRule = 'custom'
-              frequencyDays = [2, 4] // Tue, Thu
-            }
-
-            const { data: sectionRow, error: secError } = await supabase
-              .from('task_template_sections')
-              .insert({
-                template_id: template.id,
-                title: section.name,
-                section_name: section.name,
-                frequency_rule: frequencyRule,
-                frequency_days: frequencyDays,
-                show_until_complete: section.showUntilComplete,
-                sort_order: section.sort_order,
-              })
-              .select('id')
-              .single()
-
-            if (!secError && sectionRow) {
-              // Insert steps for this section
-              const stepInserts = section.steps.map((step) => ({
-                section_id: sectionRow.id,
-                title: step.title,
-                step_name: step.title,
-                step_notes: step.notes || null,
-                instance_count: step.instanceCount,
-                require_photo: step.requirePhoto,
-                sort_order: step.sort_order,
-              }))
-
-              if (stepInserts.length > 0) {
-                const { error: stepError } = await supabase
-                  .from('task_template_steps')
-                  .insert(stepInserts)
-                if (stepError) {
-                  console.error('Failed to insert routine steps:', stepError)
-                }
-              }
-            } else if (secError) {
-              console.error('Failed to insert routine section:', secError)
-            }
-          }
-        } else if (tmplError) {
-          console.error('Failed to create routine template:', tmplError)
-        }
-      }
-
-      // Mark queue item as processed if creating from queue
-      if (data.sourceQueueItemId) {
-        await supabase
-          .from('studio_queue')
-          .update({ processed_at: new Date().toISOString() })
-          .eq('id', data.sourceQueueItemId)
-      }
-
+      await createTaskFromData(supabase, data, family.id, member.id, familyMembers ?? [])
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['task-assignments-member'] })
       queryClient.invalidateQueries({ queryKey: ['studio_queue'] })
       setShowCreateModal(false)
     },
@@ -408,32 +235,23 @@ export function TasksPage() {
         },
       ]
 
-  // ── Filter tasks for each tab ──
-  // "My Tasks" shows only tasks assigned to me (or created by me with no assignee).
-  // The management overview of ALL family tasks is in Family Overview, not here.
-  const getFilteredTasks = (): Task[] => {
+  // ── Filter tasks for each tab (memoized) ──
+  const displayTasks = useMemo(() => {
     let filtered = allTasks
 
-    // First: scope to the active member's tasks (assigned to them, shared with them, or they created and unassigned)
-    // When View As is active, activeMember is the viewed member
     const myId = activeMember?.id
     if (myId && activeTab !== 'queue') {
       filtered = filtered.filter(
         (t) =>
           t.assignee_id === myId ||
           (!t.assignee_id && t.created_by === myId) ||
-          myAssignedTaskIds.has(t.id) // shared tasks via task_assignments
+          myAssignedTaskIds.has(t.id)
       )
     }
 
-    // Tab filter by type
     switch (activeTab) {
       case 'my_tasks':
-        filtered = filtered.filter(
-          (t) =>
-            t.task_type === 'task' ||
-            t.task_type === 'habit'
-        )
+        filtered = filtered.filter((t) => t.task_type === 'task' || t.task_type === 'habit')
         break
       case 'routines':
         filtered = filtered.filter((t) => t.task_type === 'routine')
@@ -453,17 +271,16 @@ export function TasksPage() {
         break
     }
 
-    // Status filter
     switch (filterStatus) {
       case 'active':
         filtered = filtered.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && !t.archived_at)
         break
       case 'completed':
         filtered = filtered.filter((t) => t.status === 'completed')
-        filtered.sort((a, b) => {
+        filtered = [...filtered].sort((a, b) => {
           const aDate = a.completed_at ? new Date(a.completed_at).getTime() : 0
           const bDate = b.completed_at ? new Date(b.completed_at).getTime() : 0
-          return bDate - aDate // newest first
+          return bDate - aDate
         })
         break
       case 'unassigned':
@@ -474,12 +291,10 @@ export function TasksPage() {
         break
     }
 
-    // Member filter
     if (filterMemberId) {
       filtered = filtered.filter((t) => t.assignee_id === filterMemberId)
     }
 
-    // Sort
     switch (sortOrder) {
       case 'name':
         filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title))
@@ -492,9 +307,7 @@ export function TasksPage() {
     }
 
     return filtered
-  }
-
-  const displayTasks = getFilteredTasks()
+  }, [allTasks, activeMember?.id, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds])
 
   return (
     <div className="max-w-3xl mx-auto space-y-0">
