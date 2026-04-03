@@ -112,6 +112,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
     ],
   },
   { key: 'optimizer', label: 'Optimizer', icon: Wand2, featureKey: 'lila_chat', accent: 'teal' },
+  { key: 'mindsweep', label: 'MindSweep', icon: Wand2, featureKey: 'mindsweep_manual', accent: 'warm' },
   { key: 'ideas', label: 'Ideas', icon: Lightbulb, featureKey: 'lists', accent: 'warm' },
   { key: 'backburner', label: 'Backburner', icon: Clock, featureKey: 'lists', accent: 'muted' },
   { key: 'quick_note', label: 'Quick Note', icon: StickyNote, featureKey: 'notepad_basic', accent: 'muted' },
@@ -124,13 +125,13 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
 const CONTEXT_FILTERS: Record<RoutingContext, string[]> = {
   notepad_send_to: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'track_this', 'message', 'agenda', 'innerworkings', 'optimizer', 'ideas', 'backburner', 'quick_note',
+    'victory', 'track', 'track_this', 'message', 'agenda', 'innerworkings', 'optimizer', 'mindsweep', 'ideas', 'backburner', 'quick_note',
   ],
   request_accept: ['calendar', 'tasks', 'list', 'acknowledge'],
   meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'backburner', 'skip'],
   review_route_card: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'ideas', 'backburner', 'quick_note',
+    'victory', 'track', 'message', 'mindsweep', 'ideas', 'backburner', 'quick_note',
   ],
 }
 

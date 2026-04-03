@@ -23,6 +23,8 @@ export interface StudioQueueRecord {
   requester_id: string | null
   requester_note: string | null
   batch_id: string | null
+  mindsweep_confidence: 'high' | 'medium' | 'low' | null
+  mindsweep_event_id: string | null
   created_at: string
 }
 
@@ -75,9 +77,31 @@ function getSourceLabel(source: string | null): string | null {
     lila_conversation: 'From: LiLa conversation',
     goal_decomposition: 'From: Goal breakdown',
     manual: 'Added manually',
+    mindsweep_auto: 'MindSweep auto-sorted',
+    mindsweep_queued: 'MindSweep for review',
+    email_forward: 'From: Email',
+    share_to_app: 'From: Share',
   }
   if (source.startsWith('meeting_')) return 'From: Meeting'
   return MAP[source] ?? `From: ${source}`
+}
+
+const CONFIDENCE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  high: {
+    bg: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))',
+    text: 'var(--color-btn-primary-bg)',
+    label: 'High',
+  },
+  medium: {
+    bg: 'color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-card))',
+    text: 'color-mix(in srgb, var(--color-accent) 80%, var(--color-text-heading))',
+    label: 'Medium',
+  },
+  low: {
+    bg: 'color-mix(in srgb, var(--color-text-secondary) 12%, var(--color-bg-card))',
+    text: 'var(--color-text-secondary)',
+    label: 'Low',
+  },
 }
 
 interface QueueCardProps {
@@ -105,22 +129,40 @@ export function QueueCard({ item, requesterMember, onConfigure, onDismiss }: Que
       <div style={{ padding: '0.75rem' }} className="space-y-2">
         {/* Destination badge + source indicator row */}
         <div className="flex items-center justify-between flex-wrap gap-1.5">
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              padding: '0.2rem 0.625rem',
-              borderRadius: '9999px',
-              fontSize: 'var(--font-size-xs, 0.75rem)',
-              fontWeight: 600,
-              backgroundColor: destConfig.bgColor,
-              color: destConfig.textColor,
-            }}
-          >
-            <DestIcon size={11} />
-            {destConfig.label}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                padding: '0.2rem 0.625rem',
+                borderRadius: '9999px',
+                fontSize: 'var(--font-size-xs, 0.75rem)',
+                fontWeight: 600,
+                backgroundColor: destConfig.bgColor,
+                color: destConfig.textColor,
+              }}
+            >
+              <DestIcon size={11} />
+              {destConfig.label}
+            </span>
+            {item.mindsweep_confidence && CONFIDENCE_STYLES[item.mindsweep_confidence] && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: '9999px',
+                  fontSize: '0.65rem',
+                  fontWeight: 500,
+                  backgroundColor: CONFIDENCE_STYLES[item.mindsweep_confidence].bg,
+                  color: CONFIDENCE_STYLES[item.mindsweep_confidence].text,
+                }}
+              >
+                {CONFIDENCE_STYLES[item.mindsweep_confidence].label}
+              </span>
+            )}
+          </div>
           {sourceLabel && (
             <span
               style={{

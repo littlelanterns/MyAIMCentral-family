@@ -1,0 +1,404 @@
+/**
+ * useMindSweep — PRD-17B MindSweep hook
+ * Manages settings, triggers sweep, and handles routing results.
+ */
+import { useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase/client'
+import type {
+  MindSweepSettings,
+  MindSweepHoldingItem,
+  MindSweepSortRequest,
+  MindSweepSortResponse,
+  MindSweepSortResult,
+  AggressivenessMode,
+  SweepEventSourceChannel,
+  SweepInputType,
+  FamilyMemberName,
+} from '@/types/mindsweep'
+
+// ── Settings ──
+
+export function useMindSweepSettings(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['mindsweep-settings', memberId],
+    queryFn: async () => {
+      if (!memberId) return null
+
+      const { data, error } = await supabase
+        .from('mindsweep_settings')
+        .select('*')
+        .eq('member_id', memberId)
+        .maybeSingle()
+
+      if (error) throw error
+      return data as MindSweepSettings | null
+    },
+    enabled: !!memberId,
+  })
+}
+
+export function useUpdateMindSweepSettings() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      memberId: string
+      familyId: string
+      updates: Partial<Omit<MindSweepSettings, 'id' | 'family_id' | 'member_id' | 'created_at' | 'updated_at'>>
+    }) => {
+      const { data, error } = await supabase
+        .from('mindsweep_settings')
+        .upsert({
+          member_id: params.memberId,
+          family_id: params.familyId,
+          ...params.updates,
+        }, { onConflict: 'member_id' })
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['mindsweep-settings', variables.memberId] })
+    },
+  })
+}
+
+// ── Holding Queue ──
+
+export function useMindSweepHolding(familyId: string | undefined, memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['mindsweep-holding', familyId, memberId],
+    queryFn: async () => {
+      if (!familyId || !memberId) return []
+
+      const { data, error } = await supabase
+        .from('mindsweep_holding')
+        .select('*')
+        .eq('family_id', familyId)
+        .eq('member_id', memberId)
+        .is('processed_at', null)
+        .order('captured_at', { ascending: true })
+
+      if (error) throw error
+      return (data || []) as MindSweepHoldingItem[]
+    },
+    enabled: !!familyId && !!memberId,
+  })
+}
+
+export function useAddToHolding() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (item: {
+      family_id: string
+      member_id: string
+      content: string
+      content_type: MindSweepHoldingItem['content_type']
+      source_channel: MindSweepHoldingItem['source_channel']
+      link_url?: string
+    }) => {
+      const { data, error } = await supabase
+        .from('mindsweep_holding')
+        .insert(item)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['mindsweep-holding', variables.family_id, variables.member_id],
+      })
+    },
+  })
+}
+
+// ── Sweep Trigger ──
+
+export interface SweepParams {
+  items: { content: string; content_type: string; id?: string }[]
+  familyId: string
+  memberId: string
+  settings: MindSweepSettings | null
+  sourceChannel: SweepEventSourceChannel
+  inputType: SweepInputType
+  familyMemberNames: FamilyMemberName[]
+}
+
+export function useTriggerSweep() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: SweepParams): Promise<MindSweepSortResponse> => {
+      const settings = params.settings
+      const aggressiveness: AggressivenessMode = settings?.aggressiveness || 'always_ask'
+      const alwaysReviewRules = settings?.always_review_rules || [
+        'emotional_children', 'relationship_dynamics', 'behavioral_notes', 'financial',
+      ]
+      const customReviewRules = settings?.custom_review_rules || []
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+
+      const requestBody: MindSweepSortRequest = {
+        items: params.items.map(i => ({
+          id: i.id,
+          content: i.content,
+          content_type: i.content_type as MindSweepSortRequest['items'][0]['content_type'],
+        })),
+        family_id: params.familyId,
+        member_id: params.memberId,
+        aggressiveness,
+        always_review_rules: alwaysReviewRules,
+        custom_review_rules: customReviewRules,
+        source_channel: params.sourceChannel,
+        input_type: params.inputType,
+        family_member_names: params.familyMemberNames,
+      }
+
+      const response = await supabase.functions.invoke('mindsweep-sort', {
+        body: requestBody,
+      })
+
+      if (response.error) throw response.error
+      return response.data as MindSweepSortResponse
+    },
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['mindsweep-holding', params.familyId, params.memberId] })
+    },
+  })
+}
+
+// ── Route Results ──
+// After sweep, route results based on aggressiveness mode.
+// Auto-routed items go directly to destinations or studio_queue.
+// Queued items go to studio_queue for manual review.
+
+export async function routeSweepResults(
+  results: MindSweepSortResult[],
+  aggressiveness: AggressivenessMode,
+  familyId: string,
+  memberId: string,
+  eventId: string | undefined,
+): Promise<{ autoRouted: number; queued: number }> {
+  let autoRouted = 0
+  let queued = 0
+
+  for (const result of results) {
+    const isAutoRoute = shouldAutoRoute(result.confidence, aggressiveness)
+
+    if (isAutoRoute) {
+      await routeDirectly(result, familyId, memberId, eventId)
+      autoRouted++
+    } else {
+      await queueForReview(result, familyId, memberId, eventId)
+      queued++
+    }
+  }
+
+  return { autoRouted, queued }
+}
+
+function shouldAutoRoute(
+  confidence: string,
+  aggressiveness: AggressivenessMode,
+): boolean {
+  if (confidence === 'review_required') return false
+
+  switch (aggressiveness) {
+    case 'always_ask':
+      return false
+    case 'trust_obvious':
+      return confidence === 'high'
+    case 'full_autopilot':
+      return confidence === 'high' || confidence === 'medium'
+    default:
+      return false
+  }
+}
+
+// Queue-based destinations go through studio_queue
+const QUEUE_DESTINATIONS = new Set(['task', 'list', 'calendar'])
+
+async function routeDirectly(
+  result: MindSweepSortResult,
+  familyId: string,
+  memberId: string,
+  eventId: string | undefined,
+) {
+  const destination = result.destination
+
+  if (QUEUE_DESTINATIONS.has(destination) || destination === 'recipe') {
+    // Even "auto-routed" queue destinations go to studio_queue with pre-filled details
+    await supabase.from('studio_queue').insert({
+      family_id: familyId,
+      owner_id: memberId,
+      destination: destination === 'recipe' ? 'list' : destination,
+      content: result.extracted_text,
+      content_details: result.destination_detail || null,
+      source: 'mindsweep_auto',
+      mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
+      mindsweep_event_id: eventId || null,
+    })
+    return
+  }
+
+  // Direct routing for non-queue destinations
+  switch (destination) {
+    case 'journal':
+      await supabase.from('journal_entries').insert({
+        family_id: familyId,
+        member_id: memberId,
+        entry_type: 'quick_note',
+        content: result.extracted_text,
+        visibility: 'private',
+      })
+      break
+
+    case 'victory':
+      await supabase.from('victories').insert({
+        family_id: familyId,
+        member_id: memberId,
+        title: result.extracted_text.substring(0, 100),
+        source: 'manual',
+      })
+      break
+
+    case 'guiding_stars':
+      await supabase.from('guiding_stars').insert({
+        family_id: familyId,
+        member_id: memberId,
+        content: result.extracted_text,
+        source: 'manual',
+      })
+      break
+
+    case 'best_intentions':
+      await supabase.from('best_intentions').insert({
+        family_id: familyId,
+        member_id: memberId,
+        statement: result.extracted_text,
+        source: 'manual',
+      })
+      break
+
+    case 'backburner': {
+      // Find or create backburner list for this member
+      const { data: backburnerList } = await supabase
+        .from('lists')
+        .select('id')
+        .eq('family_id', familyId)
+        .eq('owner_id', memberId)
+        .eq('list_type', 'backburner')
+        .limit(1)
+        .maybeSingle()
+
+      if (backburnerList) {
+        await supabase.from('list_items').insert({
+          list_id: backburnerList.id,
+          content: result.extracted_text,
+        })
+      } else {
+        // Fallback: queue it
+        await supabase.from('studio_queue').insert({
+          family_id: familyId,
+          owner_id: memberId,
+          destination: 'backburner',
+          content: result.extracted_text,
+          source: 'mindsweep_auto',
+          mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
+          mindsweep_event_id: eventId || null,
+        })
+      }
+      break
+    }
+
+    case 'innerworkings':
+      await supabase.from('self_knowledge').insert({
+        family_id: familyId,
+        member_id: memberId,
+        content: result.extracted_text,
+        category: 'general',
+        source_type: 'manual',
+      })
+      break
+
+    case 'archives':
+      // Route to archive_context_items — find member's root folder
+      await supabase.from('studio_queue').insert({
+        family_id: familyId,
+        owner_id: memberId,
+        destination: 'archives',
+        content: result.extracted_text,
+        source: 'mindsweep_auto',
+        mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
+        mindsweep_event_id: eventId || null,
+      })
+      break
+
+    default:
+      // Unknown destination — queue it
+      await queueForReview(result, familyId, memberId, eventId)
+  }
+}
+
+async function queueForReview(
+  result: MindSweepSortResult,
+  familyId: string,
+  memberId: string,
+  eventId: string | undefined,
+) {
+  // If cross-member detected with suggest_route, route to that member's queue
+  const ownerId = (result.cross_member_action === 'suggest_route' && result.cross_member_id)
+    ? result.cross_member_id
+    : memberId
+
+  await supabase.from('studio_queue').insert({
+    family_id: familyId,
+    owner_id: ownerId,
+    destination: result.destination,
+    content: result.extracted_text,
+    content_details: {
+      ...result.destination_detail,
+      mindsweep_category: result.category,
+      sensitivity_reason: result.sensitivity_reason || null,
+      cross_member: result.cross_member || null,
+    },
+    source: 'mindsweep_queued',
+    source_reference_id: null,
+    requester_id: ownerId !== memberId ? memberId : null,
+    requester_note: ownerId !== memberId
+      ? `From ${result.cross_member ? 'MindSweep' : 'auto-sort'}: ${result.extracted_text.substring(0, 80)}`
+      : null,
+    mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
+    mindsweep_event_id: eventId || null,
+  })
+}
+
+// ── Sweep Status ──
+
+export type SweepStatus = 'idle' | 'processing' | 'complete' | 'error'
+
+export function useSweepStatus() {
+  const [status, setStatus] = useState<SweepStatus>('idle')
+  const [lastResult, setLastResult] = useState<{ autoRouted: number; queued: number } | null>(null)
+
+  const startSweep = useCallback(() => setStatus('processing'), [])
+  const completeSweep = useCallback((result: { autoRouted: number; queued: number }) => {
+    setLastResult(result)
+    setStatus('complete')
+  }, [])
+  const errorSweep = useCallback(() => setStatus('error'), [])
+  const resetSweep = useCallback(() => {
+    setStatus('idle')
+    setLastResult(null)
+  }, [])
+
+  return { status, lastResult, startSweep, completeSweep, errorSweep, resetSweep }
+}
