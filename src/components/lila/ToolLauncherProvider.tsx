@@ -74,12 +74,16 @@ export function ToolLauncherProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('lila-mode-switch', handleModeSwitch)
   }, [openTool])
 
+  // When resuming a past conversation, always use ToolConversationModal
+  // (Translator and BoD modals don't have message history display)
+  const isResume = !!existingConversation
+
   return (
     <ToolLauncherContext.Provider value={{ openTool, resumeConversation, closeTool, isOpen: !!activeTool, activeTool }}>
       {children}
-      {activeTool === 'translator' ? (
+      {activeTool === 'translator' && !isResume ? (
         <TranslatorModal onClose={closeTool} />
-      ) : activeTool === 'board_of_directors' ? (
+      ) : activeTool === 'board_of_directors' && !isResume ? (
         <BoardOfDirectorsModal onClose={closeTool} existingConversation={existingConversation} />
       ) : activeTool ? (
         <ToolConversationModal
