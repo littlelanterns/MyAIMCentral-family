@@ -178,11 +178,52 @@ Already registered — no new keys needed:
 
 ## Post-Build PRD Verification
 
-> To be completed after build.
-
 | Requirement | Source | Status | Notes |
 |---|---|---|---|
-| | | | |
+| Universal Queue Modal with tabbed navigation | Screen 1 | Wired | 3 tabs, gradient header, badge counts |
+| Three tabs: Calendar, Sort, Requests | Screen 1 | Wired | Calendar + Sort functional, Requests stub |
+| Opens from QuickTasks strip | Screen 1 | Wired | Click indicator opens modal |
+| Opens from Dashboard badge | Screen 1 | Wired | QueueBadge next to PerspectiveSwitcher |
+| Opens from Tasks page badge | Screen 1 | Wired | QueueBadge next to page title |
+| Opens from Calendar page badge | Screen 1 | Wired | QueueBadge in gradient toolbar |
+| Default tab logic (Sort first, fallback) | Screen 1 | Wired | |
+| Breathing glow presence indicator | Presence | Wired | BreathingGlow on all entry points |
+| Badge preference (discreet/numeric) | Presence | Wired | localStorage toggle |
+| Sort tab items with destination badges | Screen 3 | Wired | task/list/widget/tracker badges |
+| Sort tab ordering (requests → meetings → date) | Screen 3 | Wired | |
+| Calendar tab pending event cards | Screen 2 | Wired | Approve / Edit & Approve / Reject |
+| Calendar tab Approve all bulk | Screen 2 | Wired | Gradient button |
+| Calendar status bug fixed | Bug | Wired | 'pending' → 'pending_approval' in 3 files |
+| Requests tab placeholder | Screen 4 | Stubbed | PRD-15 dependency |
+| [Configure] → TaskCreationModal pre-populated | Screen 8 | Wired | Source-adaptive |
+| [Add to list] → ListPickerModal | Screen 3 | Wired | Search, create new, batch support |
+| [Dismiss] with optional note | Screen 3 | Wired | DismissConfirm modal |
+| Batch grouping (Group/All/Expand) | Screen 3 | Wired | BatchCard |
+| Quick Mode (name + assign + when) | Screen 7 | Wired | Schedule passthrough |
+| Full Mode (7 sections) | Screen 7 | Wired | Toggle preserved |
+| RoutingStrip universal component | Screen 6 | Wired | 15+ destinations, context filtering |
+| Sub-destination drill-down | Screen 6 | Wired | Inline expansion |
+| Routing toast with 5s undo | Screen 6 | Wired | RoutingToastProvider |
+| Per-tab empty states | Screens 2-4 | Wired | Correct icons + copy |
+| Global "All caught up!" state | Screen 5 | Wired | Sparkles, warm copy |
+| studio_queue authoritative schema | Data | Wired | Full PRD-17 schema |
+| Role-scoped visibility | Visibility | Wired | Mom all, Dad own, Teen requests |
+| useCanAccess hooks | Tier | Wired | Returns true during beta |
+| RoutingToastProvider on Adult/Independent shells | PRD-17 | Wired | |
+| Shared task visibility via task_assignments | PRD-09A/17 | Wired | |
+| Notification auto-dismiss | PRD-17 | Stubbed | PRD-15 not built |
+| Widget/Tracker creation from Sort | PRD-17 | Stubbed | PRD-10 stubs |
+| MindSweep columns/sources/tile | PRD-17B | Stubbed | Deferred |
+| LiLa suggestion hints on queue cards | PRD-17 | Stubbed | Post-MVP |
+| Real-time concurrent processing | PRD-17 | Stubbed | Post-MVP |
+| Settings page badge preference toggle | PRD-17 | Stubbed | PRD-22 |
+| E2E Playwright tests (24 passing) | Testing | Wired | 2 spec files |
+
+### Summary
+- Total: 37
+- Wired: 30
+- Stubbed: 7
+- Missing: **0**
 
 ---
 

@@ -70,4 +70,4 @@ decided and why at build time. Do not delete them after a feature ships.
 | PRD-21-Communication-Relationship-Tools.md | PRD-21 | 2026-03-26 | Complete (32 wired, 10 stubbed) |
 | PRD-34-ThoughtSift.md | PRD-34 | 2026-03-26 | Complete — 3 sub-phases (34A: 42w/8s, 34B: 39w/4s, 34C: 48w/10s) |
 | PRD-14-Personal-Dashboard.md | PRD-14 | 2026-03-30 | Complete (37 wired, 5 stubbed) — reconciliation build |
-| PRD-17-Universal-Queue-Routing.md | PRD-17 | 2026-04-03 | In progress — gap-fill session |
+| PRD-17-Universal-Queue-Routing.md | PRD-17 | 2026-04-03 | Complete (30 wired, 7 stubbed) — gap-fill session |
