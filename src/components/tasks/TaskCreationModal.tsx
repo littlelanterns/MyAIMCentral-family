@@ -74,6 +74,12 @@ export interface CreateTaskData {
   listDeliveryMode?: 'checklist' | 'batch' | 'sequential'
   newListName?: string
   newListItems?: string[]
+  /** Due date for one-time tasks (YYYY-MM-DD) */
+  dueDate?: string
+  /** Quick schedule mode selected in the modal */
+  scheduleMode?: 'one_time' | 'daily' | 'weekly' | 'custom'
+  /** Weekday numbers for weekly recurrence (0=Sun, 1=Mon, ..., 6=Sat) */
+  weeklyDays?: number[]
   saveAsTemplate: boolean
   templateName: string
   sourceQueueItemId?: string
@@ -438,7 +444,14 @@ export function TaskCreationModal({
     if (!data.title.trim()) return
     setLoading(true)
     try {
-      await onSave(data)
+      // Synthesize schedule state into the data object before saving
+      const finalData: CreateTaskData = {
+        ...data,
+        scheduleMode,
+        dueDate: scheduleMode === 'one_time' ? quickDate || undefined : undefined,
+        weeklyDays: scheduleMode === 'weekly' ? quickDays : undefined,
+      }
+      await onSave(finalData)
       if (batchMode === 'sequential' && batchItems && batchIndex < batchItems.length - 1) {
         setBatchIndex((i) => i + 1)
       } else {

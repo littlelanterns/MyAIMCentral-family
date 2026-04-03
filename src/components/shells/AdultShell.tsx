@@ -10,6 +10,7 @@ import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
 import { ShellQuickCreateFAB } from './ShellQuickCreateFAB'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
+import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -36,6 +37,7 @@ export function AdultShell({ children }: AdultShellProps) {
   const [showTaskCreate, setShowTaskCreate] = useState(false)
   const handleCreateTask = useCallback(async (data: CreateTaskData) => {
     if (!currentFamily?.id || !currentMember?.id) return
+    const scheduleFields = buildTaskScheduleFields(data)
     const taskBase = {
       family_id: currentFamily.id,
       created_by: currentMember.id,
@@ -43,6 +45,9 @@ export function AdultShell({ children }: AdultShellProps) {
       description: data.description || null,
       task_type: data.taskType === 'opportunity' ? 'opportunity_repeatable' : data.taskType,
       status: 'pending',
+      due_date: scheduleFields.due_date,
+      recurrence_rule: scheduleFields.recurrence_rule,
+      recurrence_details: scheduleFields.recurrence_details,
       life_area_tag: data.lifeAreaTag || null,
       duration_estimate: data.durationEstimate || null,
       incomplete_action: data.incompleteAction,

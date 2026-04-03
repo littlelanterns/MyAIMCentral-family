@@ -47,7 +47,19 @@ export function useTasks(familyId: string | undefined, filters?: TaskFilters) {
       }
 
       if (filters?.assigneeId) {
-        query = query.eq('assignee_id', filters.assigneeId)
+        // Also include shared tasks where this member has a task_assignment record
+        const { data: assignments } = await supabase
+          .from('task_assignments')
+          .select('task_id')
+          .eq('family_member_id', filters.assigneeId)
+          .eq('is_active', true)
+        const sharedTaskIds = (assignments ?? []).map(a => a.task_id)
+
+        if (sharedTaskIds.length > 0) {
+          query = query.or(`assignee_id.eq.${filters.assigneeId},id.in.(${sharedTaskIds.join(',')})`)
+        } else {
+          query = query.eq('assignee_id', filters.assigneeId)
+        }
       }
 
       if (filters?.taskType) {
@@ -378,11 +390,19 @@ export function useTasksByView(
 
       // For 'by_member' view, fetch all family tasks without assignee filter
       if (viewType !== 'by_member') {
-        // Include tasks where this member is the legacy assignee_id
-        // OR where they have a task_assignment record
-        // For simplicity here we filter by assignee_id (main assignee);
-        // useTaskAssignments handles multi-assignee display
-        query = query.or(`assignee_id.eq.${assigneeId}`)
+        // Include shared tasks where this member has a task_assignment record
+        const { data: assignments } = await supabase
+          .from('task_assignments')
+          .select('task_id')
+          .eq('family_member_id', assigneeId)
+          .eq('is_active', true)
+        const sharedTaskIds = (assignments ?? []).map(a => a.task_id)
+
+        if (sharedTaskIds.length > 0) {
+          query = query.or(`assignee_id.eq.${assigneeId},id.in.(${sharedTaskIds.join(',')})`)
+        } else {
+          query = query.or(`assignee_id.eq.${assigneeId}`)
+        }
       }
 
       const { data: tasks, error } = await query.order('sort_order').order('due_date', { ascending: true, nullsFirst: false })

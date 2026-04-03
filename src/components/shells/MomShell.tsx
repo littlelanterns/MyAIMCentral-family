@@ -26,6 +26,7 @@ import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 
 interface MomShellProps {
   children: ReactNode
@@ -50,6 +51,7 @@ export function MomShell({ children }: MomShellProps) {
   const [showTaskCreate, setShowTaskCreate] = useState(false)
   const handleCreateTask = useCallback(async (data: CreateTaskData) => {
     if (!currentFamily?.id || !currentMember?.id) return
+    const scheduleFields = buildTaskScheduleFields(data)
     const taskBase = {
       family_id: currentFamily.id,
       created_by: currentMember.id,
@@ -57,6 +59,9 @@ export function MomShell({ children }: MomShellProps) {
       description: data.description || null,
       task_type: data.taskType === 'opportunity' ? 'opportunity_repeatable' : data.taskType,
       status: 'pending',
+      due_date: scheduleFields.due_date,
+      recurrence_rule: scheduleFields.recurrence_rule,
+      recurrence_details: scheduleFields.recurrence_details,
       life_area_tag: data.lifeAreaTag || null,
       duration_estimate: data.durationEstimate || null,
       incomplete_action: data.incompleteAction,

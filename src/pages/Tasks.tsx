@@ -48,6 +48,7 @@ import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
+import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -98,6 +99,23 @@ export function TasksPage() {
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)
   const { data: pendingApprovalTasks = [] } = useTasksWithPendingApprovals(family?.id)
+
+  // Fetch task_assignments for the active member (for shared task visibility)
+  const { data: myAssignments = [] } = useQuery({
+    queryKey: ['task-assignments-member', activeMember?.id],
+    queryFn: async () => {
+      if (!activeMember?.id) return []
+      const { data, error } = await supabase
+        .from('task_assignments')
+        .select('task_id')
+        .eq('family_member_id', activeMember.id)
+        .eq('is_active', true)
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: !!activeMember?.id,
+  })
+  const myAssignedTaskIds = new Set(myAssignments.map(a => a.task_id))
   const { data: queueItems = [] } = useStudioQueue(family?.id, member?.id, member?.role)
   const [activeTab, setActiveTab] = useState<TaskTab>('my_tasks')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recently_created')
@@ -170,6 +188,9 @@ export function TasksPage() {
         return
       }
 
+      // ── Compute schedule fields from modal data ───────────────
+      const scheduleFields = buildTaskScheduleFields(data)
+
       const taskBase = {
         family_id: family.id,
         created_by: member.id,
@@ -179,6 +200,9 @@ export function TasksPage() {
           ? `opportunity_${data.opportunitySubType ?? 'repeatable'}`
           : data.taskType,
         status: 'pending',
+        due_date: scheduleFields.due_date,
+        recurrence_rule: scheduleFields.recurrence_rule,
+        recurrence_details: scheduleFields.recurrence_details,
         life_area_tag: data.lifeAreaTag || null,
         duration_estimate: data.durationEstimate || null,
         incomplete_action: data.incompleteAction,
@@ -390,12 +414,15 @@ export function TasksPage() {
   const getFilteredTasks = (): Task[] => {
     let filtered = allTasks
 
-    // First: scope to the active member's tasks (assigned to them, or they created and unassigned)
+    // First: scope to the active member's tasks (assigned to them, shared with them, or they created and unassigned)
     // When View As is active, activeMember is the viewed member
     const myId = activeMember?.id
     if (myId && activeTab !== 'queue') {
       filtered = filtered.filter(
-        (t) => t.assignee_id === myId || (!t.assignee_id && t.created_by === myId)
+        (t) =>
+          t.assignee_id === myId ||
+          (!t.assignee_id && t.created_by === myId) ||
+          myAssignedTaskIds.has(t.id) // shared tasks via task_assignments
       )
     }
 
