@@ -253,8 +253,8 @@ export function CalendarTab() {
                         padding: '0.35rem 0.75rem',
                         borderRadius: 'var(--vibe-radius-input, 8px)',
                         border: 'none',
-                        backgroundColor: 'color-mix(in srgb, var(--color-error, #dc2626) 12%, var(--color-bg-card))',
-                        color: 'var(--color-error, #dc2626)',
+                        backgroundColor: 'color-mix(in srgb, var(--color-error) 12%, var(--color-bg-card))',
+                        color: 'var(--color-error)',
                         fontSize: 'var(--font-size-xs, 0.75rem)',
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -303,8 +303,8 @@ export function CalendarTab() {
                     onClick={() => setRejectingId(event.id)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity"
                     style={{
-                      backgroundColor: 'color-mix(in srgb, var(--color-error, #dc2626) 8%, var(--color-bg-card))',
-                      color: 'var(--color-error, #dc2626)',
+                      backgroundColor: 'color-mix(in srgb, var(--color-error) 8%, var(--color-bg-card))',
+                      color: 'var(--color-error)',
                       border: 'none',
                       cursor: 'pointer',
                     }}
