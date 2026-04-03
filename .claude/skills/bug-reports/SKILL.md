@@ -14,14 +14,39 @@ The MyAIM Family platform has a **Beta Glitch Reporter** — a draggable Bug ico
 
 Reports are stored in the `beta_glitch_reports` table on the remote Supabase database. There is no admin UI yet (that's PRD-32). Query reports using the Supabase CLI.
 
+## Default Behavior — What to Do When This Skill Runs
+
+When the user asks to "run bug reports" or "check bugs", follow this workflow:
+
+1. **Query only `new` reports** — skip fixed/reviewed/wont_fix/cannot_reproduce
+2. **Present a summary table** with: who, route, issue description, report date
+3. **For empty reports** (no text in any field): check if they have screenshots or console errors. If neither, recommend closing as `cannot_reproduce` with note "No description or diagnostics provided"
+4. **For actionable reports**: describe the bug clearly and ask the user what to do
+
+### After Fixing or Triaging
+
+When the user says a bug is fixed, addressed, or should be closed:
+- **Mark as `fixed`** with `admin_notes` describing what was done and `resolved_at = now()`
+- **Mark as `wont_fix`** if it's intentional behavior, with explanation in `admin_notes`
+- **Mark as `cannot_reproduce`** if there's not enough info to act on
+- **Mark as `reviewed`** if it's acknowledged but not yet fixed (keeping it open)
+
+Always update the status so it doesn't resurface in future queries.
+
 ## How to Query Reports
 
 All queries use `npx supabase db query --linked "<SQL>"`. Always include `--linked` to hit the remote database.
 
-### See all new (unreviewed) reports
+### See all new (unreviewed) reports — DEFAULT QUERY
 
 ```bash
-npx supabase db query --linked "SELECT display_name, shell_type, current_route, what_doing, what_tried, what_happened, what_expected, created_at FROM beta_glitch_reports WHERE status = 'new' ORDER BY created_at DESC;"
+npx supabase db query --linked "SELECT id, display_name, shell_type, current_route, what_doing, what_tried, what_happened, what_expected, console_errors, screenshot_data_url IS NOT NULL as has_screenshot, user_image_url, created_at FROM beta_glitch_reports WHERE status = 'new' ORDER BY created_at DESC;"
+```
+
+### See open reports (new + reviewed)
+
+```bash
+npx supabase db query --linked "SELECT id, display_name, status, current_route, what_doing, what_happened, admin_notes, created_at FROM beta_glitch_reports WHERE status IN ('new', 'reviewed') ORDER BY created_at DESC;"
 ```
 
 ### See all reports (any status)
@@ -64,6 +89,18 @@ npx supabase db query --linked "UPDATE beta_glitch_reports SET status = 'reviewe
 
 ```bash
 npx supabase db query --linked "UPDATE beta_glitch_reports SET status = 'fixed', admin_notes = 'Description of fix', resolved_at = now() WHERE id = 'REPORT-UUID-HERE';"
+```
+
+### Bulk-close empty reports (no description, no console errors)
+
+```bash
+npx supabase db query --linked "UPDATE beta_glitch_reports SET status = 'cannot_reproduce', admin_notes = 'No description or diagnostics provided — cannot act on this report', resolved_at = now() WHERE status = 'new' AND (what_doing IS NULL OR what_doing = '') AND (what_happened IS NULL OR what_happened = '') AND (console_errors IS NULL OR console_errors::text = '[]') RETURNING id, display_name, current_route;"
+```
+
+### Mark a reviewed report as fixed (upgrade from reviewed → fixed)
+
+```bash
+npx supabase db query --linked "UPDATE beta_glitch_reports SET status = 'fixed', admin_notes = 'Description of fix', resolved_at = now() WHERE id = 'REPORT-UUID-HERE' AND status = 'reviewed';"
 ```
 
 ## Table Schema

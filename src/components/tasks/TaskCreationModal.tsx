@@ -99,6 +99,8 @@ interface TaskCreationModalProps {
   defaultDescription?: string
   /** Track which source item created this task (e.g. bookshelf extraction ID) */
   sourceReferenceId?: string
+  /** When true, modal shows "Edit Task" header and save button says "Save Changes" */
+  editMode?: boolean
 }
 
 // ─── Defaults ────────────────────────────────────────────────
@@ -388,6 +390,7 @@ export function TaskCreationModal({
   defaultTitle,
   defaultDescription,
   sourceReferenceId,
+  editMode,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
@@ -1542,9 +1545,11 @@ export function TaskCreationModal({
         loading={loading}
         disabled={!data.title.trim()}
       >
-        {batchMode === 'sequential' && batchIndex < batchTotal - 1
-          ? 'Save & Next'
-          : 'Create Task'}
+        {editMode
+          ? 'Save Changes'
+          : batchMode === 'sequential' && batchIndex < batchTotal - 1
+            ? 'Save & Next'
+            : 'Create Task'}
       </Button>
     </div>
   )
@@ -1553,12 +1558,12 @@ export function TaskCreationModal({
 
   return (
     <ModalV2
-      id="task-create"
+      id={editMode ? 'task-edit' : 'task-create'}
       isOpen={isOpen}
       onClose={onClose}
       type="persistent"
       size="lg"
-      title="New task"
+      title={editMode ? 'Edit task' : 'New task'}
       subtitle={srcLabel ?? undefined}
       icon={CheckSquare}
       hasUnsavedChanges={hasUnsavedChanges}

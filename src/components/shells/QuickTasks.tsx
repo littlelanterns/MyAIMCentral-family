@@ -26,6 +26,7 @@ import { getFeatureIcons } from '@/lib/assets'
 import { useFamily } from '@/hooks/useFamily'
 import { useStudioQueueCount } from '@/hooks/useStudioQueue'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
+import { UniversalQueueModal } from '@/components/queue/UniversalQueueModal'
 import { supabase } from '@/lib/supabase/client'
 // QuickCreate now renders as FAB at shell level — no longer in the strip
 
@@ -174,11 +175,8 @@ function getIndicatorMode(): IndicatorMode {
   return 'glow'
 }
 
-function setIndicatorMode(mode: IndicatorMode) {
-  try {
-    localStorage.setItem(INDICATOR_MODE_KEY, mode)
-  } catch { /* non-critical */ }
-}
+// setIndicatorMode will be used when indicator toggle UI is built
+// function setIndicatorMode(mode: IndicatorMode) { localStorage.setItem(INDICATOR_MODE_KEY, mode) }
 
 /** Get usage counts from localStorage */
 function getUsageCounts(): Record<string, number> {
@@ -294,15 +292,10 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
   const iconUrls = useQuickActionIcons()
   const { data: family } = useFamily()
   const { data: queueCount = 0 } = useStudioQueueCount(family?.id)
-  const [indicatorMode, setIndicatorModeState] = useState<IndicatorMode>(getIndicatorMode)
+  const [indicatorMode] = useState<IndicatorMode>(getIndicatorMode)
+  const [queueModalOpen, setQueueModalOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const { canScrollLeft, canScrollRight } = useScrollOverflow(scrollRef)
-
-  function toggleIndicatorMode() {
-    const next: IndicatorMode = indicatorMode === 'glow' ? 'numeric' : 'glow'
-    setIndicatorModeState(next)
-    setIndicatorMode(next)
-  }
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -483,17 +476,17 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         </button>
       )}
 
-      {/* Queue indicator — shows pending items */}
+      {/* Queue indicator — opens Review Queue modal */}
       {queueCount > 0 && (
         <button
-          onClick={toggleIndicatorMode}
+          onClick={() => setQueueModalOpen(true)}
           className="absolute right-9 top-1/2 flex items-center justify-center rounded-full transition-colors"
           style={{
             transform: 'translateY(-50%)',
             minHeight: 'unset',
             cursor: 'pointer',
           }}
-          title={`${queueCount} pending queue item${queueCount !== 1 ? 's' : ''} — tap to toggle indicator style`}
+          title={`${queueCount} pending queue item${queueCount !== 1 ? 's' : ''}`}
         >
           {indicatorMode === 'glow' ? (
             <BreathingGlow active={true}>
@@ -515,6 +508,12 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
           )}
         </button>
       )}
+
+      {/* Review Queue modal */}
+      <UniversalQueueModal
+        isOpen={queueModalOpen}
+        onClose={() => setQueueModalOpen(false)}
+      />
 
       {/* Collapse toggle — overlaid at right edge */}
       <button

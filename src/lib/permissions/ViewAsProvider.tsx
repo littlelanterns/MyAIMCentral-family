@@ -42,6 +42,9 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
   const [realFamilyId, setRealFamilyId] = useState<string | null>(null)
   const [excludedFeatures, setExcludedFeatures] = useState<string[]>([])
 
+  // Privacy-protected features automatically excluded from all View As sessions
+  const PRIVACY_EXCLUSIONS = ['safe_harbor']
+
   const startViewAs = useCallback(async (member: FamilyMember, viewerId: string, familyId: string) => {
     const { data } = await supabase
       .from('view_as_sessions')
@@ -58,6 +61,12 @@ export function ViewAsProvider({ children }: ViewAsProviderProps) {
       setViewingAsMember(member)
       setRealViewerId(viewerId)
       setRealFamilyId(familyId)
+      // Auto-apply privacy exclusions (Safe Harbor always excluded per PRD-20)
+      setExcludedFeatures(PRIVACY_EXCLUSIONS)
+      // Persist to DB
+      await supabase
+        .from('view_as_feature_exclusions')
+        .insert(PRIVACY_EXCLUSIONS.map((key) => ({ session_id: data.id, feature_key: key })))
     }
   }, [])
 

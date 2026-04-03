@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { QueueCard } from './QueueCard'
 import { BatchCard } from './BatchCard'
+import { ListPickerModal } from './ListPickerModal'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { StudioQueueRecord } from './QueueCard'
 import type { CreateTaskData, StudioQueueItem } from '@/components/tasks/TaskCreationModal'
@@ -179,6 +180,8 @@ export function SortTab() {
   const [batchMode, setBatchMode] = useState<'group' | 'sequential' | undefined>()
   const [batchItems, setBatchItems] = useState<StudioQueueRecord[]>([])
   const [dismissTarget, setDismissTarget] = useState<StudioQueueRecord | null>(null)
+  // List picker state — opens when destination='list'
+  const [listPickerItems, setListPickerItems] = useState<StudioQueueRecord[]>([])
   // Track which batch_ids have been expanded (rendered as individual cards)
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set())
 
@@ -234,18 +237,32 @@ export function SortTab() {
   })
 
   const handleConfigure = (item: StudioQueueRecord) => {
+    if (item.destination === 'list') {
+      setListPickerItems([item])
+      return
+    }
     setBatchMode(undefined)
     setBatchItems([])
     setConfigItem(item)
   }
 
   const handleSendAsGroup = (items: StudioQueueRecord[]) => {
+    // If list destination, open list picker for all batch items
+    if (items[0]?.destination === 'list') {
+      setListPickerItems(items)
+      return
+    }
     setBatchMode('group')
     setBatchItems(items)
     setConfigItem(items[0])
   }
 
   const handleProcessAll = (items: StudioQueueRecord[]) => {
+    // List items: add all to same list via picker
+    if (items[0]?.destination === 'list') {
+      setListPickerItems(items)
+      return
+    }
     setBatchMode('sequential')
     setBatchItems(items)
     setConfigItem(items[0])
@@ -367,6 +384,35 @@ export function SortTab() {
           }
         }}
         onCancel={() => setDismissTarget(null)}
+      />
+
+      {/* List picker — opens when destination='list' */}
+      <ListPickerModal
+        isOpen={listPickerItems.length > 0}
+        onClose={() => setListPickerItems([])}
+        items={listPickerItems}
+        onComplete={(_listId, listTitle) => {
+          // Mark all list picker items as processed
+          for (const item of listPickerItems) {
+            processedMutation.mutate(item.id)
+          }
+          const label = listPickerItems.length === 1
+            ? `Added to "${listTitle}"`
+            : `${listPickerItems.length} items added to "${listTitle}"`
+          routingToast.show({
+            message: label,
+            onUndo: () => {
+              for (const item of listPickerItems) {
+                supabase
+                  .from('studio_queue')
+                  .update({ processed_at: null })
+                  .eq('id', item.id)
+                  .then(() => queryClient.invalidateQueries({ queryKey: ['studio-queue'] }))
+              }
+            },
+          })
+          setListPickerItems([])
+        }}
       />
     </>
   )

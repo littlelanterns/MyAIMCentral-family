@@ -21,11 +21,18 @@ import { ListsPage } from '@/pages/Lists'
 import { StudioPage } from '@/pages/Studio'
 import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
-import { BookShelfStub } from '@/pages/BookShelfStub'
+import { BookShelfPage } from '@/pages/BookShelfPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
-import { VaultBrowsePage } from '@/features/vault'
+import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
+import { FamilyOverviewDetail } from '@/pages/archives/FamilyOverviewDetail'
+import { VaultBrowsePage, PersonalPromptLibraryPage } from '@/features/vault'
+import { ReflectionsPage } from '@/pages/ReflectionsPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import {
   VictoriesPage, TrackersPage, MorningRhythmPage, EveningReviewPage,
+  LifeLanternPage, FamilyContextPage, MessagesPage, SafeHarborPage,
+  MeetingsPage, BigPlansPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
 
 // ─── Simple state-based navigation for the modal ─────────────
@@ -46,12 +53,18 @@ export function useViewAsNav() {
   return useContext(ViewAsNavContext)
 }
 
-/** Map paths to page components */
+/** Map paths to page components — must stay in sync with App.tsx routes */
 function renderPage(path: string): ReactNode {
   // Strip query params
   const clean = path.split('?')[0]
+
+  // Dynamic routes (prefix matching)
+  if (clean.startsWith('/archives/member/')) return <MemberArchiveDetail />
+
   switch (clean) {
     case '/dashboard': return <Dashboard isViewAsOverlay />
+
+    // Personal Growth
     case '/guiding-stars': return <GuidingStarsPage />
     case '/best-intentions': return <BestIntentionsPage />
     case '/inner-workings': return <InnerWorkingsPage />
@@ -61,20 +74,70 @@ function renderPage(path: string): ReactNode {
     case '/journal/gratitude':
     case '/journal/kid-quips':
       return <JournalPage />
+    case '/reflections': return <ReflectionsPage />
+    case '/life-lantern': return <LifeLanternPage />
+    case '/lanterns-path': return <LanternsPathPage />
+
+    // Plan & Do
     case '/tasks': return <TasksPage />
     case '/lists': return <ListsPage />
     case '/studio': return <StudioPage />
-    case '/victories': return <VictoriesPage />
     case '/calendar': return <CalendarPage />
+    case '/victories': return <VictoriesPage />
     case '/trackers': return <TrackersPage />
-    case '/bookshelf': return <BookShelfStub />
+    case '/bigplans': return <BigPlansPage />
+    case '/notepad': return <NotepadPage />
+
+    // Family
+    case '/family-context': return <FamilyContextPage />
     case '/archives': return <ArchivesPage />
+    case '/archives/family-overview': return <FamilyOverviewDetail />
+    case '/messages': return <MessagesPage />
+    case '/meetings': return <MeetingsPage />
+    case '/safe-harbor': return <SafeHarborPage />
+    case '/family-feed': return <FamilyFeedPage />
+
+    // AI & Tools
     case '/vault': return <VaultBrowsePage />
+    case '/vault/my-prompts': return <PersonalPromptLibraryPage />
+    case '/bookshelf': return <BookShelfPage />
+    case '/bookshelf/prompts': return <JournalPromptsPage />
+
+    // Rhythms
     case '/rhythms/morning': return <MorningRhythmPage />
     case '/rhythms/evening': return <EveningReviewPage />
-    case '/lanterns-path': return <LanternsPathPage />
+
+    // Settings
+    case '/settings': return <SettingsPage />
+
     default: return <Dashboard isViewAsOverlay />
   }
+}
+
+// ─── Privacy-protected route mapping ────────────────────────
+// Routes mapped to feature keys that may be excluded from View As sessions.
+// When a feature key is in excludedFeatures, its route renders a blocked message.
+const PRIVACY_ROUTE_MAP: Record<string, string> = {
+  '/safe-harbor': 'safe_harbor',
+}
+
+function PrivacyBlockedPage() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 px-6 text-center">
+      <div
+        className="w-16 h-16 rounded-full flex items-center justify-center"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)' }}
+      >
+        <span className="text-2xl" style={{ color: 'var(--color-btn-primary-bg)' }}>🔒</span>
+      </div>
+      <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+        Private Feature
+      </h2>
+      <p className="text-sm max-w-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        This feature is private and not available in View As mode. The family member can access it by logging in directly.
+      </p>
+    </div>
+  )
 }
 
 // ─── Shell wrapper ───────────────────────────────────────────
@@ -93,7 +156,7 @@ function ShellWrapper({ shell, children }: { shell: ShellType; children: ReactNo
 // ─── ViewAsModal ─────────────────────────────────────────────
 
 export function ViewAsModal() {
-  const { isViewingAs, viewingAsMember, stopViewAs } = useViewAs()
+  const { isViewingAs, viewingAsMember, stopViewAs, excludedFeatures } = useViewAs()
   const { theme, vibe, colorMode, gradientEnabled, fontScale, setTheme, setVibe, setColorMode, setGradientEnabled, setFontScale, setShell } = useTheme()
 
   const [currentPath, setCurrentPath] = useState('/dashboard')
@@ -204,7 +267,14 @@ export function ViewAsModal() {
           <ViewAsNavContext.Provider value={{ currentPath, navigate }}>
             <SettingsProvider>
               <ShellWrapper shell={targetShell}>
-                {renderPage(currentPath)}
+                {(() => {
+                  const cleanPath = currentPath.split('?')[0]
+                  const featureKey = PRIVACY_ROUTE_MAP[cleanPath]
+                  if (featureKey && excludedFeatures.includes(featureKey)) {
+                    return <PrivacyBlockedPage />
+                  }
+                  return renderPage(currentPath)
+                })()}
               </ShellWrapper>
             </SettingsProvider>
           </ViewAsNavContext.Provider>

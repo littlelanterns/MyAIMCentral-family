@@ -136,7 +136,7 @@ export function UniversalQueueModal({
     refetchInterval: 30_000,
   })
 
-  // Calendar tab: pending calendar events (stub: returns 0 until PRD-14B wires it)
+  // Calendar tab: pending calendar events awaiting approval
   const { data: calendarCount = 0 } = useQuery({
     queryKey: ['queue-badge-calendar', currentMember?.family_id],
     queryFn: async () => {
@@ -145,7 +145,7 @@ export function UniversalQueueModal({
         .from('calendar_events')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', currentMember.family_id)
-        .eq('status', 'pending')
+        .eq('status', 'pending_approval')
       if (error) return 0
       return count ?? 0
     },

@@ -11,6 +11,8 @@ import { DashboardTasksSection } from '@/components/tasks/DashboardTasksSection'
 import { FeatureGuide } from '@/components/shared'
 import { useTasks } from '@/hooks/useTasks'
 import { LogOut, Users } from 'lucide-react'
+import { QueueBadge } from '@/components/queue/QueueBadge'
+import { usePendingCounts } from '@/hooks/usePendingCounts'
 import { DashboardGrid } from '@/components/widgets/DashboardGrid'
 import { FolderOverlayModal } from '@/components/widgets/FolderOverlayModal'
 import { CalendarWidget } from '@/components/calendar'
@@ -73,6 +75,9 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   // PRD-10/14: Dashboard config
   const { data: dashboardConfig } = useDashboardConfig(displayFamilyId, displayMemberId, 'personal')
   const updateDashboardConfig = useUpdateDashboardConfig()
+
+  // PRD-17: Queue pending counts for badge
+  const pendingCounts = usePendingCounts(displayFamilyId)
 
   // ─── PRD-14: Section system ────────────────────────────────
 
@@ -513,7 +518,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         )
 
       case 'calendar':
-        return <CalendarWidget />
+        return <CalendarWidget personalMemberId={displayMemberId} />
 
       case 'active_tasks':
         return family?.id && displayMember?.id ? (
@@ -583,7 +588,17 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 
       {/* Perspective Switcher — shown on main page, hidden in View As overlay */}
       {!isViewAsOverlay && (
-        <PerspectiveSwitcher activeView={perspective} onViewChange={setPerspective} />
+        <div className="flex items-center justify-between gap-3">
+          <PerspectiveSwitcher activeView={perspective} onViewChange={setPerspective} />
+          {/* PRD-17: Queue badge — opens Review Queue modal */}
+          {member?.role === 'primary_parent' && (
+            <QueueBadge
+              count={pendingCounts.total}
+              label="Review"
+              compact
+            />
+          )}
+        </div>
       )}
 
       {/* ── PERSONAL DASHBOARD view ── */}

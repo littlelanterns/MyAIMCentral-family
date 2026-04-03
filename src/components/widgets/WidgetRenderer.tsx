@@ -22,7 +22,7 @@ import { CountdownTracker } from './trackers/CountdownTracker'
 import { TimerDurationTracker } from './trackers/TimerDurationTracker'
 import { SnapshotComparisonTracker } from './trackers/SnapshotComparisonTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
-import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget } from './info'
+import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget, InfoFamilyIntention, InfoCountdown } from './info'
 
 interface WidgetRendererProps {
   widget: DashboardWidget
@@ -107,6 +107,10 @@ function InfoWidgetDispatcher({ widget, isCompact, onUpdateConfig }: { widget: D
       return <MenuWidget widget={widget} isCompact={isCompact} onUpdateConfig={onUpdateConfig} />
     case 'info_hub_job_board':
       return <JobBoardWidget widget={widget} isCompact={isCompact} />
+    case 'info_family_intention':
+      return <InfoFamilyIntention widget={widget} isCompact={isCompact} />
+    case 'info_countdown':
+      return <InfoCountdown widget={widget} isCompact={isCompact} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--color-text-tertiary)' }}>

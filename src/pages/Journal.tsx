@@ -35,7 +35,11 @@ export function JournalPage() {
   const { data: _family } = useFamily()
   const { isViewingAs, viewingAsMember } = useViewAs()
   const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
-  const { data: entries = [], isLoading } = useJournalEntries(activeMember?.id)
+  const { data: rawEntries = [], isLoading } = useJournalEntries(activeMember?.id)
+  // PRD-20: In View As mode, filter out private journal entries
+  const entries = isViewingAs
+    ? rawEntries.filter((e) => (e as { visibility?: string }).visibility !== 'private')
+    : rawEntries
   const deleteEntry = useDeleteJournalEntry()
   const { openNotepad } = useNotepadContext()
   const location = useLocation()

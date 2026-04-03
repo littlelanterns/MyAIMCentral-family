@@ -47,6 +47,91 @@ import {
   useDeleteSlideshowSlide,
 } from '@/hooks/useSlideshowSlides'
 
+// ─── Hub PIN Setter ─────────────────────────────────────────────────────────
+
+function HubPinSetter({ familyId, hasPin }: { familyId?: string; hasPin: boolean }) {
+  const [editing, setEditing] = useState(false)
+  const [pin, setPin] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!familyId) return
+    if (pin.length !== 4) { setError('PIN must be 4 digits'); return }
+    if (pin !== confirm) { setError('PINs do not match'); return }
+
+    setSaving(true)
+    setError('')
+    const { error: rpcErr } = await supabase.rpc('hash_hub_pin', { p_family_id: familyId, p_pin: pin })
+    setSaving(false)
+
+    if (rpcErr) {
+      setError('Failed to save PIN')
+      return
+    }
+    setEditing(false)
+    setPin('')
+    setConfirm('')
+  }
+
+  if (!editing) {
+    return (
+      <button
+        className="text-xs px-3 py-2 rounded-lg font-medium mt-2"
+        style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+        onClick={() => setEditing(true)}
+      >
+        {hasPin ? 'Change Hub PIN' : 'Set Hub PIN'}
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength={4}
+        value={pin}
+        onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setError('') }}
+        className="w-full px-3 py-2 rounded-lg outline-none text-center tracking-widest"
+        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+        placeholder="New 4-digit PIN"
+        autoFocus
+      />
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength={4}
+        value={confirm}
+        onChange={(e) => { setConfirm(e.target.value.replace(/\D/g, '')); setError('') }}
+        className="w-full px-3 py-2 rounded-lg outline-none text-center tracking-widest"
+        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+        placeholder="Confirm PIN"
+      />
+      {error && <p className="text-xs" style={{ color: 'var(--color-error, #ef4444)' }}>{error}</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={() => { setEditing(false); setPin(''); setConfirm(''); setError('') }}
+          className="flex-1 text-xs px-3 py-2 rounded-lg"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving || pin.length < 4}
+          className="flex-1 text-xs px-3 py-2 rounded-lg font-semibold disabled:opacity-50"
+          style={{ background: 'var(--gradient-primary, var(--color-btn-primary-bg))', color: 'var(--color-btn-primary-text)', border: 'none' }}
+        >
+          {saving ? 'Saving...' : 'Save PIN'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Section labels ─────────────────────────────────────────────────────────
 
 const SECTION_LABELS: Record<string, string> = {
@@ -298,16 +383,7 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
               ? 'Hub PIN is set. Hub Mode can be activated on shared devices.'
               : 'Set a Hub PIN to enable Hub Mode for shared devices.'}
           </p>
-          <button
-            className="text-xs px-3 py-2 rounded-lg font-medium mt-2"
-            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-            onClick={() => {
-              // TODO: PIN entry/change flow
-              alert('Hub PIN management coming soon')
-            }}
-          >
-            {config?.hub_pin ? 'Change Hub PIN' : 'Set Hub PIN'}
-          </button>
+          <HubPinSetter familyId={family?.id} hasPin={!!config?.hub_pin} />
         </SettingsGroup>
 
         {/* ── 3. Section Visibility & Order ──────────────────────────── */}

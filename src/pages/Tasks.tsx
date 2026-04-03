@@ -47,6 +47,7 @@ import { ModalV2 } from '@/components/shared/ModalV2'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
+import { QueueBadge } from '@/components/queue/QueueBadge'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -106,6 +107,7 @@ export function TasksPage() {
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [guidedNewTask, setGuidedNewTask] = useState('')
   const [guidedCreating, setGuidedCreating] = useState(false)
   const [completedTask, setCompletedTask] = useState<Task | null>(null)
@@ -334,6 +336,35 @@ export function TasksPage() {
     [family?.id, member?.id, familyMembers, queryClient]
   )
 
+  // ── Edit existing task ──
+  const handleEditTask = useCallback(
+    async (data: CreateTaskData) => {
+      if (!editingTask) return
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: data.title,
+          description: data.description || null,
+          life_area_tag: data.lifeAreaTag || null,
+          duration_estimate: data.durationEstimate || null,
+          incomplete_action: data.incompleteAction,
+          require_approval: data.reward?.requireApproval ?? false,
+          victory_flagged: data.reward?.flagAsVictory ?? false,
+        })
+        .eq('id', editingTask.id)
+
+      if (error) {
+        console.error('Failed to update task:', error)
+        return
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      setEditingTask(null)
+    },
+    [editingTask, queryClient]
+  )
+
   // ── Tab definitions ──
   // Guided members get only My Tasks + Opportunities (PRD-25 Phase C)
   const tabs: TabItem[] = isGuidedMember
@@ -459,6 +490,12 @@ export function TasksPage() {
           >
             {isViewingAs ? `${activeMember?.display_name}'s Tasks` : 'Tasks'}
           </h1>
+          {/* PRD-17: Queue badge → opens Review Queue modal Sort tab */}
+          <QueueBadge
+            count={queueItems.length}
+            defaultTab="sort"
+            compact
+          />
         </div>
         {!isGuidedMember ? (
           <div className="flex items-center gap-2">
@@ -652,16 +689,28 @@ export function TasksPage() {
             onToggle={toggle}
             isCompleting={isCompleting}
             showType={activeTab === 'my_tasks'}
+            onEditTask={setEditingTask}
           />
         )}
       </div>
 
-      {/* TaskCreationModal */}
+      {/* TaskCreationModal — Create */}
       <TaskCreationModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSave={handleCreateTask}
       />
+
+      {/* TaskCreationModal — Edit */}
+      {editingTask && (
+        <TaskCreationModal
+          isOpen={true}
+          onClose={() => setEditingTask(null)}
+          onSave={handleEditTask}
+          defaultTitle={editingTask.title}
+          defaultDescription={editingTask.description ?? ''}
+        />
+      )}
 
       {/* Bulk AI Quick Add modal */}
       {showBulkAdd && (
@@ -715,9 +764,10 @@ interface TaskListProps {
   onToggle: (task: Task, origin?: { x: number; y: number }) => void
   isCompleting: (taskId: string) => boolean
   showType?: boolean
+  onEditTask?: (task: Task) => void
 }
 
-function TaskList({ tasks, onToggle, isCompleting, showType: _showType }: TaskListProps) {
+function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask }: TaskListProps) {
   const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
   const qc = useQueryClient()
@@ -785,7 +835,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType }: TaskLi
             task={task}
             isCompleting={isCompleting(task.id)}
             onToggle={onToggle}
-            onEdit={() => {}}
+            onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
             onDelete={() => {}}
           />
 

@@ -485,6 +485,8 @@ export type InfoDisplayType =
   | 'info_today_is'
   | 'info_hub_menu'
   | 'info_hub_job_board'
+  | 'info_family_intention'
+  | 'info_countdown'
 
 // Quick Action widget types — single-tap shortcut buttons
 export type QuickActionType =
@@ -571,6 +573,20 @@ export const INFO_WIDGET_REGISTRY: InfoWidgetMeta[] = [
     description: 'Post extra chores or opportunities kids can claim for rewards.',
     icon: 'ClipboardList',
     defaultSize: 'medium',
+  },
+  {
+    type: 'info_family_intention',
+    label: 'Family Intentions',
+    description: 'Your tally and the family total for each shared intention.',
+    icon: 'Heart',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_countdown',
+    label: 'Countdowns',
+    description: 'Days until upcoming family events and milestones.',
+    icon: 'Hourglass',
+    defaultSize: 'small',
   },
 ]
 

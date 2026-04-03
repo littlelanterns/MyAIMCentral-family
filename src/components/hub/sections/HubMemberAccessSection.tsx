@@ -7,11 +7,12 @@
  * Only visible in 'standalone' context.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Users, Lock } from 'lucide-react'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { HubMemberAuthModal } from '../HubMemberAuthModal'
 
 /**
  * Calculate balanced column count to avoid single stragglers.
@@ -36,15 +37,19 @@ export function HubMemberAccessSection() {
     [familyMembers]
   )
 
+  const [authMember, setAuthMember] = useState<FamilyMember | null>(null)
+
   if (activeMembers.length === 0) return null
 
   const cols = getBalancedCols(activeMembers.length)
 
-  const handleMemberTap = (member: FamilyMember) => {
-    window.alert(`Member access for ${member.display_name} coming soon`)
-  }
-
   return (
+    <>
+    <HubMemberAuthModal
+      member={authMember}
+      isOpen={authMember !== null}
+      onClose={() => setAuthMember(null)}
+    />
     <div
       className="rounded-lg p-4"
       data-testid="hub-member-access-section"
@@ -80,7 +85,7 @@ export function HubMemberAccessSection() {
           return (
             <button
               key={member.id}
-              onClick={() => handleMemberTap(member)}
+              onClick={() => setAuthMember(member)}
               className="flex items-center gap-2 rounded-lg px-3 py-2 transition-transform active:scale-95"
               style={{
                 backgroundColor: 'var(--color-bg-secondary)',
@@ -131,5 +136,6 @@ export function HubMemberAccessSection() {
         })}
       </div>
     </div>
+    </>
   )
 }

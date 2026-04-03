@@ -27,6 +27,8 @@ import { useUpdateTask, useCompleteTask } from '@/hooks/useTasks'
 import { DateDetailModal } from './DateDetailModal'
 import { EventCreationModal } from './EventCreationModal'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
+import { QueueBadge } from '@/components/queue/QueueBadge'
+import { usePendingCounts } from '@/hooks/usePendingCounts'
 import type { CalendarView, CalendarFilter, CalendarColorMode } from '@/types/calendar'
 import type { CalendarEvent, EventAttendee, TaskDueDate } from '@/types/calendar'
 
@@ -115,6 +117,7 @@ export function CalendarPage() {
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayHeaders = weekStartDay === 1 ? DAY_HEADERS_MON : DAY_HEADERS_SUN
+  const pendingCounts = usePendingCounts(family?.id)
   const updateTask = useUpdateTask()
   const completeTask = useCompleteTask()
 
@@ -412,6 +415,15 @@ export function CalendarPage() {
           >
             Calendar
           </h1>
+          <div className="flex items-center gap-2">
+            {/* PRD-17: Pending approval badge → opens Queue Modal Calendar tab */}
+            {member?.role === 'primary_parent' && pendingCounts.calendar > 0 && (
+              <QueueBadge
+                count={pendingCounts.calendar}
+                defaultTab="calendar"
+                compact
+              />
+            )}
           <button
             onClick={() => handleAddEvent()}
             className="flex items-center gap-1.5 text-sm font-medium rounded-lg px-3 py-2"
@@ -426,6 +438,7 @@ export function CalendarPage() {
             <Plus size={16} />
             Add Event
           </button>
+          </div>
         </div>
 
         {/* Controls bar */}

@@ -43,7 +43,7 @@ const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export type CalendarViewMode = 'week' | 'month' | 'both'
 
-export function CalendarWidget({ hubMode, viewMode: _viewMode }: { hubMode?: boolean; viewMode?: CalendarViewMode } = {}) {
+export function CalendarWidget({ hubMode, viewMode: _viewMode, personalMemberId }: { hubMode?: boolean; viewMode?: CalendarViewMode; personalMemberId?: string } = {}) {
   const { data: settings } = useCalendarSettings()
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayNames = weekStartDay === 1 ? DAY_NAMES_MON : DAY_NAMES_SUN
@@ -60,10 +60,32 @@ export function CalendarWidget({ hubMode, viewMode: _viewMode }: { hubMode?: boo
   const weekEnd = addDays(weekStart, 6)
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
-  const { data: events } = useEventsForRange(weekStart, weekEnd, undefined, hubMode)
-  const { data: tasksDue } = useTasksDueInRange(weekStart, weekEnd)
+  const { data: rawEvents } = useEventsForRange(weekStart, weekEnd, undefined, hubMode)
+  const { data: rawTasksDue } = useTasksDueInRange(weekStart, weekEnd)
   const { data: family } = useFamily()
   const { data: familyMembers } = useFamilyMembers(family?.id)
+
+  // PRD-14B: Personal dashboard filtering — only show events/tasks relevant to this member
+  const events = useMemo(() => {
+    if (!personalMemberId || !rawEvents) return rawEvents
+    return rawEvents.filter((ev) => {
+      // Always show events I created
+      if (ev.created_by === personalMemberId) return true
+      const attendees = (ev.event_attendees ?? []) as Array<{ family_member_id: string }>
+      // Show events where I'm an attendee
+      if (attendees.some((a) => a.family_member_id === personalMemberId)) return true
+      // Show whole-family events (no attendees specified = everyone)
+      if (attendees.length === 0) return true
+      return false
+    })
+  }, [rawEvents, personalMemberId])
+
+  const tasksDue = useMemo(() => {
+    if (!personalMemberId || !rawTasksDue) return rawTasksDue
+    return rawTasksDue.filter((t) =>
+      t.assignee_id === personalMemberId || t.created_by === personalMemberId
+    )
+  }, [rawTasksDue, personalMemberId])
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [showMonth, setShowMonth] = useState(false)

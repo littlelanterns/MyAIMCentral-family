@@ -9,6 +9,9 @@
 import { useState, useCallback } from 'react'
 import { ChevronDown, ChevronRight, CheckSquare } from 'lucide-react'
 import { SparkleOverlay } from '@/components/shared'
+import { TaskCreationModal } from './TaskCreationModal'
+import { supabase } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
 import { ViewCarousel, type TaskViewKey } from './ViewCarousel'
 import { SimpleListView } from './views/SimpleListView'
 import { EisenhowerView } from './views/EisenhowerView'
@@ -53,6 +56,7 @@ export function DashboardTasksSection({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [activeView, setActiveView] = useState<TaskViewKey>(DEFAULT_VIEWS[shell] ?? 'simple_list')
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   const activeTasks = tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
   const completedToday = tasks.filter((t) => {
@@ -69,6 +73,8 @@ export function DashboardTasksSection({
       setTimeout(() => setSparkleOrigin(null), 1000)
     },
   })
+
+  const queryClient = useQueryClient()
 
   const handleViewChange = useCallback((view: TaskViewKey) => {
     setActiveView(view)
@@ -219,10 +225,38 @@ export function DashboardTasksSection({
             onToggle={toggle}
             isCompleting={isCompleting}
             onUpdateTask={onUpdateTask}
+            onEdit={setEditingTask}
             shell={shell}
             isPlanned={PLANNED_VIEWS.has(activeView)}
           />
         </div>
+      )}
+
+      {/* Edit task modal */}
+      {editingTask && (
+        <TaskCreationModal
+          isOpen={true}
+          onClose={() => setEditingTask(null)}
+          onSave={async (data) => {
+            await supabase
+              .from('tasks')
+              .update({
+                title: data.title,
+                description: data.description || null,
+                life_area_tag: data.lifeAreaTag || null,
+                duration_estimate: data.durationEstimate || null,
+                incomplete_action: data.incompleteAction,
+                require_approval: data.reward?.requireApproval ?? false,
+                victory_flagged: data.reward?.flagAsVictory ?? false,
+              })
+              .eq('id', editingTask.id)
+            queryClient.invalidateQueries({ queryKey: ['tasks'] })
+            setEditingTask(null)
+          }}
+          defaultTitle={editingTask.title}
+          defaultDescription={editingTask.description ?? ''}
+          editMode
+        />
       )}
     </div>
   )
@@ -234,6 +268,7 @@ interface ViewRendererProps {
   onToggle: (task: Task, origin?: { x: number; y: number }) => void
   isCompleting: (taskId: string) => boolean
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
+  onEdit?: (task: Task) => void
   shell: string
   isPlanned?: boolean
 }
@@ -244,6 +279,7 @@ function ViewRenderer({
   onToggle,
   isCompleting,
   onUpdateTask,
+  onEdit,
   shell,
   isPlanned,
 }: ViewRendererProps) {
@@ -256,6 +292,7 @@ function ViewRenderer({
     onToggle,
     isCompleting,
     onUpdateTask,
+    onEdit,
   }
 
   switch (viewKey) {

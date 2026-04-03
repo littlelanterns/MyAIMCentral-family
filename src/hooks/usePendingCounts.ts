@@ -38,7 +38,7 @@ export function usePendingCounts(familyId: string | undefined) {
         .from('calendar_events')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', familyId)
-        .eq('status', 'pending')
+        .eq('status', 'pending_approval')
       if (error) return 0
       return count ?? 0
     },

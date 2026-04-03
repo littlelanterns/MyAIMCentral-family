@@ -11,7 +11,8 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { Sparkles, Home, Settings, Frame, GripVertical, ArchiveRestore, Archive, ChevronLeft, Lock, Users } from 'lucide-react'
+import { Sparkles, Home, Settings, Frame, GripVertical, ArchiveRestore, Archive, ChevronLeft, Lock, Unlock, Users } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
 import { PullTab } from '@/components/shared/PullTab'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -31,7 +32,9 @@ import { HubCalendarSection } from './sections/HubCalendarSection'
 import { HubBestIntentionsSection } from './sections/HubBestIntentionsSection'
 import { HubCountdownsSection } from './sections/HubCountdownsSection'
 import { HubVictoriesSummarySection } from './sections/HubVictoriesSummarySection'
-// HubMemberAccessSection — deferred, not yet wired
+import { HubMemberAccessSection } from './sections/HubMemberAccessSection'
+import { HubMemberAuthModal } from './HubMemberAuthModal'
+import type { FamilyMember } from '@/hooks/useFamilyMember'
 
 // ─── Section labels ──────────────────────────────────────────────────────────
 
@@ -123,7 +126,8 @@ function HubSectionRenderer({
     case 'widget_grid':
       return null // PRD-10 Hub widget deployment
     case 'member_access':
-      return null // Member access is via the left-edge pull tab drawer
+      if (context === 'tab') return null // Only in standalone mode
+      return <HubMemberAccessSection />
     default:
       return null
   }
@@ -148,11 +152,64 @@ export function FamilyHub({ context }: FamilyHubProps) {
   const [slideshowOpen, setSlideshowOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false)
+  const [authMember, setAuthMember] = useState<FamilyMember | null>(null)
+
+  // Hub Mode kiosk lock state — persisted to localStorage
+  const [hubModeActive, setHubModeActive] = useState<boolean>(() => {
+    try { return localStorage.getItem('myaim-hub-mode') === 'true' } catch { return false }
+  })
+  const [hubModePinEntry, setHubModePinEntry] = useState(false)
+  const [hubModePin, setHubModePin] = useState('')
+  const [hubModePinError, setHubModePinError] = useState('')
+
+  const activateHubMode = useCallback(() => {
+    if (!config?.hub_pin) {
+      // No Hub PIN set — can't activate Hub Mode
+      return
+    }
+    setHubModeActive(true)
+    try { localStorage.setItem('myaim-hub-mode', 'true') } catch { /* */ }
+  }, [config?.hub_pin])
+
+  const handleHubModeExit = useCallback(async () => {
+    if (!config?.hub_pin) {
+      setHubModeActive(false)
+      try { localStorage.removeItem('myaim-hub-mode') } catch { /* */ }
+      return
+    }
+    // Show PIN entry to exit
+    setHubModePinEntry(true)
+    setHubModePin('')
+    setHubModePinError('')
+  }, [config?.hub_pin])
+
+  const handleHubModePinSubmit = useCallback(async () => {
+    if (!config?.hub_pin || hubModePin.length < 4) return
+    // Verify Hub PIN — stored as bcrypt hash, use verify_hub_pin RPC if available,
+    // otherwise compare plaintext (hub_pin stored hashed in DB)
+    let data: unknown = null
+    try {
+      const result = await supabase.rpc('verify_hub_pin', {
+        p_family_id: family?.id,
+        p_pin: hubModePin,
+      })
+      data = result.data
+    } catch { /* RPC not available yet */ }
+
+    if (data === true) {
+      setHubModeActive(false)
+      try { localStorage.removeItem('myaim-hub-mode') } catch { /* */ }
+      setHubModePinEntry(false)
+    } else {
+      setHubModePinError('Incorrect PIN')
+      setHubModePin('')
+    }
+  }, [config?.hub_pin, hubModePin, family?.id])
 
   // Long-press to enter edit mode (mom only)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handlePointerDown = useCallback(() => {
-    if (!isMom || editMode) return
+    if (!isMom || editMode || hubModeActive) return
     longPressTimer.current = setTimeout(() => setEditMode(true), 500)
   }, [isMom, editMode])
   const cancelLongPress = useCallback(() => {
@@ -313,7 +370,7 @@ export function FamilyHub({ context }: FamilyHubProps) {
                       key={m.id}
                       onClick={() => {
                         setMemberDrawerOpen(false)
-                        window.alert(`Member access for ${m.display_name} coming soon`)
+                        setAuthMember(m)
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left"
                       style={{ minHeight: 48, color: 'var(--color-text-primary)' }}
@@ -381,6 +438,95 @@ export function FamilyHub({ context }: FamilyHubProps) {
       {/* Hub Settings Modal — mom only */}
       {isMom && (
         <HubSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      )}
+
+      {/* Hub Member Auth Modal — PIN entry for member quick access */}
+      <HubMemberAuthModal
+        member={authMember}
+        isOpen={authMember !== null}
+        onClose={() => setAuthMember(null)}
+      />
+
+      {/* Hub Mode lock/unlock — standalone only */}
+      {context === 'standalone' && isMom && config?.hub_pin && (
+        <button
+          onClick={hubModeActive ? handleHubModeExit : activateHubMode}
+          className="fixed bottom-4 right-4 z-30 flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold"
+          style={{
+            background: hubModeActive
+              ? 'color-mix(in srgb, var(--color-error, #ef4444) 15%, var(--color-bg-card))'
+              : 'var(--gradient-primary, var(--color-btn-primary-bg))',
+            color: hubModeActive ? 'var(--color-text-primary)' : 'var(--color-btn-primary-text)',
+            border: '1px solid var(--color-border)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          }}
+        >
+          {hubModeActive ? <><Unlock size={14} /> Exit Hub Mode</> : <><Lock size={14} /> Hub Mode</>}
+        </button>
+      )}
+
+      {/* Hub Mode PIN exit modal */}
+      {hubModePinEntry && (
+        <>
+          <div
+            className="fixed inset-0 z-60"
+            onClick={() => setHubModePinEntry(false)}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          />
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-xs rounded-xl p-6 z-61 space-y-4"
+            style={{
+              backgroundColor: 'var(--color-bg-card)',
+              border: '1px solid var(--color-border)',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+            }}
+          >
+            <p className="text-sm font-semibold text-center" style={{ color: 'var(--color-text-heading)' }}>
+              Enter Hub PIN to exit Hub Mode
+            </p>
+            {hubModePinError && (
+              <p className="text-xs text-center" style={{ color: 'var(--color-error, #ef4444)' }}>
+                {hubModePinError}
+              </p>
+            )}
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={hubModePin}
+              onChange={(e) => { setHubModePin(e.target.value.replace(/\D/g, '')); setHubModePinError('') }}
+              className="w-full px-3 py-3 rounded-lg outline-none text-center text-2xl tracking-widest"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+              placeholder="····"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setHubModePinEntry(false)}
+                className="flex-1 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleHubModePinSubmit}
+                disabled={hubModePin.length < 4}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                style={{
+                  background: 'var(--gradient-primary, var(--color-btn-primary-bg))',
+                  color: 'var(--color-btn-primary-text)',
+                  border: 'none',
+                }}
+              >
+                Unlock
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Edit mode banner */}
