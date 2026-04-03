@@ -123,22 +123,22 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
   const hasInput = input.trim().length > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
       <div
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl"
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl shadow-lg"
         style={{
-          backgroundColor: 'var(--color-surface-card, #fff)',
-          color: 'var(--color-text-primary, #1a1a1a)',
-          border: '1px solid var(--color-border-default, #e5e5e5)',
+          backgroundColor: 'var(--color-bg-card)',
+          color: 'var(--color-text-primary)',
+          border: '1px solid var(--color-border)',
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between border-b px-4 py-3"
-          style={{ borderColor: 'var(--color-border-default, #e5e5e5)' }}
+          style={{ borderColor: 'var(--color-border)' }}
         >
-          <h2 className="text-lg font-semibold">Translator</h2>
-          <button onClick={onClose} className="rounded p-1 hover:opacity-70" aria-label="Close">
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>Translator</h2>
+          <button onClick={onClose} className="rounded p-1 hover:opacity-70" style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -147,7 +147,7 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Input area */}
           <div>
-            <label className="mb-1 block text-sm font-medium opacity-70">Paste or type your text:</label>
+            <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>Paste or type your text:</label>
             <textarea
               ref={inputRef}
               value={input}
@@ -156,16 +156,16 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
               rows={4}
               className="w-full resize-none rounded-lg border p-3 text-sm focus:outline-none focus:ring-2"
               style={{
-                backgroundColor: 'var(--color-surface-input, #fafafa)',
-                borderColor: 'var(--color-border-default, #d4d4d4)',
-                color: 'var(--color-text-primary, #1a1a1a)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
               }}
             />
           </div>
 
           {/* Tone buttons */}
           <div>
-            <label className="mb-2 block text-sm font-medium opacity-70">Rewrite as:</label>
+            <label className="mb-2 block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>Rewrite as:</label>
             <div className="flex flex-wrap gap-2">
               {PRESET_TONES.map(tone => (
                 <button
@@ -175,14 +175,14 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
                   className="rounded-full border px-3 py-1.5 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40"
                   style={{
                     borderColor: loadingTone === tone.key
-                      ? 'var(--color-accent, #6366f1)'
-                      : 'var(--color-border-default, #d4d4d4)',
+                      ? 'var(--color-btn-primary-bg)'
+                      : 'var(--color-border)',
                     backgroundColor: loadingTone === tone.key
-                      ? 'var(--color-accent, #6366f1)'
+                      ? 'var(--color-btn-primary-bg)'
                       : 'transparent',
                     color: loadingTone === tone.key
-                      ? 'var(--color-text-on-primary, #fff)'
-                      : 'var(--color-text-primary, #1a1a1a)',
+                      ? 'var(--color-btn-primary-text, #fff)'
+                      : 'var(--color-text-primary)',
                   }}
                 >
                   {loadingTone === tone.key ? (
@@ -203,15 +203,16 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
                   disabled={!hasInput || loading}
                   className="rounded-full border px-3 py-1.5 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40"
                   style={{
-                    borderColor: 'var(--color-border-default, #d4d4d4)',
+                    borderColor: 'var(--color-border)',
                     borderStyle: 'dashed',
+                    color: 'var(--color-text-secondary)',
                   }}
                 >
                   Custom...
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm opacity-70">Rewrite as:</span>
+                  <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Rewrite as:</span>
                   <input
                     type="text"
                     value={customToneText}
@@ -226,8 +227,9 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
                     placeholder="a nature documentary narrator..."
                     className="rounded border px-2 py-1 text-sm focus:outline-none"
                     style={{
-                      backgroundColor: 'var(--color-surface-input, #fafafa)',
-                      borderColor: 'var(--color-border-default, #d4d4d4)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
                       minWidth: '200px',
                     }}
                     autoFocus
@@ -242,7 +244,7 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
                     }}
                     disabled={!customToneText.trim() || loading}
                     className="rounded px-2 py-1 text-sm font-medium disabled:opacity-40"
-                    style={{ color: 'var(--color-accent, #6366f1)' }}
+                    style={{ color: 'var(--color-btn-primary-bg)' }}
                   >
                     Go
                   </button>
@@ -253,7 +255,14 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div
+              className="rounded-lg border p-3 text-sm"
+              style={{
+                borderColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)',
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
+                color: 'var(--color-text-primary)',
+              }}
+            >
               Something went wrong. Please try again.
             </div>
           )}
@@ -261,7 +270,7 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
           {/* Results */}
           {results.length > 0 && (
             <div className="space-y-3">
-              <label className="block text-sm font-medium opacity-70">
+              <label className="block text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                 {results.length === 1 ? 'Result:' : `Results (${results.length}):`}
               </label>
               {results.map((result, idx) => (
@@ -269,18 +278,18 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
                   key={`${result.tone}-${idx}`}
                   className="rounded-lg border p-3"
                   style={{
-                    backgroundColor: 'var(--color-surface-secondary, #f8f8f8)',
-                    borderColor: 'var(--color-border-default, #e5e5e5)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    borderColor: 'var(--color-border)',
                   }}
                 >
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider opacity-60">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
                       {result.toneLabel}
                     </span>
                     <button
                       onClick={() => handleCopy(idx)}
                       className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-70"
-                      style={{ color: 'var(--color-accent, #6366f1)' }}
+                      style={{ color: 'var(--color-btn-primary-bg)' }}
                     >
                       {copiedIdx === idx ? (
                         <>
@@ -295,7 +304,7 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
                       )}
                     </button>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm">{result.text}</p>
+                  <p className="whitespace-pre-wrap text-sm" style={{ color: 'var(--color-text-primary)' }}>{result.text}</p>
                 </div>
               ))}
             </div>
@@ -306,12 +315,12 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
         {results.length > 0 && (
           <div
             className="flex items-center justify-end gap-3 border-t px-4 py-3"
-            style={{ borderColor: 'var(--color-border-default, #e5e5e5)' }}
+            style={{ borderColor: 'var(--color-border)' }}
           >
             <button
               onClick={handleEditInput}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-70"
-              style={{ color: 'var(--color-text-secondary, #666)' }}
+              style={{ color: 'var(--color-text-secondary)' }}
             >
               <PenLine size={14} />
               Edit input
@@ -319,7 +328,7 @@ export function TranslatorModal({ onClose }: TranslatorModalProps) {
             <button
               onClick={() => setResults([])}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-70"
-              style={{ color: 'var(--color-text-secondary, #666)' }}
+              style={{ color: 'var(--color-text-secondary)' }}
             >
               <RefreshCw size={14} />
               Clear results

@@ -12,7 +12,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-const MODEL = 'anthropic/claude-haiku-4-5-20251001'
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 const InputSchema = z.object({
   conversation_id: z.string().uuid(),

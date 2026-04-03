@@ -21,13 +21,20 @@ const InputSchema = z.object({
   content: z.string().min(1),
 })
 
-function buildSystemPrompt(ctx: string): string {
+function buildSystemPrompt(ctx: string, userName: string, personName: string | null): string {
+  const personLine = personName
+    ? `The current user is ${userName}. They are expressing gratitude TOWARD ${personName}. Address ${userName} by name. Help ${userName} articulate and deepen their gratitude for ${personName}. Do NOT address ${personName} directly — you are coaching ${userName}.`
+    : `The current user is ${userName}. Help them with general gratitude practice.`
+
   return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
 If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
 1. Express care and validation. 2. Provide: 988, Crisis Text Line (741741), NDVH, 911.
 
 ## Identity
 You are LiLa's Gratitude coaching mode. Your job is to help the user move a grateful thought from inside to outside — and sometimes to deepen it first. You are a processing partner.
+
+## WHO IS WHO (CRITICAL)
+${personLine}
 
 ## CORE INTELLIGENCE
 
@@ -105,11 +112,22 @@ Deno.serve(async (req) => {
 
     const personIds = conv.guided_mode_reference_id ? [conv.guided_mode_reference_id] : []
 
+    // Load user's name
+    const { data: userMember } = await supabase.from('family_members').select('display_name').eq('id', conv.member_id).single()
+    const userName = userMember?.display_name || 'the user'
+
+    // Load selected person's name (if any)
+    let personName: string | null = null
+    if (conv.guided_mode_reference_id) {
+      const { data: personMember } = await supabase.from('family_members').select('display_name').eq('id', conv.guided_mode_reference_id).single()
+      personName = personMember?.display_name || null
+    }
+
     const { data: history } = await supabase.from('lila_messages').select('role, content').eq('conversation_id', conversation_id).order('created_at', { ascending: true }).limit(30)
     const recentMsgs = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
 
     const ctx = await loadRelationshipContext(conv.family_id, conv.member_id, personIds, 'gratitude', content, recentMsgs)
-    const systemPrompt = buildSystemPrompt(formatRelationshipContextForPrompt(ctx))
+    const systemPrompt = buildSystemPrompt(formatRelationshipContextForPrompt(ctx), userName, personName)
 
     await supabase.from('lila_messages').insert({ conversation_id, role: 'user', content, metadata: {} })
 

@@ -48,20 +48,31 @@ interface MoreNavSection {
 
 const MORE_SECTIONS: MoreNavSection[] = [
   {
-    title: 'Daily',
+    title: 'Capture & Reflect',
     items: [
       { path: '/journal', label: 'Journal', description: 'Capture thoughts and reflect', featureKey: 'journal' },
-      { path: '/calendar', label: 'Calendar', description: 'Events & schedule', featureKey: 'calendar' },
-      { path: '/messages', label: 'Messages', description: 'Family conversations', featureKey: 'messages' },
-      { path: '/victories', label: 'Victories', description: 'Celebrate wins', featureKey: 'victories' },
-      { path: '/lists', label: 'Lists', description: 'Checklists & references', featureKey: 'lists' },
+      { path: '/reflections', label: 'Reflections', description: 'Daily reflection questions', featureKey: 'reflections_basic' },
+      { path: '/rhythms/morning', label: 'Morning Rhythm', description: 'Start your day with intention', featureKey: 'morning_rhythm' },
+      { path: '/rhythms/evening', label: 'Evening Review', description: 'Reflect on your day', featureKey: 'evening_review' },
+      { path: '/notepad', label: 'Notepad', description: 'Quick capture workspace', featureKey: 'notepad' },
     ],
   },
   {
-    title: 'Personal Growth',
+    title: 'Plan & Do',
     items: [
-      { path: '/guiding-stars', label: 'GuidingStars', description: 'Values & intentions', featureKey: 'guiding_stars' },
+      { path: '/calendar', label: 'Calendar', description: 'Events & schedule', featureKey: 'calendar' },
+      { path: '/trackers', label: 'Trackers', description: 'Charts and trackers', featureKey: 'widgets_trackers' },
+      { path: '/lists', label: 'Lists', description: 'Checklists & references', featureKey: 'lists' },
+      { path: '/studio', label: 'Studio', description: 'Template workshop', featureKey: 'studio' },
+    ],
+  },
+  {
+    title: 'Grow',
+    items: [
+      { path: '/guiding-stars', label: 'Guiding Stars', description: 'Values & intentions', featureKey: 'guiding_stars' },
+      { path: '/best-intentions', label: 'BestIntentions', description: 'Intentions & iterations', featureKey: 'best_intentions' },
       { path: '/inner-workings', label: 'InnerWorkings', description: 'Self-knowledge', featureKey: 'my_foundation' },
+      { path: '/victories', label: 'Victories', description: 'Celebrate wins', featureKey: 'victories' },
       { path: '/life-lantern', label: 'LifeLantern', description: 'Life assessment', featureKey: 'lifelantern' },
       { path: '/safe-harbor', label: 'Safe Harbor', description: 'Private processing space', featureKey: 'safe_harbor' },
     ],
@@ -72,19 +83,15 @@ const MORE_SECTIONS: MoreNavSection[] = [
       { path: '/hub', label: 'Family Hub', description: 'Shared coordination', featureKey: 'family_hub' },
       { path: '/family-members', label: 'Family Members', description: 'Manage your family', featureKey: 'family_management' },
       { path: '/meetings', label: 'Meetings', description: 'Family meetings', featureKey: 'meetings' },
+      { path: '/messages', label: 'Messages', description: 'Family conversations', featureKey: 'messages' },
       { path: '/family-feed', label: 'Family Feed', description: 'Moments & updates', featureKey: 'family_feeds' },
     ],
   },
   {
-    title: 'Capture',
-    items: [
-      { path: '/notepad', label: 'Notepad', description: 'Quick capture workspace', featureKey: 'notepad' },
-    ],
-  },
-  {
-    title: 'Tools',
+    title: 'AI & Tools',
     items: [
       { path: '/bookshelf', label: 'BookShelf', description: 'Family book wisdom library', featureKey: 'bookshelf_basic' },
+      { path: '/bookshelf/prompts', label: 'Journal Prompts', description: 'Reflection prompts from books', featureKey: 'bookshelf_basic' },
       { path: '/vault', label: 'AI Vault', description: 'Tutorials, tools, and prompts', featureKey: 'vault_browse' },
       { path: '/bigplans', label: 'BigPlans', description: 'Project planning', featureKey: 'bigplans' },
       { path: '/thoughtsift', label: 'ThoughtSift', description: 'Decision tools', featureKey: 'thoughtsift' },
