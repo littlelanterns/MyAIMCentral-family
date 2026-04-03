@@ -4,9 +4,7 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A) + PRD-17 Universal Queue Gap-Fill
-
----
+## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A)
 
 ---
 
@@ -134,7 +132,7 @@ GuidedShell already exists (`src/components/shells/GuidedShell.tsx`) with its ow
 
 ---
 
-# Build D: PRD-17 Universal Queue & Routing System (Gap-Fill)
+# Build D: PRD-17 Universal Queue & Routing System (Gap-Fill) — COMPLETED
 
 ### PRD Files
 - `prds/communication/PRD-17-Universal-Queue-Routing-System.md` (full PRD — read every word)
