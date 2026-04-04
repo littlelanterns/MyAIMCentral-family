@@ -327,6 +327,7 @@ export function CalendarWidget({ hubMode, viewMode: _viewMode, personalMemberId 
                   {totalItems > 0 ? (
                     <>
                       {dayEvents.slice(0, 4).map((ev) => {
+                        const isTentative = ev.status === 'pending_approval' || ev.status === 'penciled_in'
                         const evColor = ev.status === 'pending_approval'
                           ? 'var(--color-text-secondary)'
                           : memberColorMap.get(ev.created_by) ?? 'var(--color-btn-primary-bg)'
@@ -334,7 +335,7 @@ export function CalendarWidget({ hubMode, viewMode: _viewMode, personalMemberId 
                           <div
                             key={ev.id}
                             className="flex items-start gap-0.5 text-left"
-                            style={{ opacity: ev.status === 'pending_approval' ? 0.5 : 1 }}
+                            style={{ opacity: isTentative ? 0.6 : 1 }}
                           >
                             <span
                               className="rounded-full shrink-0 mt-[3px]"

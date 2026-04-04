@@ -11,7 +11,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import {
   Calendar as CalendarIcon, Clock, MapPin, FileText,
-  Repeat, Users, Car, Tag, Bell, Home,
+  Repeat, Users, Car, Tag, Bell, Home, Pencil,
 } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useCreateEvent, useUpdateEvent, useEventCategories, useCalendarSettings } from '@/hooks/useCalendarEvents'
@@ -68,6 +68,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
   const [newItemText, setNewItemText] = useState('')
   const [notes, setNotes] = useState('')
   const [showOnHub, setShowOnHub] = useState(true)
+  const [isPenciledIn, setIsPenciledIn] = useState(false)
   const [scheduleValue, setScheduleValue] = useState<SchedulerOutput | null>(null)
 
   // Reset / populate form when modal opens
@@ -96,6 +97,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         setItemsToBring(initialEvent.items_to_bring ?? [])
         setNotes(initialEvent.notes ?? '')
         setShowOnHub(initialEvent.show_on_hub ?? true)
+        setIsPenciledIn(initialEvent.status === 'penciled_in')
         // Restore recurrence if present
         if (initialEvent.recurrence_details) {
           setScheduleValue(initialEvent.recurrence_details as unknown as SchedulerOutput)
@@ -121,6 +123,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         setItemsToBring([])
         setNotes('')
         setShowOnHub(true)
+        setIsPenciledIn(false)
         setScheduleValue(null)
       }
       setNewItemText('')
@@ -188,6 +191,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
       notes: notes || undefined,
       attendees: attendeeInputs.length > 0 ? attendeeInputs : undefined,
       show_on_hub: showOnHub,
+      status: isPenciledIn ? 'penciled_in' : undefined,
     }
 
     // Apply recurrence from scheduler
@@ -208,7 +212,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
       await createEvent.mutateAsync(input)
     }
     onClose()
-  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
+  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, isPenciledIn, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
 
   const isSaving = createEvent.isPending || updateEvent.isPending
   const hasUnsavedChanges = title.trim().length > 0
@@ -603,6 +607,26 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
             className="flex-1 text-sm rounded-lg px-3 py-2 resize-none"
             style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
           />
+        </div>
+
+        {/* Penciled In toggle */}
+        <div className="flex items-center gap-2">
+          <Pencil size={16} style={{ color: isPenciledIn ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)', flexShrink: 0 }} />
+          <label className="flex items-center gap-2 flex-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isPenciledIn}
+              onChange={(e) => setIsPenciledIn(e.target.checked)}
+              className="rounded"
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+              Penciled in
+            </span>
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              (not yet committed)
+            </span>
+          </label>
         </div>
 
         {/* Hub visibility — PRD-14D */}

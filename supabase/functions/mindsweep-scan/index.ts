@@ -38,9 +38,10 @@ Deno.serve(async (req) => {
       )
     }
   } catch (err) {
-    console.error('mindsweep-scan error:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('mindsweep-scan error:', msg)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: `Server error: ${msg}` }),
       { status: 500, headers: jsonHeaders },
     )
   }
@@ -62,6 +63,8 @@ async function handleScan(body: {
       { status: 400, headers: jsonHeaders },
     )
   }
+
+  console.log(`[mindsweep-scan] Processing image: ${image_base64.length} chars base64, mime=${mime_type}`)
 
   const mimeType = mime_type || 'image/jpeg'
   const dataUri = `data:${mimeType};base64,${image_base64}`

@@ -80,7 +80,7 @@ const SENSITIVITY_PATTERNS: Record<string, RegExp[]> = {
 const CLASSIFICATION_CATEGORIES = [
   { key: 'task', destination: 'task', description: 'Action item, chore, errand, to-do' },
   { key: 'shopping', destination: 'list', detail: { list_type: 'shopping' }, description: 'Grocery item, shopping item, thing to buy' },
-  { key: 'calendar', destination: 'calendar', description: 'Event, appointment, date, schedule item, practice, meeting time' },
+  { key: 'calendar', destination: 'calendar', description: 'Event, appointment, date, schedule item, practice, meeting time, conference, show, rehearsal' },
   { key: 'journal', destination: 'journal', description: 'Thought, reflection, gratitude, personal note, memory' },
   { key: 'victory', destination: 'victory', description: 'Achievement, accomplishment, celebration, milestone, win' },
   { key: 'guiding_star', destination: 'guiding_stars', description: 'Value, principle, declaration, life direction' },
@@ -444,12 +444,30 @@ If an item has travel details (flights, hotels, reservations), set category to "
 
 Calendar detection tips — classify as "calendar" if the text contains:
 - A specific date AND time (e.g., "April 15 at 3pm", "Tuesday 4-5:30pm")
-- Event-like language (class, practice, appointment, meeting, game, recital, concert, lesson)
+- Event-like language (class, practice, appointment, meeting, game, recital, concert, lesson, show, performance)
 - A location paired with a time
 - Confirmation language ("Your reservation is confirmed", "You're registered for")
 - Recurring schedule patterns ("every Tuesday", "Mondays and Wednesdays at 2pm")
-When adding destination_detail for calendar items, include any parsed fields:
-{"event_title": "...", "event_date": "...", "event_time": "...", "event_location": "..."}
+
+Calendar items MUST include a "calendar_subtype" in destination_detail:
+- "single" — one event, one date/time (appointment, game, class)
+- "multi_day" — one event spanning multiple days (conference May 14-16, camp, retreat)
+- "options" — one event with multiple available dates/times (showtimes, open sessions, performances where you pick one)
+- "recurring" — repeating schedule (weekly practice, MWF classes — same activity on a pattern)
+- "series" — multiple distinct scheduled events with different details per date (rehearsal schedule with different cast/scenes)
+
+Calendar destination_detail format:
+{
+  "calendar_subtype": "single" | "multi_day" | "options" | "recurring" | "series",
+  "event_title": "...",
+  "event_location": "...",
+  "events": [{"date": "YYYY-MM-DD", "start_time": "HH:MM", "end_time": "HH:MM", "notes": "..."}],
+  "start_date": "YYYY-MM-DD",
+  "end_date": "YYYY-MM-DD",
+  "recurrence_days": ["monday", "tuesday", ...],
+  "details_by_day": {"monday": "...", "tuesday": "..."}
+}
+Include only the fields relevant to the subtype. For "options", list every available date in "events". For "multi_day", use start_date and end_date. For "recurring", use recurrence_days + start/end times. For "series", list each event with its unique details in "events".
 
 Be generous with confidence:
 - "high" = clearly belongs in this category

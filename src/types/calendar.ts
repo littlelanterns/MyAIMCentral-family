@@ -32,6 +32,9 @@ export interface CalendarEvent {
   recurrence_details: Record<string, unknown> | null
   recurrence_parent_id: string | null
   status: EventStatus
+  option_group_id: string | null
+  option_group_title: string | null
+  calendar_subtype: CalendarSubtype | null
   rejection_note: string | null
   approved_by: string | null
   approved_at: string | null
@@ -54,7 +57,8 @@ export interface ItemToBring {
 }
 
 export type EventType = 'task' | 'event' | 'deadline' | 'reminder' | 'appointment' | 'activity'
-export type EventStatus = 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'cancelled'
+export type EventStatus = 'draft' | 'pending_approval' | 'approved' | 'penciled_in' | 'rejected' | 'cancelled' | 'expired'
+export type CalendarSubtype = 'single' | 'multi_day' | 'options' | 'recurring' | 'series'
 export type EventSource = 'manual' | 'review_route' | 'image_ocr' | 'lila_guided' | 'task_auto' | 'google_sync'
 export type RecurrenceRule = 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom'
 
@@ -113,6 +117,10 @@ export interface CreateEventInput {
   reminder_minutes?: number[]
   attendees?: AttendeeInput[]
   show_on_hub?: boolean
+  status?: 'approved' | 'penciled_in'
+  option_group_id?: string
+  option_group_title?: string
+  calendar_subtype?: CalendarSubtype
 }
 
 export interface AttendeeInput {

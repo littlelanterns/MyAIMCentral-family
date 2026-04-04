@@ -335,6 +335,8 @@ function EventCard({
   isCreator: boolean
 }) {
   const isPending = event.status === 'pending_approval'
+  const isPenciledIn = event.status === 'penciled_in'
+  const isTentative = isPending || isPenciledIn
   const canEdit = isMom || isCreator
   const attendees = event.event_attendees ?? []
   const recurrenceText = describeRecurrence(event.recurrence_rule)
@@ -361,8 +363,8 @@ function EventCard({
       className="rounded-lg p-3"
       style={{
         backgroundColor: 'var(--color-bg-secondary)',
-        border: isPending ? '1px dashed var(--color-border)' : '1px solid var(--color-border)',
-        opacity: isPending ? 0.7 : 1,
+        border: isTentative ? '1px dashed var(--color-border)' : '1px solid var(--color-border)',
+        opacity: isTentative ? 0.8 : 1,
       }}
     >
       {/* Header row: time + title + action buttons */}
@@ -378,6 +380,14 @@ function EventCard({
                 style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent) 20%, transparent)', color: 'var(--color-accent)' }}
               >
                 pending
+              </span>
+            )}
+            {isPenciledIn && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)', color: 'var(--color-btn-primary-bg)' }}
+              >
+                penciled in
               </span>
             )}
           </div>
@@ -503,6 +513,26 @@ function EventCard({
             style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }}
           >
             Reject
+          </button>
+        </div>
+      )}
+
+      {/* Confirm/Dismiss for penciled-in events */}
+      {isPenciledIn && isMom && (
+        <div className="flex gap-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <button
+            onClick={() => onApprove(event.id)}
+            className="text-xs font-medium px-3 py-1 rounded"
+            style={{ background: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
+          >
+            Confirm
+          </button>
+          <button
+            onClick={() => onReject(event.id)}
+            className="text-xs font-medium px-3 py-1 rounded"
+            style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }}
+          >
+            Dismiss
           </button>
         </div>
       )}

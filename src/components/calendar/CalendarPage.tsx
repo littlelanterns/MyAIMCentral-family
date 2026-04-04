@@ -299,6 +299,8 @@ export function CalendarPage() {
     opts: { isToday?: boolean; compact?: boolean } = {},
   ) => {
     const isPending = ev.status === 'pending_approval'
+    const isPenciledIn = ev.status === 'penciled_in'
+    const isTentative = isPending || isPenciledIn
     const colors = getEventColors(ev)
     const primaryColor = isPending ? 'var(--color-text-secondary)' : colors[0]
 
@@ -310,13 +312,13 @@ export function CalendarPage() {
           style={{
             backgroundColor: opts.isToday
               ? 'color-mix(in srgb, var(--color-btn-primary-text) 20%, transparent)'
-              : isPending
+              : isTentative
                 ? 'var(--color-bg-secondary)'
                 : `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
             color: opts.isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
             borderLeft: `3px solid ${primaryColor}`,
-            borderStyle: isPending ? 'dashed' : 'solid',
-            opacity: isPending ? 0.65 : 1,
+            borderStyle: isTentative ? 'dashed' : 'solid',
+            opacity: isTentative ? 0.75 : 1,
           }}
         >
           {ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}{ev.title}
@@ -332,16 +334,16 @@ export function CalendarPage() {
         style={{
           backgroundColor: opts.isToday
             ? 'color-mix(in srgb, var(--color-btn-primary-text) 20%, transparent)'
-            : isPending
+            : isTentative
               ? 'var(--color-bg-secondary)'
               : `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
           color: opts.isToday ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
-          opacity: isPending ? 0.65 : 1,
+          opacity: isTentative ? 0.75 : 1,
         }}
       >
         {colors.length > 1
-          ? <StackedDots colors={colors} pending={isPending} />
-          : <ColorDot color={primaryColor} pending={isPending} />
+          ? <StackedDots colors={colors} pending={isTentative} />
+          : <ColorDot color={primaryColor} pending={isTentative} />
         }
         <span className="truncate">
           {ev.start_time ? ev.start_time.slice(0, 5) + ' ' : ''}{ev.title}
@@ -810,25 +812,26 @@ export function CalendarPage() {
               {(eventsByDate.get(toISODate(currentDate)) ?? []).map(ev => {
                 const evColors = getEventColors(ev)
                 const isPending = ev.status === 'pending_approval'
+                const isTentative = isPending || ev.status === 'penciled_in'
                 return (
                   <div
                     key={ev.id}
                     className="rounded-lg p-3 cursor-pointer"
                     style={{
                       backgroundColor: 'var(--color-bg-secondary)',
-                      border: isPending ? '1px dashed var(--color-border)' : '1px solid var(--color-border)',
+                      border: isTentative ? '1px dashed var(--color-border)' : '1px solid var(--color-border)',
                       borderLeft: colorMode === 'stripe'
-                        ? `4px ${isPending ? 'dashed' : 'solid'} ${isPending ? 'var(--color-text-secondary)' : evColors[0]}`
+                        ? `4px ${isTentative ? 'dashed' : 'solid'} ${isPending ? 'var(--color-text-secondary)' : evColors[0]}`
                         : undefined,
-                      opacity: isPending ? 0.7 : 1,
+                      opacity: isTentative ? 0.75 : 1,
                     }}
                     onClick={() => handleDateClick(currentDate)}
                   >
                     <div className="flex items-center gap-2">
                       {colorMode === 'dots' && (
                         evColors.length > 1
-                          ? <StackedDots colors={evColors} pending={isPending} />
-                          : <ColorDot color={evColors[0]} pending={isPending} />
+                          ? <StackedDots colors={evColors} pending={isTentative} />
+                          : <ColorDot color={evColors[0]} pending={isTentative} />
                       )}
                       <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{ev.title}</p>
                     </div>

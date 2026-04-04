@@ -7,7 +7,7 @@
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
-import { CheckSquare, List, LayoutGrid, BarChart3 } from 'lucide-react'
+import { CheckSquare, List, LayoutGrid, BarChart3, Calendar as CalendarIcon } from 'lucide-react'
 import { Button, Avatar } from '@/components/shared'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
@@ -62,6 +62,43 @@ const DEST_CONFIGS: Record<string, DestConfig> = {
     bgColor: 'color-mix(in srgb, var(--color-text-secondary) 15%, var(--color-bg-card))',
     textColor: 'var(--color-text-secondary)',
   },
+  calendar: {
+    icon: CalendarIcon,
+    label: 'Calendar',
+    bgColor: 'color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-card))',
+    textColor: 'var(--color-accent)',
+  },
+}
+
+function CalendarSubtypeBadge({ details }: { details: Record<string, unknown> }) {
+  const subtype = String(details.calendar_subtype ?? '')
+  const events = Array.isArray(details.events) ? details.events : []
+  const days = Array.isArray(details.recurrence_days) ? (details.recurrence_days as string[]) : []
+
+  let label = ''
+  if (subtype === 'options') label = `${events.length || '?'} available dates — add all as penciled in?`
+  else if (subtype === 'multi_day') label = `Multi-day: ${String(details.start_date ?? '')} to ${String(details.end_date ?? '')}`
+  else if (subtype === 'recurring') label = `Recurring: ${days.join(', ')}`
+  else if (subtype === 'series') label = `${events.length || '?'} scheduled events`
+  else if (subtype === 'single' && details.event_title) label = String(details.event_title)
+
+  if (!label) return null
+
+  return (
+    <div
+      style={{
+        fontSize: 'var(--font-size-xs, 0.75rem)',
+        color: 'var(--color-btn-primary-bg)',
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+      }}
+    >
+      <CalendarIcon size={12} />
+      <span>{label}</span>
+    </div>
+  )
 }
 
 function getDestConfig(destination: string | null): DestConfig {
@@ -207,6 +244,11 @@ export function QueueCard({ item, requesterMember, onConfigure, onDismiss }: Que
           {item.content}
         </p>
 
+        {/* Calendar subtype summary */}
+        {item.destination === 'calendar' && item.content_details != null && typeof item.content_details.calendar_subtype === 'string' && (
+          <CalendarSubtypeBadge details={item.content_details} />
+        )}
+
         {/* Requester note */}
         {item.requester_note && (
           <p
@@ -228,7 +270,7 @@ export function QueueCard({ item, requesterMember, onConfigure, onDismiss }: Que
             size="sm"
             onClick={() => onConfigure(item)}
           >
-            {item.destination === 'list' ? 'Add to list' : 'Configure'}
+            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? 'Add to calendar' : 'Configure'}
           </Button>
           <Button
             variant={isRequest ? 'destructive' : 'ghost'}

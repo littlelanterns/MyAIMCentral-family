@@ -58,7 +58,7 @@ export function useEventsForRange(start: Date, end: Date, memberFilter?: string[
         .eq('family_id', familyId!)
         .gte('event_date', toISODate(start))
         .lte('event_date', toISODate(end))
-        .in('status', ['approved', 'pending_approval'])
+        .in('status', ['approved', 'pending_approval', 'penciled_in'])
         .order('event_date', { ascending: true })
         .order('start_time', { ascending: true, nullsFirst: false })
 
@@ -164,9 +164,11 @@ export function useCreateEvent() {
     mutationFn: async (input: CreateEventInput) => {
       if (!family?.id || !member?.id) throw new Error('No family/member context')
 
-      // Determine status based on role and auto-approve settings
-      let status = 'pending_approval'
-      if (member.role === 'primary_parent') {
+      // Determine status: explicit penciled_in takes priority, then role-based logic
+      let status: string = 'pending_approval'
+      if (input.status === 'penciled_in') {
+        status = 'penciled_in'
+      } else if (member.role === 'primary_parent') {
         status = 'approved'
       } else {
         // Check auto-approve list
@@ -181,7 +183,7 @@ export function useCreateEvent() {
         }
       }
 
-      const { attendees, ...eventFields } = input
+      const { attendees, status: _inputStatus, option_group_id, option_group_title, calendar_subtype, ...eventFields } = input
 
       const { data: event, error } = await supabase
         .from('calendar_events')
@@ -192,6 +194,9 @@ export function useCreateEvent() {
           status,
           items_to_bring: eventFields.items_to_bring ?? [],
           acted_by: actedBy,
+          ...(option_group_id ? { option_group_id } : {}),
+          ...(option_group_title ? { option_group_title } : {}),
+          ...(calendar_subtype ? { calendar_subtype } : {}),
         })
         .select()
         .single()
