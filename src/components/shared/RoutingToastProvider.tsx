@@ -15,7 +15,7 @@ import { UndoToast } from './UndoToast'
 interface RoutingToastState {
   message: string
   destinationPath?: string
-  onUndo: () => void
+  onUndo?: () => void
   onAlsoSendTo?: () => void
 }
 
@@ -46,10 +46,10 @@ export function RoutingToastProvider({ children }: { children: ReactNode }) {
         <UndoToast
           message={toast.message}
           destinationPath={toast.destinationPath}
-          onUndo={() => {
-            toast.onUndo()
+          onUndo={toast.onUndo ? () => {
+            toast.onUndo!()
             setToast(null)
-          }}
+          } : undefined}
           onAlsoSendTo={toast.onAlsoSendTo ? () => {
             toast.onAlsoSendTo!()
             setToast(null)

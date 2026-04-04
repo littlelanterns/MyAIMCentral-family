@@ -31,6 +31,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
 import { ReflectionsPage } from '@/pages/ReflectionsPage'
 import { BookShelfPage } from '@/pages/BookShelfPage'
+import { MindSweepCapture } from '@/pages/MindSweepCapture'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
@@ -90,6 +91,8 @@ function App() {
               <Route path="/hub" element={<ProtectedRouteNoShell><HubPage /></ProtectedRouteNoShell>} />
               {/* Hub TV Mode — PRD-14E stub */}
               <Route path="/hub/tv" element={<ProtectedRouteNoShell><HubTvStub /></ProtectedRouteNoShell>} />
+              {/* MindSweep quick-capture PWA — PRD-17B */}
+              <Route path="/sweep" element={<ProtectedRouteNoShell><MindSweepCapture /></ProtectedRouteNoShell>} />
 
               {/* Dev preview — browse without auth */}
               <Route path="/preview/*" element={<DevPreview />} />

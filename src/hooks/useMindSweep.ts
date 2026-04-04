@@ -2,7 +2,7 @@
  * useMindSweep — PRD-17B MindSweep hook
  * Manages settings, triggers sweep, and handles routing results.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type {
@@ -190,9 +190,9 @@ export async function routeSweepResults(
   let autoRouted = 0
   let queued = 0
 
-  for (const result of results) {
+  // Run all inserts concurrently — they're independent
+  const promises = results.map(async (result) => {
     const isAutoRoute = shouldAutoRoute(result.confidence, aggressiveness)
-
     if (isAutoRoute) {
       await routeDirectly(result, familyId, memberId, eventId)
       autoRouted++
@@ -200,8 +200,9 @@ export async function routeSweepResults(
       await queueForReview(result, familyId, memberId, eventId)
       queued++
     }
-  }
+  })
 
+  await Promise.all(promises)
   return { autoRouted, queued }
 }
 
@@ -381,24 +382,147 @@ async function queueForReview(
   })
 }
 
+// ── Delete Holding Item (with cache invalidation) ──
+
+export function useDeleteHolding() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: { id: string; familyId: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('mindsweep_holding')
+        .delete()
+        .eq('id', params.id)
+      if (error) throw error
+    },
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({
+        queryKey: ['mindsweep-holding', params.familyId, params.memberId],
+      })
+    },
+  })
+}
+
+// ── Mark Holding Items Processed (with cache invalidation) ──
+
+export function useMarkHoldingProcessed() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: { ids: string[]; familyId: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('mindsweep_holding')
+        .update({ processed_at: new Date().toISOString() })
+        .in('id', params.ids)
+      if (error) throw error
+    },
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({
+        queryKey: ['mindsweep-holding', params.familyId, params.memberId],
+      })
+    },
+  })
+}
+
+// ── Shared Sweep Runner ──
+// Used by both NotepadDrawer and MindSweepCapture to avoid duplicating the orchestration.
+
+export function useRunSweep() {
+  const triggerSweep = useTriggerSweep()
+  const sweepStatus = useSweepStatus()
+
+  const run = useCallback(async (params: {
+    items: { content: string; content_type: string }[]
+    familyId: string
+    memberId: string
+    settings: MindSweepSettings | null
+    sourceChannel: SweepEventSourceChannel
+    familyMemberNames: FamilyMemberName[]
+  }): Promise<{ autoRouted: number; queued: number; totalItems: number } | null> => {
+    sweepStatus.startSweep()
+
+    try {
+      const aggressiveness: AggressivenessMode = params.settings?.aggressiveness || 'always_ask'
+
+      const response = await triggerSweep.mutateAsync({
+        items: params.items.map(i => ({
+          content: i.content,
+          content_type: i.content_type as MindSweepSortRequest['items'][0]['content_type'],
+        })),
+        familyId: params.familyId,
+        memberId: params.memberId,
+        settings: params.settings,
+        sourceChannel: params.sourceChannel,
+        inputType: params.items.length > 1 ? 'mixed' : (params.items[0].content_type as SweepInputType),
+        familyMemberNames: params.familyMemberNames,
+      })
+
+      const routeResult = await routeSweepResults(
+        response.results,
+        aggressiveness,
+        params.familyId,
+        params.memberId,
+        response.event_id,
+      )
+
+      sweepStatus.completeSweep(routeResult)
+      return { ...routeResult, totalItems: response.results.length }
+    } catch {
+      sweepStatus.errorSweep()
+      return null
+    }
+  }, [triggerSweep, sweepStatus])
+
+  return { run, status: sweepStatus }
+}
+
 // ── Sweep Status ──
 
 export type SweepStatus = 'idle' | 'processing' | 'complete' | 'error'
 
+const AUTO_RESET_MS = 8000
+
 export function useSweepStatus() {
   const [status, setStatus] = useState<SweepStatus>('idle')
   const [lastResult, setLastResult] = useState<{ autoRouted: number; queued: number } | null>(null)
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const startSweep = useCallback(() => setStatus('processing'), [])
+  const clearResetTimer = useCallback(() => {
+    if (resetTimer.current) {
+      clearTimeout(resetTimer.current)
+      resetTimer.current = undefined
+    }
+  }, [])
+
+  const startSweep = useCallback(() => {
+    clearResetTimer()
+    setStatus('processing')
+  }, [clearResetTimer])
+
   const completeSweep = useCallback((result: { autoRouted: number; queued: number }) => {
     setLastResult(result)
     setStatus('complete')
-  }, [])
-  const errorSweep = useCallback(() => setStatus('error'), [])
+    clearResetTimer()
+    resetTimer.current = setTimeout(() => {
+      setStatus('idle')
+      setLastResult(null)
+    }, AUTO_RESET_MS)
+  }, [clearResetTimer])
+
+  const errorSweep = useCallback(() => {
+    setStatus('error')
+    clearResetTimer()
+    resetTimer.current = setTimeout(() => {
+      setStatus('idle')
+      setLastResult(null)
+    }, AUTO_RESET_MS)
+  }, [clearResetTimer])
+
   const resetSweep = useCallback(() => {
+    clearResetTimer()
     setStatus('idle')
     setLastResult(null)
-  }, [])
+  }, [clearResetTimer])
 
   return { status, lastResult, startSweep, completeSweep, errorSweep, resetSweep }
 }

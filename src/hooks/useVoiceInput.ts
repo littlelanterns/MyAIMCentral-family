@@ -23,7 +23,13 @@ interface UseVoiceInputReturn {
   isSupported: boolean
 }
 
-export function useVoiceInput(): UseVoiceInputReturn {
+interface UseVoiceInputOptions {
+  /** Force Whisper for all recordings regardless of length. Default: false */
+  forceHighAccuracy?: boolean
+}
+
+export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputReturn {
+  const forceHighAccuracy = options?.forceHighAccuracy ?? false
   const [state, setState] = useState<VoiceState>('idle')
   const [duration, setDuration] = useState(0)
   const [interimText, setInterimText] = useState('')
@@ -250,15 +256,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
       streamRef.current = null
     }
 
-    setState('transcribing')
-
-    // Primary: Whisper transcription
-    try {
-      console.log('[Voice] Sending to Whisper...')
-      const text = await transcribeWithWhisper(audioBlob, mimeType)
-      console.log(`[Voice] Whisper result: "${text.slice(0, 100)}..."`)
-
-      // Reset refs
+    function resetRefs() {
       audioChunksRef.current = []
       mediaRecorderRef.current = null
       webSpeechFinalRef.current = ''
@@ -266,22 +264,31 @@ export function useVoiceInput(): UseVoiceInputReturn {
       setInterimText('')
       setDuration(0)
       setState('idle')
+    }
+
+    const recordingDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
+    const useWebSpeechOnly = !forceHighAccuracy && recordingDuration < 30 && webSpeechText.length > 0
+
+    if (useWebSpeechOnly) {
+      console.log(`[Voice] Short recording (${recordingDuration}s) — using Web Speech API (free)`)
+      resetRefs()
+      return webSpeechText
+    }
+
+    setState('transcribing')
+
+    try {
+      console.log(`[Voice] Sending to Whisper (${recordingDuration}s, forceHigh=${forceHighAccuracy})...`)
+      const text = await transcribeWithWhisper(audioBlob, mimeType)
+      console.log(`[Voice] Whisper result: "${text.slice(0, 100)}..."`)
+      resetRefs()
       return text
     } catch (whisperError) {
       console.warn('[Voice] Whisper failed, using Web Speech fallback:', whisperError)
-      console.log(`[Voice] Web Speech fallback text: "${webSpeechText.slice(0, 100)}..."`)
-
-      // Reset refs
-      audioChunksRef.current = []
-      mediaRecorderRef.current = null
-      webSpeechFinalRef.current = ''
-      webSpeechInterimRef.current = ''
-      setInterimText('')
-      setDuration(0)
-      setState('idle')
+      resetRefs()
       return webSpeechText
     }
-  }, [state])
+  }, [state, forceHighAccuracy])
 
   const cancelRecording = useCallback(() => {
     stoppedRef.current = true

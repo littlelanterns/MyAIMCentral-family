@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   StickyNote, Plus, X, Mic, MicOff, Send, ArrowRightLeft,
   Maximize2, Minimize2, Clock, AlertCircle, Loader2,
-  ChevronsRight, Search, ArrowDownUp, Trash2,
+  ChevronsRight, Search, ArrowDownUp, Trash2, Wand2,
 } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
@@ -14,6 +14,8 @@ import { NotepadRichEditor } from './NotepadRichEditor'
 import { NotepadReviewRoute } from './NotepadReviewRoute'
 import { useNotepadContext } from './NotepadContext'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useMindSweepSettings, useRunSweep } from '@/hooks/useMindSweep'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import {
   useCreateNotepadTab,
@@ -50,6 +52,7 @@ const DEST_LABELS: Record<string, { label: string; path: string }> = {
   optimizer: { label: 'Optimizer', path: '/vault' },
   ideas: { label: 'Ideas', path: '/lists' },
   backburner: { label: 'Backburner', path: '/lists' },
+  mindsweep: { label: 'MindSweep', path: '' },
 }
 
 // ─── Main Component ──────────────────────────────────────────
@@ -73,6 +76,11 @@ export function NotepadDrawer() {
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null
   const save = useAutosave(activeTab)
+
+  // MindSweep hooks
+  const { data: familyMembers = [] } = useFamilyMembers(familyId)
+  const { data: sweepSettings } = useMindSweepSettings(memberId)
+  const { run: runSweep, status: sweepStatus } = useRunSweep()
 
   // Local content state for immediate UI updates
   const [localContent, setLocalContent] = useState('')
@@ -156,8 +164,60 @@ export function NotepadDrawer() {
     setEditingTitle(null)
   }
 
+  async function handleMindSweep() {
+    if (!activeTab || !familyId || !memberId) return
+    const content = (activeTab.content || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim()
+    if (!content) return
+
+    setView('editor')
+
+    const memberNames = familyMembers.map(m => ({
+      id: m.id,
+      display_name: m.display_name,
+      nicknames: m.nicknames || [],
+    }))
+
+    const result = await runSweep({
+      items: [{ content, content_type: 'text' }],
+      familyId,
+      memberId,
+      settings: sweepSettings || null,
+      sourceChannel: 'routing_strip',
+      familyMemberNames: memberNames,
+    })
+
+    if (result) {
+      // Mark tab as routed
+      updateTab.mutate({ id: activeTab.id, memberId, status: 'routed', routed_to: 'mindsweep' })
+
+      const msg = result.autoRouted > 0 && result.queued > 0
+        ? `MindSweep sorted ${result.totalItems} items — ${result.autoRouted} auto-routed, ${result.queued} in queue`
+        : result.autoRouted > 0
+          ? `MindSweep auto-routed ${result.autoRouted} items`
+          : `MindSweep sorted ${result.queued} items to your queue`
+
+      routingToast.show({ message: msg })
+
+      const remaining = tabs.filter(t => t.id !== activeTab.id)
+      if (remaining.length === 0) {
+        closeNotepad()
+      } else {
+        setActiveTabId(remaining[0].id)
+      }
+    } else {
+      routingToast.show({ message: 'MindSweep had trouble sorting. Items saved to queue.' })
+      routeContent.mutate({ tab: activeTab, destination: 'mindsweep' as any, familyId })
+    }
+  }
+
   function handleRoute(destination: string, subType?: string) {
     if (!activeTab || !familyId) return
+
+    // Intercept MindSweep — run through sweep pipeline instead of studio_queue
+    if (destination === 'mindsweep') {
+      handleMindSweep()
+      return
+    }
 
     routeContent.mutate({
       tab: activeTab,
@@ -367,6 +427,24 @@ export function NotepadDrawer() {
               </Tooltip>
             </div>
           </div>
+
+          {/* MindSweep processing overlay */}
+          {sweepStatus.status === 'processing' && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3"
+              style={{
+                background: 'color-mix(in srgb, var(--color-bg-primary) 90%, transparent)',
+                borderRadius: 'inherit',
+              }}
+            >
+              <Wand2 size={28} className="animate-pulse" style={{ color: 'var(--color-btn-primary-bg)' }} />
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                MindSweep sorting...
+              </p>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Classifying and routing your items
+              </p>
+            </div>
+          )}
 
           {/* View Router */}
           {view === 'editor' && (

@@ -7,7 +7,7 @@ interface UndoToastProps {
   /** Optional path to navigate to when tapping the destination link */
   destinationPath?: string
   duration?: number
-  onUndo: () => void
+  onUndo?: () => void
   onAlsoSendTo?: () => void
   onDismiss: () => void
 }
@@ -65,17 +65,19 @@ export function UndoToast({
         <span className="text-sm flex-1 min-w-0 truncate">{message}</span>
       )}
 
-      <button
-        onClick={onUndo}
-        className="text-xs font-semibold px-2 py-1 rounded shrink-0"
-        style={{
-          backgroundColor: 'var(--color-btn-primary-bg)',
-          color: 'var(--color-btn-primary-text)',
-          minHeight: 'unset',
-        }}
-      >
-        Undo
-      </button>
+      {onUndo && (
+        <button
+          onClick={onUndo}
+          className="text-xs font-semibold px-2 py-1 rounded shrink-0"
+          style={{
+            backgroundColor: 'var(--color-btn-primary-bg)',
+            color: 'var(--color-btn-primary-text)',
+            minHeight: 'unset',
+          }}
+        >
+          Undo
+        </button>
+      )}
 
       {onAlsoSendTo && (
         <button
