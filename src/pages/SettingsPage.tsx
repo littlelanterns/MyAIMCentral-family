@@ -12,7 +12,11 @@ import {
   ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useMindSweepSettings, useUpdateMindSweepSettings } from '@/hooks/useMindSweep'
+import {
+  useMindSweepSettings, useUpdateMindSweepSettings,
+  useSweepEmail, useUpdateSweepEmail,
+  useAllowedSenders, useAddAllowedSender, useRemoveAllowedSender,
+} from '@/hooks/useMindSweep'
 import { MindSweepSettingsPanel } from '@/components/mindsweep/MindSweepSettingsPanel'
 import type { MindSweepSettings } from '@/types/mindsweep'
 import { useFamily } from '@/hooks/useFamily'
@@ -399,11 +403,30 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
 function MindSweepSection({ memberId, familyId }: { memberId?: string; familyId?: string }) {
   const { data: settings } = useMindSweepSettings(memberId)
   const updateSettings = useUpdateMindSweepSettings()
+  const { data: sweepEmailData } = useSweepEmail(familyId)
+  const updateSweepEmail = useUpdateSweepEmail()
+  const { data: allowedSenders = [] } = useAllowedSenders(familyId)
+  const addSender = useAddAllowedSender()
+  const removeSender = useRemoveAllowedSender()
 
   function handleUpdate(updates: Partial<MindSweepSettings>) {
     if (!memberId || !familyId) return
     updateSettings.mutate({ memberId, familyId, updates })
   }
 
-  return <MindSweepSettingsPanel settings={settings} onUpdate={handleUpdate} embedded />
+  return (
+    <MindSweepSettingsPanel
+      settings={settings}
+      onUpdate={handleUpdate}
+      embedded
+      emailConfig={{
+        sweepEmail: sweepEmailData?.sweep_email_address ?? null,
+        emailEnabled: sweepEmailData?.sweep_email_enabled ?? false,
+        onToggleEmail: (enabled) => { if (familyId) updateSweepEmail.mutate({ familyId, enabled }) },
+        allowedSenders,
+        onAddSender: (email) => { if (familyId && memberId) addSender.mutate({ familyId, email, addedBy: memberId }) },
+        onRemoveSender: (id) => { if (familyId) removeSender.mutate({ id, familyId }) },
+      }}
+    />
+  )
 }

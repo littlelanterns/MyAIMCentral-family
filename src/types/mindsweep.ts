@@ -99,6 +99,14 @@ export interface MindSweepApprovalPattern {
   created_at: string;
 }
 
+export interface MindSweepAllowedSender {
+  id: string;
+  family_id: string;
+  email_address: string;
+  added_by: string;
+  created_at: string;
+}
+
 // ── Edge Function Request/Response ──
 
 export interface MindSweepSortRequest {

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client'
 import type {
   MindSweepSettings,
   MindSweepHoldingItem,
+  MindSweepAllowedSender,
   MindSweepSortRequest,
   MindSweepSortResponse,
   MindSweepSortResult,
@@ -62,6 +63,95 @@ export function useUpdateMindSweepSettings() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['mindsweep-settings', variables.memberId] })
+    },
+  })
+}
+
+// ── Sweep Email Address ──
+
+export function useSweepEmail(familyId: string | undefined) {
+  return useQuery({
+    queryKey: ['sweep-email', familyId],
+    queryFn: async () => {
+      if (!familyId) return null
+      const { data, error } = await supabase
+        .from('families')
+        .select('sweep_email_address, sweep_email_enabled')
+        .eq('id', familyId)
+        .single()
+      if (error) throw error
+      return data as { sweep_email_address: string | null; sweep_email_enabled: boolean }
+    },
+    enabled: !!familyId,
+  })
+}
+
+export function useUpdateSweepEmail() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { familyId: string; enabled: boolean }) => {
+      const { error } = await supabase
+        .from('families')
+        .update({ sweep_email_enabled: params.enabled })
+        .eq('id', params.familyId)
+      if (error) throw error
+    },
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({ queryKey: ['sweep-email', params.familyId] })
+    },
+  })
+}
+
+// ── Allowed Senders ──
+
+export function useAllowedSenders(familyId: string | undefined) {
+  return useQuery({
+    queryKey: ['mindsweep-allowed-senders', familyId],
+    queryFn: async () => {
+      if (!familyId) return []
+      const { data, error } = await supabase
+        .from('mindsweep_allowed_senders')
+        .select('*')
+        .eq('family_id', familyId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data || []) as MindSweepAllowedSender[]
+    },
+    enabled: !!familyId,
+  })
+}
+
+export function useAddAllowedSender() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { familyId: string; email: string; addedBy: string }) => {
+      const { error } = await supabase
+        .from('mindsweep_allowed_senders')
+        .insert({
+          family_id: params.familyId,
+          email_address: params.email.toLowerCase().trim(),
+          added_by: params.addedBy,
+        })
+      if (error) throw error
+    },
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({ queryKey: ['mindsweep-allowed-senders', params.familyId] })
+    },
+  })
+}
+
+export function useRemoveAllowedSender() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (params: { id: string; familyId: string }) => {
+      const { error } = await supabase
+        .from('mindsweep_allowed_senders')
+        .delete()
+        .eq('id', params.id)
+      if (error) throw error
+    },
+    onSuccess: (_data, params) => {
+      queryClient.invalidateQueries({ queryKey: ['mindsweep-allowed-senders', params.familyId] })
     },
   })
 }
