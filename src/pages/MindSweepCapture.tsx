@@ -249,7 +249,10 @@ export function MindSweepCapture() {
         },
       })
 
-      if (response.error) throw response.error
+      if (response.error) {
+        const detail = (response.data as { error?: string } | null)?.error
+        throw new Error(detail || response.error.message || 'Image processing failed')
+      }
       const text = (response.data as { text: string }).text
       if (text) {
         setContent(prev => prev ? prev + '\n' + text : text)

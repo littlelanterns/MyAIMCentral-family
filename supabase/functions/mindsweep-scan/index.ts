@@ -13,6 +13,8 @@ import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
+// Vision requires Sonnet — Haiku does not support image inputs on OpenRouter
+const VISION_MODEL = 'anthropic/claude-sonnet-4'
 
 Deno.serve(async (req) => {
   const cors = handleCors(req)
@@ -73,7 +75,7 @@ async function handleScan(body: {
       'X-Title': 'MyAIM Central MindSweep',
     },
     body: JSON.stringify({
-      model: HAIKU_MODEL,
+      model: VISION_MODEL,
       max_tokens: 4096,
       messages: [
         {
@@ -92,9 +94,9 @@ async function handleScan(body: {
 
   if (!response.ok) {
     const errText = await response.text()
-    console.error('Vision API error:', errText)
+    console.error('Vision API error:', response.status, errText)
     return new Response(
-      JSON.stringify({ error: 'Failed to extract text from image' }),
+      JSON.stringify({ error: `Vision extraction failed (${response.status})` }),
       { status: 502, headers: jsonHeaders },
     )
   }
@@ -109,7 +111,7 @@ async function handleScan(body: {
       familyId: family_id,
       memberId: member_id,
       featureKey: 'mindsweep_scan',
-      model: HAIKU_MODEL,
+      model: VISION_MODEL,
       inputTokens: usage.prompt_tokens || 0,
       outputTokens: usage.completion_tokens || 0,
     })
