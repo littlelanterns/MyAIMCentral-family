@@ -312,18 +312,32 @@ interface ExtractedItem {
 }
 
 // ── Item Extraction ──
-// Single items route directly. Multi-item content is split by sentence boundaries.
+// Single items route directly. Multi-item text content is split by sentence boundaries.
+// Scanned images and link summaries are NEVER split — they're single coherent documents.
 
 function extractItems(
   items: { content: string; content_type: string; id?: string }[],
 ): ExtractedItem[] {
   const extracted: ExtractedItem[] = []
 
+  // Content types that should always be treated as a single document
+  const singleDocTypes = new Set(['scan_extracted', 'link', 'email', 'calendar_file'])
+
   for (const item of items) {
     const content = item.content.trim()
     if (!content) continue
 
-    // Detect multi-item content: multiple sentences, bullet points, or newline-separated
+    // OCR output, links, emails, and calendar files = single document, never split
+    if (singleDocTypes.has(item.content_type)) {
+      extracted.push({
+        text: content,
+        originalContent: content,
+        contentType: item.content_type,
+      })
+      continue
+    }
+
+    // Text/voice: detect multi-item content (bullet points, newline-separated brain dumps)
     const lines = content.split(/\n+/).map(l => l.trim()).filter(Boolean)
     const hasBullets = lines.some(l => /^[-*\u2022\d+.)]\s/.test(l))
     const hasMultipleSentences = lines.length > 2 || content.split(/[.!?]\s+/).length > 3

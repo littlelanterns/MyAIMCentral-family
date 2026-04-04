@@ -97,6 +97,8 @@ export function MindSweepCapture() {
   const canLink = useCanAccess('mindsweep_link')
 
   const [content, setContent] = useState('')
+  // Track content origin so sweep knows not to split OCR/link output
+  const [contentSource, setContentSource] = useState<'text' | 'scan_extracted' | 'link'>('text')
   const [showSettings, setShowSettings] = useState(false)
   const [showHolding, setShowHolding] = useState(false)
   const [scanProcessing, setScanProcessing] = useState(false)
@@ -156,7 +158,7 @@ export function MindSweepCapture() {
   async function handleSweepNow() {
     if (!hasContent || !familyId || !memberId) return
     await runSweep({
-      items: [{ content: content.trim(), content_type: 'text' }],
+      items: [{ content: content.trim(), content_type: contentSource }],
       familyId,
       memberId,
       settings: sweepSettings || null,
@@ -164,6 +166,7 @@ export function MindSweepCapture() {
       familyMemberNames: memberNames,
     })
     setContent('')
+    setContentSource('text')
   }
 
   async function handleSweepAllHolding() {
@@ -236,6 +239,8 @@ export function MindSweepCapture() {
       // This handles 10MB+ phone photos transparently.
       const { base64, mimeType } = await resizeImageForOCR(file, 1600)
 
+      console.log('[MindSweep] Image resized — base64 length:', base64.length, 'mimeType:', mimeType)
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Not authenticated')
 
@@ -249,6 +254,8 @@ export function MindSweepCapture() {
         },
       })
 
+      console.log('[MindSweep] Edge Function response:', { error: response.error, dataKeys: response.data ? Object.keys(response.data) : null, data: response.data })
+
       if (response.error) {
         const detail = (response.data as { error?: string } | null)?.error
         throw new Error(detail || response.error.message || 'Image processing failed')
@@ -256,6 +263,7 @@ export function MindSweepCapture() {
       const text = (response.data as { text: string }).text
       if (text) {
         setContent(prev => prev ? prev + '\n' + text : text)
+        setContentSource('scan_extracted')
       }
     } catch (err) {
       console.error('Scan failed:', err)
@@ -287,6 +295,7 @@ export function MindSweepCapture() {
       const text = (response.data as { text: string }).text
       if (text) {
         setContent(prev => prev ? prev + '\n' + text : text)
+        setContentSource('link')
       }
       setLinkInput('')
       setShowLinkInput(false)
