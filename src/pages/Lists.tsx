@@ -1797,6 +1797,29 @@ function ShareListModal({
           <p className="text-xs py-2" style={{ color: 'var(--color-text-secondary)' }}>No other family members to share with.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
+            {otherMembers.length > 1 && (() => {
+              const allShared = otherMembers.every(m => sharedMemberIds.has(m.id))
+              return (
+                <button
+                  onClick={async () => {
+                    for (const m of otherMembers) {
+                      const isShared = sharedMemberIds.has(m.id)
+                      if (allShared ? isShared : !isShared) await onToggle(m.id)
+                    }
+                  }}
+                  disabled={isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
+                  style={{
+                    backgroundColor: allShared ? 'var(--color-btn-primary-bg)' : 'transparent',
+                    color: allShared ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
+                    border: `2px solid ${allShared ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                  }}
+                >
+                  {allShared && <Check size={12} />}
+                  Everyone
+                </button>
+              )
+            })()}
             {otherMembers.map(m => {
               const isShared = sharedMemberIds.has(m.id)
               const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'

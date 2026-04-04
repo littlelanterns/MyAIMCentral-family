@@ -399,6 +399,37 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
         {familyMembers && familyMembers.length > 0 && (
           <SectionCard title="Who's Involved?" icon={Users}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              {/* Everyone pill */}
+              {familyMembers.length > 1 && (() => {
+                const allSelected = familyMembers.every(m => attendees.has(m.id))
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttendees(prev => {
+                        if (allSelected) return new Map()
+                        const next = new Map(prev)
+                        for (const m of familyMembers) {
+                          if (!next.has(m.id)) next.set(m.id, 'attending')
+                        }
+                        return next
+                      })
+                    }}
+                    className="rounded-full text-xs font-semibold transition-all duration-150"
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      backgroundColor: allSelected ? 'var(--color-btn-primary-bg)' : 'transparent',
+                      color: allSelected ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
+                      border: `2px solid ${allSelected ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                      cursor: 'pointer',
+                      minHeight: 'unset',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Everyone
+                  </button>
+                )
+              })()}
               {familyMembers.map(m => {
                 const isSelected = attendees.has(m.id)
                 const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'

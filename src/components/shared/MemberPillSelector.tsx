@@ -16,6 +16,8 @@ interface MemberPillSelectorProps {
   selectedIds: string[]
   onToggle: (memberId: string) => void
   className?: string
+  showEveryone?: boolean
+  onToggleAll?: () => void
 }
 
 function getColor(m: MemberPillItem): string {
@@ -27,12 +29,37 @@ export default function MemberPillSelector({
   selectedIds,
   onToggle,
   className = '',
+  showEveryone,
+  onToggleAll,
 }: MemberPillSelectorProps) {
+  const allSelected = members.length > 0 && selectedIds.length === members.length
+
   return (
     <div
       className={`flex gap-2 overflow-x-auto pb-1 ${className}`}
       style={{ scrollbarWidth: 'thin' }}
     >
+      {showEveryone && onToggleAll && (
+        <button
+          onClick={onToggleAll}
+          className="shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+          style={
+            allSelected
+              ? {
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text, #fff)',
+                  border: '2px solid var(--color-btn-primary-bg)',
+                }
+              : {
+                  backgroundColor: 'transparent',
+                  color: 'var(--color-text-primary)',
+                  border: '2px solid var(--color-border)',
+                }
+          }
+        >
+          Everyone
+        </button>
+      )}
       {members.map((m) => {
         const color = getColor(m)
         const isSelected = selectedIds.includes(m.id)
