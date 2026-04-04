@@ -29,6 +29,52 @@ import { parseICS, isICSContent, formatParseResultMessage } from '@/lib/icsParse
 import { useImportCalendarEvents } from '@/hooks/useMindSweep'
 import type { MindSweepSettings } from '@/types/mindsweep'
 
+/** Resize an image file to fit within maxDim pixels (longest side) and return base64 JPEG.
+ *  If already small enough, returns the original file as base64 without re-encoding.
+ *  This lets users upload 10MB+ phone photos without hitting Edge Function body limits. */
+function resizeImageForOCR(file: File, maxDim: number): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const { width, height } = img
+
+      // If image is already small enough and file is under 3MB, skip resize
+      if (width <= maxDim && height <= maxDim && file.size <= 3 * 1024 * 1024) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = reader.result as string
+          // Strip "data:image/jpeg;base64," prefix
+          const commaIdx = dataUrl.indexOf(',')
+          resolve({ base64: dataUrl.slice(commaIdx + 1), mimeType: file.type || 'image/jpeg' })
+        }
+        reader.onerror = () => reject(new Error('Failed to read image'))
+        reader.readAsDataURL(file)
+        return
+      }
+
+      // Scale down proportionally
+      const scale = Math.min(maxDim / width, maxDim / height, 1)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(width * scale)
+      canvas.height = Math.round(height * scale)
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+      // JPEG at 0.85 quality — good for OCR, small file size
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+      const commaIdx = dataUrl.indexOf(',')
+      resolve({ base64: dataUrl.slice(commaIdx + 1), mimeType: 'image/jpeg' })
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Could not load image'))
+    }
+    img.src = url
+  })
+}
+
 export function MindSweepCapture() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -185,20 +231,10 @@ export function MindSweepCapture() {
     setScanProcessing(true)
     setScanError(null)
     try {
-      // Check file size — Edge Functions have a ~6MB body limit; base64 adds ~33%
-      if (file.size > 4 * 1024 * 1024) {
-        throw new Error('Image is too large. Please use a photo under 4 MB.')
-      }
-
-      // Convert file to base64
-      const arrayBuffer = await file.arrayBuffer()
-      const bytes = new Uint8Array(arrayBuffer)
-      let binary = ''
-      const chunkSize = 8192
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
-      }
-      const base64 = btoa(binary)
+      // Resize large images client-side before sending to Edge Function.
+      // OCR only needs readable text — 1600px wide is plenty of resolution.
+      // This handles 10MB+ phone photos transparently.
+      const { base64, mimeType } = await resizeImageForOCR(file, 1600)
 
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Not authenticated')
@@ -207,7 +243,7 @@ export function MindSweepCapture() {
         body: {
           mode: 'scan',
           image_base64: base64,
-          mime_type: file.type || 'image/jpeg',
+          mime_type: mimeType,
           family_id: familyId,
           member_id: memberId,
         },
