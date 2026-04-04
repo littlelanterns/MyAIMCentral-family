@@ -22,9 +22,11 @@ export function useGuidedDashboardConfig(
   const updateConfig = useUpdateDashboardConfig()
   const autoCreatedRef = useRef(false)
 
-  // Auto-create config with guided defaults on first access
+  // Auto-create config with guided defaults on first access.
+  // Fires once per mount. If it fails (RLS, missing constraint), it won't retry.
   useEffect(() => {
-    if (!familyId || !memberId || isLoading || config || autoCreatedRef.current) return
+    if (!familyId || !memberId || isLoading || autoCreatedRef.current) return
+    if (config) { autoCreatedRef.current = true; return } // Already exists
     autoCreatedRef.current = true
     updateConfig.mutate({
       familyId,
@@ -32,8 +34,8 @@ export function useGuidedDashboardConfig(
       dashboardType: 'personal',
       layout: { sections: GUIDED_DEFAULT_SECTIONS },
       preferences: GUIDED_PREFERENCES_DEFAULTS as unknown as Record<string, unknown>,
-    })
-  }, [familyId, memberId, isLoading, config, updateConfig])
+    }, { onError: () => { /* silently ignore — PIN-only members may lack RLS access */ } })
+  }, [familyId, memberId, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sections = useMemo(
     () => getGuidedSections(config?.layout as Record<string, unknown> | null),

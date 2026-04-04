@@ -7,7 +7,7 @@ import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
   LayoutDashboard, BookOpen, BookHeart, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, Rss, Library,
+  Palette, Lock, Gem, Rss, Library, GraduationCap,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -96,6 +96,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     collapsible: true,
     items: [
       { label: 'Library', path: '/bookshelf', featureKey: 'bookshelf_basic', icon: <Library size={20} />, tooltip: 'Browse your book library' },
+      { label: 'Study Guides', path: '/bookshelf?study_guides=true', featureKey: 'bookshelf_basic', icon: <GraduationCap size={20} />, tooltip: 'Age-adapted book summaries' },
       { label: 'Journal Prompts', path: '/bookshelf/prompts', featureKey: 'bookshelf_basic', icon: <BookOpen size={20} />, tooltip: 'Reflection prompts from books' },
     ],
   }

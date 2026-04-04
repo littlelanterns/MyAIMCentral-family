@@ -305,10 +305,107 @@ async function loadPartnerContext(_familyId: string, _memberId: string): Promise
   return { label: 'Partner Context', items: [] }
 }
 
-/** STUB: BookShelf insights (PRD-23) — returns empty until Phase 28 */
-async function loadBookShelfContext(_familyId: string, _memberId: string): Promise<ContextSection> {
-  // STUB: PRD-23 — wires to bookshelf_insights + bookshelf_member_settings tables
-  return { label: 'BookShelf Insights', items: [] }
+/**
+ * BookShelf context loader (PRD-23).
+ * Loads extraction items filtered by the member's book_knowledge_access setting:
+ *   hearted_only (default) — only hearted + is_included_in_ai items
+ *   all_extracted — all is_included_in_ai items
+ *   insights_only — only bookshelf_insights with is_included_in_ai
+ *   none — returns empty
+ * Queries 4 tables (summaries, insights, declarations, action_steps). Skips questions.
+ * Joins to bookshelf_items for book title. Hearted items first, capped at 25 total.
+ */
+async function loadBookShelfContext(familyId: string, memberId: string): Promise<ContextSection> {
+  try {
+    // Step 1: Check member's book_knowledge_access setting
+    const { data: settings } = await supabase
+      .from('bookshelf_member_settings')
+      .select('book_knowledge_access')
+      .eq('family_id', familyId)
+      .eq('family_member_id', memberId)
+      .maybeSingle()
+
+    const access = (settings?.book_knowledge_access as string) || 'hearted_only'
+    if (access === 'none') return { label: 'BookShelf Insights', items: [] }
+
+    // Step 2: Load book titles for context attribution
+    const { data: booksRaw } = await supabase
+      .from('bookshelf_items')
+      .select('id, title')
+      .eq('family_id', familyId)
+      .eq('extraction_status', 'completed')
+
+    const bookTitles = new Map<string, string>()
+    for (const b of (booksRaw || []) as Array<{ id: string; title: string }>) {
+      bookTitles.set(b.id, b.title)
+    }
+    if (bookTitles.size === 0) return { label: 'BookShelf Insights', items: [] }
+
+    const bookIds = [...bookTitles.keys()]
+    const items: Array<{ content: string; source?: string }> = []
+    const MAX_ITEMS = 25
+
+    // Step 3: Query extraction tables based on access level
+    const heartedOnly = access === 'hearted_only'
+    const insightsOnly = access === 'insights_only'
+
+    // Helper to build and run a query on an extraction table
+    async function loadTable(
+      table: string,
+      textCol: string,
+      typeCol: string | null,
+      limit: number,
+    ) {
+      let query = supabase
+        .from(table)
+        .select(`${textCol}, ${typeCol ? typeCol + ',' : ''} is_hearted, bookshelf_item_id, is_included_in_ai`)
+        .eq('family_id', familyId)
+        .eq('family_member_id', memberId)
+        .eq('is_included_in_ai', true)
+        .eq('is_deleted', false)
+        .in('bookshelf_item_id', bookIds)
+
+      if (heartedOnly) {
+        query = query.eq('is_hearted', true)
+      }
+
+      const { data } = await query
+        .order('is_hearted', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(limit)
+
+      if (!data) return
+      for (const row of data as unknown as Array<Record<string, unknown>>) {
+        const text = (row[textCol] as string) || ''
+        const type = typeCol ? (row[typeCol] as string) : null
+        const bookId = row.bookshelf_item_id as string
+        const bookTitle = bookTitles.get(bookId) || 'Unknown'
+        const prefix = type ? `[${type}] ` : ''
+        items.push({
+          content: `${prefix}${text.substring(0, 250)}`,
+          source: bookTitle,
+        })
+      }
+    }
+
+    if (insightsOnly) {
+      // Only load insights table
+      await loadTable('bookshelf_insights', 'text', 'content_type', MAX_ITEMS)
+    } else {
+      // Load all 4 tables with proportional limits
+      await Promise.all([
+        loadTable('bookshelf_summaries', 'text', 'content_type', 8),
+        loadTable('bookshelf_insights', 'text', 'content_type', 8),
+        loadTable('bookshelf_declarations', 'declaration_text', 'style_variant', 5),
+        loadTable('bookshelf_action_steps', 'text', 'action_type', 4),
+      ])
+    }
+
+    return { label: 'BookShelf Insights', items: items.slice(0, MAX_ITEMS) }
+  } catch (err) {
+    console.error('BookShelf context loading failed:', err)
+    return { label: 'BookShelf Insights', items: [] }
+  }
 }
 
 /** STUB: Family vision (PRD-12B) — returns empty until Phase 22 */

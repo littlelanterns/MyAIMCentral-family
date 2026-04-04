@@ -115,6 +115,10 @@ export const TOPIC_PATTERNS: Array<{ pattern: RegExp; categories: string[] }> = 
     pattern: /\b(money|budget|finance|allowance|saving|spend|earn)\b/i,
     categories: ['Preferences'],
   },
+  {
+    pattern: /\b(book|read|wisdom|principle|framework|lesson|insight|declaration|author)\b/i,
+    categories: ['bookshelf'],
+  },
 ]
 
 // ════════════════════════════════════════════════════════════
@@ -371,11 +375,146 @@ export async function assembleContext(
     }
   }
 
+  // 2e. BookShelf context — if bookshelf topic detected or as baseline (hearted items)
+  const loadBookShelf = detectedTopics.has('bookshelf') || detectedTopics.size === 0
+
+  if (loadBookShelf) {
+    const bsCtx = await loadBookShelfContext(familyId, memberId)
+    if (bsCtx.itemCount > 0) {
+      contextParts.push('\nYour BookShelf Wisdom:')
+      contextParts.push(...bsCtx.contextLines)
+      loadedSources.push({
+        source: 'bookshelf',
+        reason: detectedTopics.has('bookshelf') ? `topic match: ${bsCtx.reason}` : `baseline: ${bsCtx.reason}`,
+        itemCount: bsCtx.itemCount,
+      })
+    }
+  }
+
   return {
     familyRoster: rosterLines.join('\n'),
     featureContext,
     relevantContext: contextParts.join('\n'),
     loadedSources,
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// BookShelf Context (PRD-23)
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Load BookShelf extraction items filtered by the member's book_knowledge_access setting.
+ * Queries summaries, insights, declarations, action_steps (skips questions).
+ * Hearted items first, capped at 25 total.
+ */
+async function loadBookShelfContext(
+  familyId: string,
+  memberId: string,
+): Promise<{ contextLines: string[]; itemCount: number; reason: string }> {
+  const empty = { contextLines: [], itemCount: 0, reason: '' }
+
+  try {
+    // Check member's book_knowledge_access setting
+    const { data: settings } = await supabase
+      .from('bookshelf_member_settings')
+      .select('book_knowledge_access')
+      .eq('family_id', familyId)
+      .eq('family_member_id', memberId)
+      .maybeSingle()
+
+    const access = (settings?.book_knowledge_access as string) || 'hearted_only'
+    if (access === 'none') return empty
+
+    // Load book titles for attribution
+    const { data: booksRaw } = await supabase
+      .from('bookshelf_items')
+      .select('id, title')
+      .eq('family_id', familyId)
+      .eq('extraction_status', 'completed')
+
+    const bookTitles = new Map<string, string>()
+    for (const b of (booksRaw || []) as Array<{ id: string; title: string }>) {
+      bookTitles.set(b.id, b.title)
+    }
+    if (bookTitles.size === 0) return empty
+
+    const bookIds = [...bookTitles.keys()]
+    const lines: string[] = []
+    const MAX_ITEMS = 25
+    const heartedOnly = access === 'hearted_only'
+    const insightsOnly = access === 'insights_only'
+
+    async function queryTable(
+      table: string,
+      textCol: string,
+      typeCol: string | null,
+      limit: number,
+    ): Promise<Array<{ text: string; type: string | null; bookTitle: string }>> {
+      const selectCols = `${textCol}, ${typeCol ? typeCol + ',' : ''} is_hearted, bookshelf_item_id`
+      let query = supabase
+        .from(table)
+        .select(selectCols)
+        .eq('family_id', familyId)
+        .eq('family_member_id', memberId)
+        .eq('is_included_in_ai', true)
+        .eq('is_deleted', false)
+        .in('bookshelf_item_id', bookIds)
+
+      if (heartedOnly) {
+        query = query.eq('is_hearted', true)
+      }
+
+      const { data } = await query
+        .order('is_hearted', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(limit)
+
+      if (!data) return []
+      return (data as Array<Record<string, unknown>>).map(row => ({
+        text: ((row[textCol] as string) || '').substring(0, 250),
+        type: typeCol ? (row[typeCol] as string) : null,
+        bookTitle: bookTitles.get(row.bookshelf_item_id as string) || 'Unknown',
+      }))
+    }
+
+    let results: Array<{ text: string; type: string | null; bookTitle: string }>
+    if (insightsOnly) {
+      results = await queryTable('bookshelf_insights', 'text', 'content_type', MAX_ITEMS)
+    } else {
+      const [summaries, insights, declarations, actionSteps] = await Promise.all([
+        queryTable('bookshelf_summaries', 'text', 'content_type', 8),
+        queryTable('bookshelf_insights', 'text', 'content_type', 8),
+        queryTable('bookshelf_declarations', 'declaration_text', null, 5),
+        queryTable('bookshelf_action_steps', 'text', 'action_type', 4),
+      ])
+      results = [...summaries, ...insights, ...declarations, ...actionSteps]
+    }
+
+    if (results.length === 0) return empty
+
+    // Group by book title for cleaner output
+    const grouped = new Map<string, string[]>()
+    for (const r of results.slice(0, MAX_ITEMS)) {
+      const prefix = r.type ? `[${r.type}] ` : ''
+      const list = grouped.get(r.bookTitle) || []
+      list.push(`- ${prefix}${r.text}`)
+      grouped.set(r.bookTitle, list)
+    }
+
+    for (const [title, items] of grouped) {
+      lines.push(`\nFrom "${title}":`)
+      lines.push(...items)
+    }
+
+    const reason = heartedOnly ? 'hearted BookShelf items' :
+      insightsOnly ? 'BookShelf insights/principles' :
+      'all BookShelf extractions'
+
+    return { contextLines: lines, itemCount: results.length, reason }
+  } catch (err) {
+    console.error('BookShelf context loading failed:', err)
+    return empty
   }
 }
 

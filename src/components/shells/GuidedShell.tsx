@@ -97,7 +97,7 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
       <WriteDrawer />
 
       {/* Main content */}
-      <main className="flex-1 p-4 md:p-6 pb-20">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6">
         {children}
       </main>
 
@@ -133,6 +133,7 @@ const GUIDED_MORE_SECTIONS: GuidedMoreSection[] = [
     title: 'BookShelf',
     items: [
       { path: '/bookshelf', icon: <Library size={20} />, label: 'Library', description: 'Browse your book library' },
+      { path: '/bookshelf?study_guides=true', icon: <GraduationCap size={20} />, label: 'Study Guides', description: 'Age-adapted book summaries for you' },
       { path: '/bookshelf/prompts', icon: <BookOpen size={20} />, label: 'Journal Prompts', description: 'Reflection prompts from books' },
     ],
   },
@@ -182,7 +183,7 @@ function GuidedBottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t py-2 z-20"
+        className="flex-shrink-0 flex items-center justify-around border-t py-2 z-20"
         style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
       >
         {routeNavItems.map((item, idx) => {
