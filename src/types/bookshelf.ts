@@ -56,6 +56,7 @@ export interface BookShelfItem {
   genres: string[]
   tags: string[]
   folder_group: string | null
+  folder_id: string | null
   processing_status: ProcessingStatus
   processing_detail: string | null
   extraction_status: ExtractionStatus

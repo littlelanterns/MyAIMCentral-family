@@ -35,7 +35,7 @@ const EXTRACTION_SELECT = `id, family_id, family_member_id, bookshelf_item_id,
   is_key_point, is_hearted, is_deleted, is_from_go_deeper,
   user_note, is_included_in_ai, created_at, updated_at`
 
-export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
+export function useExtractionData(bookIds: string[], audience?: string): UseExtractionDataReturn {
   const { data: member } = useFamilyMember()
   const [summaries, setSummaries] = useState<BookShelfSummary[]>([])
   const [insights, setInsights] = useState<BookShelfInsight[]>([])
@@ -96,12 +96,15 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
 
       const extractionIdArray = Array.from(extractionIds)
 
+      const audienceFilter = audience || 'original'
+
       const [sumRes, insRes, decRes, actRes, queRes, chapRes] = await Promise.all([
         supabase
           .from('bookshelf_summaries')
           .select(`${EXTRACTION_SELECT}, content_type, text`)
           .in('bookshelf_item_id', extractionIdArray)
           .eq('family_id', member.family_id)
+          .eq('audience', audienceFilter)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -110,6 +113,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .select(`${EXTRACTION_SELECT}, content_type, text, is_user_added`)
           .in('bookshelf_item_id', extractionIdArray)
           .eq('family_id', member.family_id)
+          .eq('audience', audienceFilter)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -118,6 +122,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .select(`${EXTRACTION_SELECT}, value_name, declaration_text, style_variant, richness, sent_to_guiding_stars, guiding_star_id`)
           .in('bookshelf_item_id', extractionIdArray)
           .eq('family_id', member.family_id)
+          .eq('audience', audienceFilter)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -126,6 +131,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .select(`${EXTRACTION_SELECT}, content_type, text, sent_to_tasks, task_id`)
           .in('bookshelf_item_id', extractionIdArray)
           .eq('family_id', member.family_id)
+          .eq('audience', audienceFilter)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -134,6 +140,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
           .select(`${EXTRACTION_SELECT}, content_type, text, sent_to_prompts, journal_prompt_id, sent_to_tasks, task_id`)
           .in('bookshelf_item_id', extractionIdArray)
           .eq('family_id', member.family_id)
+          .eq('audience', audienceFilter)
           .eq('is_deleted', false)
           .order('section_index', { ascending: true, nullsFirst: false })
           .order('sort_order', { ascending: true }),
@@ -196,7 +203,7 @@ export function useExtractionData(bookIds: string[]): UseExtractionDataReturn {
         setLoading(false)
       }
     }
-  }, [member?.family_id, member?.id, bookIds.join(',')])
+  }, [member?.family_id, member?.id, bookIds.join(','), audience])
 
   useEffect(() => {
     fetchData()

@@ -2,7 +2,8 @@
  * ExtractionContent (PRD-23)
  * Renders extraction items in 3 view modes: Tabs, Chapters, Notes.
  */
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
+import { Plus, X, Check } from 'lucide-react'
 import { ExtractionSection, getAbridgedItems } from './ExtractionSection'
 import { SummaryItem } from './items/SummaryItem'
 import { InsightItem } from './items/InsightItem'
@@ -49,6 +50,11 @@ interface ExtractionContentProps {
   onSendToGuidingStars: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
   onSendToBestIntentions: (id: string, text: string) => Promise<unknown>
   onSendToJournalPrompts: (id: string, text: string, bookTitle: string | null, chapterTitle: string | null) => Promise<unknown>
+  onSendToQueue: (table: ExtractionTable, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onSendToSelfKnowledge: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
+  onCreateCustomInsight?: (bookshelfItemId: string, text: string, contentType: string) => Promise<unknown>
+  /** Primary book ID for custom insight creation (single-book mode) */
+  primaryBookId?: string
 }
 
 // Text column accessor per table
@@ -109,11 +115,21 @@ function TabsView(props: ExtractionContentProps) {
   const sections = groupBySection(filtered)
 
   if (filtered.length === 0) {
-    return <EmptyTabState tab={activeTab} />
+    return (
+      <div>
+        {activeTab === 'insights' && props.primaryBookId && props.onCreateCustomInsight && (
+          <AddCustomInsightForm bookId={props.primaryBookId} onSave={props.onCreateCustomInsight} />
+        )}
+        <EmptyTabState tab={activeTab} />
+      </div>
+    )
   }
 
   return (
     <div>
+      {activeTab === 'insights' && props.primaryBookId && props.onCreateCustomInsight && (
+        <AddCustomInsightForm bookId={props.primaryBookId} onSave={props.onCreateCustomInsight} />
+      )}
       {Array.from(sections.entries()).map(([sectionTitle, sectionItems]) => {
         const key = `tab-${activeTab}-${sectionTitle}`
         const { visible, hiddenCount } = props.abridged
@@ -339,6 +355,8 @@ function renderItem(item: BaseExtractionItem, tab: ExtractionTab, props: Extract
       onSendToGuidingStars={props.onSendToGuidingStars}
       onSendToBestIntentions={props.onSendToBestIntentions}
       onSendToJournalPrompts={props.onSendToJournalPrompts}
+      onSendToQueue={props.onSendToQueue}
+      onSendToSelfKnowledge={props.onSendToSelfKnowledge}
       onOpenTaskCreation={props.onOpenTaskCreation}
       onClose={() => props.onApplyThisToggle(null)}
     />
@@ -379,6 +397,91 @@ function EmptyTabState({ tab }: { tab: ExtractionTab }) {
     <div className="text-center py-12 text-[var(--color-text-tertiary)]">
       <p className="text-sm">No {labels[tab]} found</p>
       <p className="text-xs mt-1">Try changing your filters or search</p>
+    </div>
+  )
+}
+
+const INSIGHT_CONTENT_TYPES = [
+  { value: 'principle', label: 'Principle' },
+  { value: 'framework', label: 'Framework' },
+  { value: 'mental_model', label: 'Mental Model' },
+  { value: 'process', label: 'Process' },
+  { value: 'strategy', label: 'Strategy' },
+  { value: 'concept', label: 'Concept' },
+  { value: 'system', label: 'System' },
+  { value: 'tool_set', label: 'Tool Set' },
+]
+
+function AddCustomInsightForm({ bookId, onSave }: {
+  bookId: string
+  onSave: (bookshelfItemId: string, text: string, contentType: string) => Promise<unknown>
+}) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [contentType, setContentType] = useState('principle')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = useCallback(async () => {
+    if (!text.trim()) return
+    setSaving(true)
+    try {
+      await onSave(bookId, text.trim(), contentType)
+      setText('')
+      setContentType('principle')
+      setOpen(false)
+    } finally {
+      setSaving(false)
+    }
+  }, [bookId, text, contentType, onSave])
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 text-xs text-[var(--color-accent)] hover:underline mb-3"
+      >
+        <Plus size={14} />
+        Add your own insight
+      </button>
+    )
+  }
+
+  return (
+    <div className="mb-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-secondary)]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-[var(--color-text-secondary)]">Add Custom Insight</span>
+        <button onClick={() => setOpen(false)} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
+          <X size={14} />
+        </button>
+      </div>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="Type your insight, principle, or framework..."
+        className="w-full p-2 text-sm rounded border border-[var(--color-border-default)] bg-[var(--color-surface-primary)] text-[var(--color-text-primary)] resize-none"
+        rows={3}
+        autoFocus
+      />
+      <div className="flex items-center gap-2 mt-2">
+        <select
+          value={contentType}
+          onChange={e => setContentType(e.target.value)}
+          className="text-xs px-2 py-1 rounded border border-[var(--color-border-default)] bg-[var(--color-surface-primary)] text-[var(--color-text-primary)]"
+        >
+          {INSIGHT_CONTENT_TYPES.map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+        <div className="flex-1" />
+        <button
+          onClick={handleSave}
+          disabled={!text.trim() || saving}
+          className="flex items-center gap-1 px-3 py-1 text-xs rounded bg-[var(--color-accent)] text-white disabled:opacity-50"
+        >
+          <Check size={12} />
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
     </div>
   )
 }

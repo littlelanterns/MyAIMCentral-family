@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import {
   Star, Target, CheckSquare, Repeat, BookOpen,
-  Inbox, Compass, FolderKanban,
+  Inbox, Brain, Compass, FolderKanban,
 } from 'lucide-react'
 import type { ExtractionTable } from '@/lib/extractionActions'
 
@@ -19,6 +19,8 @@ interface ApplyThisSheetProps {
   onSendToGuidingStars: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
   onSendToBestIntentions: (id: string, text: string) => Promise<unknown>
   onSendToJournalPrompts: (id: string, text: string, bookTitle: string | null, chapterTitle: string | null) => Promise<unknown>
+  onSendToQueue: (table: ExtractionTable, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onSendToSelfKnowledge: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
   onOpenTaskCreation: (title: string, description: string, taskType?: string) => void
   onClose: () => void
 }
@@ -34,7 +36,8 @@ interface Destination {
 export function ApplyThisSheet({
   itemId, itemText, table, bookTitle, chapterTitle,
   onSendToGuidingStars, onSendToBestIntentions,
-  onSendToJournalPrompts, onOpenTaskCreation, onClose,
+  onSendToJournalPrompts, onSendToQueue, onSendToSelfKnowledge,
+  onOpenTaskCreation, onClose,
 }: ApplyThisSheetProps) {
   const [sending, setSending] = useState<string | null>(null)
 
@@ -90,7 +93,13 @@ export function ApplyThisSheet({
       icon: Inbox,
       label: 'Queue',
       tooltip: 'Send to review queue for later',
-      comingSoon: true,
+      action: () => handleAction('queue', () => onSendToQueue(table, itemId, itemText, bookTitle)),
+    },
+    {
+      icon: Brain,
+      label: 'InnerWorkings',
+      tooltip: 'Add to your self-knowledge',
+      action: () => handleAction('iw', () => onSendToSelfKnowledge(table, itemId, itemText)),
     },
     {
       icon: Compass,

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Grid3X3, List, ChevronDown,
   X, Library, Sparkles, Tag,
-  Upload, Download, Clock,
+  Upload, Download, Clock, Heart,
 } from 'lucide-react'
 import { Button, FeatureGuide } from '@/components/shared'
 import { BookUploadModal } from './BookUploadModal'
@@ -461,6 +461,10 @@ export function BookShelfLibrary() {
             <Button variant="secondary" size="sm" onClick={() => setShowSemanticSearch(true)} className="gap-1.5">
               <Sparkles size={14} />
               Search Library
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => navigate('/bookshelf?hearted=true')} className="gap-1.5">
+              <Heart size={14} />
+              All Hearted
             </Button>
             <Button variant="secondary" size="sm" onClick={() => setShowHistory(h => !h)} className="gap-1.5 ml-auto">
               <Clock size={14} />

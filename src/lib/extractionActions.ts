@@ -175,6 +175,111 @@ export async function sendToJournalPrompts(
   return { promptId: jp.id }
 }
 
+// ── Send to Queue (PRD-17) ────────────────────────────────────────────────
+
+interface SendToQueueData {
+  familyId: string
+  memberId: string
+  text: string
+  sourceItemId: string
+  sourceTable: ExtractionTable
+  bookTitle: string | null
+}
+
+export async function sendToQueue(
+  data: SendToQueueData
+): Promise<{ queueItemId: string } | null> {
+  const content = data.bookTitle
+    ? `[From "${data.bookTitle}"] ${data.text}`
+    : data.text
+
+  const { data: qi, error } = await supabase
+    .from('studio_queue')
+    .insert({
+      family_id: data.familyId,
+      owner_id: data.memberId,
+      destination: 'task',
+      content,
+      source: 'bookshelf',
+      source_reference_id: data.sourceItemId,
+      content_details: { source_table: data.sourceTable, book_title: data.bookTitle },
+    })
+    .select('id')
+    .single()
+
+  if (error || !qi) return null
+  return { queueItemId: qi.id }
+}
+
+// ── Send to InnerWorkings / Self-Knowledge (PRD-07) ───────────────────────
+
+interface SendToSelfKnowledgeData {
+  familyId: string
+  memberId: string
+  text: string
+  sourceItemId: string
+  sourceTable: ExtractionTable
+  category?: string
+}
+
+export async function sendToSelfKnowledge(
+  data: SendToSelfKnowledgeData
+): Promise<{ selfKnowledgeId: string } | null> {
+  const { data: sk, error } = await supabase
+    .from('self_knowledge')
+    .insert({
+      family_id: data.familyId,
+      member_id: data.memberId,
+      content: data.text,
+      category: data.category || 'general',
+      source_type: 'content_extraction',
+      source_reference_id: data.sourceItemId,
+      source: data.sourceTable,
+      is_included_in_ai: true,
+    })
+    .select('id')
+    .single()
+
+  if (error || !sk) return null
+  return { selfKnowledgeId: sk.id }
+}
+
+// ── Custom Manual Additions (PRD-23) ──────────────────────────────────────
+
+interface CreateCustomInsightData {
+  familyId: string
+  memberId: string
+  bookshelfItemId: string
+  text: string
+  contentType: string
+  sectionTitle?: string
+}
+
+export async function createCustomInsight(
+  data: CreateCustomInsightData
+): Promise<{ insightId: string } | null> {
+  const { data: ins, error } = await supabase
+    .from('bookshelf_insights')
+    .insert({
+      family_id: data.familyId,
+      family_member_id: data.memberId,
+      bookshelf_item_id: data.bookshelfItemId,
+      text: data.text,
+      content_type: data.contentType,
+      section_title: data.sectionTitle || null,
+      is_user_added: true,
+      is_key_point: true,
+      is_hearted: false,
+      is_deleted: false,
+      is_included_in_ai: true,
+    })
+    .select('id')
+    .single()
+
+  if (error || !ins) return null
+  return { insightId: ins.id }
+}
+
 /** After a task is created from BookShelf, update tracking on the source item */
 export async function markSentToTasks(
   table: ExtractionTable,

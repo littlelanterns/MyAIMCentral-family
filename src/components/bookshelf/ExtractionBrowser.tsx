@@ -16,6 +16,7 @@ import { CollectionChips } from './CollectionChips'
 import { SemanticSearchPanel } from './SemanticSearchPanel'
 import { BookDiscussionModal } from './BookDiscussionModal'
 import { BookShelfHistoryPanel } from './BookShelfHistoryPanel'
+import { StudyGuideModal } from './StudyGuideModal'
 import { useExtractionData } from '@/hooks/useExtractionData'
 import { useBookDiscussions } from '@/hooks/useBookDiscussions'
 import { useExtractionBrowser } from '@/hooks/useExtractionBrowser'
@@ -33,15 +34,17 @@ interface ExtractionBrowserProps {
   bookIds?: string[]
   collectionId?: string | null
   showHearted?: boolean
+  /** Filter extractions to a specific audience (e.g. 'study_guide_{memberId}') */
+  audience?: string
   onBack: () => void
 }
 
 export function ExtractionBrowser({
-  bookId, bookIds: propBookIds, collectionId, showHearted, onBack,
+  bookId, bookIds: propBookIds, collectionId, showHearted, audience, onBack,
 }: ExtractionBrowserProps) {
   const navigate = useNavigate()
   const { data: member } = useFamilyMember()
-  const { books: allBooks, updateBookTitle, updateBookAuthor, updateLastViewedAt } = useBookShelf()
+  const { books: allBooks, updateBookTitle, updateBookAuthor, updateBookFolder, updateBookGenres, updateBookTags, updateLastViewedAt } = useBookShelf()
   const { getBookIdsForCollection, collections } = useBookShelfCollections()
 
   // Resolve book IDs from props
@@ -71,10 +74,17 @@ export function ExtractionBrowser({
   const {
     summaries, insights, declarations, actionSteps, questions,
     chapters, books, loading, error, refetch,
-  } = useExtractionData(activeBookIds)
+  } = useExtractionData(activeBookIds, audience)
 
   // Browser state (tabs, filters, etc.)
   const browserState = useExtractionBrowser()
+
+  // Force hearted filter when in hearted aggregation mode
+  useEffect(() => {
+    if (showHearted && browserState.filterMode !== 'hearted') {
+      browserState.setFilterMode('hearted')
+    }
+  }, [showHearted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // For display: when viewing a parent, treat it as a single-book view with the parent's info
   const primaryBook = useMemo(() => {
@@ -87,15 +97,32 @@ export function ExtractionBrowser({
     if (bookId) updateLastViewedAt(bookId)
   }, [bookId])
 
-  // Save to sessionStorage for "Continue Where You Left Off"
+  // Load archive folders for folder picker
+  const [archiveFolders, setArchiveFolders] = useState<Array<{ id: string; folder_name: string }>>([])
   useEffect(() => {
-    if (primaryBook) {
+    if (!member?.family_id) return
+    import('@/lib/supabase/client').then(({ supabase }) => {
+      supabase
+        .from('archive_folders')
+        .select('id, folder_name')
+        .eq('family_id', member.family_id)
+        .order('folder_name')
+        .then(({ data }) => {
+          if (data) setArchiveFolders(data as Array<{ id: string; folder_name: string }>)
+        })
+    })
+  }, [member?.family_id])
+
+  // Save to sessionStorage for "Continue Where You Left Off" — scoped by member ID
+  useEffect(() => {
+    if (primaryBook && member?.id) {
       try {
-        sessionStorage.setItem('bookshelf-last-book-id', primaryBook.id)
-        sessionStorage.setItem('bookshelf-last-book-title', primaryBook.title)
+        const prefix = `bookshelf-${member.id}-`
+        sessionStorage.setItem(`${prefix}last-book-id`, primaryBook.id)
+        sessionStorage.setItem(`${prefix}last-book-title`, primaryBook.title)
       } catch { /* */ }
     }
-  }, [primaryBook])
+  }, [primaryBook, member?.id])
 
   // Item actions
   const itemActions = useExtractionItemActions(
@@ -122,6 +149,7 @@ export function ExtractionBrowser({
   // Task creation modal
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [showSemanticSearch, setShowSemanticSearch] = useState(false)
+  const [showStudyGuide, setShowStudyGuide] = useState(false)
   const [taskDefaults, setTaskDefaults] = useState<{ title: string; description: string; taskType?: string; sourceTable?: ExtractionTable; sourceItemId?: string }>({ title: '', description: '' })
 
   const handleOpenTaskCreation = useCallback((title: string, description: string, taskType?: string) => {
@@ -275,6 +303,11 @@ export function ExtractionBrowser({
         historyOpen={showHistoryPanel}
         onGoDeeper={(bid, tab, section) => handleGoDeeper(bid, tab, section)}
         goingDeeper={goingDeeper}
+        onOpenStudyGuide={isSingleBook && primaryBook ? () => setShowStudyGuide(true) : undefined}
+        onFolderChange={(bid, fid) => updateBookFolder(bid, fid)}
+        archiveFolders={archiveFolders}
+        onGenresChange={(bid, genres) => updateBookGenres(bid, genres)}
+        onTagsChange={(bid, tags) => updateBookTags(bid, tags)}
       />
 
       {collectionId && (
@@ -362,6 +395,10 @@ export function ExtractionBrowser({
             onSendToGuidingStars={itemActions.handleSendToGuidingStars}
             onSendToBestIntentions={itemActions.handleSendToBestIntentions}
             onSendToJournalPrompts={itemActions.handleSendToJournalPrompts}
+            onSendToQueue={itemActions.handleSendToQueue}
+            onSendToSelfKnowledge={itemActions.handleSendToSelfKnowledge}
+            onCreateCustomInsight={isSingleBook ? itemActions.handleCreateCustomInsight : undefined}
+            primaryBookId={isSingleBook ? primaryBook?.id : undefined}
           />
         </div>
       </div>
@@ -430,6 +467,17 @@ export function ExtractionBrowser({
         initialTaskType={taskDefaults.taskType}
         sourceReferenceId={taskDefaults.sourceItemId}
       />
+
+      {/* Study Guide Modal */}
+      {primaryBook && (
+        <StudyGuideModal
+          isOpen={showStudyGuide}
+          onClose={() => setShowStudyGuide(false)}
+          bookshelfItemId={primaryBook.id}
+          bookTitle={primaryBook.title}
+          onComplete={refetch}
+        />
+      )}
     </div>
   )
 }

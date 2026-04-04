@@ -1,12 +1,13 @@
 /**
  * BookShelfPage (PRD-23)
  * Shell that routes between Library mode and Reading mode based on URL params.
- * Session B: Reading mode renders ExtractionBrowser.
+ * Supports: single book, multi-book, collection, hearted, study guides.
  */
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { PermissionGate } from '@/lib/permissions'
 import { BookShelfLibrary } from '@/components/bookshelf/BookShelfLibrary'
 import { ExtractionBrowser } from '@/components/bookshelf/ExtractionBrowser'
+import { StudyGuideLibrary } from '@/components/bookshelf/StudyGuideLibrary'
 
 export function BookShelfPage() {
   const [searchParams] = useSearchParams()
@@ -16,17 +17,22 @@ export function BookShelfPage() {
   const bookIds = searchParams.get('books')?.split(',').filter(Boolean)
   const collectionId = searchParams.get('collection')
   const showHearted = searchParams.get('hearted') === 'true'
+  const showStudyGuides = searchParams.get('study_guides') === 'true'
+  const audience = searchParams.get('audience')
 
-  const isReadingMode = !!(bookId || (bookIds && bookIds.length > 0) || collectionId || showHearted)
+  const isReadingMode = !!(bookId || (bookIds && bookIds.length > 0) || collectionId || showHearted || audience)
 
   return (
     <PermissionGate featureKey="bookshelf_basic">
-      {isReadingMode ? (
+      {showStudyGuides ? (
+        <StudyGuideLibrary onBack={() => navigate('/bookshelf')} />
+      ) : isReadingMode ? (
         <ExtractionBrowser
           bookId={bookId}
           bookIds={bookIds}
           collectionId={collectionId}
           showHearted={showHearted}
+          audience={audience || undefined}
           onBack={() => navigate('/bookshelf')}
         />
       ) : (

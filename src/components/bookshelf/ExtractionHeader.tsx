@@ -3,7 +3,7 @@
  * Back button, title (editable for single-book), book info collapsible section.
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Search, MessageSquare, Clock, Sparkles } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Search, MessageSquare, Clock, Sparkles, GraduationCap, FolderOpen, X } from 'lucide-react'
 import type { BookShelfItem } from '@/types/bookshelf'
 
 interface ExtractionHeaderProps {
@@ -21,6 +21,13 @@ interface ExtractionHeaderProps {
   onOpenHistory?: () => void
   onGoDeeper?: (bookId: string, tab: string, sectionTitle?: string) => void
   goingDeeper?: boolean
+  onOpenStudyGuide?: () => void
+  /** Archive folder routing */
+  onFolderChange?: (bookId: string, folderId: string | null) => void
+  archiveFolders?: Array<{ id: string; folder_name: string }>
+  /** Metadata editing */
+  onGenresChange?: (bookId: string, genres: string[]) => void
+  onTagsChange?: (bookId: string, tags: string[]) => void
   /** Whether the history panel is currently open */
   historyOpen?: boolean
 }
@@ -29,7 +36,8 @@ export function ExtractionHeader({
   books, collectionName, showHearted, onBack,
   onTitleChange, onAuthorChange,
   siblingBooks, onNavigateToBook, onOpenSemanticSearch,
-  onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, historyOpen,
+  onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, onOpenStudyGuide,
+  onFolderChange, archiveFolders, onGenresChange, onTagsChange, historyOpen,
 }: ExtractionHeaderProps) {
   const isSingleBook = books.length === 1
   const book = isSingleBook ? books[0] : null
@@ -38,6 +46,9 @@ export function ExtractionHeader({
   const [editingAuthor, setEditingAuthor] = useState(false)
   const [titleDraft, setTitleDraft] = useState(book?.title || '')
   const [authorDraft, setAuthorDraft] = useState(book?.author || '')
+  const [editingTags, setEditingTags] = useState(false)
+  const [tagsDraft, setTagsDraft] = useState('')
+  const [newGenre, setNewGenre] = useState('')
 
   const handleTitleSave = () => {
     if (book && onTitleChange && titleDraft.trim() && titleDraft !== book.title) {
@@ -190,6 +201,16 @@ export function ExtractionHeader({
                   </button>
                 )}
 
+                {onOpenStudyGuide && (
+                  <button
+                    onClick={onOpenStudyGuide}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline"
+                  >
+                    <GraduationCap size={12} />
+                    Study Guide
+                  </button>
+                )}
+
                 {/* History clock icon */}
                 {onOpenHistory && (
                   <div className="relative ml-auto">
@@ -212,24 +233,119 @@ export function ExtractionHeader({
                       <p className="text-[var(--color-text-secondary)] text-xs leading-relaxed">{book.ai_summary}</p>
                     </div>
                   )}
-                  {book.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {book.tags.map(t => (
-                        <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {book.genres.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
+
+                  {/* Genres — editable */}
+                  <div>
+                    <div className="text-xs font-medium text-[var(--color-text-tertiary)] mb-0.5">Genres</div>
+                    <div className="flex flex-wrap gap-1 items-center">
                       {book.genres.map(g => (
-                        <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]">
+                        <span key={g} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]">
                           {g}
+                          {onGenresChange && (
+                            <button
+                              onClick={() => onGenresChange(book.id, book.genres.filter(x => x !== g))}
+                              className="hover:text-[var(--color-text-primary)]"
+                            >
+                              <X size={8} />
+                            </button>
+                          )}
                         </span>
                       ))}
+                      {onGenresChange && (
+                        <form
+                          className="inline-flex"
+                          onSubmit={e => {
+                            e.preventDefault()
+                            const trimmed = newGenre.trim()
+                            if (trimmed && !book.genres.includes(trimmed)) {
+                              onGenresChange(book.id, [...book.genres, trimmed])
+                              setNewGenre('')
+                            }
+                          }}
+                        >
+                          <input
+                            value={newGenre}
+                            onChange={e => setNewGenre(e.target.value)}
+                            placeholder="+ genre"
+                            className="w-16 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-primary)] border border-[var(--color-border-default)] text-[var(--color-text-primary)]"
+                          />
+                        </form>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tags — editable */}
+                  <div>
+                    <div className="text-xs font-medium text-[var(--color-text-tertiary)] mb-0.5">Tags</div>
+                    {editingTags ? (
+                      <form
+                        onSubmit={e => {
+                          e.preventDefault()
+                          if (onTagsChange) {
+                            const newTags = tagsDraft.split(',').map(t => t.trim()).filter(Boolean)
+                            onTagsChange(book.id, newTags)
+                          }
+                          setEditingTags(false)
+                        }}
+                      >
+                        <input
+                          value={tagsDraft}
+                          onChange={e => setTagsDraft(e.target.value)}
+                          onBlur={() => {
+                            if (onTagsChange) {
+                              const newTags = tagsDraft.split(',').map(t => t.trim()).filter(Boolean)
+                              onTagsChange(book.id, newTags)
+                            }
+                            setEditingTags(false)
+                          }}
+                          className="w-full text-xs px-2 py-1 rounded border border-[var(--color-border-default)] bg-[var(--color-surface-primary)] text-[var(--color-text-primary)]"
+                          placeholder="tag1, tag2, tag3"
+                          autoFocus
+                        />
+                      </form>
+                    ) : (
+                      <div
+                        className="flex flex-wrap gap-1 cursor-pointer"
+                        onClick={() => {
+                          if (onTagsChange) {
+                            setTagsDraft(book.tags.join(', '))
+                            setEditingTags(true)
+                          }
+                        }}
+                      >
+                        {book.tags.length > 0 ? book.tags.map(t => (
+                          <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-tertiary)]">
+                            {t}
+                          </span>
+                        )) : (
+                          <span className="text-[10px] text-[var(--color-text-tertiary)] italic">
+                            {onTagsChange ? 'Click to add tags' : 'No tags'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Archive folder — D.3 */}
+                  {onFolderChange && archiveFolders && (
+                    <div>
+                      <div className="text-xs font-medium text-[var(--color-text-tertiary)] mb-0.5">Archive Folder</div>
+                      <div className="flex items-center gap-2">
+                        <FolderOpen size={12} className="text-[var(--color-text-tertiary)]" />
+                        <select
+                          value={book.folder_id || ''}
+                          onChange={e => onFolderChange(book.id, e.target.value || null)}
+                          className="text-xs px-2 py-1 rounded border border-[var(--color-border-default)] bg-[var(--color-surface-primary)] text-[var(--color-text-primary)]"
+                        >
+                          <option value="">None</option>
+                          {archiveFolders.map(f => (
+                            <option key={f.id} value={f.id}>{f.folder_name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   )}
+
                   <div className="text-xs text-[var(--color-text-tertiary)]">
                     Added {new Date(book.created_at).toLocaleDateString()}
                   </div>

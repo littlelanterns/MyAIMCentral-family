@@ -75,6 +75,18 @@ export function useBookShelf() {
     // Don't await refetch — fire and forget
   }
 
+  async function updateBookFolder(id: string, folderId: string | null) {
+    await updateMutation.mutateAsync({ id, updates: { folder_id: folderId } })
+  }
+
+  async function updateBookGenres(id: string, genres: string[]) {
+    await updateMutation.mutateAsync({ id, updates: { genres } })
+  }
+
+  async function updateBookTags(id: string, tags: string[]) {
+    await updateMutation.mutateAsync({ id, updates: { tags } })
+  }
+
   async function archiveBook(id: string) {
     await updateMutation.mutateAsync({ id, updates: { archived_at: new Date().toISOString() } })
   }
@@ -93,6 +105,9 @@ export function useBookShelf() {
     getPartsForBook,
     updateBookTitle,
     updateBookAuthor,
+    updateBookFolder,
+    updateBookGenres,
+    updateBookTags,
     updateLastViewedAt,
     archiveBook,
     refetch,

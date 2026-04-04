@@ -5,19 +5,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, X } from 'lucide-react'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 
 export function ContinueBanner() {
   const navigate = useNavigate()
+  const { data: member } = useFamilyMember()
   const [dismissed, setDismissed] = useState(false)
 
-  const bookId = sessionStorage.getItem('bookshelf-last-book-id')
-  const bookTitle = sessionStorage.getItem('bookshelf-last-book-title')
+  // Scope sessionStorage keys by member ID to prevent cross-member leaking
+  const prefix = member?.id ? `bookshelf-${member.id}-` : 'bookshelf-'
+  const bookId = sessionStorage.getItem(`${prefix}last-book-id`)
+  const bookTitle = sessionStorage.getItem(`${prefix}last-book-title`)
 
   if (!bookId || !bookTitle || dismissed) return null
 
   function handleDismiss() {
-    sessionStorage.removeItem('bookshelf-last-book-id')
-    sessionStorage.removeItem('bookshelf-last-book-title')
+    sessionStorage.removeItem(`${prefix}last-book-id`)
+    sessionStorage.removeItem(`${prefix}last-book-title`)
     setDismissed(true)
   }
 

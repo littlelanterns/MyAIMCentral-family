@@ -12,6 +12,9 @@ import {
   sendToGuidingStars,
   sendToBestIntentions,
   sendToJournalPrompts,
+  sendToQueue,
+  sendToSelfKnowledge,
+  createCustomInsight,
   markSentToTasks,
 } from '@/lib/extractionActions'
 
@@ -101,6 +104,42 @@ export function useExtractionItemActions(
     return result
   }, [familyId, memberId, callbacks])
 
+  const handleSendToQueue = useCallback(async (
+    table: ExtractionTable, id: string, text: string, bookTitle: string | null
+  ) => {
+    const result = await sendToQueue({
+      familyId, memberId, text, sourceItemId: id, sourceTable: table, bookTitle,
+    })
+    if (result) {
+      setApplyThisItemId(null)
+      callbacks.onItemUpdated()
+    }
+    return result
+  }, [familyId, memberId, callbacks])
+
+  const handleSendToSelfKnowledge = useCallback(async (
+    table: ExtractionTable, id: string, text: string
+  ) => {
+    const result = await sendToSelfKnowledge({
+      familyId, memberId, text, sourceItemId: id, sourceTable: table,
+    })
+    if (result) {
+      setApplyThisItemId(null)
+      callbacks.onItemUpdated()
+    }
+    return result
+  }, [familyId, memberId, callbacks])
+
+  const handleCreateCustomInsight = useCallback(async (
+    bookshelfItemId: string, text: string, contentType: string, sectionTitle?: string
+  ) => {
+    const result = await createCustomInsight({
+      familyId, memberId, bookshelfItemId, text, contentType, sectionTitle,
+    })
+    if (result) callbacks.onItemUpdated()
+    return result
+  }, [familyId, memberId, callbacks])
+
   const handleMarkSentToTasks = useCallback(async (
     table: ExtractionTable, itemId: string, taskId: string
   ) => {
@@ -120,6 +159,9 @@ export function useExtractionItemActions(
     handleSendToGuidingStars,
     handleSendToBestIntentions,
     handleSendToJournalPrompts,
+    handleSendToQueue,
+    handleSendToSelfKnowledge,
+    handleCreateCustomInsight,
     handleMarkSentToTasks,
   }
 }
