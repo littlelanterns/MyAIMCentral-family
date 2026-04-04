@@ -32,6 +32,11 @@ export type SweepInputType = 'voice' | 'text' | 'image' | 'link' | 'email' | 'mi
 
 export type ApprovalAction = 'approved_unchanged' | 'approved_edited' | 'rerouted' | 'dismissed';
 
+// Digest section type for PRD-18 rhythms integration (stub — PRD-18 not yet built)
+// When rhythms are built, register 'mindsweep_digest' as section type #28.
+// Renderer shows: items swept, destinations routed to, confidence stats.
+export const MINDSWEEP_DIGEST_SECTION_KEY = 'mindsweep_digest' as const;
+
 // ── Database Records ──
 
 export interface MindSweepSettings {

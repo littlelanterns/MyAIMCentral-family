@@ -13,6 +13,7 @@ import { Inbox } from 'lucide-react'
 import { EmptyState, useRoutingToast } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useRecordApprovalPattern } from '@/hooks/useMindSweep'
 import { QueueCard } from './QueueCard'
 import { BatchCard } from './BatchCard'
 import { ListPickerModal } from './ListPickerModal'
@@ -123,11 +124,16 @@ function DismissConfirm({ item, onConfirm, onCancel }: DismissConfirmProps) {
 
 // ─── SortTab ─────────────────────────────────────────────────
 
+function isMindSweepSource(source: string | null): boolean {
+  return source === 'mindsweep_auto' || source === 'mindsweep_queued'
+}
+
 export function SortTab() {
   const queryClient = useQueryClient()
   const { data: currentMember } = useFamilyMember()
   const routingToast = useRoutingToast()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
+  const recordPattern = useRecordApprovalPattern()
 
   // Studio queue query
   const { data: queueItems = [], isLoading } = useQuery({
@@ -149,12 +155,24 @@ export function SortTab() {
 
   // Dismiss mutation
   const dismissMutation = useMutation({
-    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+    mutationFn: async ({ id, note, item }: { id: string; note: string; item?: StudioQueueRecord }) => {
       const { error } = await supabase
         .from('studio_queue')
         .update({ dismissed_at: new Date().toISOString(), dismiss_note: note || null })
         .eq('id', id)
       if (error) throw error
+
+      // Record approval pattern for MindSweep-sourced items
+      if (item && isMindSweepSource(item.source) && currentMember) {
+        recordPattern.mutate({
+          familyId: currentMember.family_id,
+          memberId: currentMember.id,
+          contentCategory: (item.content_details as Record<string, unknown>)?.mindsweep_category as string || 'unknown',
+          actionTaken: 'dismissed',
+          suggestedDestination: item.destination,
+          actualDestination: null,
+        })
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
@@ -286,6 +304,18 @@ export function SortTab() {
 
     for (const item of itemsToProcess) {
       processedMutation.mutate(item.id)
+
+      // Record approval pattern for MindSweep-sourced items
+      if (isMindSweepSource(item.source) && currentMember) {
+        recordPattern.mutate({
+          familyId: currentMember.family_id,
+          memberId: currentMember.id,
+          contentCategory: (item.content_details as Record<string, unknown>)?.mindsweep_category as string || 'unknown',
+          actionTaken: 'approved_unchanged',
+          suggestedDestination: item.destination,
+          actualDestination: item.destination ?? 'task',
+        })
+      }
     }
 
     // Show undo toast
@@ -379,7 +409,7 @@ export function SortTab() {
         item={dismissTarget}
         onConfirm={(note) => {
           if (dismissTarget) {
-            dismissMutation.mutate({ id: dismissTarget.id, note })
+            dismissMutation.mutate({ id: dismissTarget.id, note, item: dismissTarget })
             setDismissTarget(null)
           }
         }}
@@ -395,6 +425,18 @@ export function SortTab() {
           // Mark all list picker items as processed
           for (const item of listPickerItems) {
             processedMutation.mutate(item.id)
+
+            // Record approval pattern for MindSweep-sourced items
+            if (isMindSweepSource(item.source) && currentMember) {
+              recordPattern.mutate({
+                familyId: currentMember.family_id,
+                memberId: currentMember.id,
+                contentCategory: (item.content_details as Record<string, unknown>)?.mindsweep_category as string || 'unknown',
+                actionTaken: item.destination === 'list' ? 'approved_unchanged' : 'rerouted',
+                suggestedDestination: item.destination,
+                actualDestination: 'list',
+              })
+            }
           }
           const label = listPickerItems.length === 1
             ? `Added to "${listTitle}"`

@@ -9,9 +9,12 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
-  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn,
+  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useMindSweepSettings, useUpdateMindSweepSettings } from '@/hooks/useMindSweep'
+import { MindSweepSettingsPanel } from '@/components/mindsweep/MindSweepSettingsPanel'
+import type { MindSweepSettings } from '@/types/mindsweep'
 import { useFamily } from '@/hooks/useFamily'
 import { useTheme } from '@/lib/theme'
 import { supabase } from '@/lib/supabase/client'
@@ -113,6 +116,13 @@ export function SettingsPage() {
       {shell === 'mom' && (
         <SettingsSection title="Family Management" icon={Users}>
           <FamilyManagementSection familyId={family?.id} loginName={family?.family_login_name ?? undefined} />
+        </SettingsSection>
+      )}
+
+      {/* MindSweep Settings (Mom/Adult) */}
+      {(shell === 'mom' || shell === 'adult') && (
+        <SettingsSection title="MindSweep" icon={Wand2}>
+          <MindSweepSection memberId={member?.id} familyId={member?.family_id} />
         </SettingsSection>
       )}
 
@@ -382,4 +392,18 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
       </div>
     </div>
   )
+}
+
+// ── MindSweep Section ───────────────────────────────────────────
+
+function MindSweepSection({ memberId, familyId }: { memberId?: string; familyId?: string }) {
+  const { data: settings } = useMindSweepSettings(memberId)
+  const updateSettings = useUpdateMindSweepSettings()
+
+  function handleUpdate(updates: Partial<MindSweepSettings>) {
+    if (!memberId || !familyId) return
+    updateSettings.mutate({ memberId, familyId, updates })
+  }
+
+  return <MindSweepSettingsPanel settings={settings} onUpdate={handleUpdate} embedded />
 }

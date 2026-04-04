@@ -382,6 +382,33 @@ async function queueForReview(
   })
 }
 
+// ── Record Approval Pattern (learning data for future recommendations) ──
+
+export function useRecordApprovalPattern() {
+  return useMutation({
+    mutationFn: async (params: {
+      familyId: string
+      memberId: string
+      contentCategory: string
+      actionTaken: 'approved_unchanged' | 'approved_edited' | 'rerouted' | 'dismissed'
+      suggestedDestination: string | null
+      actualDestination: string | null
+    }) => {
+      const { error } = await supabase
+        .from('mindsweep_approval_patterns')
+        .insert({
+          family_id: params.familyId,
+          member_id: params.memberId,
+          content_category: params.contentCategory,
+          action_taken: params.actionTaken,
+          suggested_destination: params.suggestedDestination,
+          actual_destination: params.actualDestination,
+        })
+      if (error) throw error
+    },
+  })
+}
+
 // ── Delete Holding Item (with cache invalidation) ──
 
 export function useDeleteHolding() {
