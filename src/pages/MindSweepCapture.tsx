@@ -202,10 +202,11 @@ export function MindSweepCapture() {
       family_id: familyId,
       member_id: memberId,
       content: content.trim(),
-      content_type: 'text',
+      content_type: contentSource,
       source_channel: 'quick_capture',
     })
     setContent('')
+    setContentSource('text')
   }
 
   // ── Voice ──

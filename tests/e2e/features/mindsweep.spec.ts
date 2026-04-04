@@ -53,7 +53,7 @@ test.describe('PRD-17B: MindSweep', () => {
 
     // Voice, Scan, Link buttons should be present
     await expect(page.getByRole('button', { name: /Voice|Tap to talk/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Scan/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Photo/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Link/i })).toBeVisible()
 
     // Auto-sort indicator
@@ -125,19 +125,21 @@ test.describe('PRD-17B: MindSweep', () => {
     assertNoInfiniteRenders(consoleErrors)
   })
 
-  test('/sweep scan button triggers file picker', async ({ page }) => {
+  test('/sweep Photo button triggers file picker', async ({ page }) => {
     await loginAsMom(page)
     await page.goto('/sweep')
     await page.waitForTimeout(2000)
 
-    // The hidden file input should exist
+    // The hidden file input should exist (no capture="environment" — allows gallery)
     const fileInput = page.locator('input[type="file"][accept="image/*"]')
     await expect(fileInput).toBeAttached()
+    // Verify capture attribute was removed (allows gallery picks)
+    await expect(fileInput).not.toHaveAttribute('capture')
 
-    // Clicking scan should trigger the file input (we can verify via fileChooser event)
+    // Clicking Photo should trigger the file input
     const [fileChooser] = await Promise.all([
       page.waitForEvent('filechooser'),
-      page.getByRole('button', { name: /Scan/i }).click(),
+      page.getByRole('button', { name: /Photo/i }).click(),
     ])
     expect(fileChooser).toBeTruthy()
 
@@ -300,6 +302,247 @@ test.describe('PRD-17B: MindSweep', () => {
     if (await sorted.isVisible()) {
       await expect(textarea).toHaveValue('')
     }
+
+    assertNoInfiniteRenders(consoleErrors)
+  })
+
+  // ── Image Upload + OCR Tests ──
+
+  test('/sweep Photo upload populates textarea with OCR text', async ({ page }) => {
+    await loginAsMom(page)
+
+    // Mock the mindsweep-scan Edge Function (handle both OPTIONS and POST)
+    await page.route('**/functions/v1/mindsweep-scan', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          text: 'Crane Community Easter Egg Hunt\nApril 4\nToday at 3 PM – 4 PM\nCrane High School (Missouri)\nCrane, MO',
+        }),
+      })
+    })
+
+    await page.goto('/sweep')
+    await page.waitForTimeout(2000)
+
+    const textarea = page.locator('textarea')
+
+    // Upload a test image via the file input
+    const fileInput = page.locator('input[type="file"][accept="image/*"]')
+    const buffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    await fileInput.setInputFiles({ name: 'test-flyer.png', mimeType: 'image/png', buffer })
+
+    // Wait for OCR processing
+    await page.waitForTimeout(3000)
+
+    // Textarea should now contain the extracted text
+    const value = await textarea.inputValue()
+    expect(value).toContain('Crane Community Easter Egg Hunt')
+    expect(value).toContain('3 PM')
+
+    // Sweep Now should be enabled
+    await expect(page.getByRole('button', { name: /Sweep Now/i })).toBeEnabled()
+
+    assertNoInfiniteRenders(consoleErrors)
+  })
+
+  test('/sweep OCR content sweeps as single item (not split)', async ({ page }) => {
+    await loginAsMom(page)
+
+    // Track the mindsweep-sort request to verify it receives scan_extracted type
+    let sortRequestBody: Record<string, unknown> | null = null
+
+    // Mock mindsweep-scan (OCR)
+    await page.route('**/functions/v1/mindsweep-scan', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ text: 'Easter Egg Hunt\nApril 4\n3 PM – 4 PM\nCrane High School' }),
+      })
+    })
+
+    // Mock mindsweep-sort — capture the request body
+    await page.route('**/functions/v1/mindsweep-sort', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+        return
+      }
+      sortRequestBody = JSON.parse(route.request().postData() || '{}')
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          event_id: '00000000-0000-0000-0000-000000000001',
+          results: [{
+            original_content: 'Easter Egg Hunt\nApril 4\n3 PM – 4 PM\nCrane High School',
+            extracted_text: 'Easter Egg Hunt\nApril 4\n3 PM – 4 PM\nCrane High School',
+            category: 'calendar',
+            destination: 'calendar',
+            confidence: 'high',
+            classified_by: 'llm_batch',
+            sensitivity_flag: false,
+          }],
+          totals: { items_extracted: 1, items_auto_routed: 0, items_queued: 1, items_direct_routed: 0, items_classified_by_embedding: 0, items_classified_by_llm: 1, processing_cost_cents: 0 },
+        }),
+      })
+    })
+
+    await page.goto('/sweep')
+    await page.waitForTimeout(2000)
+
+    // Upload image → OCR text populates textarea
+    const fileInput = page.locator('input[type="file"][accept="image/*"]')
+    const buffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    await fileInput.setInputFiles({ name: 'flyer.png', mimeType: 'image/png', buffer })
+    await page.waitForTimeout(3000)
+
+    // Click Sweep Now
+    await page.getByRole('button', { name: /Sweep Now/i }).click()
+    await page.waitForTimeout(3000)
+
+    // Verify the sort request sent scan_extracted (not text) and sent ONE item
+    expect(sortRequestBody).not.toBeNull()
+    const items = (sortRequestBody as Record<string, unknown>)?.items as Array<{ content_type: string }>
+    expect(items).toHaveLength(1)
+    expect(items[0].content_type).toBe('scan_extracted')
+
+    assertNoInfiniteRenders(consoleErrors)
+  })
+
+  test('/sweep brain dump text gets split into multiple items', async ({ page }) => {
+    await loginAsMom(page)
+
+    let sortRequestBody: Record<string, unknown> | null = null
+
+    // Mock mindsweep-sort
+    await page.route('**/functions/v1/mindsweep-sort', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+        return
+      }
+      sortRequestBody = JSON.parse(route.request().postData() || '{}')
+      const itemCount = (sortRequestBody?.items as unknown[])?.length || 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          event_id: '00000000-0000-0000-0000-000000000002',
+          results: Array.from({ length: itemCount }, (_, i) => ({
+            original_content: `Item ${i + 1}`,
+            extracted_text: `Item ${i + 1}`,
+            category: 'task',
+            destination: 'task',
+            confidence: 'medium',
+            classified_by: 'llm_batch',
+            sensitivity_flag: false,
+          })),
+          totals: { items_extracted: itemCount, items_auto_routed: 0, items_queued: itemCount, items_direct_routed: 0, items_classified_by_embedding: 0, items_classified_by_llm: itemCount, processing_cost_cents: 0 },
+        }),
+      })
+    })
+
+    await page.goto('/sweep')
+    await page.waitForTimeout(2000)
+
+    // Type a brain dump with multiple lines
+    const textarea = page.locator('textarea')
+    await textarea.fill('Buy milk and eggs\nCall dentist about appointment\nPick up library books\nSchedule oil change')
+
+    // Click Sweep Now
+    await page.getByRole('button', { name: /Sweep Now/i }).click()
+    await page.waitForTimeout(3000)
+
+    // Verify the sort request sent content_type='text' (will be split server-side)
+    expect(sortRequestBody).not.toBeNull()
+    const items = (sortRequestBody as Record<string, unknown>)?.items as Array<{ content_type: string; content: string }>
+    expect(items).toHaveLength(1) // Client sends as one item
+    expect(items[0].content_type).toBe('text')
+    expect(items[0].content).toContain('Buy milk')
+    expect(items[0].content).toContain('Call dentist')
+
+    assertNoInfiniteRenders(consoleErrors)
+  })
+
+  test('/sweep holding queue batches items for Sweep All', async ({ page }) => {
+    await loginAsMom(page)
+    await page.goto('/sweep')
+    await page.waitForTimeout(2000)
+
+    const textarea = page.locator('textarea')
+
+    // Add first item to holding
+    await textarea.fill('Buy groceries for Easter dinner')
+    await page.getByRole('button', { name: /Save for Later/i }).click()
+    await page.waitForTimeout(1500)
+    await expect(textarea).toHaveValue('')
+
+    // Add second item to holding
+    await textarea.fill('Call grandma about Sunday plans')
+    await page.getByRole('button', { name: /Save for Later/i }).click()
+    await page.waitForTimeout(1500)
+    await expect(textarea).toHaveValue('')
+
+    // Open holding queue panel — look for inbox icon button with badge
+    const holdingToggle = page.locator('button').filter({ has: page.locator('svg.lucide-inbox') })
+    if (await holdingToggle.isVisible()) {
+      await holdingToggle.click()
+      await page.waitForTimeout(1000)
+
+      // Should see "Sweep All" button in the panel
+      const sweepAllBtn = page.getByRole('button', { name: /Sweep All/i })
+      await expect(sweepAllBtn).toBeVisible()
+
+      // Should see held items listed
+      await expect(page.getByText('Buy groceries').first()).toBeVisible()
+      await expect(page.getByText('Call grandma').first()).toBeVisible()
+    }
+
+    assertNoInfiniteRenders(consoleErrors)
+  })
+
+  test('/sweep error display shows when scan fails', async ({ page }) => {
+    await loginAsMom(page)
+
+    // Mock mindsweep-scan to return an error
+    await page.route('**/functions/v1/mindsweep-scan', async (route) => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+        return
+      }
+      await route.fulfill({
+        status: 502,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ error: 'Vision extraction failed (502)' }),
+      })
+    })
+
+    await page.goto('/sweep')
+    await page.waitForTimeout(2000)
+
+    // Upload a test image
+    const fileInput = page.locator('input[type="file"][accept="image/*"]')
+    const buffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64')
+    await fileInput.setInputFiles({ name: 'bad.png', mimeType: 'image/png', buffer })
+
+    // Wait for error to display
+    await page.waitForTimeout(3000)
+
+    // Error message should be visible in the scan error container (span.text-xs inside border-t div)
+    const errorContainer = page.locator('.border-t span.text-xs').filter({ hasText: /non-2xx|failed|error/i })
+    await expect(errorContainer.first()).toBeVisible({ timeout: 5000 })
 
     assertNoInfiniteRenders(consoleErrors)
   })
