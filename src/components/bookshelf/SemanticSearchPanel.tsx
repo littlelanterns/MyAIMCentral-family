@@ -107,12 +107,19 @@ export function SemanticSearchPanel({ isOpen, onClose, onNavigateToResult, bookI
   if (!isOpen) return null
 
   const TABLE_TO_TAB: Record<string, string> = {
+    // New platform extraction types
+    summary: 'summaries',
+    insight: 'insights',
+    declaration: 'declarations',
+    action_step: 'action_steps',
+    question: 'questions',
+    // Old table names (backward compat with edge function results)
     bookshelf_summaries: 'summaries',
     bookshelf_insights: 'insights',
     bookshelf_declarations: 'declarations',
     bookshelf_action_steps: 'action_steps',
     bookshelf_questions: 'questions',
-    bookshelf_chunks: 'summaries', // fallback
+    bookshelf_chunks: 'summaries',
   }
 
   const renderResult = (result: SearchResult) => (

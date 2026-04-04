@@ -8,19 +8,19 @@ import {
   Star, Target, CheckSquare, Repeat, BookOpen,
   Inbox, Brain, Compass, FolderKanban,
 } from 'lucide-react'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { ExtractionType } from '@/lib/extractionActions'
 
 interface ApplyThisSheetProps {
   itemId: string
   itemText: string
-  table: ExtractionTable
+  extractionType: ExtractionType
   bookTitle: string | null
   chapterTitle: string | null
-  onSendToGuidingStars: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
+  onSendToGuidingStars: (type: ExtractionType, id: string, text: string) => Promise<unknown>
   onSendToBestIntentions: (id: string, text: string) => Promise<unknown>
   onSendToJournalPrompts: (id: string, text: string, bookTitle: string | null, chapterTitle: string | null) => Promise<unknown>
-  onSendToQueue: (table: ExtractionTable, id: string, text: string, bookTitle: string | null) => Promise<unknown>
-  onSendToSelfKnowledge: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
+  onSendToQueue: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onSendToSelfKnowledge: (type: ExtractionType, id: string, text: string) => Promise<unknown>
   onOpenTaskCreation: (title: string, description: string, taskType?: string) => void
   onClose: () => void
 }
@@ -34,7 +34,7 @@ interface Destination {
 }
 
 export function ApplyThisSheet({
-  itemId, itemText, table, bookTitle, chapterTitle,
+  itemId, itemText, extractionType, bookTitle, chapterTitle,
   onSendToGuidingStars, onSendToBestIntentions,
   onSendToJournalPrompts, onSendToQueue, onSendToSelfKnowledge,
   onOpenTaskCreation, onClose,
@@ -57,7 +57,7 @@ export function ApplyThisSheet({
       icon: Star,
       label: 'Guiding Stars',
       tooltip: 'Make this a declaration you live by',
-      action: () => handleAction('gs', () => onSendToGuidingStars(table, itemId, itemText)),
+      action: () => handleAction('gs', () => onSendToGuidingStars(extractionType, itemId, itemText)),
     },
     {
       icon: Target,
@@ -93,13 +93,13 @@ export function ApplyThisSheet({
       icon: Inbox,
       label: 'Queue',
       tooltip: 'Send to review queue for later',
-      action: () => handleAction('queue', () => onSendToQueue(table, itemId, itemText, bookTitle)),
+      action: () => handleAction('queue', () => onSendToQueue(extractionType, itemId, itemText, bookTitle)),
     },
     {
       icon: Brain,
       label: 'InnerWorkings',
       tooltip: 'Add to your self-knowledge',
-      action: () => handleAction('iw', () => onSendToSelfKnowledge(table, itemId, itemText)),
+      action: () => handleAction('iw', () => onSendToSelfKnowledge(extractionType, itemId, itemText)),
     },
     {
       icon: Compass,

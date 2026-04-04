@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Wand2, Mic, MicOff, Loader2, Send, Clock, ScanLine, Link2,
-  ArrowLeft, Settings, Inbox, X, Trash2,
+  ArrowLeft, Settings, Inbox, X, Trash2, CalendarDays, HelpCircle,
 } from 'lucide-react'
 import { MindSweepSettingsPanel, MODE_OPTIONS } from '@/components/mindsweep/MindSweepSettingsPanel'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
@@ -25,6 +25,8 @@ import {
   useRunSweep,
 } from '@/hooks/useMindSweep'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
+import { parseICS, isICSContent, formatParseResultMessage } from '@/lib/icsParser'
+import { useImportCalendarEvents } from '@/hooks/useMindSweep'
 import type { MindSweepSettings } from '@/types/mindsweep'
 
 export function MindSweepCapture() {
@@ -55,8 +57,13 @@ export function MindSweepCapture() {
   const [linkProcessing, setLinkProcessing] = useState(false)
   const [linkInput, setLinkInput] = useState('')
   const [showLinkInput, setShowLinkInput] = useState(false)
+  const [calendarProcessing, setCalendarProcessing] = useState(false)
+  const [calendarResult, setCalendarResult] = useState<string | null>(null)
+  const [showCalendarHelp, setShowCalendarHelp] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const calendarFileRef = useRef<HTMLInputElement>(null)
+  const importCalendar = useImportCalendarEvents()
 
   // Handle share-to-app via Web Share Target API (manifest.json share_target)
   // Shared content arrives as URL params: ?title=...&text=...&url=...
@@ -241,6 +248,49 @@ export function MindSweepCapture() {
     }
   }
 
+  // ── Calendar file import ──
+  function handleCalendarClick() {
+    calendarFileRef.current?.click()
+  }
+
+  async function handleCalendarFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !familyId || !memberId) return
+    e.target.value = ''
+
+    setCalendarProcessing(true)
+    setCalendarResult(null)
+    try {
+      const text = await file.text()
+
+      // Validate it looks like calendar data
+      if (!isICSContent(text)) {
+        setCalendarResult('This file doesn\'t appear to be a calendar file. Try exporting from Google Calendar or Apple Calendar.')
+        return
+      }
+
+      const result = parseICS(text)
+      if (result.events.length === 0) {
+        setCalendarResult('No events found in this file.')
+        return
+      }
+
+      await importCalendar.mutateAsync({
+        events: result.events,
+        familyId,
+        memberId,
+      })
+
+      const msg = formatParseResultMessage(result)
+      setCalendarResult(`${msg}. Check your Review Queue to approve them.`)
+    } catch (err) {
+      console.error('Calendar import failed:', err)
+      setCalendarResult('Something went wrong importing the calendar file.')
+    } finally {
+      setCalendarProcessing(false)
+    }
+  }
+
   function handleSettingUpdate(updates: Partial<MindSweepSettings>) {
     if (!memberId || !familyId) return
     updateSettings.mutate({ memberId, familyId, updates })
@@ -261,6 +311,14 @@ export function MindSweepCapture() {
         capture="environment"
         className="hidden"
         onChange={handleFileSelected}
+      />
+      {/* Hidden file input for calendar import */}
+      <input
+        ref={calendarFileRef}
+        type="file"
+        accept=".ics,.ical,.ifb,text/calendar"
+        className="hidden"
+        onChange={handleCalendarFileSelected}
       />
 
       {/* Header */}
@@ -472,6 +530,22 @@ export function MindSweepCapture() {
             <span className="text-xs">Link</span>
           </button>
           )}
+
+          {/* Calendar import */}
+          <button
+            onClick={handleCalendarClick}
+            disabled={calendarProcessing || scanProcessing || linkProcessing || voice.state === 'recording'}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl disabled:opacity-40"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+              minHeight: 'unset',
+            }}
+          >
+            <CalendarDays size={16} />
+            <span className="text-xs">Calendar</span>
+          </button>
         </div>
 
         {/* Link input row */}
@@ -513,8 +587,94 @@ export function MindSweepCapture() {
           </div>
         )}
 
-        {/* Auto-sort indicator */}
-        <div className="flex items-center justify-center">
+        {/* Calendar import status */}
+        {calendarProcessing && (
+          <div className="flex items-center justify-center gap-2 py-3 rounded-xl"
+            style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+          >
+            <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <span className="text-sm" style={{ color: 'var(--color-text-heading)' }}>Reading calendar file...</span>
+          </div>
+        )}
+
+        {calendarResult && !calendarProcessing && (
+          <div className="flex items-center gap-2 py-3 px-4 rounded-xl"
+            style={{
+              backgroundColor: calendarResult.includes('Review Queue')
+                ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)'
+                : 'color-mix(in srgb, var(--color-error, #e53e3e) 10%, transparent)',
+            }}
+          >
+            <CalendarDays size={14} style={{
+              color: calendarResult.includes('Review Queue')
+                ? 'var(--color-btn-primary-bg)'
+                : 'var(--color-error, #e53e3e)',
+            }} />
+            <span className="text-sm flex-1" style={{ color: 'var(--color-text-heading)' }}>
+              {calendarResult}
+            </span>
+            <button
+              onClick={() => setCalendarResult(null)}
+              className="p-0.5 rounded shrink-0"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* Calendar import help */}
+        {showCalendarHelp && (
+          <div
+            className="rounded-xl p-3 space-y-2"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                Bring your calendar into MyAIM
+              </p>
+              <button
+                onClick={() => setShowCalendarHelp(false)}
+                className="p-0.5 rounded"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <div className="space-y-1.5" style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)' }}>
+              <p><strong style={{ color: 'var(--color-text-primary)' }}>Upload a calendar file</strong> — Export from Google Calendar, Apple Calendar, or Outlook and tap the Calendar button above.</p>
+              <p><strong style={{ color: 'var(--color-text-primary)' }}>Screenshot it</strong> — See event details on your screen? Use Scan to grab the info.</p>
+              <p><strong style={{ color: 'var(--color-text-primary)' }}>Paste a link</strong> — Have a link to event details or a registration page? Use Link and we'll read it.</p>
+              <p><strong style={{ color: 'var(--color-text-primary)' }}>Just type it</strong> — Type something like "Soccer practice Tuesdays 4-5:30pm at Riverside Park" and Sweep will route it to your calendar.</p>
+            </div>
+            <div
+              className="rounded-lg p-2 mt-1"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)' }}
+            >
+              <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                <strong>How to export Google Calendar:</strong> Open Google Calendar on your computer, click the gear icon, then Settings, then "Import & Export" on the left, then "Export." Upload the downloaded file here.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Help toggle + Auto-sort indicator */}
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setShowCalendarHelp(!showCalendarHelp)}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded"
+            style={{
+              color: showCalendarHelp ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              background: 'transparent',
+              minHeight: 'unset',
+            }}
+          >
+            <HelpCircle size={10} />
+            Calendar import help
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-1.5 text-xs px-2 py-1 rounded"

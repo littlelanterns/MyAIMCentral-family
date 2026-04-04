@@ -50,6 +50,27 @@ function groupByType(rows: BookExtraction[]): Record<ExtractionType, BookExtract
   return result
 }
 
+const PAGE_SIZE = 1000
+
+async function fetchAllExtractions(params: {
+  p_bookshelf_item_ids: string[]
+  p_member_id: string
+  p_audience: string
+}): Promise<BookExtraction[]> {
+  const all: BookExtraction[] = []
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .rpc('get_book_extractions', params)
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw error
+    all.push(...((data || []) as BookExtraction[]))
+    if (!data || data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+  return all
+}
+
 export function useExtractionData(bookIds: string[], audience?: string): UseExtractionDataReturn {
   const { data: member } = useFamilyMember()
   const [summaries, setSummaries] = useState<BookExtraction[]>([])
@@ -100,13 +121,16 @@ export function useExtractionData(bookIds: string[], audience?: string): UseExtr
 
       const audienceFilter = audience || 'original'
 
-      // Single RPC call replaces 5 parallel table queries
-      const [extractionRes, chapRes] = await Promise.all([
-        supabase.rpc('get_book_extractions', {
-          p_bookshelf_item_ids: allItemIds,
-          p_member_id: member.id,
-          p_audience: audienceFilter,
-        }),
+      // Paginated RPC — PostgREST limits to 1000 rows per request,
+      // but large multi-part books can have 1800+ extractions.
+      const rpcParams = {
+        p_bookshelf_item_ids: allItemIds,
+        p_member_id: member.id,
+        p_audience: audienceFilter,
+      }
+
+      const [allExtractions, chapRes] = await Promise.all([
+        fetchAllExtractions(rpcParams),
         supabase
           .from('bookshelf_chapters')
           .select('*')
@@ -115,9 +139,7 @@ export function useExtractionData(bookIds: string[], audience?: string): UseExtr
       ])
 
       if (fetchId !== abortRef.current) return
-      if (extractionRes.error) throw extractionRes.error
 
-      const allExtractions = (extractionRes.data || []) as BookExtraction[]
       const grouped = groupByType(allExtractions)
 
       setSummaries(grouped.summary)

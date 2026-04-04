@@ -307,13 +307,13 @@ async function loadPartnerContext(_familyId: string, _memberId: string): Promise
 
 /**
  * BookShelf context loader (PRD-23).
- * Loads extraction items filtered by the member's book_knowledge_access setting:
+ * Loads extraction items via get_bookshelf_context RPC.
+ * Filtered by the member's book_knowledge_access setting:
  *   hearted_only (default) — only hearted + is_included_in_ai items
  *   all_extracted — all is_included_in_ai items
- *   insights_only — only bookshelf_insights with is_included_in_ai
+ *   insights_only — only insights with is_included_in_ai
  *   none — returns empty
- * Queries 4 tables (summaries, insights, declarations, action_steps). Skips questions.
- * Joins to bookshelf_items for book title. Hearted items first, capped at 25 total.
+ * Platform Library Phase 2: single RPC replaces 4 table queries.
  */
 async function loadBookShelfContext(familyId: string, memberId: string): Promise<ContextSection> {
   try {
@@ -328,80 +328,34 @@ async function loadBookShelfContext(familyId: string, memberId: string): Promise
     const access = (settings?.book_knowledge_access as string) || 'hearted_only'
     if (access === 'none') return { label: 'BookShelf Insights', items: [] }
 
-    // Step 2: Load book titles for context attribution
-    const { data: booksRaw } = await supabase
-      .from('bookshelf_items')
-      .select('id, title')
-      .eq('family_id', familyId)
-      .eq('extraction_status', 'completed')
+    // Step 2: Single RPC call gets extractions with book titles
+    const { data: rows } = await supabase.rpc('get_bookshelf_context', {
+      p_family_id: familyId,
+      p_member_id: memberId,
+      p_access_level: access,
+      p_max_items: 25,
+    })
 
-    const bookTitles = new Map<string, string>()
-    for (const b of (booksRaw || []) as Array<{ id: string; title: string }>) {
-      bookTitles.set(b.id, b.title)
-    }
-    if (bookTitles.size === 0) return { label: 'BookShelf Insights', items: [] }
+    if (!rows || rows.length === 0) return { label: 'BookShelf Insights', items: [] }
 
-    const bookIds = [...bookTitles.keys()]
     const items: Array<{ content: string; source?: string }> = []
-    const MAX_ITEMS = 25
-
-    // Step 3: Query extraction tables based on access level
-    const heartedOnly = access === 'hearted_only'
-    const insightsOnly = access === 'insights_only'
-
-    // Helper to build and run a query on an extraction table
-    async function loadTable(
-      table: string,
-      textCol: string,
-      typeCol: string | null,
-      limit: number,
-    ) {
-      let query = supabase
-        .from(table)
-        .select(`${textCol}, ${typeCol ? typeCol + ',' : ''} is_hearted, bookshelf_item_id, is_included_in_ai`)
-        .eq('family_id', familyId)
-        .eq('family_member_id', memberId)
-        .eq('is_included_in_ai', true)
-        .eq('is_deleted', false)
-        .in('bookshelf_item_id', bookIds)
-
-      if (heartedOnly) {
-        query = query.eq('is_hearted', true)
-      }
-
-      const { data } = await query
-        .order('is_hearted', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(limit)
-
-      if (!data) return
-      for (const row of data as unknown as Array<Record<string, unknown>>) {
-        const text = (row[textCol] as string) || ''
-        const type = typeCol ? (row[typeCol] as string) : null
-        const bookId = row.bookshelf_item_id as string
-        const bookTitle = bookTitles.get(bookId) || 'Unknown'
-        const prefix = type ? `[${type}] ` : ''
-        items.push({
-          content: `${prefix}${text.substring(0, 250)}`,
-          source: bookTitle,
-        })
-      }
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const extractionType = row.extraction_type as string
+      const text = (extractionType === 'declaration'
+        ? (row.declaration_text as string)
+        : (row.text as string)) || ''
+      const typeCol = extractionType === 'declaration'
+        ? (row.style_variant as string)
+        : (row.content_type as string)
+      const bookTitle = (row.book_title as string) || 'Unknown'
+      const prefix = typeCol ? `[${typeCol}] ` : ''
+      items.push({
+        content: `${prefix}${text.substring(0, 250)}`,
+        source: bookTitle,
+      })
     }
 
-    if (insightsOnly) {
-      // Only load insights table
-      await loadTable('bookshelf_insights', 'text', 'content_type', MAX_ITEMS)
-    } else {
-      // Load all 4 tables with proportional limits
-      await Promise.all([
-        loadTable('bookshelf_summaries', 'text', 'content_type', 8),
-        loadTable('bookshelf_insights', 'text', 'content_type', 8),
-        loadTable('bookshelf_declarations', 'declaration_text', 'style_variant', 5),
-        loadTable('bookshelf_action_steps', 'text', 'action_type', 4),
-      ])
-    }
-
-    return { label: 'BookShelf Insights', items: items.slice(0, MAX_ITEMS) }
+    return { label: 'BookShelf Insights', items }
   } catch (err) {
     console.error('BookShelf context loading failed:', err)
     return { label: 'BookShelf Insights', items: [] }

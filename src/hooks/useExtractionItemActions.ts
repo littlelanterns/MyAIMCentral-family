@@ -1,10 +1,10 @@
 /**
- * Layer 2: useExtractionItemActions (PRD-23)
+ * Layer 2: useExtractionItemActions (PRD-23, Platform Library Phase 2)
  * Manages UI interaction state for extraction items: editing, noting, deleting, routing.
  * Does NOT own data — parent components update via callbacks.
  */
 import { useState, useCallback } from 'react'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { ExtractionType } from '@/lib/extractionActions'
 import {
   toggleExtractionHeart,
   updateExtractionNote,
@@ -33,29 +33,29 @@ export function useExtractionItemActions(
   const [deletingItemIds, setDeletingItemIds] = useState<Set<string>>(new Set())
 
   const handleHeart = useCallback(async (
-    table: ExtractionTable, id: string, currentHearted: boolean
+    type: ExtractionType, id: string, currentHearted: boolean
   ) => {
     // UI updates optimistically in ExtractionItem — no refetch needed
-    await toggleExtractionHeart(table, id, !currentHearted)
-  }, [])
+    await toggleExtractionHeart(type, id, !currentHearted, memberId, familyId)
+  }, [memberId, familyId])
 
   const handleNoteSave = useCallback(async (
-    table: ExtractionTable, id: string, note: string
+    type: ExtractionType, id: string, note: string
   ) => {
-    const ok = await updateExtractionNote(table, id, note)
+    const ok = await updateExtractionNote(type, id, note, memberId, familyId)
     if (ok) {
       setNotingItemId(null)
       callbacks.onItemUpdated()
     }
-  }, [callbacks])
+  }, [memberId, familyId, callbacks])
 
   const handleDelete = useCallback(async (
-    table: ExtractionTable, id: string
+    type: ExtractionType, id: string
   ) => {
     setDeletingItemIds(prev => new Set(prev).add(id))
     // Wait for fade animation
     setTimeout(async () => {
-      await softDeleteExtractionItem(table, id)
+      await softDeleteExtractionItem(type, id, memberId, familyId)
       setDeletingItemIds(prev => {
         const next = new Set(prev)
         next.delete(id)
@@ -63,13 +63,13 @@ export function useExtractionItemActions(
       })
       callbacks.onItemUpdated()
     }, 300)
-  }, [callbacks])
+  }, [memberId, familyId, callbacks])
 
   const handleSendToGuidingStars = useCallback(async (
-    table: ExtractionTable, id: string, text: string
+    type: ExtractionType, id: string, text: string
   ) => {
     const result = await sendToGuidingStars({
-      familyId, memberId, text, sourceItemId: id, sourceTable: table,
+      familyId, memberId, text, sourceItemId: id, sourceType: type,
     })
     if (result) {
       setApplyThisItemId(null)
@@ -105,10 +105,10 @@ export function useExtractionItemActions(
   }, [familyId, memberId, callbacks])
 
   const handleSendToQueue = useCallback(async (
-    table: ExtractionTable, id: string, text: string, bookTitle: string | null
+    type: ExtractionType, id: string, text: string, bookTitle: string | null
   ) => {
     const result = await sendToQueue({
-      familyId, memberId, text, sourceItemId: id, sourceTable: table, bookTitle,
+      familyId, memberId, text, sourceItemId: id, sourceType: type, bookTitle,
     })
     if (result) {
       setApplyThisItemId(null)
@@ -118,10 +118,10 @@ export function useExtractionItemActions(
   }, [familyId, memberId, callbacks])
 
   const handleSendToSelfKnowledge = useCallback(async (
-    table: ExtractionTable, id: string, text: string
+    type: ExtractionType, id: string, text: string
   ) => {
     const result = await sendToSelfKnowledge({
-      familyId, memberId, text, sourceItemId: id, sourceTable: table,
+      familyId, memberId, text, sourceItemId: id, sourceType: type,
     })
     if (result) {
       setApplyThisItemId(null)
@@ -131,22 +131,22 @@ export function useExtractionItemActions(
   }, [familyId, memberId, callbacks])
 
   const handleCreateCustomInsight = useCallback(async (
-    bookshelfItemId: string, text: string, contentType: string, sectionTitle?: string
+    bookLibraryId: string, text: string, contentType: string, sectionTitle?: string
   ) => {
     const result = await createCustomInsight({
-      familyId, memberId, bookshelfItemId, text, contentType, sectionTitle,
+      familyId, memberId, bookLibraryId, text, contentType, sectionTitle,
     })
     if (result) callbacks.onItemUpdated()
     return result
   }, [familyId, memberId, callbacks])
 
   const handleMarkSentToTasks = useCallback(async (
-    table: ExtractionTable, itemId: string, taskId: string
+    type: ExtractionType, itemId: string, taskId: string
   ) => {
-    await markSentToTasks(table, itemId, taskId)
+    await markSentToTasks(type, itemId, taskId, memberId, familyId)
     setApplyThisItemId(null)
     callbacks.onItemUpdated()
-  }, [callbacks])
+  }, [memberId, familyId, callbacks])
 
   return {
     editingItemId, setEditingItemId,

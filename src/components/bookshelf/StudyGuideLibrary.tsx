@@ -33,35 +33,35 @@ export function StudyGuideLibrary({ onBack }: StudyGuideLibraryProps) {
 
   const audienceKey = member ? `study_guide_${member.id}` : null
 
-  // Load books that have study guides for this member
+  // Load books that have study guides for this member (via platform RPC)
   useEffect(() => {
     if (!member?.family_id || !audienceKey) return
     setLoading(true)
 
+    // Get book_library_ids for all parent books
+    const libraryIds = parentBooks
+      .map(b => b.book_library_id)
+      .filter((id): id is string => !!id)
+
+    if (libraryIds.length === 0) { setLoading(false); return }
+
     supabase
-      .from('bookshelf_summaries')
-      .select('bookshelf_item_id')
-      .eq('family_id', member.family_id)
-      .eq('audience', audienceKey)
-      .eq('is_deleted', false)
+      .rpc('count_extractions_by_audience', {
+        p_book_library_ids: libraryIds,
+        p_audience: audienceKey,
+      })
       .then(({ data }) => {
         if (!data) { setLoading(false); return }
 
-        // Count items per book
-        const counts = new Map<string, number>()
-        for (const row of data) {
-          counts.set(row.bookshelf_item_id, (counts.get(row.bookshelf_item_id) || 0) + 1)
-        }
-
         const books: StudyGuideBook[] = []
-        for (const [bookId, count] of counts) {
-          const book = parentBooks.find(b => b.id === bookId)
+        for (const row of data as Array<{ book_library_id: string; item_count: number }>) {
+          const book = parentBooks.find(b => b.book_library_id === row.book_library_id)
           if (book) {
             books.push({
-              bookshelfItemId: bookId,
+              bookshelfItemId: book.id,
               title: book.title,
               author: book.author,
-              itemCount: count,
+              itemCount: row.item_count,
             })
           }
         }

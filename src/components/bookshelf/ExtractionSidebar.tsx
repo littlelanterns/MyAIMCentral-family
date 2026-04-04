@@ -13,7 +13,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Library, ChevronDown, ChevronRight } from 'lucide-react'
 import type { BookShelfChapter } from '@/hooks/useExtractionData'
-import type { BookShelfItem, BaseExtractionItem, ExtractionTab } from '@/types/bookshelf'
+import type { BookShelfItem, BookExtraction, ExtractionTab } from '@/types/bookshelf'
 import type { ViewMode } from '@/hooks/useExtractionBrowser'
 
 interface SectionEntry {
@@ -27,7 +27,7 @@ interface ExtractionSidebarProps {
   chapters: BookShelfChapter[]
   books: BookShelfItem[]
   isSingleBook: boolean
-  allItems: BaseExtractionItem[]
+  allItems: BookExtraction[]
   viewMode: ViewMode
   activeTab: ExtractionTab
 }
@@ -85,8 +85,8 @@ export function ExtractionSidebar({
         const t = item.section_title || 'General'
         if (!seen.has(t)) seen.set(t, {
           index: item.section_index ?? 999,
-          bookId: item.bookshelf_item_id,
-          partNum: partNumberMap.get(item.bookshelf_item_id) ?? 0,
+          bookId: item.book_library_id,
+          partNum: 0,
         })
       }
       return Array.from(seen.entries())
@@ -106,8 +106,8 @@ export function ExtractionSidebar({
       const key = `tab-${activeTab}-${t}`
       if (!seen.has(key)) seen.set(key, {
         index: item.section_index ?? 999,
-        bookId: item.bookshelf_item_id,
-        partNum: partNumberMap.get(item.bookshelf_item_id) ?? 0,
+        bookId: item.book_library_id,
+        partNum: 0,
       })
     }
     return Array.from(seen.entries())

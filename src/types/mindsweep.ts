@@ -12,7 +12,7 @@ export type AlwaysReviewRule =
   | 'health_medical'
   | 'outside_people';
 
-export type HoldingContentType = 'voice_short' | 'voice_long' | 'text' | 'scan_extracted' | 'link' | 'email';
+export type HoldingContentType = 'voice_short' | 'voice_long' | 'text' | 'scan_extracted' | 'link' | 'email' | 'calendar_file';
 
 export type HoldingSourceChannel =
   | 'quick_capture'
@@ -28,7 +28,7 @@ export type SweepEventSourceChannel =
   | 'email_forward'
   | 'auto_sweep';
 
-export type SweepInputType = 'voice' | 'text' | 'image' | 'link' | 'email' | 'mixed';
+export type SweepInputType = 'voice' | 'text' | 'image' | 'link' | 'email' | 'calendar_file' | 'mixed';
 
 export type ApprovalAction = 'approved_unchanged' | 'approved_edited' | 'rerouted' | 'dismissed';
 
@@ -160,4 +160,24 @@ export interface MindSweepSortResult {
   cross_member?: string; // family member name detected
   cross_member_id?: string; // family member ID
   cross_member_action?: 'suggest_route' | 'note_reference';
+}
+
+// ── Calendar Import (Phase 0) ──
+
+/** Structured event data stored in studio_queue.content_details for calendar imports */
+export interface CalendarQueueEventDetail {
+  parsed_event: {
+    title: string;
+    event_date: string;
+    start_time: string | null;
+    end_time: string | null;
+    end_date: string | null;
+    is_all_day: boolean;
+    location: string | null;
+    description: string | null;
+    recurrence_rule: string | null;
+    reminder_minutes: number | null;
+  };
+  source_type: 'ics_import' | 'mindsweep_detected';
+  ics_uid?: string;
 }

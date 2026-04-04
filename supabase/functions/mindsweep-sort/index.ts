@@ -26,7 +26,7 @@ const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
 const ItemSchema = z.object({
   id: z.string().uuid().optional(),
   content: z.string().min(1),
-  content_type: z.enum(['voice_short', 'voice_long', 'text', 'scan_extracted', 'link', 'email']),
+  content_type: z.enum(['voice_short', 'voice_long', 'text', 'scan_extracted', 'link', 'email', 'calendar_file']),
 })
 
 const FamilyMemberSchema = z.object({
@@ -427,6 +427,15 @@ Destination mapping:
 
 If an item is a recipe, set destination to "recipe" — the caller handles dual-routing.
 If an item has travel details (flights, hotels, reservations), set category to "travel".
+
+Calendar detection tips — classify as "calendar" if the text contains:
+- A specific date AND time (e.g., "April 15 at 3pm", "Tuesday 4-5:30pm")
+- Event-like language (class, practice, appointment, meeting, game, recital, concert, lesson)
+- A location paired with a time
+- Confirmation language ("Your reservation is confirmed", "You're registered for")
+- Recurring schedule patterns ("every Tuesday", "Mondays and Wednesdays at 2pm")
+When adding destination_detail for calendar items, include any parsed fields:
+{"event_title": "...", "event_date": "...", "event_time": "...", "event_location": "..."}
 
 Be generous with confidence:
 - "high" = clearly belongs in this category

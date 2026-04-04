@@ -4,7 +4,7 @@
  */
 import { type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import type { BaseExtractionItem } from '@/types/bookshelf'
+// Minimal constraint — getAbridgedItems only needs is_key_point and is_hearted
 
 interface ExtractionSectionProps {
   sectionKey: string
@@ -76,7 +76,7 @@ export function ExtractionSection({
 }
 
 /** Filter items for abridged display within a section */
-export function getAbridgedItems<T extends BaseExtractionItem>(
+export function getAbridgedItems<T extends { is_key_point: boolean; is_hearted: boolean }>(
   items: T[],
   isExpanded: boolean
 ): { visible: T[]; hiddenCount: number } {

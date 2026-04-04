@@ -6,14 +6,14 @@
  */
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { Heart, StickyNote, Trash2, Sparkles, Sparkle } from 'lucide-react'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { ExtractionType } from '@/lib/extractionActions'
 
 /** Heart color uses the error semantic token (warm red) */
 const HEART_COLOR = 'var(--color-error, #b25a58)'
 
 interface ExtractionItemProps {
   id: string
-  table: ExtractionTable
+  extractionType: ExtractionType
   text: string
   isHearted: boolean
   isKeyPoint: boolean
@@ -27,16 +27,16 @@ interface ExtractionItemProps {
   showApplyThis: boolean
   renderMeta?: () => ReactNode
   renderText?: () => ReactNode
-  onHeart: (table: ExtractionTable, id: string, hearted: boolean) => void
+  onHeart: (type: ExtractionType, id: string, hearted: boolean) => void
   onNoteToggle: (id: string | null) => void
-  onNoteSave: (table: ExtractionTable, id: string, note: string) => void
-  onDelete: (table: ExtractionTable, id: string) => void
+  onNoteSave: (type: ExtractionType, id: string, note: string) => void
+  onDelete: (type: ExtractionType, id: string) => void
   onApplyThisToggle: (id: string | null) => void
   applyThisContent?: ReactNode
 }
 
 export function ExtractionItem({
-  id, table, text, isHearted: propHearted, isKeyPoint, isFromGoDeeper, userNote,
+  id, extractionType, text, isHearted: propHearted, isKeyPoint, isFromGoDeeper, userNote,
   sentIndicators, borderColorClass = 'border-l-[var(--color-border-default)]',
   isDeleting, isNoting, showApplyThis,
   renderMeta, renderText, onHeart, onNoteToggle, onNoteSave,
@@ -62,11 +62,11 @@ export function ExtractionItem({
     setLocalHearted(newValue) // instant
     setHeartPulse(true)
     setTimeout(() => setHeartPulse(false), 300)
-    onHeart(table, id, localHearted) // fire DB update (background)
+    onHeart(extractionType, id, localHearted) // fire DB update (background)
   }
 
   const handleNoteSave = () => {
-    onNoteSave(table, id, noteText)
+    onNoteSave(extractionType, id, noteText)
   }
 
   return (
@@ -155,7 +155,7 @@ export function ExtractionItem({
         </button>
 
         <button
-          onClick={() => onDelete(table, id)}
+          onClick={() => onDelete(extractionType, id)}
           className="p-1.5 rounded-md hover:bg-[var(--color-surface-tertiary)]"
           title="Remove"
         >

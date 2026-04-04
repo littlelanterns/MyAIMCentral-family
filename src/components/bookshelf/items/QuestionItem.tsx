@@ -1,22 +1,22 @@
 /**
  * Layer 4: QuestionItem (PRD-23)
- * Thin wrapper for bookshelf_questions.
+ * Thin wrapper for question extractions.
  */
 import { ExtractionItem } from '../ExtractionItem'
 import { TypeBadge } from './TypeBadge'
-import type { BookShelfQuestion } from '@/types/bookshelf'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { BookExtraction } from '@/types/bookshelf'
+import type { ExtractionType } from '@/lib/extractionActions'
 import type { ReactNode } from 'react'
 
 interface QuestionItemProps {
-  item: BookShelfQuestion
+  item: BookExtraction
   isDeleting: boolean
   isNoting: boolean
   showApplyThis: boolean
-  onHeart: (table: ExtractionTable, id: string, hearted: boolean) => void
+  onHeart: (type: ExtractionType, id: string, hearted: boolean) => void
   onNoteToggle: (id: string | null) => void
-  onNoteSave: (table: ExtractionTable, id: string, note: string) => void
-  onDelete: (table: ExtractionTable, id: string) => void
+  onNoteSave: (type: ExtractionType, id: string, note: string) => void
+  onDelete: (type: ExtractionType, id: string) => void
   onApplyThisToggle: (id: string | null) => void
   applyThisContent?: ReactNode
 }
@@ -38,7 +38,7 @@ export function QuestionItem({ item, ...props }: QuestionItemProps) {
   return (
     <ExtractionItem
       id={item.id}
-      table="bookshelf_questions"
+      extractionType="question"
       text={item.text}
       isHearted={item.is_hearted}
       isKeyPoint={item.is_key_point}
@@ -48,7 +48,7 @@ export function QuestionItem({ item, ...props }: QuestionItemProps) {
       isEditing={false}
       sentIndicators={sentParts.length > 0 ? <span>{sentParts.join(' · ')}</span> : null}
       renderMeta={() => (
-        <TypeBadge label={CONTENT_TYPE_LABELS[item.content_type] || item.content_type} variant="question" />
+        <TypeBadge label={CONTENT_TYPE_LABELS[item.content_type || ''] || item.content_type || ''} variant="question" />
       )}
       {...props}
     />

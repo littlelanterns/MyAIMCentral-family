@@ -21,6 +21,7 @@ export function usePendingCounts(familyId: string | undefined) {
         .from('studio_queue')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', familyId)
+        .neq('destination', 'calendar')  // calendar items show in CalendarTab
         .is('processed_at', null)
         .is('dismissed_at', null)
       if (error) return 0
@@ -34,13 +35,26 @@ export function usePendingCounts(familyId: string | undefined) {
     queryKey: ['queue-badge-calendar', familyId],
     queryFn: async () => {
       if (!familyId) return 0
-      const { count, error } = await supabase
+
+      // Count pending calendar_events (family member submissions)
+      const { count: pendingCount, error: pendingErr } = await supabase
         .from('calendar_events')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', familyId)
         .eq('status', 'pending_approval')
-      if (error) return 0
-      return count ?? 0
+
+      // Count studio_queue items with destination='calendar' (imports + MindSweep detected)
+      const { count: queueCount, error: queueErr } = await supabase
+        .from('studio_queue')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', familyId)
+        .eq('destination', 'calendar')
+        .is('processed_at', null)
+        .is('dismissed_at', null)
+
+      const pending = pendingErr ? 0 : (pendingCount ?? 0)
+      const queued = queueErr ? 0 : (queueCount ?? 0)
+      return pending + queued
     },
     enabled: !!familyId,
     refetchInterval: 30_000,

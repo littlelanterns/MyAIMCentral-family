@@ -4595,7 +4595,7 @@
 
 ## Platform Intelligence (separate schema: `platform_intelligence`)
 
-### `platform_intelligence.book_cache`
+### `platform_intelligence.book_library` (renamed from `book_cache`)
 **PRD:** PRD-23 | **Domain:** platform_intelligence
 
 | Column | Type | Default | Nullable | Notes |
@@ -4603,15 +4603,103 @@
 | id | UUID | gen_random_uuid() | NO | PK |
 | title | TEXT | — | NO | |
 | author | TEXT | — | YES | |
-| title_author_embedding | vector(1536) | — | YES | |
-| cached_chunks | JSONB | — | YES | |
-| cached_extractions | JSONB | — | YES | |
+| isbn | TEXT | — | YES | |
+| genres | TEXT[] | '{}' | NO | |
+| tags | TEXT[] | '{}' | NO | |
+| ai_summary | TEXT | — | YES | |
+| toc | JSONB | — | YES | |
+| chunk_count | INTEGER | 0 | NO | |
+| title_author_embedding | halfvec(1536) | — | YES | |
+| ethics_gate_status | TEXT | 'pending' | NO | CHECK: pending/approved/failed/exempt |
+| extraction_status | TEXT | 'none' | NO | CHECK: none/processing/completed/failed |
+| extraction_count | INTEGER | 0 | NO | |
+| discovered_sections | JSONB | — | YES | |
 | created_at | TIMESTAMPTZ | now() | NO | |
 | updated_at | TIMESTAMPTZ | now() | NO | |
 
-**RLS:** Service role only.
-**Indexes:** `idx_pibc_title` ON title; `idx_pibc_embedding` USING ivfflat ON title_author_embedding WHERE title_author_embedding IS NOT NULL
+**RLS:** Authenticated read. Service role write.
+**Indexes:** `idx_pibc_title` ON title; `idx_pibc_isbn` ON isbn WHERE NOT NULL; `idx_pibc_embedding` USING hnsw ON title_author_embedding
 **Triggers:** `trg_pibc_updated_at`
+
+---
+
+### `platform_intelligence.book_chunks`
+**PRD:** PRD-23 | **Domain:** platform_intelligence
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| book_library_id | UUID | — | NO | FK platform_intelligence.book_library |
+| chunk_index | INTEGER | — | NO | Multi-part: offset by part_number * 100000 |
+| chapter_index | INTEGER | — | YES | |
+| chapter_title | TEXT | — | YES | |
+| text | TEXT | — | NO | |
+| embedding | halfvec(1536) | — | YES | |
+| tokens_count | INTEGER | 0 | NO | |
+| created_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Family-gated via bookshelf_items.book_library_id. Service role write.
+**Indexes:** `idx_plbc_library` ON book_library_id; `idx_plbc_library_idx` ON (book_library_id, chunk_index); `idx_plbc_embedding` USING hnsw ON embedding
+
+---
+
+### `platform_intelligence.book_extractions`
+**PRD:** PRD-23 | **Domain:** platform_intelligence
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| book_library_id | UUID | — | NO | FK platform_intelligence.book_library |
+| extraction_type | TEXT | — | NO | CHECK: summary/insight/declaration/action_step/question |
+| text | TEXT | — | NO | Adult-level content |
+| guided_text | TEXT | — | YES | Ages 8-12 (NULL until generated) |
+| independent_text | TEXT | — | YES | Ages 13-16 (NULL until generated) |
+| content_type | TEXT | — | YES | For summaries, insights, action_steps, questions |
+| declaration_text | TEXT | — | YES | For declarations only |
+| style_variant | TEXT | — | YES | For declarations only |
+| value_name | TEXT | — | YES | For declarations only |
+| richness | TEXT | — | YES | For declarations only |
+| section_title | TEXT | — | YES | |
+| section_index | INTEGER | — | YES | |
+| sort_order | INTEGER | 0 | NO | |
+| audience | TEXT | 'original' | NO | 'original' or 'study_guide_{memberId}' |
+| is_key_point | BOOLEAN | false | NO | |
+| is_from_go_deeper | BOOLEAN | false | NO | |
+| is_deleted | BOOLEAN | false | NO | Soft delete (admin only) |
+| created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Family-gated via bookshelf_items.book_library_id. Service role write.
+**Indexes:** `idx_plbe_library`; `idx_plbe_type`; `idx_plbe_library_type` ON (book_library_id, extraction_type, section_index, sort_order); `idx_plbe_key_points` WHERE is_key_point; `idx_plbe_audience`
+**Triggers:** `trg_plbe_updated_at`; `queue_embedding_book_extractions` on text changes
+
+---
+
+### `bookshelf_user_state`
+**PRD:** PRD-23 | **Domain:** bookshelf
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| family_id | UUID | — | NO | FK families |
+| member_id | UUID | — | NO | FK family_members |
+| extraction_id | UUID | — | NO | FK platform_intelligence.book_extractions |
+| is_hearted | BOOLEAN | false | NO | |
+| user_note | TEXT | — | YES | |
+| is_included_in_ai | BOOLEAN | true | NO | |
+| sent_to_guiding_stars | BOOLEAN | false | NO | |
+| guiding_star_id | UUID | — | YES | |
+| sent_to_tasks | BOOLEAN | false | NO | |
+| task_id | UUID | — | YES | |
+| sent_to_prompts | BOOLEAN | false | NO | |
+| journal_prompt_id | UUID | — | YES | |
+| created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Member reads/writes own. Mom reads family.
+**Indexes:** `idx_bus_member`; `idx_bus_extraction`; `idx_bus_family`; `idx_bus_hearted` WHERE is_hearted
+**Constraints:** UNIQUE (member_id, extraction_id)
+**Triggers:** `trg_bus_updated_at`
 
 ---
 

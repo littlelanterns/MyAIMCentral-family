@@ -4,7 +4,7 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A) + PRD-17B MindSweep + PRD-23 BookShelf Platform Library Phase 1
+## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A) + PRD-17B MindSweep
 
 ---
 
@@ -367,7 +367,7 @@ This is a competitive differentiator against Jam Family Calendar's "Jaime" which
 
 ---
 
-# Build F: PRD-23 BookShelf Platform Library (Phase 1: Schema + Data Migration)
+# Build F: PRD-23 BookShelf Platform Library (Phase 1: Schema + Data Migration) — COMPLETED
 
 ### PRD Files
 - `prds/ai-vault/PRD-23-BookShelf.md` (full PRD)

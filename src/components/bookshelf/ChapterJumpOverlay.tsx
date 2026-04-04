@@ -6,13 +6,13 @@
 import { useState, useMemo } from 'react'
 import { List, X, ArrowUp } from 'lucide-react'
 import type { BookShelfChapter } from '@/hooks/useExtractionData'
-import type { BaseExtractionItem, ExtractionTab } from '@/types/bookshelf'
+import type { BookExtraction, ExtractionTab } from '@/types/bookshelf'
 import type { ViewMode } from '@/hooks/useExtractionBrowser'
 
 interface ChapterJumpOverlayProps {
   chapters: BookShelfChapter[]
   bookTitle?: string
-  allItems: Pick<BaseExtractionItem, 'section_title' | 'section_index'>[]
+  allItems: Pick<BookExtraction, 'section_title' | 'section_index'>[]
   viewMode: ViewMode
   activeTab: ExtractionTab
 }

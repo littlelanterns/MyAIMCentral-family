@@ -1,22 +1,22 @@
 /**
  * Layer 4: DeclarationItem (PRD-23)
- * Thin wrapper for bookshelf_declarations. Uses declaration_text, not text.
+ * Thin wrapper for declaration extractions. Uses declaration_text, not text.
  */
 import { ExtractionItem } from '../ExtractionItem'
 import { TypeBadge } from './TypeBadge'
-import type { BookShelfDeclaration } from '@/types/bookshelf'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { BookExtraction } from '@/types/bookshelf'
+import type { ExtractionType } from '@/lib/extractionActions'
 import type { ReactNode } from 'react'
 
 interface DeclarationItemProps {
-  item: BookShelfDeclaration
+  item: BookExtraction
   isDeleting: boolean
   isNoting: boolean
   showApplyThis: boolean
-  onHeart: (table: ExtractionTable, id: string, hearted: boolean) => void
+  onHeart: (type: ExtractionType, id: string, hearted: boolean) => void
   onNoteToggle: (id: string | null) => void
-  onNoteSave: (table: ExtractionTable, id: string, note: string) => void
-  onDelete: (table: ExtractionTable, id: string) => void
+  onNoteSave: (type: ExtractionType, id: string, note: string) => void
+  onDelete: (type: ExtractionType, id: string) => void
   onApplyThisToggle: (id: string | null) => void
   applyThisContent?: ReactNode
 }
@@ -33,8 +33,8 @@ export function DeclarationItem({ item, ...props }: DeclarationItemProps) {
   return (
     <ExtractionItem
       id={item.id}
-      table="bookshelf_declarations"
-      text={item.declaration_text}
+      extractionType="declaration"
+      text={item.declaration_text || item.text}
       isHearted={item.is_hearted}
       isKeyPoint={item.is_key_point}
       isFromGoDeeper={item.is_from_go_deeper}
@@ -56,7 +56,7 @@ export function DeclarationItem({ item, ...props }: DeclarationItemProps) {
       )}
       renderText={() => (
         <blockquote className="italic text-sm text-[var(--color-text-primary)] leading-relaxed border-l-0">
-          &ldquo;{item.declaration_text}&rdquo;
+          &ldquo;{item.declaration_text || item.text}&rdquo;
         </blockquote>
       )}
       {...props}

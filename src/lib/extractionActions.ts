@@ -1,83 +1,83 @@
 /**
- * Layer 1: Pure Extraction Action Functions (PRD-23)
+ * Layer 1: Extraction Action Functions (PRD-23, Platform Library Phase 2)
  * Database operations as pure async functions. No React state, no UI concerns.
+ *
+ * Phase 2 migration: actions now target bookshelf_user_state (personal state)
+ * and platform_intelligence.book_extractions (via RPCs for platform-level writes).
  */
 import { supabase } from '@/lib/supabase/client'
+import type { ExtractionType } from '@/types/bookshelf'
 
-export type ExtractionTable =
-  | 'bookshelf_summaries'
-  | 'bookshelf_insights'
-  | 'bookshelf_declarations'
-  | 'bookshelf_action_steps'
-  | 'bookshelf_questions'
+// Re-export for backward compatibility — components import ExtractionType from here
+export type { ExtractionType }
 
-/** Column that holds the main text for each table */
-const TEXT_COLUMN: Record<ExtractionTable, string> = {
-  bookshelf_summaries: 'text',
-  bookshelf_insights: 'text',
-  bookshelf_declarations: 'declaration_text',
-  bookshelf_action_steps: 'text',
-  bookshelf_questions: 'text',
-}
+// ── Item-level actions (bookshelf_user_state) ────────────────────────────────
 
-// ── Item-level actions ─────────────────────────────────────────────────────
-
-export async function toggleExtractionHeart(
-  table: ExtractionTable,
-  id: string,
-  hearted: boolean
+async function upsertUserState(
+  extractionId: string,
+  memberId: string,
+  familyId: string,
+  fields: Record<string, unknown>
 ): Promise<boolean> {
   const { error } = await supabase
-    .from(table)
-    .update({ is_hearted: hearted })
-    .eq('id', id)
+    .from('bookshelf_user_state')
+    .upsert(
+      { extraction_id: extractionId, member_id: memberId, family_id: familyId, ...fields },
+      { onConflict: 'member_id,extraction_id' }
+    )
   return !error
+}
+
+export async function toggleExtractionHeart(
+  _type: ExtractionType,
+  id: string,
+  hearted: boolean,
+  memberId: string,
+  familyId: string
+): Promise<boolean> {
+  return upsertUserState(id, memberId, familyId, { is_hearted: hearted })
 }
 
 export async function updateExtractionNote(
-  table: ExtractionTable,
+  _type: ExtractionType,
   id: string,
-  note: string | null
+  note: string | null,
+  memberId: string,
+  familyId: string
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from(table)
-    .update({ user_note: note || null })
-    .eq('id', id)
-  return !error
+  return upsertUserState(id, memberId, familyId, { user_note: note || null })
 }
 
 export async function softDeleteExtractionItem(
-  table: ExtractionTable,
-  id: string
+  _type: ExtractionType,
+  id: string,
+  memberId: string,
+  familyId: string
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from(table)
-    .update({ is_deleted: true })
-    .eq('id', id)
-  return !error
+  return upsertUserState(id, memberId, familyId, { is_hidden: true })
 }
 
 export async function updateExtractionText(
-  table: ExtractionTable,
+  type: ExtractionType,
   id: string,
   text: string
 ): Promise<boolean> {
-  const col = TEXT_COLUMN[table]
-  const { error } = await supabase
-    .from(table)
-    .update({ [col]: text })
-    .eq('id', id)
-  return !error
+  const { data, error } = await supabase.rpc('update_extraction_text', {
+    p_extraction_id: id,
+    p_extraction_type: type,
+    p_text: text,
+  })
+  return !error && data === true
 }
 
-// ── Apply This routing actions ─────────────────────────────────────────────
+// ── Apply This routing actions ───────────────────────────────────────────────
 
 interface SendToGuidingStarsData {
   familyId: string
   memberId: string
   text: string
   sourceItemId: string
-  sourceTable: ExtractionTable
+  sourceType: ExtractionType
 }
 
 export async function sendToGuidingStars(
@@ -99,12 +99,12 @@ export async function sendToGuidingStars(
 
   if (error || !gs) return null
 
-  // Update tracking on declarations
-  if (data.sourceTable === 'bookshelf_declarations') {
-    await supabase
-      .from('bookshelf_declarations')
-      .update({ sent_to_guiding_stars: true, guiding_star_id: gs.id })
-      .eq('id', data.sourceItemId)
+  // Update tracking on user state for declarations
+  if (data.sourceType === 'declaration') {
+    await upsertUserState(data.sourceItemId, data.memberId, data.familyId, {
+      sent_to_guiding_stars: true,
+      guiding_star_id: gs.id,
+    })
   }
 
   return { guidingStarId: gs.id }
@@ -166,23 +166,23 @@ export async function sendToJournalPrompts(
 
   if (error || !jp) return null
 
-  // Update tracking on questions
-  await supabase
-    .from('bookshelf_questions')
-    .update({ sent_to_prompts: true, journal_prompt_id: jp.id })
-    .eq('id', data.sourceItemId)
+  // Update tracking on user state
+  await upsertUserState(data.sourceItemId, data.memberId, data.familyId, {
+    sent_to_prompts: true,
+    journal_prompt_id: jp.id,
+  })
 
   return { promptId: jp.id }
 }
 
-// ── Send to Queue (PRD-17) ────────────────────────────────────────────────
+// ── Send to Queue (PRD-17) ──────────────────────────────────────────────────
 
 interface SendToQueueData {
   familyId: string
   memberId: string
   text: string
   sourceItemId: string
-  sourceTable: ExtractionTable
+  sourceType: ExtractionType
   bookTitle: string | null
 }
 
@@ -202,7 +202,7 @@ export async function sendToQueue(
       content,
       source: 'bookshelf',
       source_reference_id: data.sourceItemId,
-      content_details: { source_table: data.sourceTable, book_title: data.bookTitle },
+      content_details: { extraction_type: data.sourceType, book_title: data.bookTitle },
     })
     .select('id')
     .single()
@@ -211,14 +211,14 @@ export async function sendToQueue(
   return { queueItemId: qi.id }
 }
 
-// ── Send to InnerWorkings / Self-Knowledge (PRD-07) ───────────────────────
+// ── Send to InnerWorkings / Self-Knowledge (PRD-07) ─────────────────────────
 
 interface SendToSelfKnowledgeData {
   familyId: string
   memberId: string
   text: string
   sourceItemId: string
-  sourceTable: ExtractionTable
+  sourceType: ExtractionType
   category?: string
 }
 
@@ -234,7 +234,7 @@ export async function sendToSelfKnowledge(
       category: data.category || 'general',
       source_type: 'content_extraction',
       source_reference_id: data.sourceItemId,
-      source: data.sourceTable,
+      source: data.sourceType,
       is_included_in_ai: true,
     })
     .select('id')
@@ -244,12 +244,12 @@ export async function sendToSelfKnowledge(
   return { selfKnowledgeId: sk.id }
 }
 
-// ── Custom Manual Additions (PRD-23) ──────────────────────────────────────
+// ── Custom Manual Additions (PRD-23) ────────────────────────────────────────
 
 interface CreateCustomInsightData {
   familyId: string
   memberId: string
-  bookshelfItemId: string
+  bookLibraryId: string
   text: string
   contentType: string
   sectionTitle?: string
@@ -258,40 +258,31 @@ interface CreateCustomInsightData {
 export async function createCustomInsight(
   data: CreateCustomInsightData
 ): Promise<{ insightId: string } | null> {
-  const { data: ins, error } = await supabase
-    .from('bookshelf_insights')
-    .insert({
-      family_id: data.familyId,
-      family_member_id: data.memberId,
-      bookshelf_item_id: data.bookshelfItemId,
-      text: data.text,
-      content_type: data.contentType,
-      section_title: data.sectionTitle || null,
-      is_user_added: true,
-      is_key_point: true,
-      is_hearted: false,
-      is_deleted: false,
-      is_included_in_ai: true,
-    })
-    .select('id')
-    .single()
+  const { data: result, error } = await supabase.rpc('create_custom_extraction', {
+    p_book_library_id: data.bookLibraryId,
+    p_extraction_type: 'insight',
+    p_text: data.text,
+    p_content_type: data.contentType,
+    p_section_title: data.sectionTitle || null,
+  })
 
-  if (error || !ins) return null
-  return { insightId: ins.id }
+  if (error || !result) return null
+  return { insightId: result as string }
 }
 
-/** After a task is created from BookShelf, update tracking on the source item */
+/** After a task is created from BookShelf, update tracking on user state */
 export async function markSentToTasks(
-  table: ExtractionTable,
+  type: ExtractionType,
   itemId: string,
-  taskId: string
+  taskId: string,
+  memberId: string,
+  familyId: string
 ): Promise<boolean> {
-  if (table === 'bookshelf_action_steps' || table === 'bookshelf_questions') {
-    const { error } = await supabase
-      .from(table)
-      .update({ sent_to_tasks: true, task_id: taskId })
-      .eq('id', itemId)
-    return !error
+  if (type === 'action_step' || type === 'question') {
+    return upsertUserState(itemId, memberId, familyId, {
+      sent_to_tasks: true,
+      task_id: taskId,
+    })
   }
   return true
 }

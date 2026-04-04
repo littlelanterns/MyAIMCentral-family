@@ -643,3 +643,67 @@ export function useSweepStatus() {
 
   return { status, lastResult, startSweep, completeSweep, errorSweep, resetSweep }
 }
+
+// ── Calendar Import ──
+
+/**
+ * Import parsed .ics events directly into studio_queue as calendar items.
+ * These show up in the CalendarTab of the Review Queue for approval.
+ */
+export function useImportCalendarEvents() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      events: Array<{
+        title: string
+        event_date: string
+        start_time: string | null
+        end_time: string | null
+        end_date: string | null
+        is_all_day: boolean
+        location: string | null
+        description: string | null
+        recurrence_rule: string | null
+        reminder_minutes: number | null
+        ics_uid?: string | null
+      }>
+      familyId: string
+      memberId: string
+    }) => {
+      const rows = params.events.map(event => ({
+        family_id: params.familyId,
+        owner_id: params.memberId,
+        destination: 'calendar',
+        content: event.title + (event.location ? ` at ${event.location}` : ''),
+        content_details: {
+          parsed_event: {
+            title: event.title,
+            event_date: event.event_date,
+            start_time: event.start_time,
+            end_time: event.end_time,
+            end_date: event.end_date,
+            is_all_day: event.is_all_day,
+            location: event.location,
+            description: event.description,
+            recurrence_rule: event.recurrence_rule,
+            reminder_minutes: event.reminder_minutes,
+          },
+          source_type: 'ics_import' as const,
+          ics_uid: event.ics_uid || undefined,
+        },
+        source: 'mindsweep_auto',
+        mindsweep_confidence: 'high',
+      }))
+
+      const { error } = await supabase.from('studio_queue').insert(rows)
+      if (error) throw error
+      return { count: rows.length }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['queue-badge'] })
+      queryClient.invalidateQueries({ queryKey: ['queue-badge-calendar'] })
+    },
+  })
+}
