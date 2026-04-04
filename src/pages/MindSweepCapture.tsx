@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Wand2, Mic, MicOff, Loader2, Send, Clock, ScanLine, Link2,
+  Wand2, Mic, MicOff, Loader2, Send, Clock, ImagePlus, Link2,
   ArrowLeft, Settings, Inbox, X, Trash2, CalendarDays, HelpCircle,
 } from 'lucide-react'
 import { MindSweepSettingsPanel, MODE_OPTIONS } from '@/components/mindsweep/MindSweepSettingsPanel'
@@ -507,8 +507,8 @@ export function MindSweepCapture() {
               minHeight: 'unset',
             }}
           >
-            <ScanLine size={16} />
-            <span className="text-xs">Scan</span>
+            <ImagePlus size={16} />
+            <span className="text-xs">Photo</span>
           </button>
           )}
 
