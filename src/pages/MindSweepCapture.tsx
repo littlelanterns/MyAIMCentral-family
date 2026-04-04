@@ -57,6 +57,7 @@ export function MindSweepCapture() {
   const [linkProcessing, setLinkProcessing] = useState(false)
   const [linkInput, setLinkInput] = useState('')
   const [showLinkInput, setShowLinkInput] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
   const [calendarProcessing, setCalendarProcessing] = useState(false)
   const [calendarResult, setCalendarResult] = useState<string | null>(null)
   const [showCalendarHelp, setShowCalendarHelp] = useState(false)
@@ -182,7 +183,13 @@ export function MindSweepCapture() {
     e.target.value = ''
 
     setScanProcessing(true)
+    setScanError(null)
     try {
+      // Check file size — Edge Functions have a ~6MB body limit; base64 adds ~33%
+      if (file.size > 4 * 1024 * 1024) {
+        throw new Error('Image is too large. Please use a photo under 4 MB.')
+      }
+
       // Convert file to base64
       const arrayBuffer = await file.arrayBuffer()
       const bytes = new Uint8Array(arrayBuffer)
@@ -213,6 +220,9 @@ export function MindSweepCapture() {
       }
     } catch (err) {
       console.error('Scan failed:', err)
+      const msg = err instanceof Error ? err.message : 'Could not extract text from image'
+      setScanError(msg)
+      setTimeout(() => setScanError(null), 5000)
     } finally {
       setScanProcessing(false)
     }
@@ -458,6 +468,16 @@ export function MindSweepCapture() {
               <Loader2 size={12} className="animate-spin" style={{ color: 'var(--color-btn-primary-bg)' }} />
               <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 {scanProcessing ? 'Extracting text from image...' : 'Fetching link content...'}
+              </span>
+            </div>
+          )}
+          {/* Scan error message */}
+          {scanError && (
+            <div className="px-4 py-2 flex items-center gap-2 border-t"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'color-mix(in srgb, var(--color-error, #e53e3e) 10%, transparent)' }}
+            >
+              <span className="text-xs" style={{ color: 'var(--color-error, #e53e3e)' }}>
+                {scanError}
               </span>
             </div>
           )}
