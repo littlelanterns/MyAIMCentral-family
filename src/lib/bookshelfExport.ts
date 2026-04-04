@@ -5,10 +5,7 @@
  * Adapted from StewardShip's exportExtractions.ts + exportEpub.ts for MyAIM v2 types.
  */
 import JSZip from 'jszip'
-import type {
-  BookShelfSummary, BookShelfInsight, BookShelfDeclaration,
-  BookShelfActionStep, BookShelfQuestion,
-} from '@/types/bookshelf'
+import type { BookExtraction } from '@/types/bookshelf'
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -24,21 +21,21 @@ export interface ExportTabFilter {
 
 export interface BookExportData {
   bookTitle: string
-  summaries: BookShelfSummary[]
-  insights: BookShelfInsight[]
-  declarations: BookShelfDeclaration[]
-  actionSteps: BookShelfActionStep[]
-  questions: BookShelfQuestion[]
+  summaries: BookExtraction[]
+  insights: BookExtraction[]
+  declarations: BookExtraction[]
+  actionSteps: BookExtraction[]
+  questions: BookExtraction[]
 }
 
 interface ChapterGroup {
   title: string
   index: number
-  summaries: BookShelfSummary[]
-  insights: BookShelfInsight[]
-  declarations: BookShelfDeclaration[]
-  actionSteps: BookShelfActionStep[]
-  questions: BookShelfQuestion[]
+  summaries: BookExtraction[]
+  insights: BookExtraction[]
+  declarations: BookExtraction[]
+  actionSteps: BookExtraction[]
+  questions: BookExtraction[]
 }
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -66,8 +63,8 @@ function escapeXml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function typeLabel(type: string): string {
-  return type.replace(/_/g, ' ').toUpperCase()
+function typeLabel(type: string | null): string {
+  return (type || 'general').replace(/_/g, ' ').toUpperCase()
 }
 
 const STYLE_LABELS: Record<string, string> = {
@@ -419,7 +416,7 @@ function buildBookXhtml(data: BookExportData, tabs?: ExportTabFilter): string {
       for (const d of ch.declarations) {
         const value = d.value_name ? `<span class="value-name">${escapeXml(d.value_name)}</span> ` : ''
         const style = d.style_variant ? `<span class="style-label">${escapeXml(STYLE_LABELS[d.style_variant] || d.style_variant)}</span> \u2014 ` : ''
-        parts.push(`<p class="${d.is_hearted ? 'hearted declaration' : 'declaration'}">${value}${style}${escapeXml(d.declaration_text)}</p>`)
+        parts.push(`<p class="${d.is_hearted ? 'hearted declaration' : 'declaration'}">${value}${style}${escapeXml(d.declaration_text || d.text || '')}</p>`)
         if (d.user_note) parts.push(`<div class="user-note"><strong>Note:</strong> ${escapeXml(d.user_note)}</div>`)
       }
     }

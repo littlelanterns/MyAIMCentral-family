@@ -35,6 +35,9 @@ export type QuestionContentType =
 
 export type ExtractionTab = 'summaries' | 'insights' | 'declarations' | 'action_steps' | 'questions'
 
+/** Extraction type discriminator matching platform_intelligence.book_extractions.extraction_type */
+export type ExtractionType = 'summary' | 'insight' | 'declaration' | 'action_step' | 'question'
+
 export type DiscussionAudience = 'personal' | 'family' | 'teen' | 'spouse' | 'children'
 
 export type BookKnowledgeAccess = 'hearted_only' | 'all_extracted' | 'insights_only' | 'none'
@@ -66,6 +69,7 @@ export interface BookShelfItem {
   toc: unknown | null
   discovered_sections: unknown | null
   book_cache_id: string | null
+  book_library_id: string | null
   parent_bookshelf_item_id: string | null
   part_number: number | null
   part_count: number | null
@@ -177,6 +181,68 @@ export interface BookShelfQuestion extends BaseExtractionItem {
   journal_prompt_id: string | null
   sent_to_tasks: boolean
   task_id: string | null
+}
+
+// ─── Unified Extraction (Platform Library Phase 2) ─────────
+
+/** Unified extraction row from get_book_extractions RPC.
+ *  Combines platform_intelligence.book_extractions + bookshelf_user_state. */
+export interface BookExtraction {
+  id: string
+  book_library_id: string
+  extraction_type: ExtractionType
+  text: string
+  guided_text: string | null
+  independent_text: string | null
+  content_type: string | null
+  declaration_text: string | null
+  style_variant: string | null
+  value_name: string | null
+  richness: string | null
+  section_title: string | null
+  section_index: number | null
+  sort_order: number
+  audience: string
+  is_key_point: boolean
+  is_from_go_deeper: boolean
+  is_deleted: boolean
+  created_at: string
+  updated_at: string
+  // User state (from LEFT JOIN — defaults applied by RPC)
+  is_hearted: boolean
+  user_note: string | null
+  is_included_in_ai: boolean
+  is_hidden: boolean
+  sent_to_guiding_stars: boolean
+  guiding_star_id: string | null
+  sent_to_tasks: boolean
+  task_id: string | null
+  sent_to_prompts: boolean
+  journal_prompt_id: string | null
+  user_state_id: string | null
+  // Backward-compat aliases for components still using BaseExtractionItem shape
+  family_id?: string
+  family_member_id?: string
+  bookshelf_item_id?: string
+  is_user_added?: boolean
+}
+
+/** Maps ExtractionTab UI name to ExtractionType DB discriminator */
+export const TAB_TO_TYPE: Record<ExtractionTab, ExtractionType> = {
+  summaries: 'summary',
+  insights: 'insight',
+  declarations: 'declaration',
+  action_steps: 'action_step',
+  questions: 'question',
+}
+
+/** Maps ExtractionType DB discriminator to ExtractionTab UI name */
+export const TYPE_TO_TAB: Record<ExtractionType, ExtractionTab> = {
+  summary: 'summaries',
+  insight: 'insights',
+  declaration: 'declarations',
+  action_step: 'action_steps',
+  question: 'questions',
 }
 
 // ─── Discussions ────────────────────────────────────────────

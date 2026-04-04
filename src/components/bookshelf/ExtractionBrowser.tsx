@@ -25,9 +25,9 @@ import { useBookShelf } from '@/hooks/useBookShelf'
 import { useBookShelfCollections } from '@/hooks/useBookShelfCollections'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
-import type { ExtractionTab, BaseExtractionItem } from '@/types/bookshelf'
+import type { ExtractionTab, BookExtraction } from '@/types/bookshelf'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { ExtractionType } from '@/types/bookshelf'
 
 interface ExtractionBrowserProps {
   bookId?: string | null
@@ -150,12 +150,12 @@ export function ExtractionBrowser({
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [showSemanticSearch, setShowSemanticSearch] = useState(false)
   const [showStudyGuide, setShowStudyGuide] = useState(false)
-  const [taskDefaults, setTaskDefaults] = useState<{ title: string; description: string; taskType?: string; sourceTable?: ExtractionTable; sourceItemId?: string }>({ title: '', description: '' })
+  const [taskDefaults, setTaskDefaults] = useState<{ title: string; description: string; taskType?: string; sourceType?: ExtractionType; sourceItemId?: string }>({ title: '', description: '' })
 
   const handleOpenTaskCreation = useCallback((title: string, description: string, taskType?: string) => {
     setTaskDefaults({
       title, description, taskType,
-      sourceTable: itemActions.applyThisItemId ? undefined : undefined,
+      sourceType: itemActions.applyThisItemId ? undefined : undefined,
       sourceItemId: itemActions.applyThisItemId || undefined,
     })
     setTaskModalOpen(true)
@@ -163,20 +163,20 @@ export function ExtractionBrowser({
 
   const handleTaskSave = useCallback(async (_task: CreateTaskData) => {
     // The parent page handles actual task saving. Here we just track the source.
-    if (taskDefaults.sourceItemId && taskDefaults.sourceTable) {
+    if (taskDefaults.sourceItemId && taskDefaults.sourceType) {
       // This would be handled by the task save callback
     }
     setTaskModalOpen(false)
   }, [taskDefaults])
 
   // Filter counts for tabs (respecting current filter + search)
-  const filterForCounts = useCallback((items: { is_hearted: boolean; user_note?: string | null; text?: string; declaration_text?: string }[], tab: ExtractionTab) => {
+  const filterForCounts = useCallback((items: BookExtraction[], tab: ExtractionTab) => {
     let filtered = items
     if (browserState.filterMode === 'hearted') filtered = filtered.filter(i => i.is_hearted)
     if (browserState.searchQuery) {
       const q = browserState.searchQuery.toLowerCase()
       filtered = filtered.filter(i => {
-        const text = tab === 'declarations' ? (i as { declaration_text?: string }).declaration_text : (i as { text?: string }).text
+        const text = tab === 'declarations' ? i.declaration_text : i.text
         return (text || '').toLowerCase().includes(q) || (i.user_note || '').toLowerCase().includes(q)
       })
     }
@@ -231,12 +231,15 @@ export function ExtractionBrowser({
     setGoingDeeper(true)
     try {
       // Get existing items for the tab to prevent duplicates
-      const tabItems: { text?: string; declaration_text?: string }[] =
-        tab === 'summaries' ? summaries.filter(s => s.bookshelf_item_id === bookId) :
-        tab === 'insights' ? insights.filter(s => s.bookshelf_item_id === bookId) :
-        tab === 'declarations' ? declarations.filter(s => s.bookshelf_item_id === bookId) :
-        tab === 'action_steps' ? actionSteps.filter(s => s.bookshelf_item_id === bookId) :
-        questions.filter(s => s.bookshelf_item_id === bookId)
+      // Filter items matching the book (via book_library_id from the bookshelf_item)
+      const targetBook = books.find(b => b.id === bookId)
+      const targetLibId = targetBook?.book_library_id
+      const tabItems: BookExtraction[] =
+        tab === 'summaries' ? summaries.filter(s => s.book_library_id === targetLibId) :
+        tab === 'insights' ? insights.filter(s => s.book_library_id === targetLibId) :
+        tab === 'declarations' ? declarations.filter(s => s.book_library_id === targetLibId) :
+        tab === 'action_steps' ? actionSteps.filter(s => s.book_library_id === targetLibId) :
+        questions.filter(s => s.book_library_id === targetLibId)
 
       const existingTexts = tabItems
         .filter(i => !sectionTitle || (i as { section_title?: string | null }).section_title === sectionTitle)
@@ -355,11 +358,11 @@ export function ExtractionBrowser({
           allItems={browserState.viewMode === 'tabs'
             ? ({
                 summaries, insights,
-                declarations: declarations as unknown as BaseExtractionItem[],
+                declarations,
                 action_steps: actionSteps,
                 questions,
-              }[browserState.activeTab] || summaries) as BaseExtractionItem[]
-            : [...summaries, ...insights, ...declarations as unknown as BaseExtractionItem[], ...actionSteps, ...questions]
+              }[browserState.activeTab] || summaries) as BookExtraction[]
+            : [...summaries, ...insights, ...declarations, ...actionSteps, ...questions]
           }
           viewMode={browserState.viewMode}
           activeTab={browserState.activeTab}
@@ -382,7 +385,7 @@ export function ExtractionBrowser({
             actionSteps={actionSteps}
             questions={questions}
             chapters={chapters}
-            books={books.map(b => ({ id: b.id, title: b.title }))}
+            books={books.map(b => ({ id: b.id, title: b.title, book_library_id: b.book_library_id || undefined }))}
             deletingItemIds={itemActions.deletingItemIds}
             notingItemId={itemActions.notingItemId}
             applyThisItemId={itemActions.applyThisItemId}
@@ -398,7 +401,7 @@ export function ExtractionBrowser({
             onSendToQueue={itemActions.handleSendToQueue}
             onSendToSelfKnowledge={itemActions.handleSendToSelfKnowledge}
             onCreateCustomInsight={isSingleBook ? itemActions.handleCreateCustomInsight : undefined}
-            primaryBookId={isSingleBook ? primaryBook?.id : undefined}
+            primaryBookLibraryId={isSingleBook ? primaryBook?.book_library_id || undefined : undefined}
           />
         </div>
       </div>

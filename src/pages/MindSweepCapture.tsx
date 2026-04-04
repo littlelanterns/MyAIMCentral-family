@@ -5,7 +5,7 @@
  * Mobile-first, designed for home-screen-icon experience.
  */
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Wand2, Mic, MicOff, Loader2, Send, Clock, ScanLine, Link2,
   ArrowLeft, Settings, Inbox, X, Trash2,
@@ -29,6 +29,7 @@ import type { MindSweepSettings } from '@/types/mindsweep'
 
 export function MindSweepCapture() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: member } = useFamilyMember()
   const familyId = member?.family_id
   const memberId = member?.id
@@ -56,6 +57,20 @@ export function MindSweepCapture() {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Handle share-to-app via Web Share Target API (manifest.json share_target)
+  // Shared content arrives as URL params: ?title=...&text=...&url=...
+  useEffect(() => {
+    const sharedTitle = searchParams.get('title')
+    const sharedText = searchParams.get('text')
+    const sharedUrl = searchParams.get('url')
+    if (sharedTitle || sharedText || sharedUrl) {
+      const parts = [sharedTitle, sharedText, sharedUrl].filter(Boolean)
+      setContent(parts.join('\n'))
+      // Clear params so refresh doesn't re-populate
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autofocus text field on mount
   useEffect(() => {

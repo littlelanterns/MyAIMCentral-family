@@ -7,6 +7,15 @@
   "theme_color": "#6B4C8A",
   "background_color": "#FAF5F0",
   "scope": "/",
+  "share_target": {
+    "action": "/sweep",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
   "icons": [
     {
       "src": "/pwa-icon-72.png",

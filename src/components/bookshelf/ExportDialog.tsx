@@ -8,19 +8,18 @@ import { Download, FileText, FileCode, File, BookOpen } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { exportExtractions, type ExportFormat, type ExportTabFilter, type BookExportData } from '@/lib/bookshelfExport'
 import type {
-  BookShelfItem, BookShelfSummary, BookShelfInsight,
-  BookShelfDeclaration, BookShelfActionStep, BookShelfQuestion,
+  BookShelfItem, BookExtraction,
 } from '@/types/bookshelf'
 
 interface ExportDialogProps {
   isOpen: boolean
   onClose: () => void
   books: BookShelfItem[]
-  summaries: BookShelfSummary[]
-  insights: BookShelfInsight[]
-  declarations: BookShelfDeclaration[]
-  actionSteps: BookShelfActionStep[]
-  questions: BookShelfQuestion[]
+  summaries: BookExtraction[]
+  insights: BookExtraction[]
+  declarations: BookExtraction[]
+  actionSteps: BookExtraction[]
+  questions: BookExtraction[]
 }
 
 const FORMAT_OPTIONS: { key: ExportFormat; label: string; icon: typeof FileText }[] = [
@@ -54,19 +53,22 @@ export function ExportDialog({
 
   const exportData = useMemo((): BookExportData[] => {
     return books.map(book => {
-      const filter = <T extends { bookshelf_item_id: string; is_hearted: boolean }>(items: T[]) => {
-        let filtered = items.filter(i => i.bookshelf_item_id === book.id)
+      const bookLibId = (book as BookShelfItem & { book_library_id?: string }).book_library_id
+      const filterByBook = (items: BookExtraction[]) => {
+        let filtered = bookLibId
+          ? items.filter(i => i.book_library_id === bookLibId)
+          : items.filter(i => i.bookshelf_item_id === book.id)
         if (mode === 'hearted') filtered = filtered.filter(i => i.is_hearted)
         return filtered
       }
 
       return {
         bookTitle: book.title,
-        summaries: filter(summaries),
-        insights: filter(insights),
-        declarations: filter(declarations),
-        actionSteps: filter(actionSteps),
-        questions: filter(questions),
+        summaries: filterByBook(summaries) as unknown as BookExportData['summaries'],
+        insights: filterByBook(insights) as unknown as BookExportData['insights'],
+        declarations: filterByBook(declarations) as unknown as BookExportData['declarations'],
+        actionSteps: filterByBook(actionSteps) as unknown as BookExportData['actionSteps'],
+        questions: filterByBook(questions) as unknown as BookExportData['questions'],
       }
     })
   }, [books, summaries, insights, declarations, actionSteps, questions, mode])

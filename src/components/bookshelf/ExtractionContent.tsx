@@ -11,12 +11,9 @@ import { DeclarationItem } from './items/DeclarationItem'
 import { ActionStepItem } from './items/ActionStepItem'
 import { QuestionItem } from './items/QuestionItem'
 import { ApplyThisSheet } from './ApplyThisSheet'
-import type {
-  ExtractionTab, BaseExtractionItem,
-  BookShelfSummary, BookShelfInsight, BookShelfDeclaration,
-  BookShelfActionStep, BookShelfQuestion,
-} from '@/types/bookshelf'
-import type { ExtractionTable } from '@/lib/extractionActions'
+import type { ExtractionTab, BookExtraction } from '@/types/bookshelf'
+import { TAB_TO_TYPE } from '@/types/bookshelf'
+import type { ExtractionType } from '@/lib/extractionActions'
 import type { ViewMode, FilterMode } from '@/hooks/useExtractionBrowser'
 import type { BookShelfChapter } from '@/hooks/useExtractionData'
 
@@ -30,40 +27,40 @@ interface ExtractionContentProps {
   collapsedSections: Set<string>
   onToggleExpand: (key: string) => void
   onToggleCollapse: (key: string) => void
-  summaries: BookShelfSummary[]
-  insights: BookShelfInsight[]
-  declarations: BookShelfDeclaration[]
-  actionSteps: BookShelfActionStep[]
-  questions: BookShelfQuestion[]
+  summaries: BookExtraction[]
+  insights: BookExtraction[]
+  declarations: BookExtraction[]
+  actionSteps: BookExtraction[]
+  questions: BookExtraction[]
   chapters: BookShelfChapter[]
-  books: { id: string; title: string }[]
+  books: { id: string; title: string; book_library_id?: string }[]
   // Item action handlers
   deletingItemIds: Set<string>
   notingItemId: string | null
   applyThisItemId: string | null
-  onHeart: (table: ExtractionTable, id: string, hearted: boolean) => void
+  onHeart: (type: ExtractionType, id: string, hearted: boolean) => void
   onNoteToggle: (id: string | null) => void
-  onNoteSave: (table: ExtractionTable, id: string, note: string) => void
-  onDelete: (table: ExtractionTable, id: string) => void
+  onNoteSave: (type: ExtractionType, id: string, note: string) => void
+  onDelete: (type: ExtractionType, id: string) => void
   onApplyThisToggle: (id: string | null) => void
   onOpenTaskCreation: (title: string, description: string, taskType?: string) => void
-  onSendToGuidingStars: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
+  onSendToGuidingStars: (type: ExtractionType, id: string, text: string) => Promise<unknown>
   onSendToBestIntentions: (id: string, text: string) => Promise<unknown>
   onSendToJournalPrompts: (id: string, text: string, bookTitle: string | null, chapterTitle: string | null) => Promise<unknown>
-  onSendToQueue: (table: ExtractionTable, id: string, text: string, bookTitle: string | null) => Promise<unknown>
-  onSendToSelfKnowledge: (table: ExtractionTable, id: string, text: string) => Promise<unknown>
-  onCreateCustomInsight?: (bookshelfItemId: string, text: string, contentType: string) => Promise<unknown>
-  /** Primary book ID for custom insight creation (single-book mode) */
-  primaryBookId?: string
+  onSendToQueue: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onSendToSelfKnowledge: (type: ExtractionType, id: string, text: string) => Promise<unknown>
+  onCreateCustomInsight?: (bookLibraryId: string, text: string, contentType: string) => Promise<unknown>
+  /** Primary book's book_library_id for custom insight creation (single-book mode) */
+  primaryBookLibraryId?: string
 }
 
-// Text column accessor per table
-function getItemText(item: BaseExtractionItem, tab: ExtractionTab): string {
-  if (tab === 'declarations') return (item as unknown as BookShelfDeclaration).declaration_text
-  return (item as { text: string }).text
+// Text column accessor — declarations use declaration_text, others use text
+function getItemText(item: BookExtraction, tab: ExtractionTab): string {
+  if (tab === 'declarations') return item.declaration_text || item.text
+  return item.text
 }
 
-function matchesSearch(item: BaseExtractionItem, tab: ExtractionTab, query: string): boolean {
+function matchesSearch(item: BookExtraction, tab: ExtractionTab, query: string): boolean {
   if (!query) return true
   const q = query.toLowerCase()
   const text = getItemText(item, tab).toLowerCase()
@@ -72,9 +69,9 @@ function matchesSearch(item: BaseExtractionItem, tab: ExtractionTab, query: stri
   return false
 }
 
-function filterItems<T extends BaseExtractionItem>(
-  items: T[], tab: ExtractionTab, filterMode: FilterMode, search: string
-): T[] {
+function filterItems(
+  items: BookExtraction[], tab: ExtractionTab, filterMode: FilterMode, search: string
+): BookExtraction[] {
   let filtered = items
   if (filterMode === 'hearted') filtered = filtered.filter(i => i.is_hearted)
   if (search) filtered = filtered.filter(i => matchesSearch(i, tab, search))
@@ -82,8 +79,8 @@ function filterItems<T extends BaseExtractionItem>(
 }
 
 /** Group items by section_title */
-function groupBySection<T extends BaseExtractionItem>(items: T[]): Map<string, T[]> {
-  const map = new Map<string, T[]>()
+function groupBySection(items: BookExtraction[]): Map<string, BookExtraction[]> {
+  const map = new Map<string, BookExtraction[]>()
   for (const item of items) {
     const key = item.section_title || 'General'
     const arr = map.get(key) || []
@@ -117,8 +114,8 @@ function TabsView(props: ExtractionContentProps) {
   if (filtered.length === 0) {
     return (
       <div>
-        {activeTab === 'insights' && props.primaryBookId && props.onCreateCustomInsight && (
-          <AddCustomInsightForm bookId={props.primaryBookId} onSave={props.onCreateCustomInsight} />
+        {activeTab === 'insights' && props.primaryBookLibraryId && props.onCreateCustomInsight && (
+          <AddCustomInsightForm bookLibraryId={props.primaryBookLibraryId} onSave={props.onCreateCustomInsight} />
         )}
         <EmptyTabState tab={activeTab} />
       </div>
@@ -127,8 +124,8 @@ function TabsView(props: ExtractionContentProps) {
 
   return (
     <div>
-      {activeTab === 'insights' && props.primaryBookId && props.onCreateCustomInsight && (
-        <AddCustomInsightForm bookId={props.primaryBookId} onSave={props.onCreateCustomInsight} />
+      {activeTab === 'insights' && props.primaryBookLibraryId && props.onCreateCustomInsight && (
+        <AddCustomInsightForm bookLibraryId={props.primaryBookLibraryId} onSave={props.onCreateCustomInsight} />
       )}
       {Array.from(sections.entries()).map(([sectionTitle, sectionItems]) => {
         const key = `tab-${activeTab}-${sectionTitle}`
@@ -218,7 +215,10 @@ function renderChapterSections(
     const typeGroups = allTabs.map(tab => {
       let items = getItemsForTab(props, tab)
       items = items.filter(i => (i.section_title || 'General') === section)
-      if (bookIdFilter) items = items.filter(i => i.bookshelf_item_id === bookIdFilter)
+      if (bookIdFilter) {
+        const filterBook = props.books.find(b => b.id === bookIdFilter)
+        if (filterBook?.book_library_id) items = items.filter(i => i.book_library_id === filterBook.book_library_id)
+      }
       const filtered = filterItems(items, tab, filterMode, searchQuery)
       if (filtered.length > 0) hasItems = true
 
@@ -287,7 +287,7 @@ function NotesView(props: ExtractionContentProps) {
     action_steps: 'Action Step', questions: 'Question',
   }
 
-  const notedItems: { item: BaseExtractionItem; tab: ExtractionTab }[] = []
+  const notedItems: { item: BookExtraction; tab: ExtractionTab }[] = []
   for (const tab of allTabs) {
     const items = getItemsForTab(props, tab)
     for (const item of filterItems(items, tab, filterMode, searchQuery)) {
@@ -320,36 +320,30 @@ function NotesView(props: ExtractionContentProps) {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function getItemsForTab(props: ExtractionContentProps, tab: ExtractionTab): BaseExtractionItem[] {
+function getItemsForTab(props: ExtractionContentProps, tab: ExtractionTab): BookExtraction[] {
   switch (tab) {
     case 'summaries': return props.summaries
     case 'insights': return props.insights
-    case 'declarations': return props.declarations as unknown as BaseExtractionItem[]
+    case 'declarations': return props.declarations
     case 'action_steps': return props.actionSteps
     case 'questions': return props.questions
   }
 }
 
-function getBookTitle(item: BaseExtractionItem, books: { id: string; title: string }[]): string | null {
-  return books.find(b => b.id === item.bookshelf_item_id)?.title || null
+function getBookTitle(item: BookExtraction, books: { id: string; title: string; book_library_id?: string }[]): string | null {
+  return books.find(b => b.book_library_id === item.book_library_id)?.title || null
 }
 
-function renderItem(item: BaseExtractionItem, tab: ExtractionTab, props: ExtractionContentProps) {
+function renderItem(item: BookExtraction, tab: ExtractionTab, props: ExtractionContentProps) {
   const { deletingItemIds, notingItemId, applyThisItemId, books } = props
   const bookTitle = getBookTitle(item, books)
-  const table: ExtractionTable = {
-    summaries: 'bookshelf_summaries',
-    insights: 'bookshelf_insights',
-    declarations: 'bookshelf_declarations',
-    action_steps: 'bookshelf_action_steps',
-    questions: 'bookshelf_questions',
-  }[tab] as ExtractionTable
+  const extractionType = TAB_TO_TYPE[tab]
 
   const applyThis = applyThisItemId === item.id ? (
     <ApplyThisSheet
       itemId={item.id}
       itemText={getItemText(item, tab)}
-      table={table}
+      extractionType={extractionType}
       bookTitle={bookTitle}
       chapterTitle={item.section_title}
       onSendToGuidingStars={props.onSendToGuidingStars}
@@ -376,15 +370,15 @@ function renderItem(item: BaseExtractionItem, tab: ExtractionTab, props: Extract
 
   switch (tab) {
     case 'summaries':
-      return <SummaryItem key={item.id} item={item as BookShelfSummary} {...shared} />
+      return <SummaryItem key={item.id} item={item} {...shared} />
     case 'insights':
-      return <InsightItem key={item.id} item={item as BookShelfInsight} {...shared} />
+      return <InsightItem key={item.id} item={item} {...shared} />
     case 'declarations':
-      return <DeclarationItem key={item.id} item={item as unknown as BookShelfDeclaration} {...shared} />
+      return <DeclarationItem key={item.id} item={item} {...shared} />
     case 'action_steps':
-      return <ActionStepItem key={item.id} item={item as BookShelfActionStep} {...shared} />
+      return <ActionStepItem key={item.id} item={item} {...shared} />
     case 'questions':
-      return <QuestionItem key={item.id} item={item as BookShelfQuestion} {...shared} />
+      return <QuestionItem key={item.id} item={item} {...shared} />
   }
 }
 
@@ -412,9 +406,9 @@ const INSIGHT_CONTENT_TYPES = [
   { value: 'tool_set', label: 'Tool Set' },
 ]
 
-function AddCustomInsightForm({ bookId, onSave }: {
-  bookId: string
-  onSave: (bookshelfItemId: string, text: string, contentType: string) => Promise<unknown>
+function AddCustomInsightForm({ bookLibraryId, onSave }: {
+  bookLibraryId: string
+  onSave: (bookLibraryId: string, text: string, contentType: string) => Promise<unknown>
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
@@ -425,14 +419,14 @@ function AddCustomInsightForm({ bookId, onSave }: {
     if (!text.trim()) return
     setSaving(true)
     try {
-      await onSave(bookId, text.trim(), contentType)
+      await onSave(bookLibraryId, text.trim(), contentType)
       setText('')
       setContentType('principle')
       setOpen(false)
     } finally {
       setSaving(false)
     }
-  }, [bookId, text, contentType, onSave])
+  }, [bookLibraryId, text, contentType, onSave])
 
   if (!open) {
     return (
