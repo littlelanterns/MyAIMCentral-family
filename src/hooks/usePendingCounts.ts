@@ -1,6 +1,7 @@
 // PRD-14C: Shared pending counts hook
 // Extracted from UniversalQueueModal so PendingItemsBar can show badge counts
 // without the modal being open.
+// PRD-15 Phase C: requests filtered by recipient + snoozed resurface
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -12,7 +13,7 @@ export interface PendingCounts {
   total: number
 }
 
-export function usePendingCounts(familyId: string | undefined) {
+export function usePendingCounts(familyId: string | undefined, memberId?: string | undefined) {
   const sortQuery = useQuery({
     queryKey: ['queue-badge-sort', familyId],
     queryFn: async () => {
@@ -61,14 +62,25 @@ export function usePendingCounts(familyId: string | undefined) {
   })
 
   const requestsQuery = useQuery({
-    queryKey: ['queue-badge-requests', familyId],
+    queryKey: ['queue-badge-requests', familyId, memberId],
     queryFn: async () => {
       if (!familyId) return 0
-      const { count, error } = await supabase
+
+      // If memberId provided, filter by recipient. Otherwise count all family pending.
+      const now = new Date().toISOString()
+      let query = supabase
         .from('family_requests')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', familyId)
-        .eq('status', 'pending')
+
+      if (memberId) {
+        query = query.eq('recipient_member_id', memberId)
+      }
+
+      // Count pending + snoozed-but-resurfaced requests
+      query = query.or(`status.eq.pending,and(status.eq.snoozed,snoozed_until.lt.${now})`)
+
+      const { count, error } = await query
       if (error) return 0
       return count ?? 0
     },

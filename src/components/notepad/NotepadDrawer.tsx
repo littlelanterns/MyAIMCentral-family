@@ -16,6 +16,7 @@ import { useNotepadContext } from './NotepadContext'
 import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useMindSweepSettings, useRunSweep } from '@/hooks/useMindSweep'
+import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import {
   useCreateNotepadTab,
@@ -53,6 +54,7 @@ const DEST_LABELS: Record<string, { label: string; path: string }> = {
   ideas: { label: 'Ideas', path: '/lists' },
   backburner: { label: 'Backburner', path: '/lists' },
   mindsweep: { label: 'MindSweep', path: '' },
+  request: { label: 'Request', path: '' },
 }
 
 // ─── Main Component ──────────────────────────────────────────
@@ -87,6 +89,10 @@ export function NotepadDrawer() {
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [showSaved, setShowSaved] = useState(false)
   const routingToast = useRoutingToast()
+
+  // Request modal state — opened when user picks "Request" as a routing destination
+  const [requestModalOpen, setRequestModalOpen] = useState(false)
+  const [requestPrefill, setRequestPrefill] = useState<{ title: string; details: string; tabId: string }>({ title: '', details: '', tabId: '' })
 
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -216,6 +222,15 @@ export function NotepadDrawer() {
     // Intercept MindSweep — run through sweep pipeline instead of studio_queue
     if (destination === 'mindsweep') {
       handleMindSweep()
+      return
+    }
+
+    // Intercept Request — open QuickRequestModal pre-filled with notepad content
+    if (destination === 'request') {
+      const content = activeTab.content || ''
+      const title = activeTab.title && !activeTab.is_auto_named ? activeTab.title : content.split('\n')[0]?.slice(0, 100) || 'Untitled Request'
+      setRequestPrefill({ title, details: content, tabId: activeTab.id })
+      setRequestModalOpen(true)
       return
     }
 
@@ -501,6 +516,16 @@ export function NotepadDrawer() {
           )}
         </div>
       )}
+
+      {/* QuickRequestModal — opened when user picks "Request" in routing strip */}
+      <QuickRequestModal
+        isOpen={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        prefillTitle={requestPrefill.title}
+        prefillDetails={requestPrefill.details}
+        source="notepad_route"
+        sourceReferenceId={requestPrefill.tabId || undefined}
+      />
     </>
   )
 }

@@ -28,6 +28,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { createTaskFromData } from '@/utils/createTaskFromData'
+import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
 
 interface MomShellProps {
   children: ReactNode
@@ -257,6 +258,7 @@ function NotepadBridgedQuickTasks({ forceCollapsed }: { forceCollapsed?: boolean
 function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
   const { openNotepad } = useNotepadContext()
   const [showTrackerCreate, setShowTrackerCreate] = useState(false)
+  const [showQuickRequest, setShowQuickRequest] = useState(false)
   return (
     <>
       <QuickCreate
@@ -264,13 +266,17 @@ function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
         onQuickNote={openNotepad}
         onLogVictory={() => { window.location.href = '/victories?new=1' }}
         onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
-        onSendRequest={openNotepad}
+        onSendRequest={() => setShowQuickRequest(true)}
         onTrackSomething={() => setShowTrackerCreate(true)}
         onMindSweep={() => { window.location.href = '/sweep' }}
       />
       <TrackerQuickCreateModal
         isOpen={showTrackerCreate}
         onClose={() => setShowTrackerCreate(false)}
+      />
+      <QuickRequestModal
+        isOpen={showQuickRequest}
+        onClose={() => setShowQuickRequest(false)}
       />
     </>
   )

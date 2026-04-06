@@ -651,6 +651,7 @@ export function useUndoRoute() {
           track: 'studio_queue',
           agenda: 'studio_queue',
           message: 'studio_queue',
+          request: 'family_requests',
           optimizer: 'studio_queue',
         }
         const table = tableMap[destination]

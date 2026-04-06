@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Calendar, CheckSquare, List, BookOpen, Star, Heart, Trophy,
   BarChart3, MessageCircle, ListChecks, Brain, Wand2, StickyNote,
-  ThumbsUp, SkipForward, Clock, Lightbulb,
+  ThumbsUp, SkipForward, Clock, Lightbulb, HandHelping,
 } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
@@ -100,6 +100,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
   { key: 'track', label: 'Track', icon: BarChart3, featureKey: 'widgets_trackers', accent: 'teal' },
   { key: 'track_this', label: 'Track This', icon: BarChart3, featureKey: 'widgets_trackers', accent: 'warm' },
   { key: 'message', label: 'Message', icon: MessageCircle, featureKey: 'messages', accent: 'rose' },
+  { key: 'request', label: 'Request', icon: HandHelping, featureKey: 'requests_basic', accent: 'rose' },
   { key: 'agenda', label: 'Agenda', icon: ListChecks, featureKey: 'meetings', accent: 'rose' },
   {
     key: 'innerworkings', label: 'InnerWorkings', icon: Brain, featureKey: 'my_foundation', accent: 'teal',
@@ -125,7 +126,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
 const CONTEXT_FILTERS: Record<RoutingContext, string[]> = {
   notepad_send_to: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'track_this', 'message', 'agenda', 'innerworkings', 'optimizer', 'mindsweep', 'ideas', 'backburner', 'quick_note',
+    'victory', 'track', 'track_this', 'message', 'request', 'agenda', 'innerworkings', 'optimizer', 'mindsweep', 'ideas', 'backburner', 'quick_note',
   ],
   request_accept: ['calendar', 'tasks', 'list', 'acknowledge'],
   meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'backburner', 'skip'],

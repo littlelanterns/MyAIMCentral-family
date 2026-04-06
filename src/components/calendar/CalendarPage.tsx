@@ -117,7 +117,7 @@ export function CalendarPage() {
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayHeaders = weekStartDay === 1 ? DAY_HEADERS_MON : DAY_HEADERS_SUN
-  const pendingCounts = usePendingCounts(family?.id)
+  const pendingCounts = usePendingCounts(family?.id, member?.id)
   const updateTask = useUpdateTask()
   const completeTask = useCompleteTask()
 

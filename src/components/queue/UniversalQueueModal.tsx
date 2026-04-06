@@ -153,20 +153,22 @@ export function UniversalQueueModal({
     refetchInterval: 30_000,
   })
 
-  // Requests tab: pending family_requests (stub: returns 0 until PRD-15 wires it)
+  // Requests tab: pending + snoozed-resurfaced family_requests for this member
   const { data: requestsCount = 0 } = useQuery({
-    queryKey: ['queue-badge-requests', currentMember?.family_id],
+    queryKey: ['queue-badge-requests', currentMember?.family_id, currentMember?.id],
     queryFn: async () => {
-      if (!currentMember?.family_id) return 0
+      if (!currentMember?.family_id || !currentMember?.id) return 0
+      const now = new Date().toISOString()
       const { count, error } = await supabase
         .from('family_requests')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', currentMember.family_id)
-        .eq('status', 'pending')
+        .eq('recipient_member_id', currentMember.id)
+        .or(`status.eq.pending,and(status.eq.snoozed,snoozed_until.lt.${now})`)
       if (error) return 0
       return count ?? 0
     },
-    enabled: !!currentMember?.family_id && isOpen,
+    enabled: !!currentMember?.family_id && !!currentMember?.id && isOpen,
     refetchInterval: 30_000,
   })
 

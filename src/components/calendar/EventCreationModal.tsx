@@ -30,6 +30,10 @@ interface EventCreationModalProps {
   initialEvent?: CalendarEvent & { event_attendees?: EventAttendee[] }
   /** Called after a new event is successfully created (not on edit) */
   onCreated?: () => void
+  /** Pre-fill title in create mode (e.g., from a request) */
+  prefillTitle?: string
+  /** Pre-fill notes in create mode (e.g., details from a request) */
+  prefillNotes?: string
 }
 
 const REMINDER_OPTIONS = [
@@ -42,7 +46,7 @@ const REMINDER_OPTIONS = [
   { value: 1440, label: '1 day' },
 ]
 
-export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent, onCreated }: EventCreationModalProps) {
+export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent, onCreated, prefillTitle, prefillNotes }: EventCreationModalProps) {
   const isEditing = !!initialEvent
   const createEvent = useCreateEvent()
   const updateEvent = useUpdateEvent()
@@ -107,8 +111,8 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
           setScheduleValue(null)
         }
       } else {
-        // Create mode — reset to blank
-        setTitle('')
+        // Create mode — reset to blank (with optional prefills)
+        setTitle(prefillTitle ?? '')
         setEventDate(initialDate ?? '')
         setEndDate('')
         setIsMultiDay(false)
@@ -123,14 +127,14 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
         setTransportationNeeded(false)
         setTransportationNotes('')
         setItemsToBring([])
-        setNotes('')
+        setNotes(prefillNotes ?? '')
         setShowOnHub(true)
         setIsPenciledIn(false)
         setScheduleValue(null)
       }
       setNewItemText('')
     }
-  }, [isOpen, initialDate, initialEvent])
+  }, [isOpen, initialDate, initialEvent, prefillTitle, prefillNotes])
 
   const toggleReminder = useCallback((mins: number) => {
     setSelectedReminders(prev =>

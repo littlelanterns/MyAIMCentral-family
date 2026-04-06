@@ -76,8 +76,8 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   const { data: dashboardConfig } = useDashboardConfig(displayFamilyId, displayMemberId, 'personal')
   const updateDashboardConfig = useUpdateDashboardConfig()
 
-  // PRD-17: Queue pending counts for badge
-  const pendingCounts = usePendingCounts(displayFamilyId)
+  // PRD-17: Queue pending counts for badge (PRD-15: filtered by recipient for requests)
+  const pendingCounts = usePendingCounts(displayFamilyId, displayMemberId)
 
   // ─── PRD-14: Section system ────────────────────────────────
 
