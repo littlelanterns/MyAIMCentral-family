@@ -54,10 +54,14 @@ export function useCreateList() {
       owner_id: string
       title: string
       list_type: ListType
+      tags?: string[]
     }) => {
       const { data, error } = await supabase
         .from('lists')
-        .insert(list)
+        .insert({
+          ...list,
+          tags: list.tags ?? [],
+        })
         .select()
         .single()
 
@@ -276,7 +280,7 @@ export function useListShares(listId: string | undefined) {
   })
 }
 
-/** List IDs shared WITH a specific member (for View As filtering) */
+/** List IDs shared WITH a specific member (excludes hidden shares) */
 export function useSharedListIds(memberId: string | undefined) {
   return useQuery({
     queryKey: ['shared-list-ids', memberId],
@@ -286,6 +290,7 @@ export function useSharedListIds(memberId: string | undefined) {
         .from('list_shares')
         .select('list_id')
         .eq('shared_with', memberId)
+        .or('is_hidden.eq.false,is_hidden.is.null')
       if (error) throw error
       return (data ?? []).map(r => r.list_id)
     },
@@ -296,8 +301,11 @@ export function useSharedListIds(memberId: string | undefined) {
 export function useShareList() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ listId, memberId, canEdit }: { listId: string; memberId: string; canEdit?: boolean }) => {
-      const permission = canEdit !== false ? 'edit' : 'view'
+    mutationFn: async ({ listId, memberId, canEdit, listType }: { listId: string; memberId: string; canEdit?: boolean; listType?: string }) => {
+      // Reference lists default to view-only shares
+      const defaultCanEdit = listType === 'reference' ? false : true
+      const resolvedCanEdit = canEdit ?? defaultCanEdit
+      const permission = resolvedCanEdit ? 'edit' : 'view'
       const { error } = await supabase.from('list_shares').insert({
         list_id: listId,
         shared_with: memberId,
@@ -449,6 +457,103 @@ export function useUncheckAllItems() {
     },
     onSuccess: (listId) => {
       queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
+    },
+  })
+}
+
+export function useHideSharedList() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ shareId }: { shareId: string }) => {
+      const { error } = await supabase
+        .from('list_shares')
+        .update({ is_hidden: true })
+        .eq('id', shareId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+      queryClient.invalidateQueries({ queryKey: ['list-shares'] })
+      queryClient.invalidateQueries({ queryKey: ['shared-list-ids'] })
+    },
+  })
+}
+
+export function useUnhideSharedList() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ shareId }: { shareId: string }) => {
+      const { error } = await supabase
+        .from('list_shares')
+        .update({ is_hidden: false })
+        .eq('id', shareId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+      queryClient.invalidateQueries({ queryKey: ['list-shares'] })
+      queryClient.invalidateQueries({ queryKey: ['shared-list-ids'] })
+      queryClient.invalidateQueries({ queryKey: ['hidden-shared-lists'] })
+    },
+  })
+}
+
+export function useHiddenSharedLists(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['hidden-shared-lists', memberId],
+    queryFn: async () => {
+      if (!memberId) return []
+      const { data, error } = await supabase
+        .from('list_shares')
+        .select('*, lists(*)')
+        .eq('shared_with', memberId)
+        .eq('is_hidden', true)
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: !!memberId,
+  })
+}
+
+export function useUpdateSharePermission() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ shareId, permission }: { shareId: string; permission: 'view' | 'edit' }) => {
+      const { error } = await supabase
+        .from('list_shares')
+        .update({ permission, can_edit: permission === 'edit' })
+        .eq('id', shareId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['list-shares'] })
+    },
+  })
+}
+
+export function useSuggestListTags() {
+  return useMutation({
+    mutationFn: async ({
+      listName,
+      sampleItems,
+    }: {
+      listName: string
+      sampleItems: string[]
+    }): Promise<string[]> => {
+      try {
+        const { sendAIMessage, extractJSON } = await import('@/lib/ai/send-ai-message')
+        const response = await sendAIMessage(
+          'You are a tag suggestion engine. Return ONLY a JSON array of lowercase tag strings.',
+          [{ role: 'user', content: `Suggest 2-4 short tags for a list called "${listName}" with items like: ${sampleItems.slice(0, 10).join(', ')}. Examples: ["parenting","tsg","reference"] or ["insurance","medical","kids"]` }],
+          512,
+          'haiku'
+        )
+        const parsed = extractJSON(response)
+        if (Array.isArray(parsed)) return parsed.filter((t): t is string => typeof t === 'string')
+        return []
+      } catch {
+        return []
+      }
     },
   })
 }

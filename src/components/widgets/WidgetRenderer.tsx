@@ -23,6 +23,7 @@ import { TimerDurationTracker } from './trackers/TimerDurationTracker'
 import { SnapshotComparisonTracker } from './trackers/SnapshotComparisonTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
 import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget, InfoFamilyIntention, InfoCountdown } from './info'
+import { ListWidget } from './info/ListWidget'
 
 interface WidgetRendererProps {
   widget: DashboardWidget
@@ -111,6 +112,8 @@ function InfoWidgetDispatcher({ widget, isCompact, onUpdateConfig }: { widget: D
       return <InfoFamilyIntention widget={widget} isCompact={isCompact} />
     case 'info_countdown':
       return <InfoCountdown widget={widget} isCompact={isCompact} />
+    case 'info_list':
+      return <ListWidget widget={widget} isCompact={isCompact} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--color-text-tertiary)' }}>

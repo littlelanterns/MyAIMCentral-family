@@ -39,6 +39,7 @@ export interface List {
   reveal_type: string | null
   max_respins_per_period: number | null
   respin_period: string | null
+  tags: string[]
   pool_mode: PoolMode
   eligible_members: string[] | null
   archived_at: string | null
@@ -95,6 +96,7 @@ export interface ListShare {
   permission: 'view' | 'edit'
   is_individual_copy: boolean
   can_edit: boolean
+  is_hidden: boolean
   created_at: string
 }
 
@@ -173,6 +175,7 @@ export interface FrequencySuggestion {
 // Create/update helpers
 export type CreateList = Pick<List, 'family_id' | 'owner_id' | 'title' | 'list_type'> & {
   description?: string
+  tags?: string[]
   is_shared?: boolean
   pool_mode?: PoolMode
   eligible_members?: string[]

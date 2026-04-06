@@ -487,6 +487,7 @@ export type InfoDisplayType =
   | 'info_hub_job_board'
   | 'info_family_intention'
   | 'info_countdown'
+  | 'info_list'
 
 // Quick Action widget types — single-tap shortcut buttons
 export type QuickActionType =
@@ -587,6 +588,13 @@ export const INFO_WIDGET_REGISTRY: InfoWidgetMeta[] = [
     description: 'Days until upcoming family events and milestones.',
     icon: 'Hourglass',
     defaultSize: 'small',
+  },
+  {
+    type: 'info_list',
+    label: 'Pinned List',
+    description: 'Pin any list to your dashboard. Reference lists show as accordions.',
+    icon: 'BookOpen',
+    defaultSize: 'medium',
   },
 ]
 

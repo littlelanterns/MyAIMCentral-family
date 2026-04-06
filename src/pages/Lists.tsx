@@ -4,14 +4,14 @@
  * Types: Shopping, Wishlist, Expenses, Packing, To-Do, Custom, Randomizer.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, ArchiveRestore, Trash2, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
-  Share2, UserCheck, Check, Wand2,
+  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -26,15 +26,17 @@ import {
   useUncheckAllItems, usePromoteListItem, useArchiveList, useDeleteList, useRestoreList,
   useReorderListItems, useSaveListAsTemplate,
   useListShares, useShareList, useUnshareList, useSharedListIds,
+  useUpdateSharePermission, useHideSharedList, useUnhideSharedList, useHiddenSharedLists,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { Sparkles, Settings2 } from 'lucide-react'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
-import type { ListItem, ListType, List as ListData } from '@/types/lists'
+import type { ListItem, ListType, ListShare, List as ListData } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
 import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/FrequencyRulesEditor'
 import { PoolModeSelector } from '@/components/lists/PoolModeSelector'
 import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
+import { ReferenceListView } from '@/components/lists/ReferenceListView'
 
 // ── Type config ────────────────────────────────────────────
 
@@ -51,13 +53,14 @@ const TYPE_CONFIG: Record<string, { icon: typeof ListIcon; label: string; descri
   backburner: { icon: Clock, label: 'Backburner', description: 'Someday/maybe — park it for later', isSystem: true },
   ideas: { icon: Lightbulb, label: 'Ideas', description: 'Capture raw ideas before they become anything', isSystem: true },
   prayer: { icon: Heart, label: 'Prayer', description: 'Ongoing prayer items and intentions' },
-  reference: { icon: Lightbulb, label: 'Reference', description: 'Info to keep handy' },
+  reference: { icon: BookOpen, label: 'Reference', description: 'Save info to look up later — steps, numbers, instructions' },
 }
 
 const FILTER_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'shopping', label: 'Shopping' },
   { key: 'wishlist', label: 'Wishlists' },
+  { key: 'reference', label: 'Reference' },
   { key: 'packing', label: 'Packing' },
   { key: 'todo', label: 'To-Do' },
   { key: 'backburner', label: 'Backburner' },
@@ -101,10 +104,14 @@ export function ListsPage() {
   const restoreList = useRestoreList()
   const deleteList = useDeleteList()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const { data: hiddenShares = [] } = useHiddenSharedLists(activeMember?.id)
+  const unhideSharedList = useUnhideSharedList()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [viewMode, setViewMode] = useViewMode()
   const [filter, setFilter] = useState('all')
+  const [selectedPeople, setSelectedPeople] = useState<Set<string>>(new Set())
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [showCreate, setShowCreate] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ListType | null>(null)
@@ -128,13 +135,33 @@ export function ListsPage() {
   // Filter lists
   const activeLists = lists.filter(l => !l.archived_at)
   const archivedLists = lists.filter(l => !!l.archived_at)
-  const filtered = filter === 'all'
+
+  // Compute available tags from all active lists
+  const allTags = useMemo(() => {
+    const tags = new Set<string>()
+    activeLists.forEach(l => {
+      if (l.tags) l.tags.forEach(t => tags.add(t))
+    })
+    return [...tags].sort()
+  }, [activeLists])
+
+  const hasSecondaryFilters = selectedPeople.size > 0 || selectedTags.size > 0
+
+  // Apply type filter first
+  let filtered = filter === 'all'
     ? activeLists
     : filter === 'shared'
       ? activeLists.filter(l => l.is_shared)
       : filter === 'archived'
         ? archivedLists
         : activeLists.filter(l => l.list_type === filter)
+
+  // Apply tags filter (AND — list must have ALL selected tags)
+  if (selectedTags.size > 0) {
+    filtered = filtered.filter(l =>
+      l.tags && [...selectedTags].every(t => l.tags.includes(t))
+    )
+  }
 
   async function handleCreate() {
     if (!member || !family || !createTitle.trim() || !createType) return
@@ -244,6 +271,46 @@ export function ListsPage() {
         ))}
       </div>
 
+      {/* Tags filter */}
+      {allTags.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Tag size={12} style={{ color: 'var(--color-text-secondary)' }} />
+          {allTags.map(tag => {
+            const active = selectedTags.has(tag)
+            return (
+              <button
+                key={tag}
+                onClick={() => setSelectedTags(prev => {
+                  const next = new Set(prev)
+                  if (next.has(tag)) next.delete(tag)
+                  else next.add(tag)
+                  return next
+                })}
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors"
+                style={{
+                  backgroundColor: active ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+                  color: active ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                  border: `1px solid ${active ? 'transparent' : 'var(--color-border)'}`,
+                }}
+              >
+                #{tag}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Clear secondary filters */}
+      {hasSecondaryFilters && (
+        <button
+          onClick={() => { setSelectedPeople(new Set()); setSelectedTags(new Set()) }}
+          className="text-[10px] px-2 py-0.5 rounded"
+          style={{ color: 'var(--color-btn-primary-bg)' }}
+        >
+          Clear filters
+        </button>
+      )}
+
       {/* Create modal */}
       {showCreate && (
         <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
@@ -251,7 +318,7 @@ export function ListsPage() {
             <div className="p-4 space-y-3">
               <p className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>What kind of list?</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {(['shopping', 'wishlist', 'expenses', 'packing', 'todo', 'ideas', 'prayer', 'backburner', 'custom'] as ListType[]).map(type => {
+                {(['shopping', 'wishlist', 'expenses', 'packing', 'todo', 'reference', 'ideas', 'prayer', 'backburner', 'custom'] as ListType[]).map(type => {
                   const cfg = TYPE_CONFIG[type]
                   const Icon = cfg.icon
                   return (
@@ -384,6 +451,48 @@ export function ListsPage() {
               </div>
             )
           })}
+
+          {/* Hidden shared lists — recoverable */}
+          {hiddenShares.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Hidden shared lists
+              </p>
+              {hiddenShares.map((share: { id: string; lists: ListData | null }) => {
+                const hiddenList = share.lists as ListData | null
+                if (!hiddenList) return null
+                const hCfg = TYPE_CONFIG[hiddenList.list_type] ?? TYPE_CONFIG.custom
+                const HIcon = hCfg.icon
+                return (
+                  <div
+                    key={share.id}
+                    className="rounded-lg overflow-hidden"
+                    style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', opacity: 0.85 }}
+                  >
+                    <div className="flex items-center gap-3 p-4">
+                      <HIcon size={18} style={{ color: 'var(--color-text-secondary)' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>{hiddenList.title}</p>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                          {hCfg.label} · Shared with you
+                        </p>
+                      </div>
+                      <Tooltip content="Show again">
+                        <button
+                          onClick={() => unhideSharedList.mutate({ shareId: share.id })}
+                          disabled={unhideSharedList.isPending}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
+                          style={{ color: 'var(--color-btn-primary-bg)' }}
+                        >
+                          <Undo2 size={14} /> Unhide
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -509,12 +618,18 @@ function RandomizerDetailView({
   items,
   memberId,
   familyMembers,
+  isOwnerOrParent,
+  myShare,
+  onHide,
   onBack,
 }: {
   list: ListData
   items: ListItem[]
   memberId: string
   familyMembers: FamilyMember[]
+  isOwnerOrParent: boolean
+  myShare?: ListShare
+  onHide: () => void
   onBack: () => void
 }) {
   const [showSettings, setShowSettings] = useState(false)
@@ -567,44 +682,58 @@ function RandomizerDetailView({
         <h1 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
           {list.title}
         </h1>
-        <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
-          <button
-            onClick={async () => {
-              if (!family || !memberId || savedAsTemplate) return
-              await saveAsTemplate.mutateAsync({ familyId: family.id, createdBy: memberId, title: list.title, listType: list.list_type, items })
-              setSavedAsTemplate(true)
-              setTimeout(() => setSavedAsTemplate(false), 3000)
-            }}
-            disabled={saveAsTemplate.isPending || savedAsTemplate}
-            className="p-1.5 rounded-lg"
-            style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-          >
-            <Save size={16} />
-          </button>
-        </Tooltip>
-        <Tooltip content="Pool settings">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="p-1.5 rounded-lg"
-            style={{ color: showSettings ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-          >
-            <Settings2 size={16} />
-          </button>
-        </Tooltip>
-        <Tooltip content="Archive">
-          <button onClick={() => { archiveList.mutate(list.id); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
-            <Archive size={16} />
-          </button>
-        </Tooltip>
-        <Tooltip content="Delete permanently">
-          <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
-            <Trash2 size={16} />
-          </button>
-        </Tooltip>
+        {isOwnerOrParent && (
+          <>
+            <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
+              <button
+                onClick={async () => {
+                  if (!family || !memberId || savedAsTemplate) return
+                  await saveAsTemplate.mutateAsync({ familyId: family.id, createdBy: memberId, title: list.title, listType: list.list_type, items })
+                  setSavedAsTemplate(true)
+                  setTimeout(() => setSavedAsTemplate(false), 3000)
+                }}
+                disabled={saveAsTemplate.isPending || savedAsTemplate}
+                className="p-1.5 rounded-lg"
+                style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+              >
+                <Save size={16} />
+              </button>
+            </Tooltip>
+            <Tooltip content="Pool settings">
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-1.5 rounded-lg"
+                style={{ color: showSettings ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+              >
+                <Settings2 size={16} />
+              </button>
+            </Tooltip>
+          </>
+        )}
+        {isOwnerOrParent ? (
+          <>
+            <Tooltip content="Archive">
+              <button onClick={() => { archiveList.mutate(list.id); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                <Archive size={16} />
+              </button>
+            </Tooltip>
+            <Tooltip content="Delete permanently">
+              <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                <Trash2 size={16} />
+              </button>
+            </Tooltip>
+          </>
+        ) : myShare && (
+          <Tooltip content="Leave shared list">
+            <button onClick={onHide} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+              <UserMinus size={16} />
+            </button>
+          </Tooltip>
+        )}
       </div>
 
       {/* Delete confirmation */}
-      {confirmDelete && (
+      {confirmDelete && isOwnerOrParent && (
         <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
           <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
             Permanently delete "{list.title}"?
@@ -782,7 +911,10 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const { data: shares = [] } = useListShares(listId)
   const shareList = useShareList()
   const unshareList = useUnshareList()
+  const updateSharePermission = useUpdateSharePermission()
+  const hideSharedList = useHideSharedList()
   const [showShareModal, setShowShareModal] = useState(false)
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -806,18 +938,210 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   }, [items])
 
   const displayItems = localItems ?? items
+  const sharedMemberIds = new Set(shares.map(s => s.member_id).filter(Boolean))
 
   if (!list) return null
 
+  // ── Permission model ───────────────────────────────────
+  // isOwnerOrParent: can Archive, Delete, Share, Save-as-Template
+  // canEdit: can add/edit/delete items (owner, parent, or shared-with-edit)
+  const isOwner = list.owner_id === member?.id
+  const isPrimaryParent = member?.role === 'primary_parent'
+  const isOwnerOrParent = isOwner || isPrimaryParent
+  const myShare = shares.find(s => s.member_id === member?.id)
+  const canEdit = isOwnerOrParent || myShare?.permission === 'edit' || myShare?.can_edit === true
+
+  // "Leave shared list" — soft-hides the share so user can recover later
+  async function handleLeaveSharedList() {
+    if (!myShare) return
+    await hideSharedList.mutateAsync({ shareId: myShare.id })
+    onBack()
+  }
+
+  // Confirm leave dialog (renders as overlay in any branch)
+  const leaveConfirmDialog = confirmLeave && !isOwnerOrParent && myShare && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <div className="w-full max-w-sm rounded-xl p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+        <p className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>Leave this shared list?</p>
+        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          It will be hidden from your Lists page. You can bring it back anytime from the Archived tab.
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => setConfirmLeave(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+          <button
+            onClick={handleLeaveSharedList}
+            disabled={hideSharedList.isPending}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            {hideSharedList.isPending ? 'Hiding...' : 'Leave List'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (list.list_type === 'randomizer') {
     return (
-      <RandomizerDetailView
-        list={list}
-        items={items}
-        memberId={member?.id ?? ''}
-        familyMembers={familyMembers}
-        onBack={onBack}
-      />
+      <>
+        {leaveConfirmDialog}
+        <RandomizerDetailView
+          list={list}
+          items={items}
+          memberId={member?.id ?? ''}
+          familyMembers={familyMembers}
+          isOwnerOrParent={isOwnerOrParent}
+          myShare={myShare}
+          onHide={() => setConfirmLeave(true)}
+          onBack={onBack}
+        />
+      </>
+    )
+  }
+
+  // ── Reference list detail view ─────────────────────────
+  if (list.list_type === 'reference') {
+    const refCfg = TYPE_CONFIG.reference
+    const RefIcon = refCfg.icon
+    return (
+      <>
+      {leaveConfirmDialog}
+      <div className="max-w-3xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+            <ChevronDown size={20} className="rotate-90" />
+          </button>
+          <RefIcon size={20} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <h1 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
+            {list.title}
+          </h1>
+          <div className="flex items-center gap-1.5">
+            {isOwnerOrParent && (
+              <Tooltip content="Share with family">
+                <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
+                  <Share2 size={16} />
+                  {shares.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
+                      style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                      {shares.length}
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
+            )}
+            {canEdit && (
+              <Tooltip content="Bulk add">
+                <button onClick={() => setShowBulkAdd(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Wand2 size={16} />
+                </button>
+              </Tooltip>
+            )}
+            {isOwnerOrParent ? (
+              <>
+                <Tooltip content="Archive">
+                  <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                    <Archive size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Delete permanently">
+                  <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                    <Trash2 size={16} />
+                  </button>
+                </Tooltip>
+              </>
+            ) : myShare && (
+              <Tooltip content="Leave shared list">
+                <button onClick={() => setConfirmLeave(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                  <UserMinus size={16} />
+                </button>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+
+        {/* Tags display */}
+        {list.tags && list.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {list.tags.map(tag => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+                style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)', color: 'var(--color-btn-primary-bg)' }}>
+                <Tag size={10} />{tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Shared with indicator */}
+        {shares.length > 0 && (
+          <div className="flex items-center gap-1.5 px-1">
+            <UserCheck size={12} style={{ color: 'var(--color-text-secondary)' }} />
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              Shared with {shares.map(s => {
+                const m = familyMembers.find(fm => fm.id === s.member_id)
+                return m?.display_name ?? 'someone'
+              }).join(', ')}
+            </span>
+          </div>
+        )}
+
+        {/* Reference content in card */}
+        <div className="rounded-xl overflow-hidden p-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+          <ReferenceListView listId={listId} canEdit={canEdit} />
+        </div>
+
+        {/* Confirm delete */}
+        {confirmDelete && (
+          <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>Delete this list permanently?</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+              <button onClick={() => { deleteList.mutate(listId); onBack() }}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}>Delete</button>
+            </div>
+          </div>
+        )}
+
+        {/* Share modal */}
+        {showShareModal && (
+          <ShareListModal
+            familyMembers={familyMembers}
+            currentMemberId={member?.id ?? ''}
+            sharedMemberIds={sharedMemberIds}
+            shares={shares}
+            onToggle={handleToggleShare}
+            onUpdatePermission={handleUpdatePermission}
+            isPending={shareList.isPending || unshareList.isPending}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+
+        {/* AI Bulk Add */}
+        {showBulkAdd && (
+          <BulkAddWithAI
+            title={`Bulk Add — ${list.title}`}
+            placeholder="Paste reference content here — headings become sections, bullet points become items"
+            hint="Headings or bold lines become section names. Items underneath become list items. Sub-lines or parenthetical notes become item notes."
+            categories={[...new Set(items.map(i => i.section_name).filter(Boolean) as string[])].map(s => ({ value: s, label: s }))}
+            parsePrompt="Parse the following text into a structured reference list. Identify section headers (bold text, lines ending with ':', or lines that introduce a group of bullets) as section_name values. For each section, the bullet points or numbered items beneath it are list items. If an item has a sub-line, parenthetical, or detail line immediately after it, treat that as the item's notes field. Return JSON array: [{text: string, category?: string, metadata?: {note?: string}, selected: boolean}]"
+            onSave={async (parsed) => {
+              for (const item of parsed.filter(i => i.selected)) {
+                const note = typeof item.metadata?.note === 'string' ? item.metadata.note : undefined
+                await createItem.mutateAsync({
+                  list_id: listId,
+                  content: item.text,
+                  section_name: item.category || undefined,
+                  notes: note,
+                  sort_order: items.length,
+                })
+              }
+            }}
+            onClose={() => setShowBulkAdd(false)}
+          />
+        )}
+      </div>
+      </>
     )
   }
 
@@ -840,8 +1164,6 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const totalItems = items.length
   const checkedItems = items.filter(i => i.checked).length
   const totalPrice = items.reduce((sum, i) => sum + (i.price ?? 0), 0)
-
-  const sharedMemberIds = new Set(shares.map(s => s.member_id).filter(Boolean))
 
   async function addItem() {
     if (!newItemText.trim()) return
@@ -899,8 +1221,12 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     if (existing) {
       await unshareList.mutateAsync({ shareId: existing.id, listId })
     } else {
-      await shareList.mutateAsync({ listId, memberId, canEdit: true })
+      await shareList.mutateAsync({ listId, memberId, listType: list?.list_type })
     }
+  }
+
+  async function handleUpdatePermission(shareId: string, permission: 'view' | 'edit') {
+    await updateSharePermission.mutateAsync({ shareId, permission })
   }
 
   async function handleOrganize(storeNames: string) {
@@ -1108,6 +1434,8 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
   // ── Render: Shopping compact layout ────────────────────
   if (isShopping) {
     return (
+      <>
+      {leaveConfirmDialog}
       <div className="max-w-3xl mx-auto space-y-3">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -1119,43 +1447,57 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             {list.title}
           </h1>
           <div className="flex items-center gap-1.5">
-            <Tooltip content="Share with family">
-              <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
-                <Share2 size={16} />
-                {shares.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
-                    style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
-                    {shares.length}
-                  </span>
-                )}
-              </button>
-            </Tooltip>
-            <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
-              <button
-                onClick={async () => {
-                  if (!family || !member || !list || savedAsTemplate) return
-                  await saveAsTemplate.mutateAsync({ familyId: family.id, createdBy: member.id, title: list.title, listType: list.list_type, items })
-                  setSavedAsTemplate(true)
-                  setTimeout(() => setSavedAsTemplate(false), 3000)
-                }}
-                disabled={saveAsTemplate.isPending || savedAsTemplate}
-                className="p-1.5 rounded-lg" style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-              ><Save size={16} /></button>
-            </Tooltip>
-            <Tooltip content="Uncheck all">
-              <button onClick={() => uncheckAll.mutate(listId)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><RotateCcw size={16} /></button>
-            </Tooltip>
-            <Tooltip content="Archive">
-              <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Archive size={16} /></button>
-            </Tooltip>
-            <Tooltip content="Delete permanently">
-              <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Trash2 size={16} /></button>
-            </Tooltip>
+            {isOwnerOrParent && (
+              <>
+                <Tooltip content="Share with family">
+                  <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
+                    <Share2 size={16} />
+                    {shares.length > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
+                        style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                        {shares.length}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
+                <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
+                  <button
+                    onClick={async () => {
+                      if (!family || !member || !list || savedAsTemplate) return
+                      await saveAsTemplate.mutateAsync({ familyId: family.id, createdBy: member.id, title: list.title, listType: list.list_type, items })
+                      setSavedAsTemplate(true)
+                      setTimeout(() => setSavedAsTemplate(false), 3000)
+                    }}
+                    disabled={saveAsTemplate.isPending || savedAsTemplate}
+                    className="p-1.5 rounded-lg" style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+                  ><Save size={16} /></button>
+                </Tooltip>
+              </>
+            )}
+            {canEdit && (
+              <Tooltip content="Uncheck all">
+                <button onClick={() => uncheckAll.mutate(listId)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><RotateCcw size={16} /></button>
+              </Tooltip>
+            )}
+            {isOwnerOrParent ? (
+              <>
+                <Tooltip content="Archive">
+                  <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Archive size={16} /></button>
+                </Tooltip>
+                <Tooltip content="Delete permanently">
+                  <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Trash2 size={16} /></button>
+                </Tooltip>
+              </>
+            ) : myShare && (
+              <Tooltip content="Leave shared list">
+                <button onClick={() => setConfirmLeave(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><UserMinus size={16} /></button>
+              </Tooltip>
+            )}
           </div>
         </div>
 
         {/* Delete confirmation */}
-        {confirmDelete && (
+        {confirmDelete && isOwnerOrParent && (
           <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
             <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
               Permanently delete "{list.title}"?
@@ -1329,7 +1671,9 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             familyMembers={familyMembers}
             currentMemberId={member?.id ?? ''}
             sharedMemberIds={sharedMemberIds}
+            shares={shares}
             onToggle={handleToggleShare}
+            onUpdatePermission={handleUpdatePermission}
             isPending={shareList.isPending || unshareList.isPending}
             onClose={() => setShowShareModal(false)}
           />
@@ -1359,11 +1703,14 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           />
         )}
       </div>
+      </>
     )
   }
 
   // ── Render: Standard layout (non-shopping) ─────────────
   return (
+    <>
+    {leaveConfirmDialog}
     <div className="max-w-3xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
@@ -1375,70 +1722,86 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           {list.title}
         </h1>
         <div className="flex items-center gap-1.5">
-          <Tooltip content="Share with family">
-            <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
-              <Share2 size={16} />
-              {shares.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
-                  style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
-                  {shares.length}
-                </span>
-              )}
-            </button>
-          </Tooltip>
-          <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
-          <button
-            onClick={async () => {
-              if (!family || !member || !list || savedAsTemplate) return
-              await saveAsTemplate.mutateAsync({
-                familyId: family.id,
-                createdBy: member.id,
-                title: list.title,
-                listType: list.list_type,
-                items,
-              })
-              setSavedAsTemplate(true)
-              setTimeout(() => setSavedAsTemplate(false), 3000)
-            }}
-            disabled={saveAsTemplate.isPending || savedAsTemplate}
-            className="p-1.5 rounded-lg text-xs"
-            style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-          >
-            <Save size={16} />
-          </button>
-          </Tooltip>
-          <Tooltip content="Uncheck all">
-          <button
-            onClick={() => uncheckAll.mutate(listId)}
-            className="p-1.5 rounded-lg text-xs"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            <RotateCcw size={16} />
-          </button>
-          </Tooltip>
-          <Tooltip content="Archive">
-          <button
-            onClick={() => { archiveList.mutate(listId); onBack() }}
-            className="p-1.5 rounded-lg text-xs"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            <Archive size={16} />
-          </button>
-          </Tooltip>
-          <Tooltip content="Delete permanently">
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="p-1.5 rounded-lg text-xs"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            <Trash2 size={16} />
-          </button>
-          </Tooltip>
+          {isOwnerOrParent && (
+            <>
+              <Tooltip content="Share with family">
+                <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
+                  <Share2 size={16} />
+                  {shares.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full text-[8px] font-bold flex items-center justify-center"
+                      style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                      {shares.length}
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
+              <Tooltip content={savedAsTemplate ? 'Saved!' : 'Make Reusable'}>
+                <button
+                  onClick={async () => {
+                    if (!family || !member || !list || savedAsTemplate) return
+                    await saveAsTemplate.mutateAsync({
+                      familyId: family.id,
+                      createdBy: member.id,
+                      title: list.title,
+                      listType: list.list_type,
+                      items,
+                    })
+                    setSavedAsTemplate(true)
+                    setTimeout(() => setSavedAsTemplate(false), 3000)
+                  }}
+                  disabled={saveAsTemplate.isPending || savedAsTemplate}
+                  className="p-1.5 rounded-lg text-xs"
+                  style={{ color: savedAsTemplate ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+                >
+                  <Save size={16} />
+                </button>
+              </Tooltip>
+            </>
+          )}
+          {canEdit && (
+            <Tooltip content="Uncheck all">
+              <button
+                onClick={() => uncheckAll.mutate(listId)}
+                className="p-1.5 rounded-lg text-xs"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                <RotateCcw size={16} />
+              </button>
+            </Tooltip>
+          )}
+          {isOwnerOrParent ? (
+            <>
+              <Tooltip content="Archive">
+                <button
+                  onClick={() => { archiveList.mutate(listId); onBack() }}
+                  className="p-1.5 rounded-lg text-xs"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  <Archive size={16} />
+                </button>
+              </Tooltip>
+              <Tooltip content="Delete permanently">
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="p-1.5 rounded-lg text-xs"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </Tooltip>
+            </>
+          ) : myShare && (
+            <Tooltip content="Leave shared list">
+              <button onClick={() => setConfirmLeave(true)} className="p-1.5 rounded-lg text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                <UserMinus size={16} />
+              </button>
+            </Tooltip>
+          )}
         </div>
       </div>
 
       {/* Delete confirmation */}
-      {confirmDelete && (
+      {confirmDelete && isOwnerOrParent && (
         <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
           <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
             Permanently delete "{list.title}"?
@@ -1630,6 +1993,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         />
       )}
     </div>
+    </>
   )
 }
 
@@ -1767,14 +2131,18 @@ function ShareListModal({
   familyMembers,
   currentMemberId,
   sharedMemberIds,
+  shares,
   onToggle,
+  onUpdatePermission,
   isPending,
   onClose,
 }: {
   familyMembers: FamilyMember[]
   currentMemberId: string
   sharedMemberIds: Set<string | null>
+  shares?: ListShare[]
   onToggle: (memberId: string) => Promise<void>
+  onUpdatePermission?: (shareId: string, permission: 'view' | 'edit') => Promise<void>
   isPending: boolean
   onClose: () => void
 }) {
@@ -1791,55 +2159,88 @@ function ShareListModal({
           <button onClick={onClose} className="p-1 rounded" style={{ color: 'var(--color-text-secondary)' }}><X size={16} /></button>
         </div>
         <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Shared members can view and check off items.
+          Tap a member to share/unshare. Use the dropdown to set permission.
         </p>
         {otherMembers.length === 0 ? (
           <p className="text-xs py-2" style={{ color: 'var(--color-text-secondary)' }}>No other family members to share with.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {otherMembers.length > 1 && (() => {
-              const allShared = otherMembers.every(m => sharedMemberIds.has(m.id))
-              return (
-                <button
-                  onClick={async () => {
-                    for (const m of otherMembers) {
-                      const isShared = sharedMemberIds.has(m.id)
-                      if (allShared ? isShared : !isShared) await onToggle(m.id)
-                    }
-                  }}
-                  disabled={isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
-                  style={{
-                    backgroundColor: allShared ? 'var(--color-btn-primary-bg)' : 'transparent',
-                    color: allShared ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
-                    border: `2px solid ${allShared ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                  }}
-                >
-                  {allShared && <Check size={12} />}
-                  Everyone
-                </button>
-              )
-            })()}
-            {otherMembers.map(m => {
-              const isShared = sharedMemberIds.has(m.id)
-              const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => onToggle(m.id)}
-                  disabled={isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
-                  style={{
-                    backgroundColor: isShared ? color : 'transparent',
-                    color: isShared ? '#fff' : color,
-                    border: `2px solid ${color}`,
-                  }}
-                >
-                  {isShared && <Check size={12} />}
-                  {m.display_name}
-                </button>
-              )
-            })}
+          <div className="space-y-2">
+            {/* Member toggle pills */}
+            <div className="flex flex-wrap gap-2">
+              {otherMembers.length > 1 && (() => {
+                const allShared = otherMembers.every(m => sharedMemberIds.has(m.id))
+                return (
+                  <button
+                    onClick={async () => {
+                      for (const m of otherMembers) {
+                        const isShared = sharedMemberIds.has(m.id)
+                        if (allShared ? isShared : !isShared) await onToggle(m.id)
+                      }
+                    }}
+                    disabled={isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: allShared ? 'var(--color-btn-primary-bg)' : 'transparent',
+                      color: allShared ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
+                      border: `2px solid ${allShared ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    {allShared && <Check size={12} />}
+                    Everyone
+                  </button>
+                )
+              })()}
+              {otherMembers.map(m => {
+                const isShared = sharedMemberIds.has(m.id)
+                const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => onToggle(m.id)}
+                    disabled={isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: isShared ? color : 'transparent',
+                      color: isShared ? '#fff' : color,
+                      border: `2px solid ${color}`,
+                    }}
+                  >
+                    {isShared && <Check size={12} />}
+                    {m.display_name}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Permission toggles for shared members */}
+            {shares && onUpdatePermission && shares.length > 0 && (
+              <div className="space-y-1 pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+                  Permissions
+                </p>
+                {shares.map(share => {
+                  const m = familyMembers.find(fm => fm.id === share.member_id)
+                  if (!m) return null
+                  const perm = share.permission ?? (share.can_edit ? 'edit' : 'view')
+                  return (
+                    <div key={share.id} className="flex items-center justify-between py-0.5">
+                      <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                        {m.display_name}
+                      </span>
+                      <select
+                        value={perm}
+                        onChange={e => onUpdatePermission(share.id, e.target.value as 'view' | 'edit')}
+                        className="text-xs px-2 py-1 rounded"
+                        style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                      >
+                        <option value="view">Can view</option>
+                        <option value="edit">Can edit</option>
+                      </select>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
         <div className="flex justify-end pt-1">
