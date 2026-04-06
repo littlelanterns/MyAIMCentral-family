@@ -199,6 +199,37 @@ export async function createTaskFromData(
     }
   }
 
+  // Create Task Breaker subtasks as child tasks linked via parent_task_id
+  if (data.taskBreakerSubtasks && data.taskBreakerSubtasks.length > 0 && result.taskIds.length > 0) {
+    const parentTaskId = result.taskIds[0]
+
+    // Build list of valid family member IDs for FK safety
+    const validMemberIds = new Set(familyMembers.map(m => m.id))
+
+    const subtaskInserts = data.taskBreakerSubtasks.map((st, idx) => ({
+      family_id: familyId,
+      created_by: creatorId,
+      title: st.title,
+      description: st.description || null,
+      task_type: 'task' as const,
+      status: 'pending' as const,
+      parent_task_id: parentTaskId,
+      task_breaker_level: data.taskBreakerLevel || null,
+      // Only set assignee_id if it's a valid family member (FK safety)
+      assignee_id: st.suggestedAssigneeId && validMemberIds.has(st.suggestedAssigneeId)
+        ? st.suggestedAssigneeId
+        : null,
+      sort_order: st.sortOrder ?? idx + 1,
+      source: 'manual' as const,
+      life_area_tag: taskBase.life_area_tag,
+    }))
+
+    const { error: subtaskError } = await supabase.from('tasks').insert(subtaskInserts)
+    if (subtaskError) {
+      console.error('Failed to create Task Breaker subtasks:', subtaskError)
+    }
+  }
+
   // Mark queue item as processed if creating from queue
   if (data.sourceQueueItemId) {
     await supabase

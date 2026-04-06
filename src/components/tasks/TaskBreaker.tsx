@@ -1,7 +1,8 @@
 /**
- * PRD-09A: Task Breaker AI
- * Text input → ai-parse Edge Function → 3 decomposition levels.
- * Also supports image input (Full Magic tier, gated by PermissionGate).
+ * PRD-09A: Task Breaker AI — Text Mode
+ * Calls the task-breaker Edge Function to decompose a task into subtasks.
+ * Three detail levels: quick (3-5), detailed (5-10), granular (10-20).
+ * Human-in-the-Mix: user reviews, edits, reorders, removes before applying.
  */
 
 import { useState } from 'react'
@@ -9,12 +10,13 @@ import {
   Zap, ChevronDown, ChevronUp, X, Loader2, Check,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import type { TaskBreakerLevel } from '@/types/tasks'
 
 interface TaskBreakerProps {
   taskTitle: string
   taskDescription?: string
+  lifeAreaTag?: string
   onApply: (subtasks: BrokenTask[]) => void
   onCancel: () => void
 }
@@ -22,53 +24,97 @@ interface TaskBreakerProps {
 export interface BrokenTask {
   title: string
   description?: string
-  suggestedAssignee?: string // family member name
+  suggestedAssigneeId?: string
+  suggestedAssigneeName?: string
+  sortOrder: number
 }
 
 const DETAIL_LEVELS: { key: TaskBreakerLevel; label: string; description: string }[] = [
-  { key: 'quick', label: 'Quick', description: '3–5 high-level steps' },
-  { key: 'detailed', label: 'Detailed', description: '5–10 steps with descriptions' },
-  { key: 'granular', label: 'Granular', description: '10–20 micro-steps' },
+  { key: 'quick', label: 'Quick', description: '3\u20135 high-level steps' },
+  { key: 'detailed', label: 'Detailed', description: '5\u201310 steps with descriptions' },
+  { key: 'granular', label: 'Granular', description: '10\u201320 micro-steps' },
 ]
 
-export function TaskBreaker({ taskTitle, taskDescription, onApply, onCancel }: TaskBreakerProps) {
+export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, onApply, onCancel }: TaskBreakerProps) {
   const { data: member } = useFamilyMember()
+  const { data: familyMembers } = useFamilyMembers(member?.family_id)
   const [level, setLevel] = useState<TaskBreakerLevel>('detailed')
   const [subtasks, setSubtasks] = useState<BrokenTask[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [_imageMode, _setImageMode] = useState(false)
 
   async function handleBreakDown() {
     setLoading(true)
     setError(null)
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('ai-parse', {
+      const activeMembers = (familyMembers ?? []).filter(m => m.is_active)
+
+      // Fetch active task counts per member for load-balancing suggestions
+      let activeTaskCounts: Record<string, number> = {}
+      if (activeMembers.length > 0 && member?.family_id) {
+        const { data: taskRows } = await supabase
+          .from('tasks')
+          .select('assignee_id')
+          .eq('family_id', member.family_id)
+          .in('status', ['pending', 'in_progress'])
+          .not('assignee_id', 'is', null)
+
+        if (taskRows) {
+          activeTaskCounts = taskRows.reduce<Record<string, number>>((acc, row) => {
+            const id = row.assignee_id as string
+            acc[id] = (acc[id] || 0) + 1
+            return acc
+          }, {})
+        }
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke('task-breaker', {
         body: {
-          action: 'task_breaker',
-          content: taskTitle + (taskDescription ? `\n\n${taskDescription}` : ''),
-          options: {
-            level,
-            family_context: member ? { member_name: member.display_name } : undefined,
-          },
+          task_title: taskTitle,
+          task_description: taskDescription || undefined,
+          detail_level: level,
+          family_members: activeMembers.map(m => ({
+            id: m.id,
+            display_name: m.display_name,
+            dashboard_mode: m.dashboard_mode,
+          })),
+          life_area_tag: lifeAreaTag || undefined,
+          active_task_count_by_member: activeTaskCounts,
+          family_id: member?.family_id,
+          member_id: member?.id,
         },
       })
 
       if (fnError) throw fnError
 
-      // Parse AI response into subtask array
-      const items: BrokenTask[] = Array.isArray(data?.items)
-        ? data.items.map((item: { title?: string; description?: string; assignee?: string }) => ({
-            title: item.title ?? String(item),
-            description: item.description,
-            suggestedAssignee: item.assignee,
-          }))
-        : parseTextResponse(data?.text ?? data?.content ?? '')
+      // Build member name lookup for display
+      const memberNameMap = new Map(activeMembers.map(m => [m.id, m.display_name]))
 
-      setSubtasks(items)
+      const items: BrokenTask[] = Array.isArray(data?.subtasks)
+        ? data.subtasks.map((item: {
+            title?: string
+            description?: string
+            suggested_assignee_id?: string
+            sort_order?: number
+          }, idx: number) => ({
+            title: item.title ?? '',
+            description: item.description || undefined,
+            suggestedAssigneeId: item.suggested_assignee_id || undefined,
+            suggestedAssigneeName: item.suggested_assignee_id
+              ? memberNameMap.get(item.suggested_assignee_id) || undefined
+              : undefined,
+            sortOrder: item.sort_order ?? idx + 1,
+          }))
+        : []
+
+      if (items.length === 0) {
+        setError('No subtasks were generated. Try a different detail level or add more description.')
+      } else {
+        setSubtasks(items)
+      }
     } catch (err) {
-      setError('Failed to break down task. Try again.')
+      setError('Failed to break down task. Please try again.')
       console.error('Task Breaker error:', err)
     } finally {
       setLoading(false)
@@ -220,13 +266,20 @@ export function TaskBreaker({ taskTitle, taskDescription, onApply, onCancel }: T
                   {idx + 1}
                 </span>
 
-                <input
-                  type="text"
-                  value={st.title}
-                  onChange={e => editSubtask(idx, e.target.value)}
-                  className="flex-1 text-sm bg-transparent border-none outline-none"
-                  style={{ color: 'var(--color-text-primary)' }}
-                />
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={st.title}
+                    onChange={e => editSubtask(idx, e.target.value)}
+                    className="w-full text-sm bg-transparent border-none outline-none"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  />
+                  {st.suggestedAssigneeName && (
+                    <span className="text-[10px] block" style={{ color: 'var(--color-text-secondary)' }}>
+                      Suggested: {st.suggestedAssigneeName}
+                    </span>
+                  )}
+                </div>
 
                 <button
                   onClick={() => removeSubtask(idx)}
@@ -273,13 +326,4 @@ export function TaskBreaker({ taskTitle, taskDescription, onApply, onCancel }: T
       </button>
     </div>
   )
-}
-
-/** Fallback parser for plain text AI response */
-function parseTextResponse(text: string): BrokenTask[] {
-  return text
-    .split('\n')
-    .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
-    .filter(Boolean)
-    .map(title => ({ title }))
 }

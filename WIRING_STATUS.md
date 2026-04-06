@@ -1,27 +1,28 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-03-28.
+> Updated each build session. Last updated: 2026-04-06.
 
 ## RoutingStrip Destinations
 
 | Destination | Routes From | Creates Record In | Status | Notes |
 |---|---|---|---|---|
-| Calendar | Notepad, Meeting, Request | `calendar_events` | Stub | PRD-14B not built |
+| Calendar | Notepad, MindSweep, .ics import | `studio_queue` → `calendar_events` | **Wired** | Queue → CalendarTab approve/edit/skip + .ics file upload on /sweep |
 | Tasks | Notepad, Review & Route | `studio_queue` (destination='task') | **Wired** | Queue → TaskCreationModal works |
-| List | Notepad, Review & Route | Shows list picker | Stub | ListPicker overlay not built yet |
+| List | Notepad, Review & Route | Shows list picker | **Wired** | ListPickerModal in SortTab |
 | Journal | Notepad, Review & Route | `journal_entries` | **Wired** | Routes to journal |
-| Guiding Stars | Notepad, Review & Route | `guiding_stars` | Stub | PRD-06 not built |
-| Best Intentions | Notepad, Meeting | `best_intentions` | Stub | PRD-06 not built |
-| Victory | Notepad, Review & Route | `victories` | Stub | PRD-11 not built |
-| Track | Notepad | Widget data point | Stub | PRD-10 not built |
+| Guiding Stars | Notepad, Review & Route, MindSweep | `guiding_stars` | **Wired** | PRD-06 built |
+| Best Intentions | Notepad, Meeting, MindSweep | `best_intentions` | **Wired** | PRD-06 built |
+| Victory | Notepad, Review & Route, MindSweep | `victories` | **Wired** | PRD-11 built |
+| Track | Notepad | Widget data point | Stub | PRD-10 widget data routing not built |
 | Message | Notepad | Opens composer | Stub | PRD-15 not built |
 | Agenda | Notepad | Meeting agenda item | Stub | PRD-16 not built |
-| InnerWorkings | Notepad | `self_knowledge` | Stub | PRD-07 not built |
+| InnerWorkings | Notepad, MindSweep | `self_knowledge` | **Wired** | PRD-07 built |
 | Optimizer | Notepad | LiLa Optimizer | Stub | PRD-05C not built |
 | Ideas | Notepad, Review & Route | `lists` (type='ideas') | **Wired** | Creates list item in Ideas list |
-| Backburner | Notepad, Review & Route, Meeting | `lists` (type='backburner') | **Wired** | Creates list item in Backburner |
+| Backburner | Notepad, Review & Route, Meeting, MindSweep | `lists` (type='backburner') | **Wired** | Creates list item in Backburner |
 | Note | Notepad | `journal_entries` (free_write) | **Wired** | Quick note |
+| MindSweep | Notepad, /sweep | `studio_queue` + direct inserts | **Wired** | PRD-17B: embedding-first + Haiku classification |
 | Acknowledge | Request accept | Notification only | Stub | PRD-15 not built |
 | Skip | Meeting action | No record | **Wired** | Just dismisses |
 
@@ -88,13 +89,32 @@
 | Log Victory | Navigate `/victories?new=1` | **Wired** | Victory recording page |
 | Calendar Event | Navigate `/calendar?new=1` | **Wired** | EventCreationModal on CalendarPage + CalendarWidget |
 | Send Request | Opens Notepad (fallback) | Stub | PRD-15 request modal not built |
-| Mind Sweep | Navigate `/sweep` | Stub | MindSweep PWA entry |
+| Mind Sweep | Navigate `/sweep` | **Wired** | MindSweep capture: text, voice, scan, link, calendar import |
+
+## Calendar Import (Phase 0)
+
+| Path | How It Works | Status |
+|---|---|---|
+| Upload .ics file | Calendar button on /sweep → parse → studio_queue → CalendarTab approve | **Wired** |
+| Screenshot event | Scan button → OCR → MindSweep classifies as calendar → CalendarTab | **Wired** |
+| Paste event link | Link button → fetch + summarize → MindSweep classifies → CalendarTab | **Wired** |
+| Type event details | Text → Sweep Now → MindSweep classifies as calendar → CalendarTab | **Wired** |
+| Forward email (.ics) | Email forwarding → mindsweep-email-intake | Stub (DNS not configured) |
+| Google Calendar API | OAuth → two-way sync | Not built (Phase 1 / post-MVP) |
+
+## Task Breaker AI (PRD-09A)
+
+| Feature | How It Works | Status | Notes |
+|---|---|---|---|
+| Text Mode — Quick | TaskCreationModal → TaskBreaker → `task-breaker` Edge Function (Haiku) → 3-5 subtasks | **Wired** | Family context + active task counts passed |
+| Text Mode — Detailed | Same flow → 5-10 subtasks with descriptions | **Wired** | |
+| Text Mode — Granular | Same flow → 10-20 micro-steps | **Wired** | |
+| Subtask creation | Accepted subtasks → child `tasks` rows via `parent_task_id` | **Wired** | Created in `createTaskFromData` |
+| Image Mode | Camera/upload → visual task decomposition | Stub | Full Magic tier, separate session |
 
 ## Known Issues / TODO
 
 - System lists (Backburner, Ideas) not auto-provisioned yet — need trigger in auto_provision_member_resources
-- ListPicker overlay for Notepad → Lists routing not built (items route to studio_queue instead)
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)
 - Guided Form child fill view + mom review flow not tested end-to-end
 - Quick Create "Send Request" falls back to Notepad until PRD-15 is built
-- Quick Create "Calendar Event" navigates to calendar page (EventCreationModal opens)
