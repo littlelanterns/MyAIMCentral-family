@@ -22,6 +22,7 @@ export type GuidedFormSubtype = 'sodas' | 'what_if' | 'apology_reflection' | 'cu
 
 export type PoolMode = 'individual' | 'shared'
 export type FrequencyPeriod = 'day' | 'week' | 'month'
+export type VictoryMode = 'none' | 'item_completed' | 'list_completed' | 'both'
 
 export interface List {
   id: string
@@ -35,6 +36,7 @@ export interface List {
   description: string | null
   is_shared: boolean
   victory_on_complete: boolean
+  victory_mode: VictoryMode
   is_included_in_ai: boolean
   reveal_type: string | null
   max_respins_per_period: number | null
@@ -66,6 +68,7 @@ export interface ListItem {
   item_date: string | null
   priority: ListItemPriority | null
   gift_for: string | null
+  victory_flagged: boolean
   promoted_to_task: boolean
   promoted_task_id: string | null
   is_repeatable: boolean

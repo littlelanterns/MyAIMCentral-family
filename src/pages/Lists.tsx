@@ -5,13 +5,14 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, ArchiveRestore, Trash2, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
-  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2,
+  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2, Trophy,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -29,14 +30,49 @@ import {
   useUpdateSharePermission, useHideSharedList, useUnhideSharedList, useHiddenSharedLists,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
+import { useCreateVictory } from '@/hooks/useVictories'
 import { Sparkles, Settings2 } from 'lucide-react'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
-import type { ListItem, ListType, ListShare, List as ListData } from '@/types/lists'
+import type { ListItem, ListType, ListShare, List as ListData, VictoryMode } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
 import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/FrequencyRulesEditor'
 import { PoolModeSelector } from '@/components/lists/PoolModeSelector'
 import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 import { ReferenceListView } from '@/components/lists/ReferenceListView'
+
+// ── Victory mode selector ──────────────────────────────────
+const VICTORY_MODE_OPTIONS: { value: VictoryMode; label: string; description: string }[] = [
+  { value: 'none', label: 'None', description: 'No victory tracking' },
+  { value: 'item_completed', label: 'Per item', description: 'Victory for each flagged item' },
+  { value: 'list_completed', label: 'All done', description: 'Victory when list is complete' },
+  { value: 'both', label: 'Both', description: 'Per item + all done' },
+]
+
+function VictoryModeSelector({ mode, onChange }: { mode: VictoryMode; onChange: (m: VictoryMode) => void }) {
+  return (
+    <div className="flex items-center gap-2 px-1">
+      <Trophy size={14} style={{ color: mode !== 'none' ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }} />
+      <span className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>Celebrate</span>
+      <div className="flex gap-1 ml-auto">
+        {VICTORY_MODE_OPTIONS.map(opt => (
+          <Tooltip key={opt.value} content={opt.description}>
+            <button
+              onClick={() => onChange(opt.value)}
+              className="px-2 py-1 rounded-md text-[11px] font-medium transition-colors"
+              style={{
+                backgroundColor: mode === opt.value ? 'var(--color-btn-primary-bg)' : 'transparent',
+                color: mode === opt.value ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                border: mode === opt.value ? 'none' : '1px solid var(--color-border)',
+              }}
+            >
+              {opt.label}
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 // ── Type config ────────────────────────────────────────────
 
@@ -899,6 +935,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const toggleItem = useToggleListItem()
   const deleteItem = useDeleteListItem()
   const updateItem = useUpdateListItem()
+  const updateList = useUpdateList()
   const uncheckAll = useUncheckAllItems()
   const promoteItem = usePromoteListItem()
   const archiveList = useArchiveList()
@@ -929,6 +966,10 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const [organizePreview, setOrganizePreview] = useState<Record<string, string[]> | null>(null)
   const [organizeMapping, setOrganizeMapping] = useState<Map<string, string> | null>(null)
   const [organizeError, setOrganizeError] = useState<string | null>(null)
+  const createVictory = useCreateVictory()
+  const queryClient = useQueryClient()
+  const [victoryCreated, setVictoryCreated] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
 
   // Sync local items when server items change (and no drag in progress)
   useEffect(() => {
@@ -1187,6 +1228,89 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     })
   }
 
+  function getMemberType() {
+    if (!member) return 'adult' as const
+    if (member.dashboard_mode === 'guided') return 'guided' as const
+    if (member.dashboard_mode === 'play') return 'play' as const
+    if (member.dashboard_mode === 'independent') return 'teen' as const
+    return 'adult' as const
+  }
+
+  // Victory creation on item check — handles per-item and per-list modes
+  function handleToggle(item: ListItem) {
+    const isChecking = !item.checked
+    toggleItem.mutate(
+      { id: item.id, checked: isChecking, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined },
+      {
+        onSuccess: async () => {
+          if (!isChecking || !list || !family || !member) return
+          const mode = list.victory_mode ?? 'none'
+          if (mode === 'none') return
+
+          const memberType = getMemberType()
+          const doPerItem = (mode === 'item_completed' || mode === 'both') && item.victory_flagged
+          const doListComplete = mode === 'list_completed' || mode === 'both'
+
+          // Per-item victory (idempotent: check for existing victory with same source_reference_id)
+          if (doPerItem) {
+            const { data: existing } = await supabase
+              .from('victories')
+              .select('id')
+              .eq('family_id', family.id)
+              .eq('source', 'list_item_completed')
+              .eq('source_reference_id', item.id)
+              .limit(1)
+            if (!existing || existing.length === 0) {
+              createVictory.mutate({
+                family_id: family.id,
+                family_member_id: member.id,
+                description: item.content || item.item_name || 'List item completed',
+                source: 'list_item_completed',
+                source_reference_id: item.id,
+                member_type: memberType,
+                importance: 'small_win',
+              })
+            }
+          }
+
+          // Per-list victory (all items checked)
+          if (doListComplete && !victoryCreated) {
+            const uncheckedCount = items.filter(i => !i.checked && i.id !== item.id).length
+            if (uncheckedCount === 0 && items.length > 0) {
+              createVictory.mutate({
+                family_id: family.id,
+                family_member_id: member.id,
+                description: `Completed ${list.title}!`,
+                source: 'list_completed',
+                source_reference_id: list.id,
+                member_type: memberType,
+                importance: 'standard',
+              })
+              setVictoryCreated(true)
+              setShowCelebration(true)
+              setTimeout(() => setShowCelebration(false), 4000)
+            }
+          }
+        },
+      }
+    )
+  }
+
+  // When victory mode changes, auto-flag/unflag all items
+  async function handleVictoryModeChange(newMode: VictoryMode) {
+    updateList.mutate({ id: listId, victory_mode: newMode })
+    const shouldFlag = newMode === 'item_completed' || newMode === 'both'
+    // Bulk update all items' victory_flagged
+    if (items.length > 0) {
+      await Promise.all(
+        items.map(item =>
+          supabase.from('list_items').update({ victory_flagged: shouldFlag }).eq('id', item.id)
+        )
+      )
+      queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
+    }
+  }
+
   function handleDragEnd(event: DragEndEvent, scopedItems: ListItem[]) {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -1374,7 +1498,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         style={{ opacity: item.checked ? 0.5 : 1 }}
       >
         <button
-          onClick={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined })}
+          onClick={() => handleToggle(item)}
           className="shrink-0"
         >
           <div
@@ -1529,6 +1653,14 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               }).join(', ')}
             </span>
           </div>
+        )}
+
+        {/* Victory mode selector */}
+        {isOwnerOrParent && (
+          <VictoryModeSelector
+            mode={list.victory_mode ?? 'none'}
+            onChange={handleVictoryModeChange}
+          />
         )}
 
         {/* Single-card compact list */}
@@ -1835,6 +1967,14 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         </div>
       )}
 
+      {/* Victory mode selector */}
+      {isOwnerOrParent && (
+        <VictoryModeSelector
+          mode={list.victory_mode ?? 'none'}
+          onChange={handleVictoryModeChange}
+        />
+      )}
+
       {/* Progress */}
       {totalItems > 0 && (
         <div className="flex items-center gap-3">
@@ -1847,6 +1987,15 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
             {checkedItems}/{totalItems}
           </span>
+        </div>
+      )}
+
+      {/* Victory celebration banner */}
+      {showCelebration && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium animate-pulse"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)', color: 'var(--color-btn-primary-bg)' }}>
+          <Trophy size={16} />
+          <span>All done! Victory recorded!</span>
         </div>
       )}
 
@@ -1873,11 +2022,13 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                       key={item.id}
                       item={item}
                       listType={list.list_type}
-                      onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined })}
+                      onToggle={() => handleToggle(item)}
                       onDelete={() => deleteItem.mutate({ id: item.id, listId })}
                       onPromote={() => handlePromote(item)}
                       isEditing={editingId === item.id}
                       onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
+                      showVictoryFlag={isOwnerOrParent}
+                      onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
                     />
                   ))}
                 </div>
@@ -1899,11 +2050,13 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                     key={item.id}
                     item={item}
                     listType={list.list_type}
-                    onToggle={() => toggleItem.mutate({ id: item.id, checked: !item.checked, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined })}
+                    onToggle={() => handleToggle(item)}
                     onDelete={() => deleteItem.mutate({ id: item.id, listId })}
                     onPromote={() => handlePromote(item)}
                     isEditing={editingId === item.id}
                     onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
+                    showVictoryFlag={isOwnerOrParent}
+                    onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
                   />
                 ))}
               </div>
@@ -2267,6 +2420,8 @@ interface ListItemRowProps {
   onPromote: () => void
   isEditing: boolean
   onEdit: () => void
+  showVictoryFlag?: boolean
+  onToggleVictoryFlag?: () => void
   dragHandleProps?: Record<string, unknown>
 }
 
@@ -2305,6 +2460,8 @@ function ListItemRow({
   onPromote,
   isEditing: _isEditing,
   onEdit: _onEdit,
+  showVictoryFlag,
+  onToggleVictoryFlag,
   dragHandleProps,
 }: ListItemRowProps) {
   const isTodo = listType === 'todo'
@@ -2398,16 +2555,25 @@ function ListItemRow({
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        {isTodo && !item.promoted_to_task && (
-          <button onClick={onPromote} className="p-1 rounded" title="Promote to task" style={{ color: 'var(--color-btn-primary-bg)' }}>
-            <ArrowRight size={14} />
-          </button>
+      {/* Victory flag + Actions */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {showVictoryFlag && onToggleVictoryFlag && (
+          <Tooltip content={item.victory_flagged ? 'Victory enabled' : 'Enable victory'}>
+            <button onClick={onToggleVictoryFlag} className="p-1 rounded transition-colors" style={{ color: item.victory_flagged ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)', opacity: item.victory_flagged ? 1 : 0.4 }}>
+              <Trophy size={12} />
+            </button>
+          </Tooltip>
         )}
-        <button onClick={onDelete} className="p-1 rounded" style={{ color: 'var(--color-text-secondary)' }}>
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isTodo && !item.promoted_to_task && (
+            <button onClick={onPromote} className="p-1 rounded" title="Promote to task" style={{ color: 'var(--color-btn-primary-bg)' }}>
+              <ArrowRight size={14} />
+            </button>
+          )}
+          <button onClick={onDelete} className="p-1 rounded" style={{ color: 'var(--color-text-secondary)' }}>
+            <X size={14} />
+          </button>
+        </div>
       </div>
     </div>
   )

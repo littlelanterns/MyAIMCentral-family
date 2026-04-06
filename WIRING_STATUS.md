@@ -43,8 +43,8 @@
 
 | List | Type | Auto-Created | Routes From | Status |
 |---|---|---|---|---|
-| Backburner | `backburner` | Not yet (needs auto-provision trigger) | Notepad, Review & Route | **UI ready** |
-| Ideas | `ideas` | Not yet (needs auto-provision trigger) | Notepad, Review & Route | **UI ready** |
+| Backburner | `backburner` | Yes (auto_provision_member_resources trigger) | Notepad, Review & Route | **Wired** |
+| Ideas | `ideas` | Yes (auto_provision_member_resources trigger) | Notepad, Review & Route | **Wired** |
 
 ## User-Created List Types
 
@@ -112,9 +112,28 @@
 | Subtask creation | Accepted subtasks → child `tasks` rows via `parent_task_id` | **Wired** | Created in `createTaskFromData` |
 | Image Mode | Camera/upload → visual task decomposition | Stub | Full Magic tier, separate session |
 
+## Opportunity Claim Lock Expiration (PRD-09A)
+
+| Feature | How It Works | Status | Notes |
+|---|---|---|---|
+| Server-side cron | `expire_overdue_task_claims()` runs hourly via pg_cron, releases expired claims | **Wired** | Sets status='released', released=true |
+| Client-side backup | `useExpireOverdueClaims` sweeps on page load | **Wired** | Belt-and-suspenders with server cron |
+
+## List Victory Mode (PRD-09B)
+
+| Feature | How It Works | Status | Notes |
+|---|---|---|---|
+| Victory mode selector | 4-option segmented control (None / Per item / All done / Both) in list detail header | **Wired** | Shopping + generic list views, owner/parent only |
+| Per-item victories | Checking a flagged item → victory with source='list_item_completed', idempotent | **Wired** | Checks for existing victory before creating |
+| List-level victories | Last unchecked item checked → victory with source='list_completed' | **Wired** | Debounced per session |
+| Per-item flag toggle | Trophy icon on each item, toggleable by owner/parent | **Wired** | Auto-flags all items when switching to item_completed or both |
+| Auto-flagging on mode change | Switching to item_completed/both bulk-sets all items' victory_flagged=true | **Wired** | Mom can unflag specific items |
+| Default by list type | randomizer → 'item_completed', everything else → 'none' | **Wired** | Frontend default in useCreateList |
+| Celebration banner | "All done! Victory recorded!" on list completion | **Wired** | Auto-dismisses after 4 seconds |
+| victory_flagged column | Per-item boolean on list_items, default false | **Wired** | Migration 100102 |
+
 ## Known Issues / TODO
 
-- System lists (Backburner, Ideas) not auto-provisioned yet — need trigger in auto_provision_member_resources
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)
 - Guided Form child fill view + mom review flow not tested end-to-end
 - Quick Create "Send Request" falls back to Notepad until PRD-15 is built

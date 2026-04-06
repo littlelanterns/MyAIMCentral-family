@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type {
-  List, ListItem, ListShare, ListTemplate, ListType,
+  List, ListItem, ListShare, ListTemplate, ListType, VictoryMode,
 } from '@/types/lists'
 
 // Re-export types for backward compatibility
@@ -45,6 +45,11 @@ export function useListItems(listId: string | undefined) {
   })
 }
 
+function getDefaultVictoryMode(listType: ListType): VictoryMode {
+  if (listType === 'randomizer') return 'item_completed'
+  return 'none'
+}
+
 export function useCreateList() {
   const queryClient = useQueryClient()
 
@@ -55,12 +60,15 @@ export function useCreateList() {
       title: string
       list_type: ListType
       tags?: string[]
+      victory_mode?: VictoryMode
     }) => {
+      const { victory_mode, ...rest } = list
       const { data, error } = await supabase
         .from('lists')
         .insert({
-          ...list,
+          ...rest,
           tags: list.tags ?? [],
+          victory_mode: victory_mode ?? getDefaultVictoryMode(list.list_type),
         })
         .select()
         .single()

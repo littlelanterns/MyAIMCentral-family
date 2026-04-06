@@ -15,6 +15,7 @@ export type VictorySource =
   | 'notepad_routed'
   | 'reflection_routed'
   | 'list_item_completed'
+  | 'list_completed'
   | 'routine_completion'
   | 'reckoning_prompt'
   | 'homeschool_logged'
@@ -357,6 +358,7 @@ export const SOURCE_LABELS: Record<VictorySource, string> = {
   notepad_routed: 'From Notepad',
   reflection_routed: 'From Reflection',
   list_item_completed: 'List item completed',
+  list_completed: 'List completed',
   routine_completion: 'Routine completed',
   reckoning_prompt: 'What Actually Got Done',
   homeschool_logged: 'Homeschool logged',
