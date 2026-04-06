@@ -1,6 +1,6 @@
 # Build Status — MyAIM Central v2
 
-> Last updated: 2026-03-24
+> Last updated: 2026-04-06
 
 ## Foundation Phases (Complete)
 
@@ -48,9 +48,9 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 13 | PRD-13 | Archives & Context | Phase 07, 08, 09 | **Complete** | 2026-03-25 |
 | 14 | PRD-14, PRD-14B | Personal Dashboard & Calendar | Phase 05, 10, 11 | **Complete** | 2026-03-30 |
 | 15 | PRD-14C, PRD-14D, PRD-14E | Family Overview, Hub & TV Mode | Phase 14 | Pending |
-| 16 | PRD-15 | Messages, Requests & Notifications | Phase 06 | Pending |
+| 16 | PRD-15 | Messages, Requests & Notifications (12 tables, NotificationBell, Realtime, 4 Edge Functions, cross-cutting infrastructure) | Phase 06 | **Complete** | 2026-04-06 |
 | 17 | PRD-16 | Meetings | Phase 10, 16 | Pending |
-| 18 | PRD-17, PRD-17B | Universal Queue & MindSweep | Phase 10, 16 | Pending |
+| 18 | PRD-17, PRD-17B | Universal Queue (PRD-17) + MindSweep Sprint 1+2 (PRD-17B Phase A + partial B) | Phase 10, 16 | **Partial** — PRD-17 complete 2026-04-03; PRD-17B Phase B remainder + Phase C pending |
 | 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | Pending |
 | 20 | PRD-19 | Family Context & Relationships | Phase 13 | Pending |
 | 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | Pending |

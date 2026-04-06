@@ -24,7 +24,7 @@ const NON_API_TABLES = [
   'ai_credits', 'credit_packs', 'tier_sampling_costs', 'tier_sample_sessions',
   'onboarding_milestones', 'subscription_cancellations', 'optimizer_outputs',
   'user_prompt_templates', 'context_presets', 'family_victory_celebrations',
-  'notifications', 'notification_preferences',
+  // notifications + notification_preferences are now API-exposed (PRD-15 migration 100098)
   'vault_engagement', 'vault_comments', 'vault_comment_reports',
   'vault_moderation_log', 'vault_satisfaction_signals', 'vault_engagement_config',
   'mindsweep_settings', 'mindsweep_holding', 'mindsweep_allowed_senders',
@@ -112,7 +112,11 @@ const DOMAIN_ORDER = [
     'context_learning_dismissals',
   ]},
   { name: 'Communication', prefix: 'PRD-15', tables: [
-    'out_of_nest_members', 'notifications', 'notification_preferences',
+    'conversation_spaces', 'conversation_space_members', 'conversation_threads',
+    'messages', 'message_read_status', 'messaging_settings',
+    'member_messaging_permissions', 'message_coaching_settings',
+    'family_requests', 'notifications', 'notification_preferences',
+    'out_of_nest_members',
   ]},
   { name: 'ThoughtSift', prefix: 'PRD-34', tables: [
     'board_personas', 'board_sessions', 'board_session_personas', 'persona_favorites',

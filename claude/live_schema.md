@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-04
+> Auto-generated from live Supabase on 2026-04-06
 > Script: `node scripts/full-schema-dump.cjs`
 > Column names from OpenAPI spec (accurate for all API-exposed tables)
 > Row counts from live queries
@@ -118,7 +118,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 89 rows
+### `view_as_sessions` — 91 rows
 
 | # | Column |
 |---|---|
@@ -129,7 +129,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 4 rows
+### `view_as_feature_exclusions` — 6 rows
 
 | # | Column |
 |---|---|
@@ -219,7 +219,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 142 rows
+### `feature_key_registry` — 153 rows
 
 | # | Column |
 |---|---|
@@ -230,7 +230,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 157 rows
+### `feature_access_v2` — 178 rows
 
 | # | Column |
 |---|---|
@@ -286,7 +286,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 43 rows
+### `lila_conversations` — 62 rows
 
 | # | Column |
 |---|---|
@@ -311,7 +311,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 86 rows
+### `lila_messages` — 124 rows
 
 | # | Column |
 |---|---|
@@ -387,7 +387,7 @@
 
 *(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
 
-### `ai_usage_tracking` — 144 rows
+### `ai_usage_tracking` — 369 rows
 
 | # | Column |
 |---|---|
@@ -404,7 +404,7 @@
 
 ## Personal Growth (PRD-06 to PRD-08)
 
-### `guiding_stars` — 20 rows
+### `guiding_stars` — 34 rows
 
 | # | Column |
 |---|---|
@@ -428,7 +428,7 @@
 | 18 | `sort_order` |
 | 19 | `archived_at` |
 
-### `best_intentions` — 13 rows
+### `best_intentions` — 20 rows
 
 | # | Column |
 |---|---|
@@ -456,7 +456,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 44 rows
+### `intention_iterations` — 72 rows
 
 | # | Column |
 |---|---|
@@ -522,7 +522,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 18 rows
+### `notepad_tabs` — 19 rows
 
 | # | Column |
 |---|---|
@@ -644,7 +644,7 @@
 | 9 | `require_photo` |
 | 10 | `updated_at` |
 
-### `tasks` — 43 rows
+### `tasks` — 50 rows
 
 | # | Column |
 |---|---|
@@ -798,7 +798,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 1 rows
+### `studio_queue` — 17 rows
 
 | # | Column |
 |---|---|
@@ -848,6 +848,7 @@
 | 21 | `archive_folder_id` |
 | 22 | `pool_mode` |
 | 23 | `eligible_members` |
+| 24 | `tags` |
 
 ### `list_items` — 116 rows
 
@@ -946,7 +947,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 27 rows
+### `dashboard_configs` — 28 rows
 
 | # | Column |
 |---|---|
@@ -962,7 +963,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 151 rows
+### `dashboard_widgets` — 152 rows
 
 | # | Column |
 |---|---|
@@ -1084,6 +1085,9 @@
 | 38 | `updated_at` |
 | 39 | `acted_by` |
 | 40 | `show_on_hub` |
+| 41 | `option_group_id` |
+| 42 | `option_group_title` |
+| 43 | `calendar_subtype` |
 
 ### `event_attendees` — 29 rows
 
@@ -1096,7 +1100,7 @@
 | 5 | `response_status` |
 | 6 | `created_at` |
 
-### `event_categories` — 11 rows
+### `event_categories` — 12 rows
 
 | # | Column |
 |---|---|
@@ -1161,7 +1165,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `family_best_intentions` — 5 rows
+### `family_best_intentions` — 12 rows
 
 | # | Column |
 |---|---|
@@ -1190,7 +1194,7 @@
 | 5 | `day_date` |
 | 6 | `created_at` |
 
-### `countdowns` — 5 rows
+### `countdowns` — 12 rows
 
 | # | Column |
 |---|---|
@@ -1210,7 +1214,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 13 rows
+### `victories` — 20 rows
 
 | # | Column |
 |---|---|
@@ -1291,7 +1295,7 @@
 | 13 | `is_included_in_ai` |
 | 14 | `sort_order` |
 
-### `archive_context_items` — 109 rows
+### `archive_context_items` — 170 rows
 
 | # | Column |
 |---|---|
@@ -1373,6 +1377,167 @@
 
 ## Communication (PRD-15)
 
+### `conversation_spaces` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `space_type` |
+| 4 | `name` |
+| 5 | `created_by` |
+| 6 | `is_pinned` |
+| 7 | `metadata` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `conversation_space_members` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `space_id` |
+| 3 | `family_member_id` |
+| 4 | `role` |
+| 5 | `notifications_muted` |
+| 6 | `joined_at` |
+
+### `conversation_threads` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `space_id` |
+| 3 | `title` |
+| 4 | `started_by` |
+| 5 | `is_archived` |
+| 6 | `is_pinned` |
+| 7 | `source_type` |
+| 8 | `source_reference_id` |
+| 9 | `last_message_at` |
+| 10 | `created_at` |
+
+### `messages` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `thread_id` |
+| 3 | `sender_member_id` |
+| 4 | `message_type` |
+| 5 | `content` |
+| 6 | `metadata` |
+| 7 | `reply_to_id` |
+| 8 | `is_edited` |
+| 9 | `edited_at` |
+| 10 | `created_at` |
+
+### `message_read_status` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `thread_id` |
+| 3 | `family_member_id` |
+| 4 | `last_read_message_id` |
+| 5 | `last_read_at` |
+
+### `messaging_settings` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `communication_guidelines` |
+| 4 | `content_corner_viewing_mode` |
+| 5 | `content_corner_locked_until` |
+| 6 | `content_corner_who_can_add` |
+| 7 | `created_at` |
+| 8 | `updated_at` |
+
+### `member_messaging_permissions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `can_message_member_id` |
+| 5 | `created_at` |
+
+### `message_coaching_settings` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `is_enabled` |
+| 5 | `custom_prompt` |
+| 6 | `created_at` |
+| 7 | `updated_at` |
+
+### `family_requests` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `sender_member_id` |
+| 4 | `recipient_member_id` |
+| 5 | `title` |
+| 6 | `details` |
+| 7 | `when_text` |
+| 8 | `status` |
+| 9 | `routed_to` |
+| 10 | `routed_reference_id` |
+| 11 | `decline_note` |
+| 12 | `snoozed_until` |
+| 13 | `discussion_thread_id` |
+| 14 | `source` |
+| 15 | `source_reference_id` |
+| 16 | `processed_at` |
+| 17 | `processed_by` |
+| 18 | `created_at` |
+| 19 | `updated_at` |
+
+### `notifications` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `recipient_member_id` |
+| 4 | `notification_type` |
+| 5 | `category` |
+| 6 | `title` |
+| 7 | `body` |
+| 8 | `source_type` |
+| 9 | `source_reference_id` |
+| 10 | `action_url` |
+| 11 | `is_read` |
+| 12 | `read_at` |
+| 13 | `is_dismissed` |
+| 14 | `delivery_method` |
+| 15 | `delivered_at` |
+| 16 | `email_sent_at` |
+| 17 | `priority` |
+| 18 | `created_at` |
+
+### `notification_preferences` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `category` |
+| 5 | `in_app_enabled` |
+| 6 | `push_enabled` |
+| 7 | `do_not_disturb` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
 ### `out_of_nest_members` — 4 rows
 
 | # | Column |
@@ -1390,14 +1555,6 @@
 | 11 | `last_active_at` |
 | 12 | `created_at` |
 | 13 | `updated_at` |
-
-### `notifications` — not API-exposed
-
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
-
-### `notification_preferences` — not API-exposed
-
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
 
 ---
 
@@ -1782,7 +1939,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `bookshelf_user_state` — 13 rows
+### `bookshelf_user_state` — 20 rows
 
 | # | Column |
 |---|---|
@@ -1801,6 +1958,7 @@
 | 13 | `journal_prompt_id` |
 | 14 | `created_at` |
 | 15 | `updated_at` |
+| 16 | `is_hidden` |
 
 ---
 
@@ -2049,7 +2207,7 @@
 | 15 | `created_at` |
 | 16 | `updated_at` |
 
-### `teaching_skill_history` — 22 rows
+### `teaching_skill_history` — 28 rows
 
 | # | Column |
 |---|---|
@@ -2149,7 +2307,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 41 rows
+### `activity_log_entries` — 76 rows
 
 | # | Column |
 |---|---|
@@ -2349,6 +2507,6 @@
 
 ---
 
-> **Summary:** 109 API-exposed tables with columns | 27 non-API tables | 8 platform_intelligence tables
+> **Summary:** 120 API-exposed tables with columns | 25 non-API tables | 8 platform_intelligence tables
 >
 > **Non-API tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add them to the API schema grant.

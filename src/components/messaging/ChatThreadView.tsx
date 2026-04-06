@@ -1,9 +1,14 @@
 /**
- * ChatThreadView — PRD-15 Screen 3
+ * ChatThreadView — PRD-15 Screen 3 + Phase E
  *
  * Chat bubbles with auto-scroll, mark read on mount, load older pagination.
  * Sender avatars/initials, timestamps, system messages centered.
  * Supabase Realtime for new messages.
+ *
+ * Phase E additions:
+ *   - LiLa "Ask LiLa & Send" streaming display
+ *   - Before-send coaching checkpoint
+ *   - Auto-title thread after first reply
  */
 
 import { useEffect, useRef, useMemo, useCallback, useState } from 'react'
@@ -13,7 +18,11 @@ import { useMessages, useSendMessage, useAutoMarkRead } from '@/hooks/useMessage
 import { useThreadRealtime } from '@/hooks/useMessagingRealtime'
 import { useRenameThread } from '@/hooks/useConversationThreads'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useLilaMessageRespond } from '@/hooks/useLilaMessageRespond'
+import { useMessageCoaching } from '@/hooks/useMessageCoaching'
 import { MessageInputBar } from './MessageInputBar'
+import { CoachingCheckpoint } from './CoachingCheckpoint'
+import { supabase } from '@/lib/supabase/client'
 import type { MessageWithSender } from '@/types/messaging'
 
 interface ChatThreadViewProps {
@@ -21,6 +30,8 @@ interface ChatThreadViewProps {
   threadTitle: string | null
   spaceId: string
   participantNames?: string
+  showLilaButton?: boolean
+  coachingEnabled?: boolean
 }
 
 function formatTime(dateStr: string): string {
@@ -135,7 +146,14 @@ function MessageBubble({ msg, isOwn, showSender }: {
   )
 }
 
-export function ChatThreadView({ threadId, threadTitle, spaceId, participantNames }: ChatThreadViewProps) {
+export function ChatThreadView({
+  threadId,
+  threadTitle,
+  spaceId,
+  participantNames,
+  showLilaButton = false,
+  coachingEnabled = false,
+}: ChatThreadViewProps) {
   const navigate = useNavigate()
   const { data: currentMember } = useFamilyMember()
   const memberId = currentMember?.id
@@ -143,6 +161,16 @@ export function ChatThreadView({ threadId, threadTitle, spaceId, participantName
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useMessages(threadId)
   const sendMessage = useSendMessage()
   const renameThread = useRenameThread()
+  const { invokeLila, isStreaming: lilaStreaming, streamedContent: lilaStreamedContent } = useLilaMessageRespond()
+  const { checkCoaching, recordCoachedSend } = useMessageCoaching()
+
+  // Coaching checkpoint state
+  const [coachingState, setCoachingState] = useState<{
+    active: boolean
+    loading: boolean
+    note: string
+    pendingContent: string
+  }>({ active: false, loading: false, note: '', pendingContent: '' })
 
   // Subscribe to realtime
   useThreadRealtime(threadId)
@@ -167,9 +195,9 @@ export function ChatThreadView({ threadId, threadTitle, spaceId, participantName
   const [editTitle, setEditTitle] = useState(threadTitle ?? '')
 
   useEffect(() => {
-    // Scroll to bottom on new messages
+    // Scroll to bottom on new messages or LiLa streaming
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [allMessages.length])
+  }, [allMessages.length, lilaStreamedContent])
 
   // Load older on scroll to top
   const handleScroll = useCallback(() => {
@@ -179,10 +207,87 @@ export function ChatThreadView({ threadId, threadTitle, spaceId, participantName
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage])
 
+  // Auto-title after 2nd message if title is still null
+  const triggerAutoTitle = useCallback(async (tId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-title-thread`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ thread_id: tId }),
+      }).catch(() => {}) // Fire-and-forget
+    } catch {
+      // Ignore
+    }
+  }, [])
+
   const handleSend = useCallback((content: string) => {
     if (!threadId) return
-    sendMessage.mutate({ thread_id: threadId, content })
-  }, [threadId, sendMessage])
+    sendMessage.mutate(
+      { thread_id: threadId, content },
+      {
+        onSuccess: () => {
+          // Check if we should auto-title (thread has ~2 messages and no title)
+          const totalMessages = allMessages.length + 1 // +1 for the one we just sent
+          if (totalMessages === 2 && !threadTitle) {
+            triggerAutoTitle(threadId)
+          }
+        },
+      },
+    )
+  }, [threadId, sendMessage, allMessages.length, threadTitle, triggerAutoTitle])
+
+  // Coaching intercept: returns true if message should send, false if user wants to edit
+  const handleCoachingIntercept = useCallback(async (content: string): Promise<boolean> => {
+    setCoachingState({ active: true, loading: true, note: '', pendingContent: content })
+
+    const result = await checkCoaching(threadId, content)
+
+    if (result.isClean || !result.shouldCoach) {
+      // Message is fine — send immediately
+      setCoachingState({ active: false, loading: false, note: '', pendingContent: '' })
+      recordCoachedSend()
+      return true
+    }
+
+    // Show coaching checkpoint
+    setCoachingState({ active: true, loading: false, note: result.coachingNote, pendingContent: content })
+    return false // Don't send yet
+  }, [threadId, checkCoaching, recordCoachedSend])
+
+  const handleCoachingSendAnyway = useCallback(() => {
+    const content = coachingState.pendingContent
+    setCoachingState({ active: false, loading: false, note: '', pendingContent: '' })
+    recordCoachedSend()
+    if (content && threadId) {
+      sendMessage.mutate({ thread_id: threadId, content })
+    }
+  }, [coachingState.pendingContent, threadId, sendMessage, recordCoachedSend])
+
+  const handleCoachingEdit = useCallback(() => {
+    // Close coaching checkpoint — user goes back to editing (text still in input)
+    setCoachingState({ active: false, loading: false, note: '', pendingContent: '' })
+  }, [])
+
+  // "Ask LiLa & Send" handler
+  const handleSendWithLila = useCallback((content: string) => {
+    if (!threadId) return
+    // First send the user's message normally
+    sendMessage.mutate(
+      { thread_id: threadId, content },
+      {
+        onSuccess: () => {
+          // Then invoke LiLa to respond
+          invokeLila(threadId, content)
+        },
+      },
+    )
+  }, [threadId, sendMessage, invokeLila])
 
   const handleSaveTitle = useCallback(() => {
     if (!threadId || !editTitle.trim()) return
@@ -354,14 +459,86 @@ export function ChatThreadView({ threadId, threadTitle, spaceId, participantName
           })
         )}
 
+        {/* LiLa streaming response (shown while streaming) */}
+        {lilaStreaming && lilaStreamedContent && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: '0.5rem',
+              padding: '0.125rem 1rem',
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              L
+            </div>
+            <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginBottom: '0.125rem', paddingLeft: '0.25rem' }}>
+                LiLa
+              </span>
+              <div
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '12px 12px 12px 2px',
+                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-secondary))',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '0.875rem',
+                  lineHeight: '1.4',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {lilaStreamedContent}
+                <span
+                  className="animate-cursor-blink"
+                  aria-hidden="true"
+                  style={{ marginLeft: '1px', fontWeight: 600 }}
+                >
+                  |
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
+      {/* Coaching Checkpoint (shown above input when coaching triggers) */}
+      {coachingState.active && (
+        <CoachingCheckpoint
+          coachingNote={coachingState.note}
+          onEdit={handleCoachingEdit}
+          onSendAnyway={handleCoachingSendAnyway}
+          isLoading={coachingState.loading}
+        />
+      )}
+
       {/* Input */}
-      <MessageInputBar
-        onSend={handleSend}
-        disabled={sendMessage.isPending}
-      />
+      {!coachingState.active && (
+        <MessageInputBar
+          onSend={handleSend}
+          onSendWithLila={showLilaButton ? handleSendWithLila : undefined}
+          onCoachingIntercept={coachingEnabled ? handleCoachingIntercept : undefined}
+          showLilaButton={showLilaButton}
+          coachingEnabled={coachingEnabled}
+          disabled={sendMessage.isPending || lilaStreaming}
+          lilaStreaming={lilaStreaming}
+        />
+      )}
     </div>
   )
 }

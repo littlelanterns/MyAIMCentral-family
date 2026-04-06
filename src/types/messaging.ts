@@ -117,6 +117,8 @@ export interface MessageMetadata {
   preview_title?: string
   preview_image?: string
   preview_domain?: string
+  thumbnail_url?: string
+  domain?: string
   // System messages
   event_type?: string
   request_id?: string
@@ -124,6 +126,10 @@ export interface MessageMetadata {
   // LiLa messages
   model_used?: string
   token_count?: number
+  model?: string
+  feature?: string
+  type?: string
+  [key: string]: unknown
 }
 
 export interface MessageWithSender extends Message {

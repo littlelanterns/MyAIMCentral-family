@@ -2,6 +2,7 @@
  * MessagesThreadPage — PRD-15 Screen 3 route wrapper
  *
  * Renders ChatThreadView for /messages/thread/:threadId
+ * Phase E: passes showLilaButton and coachingEnabled props
  */
 
 import { useParams, useNavigate } from 'react-router-dom'
@@ -12,6 +13,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { ChatThreadView } from '@/components/messaging/ChatThreadView'
 import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
+import { COACHING_SETTINGS_KEY } from '@/hooks/useMessagingSettings'
 
 export function MessagesThreadPage() {
   const { threadId } = useParams<{ threadId: string }>()
@@ -66,6 +68,27 @@ export function MessagesThreadPage() {
     return names.join(', ')
   }, [spaceMembers, allMembers, currentMember?.id])
 
+  // Phase E: Check if coaching is enabled for current member
+  const { data: myCoachingSetting } = useQuery({
+    queryKey: [COACHING_SETTINGS_KEY, 'my', currentMember?.id],
+    queryFn: async () => {
+      if (!currentMember?.id) return null
+      const { data, error } = await supabase
+        .from('message_coaching_settings')
+        .select('is_enabled')
+        .eq('family_member_id', currentMember.id)
+        .limit(1)
+        .single()
+      if (error) return null
+      return data
+    },
+    enabled: !!currentMember?.id,
+  })
+
+  const coachingEnabled = myCoachingSetting?.is_enabled ?? false
+  // LiLa button visible for all members during beta (all tiers unlocked)
+  const showLilaButton = !!currentMember
+
   if (!threadId) {
     navigate('/messages')
     return null
@@ -94,6 +117,8 @@ export function MessagesThreadPage() {
         threadTitle={thread.title}
         spaceId={thread.space_id}
         participantNames={participantNames}
+        showLilaButton={showLilaButton}
+        coachingEnabled={coachingEnabled}
       />
     </div>
   )

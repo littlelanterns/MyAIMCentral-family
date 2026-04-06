@@ -1,31 +1,65 @@
 /**
- * MessageInputBar — PRD-15 Screen 3
+ * MessageInputBar — PRD-15 Screen 3 + Phase E
  *
  * Text input + Send button at the bottom of a chat thread.
- * LiLa button placeholder on left (Phase E).
+ * LiLa "Ask LiLa & Send" button on LEFT side (avoids accidental taps near Send).
+ * Coaching intercept: when coaching is enabled, Send triggers coaching check
+ * before the message actually sends.
  */
 
 import { useState, useRef, useCallback } from 'react'
-import { Send } from 'lucide-react'
+import { Send, Sparkles } from 'lucide-react'
 
 interface MessageInputBarProps {
   onSend: (content: string) => void
+  onSendWithLila?: (content: string) => void
+  onCoachingIntercept?: (content: string) => Promise<boolean>
+  showLilaButton?: boolean
+  coachingEnabled?: boolean
   disabled?: boolean
   placeholder?: string
+  lilaStreaming?: boolean
 }
 
-export function MessageInputBar({ onSend, disabled, placeholder }: MessageInputBarProps) {
+export function MessageInputBar({
+  onSend,
+  onSendWithLila,
+  onCoachingIntercept,
+  showLilaButton,
+  coachingEnabled,
+  disabled,
+  placeholder,
+  lilaStreaming,
+}: MessageInputBarProps) {
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = text.trim()
     if (!trimmed) return
+
+    // If coaching is enabled, intercept before sending
+    if (coachingEnabled && onCoachingIntercept) {
+      const shouldSend = await onCoachingIntercept(trimmed)
+      if (!shouldSend) {
+        // User chose to edit — keep text in input, refocus
+        inputRef.current?.focus()
+        return
+      }
+    }
+
     onSend(trimmed)
     setText('')
-    // Refocus input
     inputRef.current?.focus()
-  }, [text, onSend])
+  }, [text, onSend, coachingEnabled, onCoachingIntercept])
+
+  const handleLilaSend = useCallback(() => {
+    const trimmed = text.trim()
+    if (!trimmed || !onSendWithLila) return
+    onSendWithLila(trimmed)
+    setText('')
+    inputRef.current?.focus()
+  }, [text, onSendWithLila])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -45,7 +79,35 @@ export function MessageInputBar({ onSend, disabled, placeholder }: MessageInputB
         backgroundColor: 'var(--color-bg-primary)',
       }}
     >
-      {/* Phase E: LiLa "Ask LiLa & Send" button goes here on the left */}
+      {/* LiLa "Ask LiLa & Send" button — LEFT side per PRD-15 convention */}
+      {showLilaButton && onSendWithLila && (
+        <button
+          onClick={handleLilaSend}
+          disabled={disabled || lilaStreaming || !text.trim()}
+          aria-label="Ask LiLa & Send"
+          title="Ask LiLa & Send"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            border: 'none',
+            backgroundColor: text.trim() && !lilaStreaming
+              ? 'var(--color-btn-primary-bg)'
+              : 'var(--color-bg-tertiary)',
+            color: text.trim() && !lilaStreaming
+              ? 'var(--color-text-on-primary, #fff)'
+              : 'var(--color-text-muted)',
+            cursor: text.trim() && !lilaStreaming ? 'pointer' : 'default',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'background-color 150ms',
+          }}
+        >
+          <Sparkles size={13} />
+        </button>
+      )}
 
       <textarea
         ref={inputRef}

@@ -17,6 +17,7 @@ import { useVoiceInput, formatDuration } from '@/hooks/useVoiceInput'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useMindSweepSettings, useRunSweep } from '@/hooks/useMindSweep'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
+import { ComposeFlow } from '@/components/messaging/ComposeFlow'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import {
   useCreateNotepadTab,
@@ -93,6 +94,8 @@ export function NotepadDrawer() {
   // Request modal state — opened when user picks "Request" as a routing destination
   const [requestModalOpen, setRequestModalOpen] = useState(false)
   const [requestPrefill, setRequestPrefill] = useState<{ title: string; details: string; tabId: string }>({ title: '', details: '', tabId: '' })
+  const [composeFlowOpen, setComposeFlowOpen] = useState(false)
+  const [composeFlowContent, setComposeFlowContent] = useState('')
 
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -231,6 +234,14 @@ export function NotepadDrawer() {
       const title = activeTab.title && !activeTab.is_auto_named ? activeTab.title : content.split('\n')[0]?.slice(0, 100) || 'Untitled Request'
       setRequestPrefill({ title, details: content, tabId: activeTab.id })
       setRequestModalOpen(true)
+      return
+    }
+
+    // Intercept Message — open ComposeFlow pre-filled with notepad content
+    if (destination === 'message') {
+      const content = activeTab.content || ''
+      setComposeFlowContent(content)
+      setComposeFlowOpen(true)
       return
     }
 
@@ -525,6 +536,13 @@ export function NotepadDrawer() {
         prefillDetails={requestPrefill.details}
         source="notepad_route"
         sourceReferenceId={requestPrefill.tabId || undefined}
+      />
+
+      {/* ComposeFlow — opened when user picks "Message" in routing strip */}
+      <ComposeFlow
+        isOpen={composeFlowOpen}
+        onClose={() => setComposeFlowOpen(false)}
+        prefillContent={composeFlowContent}
       />
     </>
   )

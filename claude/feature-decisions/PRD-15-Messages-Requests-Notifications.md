@@ -197,19 +197,155 @@ Three interconnected subsystems that make MyAIM a living family coordination pla
 
 ## Post-Build PRD Verification
 
-> Completed after build, before declaring the phase done.
+> Completed after build 2026-04-06.
+
+### Phase A — Infrastructure
 
 | Requirement | Source | Status | Notes |
 |---|---|---|---|
-| *(to be filled after build)* | | | |
+| Migration `00000000100098_prd15_messaging_requests_notifications.sql` | PRD-15 §DB | Wired | 11 new tables created (12th — `out_of_nest_members` — pre-existed from migration 17) |
+| `conversation_spaces` table | PRD-15 §DB | Wired | space_type CHECK + RLS + updated_at trigger |
+| `conversation_space_members` | PRD-15 §DB | Wired | role + notifications_muted |
+| `conversation_threads` | PRD-15 §DB | Wired | last_message_at, source_type, source_reference_id |
+| `messages` | PRD-15 §DB | Wired | message_type enum, metadata JSONB, reply_to_id, is_edited |
+| `message_read_status` | PRD-15 §DB | Wired | last_read_message_id, last_read_at |
+| `messaging_settings` | PRD-15 §DB | Wired | communication_guidelines + content_corner_* fields |
+| `member_messaging_permissions` | PRD-15 §DB | Wired | explicit per-pair records |
+| `message_coaching_settings` | PRD-15 §DB | Wired | family_member_id + is_enabled + custom_prompt |
+| `family_requests` | PRD-15 §DB | Wired | source CHECK includes 'mindsweep_auto' per PRD-17B |
+| `notifications` table (re-grant) | PRD-15 §DB | Wired | All PRD-15 columns added; PostgREST grants in place |
+| `notification_preferences` table (re-grant) | PRD-15 §DB | Wired | All PRD-15 columns added; PostgREST grants in place |
+| RLS — mom CANNOT read other members' messages | Decision #22, K1 | Wired | Built with tables, enforced via space membership join |
+| 11 feature keys registered | PRD-31 addendum | Wired | All return true during beta |
+| TypeScript types | Founder convention | Wired | `src/types/messaging.ts`, `src/types/notifications.ts` |
+| `update_thread_last_message_at` trigger | PRD-15 §DB | Wired | Denormalizes last_message_at on insert |
+| `update_space_updated_at` trigger | PRD-15 §DB | Wired | Bubbles thread changes to space.updated_at |
 
-**Status key:** Wired = built and functional . Stubbed = in STUB_REGISTRY.md . Missing = incomplete
+### Phase B — Notifications + Calendar Wiring
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `NotificationBell` component | Screen 9 | Wired | Reuses BreathingGlow, in Mom/Adult/Independent shells, NOT Guided/Play |
+| `NotificationTray` dropdown | Screen 9 | Wired | Recent 20, category icons, safety sorted to top |
+| `NotificationPreferencesPanel` | Screen 10 | Wired | Per-category toggles, DND, safety locked |
+| `useNotifications` hook | — | Wired | Realtime + invalidation + mark-read mutations |
+| `useNotificationPreferences` hook | — | Wired | Per-category CRUD |
+| `createNotification` utility | — | Wired | Helper for any feature to create a notification |
+| Calendar approve → notification to creator | PRD-14B + Decision | Wired | CalendarTab approve handler creates notification |
+| Calendar reject → notification to creator | PRD-14B + Decision | Wired | CalendarTab reject handler creates notification with rejection_note |
+| Realtime subscription on `notifications` | Screen 9 | Wired | useNotificationRealtime hook fires invalidate on insert |
+| Notification flood collapsing | K14 | Stubbed | Hook in place, server-side aggregation deferred |
+| Calendar reminder notifications via pg_cron | Decision | Stubbed | pg_cron timed delivery deferred |
+
+### Phase C — Requests
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `useRequests` hook | — | Wired | Pending list, accept, decline, snooze, dismiss mutations |
+| `QuickRequestModal` (Screen 7) | Screen 7 | Wired | ModalV2 transient, member picker, optional when/details |
+| `RequestCard` in `RequestsTab` | Screen 8 | Wired | Accept dropdown, decline note, snooze, MindSweep attribution badge |
+| RequestsTab Accept routing strip | Screen 8 | Wired | Calendar / Tasks / List / Acknowledge — simplified strip |
+| Accept → Calendar → EventCreationModal pre-filled | Screen 8 | Wired | routed_to='calendar', sender notified |
+| Accept → Tasks → TaskCreationModal pre-filled | Screen 8 | Wired | routed_to='tasks', sender notified |
+| Accept → List → ListPickerModal | Screen 8 | Wired | routed_to='list', sender notified |
+| Accept → Acknowledge | Screen 8 | Wired | routed_to='acknowledge', notification only |
+| Decline with note → sender notification | Screen 8 | Wired | decline_note stored on family_requests |
+| Snooze (4hr default) | K15 | Wired | snoozed_until column drives resurface |
+| 3-snooze indicator | K15 | Wired | UI hint after 3 snoozes — discuss/decline suggestion |
+| QuickCreate "Send Request" → modal | PRD-04 | Wired | Replaces previous Notepad fallback |
+| RoutingStrip 'request' destination (15th) | Decision #21 | Wired | Notepad → Send as Request → QuickRequestModal pre-filled |
+| `family_requests.source = 'mindsweep_auto'` | PRD-17B | Wired | RequestCard shows attribution badge when present |
+| usePendingCounts.ts updated | — | Wired | Real query on family_requests |
+
+### Phase D — Messages Core
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `MessagesPage` (Screen 1) | Screen 1 | Wired | Spaces tab + Chats tab, search + compose, Content Corner pinned |
+| `ConversationSpaceView` (Screen 2) | Screen 2 | Wired | Thread list, sorted by last_message_at, pinned threads top |
+| `ChatThreadView` (Screen 3) | Screen 3 | Wired | Chat bubbles, auto-scroll, mark read on mount, load older pagination |
+| `MessageInputBar` | Screen 3 | Wired | Textarea + Send + LiLa Sparkles button on LEFT |
+| `ComposeFlow` (Screen 5) | Screen 5 | Wired | MemberPillSelector, individual/group/new group |
+| `MessageSearch` overlay | Screen 1 | Wired | Full-text search across conversations |
+| `useConversationSpaces` hook | — | Wired | List, create, get-by-id |
+| `useConversationThreads` hook | — | Wired | List, create, rename mutations |
+| `useMessages` hook | — | Wired | Paginated messages, send mutation |
+| `useMessagingRealtime` hook | — | Wired | First Realtime usage in codebase |
+| `useMessagingPermissions` hook | — | Wired | Implicit mom/dad + explicit kid records |
+| `useUnreadMessageCount` hook | — | Wired | Counts via message_read_status |
+| Bubble distinction: user vs LiLa vs other vs system | K2 + Screen 3 | Wired | Color/avatar/alignment all distinct; LiLa tinted bubble |
+| Date separators (Today / Yesterday / dates) | Screen 3 | Wired | messagesWithSeparators memo |
+| Sender name shown when sender changes | Screen 3 | Wired | showSender flag in MessageBubble |
+| Sidebar nav: /messages | PRD-04 | Wired | Added to Mom/Adult/Independent shells |
+| Queue Modal chat shortcut button | Decision #20 | Wired | Bottom of UniversalQueueModal |
+| `initializeConversationSpaces` first-visit | — | Wired | Idempotent, creates default Family + 1-on-1 spaces with warm loading state |
+
+### Phase E — Messages Advanced
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `lila-message-respond` Edge Function | Decision #5 | Wired | Deployed 2026-04-06, streaming via SSE, context-assembler integrated |
+| `useLilaMessageRespond` hook | — | Wired | invokeLila + isStreaming + streamedContent |
+| "Ask LiLa & Send" button on LEFT | K3 | Wired | Sparkles icon, distinct from Send |
+| LiLa streaming render in chat | Screen 3 | Wired | Live bubble with cursor pipe (static `\|` — animated cursor blink could be added later) |
+| `message-coach` Edge Function | K4 | Wired | Deployed 2026-04-06, Haiku, returns isClean + coachingNote |
+| `useMessageCoaching` hook | — | Wired | checkCoaching + recordCoachedSend with 60s rapid-fire bypass |
+| `CoachingCheckpoint` overlay | K4 | Wired | Renders inline above input (no slide-up animation — appear on mount) |
+| Coaching: Edit / Send Anyway always available | K4 | Wired | Both buttons unconditional — never blocks |
+| Coaching: rapid-fire 60s bypass | K4 | Wired | recordCoachedSend timestamp suppresses re-checks |
+| `auto-title-thread` Edge Function | K11 | Wired | Deployed 2026-04-06, Haiku 3-6 word titles, fire-and-forget after 2nd message |
+| Title inline editable | K11 | Wired | Pencil icon → input → Enter saves via useRenameThread |
+| `notify-out-of-nest` Edge Function (stub) | K11 + scope | Wired (stub) | Deployed 2026-04-06, returns 200 without sending — DNS+webhook deferred |
+| `useMessagingSettings` hook | — | Wired | Family-scoped CRUD |
+| `MessagingSettings` panel (Screen 6) | Screen 6 | Wired | 7 sections: guidelines, coaching, permissions, group creation, LiLa, Content Corner, Out of Nest |
+| `ContentCorner` view | Screen 4 | Wired | Feed mode + Playlist mode, lock state, add link form, theme tokenized |
+| `LinkPreviewCard` | Screen 4 | Wired | URL metadata: thumbnail, title, domain |
+| Content Corner add-while-locked | K5 | Wired | canAdd permission check, view blocked until unlock |
+| Notepad "Send to Message" routing | PRD-08 → 15 | Wired | NotepadDrawer intercepts message destination → ComposeFlow pre-filled |
+| Notepad "Send as Request" routing | Decision #21 | Wired | NotepadDrawer intercepts request destination → QuickRequestModal pre-filled |
+| Family Communication Guidelines in LiLa context | K12 | Wired | lila-message-respond loads from messaging_settings.communication_guidelines |
+| LiLa visibility checks (showLilaButton prop) | K3 | Wired | Per-thread / per-member toggle in MessagingSettings |
+| 20 Playwright E2E tests | Founder | Wired | All 20 passing; auto-title verified against deployed function |
+
+### Stubs (PlannedExpansionCard / deferred to later phases)
+
+| Stub | Why | Resolution Path |
+|---|---|---|
+| Push notifications | Service workers + device tokens + platform diff | Post-MVP engineering sprint |
+| SMS/text for Out of Nest | Email sufficient at MVP | Post-MVP |
+| Email delivery for Out of Nest | DNS + webhook setup needed | Edge Function ready, enable when DNS configured |
+| Morning digest / Daily Briefing | Future Daily Briefing PRD | Post-MVP |
+| Victory sharing notifications | PRD-11 sharing trigger needed | Wire when PRD-11B family sharing fires |
+| Family celebration notifications | PRD-11B trigger | Wire when PRD-11B fires |
+| LiLa proactive suggestion notifications | PRD-05 proactive system | Wire when PRD-05 suggestion engine built |
+| Permission change notifications (teen) | PRD-02 trigger | Wire when PRD-02 audit trigger built |
+| Content Corner LiLa link pre-screening | Post-MVP moderation | Post-MVP |
+| Higgins/Cyrano coaching integration | Tool dependency | Wire when those tools integrate with coaching layer |
+| Read receipts | Post-MVP | Post-MVP per-conversation toggle |
+| Message reactions (emoji) | Post-MVP | Post-MVP enhancement |
+| Voice messages | Post-MVP | Post-MVP audio recording |
+| Extended Out of Nest (family tree) | Post-MVP | Post-MVP expansion |
+| Coaching activity log for mom | Privacy balance — content stays private | Mom sees coaching fired, not content. Activity log UI deferred |
+| Calendar reminder notifications via pg_cron | Timed delivery infrastructure | Wire after pg_cron pattern established |
+| Notification flood collapsing | Server-side aggregation | Hook in place, deferred |
+| Animated LiLa streaming cursor | Visual polish | Static pipe `\|` works; animate later |
+| CoachingCheckpoint slide-up animation | Visual polish | Renders inline above input; smoother transition can be added later |
+
+**Status key:** Wired = built and functional . Stubbed = documented placeholder . Missing = incomplete
 
 ### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
+- Total requirements verified: 90
+- Wired: 71
+- Stubbed: 19
 - Missing: **0**
+
+All 4 Edge Functions deployed and ACTIVE on Supabase as of 2026-04-06 22:59 UTC:
+- `lila-message-respond` (213874bc)
+- `message-coach` (946d1ec3)
+- `auto-title-thread` (2a0fc635)
+- `notify-out-of-nest` (ad0925ad)
+
+20/20 Playwright E2E tests passing in 2.6 minutes.
 
 ---
 
@@ -219,4 +355,4 @@ Three interconnected subsystems that make MyAIM a living family coordination pla
 - [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md
 - [ ] Zero Missing items confirmed
 - [ ] **Phase approved as complete**
-- **Completion date:**
+- **Completion date:** 2026-04-06 (pending founder sign-off)

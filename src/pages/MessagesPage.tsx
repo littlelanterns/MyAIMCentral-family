@@ -149,13 +149,19 @@ export function MessagesPage() {
     if (!familyId || !memberId || !allMembers?.length || initRef.current) return
     initRef.current = true
 
-    const activeIds = allMembers.filter(m => m.is_active && !m.out_of_nest).map(m => m.id)
+    const activeMembers = allMembers.filter(m => m.is_active && !m.out_of_nest)
+    const activeIds = activeMembers.map(m => m.id)
 
     setInitializing(true)
     initializeConversationSpaces({
       familyId,
       currentMemberId: memberId,
       allMemberIds: activeIds,
+      memberProfiles: activeMembers.map(m => ({
+        id: m.id,
+        role: m.role,
+        age: m.age ?? null,
+      })),
     })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })

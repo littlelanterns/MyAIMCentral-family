@@ -1,10 +1,13 @@
 /**
- * initializeConversationSpaces — PRD-15 Phase D
+ * initializeConversationSpaces — PRD-15 Phase D + Phase E
  *
  * Auto-creates the default conversation spaces on first Messages page visit:
  * - One direct space per family member pair (involving the current member)
  * - One "family" space for the whole family
  * - One "content_corner" space for shared media links
+ *
+ * Phase E addition: Creates message_coaching_settings records for Guided-age
+ * members (under 13) with is_enabled = true (coaching on by default for kids).
  *
  * Idempotent — checks for existing spaces before creating.
  * Runs once per family, not per member (spaces are shared).
@@ -17,12 +20,15 @@ interface InitParams {
   familyId: string
   currentMemberId: string
   allMemberIds: string[]
+  /** Member ages/roles for coaching default provisioning */
+  memberProfiles?: Array<{ id: string; role: string; age: number | null }>
 }
 
 export async function initializeConversationSpaces({
   familyId,
   currentMemberId,
   allMemberIds,
+  memberProfiles,
 }: InitParams): Promise<void> {
   // Check if initialization has already happened by looking for a family space
   const { data: existingFamily, error: efErr } = await supabase
@@ -120,6 +126,32 @@ export async function initializeConversationSpaces({
 
     if (dmErr) {
       console.error(`[initializeConversationSpaces] Failed to add members for direct space:`, dmErr)
+    }
+  }
+
+  // 4. Create coaching defaults for Guided-age members (under 13)
+  // Per PRD-15: coaching is enabled by default for Guided kids
+  if (memberProfiles && memberProfiles.length > 0) {
+    const guidedMembers = memberProfiles.filter(
+      m => m.role === 'member' && m.age !== null && m.age < 13,
+    )
+
+    for (const gm of guidedMembers) {
+      await supabase
+        .from('message_coaching_settings')
+        .upsert(
+          {
+            family_id: familyId,
+            family_member_id: gm.id,
+            is_enabled: true,
+          },
+          { onConflict: 'family_id,family_member_id' },
+        )
+        .then(({ error }) => {
+          if (error) {
+            console.error(`[initializeConversationSpaces] Failed to create coaching default for ${gm.id}:`, error)
+          }
+        })
     }
   }
 }
