@@ -26,6 +26,7 @@ import { usePendingEvents } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { EventCreationModal } from '@/components/calendar/EventCreationModal'
+import { createNotification } from '@/utils/createNotification'
 import type { CalendarEvent, EventAttendee } from '@/types/calendar'
 import type { CalendarQueueEventDetail } from '@/types/mindsweep'
 
@@ -137,7 +138,7 @@ export function CalendarTab() {
   // ── Mutations for pending calendar_events ──
 
   const approveMutation = useMutation({
-    mutationFn: async (eventId: string) => {
+    mutationFn: async (event: CalendarEvent & { event_attendees?: EventAttendee[] }) => {
       const { error } = await supabase
         .from('calendar_events')
         .update({
@@ -145,8 +146,23 @@ export function CalendarTab() {
           approved_by: currentMember?.id,
           approved_at: new Date().toISOString(),
         })
-        .eq('id', eventId)
+        .eq('id', event.id)
       if (error) throw error
+
+      // Notify the event creator that their event was approved
+      if (event.created_by && event.created_by !== currentMember?.id && family?.id) {
+        createNotification({
+          family_id: family.id,
+          recipient_member_id: event.created_by,
+          notification_type: 'calendar_approved',
+          category: 'calendar',
+          title: `"${event.title}" approved`,
+          body: `Your calendar event has been approved.`,
+          source_type: 'calendar_events',
+          source_reference_id: event.id,
+          action_url: '/calendar',
+        })
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar'] })
@@ -155,15 +171,30 @@ export function CalendarTab() {
   })
 
   const rejectMutation = useMutation({
-    mutationFn: async ({ eventId, note }: { eventId: string; note: string }) => {
+    mutationFn: async ({ event, note }: { event: CalendarEvent & { event_attendees?: EventAttendee[] }; note: string }) => {
       const { error } = await supabase
         .from('calendar_events')
         .update({
           status: 'rejected',
           rejection_note: note || null,
         })
-        .eq('id', eventId)
+        .eq('id', event.id)
       if (error) throw error
+
+      // Notify the event creator that their event was rejected
+      if (event.created_by && event.created_by !== currentMember?.id && family?.id) {
+        createNotification({
+          family_id: family.id,
+          recipient_member_id: event.created_by,
+          notification_type: 'calendar_rejected',
+          category: 'calendar',
+          title: `"${event.title}" not approved`,
+          body: note ? `Reason: ${note}` : 'Your calendar event was not approved.',
+          source_type: 'calendar_events',
+          source_reference_id: event.id,
+          action_url: '/calendar',
+        })
+      }
     },
     onSuccess: () => {
       setRejectingId(null)
@@ -174,7 +205,8 @@ export function CalendarTab() {
   })
 
   const bulkApproveMutation = useMutation({
-    mutationFn: async (eventIds: string[]) => {
+    mutationFn: async (events: (CalendarEvent & { event_attendees?: EventAttendee[] })[]) => {
+      const eventIds = events.map((e) => e.id)
       const { error } = await supabase
         .from('calendar_events')
         .update({
@@ -184,6 +216,25 @@ export function CalendarTab() {
         })
         .in('id', eventIds)
       if (error) throw error
+
+      // Notify each unique event creator
+      if (family?.id && currentMember?.id) {
+        const uniqueCreators = [...new Set(events.map((e) => e.created_by).filter((id) => id && id !== currentMember.id))]
+        for (const creatorId of uniqueCreators) {
+          const creatorEvents = events.filter((e) => e.created_by === creatorId)
+          createNotification({
+            family_id: family.id,
+            recipient_member_id: creatorId,
+            notification_type: 'calendar_approved',
+            category: 'calendar',
+            title: creatorEvents.length === 1
+              ? `"${creatorEvents[0].title}" approved`
+              : `${creatorEvents.length} events approved`,
+            body: 'Your calendar events have been approved.',
+            action_url: '/calendar',
+          })
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar'] })
@@ -647,7 +698,7 @@ export function CalendarTab() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => rejectMutation.mutate({ eventId: event.id, note: rejectNote })}
+                      onClick={() => rejectMutation.mutate({ event, note: rejectNote })}
                       disabled={rejectMutation.isPending}
                       style={{
                         padding: '0.35rem 0.75rem',
@@ -671,7 +722,7 @@ export function CalendarTab() {
                 <div className="flex gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => approveMutation.mutate(event.id)}
+                    onClick={() => approveMutation.mutate(event)}
                     disabled={approveMutation.isPending}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity"
                     style={{
@@ -725,7 +776,7 @@ export function CalendarTab() {
           type="button"
           onClick={() => {
             if (pendingEvents.length > 0) {
-              bulkApproveMutation.mutate(pendingEvents.map((e) => e.id))
+              bulkApproveMutation.mutate(pendingEvents)
             }
             if (queueItems.length > 0) {
               bulkApproveQueue.mutate(queueItems)

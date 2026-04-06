@@ -13,6 +13,7 @@ import { LilaDrawer, LilaConversationHistory, LilaContextSettings, LilaAvatar, L
 import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { TimerProvider } from '@/features/timer'
 import { RoutingToastProvider } from '@/components/shared'
 import { ViewAsShellWrapper } from '@/features/permissions'
@@ -126,7 +127,8 @@ export function MomShell({ children }: MomShellProps) {
             <FloatingLilaButton avatarKey="your_guide" label="Assist" tooltip="Feature guidance & onboarding" onClick={() => handleFloatingButton('assist')} />
             <FloatingLilaButton avatarKey="smart_ai" label="Optimizer" tooltip="Craft better prompts for any AI" onClick={() => handleFloatingButton('optimizer')} />
           </div>
-          {/* Theme + Settings — always visible, compact on mobile */}
+          {/* Notifications + Theme + Settings — always visible, compact on mobile */}
+          <NotificationBell />
           <ThemeSelector />
           <Tooltip content="Settings">
             <button

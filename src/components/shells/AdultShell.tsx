@@ -12,6 +12,7 @@ import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
@@ -54,6 +55,7 @@ export function AdultShell({ children }: AdultShellProps) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
+          <NotificationBell />
           <ThemeSelector />
           <Tooltip content="Settings">
           <button
