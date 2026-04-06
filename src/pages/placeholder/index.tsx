@@ -1,4 +1,4 @@
-import { Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings, MessageCircle, Shield, Video, Map, Brain, Rss, StickyNote } from 'lucide-react'
+import { Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings, Shield, Video, Map, Brain, Rss, StickyNote } from 'lucide-react'
 import { PlaceholderPage } from './PlaceholderPage'
 import { GuidedVictories } from '@/pages/GuidedVictories'
 import { GuidedProgress } from '@/pages/GuidedProgress'
@@ -47,9 +47,7 @@ export function SettingsPage() {
   return <PlaceholderPage title="Settings" description="Account management, family settings, LiLa preferences, data export, and subscription management." icon={Settings} prd="PRD-22" featureKey="settings" />
 }
 
-export function MessagesPage() {
-  return <PlaceholderPage title="Messages" description="Family conversations, content corner, and out-of-nest messaging. Safe, mom-monitored communication for the whole family." icon={MessageCircle} prd="PRD-15" featureKey="messaging_basic" />
-}
+// MessagesPage removed — replaced by real implementation in src/pages/MessagesPage.tsx (PRD-15 Phase D)
 
 export function SafeHarborPage() {
   return <PlaceholderPage title="Safe Harbor" description="A private, protected space for emotional processing. LiLa helps you work through hard things with care and safety." icon={Shield} prd="PRD-20" featureKey="safe_harbor" />

@@ -22,9 +22,12 @@ import { DevPreview } from '@/pages/DevPreview'
 import {
   VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage, MorningRhythmPage, EveningReviewPage,
-  MessagesPage, SafeHarborPage, MeetingsPage, BigPlansPage,
+  SafeHarborPage, MeetingsPage, BigPlansPage,
   ThoughtSiftPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
+import { MessagesPage } from '@/pages/MessagesPage'
+import { MessagesSpacePage } from '@/pages/MessagesSpacePage'
+import { MessagesThreadPage } from '@/pages/MessagesThreadPage'
 import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -135,8 +138,12 @@ function App() {
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
               <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />
 
-              {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
+              {/* Messages (PRD-15 Phase D) */}
               <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+              <Route path="/messages/space/:spaceId" element={<ProtectedRoute><MessagesSpacePage /></ProtectedRoute>} />
+              <Route path="/messages/thread/:threadId" element={<ProtectedRoute><MessagesThreadPage /></ProtectedRoute>} />
+
+              {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
               <Route path="/safe-harbor" element={<ProtectedRoute><SafeHarborPage /></ProtectedRoute>} />
               <Route path="/meetings" element={<ProtectedRoute><MeetingsPage /></ProtectedRoute>} />
               <Route path="/bigplans" element={<ProtectedRoute><BigPlansPage /></ProtectedRoute>} />

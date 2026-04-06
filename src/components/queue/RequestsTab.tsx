@@ -115,11 +115,47 @@ export function RequestsTab() {
     routingToast.show({ message: `Request snoozed for 4 hours` })
   }, [snoozeRequest, routingToast])
 
-  const handleDiscuss = useCallback((_request: FamilyRequestWithSender) => {
-    // STUB: Phase D creates a conversation thread titled "Regarding: {request.title}"
-    // and navigates to that thread. For now, navigate to messages page.
-    window.location.href = '/messages'
-  }, [])
+  const handleDiscuss = useCallback(async (request: FamilyRequestWithSender) => {
+    if (!currentMember?.id || !currentFamily?.id) return
+
+    try {
+      // Find or create a direct space with the request sender
+      const { findOrCreateDirectSpace } = await import('@/hooks/useConversationSpaces')
+      const space = await findOrCreateDirectSpace(
+        currentFamily.id,
+        currentMember.id,
+        request.sender_member_id,
+      )
+
+      // Create a thread titled "Regarding: {request.title}"
+      const { data: thread, error: thErr } = await supabase
+        .from('conversation_threads')
+        .insert({
+          space_id: space.id,
+          title: `Regarding: ${request.title}`,
+          started_by: currentMember.id,
+          source_type: 'request_discussion',
+          source_reference_id: request.id,
+          last_message_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+
+      if (thErr) throw thErr
+
+      // Update the request with the discussion thread id
+      await supabase
+        .from('family_requests')
+        .update({ discussion_thread_id: thread.id })
+        .eq('id', request.id)
+
+      // Navigate to the thread
+      window.location.href = `/messages/thread/${thread.id}`
+    } catch (err) {
+      console.error('[RequestsTab] Failed to create discussion thread:', err)
+      window.location.href = '/messages'
+    }
+  }, [currentMember, currentFamily])
 
   // Calendar event created from request accept
   const handleEventCreated = useCallback(async () => {

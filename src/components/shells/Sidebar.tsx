@@ -7,10 +7,11 @@ import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
   LayoutDashboard, BookOpen, BookHeart, Sun, Moon as MoonIcon, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, Rss, Library, GraduationCap,
+  Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
+import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
@@ -21,6 +22,7 @@ interface NavItem {
   featureKey: string
   icon: React.ReactNode
   tooltip: string
+  badge?: number
 }
 
 interface NavSection {
@@ -77,6 +79,7 @@ function getSidebarSections(shell: ShellType): NavSection[] {
     title: 'Family',
     collapsible: true,
     items: [
+      { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
       { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
       { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
     ],
@@ -188,10 +191,10 @@ function useSidebarPersistence(memberId: string | null) {
  * or a button that uses ViewAsNav (when inside View As modal).
  */
 function SidebarNavItem({
-  path, icon, label, tierLocked, collapsed, onNavigate,
+  path, icon, label, tierLocked, collapsed, onNavigate, badge,
 }: {
   path: string; icon: React.ReactNode; label: string
-  tierLocked: boolean; collapsed: boolean; onNavigate: () => void
+  tierLocked: boolean; collapsed: boolean; onNavigate: () => void; badge?: number
 }) {
   const { isViewingAs } = useViewAs()
   const { currentPath, navigate: viewAsNav } = useViewAsNav()
@@ -253,6 +256,27 @@ function SidebarNavItem({
       {!collapsed && (
         <>
           <span>{label}</span>
+          {badge != null && badge > 0 && (
+            <span
+              style={{
+                marginLeft: 'auto',
+                minWidth: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                color: 'var(--color-text-on-primary, #fff)',
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px',
+                flexShrink: 0,
+              }}
+            >
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
           {tierLocked && <Lock size={12} className="ml-auto shrink-0" />}
         </>
       )}
@@ -355,10 +379,21 @@ function SidebarInner({
 }) {
   const location = useLocation()
   const { isSectionExpanded, toggleSection } = useSectionCollapse(sections, location.pathname)
+  const { data: unreadMsgCount } = useUnreadMessageCount()
+
+  // Inject unread badge into Messages nav item
+  const enrichedSections = sections.map(section => ({
+    ...section,
+    items: section.items.map(item =>
+      item.featureKey === 'messaging_basic'
+        ? { ...item, badge: unreadMsgCount ?? 0 }
+        : item
+    ),
+  }))
 
   const sidebarContent = (
     <nav className="flex-1 flex flex-col overflow-y-auto py-4 scrollbar-card">
-      {sections.map((section) => {
+      {enrichedSections.map((section) => {
         const isCollapsible = section.collapsible && !collapsed
         const isExpanded = !isCollapsible || isSectionExpanded(section.title)
 
@@ -429,6 +464,7 @@ function SidebarInner({
                 tierLocked={tierLocked}
                 collapsed={collapsed}
                 onNavigate={() => setMobileOpen(false)}
+                badge={item.badge}
               />
               </Tooltip>
             )

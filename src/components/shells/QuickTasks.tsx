@@ -513,6 +513,10 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
       <UniversalQueueModal
         isOpen={queueModalOpen}
         onClose={() => setQueueModalOpen(false)}
+        onOpenMessages={() => {
+          setQueueModalOpen(false)
+          navigate('/messages')
+        }}
       />
 
       {/* Collapse toggle — overlaid at right edge */}
