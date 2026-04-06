@@ -14,13 +14,14 @@
 import { useState, useCallback } from 'react'
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckSquare, Clock,
-  Plus, Pencil, Trash2, Users, Repeat, MapPin, Package, Car,
+  Plus, Pencil, Trash2, Users, Repeat, MapPin, Package, Car, Layers,
 } from 'lucide-react'
 import { ModalV2, Button } from '@/components/shared'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import {
   useEventsForDate, useTasksDueInRange, useApproveEvent,
   useRejectEvent, useDeleteEvent, useCalendarSettings, useUpdateEvent,
+  useOptionGroupEvents, useConfirmOption, useDismissOption, useDismissRemainingOptions,
 } from '@/hooks/useCalendarEvents'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -387,7 +388,7 @@ function EventCard({
                 className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                 style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)', color: 'var(--color-btn-primary-bg)' }}
               >
-                penciled in
+                tentative
               </span>
             )}
           </div>
@@ -517,8 +518,13 @@ function EventCard({
         </div>
       )}
 
-      {/* Confirm/Dismiss for penciled-in events */}
-      {isPenciledIn && isMom && (
+      {/* Option group view for penciled-in events with siblings */}
+      {isPenciledIn && isMom && event.option_group_id && (
+        <OptionGroupActions eventId={event.id} optionGroupId={event.option_group_id} groupTitle={event.option_group_title} />
+      )}
+
+      {/* Confirm/Dismiss for penciled-in events WITHOUT option group */}
+      {isPenciledIn && isMom && !event.option_group_id && (
         <div className="flex gap-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
           <button
             onClick={() => onApprove(event.id)}
@@ -567,6 +573,164 @@ function TaskDueDateCard({ task }: { task: TaskDueDate }) {
           {task.priority && ` · ${task.priority}`}
         </p>
       </div>
+    </div>
+  )
+}
+
+/** Shows all sibling dates in an option group with Confirm/Dismiss per date.
+ *  Mom can confirm multiple dates (e.g. attending several performances of a play). */
+function OptionGroupActions({ eventId, optionGroupId, groupTitle }: {
+  eventId: string
+  optionGroupId: string
+  groupTitle: string | null
+}) {
+  const { data: siblings = [] } = useOptionGroupEvents(optionGroupId)
+  const confirmOption = useConfirmOption()
+  const dismissOption = useDismissOption()
+  const dismissRemaining = useDismissRemainingOptions()
+
+  if (siblings.length <= 1) return null
+
+  const confirmedCount = siblings.filter(s => s.status === 'approved').length
+  const penciledCount = siblings.filter(s => s.status === 'penciled_in').length
+
+  function formatOptionDate(dateStr: string, startTime: string | null): string {
+    const d = new Date(dateStr + 'T12:00:00')
+    const dayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    if (startTime) {
+      const [h, m] = startTime.split(':').map(Number)
+      const ampm = h >= 12 ? 'PM' : 'AM'
+      const hour = h % 12 || 12
+      return `${dayStr} at ${hour}:${String(m).padStart(2, '0')} ${ampm}`
+    }
+    return dayStr
+  }
+
+  const busy = confirmOption.isPending || dismissOption.isPending || dismissRemaining.isPending
+
+  return (
+    <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Layers size={12} style={{ color: 'var(--color-btn-primary-bg)' }} />
+        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-btn-primary-bg)' }}>
+          {groupTitle || 'Date options'}
+        </span>
+      </div>
+      <p className="text-[10px] mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+        {confirmedCount > 0
+          ? `${confirmedCount} confirmed, ${penciledCount} still tentative`
+          : `${penciledCount} tentative dates — confirm the ones you want to attend`}
+      </p>
+      <div className="space-y-1.5">
+        {siblings.map(sib => {
+          const isThis = sib.id === eventId
+          const isConfirmed = sib.status === 'approved'
+          return (
+            <div
+              key={sib.id}
+              className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg"
+              style={{
+                backgroundColor: isConfirmed
+                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
+                  : isThis
+                    ? 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, transparent)'
+                    : 'var(--color-bg-card)',
+                border: isConfirmed
+                  ? '1px solid var(--color-btn-primary-bg)'
+                  : '1px solid var(--color-border)',
+              }}
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  {formatOptionDate(sib.event_date, sib.start_time)}
+                </p>
+                {sib.location && (
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                    {sib.location}
+                  </p>
+                )}
+                {isConfirmed && (
+                  <span className="text-[9px] font-medium" style={{ color: 'var(--color-btn-primary-bg)' }}>
+                    confirmed
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {isConfirmed ? (
+                  <button
+                    onClick={() => dismissOption.mutate({ eventId: sib.id })}
+                    disabled={busy}
+                    className="text-[10px] font-medium px-2 py-1 rounded"
+                    title="Remove this date"
+                    style={{
+                      background: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                      color: 'var(--color-btn-primary-bg)',
+                      border: '1px solid var(--color-btn-primary-bg)',
+                      minHeight: 'unset',
+                      cursor: busy ? 'not-allowed' : 'pointer',
+                      opacity: busy ? 0.5 : 1,
+                    }}
+                  >
+                    Going
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => confirmOption.mutate({ eventId: sib.id, optionGroupId })}
+                      disabled={busy}
+                      className="text-[10px] font-medium px-2 py-1 rounded"
+                      style={{
+                        background: 'var(--color-btn-primary-bg)',
+                        color: 'var(--color-btn-primary-text)',
+                        border: 'none',
+                        minHeight: 'unset',
+                        cursor: busy ? 'not-allowed' : 'pointer',
+                        opacity: busy ? 0.5 : 1,
+                      }}
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => dismissOption.mutate({ eventId: sib.id })}
+                      disabled={busy}
+                      className="text-[10px] font-medium px-2 py-1 rounded"
+                      style={{
+                        background: 'transparent',
+                        color: 'var(--color-text-secondary)',
+                        border: '1px solid var(--color-border)',
+                        minHeight: 'unset',
+                        cursor: busy ? 'not-allowed' : 'pointer',
+                        opacity: busy ? 0.5 : 1,
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Remove all remaining penciled-in dates */}
+      {penciledCount > 0 && confirmedCount > 0 && (
+        <button
+          onClick={() => dismissRemaining.mutate({ optionGroupId })}
+          disabled={busy}
+          className="mt-2 text-[10px] font-medium w-full py-1.5 rounded"
+          style={{
+            background: 'transparent',
+            color: 'var(--color-text-secondary)',
+            border: '1px dashed var(--color-border)',
+            minHeight: 'unset',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            opacity: busy ? 0.5 : 1,
+          }}
+        >
+          Remove remaining {penciledCount} date{penciledCount > 1 ? 's' : ''} I'm not attending
+        </button>
+      )}
     </div>
   )
 }

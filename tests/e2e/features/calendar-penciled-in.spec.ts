@@ -25,27 +25,27 @@ test.describe('Calendar: Penciled-In & Option Groups', () => {
     consoleErrors = captureConsoleErrors(page)
   })
 
-  test('EventCreationModal shows Penciled In checkbox', async ({ page }) => {
+  test('EventCreationModal shows Tentative checkbox', async ({ page }) => {
     await loginAsMom(page)
     await page.goto('/calendar?new=1')
     await waitForAppReady(page)
 
     // The EventCreationModal should open via ?new=1 param
-    // Look for the Penciled In checkbox
-    const penciledLabel = page.getByText('Penciled in')
-    await expect(penciledLabel).toBeVisible({ timeout: 5000 })
+    // Look for the Tentative checkbox (renamed from "Penciled in")
+    const tentativeLabel = page.getByText('Tentative')
+    await expect(tentativeLabel).toBeVisible({ timeout: 5000 })
 
-    // And the "(not yet committed)" helper text
-    await expect(page.getByText('not yet committed')).toBeVisible()
+    // And the helper text
+    await expect(page.getByText("I'll confirm later")).toBeVisible()
 
     // Checkbox should be unchecked by default
-    const checkbox = penciledLabel.locator('..').locator('input[type="checkbox"]')
+    const checkbox = tentativeLabel.locator('..').locator('input[type="checkbox"]')
     await expect(checkbox).not.toBeChecked()
 
     assertNoInfiniteRenders(consoleErrors)
   })
 
-  test('Penciled-in event can be created', async ({ page }) => {
+  test('Tentative event can be created', async ({ page }) => {
     await loginAsMom(page)
     await page.goto('/calendar?new=1')
     await waitForAppReady(page)
@@ -55,11 +55,11 @@ test.describe('Calendar: Penciled-In & Option Groups', () => {
     await expect(titleInput).toBeVisible({ timeout: 5000 })
     await titleInput.fill('Maybe: Board Game Night')
 
-    // Check "Penciled in"
-    const penciledCheckbox = page.getByRole('checkbox', { name: /Penciled in/ })
-    await expect(penciledCheckbox).toBeVisible()
-    await penciledCheckbox.check()
-    await expect(penciledCheckbox).toBeChecked()
+    // Check "Tentative"
+    const tentativeCheckbox = page.getByRole('checkbox', { name: /Tentative/ })
+    await expect(tentativeCheckbox).toBeVisible()
+    await tentativeCheckbox.check()
+    await expect(tentativeCheckbox).toBeChecked()
 
     assertNoInfiniteRenders(consoleErrors)
   })

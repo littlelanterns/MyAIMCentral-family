@@ -544,6 +544,27 @@ export function useMarkHoldingProcessed() {
 // ── Shared Sweep Runner ──
 // Used by both NotepadDrawer and MindSweepCapture to avoid duplicating the orchestration.
 
+/** Map holding-queue content_type → Edge Function input_type.
+ *  Holding uses fine-grained types (voice_short, scan_extracted) but the
+ *  Edge Function Zod schema expects coarse categories (voice, image, text). */
+function mapContentTypeToInputType(contentType: string): SweepInputType {
+  switch (contentType) {
+    case 'voice_short':
+    case 'voice_long':
+      return 'voice'
+    case 'scan_extracted':
+      return 'image'
+    case 'link':
+      return 'link'
+    case 'email':
+      return 'email'
+    case 'calendar_file':
+      return 'text'
+    default:
+      return 'text'
+  }
+}
+
 export function useRunSweep() {
   const triggerSweep = useTriggerSweep()
   const sweepStatus = useSweepStatus()
@@ -570,7 +591,7 @@ export function useRunSweep() {
         memberId: params.memberId,
         settings: params.settings,
         sourceChannel: params.sourceChannel,
-        inputType: params.items.length > 1 ? 'mixed' : (params.items[0].content_type as SweepInputType),
+        inputType: params.items.length > 1 ? 'mixed' : mapContentTypeToInputType(params.items[0].content_type),
         familyMemberNames: params.familyMemberNames,
       })
 

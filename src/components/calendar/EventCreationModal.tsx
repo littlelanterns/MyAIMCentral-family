@@ -28,6 +28,8 @@ interface EventCreationModalProps {
   initialDate?: string // 'YYYY-MM-DD'
   /** Pre-populate all fields when editing an existing event */
   initialEvent?: CalendarEvent & { event_attendees?: EventAttendee[] }
+  /** Called after a new event is successfully created (not on edit) */
+  onCreated?: () => void
 }
 
 const REMINDER_OPTIONS = [
@@ -40,7 +42,7 @@ const REMINDER_OPTIONS = [
   { value: 1440, label: '1 day' },
 ]
 
-export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent }: EventCreationModalProps) {
+export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent, onCreated }: EventCreationModalProps) {
   const isEditing = !!initialEvent
   const createEvent = useCreateEvent()
   const updateEvent = useUpdateEvent()
@@ -210,9 +212,10 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
       await updateEvent.mutateAsync({ eventId: initialEvent.id, updates: input })
     } else {
       await createEvent.mutateAsync(input)
+      onCreated?.()
     }
     onClose()
-  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, isPenciledIn, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose])
+  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, isPenciledIn, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose, onCreated])
 
   const isSaving = createEvent.isPending || updateEvent.isPending
   const hasUnsavedChanges = title.trim().length > 0
@@ -621,10 +624,10 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent 
               style={{ accentColor: 'var(--color-btn-primary-bg)' }}
             />
             <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-              Penciled in
+              Tentative
             </span>
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              (not yet committed)
+              (I'll confirm later)
             </span>
           </label>
         </div>

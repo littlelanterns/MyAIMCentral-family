@@ -4,6 +4,7 @@
  * Shows studio_queue items where processed_at IS NULL and dismissed_at IS NULL.
  * Handles individual cards, batch cards, source ordering.
  * Opens TaskCreationModal pre-populated per source-adaptive table (PRD-17 Screen 8).
+ * Opens EventCreationModal for calendar items with subtype routing.
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
@@ -14,12 +15,16 @@ import { EmptyState, useRoutingToast } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useRecordApprovalPattern } from '@/hooks/useMindSweep'
+import { useCreateEvent } from '@/hooks/useCalendarEvents'
 import { QueueCard } from './QueueCard'
 import { BatchCard } from './BatchCard'
 import { ListPickerModal } from './ListPickerModal'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
+import { EventCreationModal } from '@/components/calendar/EventCreationModal'
 import type { StudioQueueRecord } from './QueueCard'
 import type { CreateTaskData, StudioQueueItem } from '@/components/tasks/TaskCreationModal'
+import type { CalendarEvent, CalendarSubtype } from '@/types/calendar'
+import type { CalendarQueueEventDetail } from '@/types/mindsweep'
 
 // ─── Dismiss Modal ────────────────────────────────────────────
 
@@ -193,6 +198,8 @@ export function SortTab() {
     },
   })
 
+  const createEvent = useCreateEvent()
+
   // Modal state
   const [configItem, setConfigItem] = useState<StudioQueueRecord | null>(null)
   const [batchMode, setBatchMode] = useState<'group' | 'sequential' | undefined>()
@@ -200,6 +207,9 @@ export function SortTab() {
   const [dismissTarget, setDismissTarget] = useState<StudioQueueRecord | null>(null)
   // List picker state — opens when destination='list'
   const [listPickerItems, setListPickerItems] = useState<StudioQueueRecord[]>([])
+  // Calendar event modal state — opens when destination='calendar'
+  const [calendarItem, setCalendarItem] = useState<StudioQueueRecord | null>(null)
+  const [calendarInitialEvent, setCalendarInitialEvent] = useState<(CalendarEvent & { event_attendees?: never[] }) | null>(null)
   // Track which batch_ids have been expanded (rendered as individual cards)
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set())
 
@@ -254,9 +264,161 @@ export function SortTab() {
     batch_id: r.batch_id ?? undefined,
   })
 
+  // ── Calendar routing helpers ──
+
+  /** Build a CalendarEvent-shaped object from MindSweep destination_detail or ICS parsed_event */
+  function queueItemToCalendarEvent(item: StudioQueueRecord): CalendarEvent & { event_attendees?: never[] } {
+    const details = item.content_details as Record<string, unknown> | null
+    const subtype = String(details?.calendar_subtype ?? 'single') as CalendarSubtype
+
+    // ICS import path — has parsed_event
+    const icsDetail = details as unknown as CalendarQueueEventDetail | null
+    if (icsDetail?.parsed_event) {
+      const p = icsDetail.parsed_event
+      return {
+        id: '', // empty = create mode
+        family_id: item.family_id,
+        created_by: currentMember?.id ?? '',
+        title: p.title ?? item.content,
+        event_date: p.event_date ?? '',
+        end_date: p.end_date ?? null,
+        start_time: p.start_time ?? null,
+        end_time: p.end_time ?? null,
+        is_all_day: p.is_all_day ?? false,
+        location: p.location ?? null,
+        description: p.description ?? null,
+        recurrence_rule: null,
+        recurrence_details: p.recurrence_rule ? { rrule: p.recurrence_rule } : null,
+        status: 'penciled_in',
+        calendar_subtype: subtype,
+        option_group_id: null,
+        option_group_title: null,
+        // Defaults for remaining fields
+        event_type: 'event', category_id: null, priority: null, color: null,
+        icon_override: null, source_type: 'review_route', source_reference_id: null,
+        source_image_url: null, external_id: null, external_source: null,
+        last_synced_at: null, recurrence_parent_id: null, rejection_note: null,
+        approved_by: null, approved_at: null, transportation_needed: false,
+        transportation_notes: null, items_to_bring: [], leave_by_time: null,
+        notes: null, reminder_minutes: p.reminder_minutes ? [p.reminder_minutes] : null,
+        show_on_hub: true, is_included_in_ai: true,
+        created_at: '', updated_at: '',
+      }
+    }
+
+    // MindSweep-detected path — has event_title, events[], etc.
+    const events = Array.isArray(details?.events) ? details.events as { date?: string; start_time?: string; end_time?: string; notes?: string }[] : []
+    const firstEvent = events[0]
+
+    return {
+      id: '',
+      family_id: item.family_id,
+      created_by: currentMember?.id ?? '',
+      title: String(details?.event_title ?? item.content),
+      event_date: firstEvent?.date ?? String(details?.start_date ?? ''),
+      end_date: subtype === 'multi_day' ? String(details?.end_date ?? '') : null,
+      start_time: firstEvent?.start_time ?? null,
+      end_time: firstEvent?.end_time ?? null,
+      is_all_day: !firstEvent?.start_time,
+      location: String(details?.event_location ?? '') || null,
+      description: firstEvent?.notes ?? null,
+      recurrence_rule: null,
+      recurrence_details: null,
+      status: 'penciled_in',
+      calendar_subtype: subtype,
+      option_group_id: null,
+      option_group_title: null,
+      event_type: 'event', category_id: null, priority: null, color: null,
+      icon_override: null, source_type: 'review_route', source_reference_id: null,
+      source_image_url: null, external_id: null, external_source: null,
+      last_synced_at: null, recurrence_parent_id: null, rejection_note: null,
+      approved_by: null, approved_at: null, transportation_needed: false,
+      transportation_notes: null, items_to_bring: [], leave_by_time: null,
+      notes: null, reminder_minutes: null, show_on_hub: true, is_included_in_ai: true,
+      created_at: '', updated_at: '',
+    }
+  }
+
+  /** Batch-create calendar events for options or series subtypes */
+  async function handleCalendarBatchCreate(item: StudioQueueRecord) {
+    const details = item.content_details as Record<string, unknown> | null
+    const subtype = String(details?.calendar_subtype ?? 'single') as CalendarSubtype
+    const events = Array.isArray(details?.events) ? details.events as { date?: string; start_time?: string; end_time?: string; notes?: string }[] : []
+    const eventTitle = String(details?.event_title ?? item.content)
+    const eventLocation = String(details?.event_location ?? '') || undefined
+
+    if (events.length === 0) {
+      // Fallback: open modal for manual entry
+      const calEvent = queueItemToCalendarEvent(item)
+      setCalendarItem(item)
+      setCalendarInitialEvent(calEvent)
+      return
+    }
+
+    // Generate shared option_group_id for options subtype
+    const optionGroupId = subtype === 'options' ? crypto.randomUUID() : undefined
+
+    // Create all events in parallel
+    const promises = events.map((e) =>
+      createEvent.mutateAsync({
+        title: eventTitle,
+        event_date: e.date ?? '',
+        start_time: e.start_time ?? undefined,
+        end_time: e.end_time ?? undefined,
+        is_all_day: !e.start_time,
+        location: eventLocation,
+        notes: e.notes ?? undefined,
+        status: 'penciled_in',
+        calendar_subtype: subtype,
+        option_group_id: optionGroupId,
+        option_group_title: subtype === 'options' ? eventTitle : undefined,
+      }),
+    )
+
+    await Promise.all(promises)
+
+    // Mark queue item as processed
+    processedMutation.mutate(item.id)
+
+    // Record approval pattern for MindSweep-sourced items
+    if (isMindSweepSource(item.source) && currentMember) {
+      recordPattern.mutate({
+        familyId: currentMember.family_id,
+        memberId: currentMember.id,
+        contentCategory: (details as Record<string, unknown>)?.mindsweep_category as string || 'unknown',
+        actionTaken: 'approved_unchanged',
+        suggestedDestination: 'calendar',
+        actualDestination: 'calendar',
+      })
+    }
+
+    const label = subtype === 'options'
+      ? `${events.length} tentative dates added — confirm your favorites on the calendar`
+      : `${events.length} events added to calendar`
+
+    routingToast.show({ message: label })
+  }
+
+  // ── Configure handler (dispatch by destination) ──
+
   const handleConfigure = (item: StudioQueueRecord) => {
     if (item.destination === 'list') {
       setListPickerItems([item])
+      return
+    }
+    if (item.destination === 'calendar') {
+      const details = item.content_details as Record<string, unknown> | null
+      const subtype = String(details?.calendar_subtype ?? 'single') as CalendarSubtype
+
+      if (subtype === 'options' || subtype === 'series') {
+        // Batch-create all events directly
+        handleCalendarBatchCreate(item)
+      } else {
+        // single, multi_day, recurring — open EventCreationModal pre-populated
+        const calEvent = queueItemToCalendarEvent(item)
+        setCalendarItem(item)
+        setCalendarInitialEvent(calEvent)
+      }
       return
     }
     setBatchMode(undefined)
@@ -402,6 +564,42 @@ export function SortTab() {
         mode="quick"
         batchMode={batchMode}
         batchItems={batchItems.map(toQueueItem)}
+      />
+
+      {/* Event Creation Modal — opens for calendar items */}
+      <EventCreationModal
+        isOpen={!!calendarItem}
+        onClose={() => {
+          if (calendarItem) {
+            // Mark queue item processed when modal closes (event was created or user cancelled)
+            // Only mark processed if an event was actually saved — use createEvent.isSuccess
+            // For now, mark on close since EventCreationModal handles creation internally
+          }
+          setCalendarItem(null)
+          setCalendarInitialEvent(null)
+        }}
+        initialEvent={calendarInitialEvent ?? undefined}
+        onCreated={() => {
+          // Mark the queue item as processed after successful event creation
+          if (calendarItem) {
+            processedMutation.mutate(calendarItem.id)
+
+            if (isMindSweepSource(calendarItem.source) && currentMember) {
+              recordPattern.mutate({
+                familyId: currentMember.family_id,
+                memberId: currentMember.id,
+                contentCategory: (calendarItem.content_details as Record<string, unknown>)?.mindsweep_category as string || 'unknown',
+                actionTaken: 'approved_unchanged',
+                suggestedDestination: 'calendar',
+                actualDestination: 'calendar',
+              })
+            }
+
+            routingToast.show({ message: `"${calendarItem.content.slice(0, 40)}${calendarItem.content.length > 40 ? '...' : ''}" added to calendar` })
+          }
+          setCalendarItem(null)
+          setCalendarInitialEvent(null)
+        }}
       />
 
       {/* Dismiss confirmation */}

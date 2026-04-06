@@ -157,7 +157,7 @@ export function MindSweepCapture() {
 
   async function handleSweepNow() {
     if (!hasContent || !familyId || !memberId) return
-    await runSweep({
+    const result = await runSweep({
       items: [{ content: content.trim(), content_type: contentSource }],
       familyId,
       memberId,
@@ -165,8 +165,10 @@ export function MindSweepCapture() {
       sourceChannel: 'quick_capture',
       familyMemberNames: memberNames,
     })
-    setContent('')
-    setContentSource('text')
+    if (result) {
+      setContent('')
+      setContentSource('text')
+    }
   }
 
   async function handleSweepAllHolding() {
@@ -177,7 +179,7 @@ export function MindSweepCapture() {
       items.unshift({ content: content.trim(), content_type: 'text' })
     }
 
-    await runSweep({
+    const result = await runSweep({
       items,
       familyId,
       memberId,
@@ -186,14 +188,17 @@ export function MindSweepCapture() {
       familyMemberNames: memberNames,
     })
 
-    markProcessed.mutate({
-      ids: holdingItems.map(h => h.id),
-      familyId,
-      memberId,
-    })
+    // Only mark holding items processed and clear UI if sweep succeeded
+    if (result) {
+      await markProcessed.mutateAsync({
+        ids: holdingItems.map(h => h.id),
+        familyId,
+        memberId,
+      })
 
-    setContent('')
-    setShowHolding(false)
+      setContent('')
+      setShowHolding(false)
+    }
   }
 
   async function handleSaveForLater() {

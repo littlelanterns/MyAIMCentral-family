@@ -440,6 +440,100 @@ export function useUpdateCalendarSettings() {
   })
 }
 
+// ─── Option Groups ──────────────────────────────────────────
+
+/** Fetch all sibling events in an option group */
+export function useOptionGroupEvents(optionGroupId: string | null | undefined) {
+  const { data: family } = useFamily()
+  const familyId = family?.id
+
+  return useQuery({
+    queryKey: [...calendarKeys.all, 'option-group', optionGroupId],
+    queryFn: async () => {
+      if (!familyId || !optionGroupId) return []
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select('*, event_attendees(*)')
+        .eq('family_id', familyId)
+        .eq('option_group_id', optionGroupId)
+        .neq('status', 'cancelled')
+        .order('event_date', { ascending: true })
+
+      if (error) throw error
+      return (data ?? []) as (CalendarEvent & { event_attendees: EventAttendee[] })[]
+    },
+    enabled: !!familyId && !!optionGroupId,
+  })
+}
+
+/** Confirm one date from an option group — does NOT auto-cancel siblings.
+ *  Mom can confirm multiple dates (e.g. attending several performances). */
+export function useConfirmOption() {
+  const queryClient = useQueryClient()
+  const actedBy = useActedBy()
+  const { data: member } = useFamilyMember()
+
+  return useMutation({
+    mutationFn: async ({ eventId }: { eventId: string; optionGroupId: string }) => {
+      if (!member) throw new Error('No member context')
+
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({
+          status: 'approved',
+          approved_by: member.id,
+          approved_at: new Date().toISOString(),
+          acted_by: actedBy,
+        })
+        .eq('id', eventId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
+    },
+  })
+}
+
+/** Dismiss a single penciled-in date (cancel it) */
+export function useDismissOption() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ eventId }: { eventId: string }) => {
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ status: 'cancelled' })
+        .eq('id', eventId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
+    },
+  })
+}
+
+/** Dismiss all remaining penciled-in siblings in one action */
+export function useDismissRemainingOptions() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ optionGroupId }: { optionGroupId: string }) => {
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({ status: 'cancelled' })
+        .eq('option_group_id', optionGroupId)
+        .eq('status', 'penciled_in')
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: calendarKeys.all })
+    },
+  })
+}
+
 // ─── Attendees ───────────────────────────────────────────────
 
 /** Add attendees to an event */

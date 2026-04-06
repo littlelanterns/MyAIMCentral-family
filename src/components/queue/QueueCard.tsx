@@ -76,11 +76,20 @@ function CalendarSubtypeBadge({ details }: { details: Record<string, unknown> })
   const days = Array.isArray(details.recurrence_days) ? (details.recurrence_days as string[]) : []
 
   let label = ''
-  if (subtype === 'options') label = `${events.length || '?'} available dates — add all as penciled in?`
-  else if (subtype === 'multi_day') label = `Multi-day: ${String(details.start_date ?? '')} to ${String(details.end_date ?? '')}`
-  else if (subtype === 'recurring') label = `Recurring: ${days.join(', ')}`
-  else if (subtype === 'series') label = `${events.length || '?'} scheduled events`
-  else if (subtype === 'single' && details.event_title) label = String(details.event_title)
+  if (subtype === 'options') {
+    label = `${events.length || '?'} dates to choose from`
+  } else if (subtype === 'multi_day') {
+    const start = formatDateShort(String(details.start_date ?? ''))
+    const end = formatDateShort(String(details.end_date ?? ''))
+    label = start && end ? `${start} through ${end}` : 'Multi-day event'
+  } else if (subtype === 'recurring') {
+    const capitalDays = days.map(d => d.charAt(0).toUpperCase() + d.slice(1, 3))
+    label = capitalDays.length > 0 ? `Repeats on ${capitalDays.join(', ')}` : 'Recurring event'
+  } else if (subtype === 'series') {
+    label = `${events.length || '?'} events in this series`
+  } else if (subtype === 'single' && details.event_title) {
+    label = String(details.event_title)
+  }
 
   if (!label) return null
 
@@ -95,10 +104,26 @@ function CalendarSubtypeBadge({ details }: { details: Record<string, unknown> })
         gap: '0.25rem',
       }}
     >
-      <CalendarIcon size={12} />
+      <CalendarIcon size={14} />
       <span>{label}</span>
     </div>
   )
+}
+
+/** Format YYYY-MM-DD to short readable form (e.g. "May 14") */
+function formatDateShort(dateStr: string): string {
+  if (!dateStr || dateStr.length < 10) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function calendarButtonLabel(item: StudioQueueRecord): string {
+  const subtype = String((item.content_details as Record<string, unknown>)?.calendar_subtype ?? 'single')
+  switch (subtype) {
+    case 'options': return 'Add dates to pick from'
+    case 'series': return 'Add all events'
+    default: return 'Add to calendar'
+  }
 }
 
 function getDestConfig(destination: string | null): DestConfig {
@@ -270,7 +295,7 @@ export function QueueCard({ item, requesterMember, onConfigure, onDismiss }: Que
             size="sm"
             onClick={() => onConfigure(item)}
           >
-            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? 'Add to calendar' : 'Configure'}
+            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? calendarButtonLabel(item) : 'Configure'}
           </Button>
           <Button
             variant={isRequest ? 'destructive' : 'ghost'}
