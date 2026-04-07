@@ -13,7 +13,7 @@ import {
   Feather, GraduationCap, Brain, Gem, Trophy, Sun, LayoutDashboard, Calendar,
   Users, Monitor, BarChart3, Gamepad2, MessageSquare, MessageCircle, Shield,
   Timer, Rocket, Rss, Compass, FileCheck, UserCheck, Wallet, ShieldAlert,
-  BookCopy, ChevronDown, ChevronUp, ChevronRight, Map, Sparkle,
+  BookCopy, ChevronDown, ChevronUp, ChevronRight, Map, Sparkle, Check,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { JOURNEY_STAGES, type JourneyStage, type JourneyFeature, type SubTool } from '@/data/lanterns-path-data'
@@ -152,7 +152,7 @@ function StatusBadge({ status, inline }: { status: 'built' | 'in_production'; in
           color: 'var(--color-status-success)',
         }}
       >
-        <span>&#10003;</span> Available Now
+        <Check size={12} /> Available Now
       </span>
     )
   }

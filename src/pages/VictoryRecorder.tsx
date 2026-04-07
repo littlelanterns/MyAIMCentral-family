@@ -225,7 +225,7 @@ export function VictoryRecorder() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
               style={{
                 background: 'var(--color-sparkle-gold, #D4AF37)',
-                color: '#fff',
+                color: 'var(--color-text-on-primary, #fff)',
               }}
             >
               <Sparkles size={14} />
@@ -452,7 +452,7 @@ export function VictoryRecorder() {
         className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg font-semibold text-sm transition-transform hover:scale-105"
         style={{
           background: 'var(--color-sparkle-gold, #D4AF37)',
-          color: '#fff',
+          color: 'var(--color-text-on-primary, #fff)',
         }}
       >
         <Plus size={18} />

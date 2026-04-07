@@ -809,7 +809,7 @@ export function GuidingStarsPage() {
               className="px-3 py-1.5 rounded text-sm font-medium"
               style={{
                 backgroundColor: 'var(--color-status-error, #dc2626)',
-                color: '#ffffff',
+                color: 'var(--color-text-on-primary, #fff)',
                 opacity: hardDeleteStar.isPending ? 0.6 : 1,
               }}
             >

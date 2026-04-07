@@ -558,7 +558,7 @@ function IntentionForm({
                   className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
                   style={{
                     backgroundColor: selected ? color : 'transparent',
-                    color: selected ? '#ffffff' : 'var(--color-text-primary)',
+                    color: selected ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-primary)',
                     border: `2px solid ${color}`,
                   }}
                 >

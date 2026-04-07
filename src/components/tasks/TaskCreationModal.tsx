@@ -598,7 +598,7 @@ export function TaskCreationModal({
                 style={{
                   padding: '0.375rem 0.75rem',
                   backgroundColor: selected ? color : 'transparent',
-                  color: selected ? '#fff' : 'var(--color-text-primary)',
+                  color: selected ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-primary)',
                   border: `2px solid ${color}`,
                   cursor: 'pointer',
                   minHeight: 'unset',

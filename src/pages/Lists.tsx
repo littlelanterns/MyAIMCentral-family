@@ -2354,7 +2354,7 @@ function ShareListModal({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
                     style={{
                       backgroundColor: isShared ? color : 'transparent',
-                      color: isShared ? '#fff' : color,
+                      color: isShared ? 'var(--color-text-on-primary, #fff)' : color,
                       border: `2px solid ${color}`,
                     }}
                   >
