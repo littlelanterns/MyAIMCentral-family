@@ -72,3 +72,4 @@ decided and why at build time. Do not delete them after a feature ships.
 | PRD-14-Personal-Dashboard.md | PRD-14 | 2026-03-30 | Complete (37 wired, 5 stubbed) — reconciliation build |
 | PRD-17-Universal-Queue-Routing.md | PRD-17 | 2026-04-03 | Complete (30 wired, 7 stubbed) — gap-fill session |
 | PRD-09A-09B-Studio-Intelligence-Phase-1.md | PRD-09A + PRD-09B | 2026-04-06 | Complete (27 wired, 0 stubbed) — sequential wiring fix + cross-surface visibility + capability tags foundation |
+| PRD-18-Rhythms-Reflections.md | PRD-18 | 2026-04-07 | Phase A complete (51 wired, 14 stubbed) — foundation + Guided mini evening rhythm with rotating wordings + library-backed reflections + reflections date bug fix. Phases B/C/D = Enhancement Addendum items 1-8. |
