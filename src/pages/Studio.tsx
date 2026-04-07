@@ -40,6 +40,7 @@ import {
 } from '@/components/studio/studio-seed-data'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
+import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
 import { GuidedFormAssignModal } from '@/components/guided-forms/GuidedFormAssignModal'
 import { getSectionsForSubtype } from '@/components/guided-forms/guidedFormTypes'
 import type { GuidedFormSubtype as GFSubtype } from '@/components/guided-forms/guidedFormTypes'
@@ -160,6 +161,9 @@ export function StudioPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalInitialType, setModalInitialType] = useState<string>('task')
 
+  // SequentialCreatorModal state (Phase 1: replaces sequential route through TaskCreationModal)
+  const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
+
   // GuidedFormAssignModal state
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
   const [guidedFormSubtype, setGuidedFormSubtype] = useState<string>('custom')
@@ -220,7 +224,13 @@ export function StudioPage() {
       return
     }
 
-    // Task types → open TaskCreationModal
+    // Sequential Collection → open SequentialCreatorModal (Phase 1 — not TaskCreationModal)
+    if (template.templateType === 'sequential') {
+      setSequentialModalOpen(true)
+      return
+    }
+
+    // Other task types → open TaskCreationModal
     const taskType = studioTypeToTaskType(template.templateType)
     if (taskType) {
       setModalInitialType(taskType)
@@ -322,7 +332,7 @@ export function StudioPage() {
       {/* ── Header ─────────────────────────────────────────── */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <FeatureIcon featureKey="studio" fallback={<Palette size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <FeatureIcon featureKey="studio" fallback={<Palette size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="w-10! h-10! md:w-36! md:h-36!" assetSize={512} />
           <h1
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
@@ -410,6 +420,13 @@ export function StudioPage() {
                     templateType: `widget_${sc.tracker_type}` as any,
                     isExample: sc.is_example,
                     exampleUseCases: [],
+                    // Phase 1 capability_tags — baseline for widgets; Phase 2
+                    // will replace with per-tracker-type tags when widget
+                    // starter configs grow their own capability metadata.
+                    capability_tags: [
+                      'dashboard_display', 'at_a_glance', 'progress_visual',
+                      sc.tracker_type as string,
+                    ],
                     categoryLabel: sc.category ?? 'Trackers & Widgets',
                   }))}
                   onCustomize={(t) => {
@@ -555,6 +572,16 @@ export function StudioPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleTaskSaved}
           initialTaskType={modalInitialType}
+        />
+      )}
+
+      {/* ── Sequential Creator Modal (PRD-09A/09B Studio Intelligence Phase 1) ─ */}
+      {sequentialModalOpen && family?.id && member?.id && (
+        <SequentialCreatorModal
+          isOpen={sequentialModalOpen}
+          onClose={() => setSequentialModalOpen(false)}
+          familyId={family.id}
+          createdBy={member.id}
         />
       )}
 

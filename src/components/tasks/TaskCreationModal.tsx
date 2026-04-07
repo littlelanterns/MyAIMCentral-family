@@ -409,7 +409,17 @@ export function TaskCreationModal({
 
   const [data, setData] = useState<CreateTaskData>(() => {
     const d = defaultTaskData(queueItem)
-    if (initialTaskType) d.taskType = initialTaskType as TaskType
+    // PRD-09A/09B Studio Intelligence Phase 1: sequential creation has its own
+    // modal (SequentialCreatorModal). If a caller still passes 'sequential',
+    // ignore it so we don't poison the state; that caller should be fixed.
+    if (initialTaskType && initialTaskType !== 'sequential') {
+      d.taskType = initialTaskType as TaskType
+    } else if (initialTaskType === 'sequential') {
+      console.warn(
+        '[TaskCreationModal] initialTaskType="sequential" is no longer supported. ' +
+        'Use SequentialCreatorModal instead.',
+      )
+    }
     if (defaultTitle) d.title = defaultTitle
     if (defaultDescription) d.description = defaultDescription
     if (sourceReferenceId) d.sourceReferenceId = sourceReferenceId
@@ -434,7 +444,11 @@ export function TaskCreationModal({
   // Re-init on queue item change
   useEffect(() => {
     const d = defaultTaskData(queueItem ?? activeBatchItem)
-    if (initialTaskType) d.taskType = initialTaskType as TaskType
+    // Phase 1 guard: same sequential skip as the initial useState, applied here
+    // so later re-inits from a new queue item don't re-poison state.
+    if (initialTaskType && initialTaskType !== 'sequential') {
+      d.taskType = initialTaskType as TaskType
+    }
     setData(d)
     setScheduleMode('one_time')
     setQuickDays([])

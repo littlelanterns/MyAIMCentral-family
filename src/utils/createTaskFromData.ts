@@ -47,6 +47,19 @@ export async function createTaskFromData(
   creatorId: string,
   familyMembers: FamilyMemberLike[],
 ): Promise<CreateTaskResult> {
+  // PRD-09A/09B Studio Intelligence Phase 1 guard.
+  // Sequential collections have their own creation path: SequentialCreatorModal →
+  // useCreateSequentialCollection. If we get here with taskType='sequential',
+  // something is wiring the wrong flow. Throwing loudly prevents silent creation of
+  // broken single-row "sequential" tasks with no parent collection or child items.
+  if ((data.taskType as string) === 'sequential') {
+    throw new Error(
+      "createTaskFromData: sequential collections must be created via " +
+      "useCreateSequentialCollection / SequentialCreatorModal, not through " +
+      "TaskCreationModal. This is a bug — check the caller.",
+    )
+  }
+
   const result: CreateTaskResult = { taskIds: [], routineTemplateCreated: false, queueItemProcessed: false }
 
   const scheduleFields = buildTaskScheduleFields(data)

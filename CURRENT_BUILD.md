@@ -4,7 +4,7 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A) + PRD-17B MindSweep + PRD-15 Messages/Requests/Notifications
+## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A) + PRD-17B MindSweep + PRD-15 Messages/Requests/Notifications + PRD-18 Rhythms & Reflections
 
 ---
 
@@ -596,6 +596,340 @@ Only `out_of_nest_members` (migration 17, 4 rows) exists. `notifications` and `n
 
 ---
 
+# Build H: PRD-09A/09B Studio Intelligence Phase 1 — Sequential Wiring Fix + Cross-Surface Visibility + Capability Tags
+
+### PRD Files
+- `prds/personal-growth/PRD-09A-Tasks-Routines-Opportunities.md`
+- `prds/personal-growth/PRD-09B-Lists-Studio-Templates.md`
+
+### Addenda Read
+- `prds/addenda/PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md` (**primary authoritative source for this build — Phase 1 scope only**)
+- `prds/addenda/PRD-09A-09B-Linked-Steps-Mastery-Advancement-Addendum.md` (read for Session 2 context — NOT building this session)
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md`
+- `prds/addenda/PRD-Template-and-Audit-Updates.md`
+- `specs/studio-seed-templates.md` (founder-authoritative Studio five-layer mental model)
+- `specs/Concept-Capture-Shopping-List-Backburner-Victory.md` (forward concept capture — not in scope)
+
+### Feature Decision File
+`claude/feature-decisions/PRD-09A-09B-Studio-Intelligence-Phase-1.md`
+
+### Build Plan
+Session 1 of a three-session sequence:
+- **Session 1 (this build):** Fix broken sequential creation wiring, randomizer on Lists page, sequential cross-surface visibility, capability tags foundation on Studio seed data.
+- **Session 2 (next):** Linked Steps / Mastery / Advancement addendum — advancement modes, `practice_log` + `randomizer_draws` tables, linked routine steps, `curriculum-parse` Edge Function, Reading List template, routine duplication.
+- **Session 3 (after):** Studio Intelligence Phase 2 — "What do you want to create?" search bar, use case categories, enhanced template cards, "My Library" tab, post-creation recommendations.
+- **Phase 3 (forward note, not scheduled):** LiLa `studio_create_guide` conversational creation mode. Depends on PRD-05, PRD-18, PRD-29.
+
+---
+
+### Pre-Build Summary
+
+#### Context
+
+The PRD-09A/09B audit discovered that sequential collection creation is **broken everywhere**. Fully-built dead-code components (`SequentialCreator.tsx`, `SequentialCollectionView.tsx`, `useCreateSequentialCollection` hook) exist but have zero callers in src/. The `sequential_collections` table has **0 rows** in the live database (confirmed in `claude/live_schema.md` line 757). Every current "Create Sequential" entry point opens `TaskCreationModal` with `initialTaskType='sequential'`, which silently writes a malformed single row to the `tasks` table with no children and no `sequential_collections` entry.
+
+Additionally, the `Lists.tsx:357` hard-coded type picker grid excludes `'randomizer'` even though `RandomizerDetailView`, the `Randomizer` component, and the `TYPE_CONFIG` entry all exist. Randomizer creation works only via the Studio → `/lists?create=randomizer` URL-param backdoor.
+
+This build is a deliberate architectural evolution from PRD-09A line 469's original ruling ("Sequential collections need their own tab because the management experience is unique"). Per the Studio Intelligence addendum, sequential collections will now be visible on **both** the Tasks → Sequential tab AND the Lists page. Mom thinks of sequential collections as "lists of content for my kids," not "task-system items." Dual access, not migration. The rich management experience (`SequentialCollectionView`) is the primary rendering on both surfaces. Studio remains the universal creation library. The capability tags added this session are the data foundation for Session 3's intent-based Studio search.
+
+**No database migrations. No new tables. No new columns. Phase 1 is 100% frontend wiring plus a seed data config update.**
+
+#### Dependencies Already Built
+- `sequential_collections` table (live schema line 757) — 14 columns, 0 rows
+- `useCreateSequentialCollection` hook (`src/hooks/useSequentialCollections.ts:80-165`) — fully functional mutation
+- `useSequentialCollection` hook — fetches collection + child tasks + active task
+- `useSequentialCollections` hook — lists all collections for a family
+- `useRedeploySequentialCollection` — restart-for-another-student flow
+- `SequentialCreator.tsx` — full creation UI with title, manual/URL/image, items textarea, BulkAddWithAI integration, promotion timing, active count. **Zero callers in src/**.
+- `SequentialCollectionView.tsx` — full management view with progress bars, active item highlighting, restart-for-another-student, archive, member picker modal. **Zero callers in src/**.
+- `TaskCreationModal.tsx` — accepts `initialTaskType` prop (line 107, 401), assigns to state (line 412, 437)
+- `createTaskFromData.ts` — shared task creation utility used by 4 shells
+- `Lists.tsx` — `TYPE_CONFIG` includes `randomizer`, `RandomizerDetailView` rendered when `list_type='randomizer'`, `?create=` URL param path (lines 157-164)
+- `Studio.tsx` — `handleCustomize` with sequential branch (lines 223-228) currently routing to TaskCreationModal
+- `studio-seed-data.ts` — `TASK_TEMPLATES_BLANK`, `TASK_TEMPLATES_EXAMPLES`, `GUIDED_FORM_TEMPLATES_BLANK`, `GUIDED_FORM_TEMPLATES_EXAMPLES`, `LIST_TEMPLATES_BLANK`, `LIST_TEMPLATES_EXAMPLES`, `RANDOMIZER_TEMPLATE_BLANK`. Sequential blank template at `sys_task_sequential` (line 66).
+- `StudioTemplate` type — defined in `StudioTemplateCard.tsx`
+- `BulkAddWithAI` component — already wired inside `SequentialCreator` (lines 163-179) for AI parse of table-of-contents
+- `useLists` hook — simple `.from('lists').select('*').eq('family_id', familyId)` query, returns `List[]`
+- `useFamily`, `useFamilyMember`, `useFamilyMembers` hooks — for context
+- `ModalV2` component — for the new `SequentialCreatorModal` wrapper
+- Live randomizer infrastructure: `Randomizer` component, `RandomizerDetailView`, `lists.list_type='randomizer'` support in all CRUD hooks
+
+#### Dependencies NOT Yet Built
+- **Session 2 scope (read for context only, NOT built this session):**
+  - Advancement mode columns (`advancement_mode`, `practice_target`, `practice_count`, `mastery_status`, etc.) on `tasks` and `list_items`
+  - `practice_log` table
+  - `randomizer_draws` table
+  - `resource_url` column on `tasks`
+  - Default advancement columns on `sequential_collections`
+  - `draw_mode` column on `lists`
+  - Linked routine steps (`step_type` enum on `task_template_steps`)
+  - `curriculum-parse` Edge Function
+  - Reading List Studio template
+  - Routine duplication with linked step resolution
+- **Session 3 scope (Phase 2):** "What do you want to create?" search bar, use case categories, enhanced template cards rendering capability tags, "My Library" tab, post-creation smart recommendation cards
+- **Phase 3 scope (forward note):** LiLa `studio_create_guide` mode, conversational school year planner, proactive Studio suggestions
+- **Captured concepts (not scheduled):** Living shopping list enhancement, backburner activation as victory
+
+#### Build Items (Phase 1 — 14 items, 4 sub-phases)
+
+**Sub-phase 1A: Revive dead sequential creation code + guard broken path (7 items)**
+1. Create `src/components/tasks/sequential/SequentialCreatorModal.tsx` — tiny ModalV2 wrapper around the existing `SequentialCreator` component. Accepts `isOpen`, `onClose`, `familyId`, `createdBy`, `assigneeId` (optional), `onSaved` callback. Internally calls `useCreateSequentialCollection().mutateAsync()` with the shape: `{ collection: {family_id, title, promotion_timing, active_count}, items: [{title}], assigneeId, createdBy }`. Reused from Studio, Tasks page, and Lists page — single source of truth for the creation modal shell.
+2. Update `TaskCreationModal.tsx` `useEffect` that assigns `initialTaskType` (lines 412 and 437) to skip `'sequential'` — log a `console.warn` if encountered, do not assign to state. This is a defensive change; the proper fix is the guard in step 3.
+3. Add guard clause at top of `createTaskFromData()` in `src/utils/createTaskFromData.ts` — if `data.taskType === 'sequential'`, throw `new Error("Sequential collections must be created via useCreateSequentialCollection, not createTaskFromData. This is a bug — check the caller.")`. Prevents silent re-introduction of the broken path.
+4. Update `Studio.tsx` `handleCustomize` branch for `sequential` template type (currently lines 223-228): instead of setting `modalInitialType='sequential'` and opening TaskCreationModal, open the new SequentialCreatorModal. Add `sequentialModalOpen` state.
+5. Update `Tasks.tsx` `SequentialTab` `onCreate` handler (line 493 wiring): open the new SequentialCreatorModal instead of `setShowCreateModal(true)` (which opens TaskCreationModal). Add `sequentialModalOpen` state in the Tasks page.
+6. Replace `Tasks.tsx` `SequentialTab` inline rendering (lines 1197-1302) with `<SequentialCollectionView familyId={family.id} onCreateCollection={() => setSequentialModalOpen(true)} />`. Standalone-sequential-task rendering path (lines 1292-1300) is removed — standalone sequential tasks without a collection are no longer a valid state once the creation path is fixed.
+7. Verify `SequentialCollectionView.tsx` doesn't need internal changes. It already uses `useSequentialCollections(familyId)`, `useSequentialCollection(id)`, `useRedeploySequentialCollection`, and `useFamilyMembers`. All hooks exist and work. The one concern is the `onCreateCollection` callback — the component accepts it as a prop and already renders a [+ Create] button that fires it.
+
+**Sub-phase 1B: Randomizer on Lists page type picker (1 item)**
+8. Edit `Lists.tsx:357` — add `'randomizer'` to the hard-coded type array. One-line fix. After fix: `(['shopping', 'wishlist', 'expenses', 'packing', 'todo', 'reference', 'ideas', 'prayer', 'backburner', 'randomizer', 'custom'] as ListType[])`. Randomizer already has a TYPE_CONFIG entry (line 88), RandomizerDetailView already renders it (line 1025-1029), and the createList path already accepts `list_type='randomizer'`.
+
+**Sub-phase 1C: Cross-surface visibility — sequential on Lists page (4 items)**
+9. Add `'sequential'` as a TYPE_CONFIG entry in `Lists.tsx` with distinct icon (`Layers` or `BookOpen`). Label: "Sequential Collection". Description: "Ordered items that feed one at a time". Mark as a special meta-type that doesn't map to a real `list_type` enum value.
+10. Add `'sequential'` to the type picker grid at `Lists.tsx:357`. When clicked, opens the SequentialCreatorModal instead of the simple list-name input path (requires adding a branch before `handleCreate`).
+11. Query sequential collections on the Lists page: import `useSequentialCollections` and call with `family?.id`. Render a new `SequentialCollectionCardOnList` component for each, placed above (or alongside) the regular list cards. Cards show: BookOpen/Layers icon, "Sequential" badge (theme-tokened pill), title, progress indicator (compute from `useSequentialCollection(id)` or use the `current_index` + `total_items` fields on the row without the deeper query for performance). Tapping the card sets a new `selectedSequentialId` state.
+12. When `selectedSequentialId` is set, render `<SequentialCollectionView>` in a detail view (mirroring the `selectedListId` pattern at `Lists.tsx:217-224`). Uses the same back button / detail container pattern as `ListDetailView`.
+
+**Sub-phase 1D: Capability tags on Studio seed data (2 items)**
+13. Add `capability_tags: string[]` as a **required** field (no `?`) on the `StudioTemplate` type in `src/components/studio/StudioTemplateCard.tsx`. TypeScript compile error on any template that forgets tags.
+14. Populate `capability_tags` on every seed template in `studio-seed-data.ts`: all TASK_TEMPLATES_BLANK entries, all TASK_TEMPLATES_EXAMPLES, all GUIDED_FORM_TEMPLATES_BLANK, all GUIDED_FORM_TEMPLATES_EXAMPLES, all LIST_TEMPLATES_BLANK, all LIST_TEMPLATES_EXAMPLES, and RANDOMIZER_TEMPLATE_BLANK. Tag lists taken verbatim from `PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md` §1D.
+
+**Verification (3 items, part of the build)**
+- `tsc -b` — zero errors. Mandatory before declaring complete (CLAUDE.md convention #121).
+- Playwright E2E test file `tests/e2e/features/studio-intelligence-phase1.spec.ts` — create sequential from Studio, Tasks, Lists → each produces one `sequential_collections` row + N `tasks` rows with proper `sequential_collection_id`. Create randomizer from Lists page [+ New List] picker → produces one `lists` row with `list_type='randomizer'`. Verify sequential collection appears on Lists page AND Tasks → Sequential tab after creation.
+- `npm run check:colors` — no hardcoded colors introduced. Mandatory per CLAUDE.md convention #15.
+
+#### Stubs (NOT Building This Phase)
+
+All Phase 2 items (search, categories, My Library, recommendations), all Phase 3 items (LiLa creation guide), all Session 2 Linked Steps items (advancement modes, practice_log, linked steps, curriculum-parse, Reading List template, routine duplication). Per-item edit/reassign/delete on SequentialCollectionView remains as-is (existing PRD-09A stub, not regressing).
+
+#### Key Decisions
+1. **Zero database changes.** Capability tags live in TypeScript seed data config (Option B from addendum §1D). Tags are a Studio presentation concern, not a runtime data concern.
+2. **SequentialCreatorModal is the single source of truth** for sequential creation. Studio, Tasks page, and Lists page all open the same modal. Reuses the existing SequentialCreator component UI without modification.
+3. **Dual access, not migration.** Sequential collections remain on Tasks → Sequential tab (with upgraded rendering via the revived SequentialCollectionView) AND are visible on the Lists page. Both paths open the same creation modal and the same management view.
+4. **Defensive guards at two layers.** `TaskCreationModal` skips `initialTaskType='sequential'` with a warning; `createTaskFromData` throws on `taskType='sequential'`. Cannot silently create broken rows again.
+5. **`capability_tags` is required on the `StudioTemplate` type.** Forgetting tags on a future template is a compile error, not a silent data quality issue. Ensures Session 3 search has complete data.
+6. **The standalone-sequential-task rendering path is removed.** Lines 1292-1300 of Tasks.tsx render sequential tasks that have no `sequential_collection_id`. After the fix, such tasks cannot be created via the UI. If any exist in production from the broken period, they remain as orphaned task rows — not touched by this build.
+7. **STUB_REGISTRY.md line 368 is currently wrong.** "Sequential reuse/redeploy flow | ✅ Wired | Phase 10 Repair" is incorrect — SequentialCollectionView has zero callers. Will be corrected in the post-build updates.
+8. **`is_system` vs `is_system_template`.** Live schema has both columns on `task_templates`. `Studio.tsx:67-72` filters by `is_system = false` — keep using that. No change this build.
+
+---
+
+# Build I: PRD-18 Rhythms & Reflections (Phase A — Foundation)
+
+### PRD Files
+- `prds/daily-life/PRD-18-Rhythms-Reflections.md` (full PRD — 1147 lines, read every word)
+
+### Addenda Read
+- `prds/addenda/PRD-18-Cross-PRD-Impact-Addendum.md`
+- `prds/addenda/PRD-18-Enhancement-Addendum.md` (**8 enhancements — primary authoritative source alongside the base PRD**)
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md`
+
+### Feature Decision File
+`claude/feature-decisions/PRD-18-Rhythms-Reflections.md`
+
+### Build Plan
+Four sub-phases A → B → C → D (full detail in the feature decision file). This CURRENT_BUILD section scopes **Phase A only**. Phases B/C/D repopulate this section on their own cycles after founder approval.
+
+- **Phase A (this build):** Foundation — rhythm tables, Morning Rhythm, Evening Rhythm core (13-section fixed sequence, mood triage removed), dashboard section registry integration, breathing-glow cards, basic section renderers reusing existing hooks (Guiding Stars, Best Intentions, Task Preview, Calendar, Reflections via existing `useReflections`), per-role default seeding, Guided/Play handoff to DailyCelebration, Rhythms Settings page, `rhythm_capture` routing destination.
+- **Phase B (next):** Periodic rhythms (Weekly/Monthly/Quarterly), Enhancement 1 (Evening Tomorrow Capture + Morning Priorities Recall), Enhancement 8 (On the Horizon with Task Breaker integration), Enhancement 5 (Carry Forward fallback behavior + midnight cron).
+- **Phase C (after):** Enhancement 2 (MindSweep-Lite with Haiku dispositions, batched on Close My Day), Enhancement 3 (Morning Insight with BookShelf semantic pull), Enhancement 4 (Feature Discovery nudge engine), Enhancement 6 (tracker `rhythm_keys` configuration).
+- **Phase D (final):** Enhancement 7 (Independent Teen tailored experience — 8 evening sections, 7 morning sections, teen framing, teen MindSweep-Lite dispositions, 15 teen insight questions, 1-2 reflection question count).
+
+---
+
+### Pre-Build Summary (Phase A)
+
+#### Context
+
+PRD-18 is the platform's activation engine — the daily rhythms that transform MyAIM from a collection of management tools into a living companion. The founder's family already has a nightly reflection habit from StewardShip (V1), and Reflections as a standalone page is already substantially built (migrations 100071/100072, `reflection_prompts` + `reflection_responses` tables, `useReflections` hook with 32 default lazy-seed + journal auto-creation, `ReflectionsPage` with 3 tabs). This build adds the **rhythm shell** around existing infrastructure — Morning and Evening modals that auto-open on first dashboard visit during their active hours, collapse to breathing-glow dashboard cards, and consume data from already-built features (Guiding Stars, Best Intentions, Tasks, Calendar, Reflections).
+
+The Enhancement Addendum (2026-04-07) adds 8 enhancements that transform rhythms into the platform's onboarding engine: rotating conversational tomorrow capture with fuzzy task matching, MindSweep-Lite brain dumps with Haiku dispositions, BookShelf semantic morning insights, feature discovery nudges, carry-forward fallback behavior, tracker rhythm surfacing, On-the-Horizon 7-day lookahead, and a full tailored teen experience. Those are scoped to Phases B, C, and D — **Phase A builds only the foundation.**
+
+Phase A is foundation, not cosmetic. Without it, none of the enhancements can render. The evening rhythm narrative arc (celebrate → plan → clear head → reflect → close) requires all 13 base sections in place even if some surface as stubs until Phase B adds the AI pieces. Guided/Play members do NOT get the adult evening rhythm — at evening rhythm time, they trigger `DailyCelebration` from PRD-11 (already built). The mood triage section is **removed** from the default evening sequence per founder decision in Enhancement 6 ("Moms will literally always be drained or tired. That's not a mood, that is the phase of life we are in."). The `mood_triage` column on `rhythm_completions` stays in schema for future use but is not populated by default.
+
+#### Dependencies Already Built
+
+**Reflections infrastructure (reuse wholesale — do not rebuild):**
+- `reflection_prompts` table with `daily_life` category (migrations 00000000100071, 00000000100072)
+- `reflection_responses` table with RLS — mom reads children's, dad's responses private via existing `rr_parent_reads_children` policy
+- `useReflections.ts` hook — CRUD on prompts, save/update responses, auto-create journal entries with category tags, archive/restore, reorder, 32 default lazy-seed
+- `ReflectionsPage.tsx` — 3 tabs (Today, Past, Manage) at `/reflections`
+- `ReflectionsTodayTab`, `ReflectionsPastTab`, `ReflectionsManageTab`, `ReflectionQuestionCard` components
+- `WriteDrawerReflections` (Guided shell) — mini reflection pattern already proven for embedding
+- `reflections_basic` + `reflections_custom` feature keys already in registry
+- **`journal_entries.tags TEXT[]`** already exists since migration 00000000000006 (line 17) — no column addition needed
+
+**Dashboard section system (PRD-14 — fully operational data-driven renderer):**
+- `src/components/dashboard/dashboardSections.ts` — `SECTION_KEYS` enum (`greeting`, `calendar`, `active_tasks`, `widget_grid`, `best_intentions`, `next_best_thing`, `celebrate`), `SECTION_META`, `DEFAULT_SECTIONS`, `getSections(dashboardConfig?.layout)` reads from `dashboard_configs.layout.sections` JSONB
+- `DashboardSectionWrapper.tsx` — drag/collapse/visibility controls via `dnd-kit`
+- `Dashboard.tsx` — `localSections` state, `updateSection()`, switch-on-section-key renderer
+- Greeting section already built with Guiding Star rotation
+
+**Data consumers already built:**
+- `useGuidingStars(memberId)` — `src/hooks/useGuidingStars.ts:33` — returns active non-archived entries ordered by `entry_type + sort_order`
+- `useBestIntentions(memberId)` — `src/hooks/useBestIntentions.ts:46` — returns active non-archived ordered by `is_active DESC + sort_order ASC`
+- `CalendarWidget` — `src/components/calendar/CalendarWidget.tsx` — supports `personalMemberId` filter, week/month view with tasks + events
+- `DashboardTasksSection` — `src/components/tasks/DashboardTasksSection.tsx` — renders active tasks list
+- `NotepadDrawer` — `src/components/notepad/NotepadDrawer.tsx` — full Smart Notepad (will wrap with lighter embed shell for Brain Dump)
+
+**Victory Recorder + activity log infrastructure:**
+- `victories.source` enum ALREADY includes `'reflection_routed'` (migration 00000000100102, line 41) — no update needed
+- `VictoryRecorder` page built (non-guided shells)
+- `activity_log_entries` table exists (migration 00000000000009:406-423); trigger pattern established
+- `DailyCelebration` component built (PRD-11 Phase 12C, 2026-04-02)
+
+**Routing and navigation:**
+- `RoutingStrip` — `src/components/shared/RoutingStrip.tsx:70-100` — destinations: calendar, tasks, list, journal, guiding_stars, best_intentions, victory, track, messages, ideas, template, hidden, lila, mindsweep, request. **No `rhythm_capture` yet — must add.**
+- `Sidebar.tsx:34-141` — Capture & Reflect section already has "Journal", "Reflections", "Morning Rhythm", "Evening Review" entries pointing to `/rhythms/morning` and `/rhythms/evening` (currently placeholder pages at `src/pages/placeholder/index.tsx:38,42`)
+- `App.tsx` — `/rhythms/morning` → `MorningRhythmPage` (placeholder), `/rhythms/evening` → `EveningReviewPage` (placeholder), `/reflections` → real `ReflectionsPage`, no `/rhythms/settings` route yet
+
+**Enhancement dependencies (used in Phase B/C, not Phase A, but confirmed present):**
+- `TaskBreaker` component + `task-breaker` Edge Function (for Enhancement 8 On the Horizon)
+- `match_book_extractions()` RPC (migration 00000100092:56) — for Enhancement 3 Morning Insight
+- `mindsweep-sort` Edge Function (migration 00000100093) — for Enhancement 2 MindSweep-Lite reuse or inspiration
+
+#### Dependencies NOT Yet Built
+
+- **PRD-05 (LiLa Core) day-data context assembly enhancement** — required for LiLa dynamic reflection prompts. Phase A ships without dynamic prompts.
+- **PRD-05 (LiLa Core) `contextual_help` context injection** — required for tooltip "What's this?" rollout. Phase A does NOT ship tooltip enhancement.
+- **PRD-03 (Design System) Tooltip component "What's this?" link support** — same deferral.
+- **PRD-12A (Personal LifeLantern)** — Quarterly Inventory reads `life_lantern_areas` staleness. Stub in Phase B.
+- **PRD-15 (Messages/Requests/Notifications)** — currently being built in Build G. Required for (a) teen rhythm request flow to `family_requests`, (b) MindSweep-Lite "delegate" disposition creating messages, (c) rhythm completion notifications. Phase A does not depend on PRD-15.
+- **PRD-16 (Meetings)** — Weekly/Monthly Review deep-dive links + Completed Meetings section. Stub until wired.
+- **Studio rhythm templates** — no `rhythm_templates` table yet. Stub until post-MVP content sprint.
+- **Embedded Smart Notepad mini-component** — does NOT exist. Phase A creates a lightweight wrapper around `NotepadDrawer` for the Brain Dump rhythm section.
+
+#### Build Items (Phase A — 15 items)
+
+**1. Migration 00000000100103: `rhythms_foundation.sql`**
+- `rhythm_configs` table — per-member configuration with `sections JSONB` (ordered array), `section_order_locked BOOLEAN` (true for evening), `timing JSONB`, `auto_open BOOLEAN`, `reflection_guideline_count INTEGER`, `source_template_id`, `archived_at`
+- `rhythm_completions` table — per-period tracking with `period TEXT` (YYYY-MM-DD / YYYY-W## / YYYY-MM / YYYY-Q#), `status` ('pending','completed','dismissed','snoozed'), `mood_triage` nullable (preserved in schema but not populated), `metadata JSONB` (`priority_items`, `mindsweep_items`, `brain_dump_notepad_tab_id`), `snoozed_until`, `completed_at`, `dismissed_at`
+- `feature_discovery_dismissals` table — per-member feature discovery dismissal tracking (used by Phase C but schema created in Phase A)
+- `morning_insight_questions` table — empty in Phase A; Phase C seeds 20 adult + 15 teen questions
+- RLS: members manage own; mom reads all family completions; mom configures all family rhythm configs
+- Indexes: UNIQUE `(family_id, member_id, rhythm_key)` on configs, UNIQUE `(family_id, member_id, rhythm_key, period)` on completions, `(family_id, member_id, status)` on completions, `(family_id, member_id, enabled)` on configs
+- `set_updated_at` trigger on `rhythm_configs`
+- Activity log trigger on `rhythm_completions` INSERT (`event_type='rhythm_completed'`)
+- Feature keys added: `rhythms_basic`, `rhythms_periodic`, `rhythms_custom`, `reflections_export`, `rhythm_dynamic_prompts`, `rhythm_morning_insight`, `rhythm_feature_discovery`, `rhythm_mindsweep_lite`, `rhythm_on_the_horizon`, `rhythm_tracker_prompts` (10 new keys; `reflections_basic` + `reflections_custom` already exist)
+- Default `rhythm_configs` seeding trigger on `family_members` INSERT — per-role templates (mom/adult/teen/guided/play). Morning active, Evening active, Weekly Review active, Monthly off, Quarterly off. Teen template uses Enhancement 7 base structure (framing language seeded in Phase D)
+- Backfill existing family members with default rhythm_configs via idempotent UPSERT
+
+**2. TypeScript types (`src/types/rhythms.ts`)**
+- `RhythmKey`, `RhythmType`, `RhythmStatus`, `SectionType`, `RhythmSection`, `RhythmConfig`, `RhythmCompletion`, `RhythmTiming`, per-role default template constants
+
+**3. Hooks (`src/hooks/useRhythms.ts`)**
+- `useRhythmConfigs(memberId)`, `useRhythmConfig(memberId, rhythmKey)`, `useRhythmCompletion(memberId, rhythmKey, period)`, `useTodaysRhythmCompletions(memberId)`, `useCompleteRhythm()`, `useSnoozeRhythm()`, `useDismissRhythm()`, `useUpdateRhythmConfig()`, `useActiveRhythmForTime(memberId)`
+
+**4. Date-seeded PRNG utility (`src/lib/rhythm/dateSeedPrng.ts`)**
+- Deterministic PRNG seeded by `(memberId, date, rhythm_key)`. Same inputs always produce same output — used for rotation in Guiding Star, Scripture/Quote, Reflections sections.
+
+**5. Section renderer system (`src/components/rhythms/sections/`)**
+- `SectionRendererSwitch.tsx` — switch on `section.section_type` → renders correct component
+- Auto-hide logic when data empty (Guiding Star hides if no entries, Scripture hides if no entries, Completed Meetings hides if none, Milestone Celebrations hides if none, Before You Close the Day hides if nothing pending)
+
+**6. Morning Rhythm section components**
+- `GuidingStarRotationSection`, `BestIntentionsFocusSection`, `TaskPreviewSection` (wraps `DashboardTasksSection` read-only), `CalendarPreviewSection` (wraps `CalendarWidget` with `personalMemberId` day view), `BrainDumpSection` (embedded Smart Notepad, writes `notepad_tabs` with `source_type='rhythm_capture'`), `PeriodicCardsSlot` (renders nothing in Phase A)
+
+**7. Evening Rhythm section components**
+- `EveningGreetingSection`, `AccomplishmentsVictoriesSection` (reads `victories` + today's task completions, deduped), `CompletedMeetingsSection` (stub until PRD-16), `MilestoneCelebrationsSection`, `ClosingThoughtSection`, `FromYourLibrarySection`, `BeforeCloseTheDaySection`, `ReflectionsSection` (3 rotating questions via PRNG, existing `useSaveResponse` with `source_context='evening_rhythm'`, "See all questions →" link to `/reflections`), `CloseMyDayActionBar`
+- Carry Forward section preserved as toggleable but OFF by default
+- Mood triage NOT in default sequence (Enhancement 6 removal)
+- MindSweep-Lite section component stubbed (Phase C builds the AI logic)
+- Tomorrow Capture section stubbed (Phase B builds rotating prompts + fuzzy match)
+
+**8. `MorningRhythmModal` + `MorningRhythmCard`**
+- Auto-open once per day on first dashboard visit during morning hours (member's configured wake time → noon)
+- Non-blocking modal, themed header, section cards, bottom action bar
+- `[Start My Day]` → writes `rhythm_completions` with `status='completed'`
+- `[Snooze ▾]` → dropdown (30 min / 1 hr / Dismiss for today) → `snoozed_until` or `dismissed`
+- Breathing-glow card states: pending / completed / snoozed
+
+**9. `EveningRhythmModal` + `EveningRhythmCard`**
+- Same delivery pattern as morning — auto-open during evening hours
+- **Fixed section sequence** — `section_order_locked=true`. Sections toggle on/off but NEVER reorder
+- `[Close My Day]` commits completion + Phase B/C metadata when wired
+
+**10. Dashboard integration**
+- `dashboardSections.ts` — add `morning_rhythm` and `evening_rhythm` keys with `is_auto_managed=true`, `hideable=false`
+- `Dashboard.tsx` — render rhythm cards at position 0 when their period is pending/in-progress
+- Reuse existing `BreathingGlow` component from PRD-17
+- Edit mode must NOT allow hiding rhythm sections
+
+**11. `RhythmsSettingsPage` (`/rhythms/settings`)**
+- New route in `App.tsx`, new sidebar entry in `Sidebar.tsx` (under Settings, not a new top-level nav)
+- Member picker (mom only)
+- Active Rhythms list + Available Rhythms list + Custom Rhythms list (custom creation flow stubbed with `PlannedExpansionCard` for Phase A)
+- Per-rhythm settings drawer: enable/disable, timing, section toggles, section reordering (not for evening), `[Restore Defaults]`
+- `[Browse Studio Templates →]` PlannedExpansionCard
+
+**12. Sidebar + routing updates**
+- Replace placeholder pages at `/rhythms/morning` and `/rhythms/evening` — routes still exist but redirect to `/dashboard` (the real experience is the auto-open modal + breathing-glow card)
+- Add `/rhythms/settings` route → `RhythmsSettingsPage`
+- Add "Rhythms" Settings entry in Sidebar
+
+**13. `rhythm_capture` routing destination**
+- Add to `RoutingStrip` destinations
+- BrainDumpSection writes `notepad_tabs` with `source_type='rhythm_capture'` — routing from the notepad tab writes back to rhythm context
+
+**14. Guided/Play evening handoff**
+- At evening rhythm time, detect member role; if `guided` or `play`, trigger `DailyCelebration` instead of EveningRhythmModal
+- No rhythm card appears for Guided/Play in evening — DailyCelebration is the experience
+- `rhythm_completions` records still written for completion tracking
+
+**15. TypeScript check**
+- `tsc -b` — zero errors before declaring Phase A complete
+
+#### Stubs (NOT Building Phase A)
+
+**All 8 Enhancement Addendum enhancements deferred to later phases:**
+- **Enhancement 1** (Evening Tomorrow Capture + Morning Priorities Recall + `rhythm_priority` task source) — Phase B
+- **Enhancement 2** (MindSweep-Lite + Haiku dispositions + batched Close My Day commit) — Phase C
+- **Enhancement 3** (Morning Insight with BookShelf semantic pull + 20 question pool) — Phase C
+- **Enhancement 4** (Feature Discovery with 2-3x/week gate + dismiss + engagement tracking) — Phase C
+- **Enhancement 5** (Carry Forward fallback behavior + midnight cron + backlog prompt) — Phase B
+- **Enhancement 6** (Tracker `rhythm_keys` multi-select in widget settings) — Phase C
+- **Enhancement 7** (Independent Teen tailored experience) — Phase D
+- **Enhancement 8** (On the Horizon 7-day lookahead + Task Breaker integration) — Phase B
+
+**Other deferrals:**
+- Weekly Review / Monthly Review / Quarterly Inventory inline cards — Phase B
+- Studio rhythm template library (7-10 templates) — post-MVP content sprint, no `rhythm_templates` table yet
+- Teen rhythm request flow through Universal Queue Modal — depends on PRD-15
+- LiLa dynamic reflection prompts — depends on PRD-05 day-data context enhancement
+- Tooltip + "What's this?" → LiLa contextual help rollout — depends on PRD-03 + PRD-05 enhancements
+- LifeLantern Check-in staleness — depends on PRD-12A
+- Completed Meetings section — depends on PRD-16
+- Weekly / Monthly Review deep-dive links — depends on PRD-16 meeting types
+- Rhythm completion indicators on Family Overview — wire post-build (PRD-14C already built, just needs query)
+- Reflection export as formatted document — post-MVP
+- Premium reflection prompt packs — post-MVP
+- Push notifications for rhythm reminders — post-MVP
+- Voice-to-text for reflection answers — post-MVP
+- Renewal Dimension Rotation section type — post-MVP, belongs in Sabbath studio template
+- Reflection sharing on Family Hub — post-MVP
+- Rhythm analytics — post-MVP
+
+#### Key Decisions
+
+1. **Phase A is foundation only.** None of the 8 enhancements ship in Phase A. The evening rhythm sequence is complete at 13 sections, but MindSweep-Lite / Tomorrow Capture render as stubs in Phase A and fill in during Phase B/C. This preserves the narrative arc without blocking on AI infrastructure.
+2. **Reflections infrastructure is reused wholesale.** `reflection_prompts`, `reflection_responses`, `useReflections`, `ReflectionsPage`, 32 default prompts, journal entry auto-creation with tags — all already built. Phase A's `ReflectionsSection` is a thin wrapper pulling 3 rotating questions via PRNG and saving via the existing hook.
+3. **`journal_entries.tags TEXT[]` already exists** (migration 100006) — the PRD-18 Cross-PRD Impact Addendum schema change is already applied.
+4. **`victories.source` already includes `'reflection_routed'`** (migration 100102) — no enum update needed.
+5. **Mood triage removed from default evening sequence** per Enhancement Addendum founder decision. Column preserved in schema.
+6. **Guided/Play evening handoff to DailyCelebration** — already built. Phase A enforces the time-trigger handoff.
+7. **Auto-open modal triggers once per period.** After dismissal, only the breathing-glow dashboard card is shown until the next period.
+8. **Rhythm cards are `is_auto_managed=true`** — inserted at position 0 in Dashboard section list. Edit mode cannot hide them.
+9. **Date-seeded PRNG for rotation.** Same prompts/stars on same day if user re-opens the rhythm. Non-negotiable for user trust.
+10. **Sidebar nav entries already exist** — placeholder pages get replaced, nav doesn't gain morning/evening entries. Rhythms Settings is the only new nav entry.
+11. **RLS inherits existing patterns** — members manage own, mom reads all children (dad's reflections remain private via existing `rr_parent_reads_children` policy).
+12. **Zero blockers on PRD-15.** Phase A does not require messaging infrastructure.
+13. **Embedded Smart Notepad is a thin wrapper around NotepadDrawer.** Phase A does not build a separate mini-Notepad component.
+14. **The `mood_triage` column stays in schema.** Future-proofs against reactivation without requiring a new migration.
+15. **Default rhythm configs seed on member insert via trigger**, with backfill for existing members via idempotent UPSERT in the migration itself.
+
+---
+
 *PRD-06 (Guiding Stars & Best Intentions) + PRD-07 (InnerWorkings repair) completed 2026-03-25. Verification archived to `claude/feature-decisions/PRD-06-Guiding-Stars-Best-Intentions.md` and `claude/feature-decisions/PRD-07-InnerWorkings-repair.md`.*
 
 *PRD-10 Phase A (Widgets, Trackers & Dashboard Layout) completed 2026-03-25. Verification archived to `claude/feature-decisions/PRD-10-Widgets-Trackers-Dashboard-Layout.md`.*
@@ -627,5 +961,7 @@ Only `out_of_nest_members` (migration 17, 4 rows) exists. `notifications` and `n
 *PRD-17 (Universal Queue & Routing — Gap-Fill) completed 2026-04-03. Verification archived to `claude/feature-decisions/PRD-17-Universal-Queue-Routing.md`. 30 wired, 7 stubbed, 0 missing. Gap-fill: QuickTasks opens modal, CalendarTab with Approve/Edit/Reject, ListPickerModal for list items, QueueBadge on Dashboard+Tasks+Calendar, calendar status bug fixed, Quick Mode schedule passthrough, shared task visibility, RoutingToastProvider on Adult/Independent shells. 24 Playwright E2E tests (Dad flows, teen access, honey-do pipeline).*
 
 *PRD-17B MindSweep Sprint 1+2 completed 2026-04-03. Phase A (data layer, migration 100089, mindsweep-sort Edge Function, 5 tables, classify_by_embedding RPC, useMindSweep hooks, QueueCard confidence badges, RoutingStrip tile) + Phase B partial (MindSweepCapture page at /sweep with text/voice/scan/link/holding queue/settings, mindsweep-scan Edge Function for vision OCR + link summarization, useVoiceInput <30s Web Speech optimization, useRunSweep shared hook, UndoToast optional onUndo). /simplify review applied: stale closure fix, triplicated reset extraction, shared sweep runner, cache invalidation mutations, auto-reset timer, concurrent inserts, type cleanup. 11 Playwright E2E tests passing. Phase B remaining: auto-sweep pg_cron, share-to-app, PWA manifest, IndexedDB offline. Phase C not started.*
+
+*PRD-09A/09B Studio Intelligence Phase 1 (Build H) completed 2026-04-06. Verification archived to `claude/feature-decisions/PRD-09A-09B-Studio-Intelligence-Phase-1.md`. 27 wired, 0 stubbed, 0 missing. Fixed a critical silent bug: sequential collection creation was broken everywhere (dead code in SequentialCreator/SequentialCollectionView with zero callers; sequential_collections table had 0 rows in production). Revived dead code via new SequentialCreatorModal wrapper, wired it from Studio + Tasks → Sequential tab + Lists page [+ New List] picker, added two-layer guards (createTaskFromData throws, TaskCreationModal skips initialTaskType='sequential'), removed the broken inline SequentialTab sub-component. Cross-surface visibility: sequential collections now appear on the Lists page alongside regular lists (with Sequential badge + progress) AND on the Tasks → Sequential tab (dual access). One-line randomizer fix: added 'randomizer' to Lists.tsx type picker grid. Data foundation: capability_tags required field on StudioTemplate type, populated on all 27 seed templates + widget starter config adapter. Zero database migrations. Deliberate PRD divergence from PRD-09A line 469 documented. 4 Playwright E2E tests passing (sequential creation DB verification, Lists page visibility, Tasks tab visibility, randomizer creation). Session 2 (Linked Steps addendum — advancement modes, practice_log, curriculum-parse Edge Function, Reading List template) and Session 3 (Studio Phase 2 — intent-based search, use case categories, My Library) are the follow-ons.*
 
 ---

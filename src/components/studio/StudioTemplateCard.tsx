@@ -49,6 +49,14 @@ export interface StudioTemplate {
   description: string
   exampleUseCases: string[]
   isExample: boolean
+  /**
+   * PRD-09A/09B Studio Intelligence Phase 1 — foundation for Phase 2 intent-based search.
+   * Tags describe what the template DOES, not what it IS. Multiple tools can share tags.
+   * Required field: forgetting tags on a future template is a compile error (by design).
+   * Tag vocabulary is authoritative in
+   * `prds/addenda/PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md` §1D.
+   */
+  capability_tags: string[]
   /** For guided forms: ordered section keys */
   sectionStructure?: string[]
   /** Opportunity sub-type description */
@@ -142,7 +150,7 @@ export function StudioTemplateCard({ template, onCustomize, onUseAsIs }: StudioT
       onClick={handleCardClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative flex-shrink-0 rounded-xl border cursor-pointer transition-all duration-200 select-none"
+      className="relative shrink-0 rounded-xl border cursor-pointer transition-all duration-200 select-none"
       style={{
         backgroundColor: 'var(--color-bg-card)',
         borderColor: showExpanded

@@ -41,6 +41,8 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
+import { SequentialCollectionView } from '@/components/tasks/sequential/SequentialCollectionView'
+import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
 import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
 import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import { ModalV2 } from '@/components/shared/ModalV2'
@@ -115,6 +117,7 @@ export function TasksPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [guidedNewTask, setGuidedNewTask] = useState('')
@@ -323,7 +326,7 @@ export function TasksPage() {
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between pb-4">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="tasks" fallback={<CheckSquare size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <FeatureIcon featureKey="tasks" fallback={<CheckSquare size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="w-10! h-10! md:w-36! md:h-36!" assetSize={512} />
           <h1
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
@@ -479,7 +482,7 @@ export function TasksPage() {
         id={`tabpanel-${activeTab}`}
         role="tabpanel"
         aria-labelledby={`tab-${activeTab}`}
-        className="min-h-[300px]"
+        className="min-h-75"
       >
         {isLoading ? (
           <div className="flex justify-center py-12">
@@ -490,7 +493,12 @@ export function TasksPage() {
         ) : activeTab === 'opportunities' ? (
           <OpportunitiesTab tasks={displayTasks} onToggle={toggle} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} />
         ) : activeTab === 'sequential' ? (
-          <SequentialTab tasks={displayTasks} onToggle={toggle} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} />
+          family?.id ? (
+            <SequentialCollectionView
+              familyId={family.id}
+              onCreateCollection={() => setSequentialModalOpen(true)}
+            />
+          ) : null
         ) : displayTasks.length === 0 ? (
           <EmptyState
             icon={<CheckSquare size={36} />}
@@ -540,6 +548,16 @@ export function TasksPage() {
         onClose={() => setShowCreateModal(false)}
         onSave={handleCreateTask}
       />
+
+      {/* SequentialCreatorModal — Phase 1 replacement for sequential creation */}
+      {sequentialModalOpen && family?.id && activeMember?.id && (
+        <SequentialCreatorModal
+          isOpen={sequentialModalOpen}
+          onClose={() => setSequentialModalOpen(false)}
+          familyId={family.id}
+          createdBy={activeMember.id}
+        />
+      )}
 
       {/* TaskCreationModal — Edit */}
       {editingTask && (
@@ -702,7 +720,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
               {/* Member picker dropdown — positioned above sibling cards */}
               {deployingTaskId === task.id && (
                 <div
-                  className="absolute right-0 top-full mt-1 min-w-[200px] rounded-lg shadow-xl overflow-hidden"
+                  className="absolute right-0 top-full mt-1 min-w-50 rounded-lg shadow-xl overflow-hidden"
                   style={{
                     backgroundColor: 'var(--color-bg-card)',
                     border: '1px solid var(--color-border)',
@@ -754,7 +772,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
                       }}
                     >
                       <span
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                         style={{
                           backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))',
                           color: 'var(--color-btn-primary-bg)',
@@ -915,7 +933,7 @@ function QueueItemCard({ item, onDismiss, borderless = false }: QueueItemCardPro
         borderRadius: 'var(--vibe-radius-card, 0.5rem)',
       }}
     >
-      <Inbox size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
+      <Inbox size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
       <div className="flex-1 min-w-0">
         <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
           {item.content}
@@ -924,7 +942,7 @@ function QueueItemCard({ item, onDismiss, borderless = false }: QueueItemCardPro
           From: {sourceLabel} · {timeAgo}
         </p>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <button
           className="text-xs px-2.5 py-1 rounded-lg font-medium"
           style={{
@@ -1184,120 +1202,9 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
   )
 }
 
-// ─────────────────────────────────────────────
-// SequentialTab sub-component
-// ─────────────────────────────────────────────
-interface SequentialTabProps {
-  tasks: Task[]
-  onToggle: (task: Task, origin?: { x: number; y: number }) => void
-  isCompleting: (taskId: string) => boolean
-  onCreate: () => void
-}
-
-function SequentialTab({ tasks, onToggle, isCompleting, onCreate }: SequentialTabProps) {
-  if (tasks.length === 0) {
-    return (
-      <EmptyState
-        icon={<BookOpen size={36} />}
-        title="No sequential collections"
-        description="Create a sequential collection from a textbook table of contents, tutorial playlist, or any ordered list. Tasks drip one at a time, auto-advancing on completion."
-        action={
-          <Button variant="primary" size="sm" onClick={onCreate}>
-            <Plus size={14} />
-            Create Sequential
-          </Button>
-        }
-      />
-    )
-  }
-
-  // Group by sequential_collection_id
-  const collections = new Map<string, Task[]>()
-  const standalone: Task[] = []
-
-  tasks.forEach((task) => {
-    const colId = (task as Task & { sequential_collection_id?: string }).sequential_collection_id
-    if (colId) {
-      if (!collections.has(colId)) collections.set(colId, [])
-      collections.get(colId)!.push(task)
-    } else {
-      standalone.push(task)
-    }
-  })
-
-  return (
-    <div className="space-y-3 py-2">
-      {Array.from(collections.entries()).map(([colId, colTasks]) => {
-        const completed = colTasks.filter((t) => t.status === 'completed').length
-        const total = colTasks.length
-        const active = colTasks.find((t) => (t as Task & { sequential_is_active?: boolean }).sequential_is_active)
-        const pct = total > 0 ? Math.round((completed / total) * 100) : 0
-
-        return (
-          <div
-            key={colId}
-            className="rounded-xl overflow-hidden"
-            style={{ border: '1.5px solid var(--color-border)' }}
-          >
-            {/* Collection header */}
-            <div
-              className="px-4 py-3"
-              style={{ backgroundColor: 'var(--color-bg-card)' }}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <BookOpen size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
-                  <span className="font-semibold text-sm" style={{ color: 'var(--color-text-heading)' }}>
-                    Sequential Collection
-                  </span>
-                </div>
-                <Badge variant="info" size="sm">
-                  {completed}/{total}
-                </Badge>
-              </div>
-
-              {/* Progress bar */}
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${pct}%`,
-                    backgroundColor: 'var(--color-btn-primary-bg)',
-                  }}
-                />
-              </div>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-                {pct}% complete
-              </p>
-            </div>
-
-            {/* Active item */}
-            {active && (
-              <div className="p-3" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
-                <p className="text-xs mb-1.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                  Current
-                </p>
-                <TaskCard
-                  task={active}
-                  isCompleting={isCompleting(active.id)}
-                  onToggle={onToggle}
-                  compact
-                />
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      {/* Standalone sequential tasks */}
-      {standalone.map((task) => (
-        <TaskCard
-          key={task.id}
-          task={task}
-          isCompleting={isCompleting(task.id)}
-          onToggle={onToggle}
-        />
-      ))}
-    </div>
-  )
-}
+// Sequential tab now uses <SequentialCollectionView> directly (see render block
+// above). The prior inline SequentialTab sub-component and its standalone-task
+// fallback path were removed as part of PRD-09A/09B Studio Intelligence Phase 1.
+// Standalone sequential tasks without a parent collection are no longer a valid
+// state: every sequential item is created through useCreateSequentialCollection,
+// which guarantees a parent row plus N child tasks.

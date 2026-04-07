@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-04-06.
+> Updated each build session. Last updated: 2026-04-06 (Studio Intelligence Phase 1).
 
 ## RoutingStrip Destinations
 
@@ -30,14 +30,45 @@
 
 | Studio Action | Target | Status | Notes |
 |---|---|---|---|
-| [Customize] Task types | TaskCreationModal | **Wired** | Opens modal pre-configured for type |
+| [Customize] Task types (task/routine/opportunity) | TaskCreationModal | **Wired** | Opens modal pre-configured for type |
+| [Customize] Sequential Collection | SequentialCreatorModal | **Wired** | PRD-09A/09B Studio Intelligence Phase 1 — previously silently broken (opened TaskCreationModal which created malformed rows). Now routes through `useCreateSequentialCollection`. |
 | [Customize] List types | Navigate /lists?create=type | **Wired** | URL param auto-opens create modal |
+| [Customize] Randomizer | Navigate /lists?create=randomizer | **Wired** | Studio URL path; also accessible directly via Lists page [+ New List] picker as of Phase 1 |
 | [Customize] Guided Forms | GuidedFormAssignModal | **Wired** | Opens 2-step assign flow |
-| [Customize] Trackers/Widgets | PlannedExpansionCard | Stub | PRD-10 not built |
+| [Customize] Trackers/Widgets | WidgetPicker + WidgetConfiguration | **Wired** | PRD-10 Phase A |
 | My Customized: Deploy | TaskCreationModal | **Wired** | Opens modal from template |
 | My Customized: Edit | TaskCreationModal | **Wired** | Opens modal for editing |
 | My Customized: Duplicate | Supabase insert | **Wired** | Creates copy in DB |
 | My Customized: Archive | Supabase soft delete | **Wired** | Sets archived_at |
+
+## Sequential Collections (PRD-09A/09B Studio Intelligence Phase 1)
+
+| Capability | Entry Point | Status | Notes |
+|---|---|---|---|
+| Create from Studio | Studio → Sequential Collection [Customize] → SequentialCreatorModal | **Wired** | Phase 1 (2026-04-06). Before Phase 1 this opened TaskCreationModal and silently wrote a broken single-row task. |
+| Create from Tasks → Sequential tab | Tasks → Sequential tab → [+ Create] → SequentialCreatorModal | **Wired** | Same modal as Studio. |
+| Create from Lists page | Lists → [+ New List] → "Sequential Collection" tile → SequentialCreatorModal | **Wired** | Phase 1 cross-surface visibility — new entry point. |
+| DB writes | `sequential_collections` row + N `tasks` rows with `task_type='sequential'`, `sequential_collection_id`, `sequential_position`, first `active_count` flagged `sequential_is_active=true` | **Wired** | Via `useCreateSequentialCollection` mutation. E2E verified in `tests/e2e/features/studio-intelligence-phase1.spec.ts`. |
+| Visible on Tasks → Sequential tab | `<SequentialCollectionView>` renders expandable cards with progress, restart-for-another-student, archive | **Wired** | Revived from dead code in Phase 1. |
+| Visible on Lists page | Inline tile in grid / list view with "Sequential" badge + `current_index/total_items` subtitle | **Wired** | Phase 1 dual access. Only shown on `filter='all'`. |
+| Sequential detail view from Lists page | Back-button wrapper rendering `<SequentialCollectionCard>` | **Wired** | Phase 1 — uses exported `SequentialCollectionCard`. Card has its own expand/collapse. |
+| `createTaskFromData` guard | Throws `Error` on `taskType='sequential'` | **Wired** | Prevents silent re-introduction of the broken path. |
+| `TaskCreationModal` guard | Skips `initialTaskType='sequential'` with `console.warn` | **Wired** | Defensive layer above the guard. |
+| Advancement modes (practice_count / mastery) | — | Stub | Session 2 (Linked Steps addendum) |
+| Linked routine steps | — | Stub | Session 2 |
+| `curriculum-parse` Edge Function | — | Stub | Session 2 |
+
+## Studio Capability Tags (PRD-09A/09B Studio Intelligence Phase 1)
+
+| Item | Status | Notes |
+|---|---|---|
+| `capability_tags: string[]` required on `StudioTemplate` type | **Wired** | Compile-time error if a future template forgets tags. |
+| Tags populated on all 27 seed templates | **Wired** | Blank formats + examples across task, guided form, list, and randomizer categories. |
+| Widget starter configs carry baseline tags | **Wired** | Adapter in Studio.tsx adds `['dashboard_display', 'at_a_glance', 'progress_visual', tracker_type]`. Phase 2 will replace with per-tracker-type tags. |
+| Studio search bar rendering tags | — | Stub (Session 3 / Phase 2) |
+| Use case category browse | — | Stub (Session 3 / Phase 2) |
+| "Best for:" tagline + tag pills on cards | — | Stub (Session 3 / Phase 2) |
+| "My Library" unified tab | — | Stub (Session 3 / Phase 2) |
 
 ## System Lists (auto-created per member)
 

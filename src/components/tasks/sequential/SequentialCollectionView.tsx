@@ -68,7 +68,7 @@ export function SequentialCollectionView({ familyId, onCreateCollection }: Seque
   )
 }
 
-function SequentialCollectionCard({ collection }: { collection: SequentialCollection }) {
+export function SequentialCollectionCard({ collection }: { collection: SequentialCollection }) {
   const [expanded, setExpanded] = useState(false)
   const [showRedeployPicker, setShowRedeployPicker] = useState(false)
   const [archiving, setArchiving] = useState(false)

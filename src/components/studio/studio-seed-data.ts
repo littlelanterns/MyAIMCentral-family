@@ -7,6 +7,12 @@
  *
  * Template data is READ-ONLY source material — do not hand-edit card copy.
  * All descriptions, taglines, and example_use_cases come from the founder spec.
+ *
+ * PRD-09A/09B Studio Intelligence Phase 1 — capability_tags added to every
+ * template. Tags describe what a template DOES, not what it IS. They are the
+ * data foundation for Phase 2's intent-based Studio search. Tag vocabulary is
+ * authoritative in
+ * `prds/addenda/PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md` §1D.
  */
 
 import type { StudioTemplate } from './StudioTemplateCard'
@@ -27,6 +33,7 @@ export const TASK_TEMPLATES_BLANK: StudioTemplate[] = [
       'Call the dentist',
       'Help dad with yard work',
     ],
+    capability_tags: ['one_time', 'assignable', 'due_date', 'quick_action', 'to_do'],
     isExample: false,
   },
   {
@@ -42,6 +49,10 @@ export const TASK_TEMPLATES_BLANK: StudioTemplate[] = [
       'Kitchen duties',
       'After-school checklist',
       'Bathroom deep clean',
+    ],
+    capability_tags: [
+      'daily_checklist', 'recurring', 'sections', 'different_days',
+      'linked_content', 'morning_routine', 'school_routine', 'chore_routine',
     ],
     isExample: false,
   },
@@ -60,6 +71,7 @@ export const TASK_TEMPLATES_BLANK: StudioTemplate[] = [
     ],
     howItWorks:
       'Kids tap [Claim] to lock a job. A timer counts down their window. Complete + approved = reward. Lock expires? Job returns to the pool, no penalty.',
+    capability_tags: ['bonus_work', 'earn_rewards', 'job_board', 'claim_lock', 'family_economy'],
     isExample: false,
   },
   {
@@ -74,6 +86,10 @@ export const TASK_TEMPLATES_BLANK: StudioTemplate[] = [
       'YouTube tutorial series',
       'Piano lesson progression',
       'Nature study unit',
+    ],
+    capability_tags: [
+      'tracks_progress', 'ordered_steps', 'curriculum', 'mastery', 'practice_count',
+      'one_at_a_time', 'drip_feed', 'learning_path', 'skill_building', 'homeschool',
     ],
     isExample: false,
   },
@@ -96,6 +112,10 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Breakfast',
       'Pack backpack',
     ],
+    capability_tags: [
+      'daily_checklist', 'recurring', 'sections', 'different_days',
+      'morning_routine', 'school_routine',
+    ],
     isExample: true,
   },
   {
@@ -111,6 +131,10 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Wipe down surfaces',
       'Vacuum',
       'Organize closet',
+    ],
+    capability_tags: [
+      'daily_checklist', 'recurring', 'sections', 'different_days',
+      'chore_routine',
     ],
     isExample: true,
   },
@@ -129,6 +153,7 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     ],
     howItWorks:
       'Kids tap [Claim] to lock a job. A timer counts down. Complete + approved = reward. Lock expires? Job returns to the pool.',
+    capability_tags: ['bonus_work', 'earn_rewards', 'job_board', 'claim_lock', 'family_economy'],
     isExample: true,
   },
   {
@@ -144,6 +169,10 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Language arts program',
       'Science textbook sections',
     ],
+    capability_tags: [
+      'tracks_progress', 'ordered_steps', 'curriculum', 'one_at_a_time',
+      'drip_feed', 'learning_path', 'homeschool',
+    ],
     isExample: true,
   },
   {
@@ -158,6 +187,10 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Empty dishwasher',
       'Read together',
       'Play a board game',
+    ],
+    capability_tags: [
+      'variety', 'surprise', 'draw_pool', 'no_decision_fatigue',
+      'chore_wheel', 'fun',
     ],
     isExample: true,
   },
@@ -179,6 +212,10 @@ export const GUIDED_FORM_TEMPLATES_BLANK: StudioTemplate[] = [
       'Pre-trip planning form',
       'Reading response questions',
     ],
+    capability_tags: [
+      'structured_thinking', 'worksheet', 'reflection', 'assignable',
+      'printable', 'teaching_tool',
+    ],
     isExample: false,
   },
   {
@@ -193,6 +230,10 @@ export const GUIDED_FORM_TEMPLATES_BLANK: StudioTemplate[] = [
       'What to do when angry',
       'Spending birthday money',
       'Friend situation',
+    ],
+    capability_tags: [
+      'decision_making', 'structured_thinking', 'teaching_tool', 'reflection',
+      'kids', 'conflict_resolution',
     ],
     sectionStructure: ['Situation', 'Options', 'Disadvantages', 'Advantages', 'Solution'],
     isExample: false,
@@ -210,6 +251,10 @@ export const GUIDED_FORM_TEMPLATES_BLANK: StudioTemplate[] = [
       'Finished work early',
       'Feeling angry at sibling',
     ],
+    capability_tags: [
+      'pre_teaching', 'scenarios', 'role_play', 'teaching_tool', 'kids',
+      'structured_thinking',
+    ],
     sectionStructure: ['The Scenario', 'My Options', 'What Might Happen', 'What I Would Do', 'What I Learned'],
     isExample: false,
   },
@@ -225,6 +270,10 @@ export const GUIDED_FORM_TEMPLATES_BLANK: StudioTemplate[] = [
       'When a rule was broken',
       'After a hurtful comment',
       'Any conflict needing repair',
+    ],
+    capability_tags: [
+      'restorative', 'reflection', 'conflict_resolution', 'kids',
+      'teaching_tool', 'structured_thinking',
     ],
     sectionStructure: [
       'What Happened',
@@ -253,6 +302,10 @@ export const GUIDED_FORM_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Conflict over shared space',
       'Taking each other\'s things',
     ],
+    capability_tags: [
+      'decision_making', 'conflict_resolution', 'kids', 'reflection',
+      'teaching_tool',
+    ],
     sectionStructure: ['Situation', 'Options', 'Disadvantages', 'Advantages', 'Solution'],
     isExample: true,
   },
@@ -268,6 +321,9 @@ export const GUIDED_FORM_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Saying no to friends',
       'Making wise choices',
     ],
+    capability_tags: [
+      'pre_teaching', 'scenarios', 'role_play', 'kids', 'teaching_tool',
+    ],
     sectionStructure: ['The Scenario', 'My Options', 'What Might Happen', 'What I Would Do', 'What I Learned'],
     isExample: true,
   },
@@ -282,6 +338,10 @@ export const GUIDED_FORM_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'After any conflict',
       'When trust was broken',
       'After hurtful words',
+    ],
+    capability_tags: [
+      'restorative', 'reflection', 'conflict_resolution', 'kids',
+      'teaching_tool',
     ],
     sectionStructure: [
       'What Happened',
@@ -311,6 +371,9 @@ export const LIST_TEMPLATES_BLANK: StudioTemplate[] = [
       'Hardware store list',
       'Pharmacy pickup',
     ],
+    capability_tags: [
+      'ongoing', 'store_sections', 'purchase_tracking', 'family_shared', 'bulk_add',
+    ],
     isExample: false,
   },
   {
@@ -326,6 +389,7 @@ export const LIST_TEMPLATES_BLANK: StudioTemplate[] = [
       'Back-to-school supplies',
       'Mom\'s reading list with links',
     ],
+    capability_tags: ['gift_ideas', 'urls', 'prices', 'occasions', 'shared'],
     isExample: false,
   },
   {
@@ -340,6 +404,9 @@ export const LIST_TEMPLATES_BLANK: StudioTemplate[] = [
       'Beach vacation',
       'Camping weekend',
       'Overnight at grandma\'s',
+    ],
+    capability_tags: [
+      'trip_planning', 'sections', 'progress_bar', 'reusable', 'family_shared',
     ],
     isExample: false,
   },
@@ -356,6 +423,9 @@ export const LIST_TEMPLATES_BLANK: StudioTemplate[] = [
       'Birthday party costs',
       'School activity fees',
     ],
+    capability_tags: [
+      'spending_tracking', 'categories', 'running_total', 'budget',
+    ],
     isExample: false,
   },
   {
@@ -370,6 +440,9 @@ export const LIST_TEMPLATES_BLANK: StudioTemplate[] = [
       'Weekly errands',
       'Phone calls to make',
       'Quick project checklist',
+    ],
+    capability_tags: [
+      'quick_capture', 'promote_to_task', 'lightweight', 'scratchpad',
     ],
     isExample: false,
   },
@@ -386,6 +459,7 @@ export const LIST_TEMPLATES_BLANK: StudioTemplate[] = [
       'Ideas list',
       'Resource collection',
     ],
+    capability_tags: ['flexible', 'any_fields', 'sections', 'general_purpose'],
     isExample: false,
   },
 ]
@@ -401,6 +475,9 @@ export const LIST_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     description:
       'A ready-to-use shopping list with 7 category sections: Produce, Dairy, Meat, Pantry, Frozen, Household, and Other. Pre-filled with common items to get you started. Customize sections and items for your family\'s habits.',
     exampleUseCases: ['Weekly grocery run', 'Costco trip', 'Farmer\'s market'],
+    capability_tags: [
+      'ongoing', 'store_sections', 'purchase_tracking', 'family_shared',
+    ],
     isExample: true,
   },
   {
@@ -411,6 +488,9 @@ export const LIST_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     description:
       'A ready-to-use road trip packing list with 5 categories: Clothing, Toiletries, Electronics, Snacks & Drinks, and Entertainment. Pre-filled with common items. Share with the whole family before departure.',
     exampleUseCases: ['Road trip', 'Vacation prep', 'Long weekend'],
+    capability_tags: [
+      'trip_planning', 'sections', 'progress_bar', 'reusable', 'family_shared',
+    ],
     isExample: true,
   },
   {
@@ -421,6 +501,7 @@ export const LIST_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     description:
       'A ready-to-use birthday wishlist with 5 sample items demonstrating URLs, estimated prices, size/color notes, and gift priority. Shows your child how to fill in a wishlist that actually helps gift-givers.',
     exampleUseCases: ['Birthday', 'Holiday wishlist', 'Gift ideas for grandparents'],
+    capability_tags: ['gift_ideas', 'urls', 'prices', 'occasions'],
     isExample: true,
   },
   {
@@ -431,6 +512,9 @@ export const LIST_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     description:
       'A ready-to-use expense tracker with 5 sample curriculum purchases showing amount, category, vendor, and notes. Running total helps stay on budget for the school year.',
     exampleUseCases: ['Curriculum purchases', 'School year budget', 'ESA tracking'],
+    capability_tags: [
+      'spending_tracking', 'categories', 'running_total', 'budget', 'homeschool',
+    ],
     isExample: true,
   },
 ]
@@ -449,6 +533,10 @@ export const RANDOMIZER_TEMPLATE_BLANK: StudioTemplate = {
     'Who picks the movie tonight',
     'Dinner activity picker',
     'Reward spinner',
+  ],
+  capability_tags: [
+    'variety', 'surprise', 'draw_pool', 'mastery', 'practice',
+    'no_decision_fatigue', 'enrichment', 'chore_wheel', 'fun',
   ],
   isExample: false,
 }

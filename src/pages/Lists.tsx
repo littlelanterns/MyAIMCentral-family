@@ -39,6 +39,11 @@ import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/Fr
 import { PoolModeSelector } from '@/components/lists/PoolModeSelector'
 import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 import { ReferenceListView } from '@/components/lists/ReferenceListView'
+import {
+  SequentialCollectionCard,
+} from '@/components/tasks/sequential/SequentialCollectionView'
+import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
+import { useSequentialCollections } from '@/hooks/useSequentialCollections'
 
 // ── Victory mode selector ──────────────────────────────────
 const VICTORY_MODE_OPTIONS: { value: VictoryMode; label: string; description: string }[] = [
@@ -90,6 +95,10 @@ const TYPE_CONFIG: Record<string, { icon: typeof ListIcon; label: string; descri
   ideas: { icon: Lightbulb, label: 'Ideas', description: 'Capture raw ideas before they become anything', isSystem: true },
   prayer: { icon: Heart, label: 'Prayer', description: 'Ongoing prayer items and intentions' },
   reference: { icon: BookOpen, label: 'Reference', description: 'Save info to look up later — steps, numbers, instructions' },
+  // Meta-type: NOT a real ListType — routed to SequentialCreatorModal on click.
+  // Sequential collections live in sequential_collections + tasks, not the lists table,
+  // but are surfaced here alongside lists per PRD-09A/09B Studio Intelligence Phase 1.
+  sequential: { icon: BookOpen, label: 'Sequential Collection', description: 'Ordered items that feed one at a time' },
 }
 
 const FILTER_TABS: { key: string; label: string }[] = [
@@ -136,6 +145,9 @@ export function ListsPage() {
   const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
   const { data: allLists = [], isLoading } = useLists(family?.id)
   const { data: sharedListIds = [] } = useSharedListIds(isViewingAs ? activeMember?.id : undefined)
+  // PRD-09A/09B Studio Intelligence Phase 1: surface sequential collections on the Lists page
+  // alongside regular lists. Cross-surface visibility (also available on Tasks → Sequential tab).
+  const { data: sequentialCollections = [] } = useSequentialCollections(family?.id)
   const createList = useCreateList()
   const restoreList = useRestoreList()
   const deleteList = useDeleteList()
@@ -150,8 +162,11 @@ export function ListsPage() {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [showCreate, setShowCreate] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
+  const [selectedSequentialId, setSelectedSequentialId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ListType | null>(null)
   const [createTitle, setCreateTitle] = useState('')
+  // Sequential creation modal (replaces the broken TaskCreationModal sequential path)
+  const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
 
   // Handle ?create=<type> URL param from Studio navigation
   useEffect(() => {
@@ -223,6 +238,30 @@ export function ListsPage() {
     )
   }
 
+  // If a sequential collection is selected, show it in a back-button wrapper
+  // (reuses SequentialCollectionCard — user taps the card header to expand items).
+  if (selectedSequentialId) {
+    const coll = sequentialCollections.find(c => c.id === selectedSequentialId)
+    if (!coll) {
+      // Collection disappeared — bounce back.
+      setSelectedSequentialId(null)
+    } else {
+      return (
+        <div className="density-compact max-w-3xl mx-auto space-y-3 p-4">
+          <button
+            onClick={() => setSelectedSequentialId(null)}
+            className="flex items-center gap-1.5 text-xs font-medium"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+            Back to lists
+          </button>
+          <SequentialCollectionCard collection={coll} />
+        </div>
+      )
+    }
+  }
+
   return (
     <div className="density-compact max-w-3xl mx-auto space-y-4">
       <FeatureGuide featureKey="lists_detail" />
@@ -230,7 +269,7 @@ export function ListsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="lists" fallback={<ListIcon size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <FeatureIcon featureKey="lists" fallback={<ListIcon size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="w-10! h-10! md:w-36! md:h-36!" assetSize={512} />
           <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
             Lists
           </h1>
@@ -354,13 +393,24 @@ export function ListsPage() {
             <div className="p-4 space-y-3">
               <p className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>What kind of list?</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {(['shopping', 'wishlist', 'expenses', 'packing', 'todo', 'reference', 'ideas', 'prayer', 'backburner', 'custom'] as ListType[]).map(type => {
+                {/* PRD-09A/09B Studio Intelligence Phase 1: added 'randomizer' (missing) and
+                    'sequential' (meta-type, routes to SequentialCreatorModal) to the grid. */}
+                {(['shopping', 'wishlist', 'expenses', 'packing', 'todo', 'reference', 'ideas', 'prayer', 'backburner', 'randomizer', 'sequential', 'custom'] as const).map(type => {
                   const cfg = TYPE_CONFIG[type]
                   const Icon = cfg.icon
                   return (
                     <button
                       key={type}
-                      onClick={() => setCreateType(type)}
+                      onClick={() => {
+                        if (type === 'sequential') {
+                          // Sequential collections don't live in the lists table — open the
+                          // SequentialCreatorModal instead of the simple list-name flow.
+                          setShowCreate(false)
+                          setSequentialModalOpen(true)
+                        } else {
+                          setCreateType(type as ListType)
+                        }
+                      }}
                       className="flex flex-col items-center gap-2 p-3 rounded-lg transition-all hover:scale-[1.02]"
                       style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
                     >
@@ -409,7 +459,7 @@ export function ListsPage() {
         <div className="flex justify-center py-12">
           <Loader2 size={24} className="animate-spin" style={{ color: 'var(--color-text-secondary)' }} />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && !(filter === 'all' && sequentialCollections.length > 0) ? (
         <div className="p-8 rounded-lg text-center" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
           {filter === 'archived' ? (
             <>
@@ -532,6 +582,34 @@ export function ListsPage() {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {/* Sequential collections (only on 'all' filter — cross-surface visibility per PRD-09A/09B Phase 1) */}
+          {filter === 'all' && sequentialCollections.map(coll => (
+            <button
+              key={`seq-${coll.id}`}
+              onClick={() => setSelectedSequentialId(coll.id)}
+              className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square relative"
+              style={{
+                backgroundColor: 'var(--color-bg-card)',
+                border: '1px solid var(--color-border)',
+                boxShadow: '2px 3px 8px rgba(0, 0, 0, 0.06)',
+              }}
+            >
+              <span
+                className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-medium"
+                style={{
+                  background: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                  color: 'var(--color-btn-primary-bg)',
+                }}
+              >
+                Sequential
+              </span>
+              <BookOpen size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
+              <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{coll.title}</p>
+              <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                {coll.current_index}/{coll.total_items}
+              </p>
+            </button>
+          ))}
           {filtered.map(list => {
             const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
             const Icon = cfg.icon
@@ -539,7 +617,7 @@ export function ListsPage() {
               <button
                 key={list.id}
                 onClick={() => setSelectedListId(list.id)}
-                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:translate-y-[-2px] hover:shadow-md aspect-square"
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square"
                 style={{
                   backgroundColor: 'var(--color-bg-card)',
                   border: '1px solid var(--color-border)',
@@ -557,6 +635,35 @@ export function ListsPage() {
         </div>
       ) : (
         <div className="space-y-2">
+          {/* Sequential collections in list view */}
+          {filter === 'all' && sequentialCollections.map(coll => (
+            <button
+              key={`seq-${coll.id}`}
+              onClick={() => setSelectedSequentialId(coll.id)}
+              className="w-full flex items-center gap-3 p-4 rounded-lg text-left transition-all hover:-translate-y-px hover:shadow-sm"
+              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+            >
+              <BookOpen size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>{coll.title}</p>
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[9px] font-medium flex-shrink-0"
+                    style={{
+                      background: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                      color: 'var(--color-btn-primary-bg)',
+                    }}
+                  >
+                    Sequential
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  {coll.current_index}/{coll.total_items} complete
+                </p>
+              </div>
+              <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
+            </button>
+          ))}
           {filtered.map(list => {
             const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
             const Icon = cfg.icon
@@ -564,7 +671,7 @@ export function ListsPage() {
               <button
                 key={list.id}
                 onClick={() => setSelectedListId(list.id)}
-                className="w-full flex items-center gap-3 p-4 rounded-lg text-left transition-all hover:translate-y-[-1px] hover:shadow-sm"
+                className="w-full flex items-center gap-3 p-4 rounded-lg text-left transition-all hover:-translate-y-px hover:shadow-sm"
                 style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
               >
                 <Icon size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
@@ -579,6 +686,16 @@ export function ListsPage() {
             )
           })}
         </div>
+      )}
+
+      {/* SequentialCreatorModal (PRD-09A/09B Studio Intelligence Phase 1) */}
+      {sequentialModalOpen && family?.id && member?.id && (
+        <SequentialCreatorModal
+          isOpen={sequentialModalOpen}
+          onClose={() => setSequentialModalOpen(false)}
+          familyId={family.id}
+          createdBy={member.id}
+        />
       )}
     </div>
   )
@@ -1741,7 +1858,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                 <select
                   value={newItemSection}
                   onChange={e => setNewItemSection(e.target.value)}
-                  className="px-2 py-2 rounded-lg text-xs max-w-[120px]"
+                  className="px-2 py-2 rounded-lg text-xs max-w-30"
                   style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
                 >
                   <option value="">No section</option>
@@ -2227,7 +2344,7 @@ function OrganizeModal({
               <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 Preview — drag items between sections after applying, or re-organize with different stores.
               </p>
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              <div className="space-y-2 max-h-100 overflow-y-auto">
                 {Object.entries(preview).map(([section, sectionItems]) => (
                   <div key={section}>
                     <div className="flex items-center gap-2 py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
@@ -2482,7 +2599,7 @@ function ListItemRow({
       {dragHandleProps && (
         <button
           {...dragHandleProps}
-          className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+          className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing touch-none"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           <GripVertical size={16} />
@@ -2490,7 +2607,7 @@ function ListItemRow({
       )}
 
       {/* Checkbox */}
-      <button onClick={onToggle} className="mt-0.5 flex-shrink-0">
+      <button onClick={onToggle} className="mt-0.5 shrink-0">
         <div
           className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
           style={{
@@ -2556,7 +2673,7 @@ function ListItemRow({
       </div>
 
       {/* Victory flag + Actions */}
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         {showVictoryFlag && onToggleVictoryFlag && (
           <Tooltip content={item.victory_flagged ? 'Victory enabled' : 'Enable victory'}>
             <button onClick={onToggleVictoryFlag} className="p-1 rounded transition-colors" style={{ color: item.victory_flagged ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)', opacity: item.victory_flagged ? 1 : 0.4 }}>
