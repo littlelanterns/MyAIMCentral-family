@@ -489,6 +489,7 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
 
       {/* Modal */}
       <div
+        data-testid="board-of-directors-modal"
         className="fixed inset-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[850px] md:max-h-[88vh] z-50 flex flex-col md:rounded-xl overflow-hidden shadow-2xl"
         style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
       >

@@ -1,28 +1,39 @@
 import { useState } from 'react'
 import { Play, ExternalLink, Info } from 'lucide-react'
 import type { VaultItem } from '../../hooks/useVaultBrowse'
-import { ToolConversationModal } from '@/components/lila/ToolConversationModal'
+import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
 
 interface Props {
   item: VaultItem
   memberId: string | null
+  onCloseDetail?: () => void
 }
 
 /**
  * AI Tool detail view (PRD-21A + PRD-21).
  * Portal page with tool description, tips, and Launch Tool button.
- * Delivery methods: native (LiLa modal via ToolConversationModal), embedded (iframe), link_out (new tab).
+ * Delivery methods: native (LiLa modal via ToolLauncherProvider), embedded (iframe), link_out (new tab).
+ * Native launches delegate to ToolLauncherProvider so Translator → TranslatorModal,
+ * Board of Directors → BoardOfDirectorsModal, everything else → ToolConversationModal.
+ *
+ * When launching a native tool, we close the parent VaultDetailView so the tool modal
+ * owns the screen — otherwise the portaled VaultDetailView (z-50 on document.body) would
+ * stack on top of TranslatorModal (z-50 in the shell tree), hiding it.
  */
-export function AIToolDetail({ item, memberId: _memberId }: Props) {
+export function AIToolDetail({ item, memberId: _memberId, onCloseDetail }: Props) {
   const [launched, setLaunched] = useState(false)
-  const [showToolModal, setShowToolModal] = useState(false)
+  const { openTool } = useToolLauncher()
 
   const handleLaunch = () => {
     if (item.delivery_method === 'link_out' && item.tool_url) {
       window.open(item.tool_url, '_blank', 'noopener,noreferrer')
     } else if (item.delivery_method === 'native' && item.guided_mode_key) {
-      // PRD-21: Open ToolConversationModal in the tool's guided mode
-      setShowToolModal(true)
+      // PRD-21: Delegate to ToolLauncherProvider which dispatches to the correct modal
+      // based on guided_mode_key (translator → TranslatorModal, board_of_directors →
+      // BoardOfDirectorsModal, everything else → ToolConversationModal).
+      openTool(item.guided_mode_key)
+      // Close this detail view so the tool modal is the only thing on screen.
+      onCloseDetail?.()
     } else if (item.delivery_method === 'embedded') {
       setLaunched(true)
     }
@@ -113,14 +124,6 @@ export function AIToolDetail({ item, memberId: _memberId }: Props) {
         <p className="text-xs mt-4" style={{ color: 'var(--color-text-secondary)' }}>
           Platform: {item.platform}
         </p>
-      )}
-
-      {/* Native tool modal — PRD-21 */}
-      {showToolModal && item.guided_mode_key && (
-        <ToolConversationModal
-          modeKey={item.guided_mode_key}
-          onClose={() => setShowToolModal(false)}
-        />
       )}
     </div>
   )

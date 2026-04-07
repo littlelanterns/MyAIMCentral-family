@@ -587,6 +587,8 @@ export function ToolConversationModal({
 
       {/* Modal */}
       <div
+        data-testid="tool-conversation-modal"
+        data-mode-key={modeKey}
         className="fixed inset-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[800px] md:max-h-[85vh] z-50 flex flex-col md:rounded-xl overflow-hidden shadow-2xl"
         style={{
           backgroundColor: 'var(--color-bg-card)',

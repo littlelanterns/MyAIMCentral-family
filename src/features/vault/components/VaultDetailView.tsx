@@ -74,7 +74,7 @@ export function VaultDetailView({ itemId, memberId, onClose }: Props) {
       case 'tutorial':
         return <TutorialDetail item={item} memberId={memberId} updateProgress={updateProgress} />
       case 'ai_tool':
-        return <AIToolDetail item={item} memberId={memberId} />
+        return <AIToolDetail item={item} memberId={memberId} onCloseDetail={onClose} />
       case 'prompt_pack':
         return <PromptPackDetail item={item} entries={promptEntries} memberId={memberId} />
       case 'curation':
