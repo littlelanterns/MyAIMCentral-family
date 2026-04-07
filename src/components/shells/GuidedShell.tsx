@@ -122,6 +122,12 @@ interface GuidedMoreSection {
 /** More menu sections for Guided shell — navigation items */
 const GUIDED_MORE_SECTIONS: GuidedMoreSection[] = [
   {
+    title: 'Family',
+    items: [
+      { path: '/messages', icon: <MessageCircle size={20} />, label: 'Messages', description: 'Talk to your family' },
+    ],
+  },
+  {
     title: 'Capture & Reflect',
     items: [
       { path: '/journal', icon: <BookOpen size={20} />, label: 'Journal', description: 'Capture thoughts and reflect' },
@@ -183,7 +189,7 @@ function GuidedBottomNav() {
   return (
     <>
       <nav
-        className="flex-shrink-0 flex items-center justify-around border-t py-2 z-20"
+        className="shrink-0 flex items-center justify-around border-t py-2 z-20"
         style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
       >
         {routeNavItems.map((item, idx) => {

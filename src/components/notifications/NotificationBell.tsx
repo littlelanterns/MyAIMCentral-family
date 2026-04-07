@@ -28,7 +28,7 @@ export function NotificationBell() {
   }, [])
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
       <BreathingGlow active={unreadCount > 0}>
         <Tooltip content={unreadCount > 0 ? `${unreadCount} notification${unreadCount === 1 ? '' : 's'}` : 'Notifications'}>
           <button

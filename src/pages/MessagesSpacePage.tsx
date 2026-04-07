@@ -43,7 +43,7 @@ export function MessagesSpacePage() {
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', height: '100%' }}>
-      <ConversationSpaceView spaceId={spaceId} spaceName={spaceName} />
+      <ConversationSpaceView spaceId={spaceId} spaceName={spaceName} space={space} />
     </div>
   )
 }

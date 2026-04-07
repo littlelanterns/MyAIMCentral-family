@@ -3,7 +3,15 @@
  *
  * Checks who a member can message. Mom and Dad (primary_parent + additional_adult)
  * have implicit permission to message anyone — no explicit records needed.
- * Kids/teens need explicit member_messaging_permissions records.
+ *
+ * Guided and Independent members (role='member') have implicit default permission
+ * to message both parents AND siblings (other role='member' family members). This
+ * matches the family-default expectation: kids can talk to their parents and to
+ * each other out of the box. Special adults (caregivers) are NOT in the default
+ * and still require explicit member_messaging_permissions rows.
+ *
+ * When mom's permission-management UI is built (future), it will layer negative
+ * overrides on top of this default (e.g. "block this sibling pair").
  */
 
 import { useQuery } from '@tanstack/react-query'
@@ -41,7 +49,21 @@ export function useMessagingPermissions() {
     queryFn: async (): Promise<PermittedContact[]> => {
       if (!memberId || !familyId || !allMembers) return []
 
-      const activeMembers = allMembers.filter(m => m.is_active && m.id !== memberId)
+      // Active, in-household, not self. Out-of-nest members live in their own
+      // table for messaging purposes (see convention #142) and shouldn't appear
+      // in the normal compose picker even if a legacy family_members row exists.
+      //
+      // TODO (Out of Nest messaging, PRD-15 Phase E): When Out of Nest messaging
+      // is built, this hook must ALSO fetch from the `out_of_nest_members` table
+      // and merge the results — they are a separate contact source, not part of
+      // `family_members`. Per Tenise (2026-04-06), Out of Nest members are higher
+      // priority than Special Adults in the compose picker — surface them as a
+      // first-class group, not an afterthought. The merge likely needs a new
+      // `contactSource: 'family' | 'out_of_nest'` field on PermittedContact so
+      // the UI can render them distinctly.
+      const activeMembers = allMembers.filter(
+        m => m.is_active && !m.out_of_nest && m.id !== memberId,
+      )
 
       // Parents can message everyone
       if (isParent) {
@@ -64,9 +86,15 @@ export function useMessagingPermissions() {
 
       const permittedIds = new Set((permissions ?? []).map(p => p.can_message_member_id))
 
-      // Always allow messaging parents (implicit in app layer per PRD-15)
+      // Default permissions for kids (role='member'): can always message parents
+      // AND siblings (other role='member' family members). Special adults are
+      // intentionally NOT in the default — they require explicit permission rows.
       for (const m of activeMembers) {
-        if (m.role === 'primary_parent' || m.role === 'additional_adult') {
+        if (
+          m.role === 'primary_parent' ||
+          m.role === 'additional_adult' ||
+          m.role === 'member'
+        ) {
           permittedIds.add(m.id)
         }
       }

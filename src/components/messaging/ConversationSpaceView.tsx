@@ -8,14 +8,17 @@
 
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, PenSquare, Pin, MessageCircle } from 'lucide-react'
+import { ArrowLeft, PenSquare, Pin, MessageCircle, Settings2 } from 'lucide-react'
 import { useConversationThreads, useCreateThread } from '@/hooks/useConversationThreads'
 import { EmptyState } from '@/components/shared'
-import type { ConversationThreadWithPreview } from '@/types/messaging'
+import { ManageGroupModal } from './ManageGroupModal'
+import type { ConversationSpaceWithPreview, ConversationThreadWithPreview } from '@/types/messaging'
 
 interface ConversationSpaceViewProps {
   spaceId: string
   spaceName: string
+  /** Full space object — required for Manage Group button (group spaces only) */
+  space?: ConversationSpaceWithPreview
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -125,12 +128,15 @@ function ThreadRow({
   )
 }
 
-export function ConversationSpaceView({ spaceId, spaceName }: ConversationSpaceViewProps) {
+export function ConversationSpaceView({ spaceId, spaceName, space }: ConversationSpaceViewProps) {
   const navigate = useNavigate()
   const { data: threads, isLoading } = useConversationThreads(spaceId)
   const createThread = useCreateThread()
   const [composing, setComposing] = useState(false)
   const [newMessage, setNewMessage] = useState('')
+  const [manageOpen, setManageOpen] = useState(false)
+
+  const isGroup = space?.space_type === 'group'
 
   const handleNewThread = useCallback(async () => {
     if (!newMessage.trim()) return
@@ -172,7 +178,29 @@ export function ConversationSpaceView({ spaceId, spaceName }: ConversationSpaceV
         </button>
         <span style={{ flex: 1, fontWeight: 600, fontSize: '1rem', color: 'var(--color-text-primary)' }}>
           {spaceName}
+          {isGroup && space?.members && (
+            <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>
+              · {space.members.length} members
+            </span>
+          )}
         </span>
+        {isGroup && space && (
+          <button
+            onClick={() => setManageOpen(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-text-secondary)',
+              padding: '0.25rem',
+              display: 'flex',
+            }}
+            aria-label="Manage group"
+            title="Manage group"
+          >
+            <Settings2 size={18} />
+          </button>
+        )}
         <button
           onClick={() => setComposing(true)}
           style={{
@@ -188,6 +216,15 @@ export function ConversationSpaceView({ spaceId, spaceName }: ConversationSpaceV
           <PenSquare size={18} />
         </button>
       </div>
+
+      {/* Manage Group modal — group spaces only */}
+      {isGroup && space && (
+        <ManageGroupModal
+          isOpen={manageOpen}
+          onClose={() => setManageOpen(false)}
+          space={space}
+        />
+      )}
 
       {/* Thread list */}
       <div style={{ flex: 1, overflowY: 'auto' }}>

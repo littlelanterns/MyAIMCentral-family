@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  MessageCircle, Search, PenSquare, Loader2,
+  MessageCircle, Search, PenSquare, Loader2, UsersRound,
 } from 'lucide-react'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -137,6 +137,7 @@ export function MessagesPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('spaces')
   const [showCompose, setShowCompose] = useState(false)
+  const [showNewGroup, setShowNewGroup] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [initializing, setInitializing] = useState(false)
   const initRef = useRef(false)
@@ -230,6 +231,22 @@ export function MessagesPage() {
             <Search size={20} />
           </button>
           <button
+            onClick={() => setShowNewGroup(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-text-secondary)',
+              padding: '0.375rem',
+              display: 'flex',
+              borderRadius: 'var(--vibe-radius-input, 6px)',
+            }}
+            aria-label="New group"
+            title="New group"
+          >
+            <UsersRound size={20} />
+          </button>
+          <button
             onClick={() => setShowCompose(true)}
             style={{
               background: 'none',
@@ -241,6 +258,7 @@ export function MessagesPage() {
               borderRadius: 'var(--vibe-radius-input, 6px)',
             }}
             aria-label="New message"
+            title="New message"
           >
             <PenSquare size={20} />
           </button>
@@ -323,6 +341,15 @@ export function MessagesPage() {
         <ComposeFlow
           isOpen={showCompose}
           onClose={() => setShowCompose(false)}
+        />
+      )}
+
+      {/* New Group modal — reuses ComposeFlow pre-set to group creation */}
+      {showNewGroup && (
+        <ComposeFlow
+          isOpen={showNewGroup}
+          onClose={() => setShowNewGroup(false)}
+          initialSendMode="new_group"
         />
       )}
 

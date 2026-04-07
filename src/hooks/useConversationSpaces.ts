@@ -311,6 +311,105 @@ export function useToggleSpaceMute() {
   })
 }
 
+/** Rename a space. RLS: creator or primary_parent only. */
+export function useUpdateSpaceName() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ spaceId, name }: { spaceId: string; name: string }) => {
+      const trimmed = name.trim()
+      if (!trimmed) throw new Error('Group name cannot be empty')
+      const { error } = await supabase
+        .from('conversation_spaces')
+        .update({ name: trimmed })
+        .eq('id', spaceId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+    },
+  })
+}
+
+/** Add a member to a space. RLS: space admin or primary_parent only. */
+export function useAddSpaceMember() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ spaceId, memberId }: { spaceId: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('conversation_space_members')
+        .insert({
+          space_id: spaceId,
+          family_member_id: memberId,
+          role: 'member',
+        })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+    },
+  })
+}
+
+/** Remove a member from a space. RLS: space admin, primary_parent, or the member themselves. */
+export function useRemoveSpaceMember() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ spaceId, memberId }: { spaceId: string; memberId: string }) => {
+      const { error } = await supabase
+        .from('conversation_space_members')
+        .delete()
+        .eq('space_id', spaceId)
+        .eq('family_member_id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+    },
+  })
+}
+
+/** Leave a space — removes the current member's own membership row. */
+export function useLeaveSpace() {
+  const queryClient = useQueryClient()
+  const { data: currentMember } = useFamilyMember()
+
+  return useMutation({
+    mutationFn: async ({ spaceId }: { spaceId: string }) => {
+      if (!currentMember?.id) throw new Error('No current member')
+      const { error } = await supabase
+        .from('conversation_space_members')
+        .delete()
+        .eq('space_id', spaceId)
+        .eq('family_member_id', currentMember.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+    },
+  })
+}
+
+/** Delete a space entirely. RLS: primary_parent only. */
+export function useDeleteSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ spaceId }: { spaceId: string }) => {
+      const { error } = await supabase
+        .from('conversation_spaces')
+        .delete()
+        .eq('id', spaceId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+    },
+  })
+}
+
 /** Find or create a direct space between two members */
 export async function findOrCreateDirectSpace(
   familyId: string,

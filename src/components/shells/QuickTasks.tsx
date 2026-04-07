@@ -392,11 +392,17 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         position: 'relative',
       }}
     >
-      {/* CSS for hidden scrollbar + desktop right constraint for floating buttons */}
+      {/* CSS for hidden scrollbar + desktop right constraint for floating buttons.
+          The fixed floating row in MomShell holds 3 LiLa avatars + NotificationBell +
+          ThemeSelector + Settings, sitting at right-12 (48px). Reserve enough room so
+          the QuickTasks scroll area ends well before the buttons begin. */}
       <style>{`
         .qt-scroll::-webkit-scrollbar { display: none; }
         @media (min-width: 768px) {
-          .quicktasks-strip { margin-right: 17rem; }
+          .quicktasks-strip { margin-right: 22rem; }
+        }
+        @media (min-width: 1280px) {
+          .quicktasks-strip { margin-right: 24rem; }
         }
       `}</style>
 
