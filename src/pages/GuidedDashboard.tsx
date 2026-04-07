@@ -20,6 +20,7 @@ import {
   GuidedWidgetGrid,
   CelebrateSection,
 } from '@/components/guided'
+import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 import { DashboardSectionWrapper } from '@/components/dashboard'
 import type { SectionKey } from '@/components/dashboard'
 import type { GuidedSectionKey } from '@/types/guided-dashboard'
@@ -128,6 +129,10 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
           />
         ) : null
 
+      // PRD-18: mini evening rhythm for Guided renders OUTSIDE the section
+      // loop at position 0. See the JSX below. Auto-managed — never in the
+      // saved layout, never reorderable, never hideable.
+
       case 'celebrate':
         return <CelebrateSection />
 
@@ -144,6 +149,20 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
       style={{ padding: '0.5rem 0 2rem 0' }}
     >
       <FeatureGuide featureKey="guided_dashboard" />
+
+      {/* PRD-18: mini evening rhythm for Guided. Auto-managed — renders
+          at position 0 (above all sections including greeting), outside
+          the section system. Self-hides when outside evening window AND
+          no completion. Coexists with the Celebrate button below — same
+          kid, different moments. */}
+      {displayFamilyId && displayMemberId && (
+        <RhythmDashboardCard
+          familyId={displayFamilyId}
+          memberId={displayMemberId}
+          rhythmKey="evening"
+          readingSupport={readingSupport}
+        />
+      )}
 
       {visibleSections.map(section => {
         const key = section.key as GuidedSectionKey

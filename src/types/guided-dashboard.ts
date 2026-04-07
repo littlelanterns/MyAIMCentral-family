@@ -62,6 +62,13 @@ export const GUIDED_SECTION_KEYS = [
   'celebrate',
 ] as const
 
+// PRD-18 addition: the mini evening rhythm for Guided kids is rendered
+// in GuidedDashboard at position 0 (above all other sections), OUTSIDE
+// the data-driven section system. Same auto-managed pattern as the
+// adult Dashboard — never in the saved layout, never reorderable, never
+// hideable, self-hides when outside evening window AND no completion.
+// Coexists with the Celebrate button (DailyCelebration overlay).
+
 export type GuidedSectionKey = (typeof GUIDED_SECTION_KEYS)[number]
 
 export interface GuidedSectionConfig {

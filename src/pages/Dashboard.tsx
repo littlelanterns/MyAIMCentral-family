@@ -33,6 +33,7 @@ import { supabase } from '@/lib/supabase/client'
 import FamilyOverview from '@/components/family-overview/FamilyOverview'
 import { FamilyHub } from '@/components/hub/FamilyHub'
 import { GuidedDashboard } from '@/pages/GuidedDashboard'
+import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 
 interface DashboardProps {
   /** When true, this instance is inside the ViewAsModal overlay */
@@ -517,6 +518,12 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
           </>
         )
 
+      // PRD-18: rhythm cards render OUTSIDE the section loop at position 0
+      // (above the greeting section). See the JSX below for direct rendering.
+      // They're truly auto-managed — never appear in the user's saved layout,
+      // never reorderable, never hideable. The card itself self-hides when
+      // outside its time window AND has no completion record.
+
       case 'calendar':
         return <CalendarWidget personalMemberId={displayMemberId} />
 
@@ -567,9 +574,10 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
     }
   }
 
-  // Sortable section IDs for dnd-kit
+  // Sortable section IDs for dnd-kit — greeting is pinned, not sortable.
+  // Rhythm cards render outside this loop entirely (PRD-18 auto-managed).
   const sortableSectionIds = activeSections
-    .filter(s => s.key !== 'greeting') // greeting is pinned, not sortable
+    .filter(s => s.key !== 'greeting')
     .map(s => `section-${s.key}`)
 
   // ─── PRD-25: Route Guided members to GuidedDashboard ──────
@@ -639,6 +647,29 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
             onDragEnd={handleSectionDragEnd}
           >
             <SortableContext items={sortableSectionIds} strategy={verticalListSortingStrategy}>
+              {/* PRD-18: rhythm cards render at position 0, above all other
+                  sections. Auto-managed — never appear in the user's saved
+                  layout, never reorderable, never hideable. Each card self-
+                  hides when outside its time window AND has no completion. */}
+              {family?.id && displayMember?.id && (
+                <>
+                  <RhythmDashboardCard
+                    familyId={family.id}
+                    memberId={displayMember.id}
+                    rhythmKey="morning"
+                  />
+                  {/* Adults + independents only — guided/play kids render
+                      their own evening rhythm card inside GuidedDashboard. */}
+                  {memberDashboardMode !== 'guided' && memberDashboardMode !== 'play' && (
+                    <RhythmDashboardCard
+                      familyId={family.id}
+                      memberId={displayMember.id}
+                      rhythmKey="evening"
+                    />
+                  )}
+                </>
+              )}
+
               {activeSections.map((section) => {
                 // Greeting: always rendered, no wrapper needed for collapse/edit
                 if (section.key === 'greeting') {

@@ -4,7 +4,214 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-25 Guided Dashboard (Phase A) + PRD-17B MindSweep + PRD-15 Messages/Requests/Notifications + PRD-18 Rhythms & Reflections
+## Status: IDLE
+
+> Build J (PRD-09A/09B Linked Routine Steps, Mastery & Practice Advancement — Session 2) completed 2026-04-06. 37 wired, 6 stubbed, 0 missing across 43 requirements. 7/7 Playwright E2E tests passing. Verification archived to `claude/feature-decisions/PRD-09A-09B-Linked-Steps-Mastery.md`. Session 3 (Studio Intelligence Phase 2 — intent-based search) and the Linked-Steps follow-up phase (routine duplication dialog + linked-step dashboard rendering) are the next in the PRD-09A/09B sequence.
+
+---
+
+# Build J: PRD-09A/09B Linked Routine Steps, Mastery & Practice Advancement (Session 2) — COMPLETED 2026-04-06
+
+### PRD Files
+- `prds/personal-growth/PRD-09A-Tasks-Routines-Opportunities.md`
+- `prds/personal-growth/PRD-09B-Lists-Studio-Templates.md`
+
+### Addenda Read
+- `prds/addenda/PRD-09A-09B-Linked-Steps-Mastery-Advancement-Addendum.md` **(primary authoritative source for this build)**
+- `prds/addenda/PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md` (Studio evolution context — Session 3 forward)
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md`
+- `prds/addenda/PRD-Template-and-Audit-Updates.md`
+
+### Feature Decision File
+`claude/feature-decisions/PRD-09A-09B-Linked-Steps-Mastery.md`
+
+### Predecessor
+Build H (PRD-09A/09B Studio Intelligence Phase 1) completed 2026-04-06 — fixed broken sequential creation wiring, added cross-surface visibility, added capability tags foundation. Build J is the direct successor: the building blocks the founder's homeschool use case needs before Session 3 can build Studio intent-based search.
+
+---
+
+### Pre-Build Summary
+
+#### Context
+
+PRD-09A/09B Studio Intelligence Phase 1 (Build H) fixed a silent bug where sequential collection creation was broken everywhere (dead code in `SequentialCreator` / `SequentialCollectionView` with zero callers; `sequential_collections` table had 0 rows in production). It revived those dead-code components, added cross-surface visibility, and added `capability_tags` as the data foundation for Session 3's intent-based Studio search. Build J adds the content-layer features that families actually need to run a homeschool year: **per-item advancement modes** on sequential collections AND randomizer lists, **linked routine steps** that dynamically pull today's content from a sequential/randomizer/recurring source, **randomizer draw modes** including auto-rotation via Surprise Me, an **AI-assisted curriculum parse Edge Function** for paste-and-import list creation, a **Reading List Studio template**, and **routine duplication with linked step resolution** for multi-child families.
+
+The founder's end-state: a daily school routine where "Math" auto-shows today's chapter from a sequential list, "Scripture Study" shows today's reading with duration tracking, and "Skateboard Practice" auto-draws a random trick from a mastery-enabled randomizer — all within one routine, each advancing independently. Mom sets this up in Studio once; the child experiences a simple checklist; the complexity is in setup, not in use.
+
+#### Dependencies Already Built (can reuse wholesale)
+
+- **`sequential_collections` table** + `useCreateSequentialCollection` + `useSequentialCollection` + `useSequentialCollections` + `useRedeploySequentialCollection` + `usePromoteNextSequentialItem` hooks (all live + working as of Build H)
+- **`SequentialCreator`** + **`SequentialCreatorModal`** + **`SequentialCollectionView`** + **`SequentialCollectionCard`** components (revived in Build H, wired from Studio + Tasks tab + Lists page)
+- **`Randomizer.tsx`** + `RandomizerSpinner` + `RandomizerResultCard` + `useSmartDraw` + `useSmartDrawCompletion` + `useListItemMemberTracking` + `FrequencyRulesEditor` (live + working). The weighting/cooldown/lifetime-cap logic in `useSmartDraw` is exactly what Surprise Me needs — we call `draw(1)` and store the result in the new `randomizer_draws` table.
+- **`RoutineSectionEditor.tsx`** (858 lines) — section + step editor with frequency per section, step notes, instance_count, require_photo. `RoutineStep` type is local to this file; we'll extend it with step_type, linked_source_id, linked_source_type, display_name_override.
+- **`RoutineBrainDump.tsx`** (641 lines) — pattern reference for the paste-and-parse UX. Uses shared `ai-parse` Edge Function via `sendAIMessage`. We deliberately diverge for `curriculum-parse`: new dedicated Edge Function per founder convention (confirmed Build H — "Each AI tool gets its own Edge Function, task-breaker has its own").
+- **`task-breaker` Edge Function** (167 lines) — exact pattern reference for `curriculum-parse`: Haiku via OpenRouter, Zod validation, cost logging, `_shared/cors.ts` + `_shared/cost-logger.ts`, JSON-only output with markdown-fence fallback.
+- **`createTaskFromData`** — the shared task creation utility with the Build H guard that throws on `taskType='sequential'`. Linked step persistence plugs into the existing routine section/step write path at line 203.
+- **`PendingApprovalsSection`** in `src/pages/Tasks.tsx:1062` + `useTasksWithPendingApprovals` + `useApproveTaskCompletion` + `useRejectTaskCompletion`. Sequential mastery submissions reuse this existing queue by setting `tasks.status='pending_approval'` and writing a `task_completions` row with `approval_status='pending'` + new column `completion_type='mastery_submit'`. The UI forks on `task.advancement_mode==='mastery'` to render mastery-specific history and use mastery approve/reject hooks.
+- **Studio seed data** in `src/components/studio/studio-seed-data.ts` — `TASK_TEMPLATES_BLANK` + `TASK_TEMPLATES_EXAMPLES` + capability_tags pattern. Reading List is added here.
+- **`useActedBy`** for write attribution on practice/mastery events (already used by `useTaskCompletions`)
+- **`ListItem`** already has a `url` column — the addendum's note about URLs being supported on list_items is correct. Sequential items (tasks table) did NOT have a dedicated URL column — `useCreateSequentialCollection` currently writes URLs into `image_url` (hook line 139). Build J adds the new `tasks.resource_url` column and corrects this.
+
+#### Dependencies NOT Yet Built
+
+- **PRD-11B Family Celebration gamification consumption of mastery events** — forward note only.
+- **PRD-24 Gamification points for practice/mastery/streaks** — forward note only.
+- **PRD-28B Compliance reporting consumption of `practice_log`** — schema is designed for this; reports not built here.
+- **PRD-29 BigPlans Learning Path container** — forward note. Badge/award "pick N of M" logic belongs here, not in sequential lists. Curriculum-parse detects `pick_n_of_m` patterns in metadata only.
+- **PRD-05 `studio_create_guide` conversational creation** — Session 3 Phase 3. Depends on PRD-05, PRD-18, PRD-29.
+- **BookShelf reading assignments as a linked source type** — deferred. Reading lists are sequential collections with the Reading List template applied.
+
+#### Build Items (4 sub-phases, one migration)
+
+**Sub-phase A — Foundation (schema + types + hooks + Edge Function)**
+
+1. **Migration `00000000100105_linked_steps_mastery_advancement.sql`** — single file containing all schema changes (bumped from 100104 due to collision with pre-existing `100104_guided_evening_rhythm.sql`):
+   - ALTER `tasks` ADD COLUMN (11): `advancement_mode`, `practice_target`, `practice_count`, `mastery_status`, `mastery_submitted_at`, `mastery_approved_by`, `mastery_approved_at`, `require_mastery_approval`, `require_mastery_evidence`, `track_duration`, `resource_url`
+   - ALTER `sequential_collections` ADD COLUMN (5): `default_advancement_mode`, `default_practice_target`, `default_require_approval`, `default_require_evidence`, `default_track_duration`
+   - ALTER `task_completions` ADD COLUMN (4): `completion_type` (enum: complete|practice|mastery_submit), `duration_minutes`, `mastery_evidence_url`, `mastery_evidence_note`
+   - ALTER `task_template_steps` ADD COLUMN (4): `step_type` (enum: static|linked_sequential|linked_randomizer|linked_task), `linked_source_id`, `linked_source_type`, `display_name_override`
+   - ALTER `list_items` ADD COLUMN (10): same 10 advancement columns as tasks
+   - ALTER `lists` ADD COLUMN (7): `draw_mode` (enum: focused|buffet|surprise|NULL), `max_active_draws`, and 5 default_* columns
+   - CREATE TABLE `practice_log` (id, family_id, family_member_id, source_type, source_id, draw_id, practice_type, duration_minutes, evidence_url, evidence_note, period_date, created_at) + RLS + indexes
+   - CREATE TABLE `randomizer_draws` (id, list_id, list_item_id, family_member_id, drawn_at, draw_source, routine_instance_date, status, completed_at, practice_count, created_at) + RLS + indexes + UNIQUE partial on (list_id, family_member_id, routine_instance_date) WHERE draw_source='auto_surprise'
+   - INSERT 6 feature keys into `feature_key_registry` + tier grants in `feature_access_v2`
+   - Idempotent backfill UPDATE: copy `image_url` → `resource_url` for existing sequential task rows where `image_url` was used for URL storage (where `task_type='sequential' AND resource_url IS NULL AND image_url LIKE 'http%'`)
+   - All idempotent: `ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`
+
+2. **TypeScript types** — extend `src/types/tasks.ts` (`Task`, `TaskCompletion`, `SequentialCollection`, `TaskTemplateStep` interfaces) and `src/types/lists.ts` (`List`, `ListItem` interfaces) with the new columns. Add new interfaces: `PracticeLog`, `RandomizerDraw`, `AdvancementMode` enum, `MasteryStatus` enum, `DrawMode` enum, `StepType` enum, `LinkedSourceType` enum, `CompletionType` enum, `PracticeType` enum.
+
+3. **`useCreateSequentialCollection` update** — in `src/hooks/useSequentialCollections.ts`:
+   - Change `image_url: item.url ?? null` (line 139) to `resource_url: item.url ?? null`
+   - Accept `defaultAdvancementMode`, `defaultPracticeTarget`, `defaultRequireApproval`, `defaultRequireEvidence`, `defaultTrackDuration` on the collection payload
+   - Propagate defaults to each child task insert (so new items inherit the collection defaults)
+
+4. **`usePractice` hook file (new)** — `src/hooks/usePractice.ts`:
+   - `useLogPractice` mutation: writes practice_log row; for sequential items also writes task_completions (completion_type='practice') and increments tasks.practice_count; auto-promotes next item when practice_count reaches practice_target for practice_count mode
+   - `useSubmitMastery` mutation: writes practice_log (practice_type='mastery_submit') + evidence fields; sets source row's mastery_status='submitted', mastery_submitted_at=now(); for sequential items, also sets tasks.status='pending_approval' + writes task_completions row with completion_type='mastery_submit', approval_status='pending'; for randomizer items, sets the active randomizer_draws row to status='submitted' (new status value added to enum in migration) OR just updates list_items.mastery_status — design detail to finalize in implementation
+   - `useApproveMasterySubmission` mutation: sets mastery_status='approved', mastery_approved_by, mastery_approved_at; for sequential: sets task status='completed' and triggers `usePromoteNextSequentialItem`; for randomizer: sets list_items.is_available=false (exits pool); writes an audit trail entry
+   - `useRejectMasterySubmission` mutation: sets mastery_status back to 'practicing' (NOT 'rejected' on the source — child continues practicing); the practice_log row keeps its rejection note for history; for sequential: resets tasks.status back to 'pending'
+
+5. **`useRandomizerDraws` hook (new)** — `src/hooks/useRandomizerDraws.ts`: query + mutations for the `randomizer_draws` table. Used by Randomizer for Focused/Buffet slot management and by Surprise Me auto-draw.
+
+6. **`useSurpriseMeAutoDraw` hook (new)** — same file or companion: called when a linked Surprise Me routine step renders. Checks for an existing active `randomizer_draws` row for `(list_id, family_member_id, routine_instance_date)`; if none, invokes `useSmartDraw.draw(1)` and writes the draw record with `draw_source='auto_surprise'`. Idempotent.
+
+7. **Edge Function `curriculum-parse`** — `supabase/functions/curriculum-parse/index.ts`:
+   - Haiku via OpenRouter (`anthropic/claude-haiku-4.5`)
+   - Pattern: copy task-breaker structure exactly (cors, zod, fetch, parse, log cost)
+   - System prompt: extract items from curriculum text, detect URLs embedded in text, flag required/starred items, suggest advancement_mode per item, suggest practice_target, detect pick_n_of_m metadata, preserve order, clean up numbering prefixes
+   - Input Zod: `raw_text`, `list_type` ('sequential'|'randomizer'), optional `context.subject_area`, optional `context.target_level`, optional `family_id` + `member_id` for cost logging
+   - Output: `{ items: [{ title, notes?, url?, is_required?, suggested_advancement_mode, suggested_practice_target?, suggested_require_approval?, prerequisite_note?, sort_order }], detected_metadata?: { source_name?, total_required?, pick_n_of_m? } }`
+   - Return input_tokens + output_tokens + call `logAICost` with featureKey='curriculum_ai_parse'
+
+8. **TypeScript check:** `tsc -b` zero errors
+9. **Playwright smoke test:** migration applied, new columns queryable via Supabase client
+
+**Sub-phase B — Sequential Advancement Modes UI**
+
+1. `SequentialCreator` UI: new "Advancement defaults" section (default mode, target, approval, evidence, duration toggles) with bulk-set-then-override explanation text; `[Paste Curriculum]` button stub until Sub-phase C wires the modal
+2. Item editor (inline from SequentialCollectionView): advancement mode override, practice_target, approval/evidence/duration toggles, resource URL input
+3. `SequentialCollectionView` — per-item progress subtitle: "3/5 practices" / "Practiced 8 times" / "Submitted — awaiting approval" / "Mastered"
+4. `PracticeCompletionDialog` component — duration prompt modal (15/30/45/60/custom minutes) shown when `track_duration=true` on practice completion
+5. `MasterySubmissionModal` component — optional evidence (photo upload or text note) when `require_mastery_evidence=true`; confirms submission; calls `useSubmitMastery`
+6. `TaskCard.tsx` updates — sequential task subtitle shows advancement progress; `[Submit as Mastered]` button when mastery status is 'practicing'; resource URL tappable
+7. `PendingApprovalsSection` in `Tasks.tsx:1062` — detect mastery submissions via `task.advancement_mode === 'mastery' && task.mastery_status === 'submitted'`; render with practice history count, evidence if present; use `useApproveMasterySubmission` and `useRejectMasterySubmission` instead of the standard approve/reject hooks
+8. Playwright tests:
+   - Create sequential collection with practice_count mode, default target 3 → practice 3 times → next item auto-promotes
+   - Create sequential collection with mastery mode, require_approval=true → practice 5 times → submit → mom approves → item completes + next promotes
+   - Reject mastery submission → mastery_status returns to 'practicing', child can continue and resubmit
+   - Duration tracking prompt appears when track_duration=true, doesn't appear otherwise
+9. `tsc -b` zero errors
+
+**Sub-phase C — Randomizer Advancement Modes + Draw Behaviors + Curriculum Parse**
+
+1. Randomizer list editor (wherever lists are created/edited for randomizer type): add draw_mode selector (Focused/Buffet/Surprise Me), max_active_draws input, default advancement mode + defaults, per-item advancement override
+2. `Randomizer.tsx` rendering updates:
+   - Focused mode: Draw button locks after one draw until that item is completed/mastered
+   - Buffet mode: Draw button allows up to N draws; slot opens on completion/mastery; badge "2/3 active"
+   - Surprise Me mode: no Draw button; auto-drawn item rendered immediately (or "All mastered!" celebration); uses `useSurpriseMeAutoDraw`
+3. Per-item progress display in the item list section (practice_count / mastery)
+4. Randomizer mastery submission modal (reuse/extend the sequential one)
+5. Randomizer mastery approval surfacing: inline section at top of RandomizerDetailView showing pending mastery submissions with approve/reject buttons (not going into PendingApprovalsSection for MVP — that's sequential-only)
+6. `CurriculumParseModal` component — paste text area, optional subject_area / target_level, `[Parse]` button invoking `curriculum-parse` Edge Function, loading state, review table with per-item editable title / notes / URL / advancement mode dropdown / practice_target input / required flag, Human-in-the-Mix accept-all or per-item accept/reject
+7. Wire `CurriculumParseModal` into SequentialCreator `[Paste Curriculum]` button
+8. Add equivalent `[Paste Curriculum]` button on randomizer list creator
+9. Playwright tests:
+   - Create randomizer with mastery mode → practice 5 times → submit → mom approves → item exits pool (is_available=false)
+   - Focused draw mode: draw → cannot draw again until item completed
+   - Buffet draw mode with max_active_draws=3: can draw 3 times, 4th draw blocked until one completes
+   - Surprise Me: linked routine step auto-draws on first open; refresh shows same item (deterministic per day)
+   - curriculum-parse Edge Function: happy path with real curriculum text, error handling for malformed responses
+10. `tsc -b` zero errors
+
+**Sub-phase D — Linked Routine Steps + Reading List Template + Routine Duplication**
+
+1. `RoutineSectionEditor.tsx` — `StepRow` component extended to show step type on creation:
+   - `[+ Add Step]` button → inline dropdown: "Text Step" (existing) / "Linked Content" (new)
+   - On "Linked Content" selection: opens `LinkedSourcePicker` modal
+   - Linked steps render differently in the editor: link icon, source name, no title input (or greyed out title input with override text field)
+   - `display_name_override` text input (optional, below the source display)
+2. `LinkedSourcePicker` modal component — `src/components/tasks/sequential/LinkedSourcePicker.tsx`:
+   - Tabs: Sequential List / Randomizer List / Recurring Task
+   - Lists all family items of the selected type filtered by the assigned member's access permissions
+   - Click to select; close modal with source id + type
+3. Extend `RoutineStep` type in `RoutineSectionEditor.tsx` with `step_type`, `linked_source_id`, `linked_source_type`, `display_name_override`
+4. `createTaskFromData` — extend the routine step persistence block (around line 193) to write the new 4 columns to `task_template_steps`
+5. **Routine linked step rendering (child/dashboard view)** — wherever routine steps render (TaskCard or a new routine step renderer), detect `step_type !== 'static'` and render source-appropriate content:
+   - `linked_sequential`: show source name / display override + expand to show current active item(s) from the sequential collection (query by `sequential_collection_id` + `sequential_is_active=true`) with resource URL if present, inline practice/mastery buttons
+   - `linked_randomizer`: show source name + expand to show currently drawn item(s) from active `randomizer_draws` for this member + list (Surprise Me: the auto-drawn item for today; Focused/Buffet: the manually drawn items)
+   - `linked_task`: show source task name + current state (simple passthrough)
+6. **Reading List Studio template** — add `ex_reading_list` entry to `TASK_TEMPLATES_EXAMPLES` in `studio-seed-data.ts`:
+   - templateType: 'sequential'
+   - name: 'Reading List'
+   - tagline: 'Sequential reading list with mastery + duration tracking. Finish one book at a time.'
+   - Description explaining the workflow
+   - capability_tags: ['reading', 'books', 'mastery', 'duration_tracking', 'homeschool', 'curriculum', 'one_at_a_time']
+   - When the user clicks [Customize], the SequentialCreator opens with defaults preset: default_advancement_mode='mastery', default_require_approval=true, default_track_duration=true, default_active_count=1, default_promotion_timing='manual'
+7. `RoutineDuplicateDialog` component — new modal:
+   - Shows the routine name + destination child picker
+   - For each linked step in the source routine: a resolution row — "X's routine links to [Source Name]. Which list should Y's link to?" with options: Same list (shared progress) / Pick a different list (list picker) / Create new (opens SequentialCreatorModal or list picker)
+   - On submit: duplicates `task_templates` → `task_template_sections` → `task_template_steps` with resolved `linked_source_id` per linked step
+8. Wire a `[Duplicate for another child]` button on routine templates in Studio "My Customized"
+9. Playwright tests:
+   - Build routine with a linked sequential step; assign to child; child sees source name + current item on dashboard; completing the linked item writes practice_log + advances source
+   - Build routine with a linked Surprise Me randomizer step; on first dashboard open, auto-draw runs + locks in; refresh shows same item
+   - Duplicate routine for second child: linked step prompts for source resolution; pick "Same list" → new routine shares progress; pick "Create new" → SequentialCreatorModal opens to create a new collection for the second child
+   - Reading List template deploys with correct defaults (verify in DB that default_advancement_mode='mastery', default_track_duration=true, default_active_count=1)
+10. `tsc -b` zero errors
+11. **Post-build verification table filled** in feature decision file
+12. **STUB_REGISTRY.md updates**: flip lines 429-435 from "⏳ Unwired (MVP) Session 2" to "✅ Wired PRD-09A/09B Linked Steps (Build J)" with 2026-04-XX date
+13. **CLAUDE.md additions** (post-build checklist Part B): 10 new convention lines per addendum — linked step semantics, advancement modes, draw modes, practice_log vs task_completions, mastery exit from randomizer pool, Reading List as Studio template, badge/award deferred to BigPlans, curriculum-parse Human-in-the-Mix, linked step frequency inheritance, routine duplication source resolution
+14. **Feature decision file verification table completed** with zero Missing, founder sign-off
+
+#### Stubs (NOT Building This Session)
+
+- LiLa `studio_create_guide` conversational creation — Session 3 Phase 3
+- Community curriculum template sharing (Creator tier) — post-MVP
+- Pre-built curriculum templates (Frontier Girls, classical) — content sprint, not this build
+- Learning Path duplication in BigPlans — PRD-29
+- Badge/award pick-N-of-M logic — PRD-29
+- Gamification point events for practice/mastery — PRD-24
+- Auto-Victory on mastery approval — PRD-11 enhancement
+- Compliance report consumption of practice_log — PRD-28B
+- BookShelf reading assignments as a linked source type — deferred
+- Cross-source unified mastery approval queue — sequential uses Tasks.tsx queue; randomizer uses per-list inline section
+- Rich evidence capture (camera integration, multi-file) — basic upload/note only in this phase
+- Real-time Surprise Me re-draw within same day — explicitly NOT supported (that's the feature)
+
+#### Key Decisions
+
+1. **One migration file.** All 41 column additions + 2 new tables + RLS + indexes + feature keys + backfill in `00000000100105_linked_steps_mastery_advancement.sql`. Idempotent. Rollback is a single file revert.
+2. **`practice_log` is the unified cross-source log.** Sequential items also dual-write to `task_completions` (completion_type='practice') for backward-compatible per-task audit views. Randomizer items write ONLY to `practice_log` (no task_completions parent).
+3. **`curriculum-parse` is a dedicated Edge Function**, not a reuse of `ai-parse`. Founder convention confirmed Build H. Follows task-breaker code pattern exactly. The addendum's "Same as routine-brain-dump" refers to UX pattern only; routine-brain-dump actually uses shared ai-parse — we're deliberately diverging for architectural consistency with task-breaker.
+4. **Mastery rejection = `mastery_status` returns to `'practicing'`**, not `'rejected'`. The completion record keeps the rejection note for history. Child keeps practicing.
+5. **Mastered randomizer items exit the pool permanently** via `list_items.is_available = false`. `is_repeatable` is ignored for mastery items.
+6. **Surprise Me is deterministic per day** via UNIQUE partial index on `randomizer_draws(list_id, family_member_id, routine_instance_date) WHERE draw_source='auto_surprise'`. Refresh = same item.
+7. **`resource_url` is a new `tasks` column.** `image_url` is no longer overloaded for sequential item URLs. Migration includes an idempotent backfill for existing rows where `image_url` held a URL.
+8. **Sequential mastery approvals reuse `PendingApprovalsSection`** (Tasks.tsx:1062) via `task.status='pending_approval'` + new `completion_type='mastery_submit'` detection. Randomizer mastery approvals surface inline on the Lists detail view. A unified cross-source queue is NOT built in this phase.
+9. **Linked steps inherit section frequency**; source advancement is cumulative and independent.
+10. **Bulk-set-then-override for advancement defaults.** Collection/list defaults propagate to new items; per-item override is the exception path, not the default path.
+11. **Zero new authentication or permission patterns.** Existing RLS + member_permissions apply; linked source picker filters by current member's access already.
+12. **4 sub-phases A→B→C→D; Sub-phase A is foundation (schema + hooks + Edge Function); Sub-phase D is the integration layer that ties everything together.**
 
 ---
 
@@ -873,12 +1080,79 @@ Phase A is foundation, not cosmetic. Without it, none of the enhancements can re
 - BrainDumpSection writes `notepad_tabs` with `source_type='rhythm_capture'` — routing from the notepad tab writes back to rhythm context
 
 **14. Guided/Play evening handoff**
-- At evening rhythm time, detect member role; if `guided` or `play`, trigger `DailyCelebration` instead of EveningRhythmModal
-- No rhythm card appears for Guided/Play in evening — DailyCelebration is the experience
+- At evening rhythm time, detect member role; if `play`, trigger `DailyCelebration` instead of EveningRhythmModal
+- No rhythm card appears for Play in evening — DailyCelebration is the experience
+- **(scope addition 2026-04-07)** Guided members DO get an evening rhythm — see item 16 below. Play stays unchanged.
 - `rhythm_completions` records still written for completion tracking
 
 **15. TypeScript check**
 - `tsc -b` — zero errors before declaring Phase A complete
+
+**16. Mini evening rhythm for Guided (mid-build scope addition, 2026-04-07)**
+- Migration `00000000100104_guided_evening_rhythm.sql` — extends `auto_provision_member_resources()` to also seed an evening rhythm config for Guided members + backfills 3 existing active Guided members across the database (Mosiah in OurFamily, plus 2 Jordans in test families)
+- Coexists with the existing CelebrateSection — Celebrate button still launches DailyCelebration overlay separately. The mini evening rhythm is a structured 3-section daily check-in modal; DailyCelebration is the sparkly celebration overlay.
+- 3 new section types added to `RhythmSectionType` union: `guided_day_highlights`, `guided_pride_reflection`, `guided_tomorrow_lookahead`
+- 3 new section components in `src/components/rhythms/sections/guided/`:
+  - `GuidedDayHighlightsSection` — reads today's victories with kid framing ("Look at what you did today!"), warm empty state for quiet days
+  - `GuidedPrideReflectionSection` — single hardcoded prompt "Is there anything you're proud of yourself for today?", textarea writes directly to `journal_entries` with `entry_type='reflection'`, `tags=['reflection','guided_evening','pride']`, `visibility='shared_parents'`
+  - `GuidedTomorrowLookAheadSection` — single hardcoded prompt "What are you looking forward to tomorrow?", same architecture as Pride section, `tags=['reflection','guided_evening','tomorrow']`
+- Reading Support flag (`readingSupport`) flows from `GuidedDashboard` → `RhythmDashboardCard` → `RhythmModal` → `SectionRendererSwitch` → each section component. Guided sections show a `Volume2` icon that reads the prompt aloud via `speechSynthesis` when reading support is enabled.
+- `'evening_rhythm'` added to `GUIDED_SECTION_KEYS` in `src/types/guided-dashboard.ts` (slot before `celebrate`). `getGuidedSections()` auto-merges the new key into existing dashboard configs on next read — no `dashboard_configs` backfill needed.
+- `GuidedDashboard.renderSection` adds a case for `evening_rhythm` that renders `<RhythmDashboardCard rhythmKey="evening" readingSupport={...} />`. The card renders without the collapsible wrapper (same pattern as `greeting` and `next_best_thing`).
+- `GuidedManagementScreen.SECTION_LABELS` updated to include `evening_rhythm: 'Evening Check-in'` for the management UI
+- **No new tables, no new feature keys.** Reuses the existing `rhythm_configs` / `rhythm_completions` infrastructure built in migration 100103.
+- **Reflection responses do NOT use `reflection_prompts`/`reflection_responses` infrastructure.** Two reasons: (a) the lazy-seed in `useReflectionPrompts` only fires on `/reflections` page visit, which Guided kids don't visit; (b) the prompts are hardcoded so a `reflection_prompts` row would be redundant. Direct `journal_entries` writes use the existing journal RLS, which already lets mom see kids' reflections via View As.
+- **Reuses existing `RhythmModal` and `RhythmDashboardCard`** rather than building Guided-specific variants. Same auto-open logic, snooze menu, completion flow. UI tightening for kid-friendly tone is deferred to a polish pass.
+- Verification: Mosiah's evening rhythm config has 4 sections in correct order (highlights → pride → tomorrow → close), `section_order_locked=true`. Database total: 21 evening rhythms (was 18 adults + 3 new Guided). `tsc -b --force` clean.
+
+**17. Position 0 fix + Guided reflections expansion (mid-build follow-up, 2026-04-07)**
+
+Two issues surfaced after the initial Guided evening rhythm landed:
+
+**(a) Position 0 bug.** The rhythm cards were rendering at the BOTTOM of the dashboard instead of at position 0 as PRD-18 + the Cross-PRD Impact Addendum specify. Root cause: the `getSections()` helper merges missing default keys at the END of the saved layout, not at their default position. For existing dashboard_configs whose layouts were saved before the rhythm keys were added, the rhythm sections got appended.
+
+**Fix:** Removed `morning_rhythm` and `evening_rhythm` from the section registry entirely (`SECTION_KEYS`, `SECTION_META`, `DEFAULT_SECTIONS`). Same for Guided (`GUIDED_SECTION_KEYS`, `SECTION_LABELS`). The `RhythmDashboardCard` now renders DIRECTLY at position 0 in `Dashboard.tsx` and `GuidedDashboard.tsx`, OUTSIDE the data-driven section system. This is more robust than fixing the merge logic because:
+  - The user's saved layout doesn't need to know about rhythm cards at all
+  - Edit mode can never accidentally hide them
+  - New rhythm types in the future don't require schema migration of dashboard_configs
+  - Truly auto-managed semantics — never reorderable, never hideable
+- The card itself still self-hides when outside its time window AND has no completion record, so the slot is invisible most of the day.
+- Adult Dashboard renders both morning + evening cards above all sections. Guided/Play kids are excluded from the adult evening card because guided members render their own evening card inside `GuidedDashboard`.
+- `sortableSectionIds` no longer needs to filter rhythm keys (they're not in `activeSections` anymore).
+
+**(b) Guided reflections section + rotating wordings.** Tenise asked for: (i) rotating wordings on Pride and Tomorrow sections so the kid doesn't see the same exact prompt every night, and (ii) a NEW reflection section that pulls from the existing reflection_prompts library, picks one of 20 child-appropriate prompts via PRNG, with an inline "View All" expander to swap.
+
+**Pride wordings (6 rotations):** "Is there anything you're proud of yourself for today?" / "What's something you did today that made you feel good about yourself?" / "What's a moment from today you want to remember?" / "Was there a time today when you tried hard at something?" / "What's something kind of awesome you did today?" / "Did anything happen today that you're glad about?"
+
+**Tomorrow wordings (6 rotations):** "What are you looking forward to tomorrow?" / "What's one thing you're excited about for tomorrow?" / "Is there anything special about tomorrow?" / "What's something you want to try or do tomorrow?" / "What would make tomorrow a really good day?" / "What's on your mind for tomorrow?"
+
+The active wording is picked deterministically via `pickOne(WORDINGS, rhythmSeed(memberId, 'evening:pride'/'evening:tomorrow', new Date()))` — same kid sees same wording all day, different tomorrow. The selected wording is saved INTO the journal entry content so the historical record shows which version was answered. Tags stay constant.
+
+**New `GuidedReflectionsSection`:**
+- Reads from existing `reflection_prompts` library via `useReflectionPrompts` (lazy-seeds 32 default prompts on first call, same as `WriteDrawerReflections`)
+- Filters to 20 hardcoded child-friendly sort_orders: `[1, 2, 3, 4, 5, 8, 9, 12, 13, 20, 21, 22, 24, 25, 26, 28, 29, 30, 31, 32]` — picked from the original 32 by excluding adult/abstract/judgmental ones (full rationale in the component file)
+- Date-seeded PRNG picks ONE active prompt for the day (key `'evening:guided_reflections'`)
+- "View All questions" inline expander shows all 20 as tappable buttons; tapping one swaps the active prompt and collapses the list. Override is session-only — next day a new prompt rotates in via PRNG.
+- Save uses the existing `useSaveResponse` mutation, which writes BOTH a `reflection_responses` row AND a `journal_entries` row with category-derived tags. Mom finds these in /reflections Past tab via View As AND in the kid's journal under the relevant category tag.
+- Reading Support: Volume2 icon reads the active prompt aloud
+- Already-answered prompts in the View All list show a "✓" prefix
+- **Architecture mirrors the planned teen evening reflection** (Enhancement Addendum decision 30: "1-2 reflection questions per evening, pulled from teen-appropriate prompts filtered from the existing pool"). Guided gets 1 question by default with the View All escape hatch.
+- Mom-controlled curation via `preferences.reflection_prompts` is NOT wired in this build — the 20 sort_orders are platform-curated. Phase B can wire the preference if needed.
+
+**New section sequence (5 sections, was 4):**
+1. `guided_day_highlights` — today's victories with kid framing
+2. `guided_pride_reflection` — rotating wording, direct journal_entries write
+3. `guided_reflections` — NEW, library-backed, PRNG pick, View All
+4. `guided_tomorrow_lookahead` — rotating wording, direct journal_entries write
+5. `close_my_day` — completion action
+
+**Migration filename collision:** I initially named the migration `00000000100105_guided_evening_reflections.sql` but discovered there was already an `00000000100105_linked_steps_mastery_advancement.sql` from the parallel PRD-09A/09B "Build J" Linked Steps session. The Linked Steps SQL was already applied AND recorded in `supabase_migrations.schema_migrations` (verified directly), but having two files at the same version number confused `db push --dry-run`. **Renamed to `00000000100106_guided_evening_reflections.sql`** to resolve the collision. Did NOT touch the Linked Steps migration — outside this build's scope.
+
+**Migration 00000000100106:** Replaces `auto_provision_member_resources()` to seed the new 5-section evening rhythm for new Guided members. Backfills existing 3 active Guided members across the database via idempotent UPDATE that only fires when `sections @> '[{"section_type":"guided_reflections"}]'::jsonb` is FALSE.
+
+**TaskCard.tsx note:** During clean-rebuild verification, `tsc -b --force` initially showed errors in `src/components/tasks/TaskCard.tsx`. Investigation showed these are uncommitted changes from the parallel Linked Steps "Build J" (references `onSubmitMastery`, `GraduationCap`, `ExternalLink` — Linked Steps mastery features). Errors are NOT in any file I touched. After clearing `.tsbuildinfo` cache files, `tsc --noEmit` and `tsc -b` both exit 0 cleanly. **Surface this to the Linked Steps build owner: TaskCard.tsx has uncommitted unresolved references that may fail Vercel deploy in strict mode if not resolved before commit.**
+
+**Verification:** Backfill confirmed via `npx supabase db query --linked` — all 3 existing Guided members have evening rhythm with 5 sections in correct order (highlights → pride → reflections → tomorrow → close). `npx tsc --noEmit` clean (zero errors). `npx tsc -b` clean after clearing tsbuildinfo cache.
 
 #### Stubs (NOT Building Phase A)
 

@@ -131,6 +131,29 @@ async function seedDefaultPrompts(familyId: string, memberId: string) {
   if (error) throw error
 }
 
+// ─── Local-date helper ──────────────────────────────────────
+//
+// Bug fix (2026-04-07, beta_glitch_reports 8dc4b2bd): The previous
+// implementation used `new Date().toISOString().split('T')[0]` which
+// returns the UTC date. For users in negative-offset timezones (e.g.
+// US Central), this caused reflections saved in the late evening to
+// be tagged with TOMORROW's date because UTC had already ticked over.
+//
+// `todayLocalIso()` reads the user's local Y/M/D from the system clock,
+// matching what they see on their wall and what they expect to see in
+// the reflections page. The DB column `response_date` stores this as
+// a DATE (no TZ ambiguity). The display layer (ReflectionsPastTab)
+// already parses it as a local date string, so writes are now consistent
+// with reads.
+
+function todayLocalIso(): string {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 // ─── Queries ─────────────────────────────────────────────────
 
 export function useReflectionPrompts(familyId: string | undefined, memberId: string | undefined) {
@@ -191,7 +214,7 @@ export function useArchivedPrompts(memberId: string | undefined) {
 }
 
 export function useTodaysResponses(familyId: string | undefined, memberId: string | undefined) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayLocalIso()
   return useQuery({
     queryKey: ['reflection-responses-today', memberId, today],
     queryFn: async () => {
@@ -242,7 +265,7 @@ export function useSaveResponse() {
       category: ReflectionCategory
     }) => {
       const { familyId, memberId, promptId, responseText, promptText, category } = params
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalIso()
 
       // 1. Create journal entry first
       const journalContent = `**${promptText}**\n\n${responseText}`
@@ -298,7 +321,7 @@ export function useSaveResponse() {
       return data as ReflectionResponse
     },
     onSuccess: (_data, vars) => {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalIso()
       qc.invalidateQueries({ queryKey: ['reflection-responses-today', vars.memberId, today] })
       qc.invalidateQueries({ queryKey: ['reflection-responses-past', vars.memberId] })
       qc.invalidateQueries({ queryKey: ['journal-entries', vars.memberId] })
@@ -339,7 +362,7 @@ export function useUpdateResponse() {
       }
     },
     onSuccess: (_data, vars) => {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalIso()
       qc.invalidateQueries({ queryKey: ['reflection-responses-today', vars.memberId, today] })
       qc.invalidateQueries({ queryKey: ['reflection-responses-past', vars.memberId] })
       qc.invalidateQueries({ queryKey: ['journal-entries', vars.memberId] })

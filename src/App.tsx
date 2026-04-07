@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Welcome } from '@/pages/Welcome'
 import { CreateAccount } from '@/pages/auth/CreateAccount'
@@ -21,10 +21,11 @@ import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
 import {
   VictoriesPage, TrackersPage, LifeLanternPage,
-  FamilyContextPage, MorningRhythmPage, EveningReviewPage,
+  FamilyContextPage,
   SafeHarborPage, MeetingsPage, BigPlansPage,
   ThoughtSiftPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
+import { RhythmsSettingsPage } from '@/pages/RhythmsSettingsPage'
 import { MessagesPage } from '@/pages/MessagesPage'
 import { MessagesSpacePage } from '@/pages/MessagesSpacePage'
 import { MessagesThreadPage } from '@/pages/MessagesThreadPage'
@@ -130,8 +131,13 @@ function App() {
               <Route path="/vault" element={<ProtectedRoute><VaultBrowsePage /></ProtectedRoute>} />
               <Route path="/vault/my-prompts" element={<ProtectedRoute><PersonalPromptLibraryPage /></ProtectedRoute>} />
               <Route path="/reflections" element={<ProtectedRoute><ReflectionsPage /></ProtectedRoute>} />
-              <Route path="/rhythms/morning" element={<ProtectedRoute><MorningRhythmPage /></ProtectedRoute>} />
-              <Route path="/rhythms/evening" element={<ProtectedRoute><EveningReviewPage /></ProtectedRoute>} />
+              {/* PRD-18: rhythm experiences live in the auto-open modal + dashboard
+                  card. Old placeholder routes redirect to dashboard. Settings is the
+                  one standalone surface for rhythm configuration. */}
+              <Route path="/rhythms/morning" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/rhythms/evening" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/rhythms" element={<Navigate to="/rhythms/settings" replace />} />
+              <Route path="/rhythms/settings" element={<ProtectedRoute><RhythmsSettingsPage /></ProtectedRoute>} />
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />

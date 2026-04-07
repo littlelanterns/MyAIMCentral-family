@@ -5,7 +5,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
-  LayoutDashboard, BookOpen, BookHeart, Sun, Moon as MoonIcon, CheckSquare, Calendar,
+  LayoutDashboard, BookOpen, BookHeart, Sun, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle,
   ChevronLeft, ChevronRight,
@@ -46,8 +46,10 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     items: [
       { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
       { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
-      { label: 'Morning Rhythm', path: '/rhythms/morning', featureKey: 'morning_rhythm', icon: <Sun size={20} />, tooltip: 'Start your day with intention' },
-      { label: 'Evening Review', path: '/rhythms/evening', featureKey: 'evening_review', icon: <MoonIcon size={20} />, tooltip: 'Reflect on your day' },
+      // PRD-18: Rhythm experiences live in the auto-open modal + dashboard card,
+      // not as standalone pages. The Settings entry is the one place to configure
+      // morning/evening/weekly/monthly/quarterly rhythms per family member.
+      { label: 'Rhythms', path: '/rhythms/settings', featureKey: 'rhythms_basic', icon: <Sun size={20} />, tooltip: 'Configure morning, evening, and periodic rhythms' },
     ],
   }
 
@@ -119,6 +121,12 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
         ...grow,
         items: grow.items.filter(i => i.label !== 'LifeLantern'),
       }, {
+        title: 'Family',
+        collapsible: true,
+        items: [
+          { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
+        ],
+      }, {
         title: 'AI & Tools',
         collapsible: true,
         items: [
@@ -130,6 +138,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
         title: 'My Day',
         items: [
           { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
+          { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Talk to your family' },
           { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
           { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
           { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
@@ -527,7 +536,7 @@ function SidebarInner({
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col border-r flex-shrink-0 h-svh sticky top-0"
+      <aside className="hidden md:flex flex-col border-r shrink-0 h-svh sticky top-0"
         style={{
           width: collapsed ? '56px' : '220px',
           backgroundColor: 'var(--color-bg-card)',

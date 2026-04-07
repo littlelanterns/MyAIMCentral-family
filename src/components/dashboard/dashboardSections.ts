@@ -16,6 +16,13 @@ export const SECTION_KEYS = {
   CELEBRATE: 'celebrate',
 } as const
 
+// PRD-18: rhythm cards are auto-managed — they render at position 0 in
+// Dashboard.tsx OUTSIDE the data-driven section system. They're not in
+// the section registry because (a) they should always be at the top,
+// (b) the user's saved layout shouldn't need to know about them, and
+// (c) edit mode must never be able to hide them. The card itself
+// self-hides when outside its time window AND has no completion.
+
 export type SectionKey = (typeof SECTION_KEYS)[keyof typeof SECTION_KEYS]
 
 // ─── Section Config ──────────────────────────────────────────

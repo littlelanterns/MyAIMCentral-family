@@ -14,7 +14,7 @@ export interface NotepadTab {
   status: 'active' | 'routed' | 'archived'
   routed_to: string | null
   routed_reference_id: string | null
-  source_type: 'manual' | 'voice' | 'edit_in_notepad' | 'lila_optimizer'
+  source_type: 'manual' | 'voice' | 'edit_in_notepad' | 'lila_optimizer' | 'rhythm_capture'
   source_reference_id: string | null
   is_auto_named: boolean
   sort_order: number
