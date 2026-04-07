@@ -486,6 +486,11 @@ export function RoutineBrainDump({ onAccept, onClose, appendMode }: RoutineBrain
         instanceCount: step.instanceCount,
         requirePhoto: false,
         sort_order: stIdx,
+        // Build J: brain-dump generates static steps (no linked content)
+        step_type: 'static' as const,
+        linked_source_id: null,
+        linked_source_type: null,
+        display_name_override: null,
       })),
     }))
 

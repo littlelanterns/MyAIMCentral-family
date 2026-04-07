@@ -8,9 +8,11 @@
  */
 
 import { useState } from 'react'
-import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles, MessageSquareText } from 'lucide-react'
+import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles, MessageSquareText, Link2, BookOpen, Shuffle, Repeat } from 'lucide-react'
 import { Button, Toggle, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { RoutineBrainDump } from './RoutineBrainDump'
+import { LinkedSourcePicker } from './sequential/LinkedSourcePicker'
+import type { StepType, LinkedSourceType } from '@/types/tasks'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -22,6 +24,12 @@ export interface RoutineStep {
   instanceCount: number
   requirePhoto: boolean
   sort_order: number
+  // Build J: linked step columns. Static steps (the default) keep their title
+  // as-entered. Linked steps dynamically render content from an external source.
+  step_type: StepType
+  linked_source_id: string | null
+  linked_source_type: LinkedSourceType | null
+  display_name_override: string | null
 }
 
 export interface RoutineSection {
@@ -62,6 +70,11 @@ function makeBlankStep(sort_order: number): RoutineStep {
     instanceCount: 1,
     requirePhoto: false,
     sort_order,
+    // Build J: default to static. Mom switches to linked via the UI.
+    step_type: 'static',
+    linked_source_id: null,
+    linked_source_type: null,
+    display_name_override: null,
   }
 }
 
@@ -91,16 +104,50 @@ interface StepRowProps {
   onBreakDown: () => void
 }
 
+const LINKED_TYPE_ICONS: Record<LinkedSourceType, typeof BookOpen> = {
+  sequential_collection: BookOpen,
+  randomizer_list: Shuffle,
+  recurring_task: Repeat,
+}
+
+const LINKED_TYPE_LABELS: Record<LinkedSourceType, string> = {
+  sequential_collection: 'Sequential list',
+  randomizer_list: 'Randomizer',
+  recurring_task: 'Recurring task',
+}
+
 function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown, onBreakDown }: StepRowProps) {
+  const isLinked = step.step_type !== 'static'
+  const LinkedIcon = step.linked_source_type ? LINKED_TYPE_ICONS[step.linked_source_type] : Link2
+
   return (
     <div
       style={{
         borderRadius: 'var(--vibe-radius-input, 8px)',
-        border: '1px solid var(--color-border)',
+        border: `1px solid ${isLinked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
         backgroundColor: 'var(--color-bg-card)',
         overflow: 'hidden',
       }}
     >
+      {/* Build J: Linked step banner (shown on linked steps only) */}
+      {isLinked && (
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5"
+          style={{
+            background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <LinkedIcon size={11} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <span className="text-[10px] font-medium" style={{ color: 'var(--color-btn-primary-bg)' }}>
+            Linked → {step.linked_source_type ? LINKED_TYPE_LABELS[step.linked_source_type] : 'source'}
+          </span>
+          <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-secondary)' }}>
+            pulls today's content
+          </span>
+        </div>
+      )}
+
       {/* Main step row */}
       <div className="flex items-center gap-2" style={{ padding: '0.5rem 0.75rem' }}>
         {/* Checkbox placeholder */}
@@ -114,12 +161,18 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           }}
         />
 
-        {/* Title input */}
+        {/* Title input — for linked steps, this is the optional display name override */}
         <input
           type="text"
-          value={step.title}
-          onChange={(e) => onChange({ ...step, title: e.target.value })}
-          placeholder="Step name…"
+          value={isLinked ? (step.display_name_override ?? step.title) : step.title}
+          onChange={(e) => {
+            if (isLinked) {
+              onChange({ ...step, display_name_override: e.target.value, title: e.target.value })
+            } else {
+              onChange({ ...step, title: e.target.value })
+            }
+          }}
+          placeholder={isLinked ? 'Display name (e.g. Math, Reading)…' : 'Step name…'}
           style={{
             flex: 1,
             border: 'none',
@@ -347,10 +400,15 @@ interface SectionRowProps {
   onMoveUp: () => void
   onMoveDown: () => void
   onBreakDown: (stepId: string) => void
+  /** Build J: family id for the linked source picker */
+  familyId?: string
 }
 
-function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown, onBreakDown }: SectionRowProps) {
+function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown, onBreakDown, familyId }: SectionRowProps) {
   const [showBulkAdd, setShowBulkAdd] = useState(false)
+  // Build J: linked source picker modal state
+  const [showLinkedPicker, setShowLinkedPicker] = useState(false)
+  const [pendingLinkedStepId, setPendingLinkedStepId] = useState<string | null>(null)
 
   const updateStep = (stepId: string, updated: RoutineStep) => {
     onChange({ ...section, steps: section.steps.map((s) => (s.id === stepId ? updated : s)) })
@@ -363,6 +421,20 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
   const addStep = () => {
     const maxOrder = section.steps.reduce((m, s) => Math.max(m, s.sort_order), -1)
     onChange({ ...section, steps: [...section.steps, makeBlankStep(maxOrder + 1)] })
+  }
+
+  // Build J: add a blank linked step (type defaults to linked_sequential;
+  // the picker modal opens immediately to let mom choose the source).
+  const addLinkedStep = () => {
+    const maxOrder = section.steps.reduce((m, s) => Math.max(m, s.sort_order), -1)
+    const newStep: RoutineStep = {
+      ...makeBlankStep(maxOrder + 1),
+      step_type: 'linked_sequential',
+      // title stays empty until mom picks a source; picker fills display_name_override
+    }
+    onChange({ ...section, steps: [...section.steps, newStep] })
+    setPendingLinkedStepId(newStep.id)
+    setShowLinkedPicker(true)
   }
 
   const moveStep = (stepId: string, direction: 'up' | 'down') => {
@@ -626,7 +698,7 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
             />
           ))}
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             type="button"
             onClick={addStep}
@@ -646,6 +718,28 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
             <Plus size={13} />
             Add step
           </button>
+          {/* Build J: Add linked step — opens LinkedSourcePicker */}
+          {familyId && (
+            <button
+              type="button"
+              onClick={addLinkedStep}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                padding: '0.375rem 0.5rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--color-btn-primary-bg)',
+                fontSize: 'var(--font-size-xs, 0.75rem)',
+                fontWeight: 500,
+              }}
+            >
+              <Link2 size={13} />
+              Add linked step
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowBulkAdd(true)}
@@ -675,7 +769,7 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
             parsePrompt="Parse the following text into individual routine checklist steps. Each step should be a short, actionable item. Return a JSON array of strings."
             onSave={async (parsed) => {
               const maxOrder = section.steps.reduce((m, s) => Math.max(m, s.sort_order), -1)
-              const newSteps = parsed
+              const newSteps: RoutineStep[] = parsed
                 .filter(i => i.selected)
                 .map((item, idx) => ({
                   id: generateId(),
@@ -685,10 +779,63 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
                   instanceCount: 1,
                   requirePhoto: false,
                   sort_order: maxOrder + 1 + idx,
+                  // Build J: bulk add creates static steps by default
+                  step_type: 'static',
+                  linked_source_id: null,
+                  linked_source_type: null,
+                  display_name_override: null,
                 }))
               onChange({ ...section, steps: [...section.steps, ...newSteps] })
             }}
             onClose={() => setShowBulkAdd(false)}
+          />
+        )}
+
+        {/* Build J: Linked source picker modal */}
+        {showLinkedPicker && familyId && (
+          <LinkedSourcePicker
+            isOpen={showLinkedPicker}
+            onClose={() => {
+              // If mom cancels without picking, remove the blank linked step
+              if (pendingLinkedStepId) {
+                const pending = section.steps.find(s => s.id === pendingLinkedStepId)
+                if (pending && !pending.linked_source_id) {
+                  onChange({
+                    ...section,
+                    steps: section.steps.filter(s => s.id !== pendingLinkedStepId),
+                  })
+                }
+              }
+              setShowLinkedPicker(false)
+              setPendingLinkedStepId(null)
+            }}
+            familyId={familyId}
+            onSelect={({ source_id, source_type, source_name }) => {
+              if (!pendingLinkedStepId) return
+              // Map source_type to the step_type enum value
+              const stepType: StepType =
+                source_type === 'sequential_collection' ? 'linked_sequential'
+                : source_type === 'randomizer_list' ? 'linked_randomizer'
+                : 'linked_task'
+
+              onChange({
+                ...section,
+                steps: section.steps.map(s =>
+                  s.id === pendingLinkedStepId
+                    ? {
+                        ...s,
+                        step_type: stepType,
+                        linked_source_id: source_id,
+                        linked_source_type: source_type,
+                        display_name_override: source_name,
+                        title: source_name,
+                      }
+                    : s,
+                ),
+              })
+              setShowLinkedPicker(false)
+              setPendingLinkedStepId(null)
+            }}
           />
         )}
       </div>
@@ -703,9 +850,12 @@ interface RoutineSectionEditorProps {
   onChange: (sections: RoutineSection[]) => void
   /** Placeholder — breaks down a specific step via AI (PRD-09A Task Breaker stub) */
   onBreakDown?: (sectionId: string, stepId: string) => void
+  /** Build J: family id required for the Linked Source Picker. If omitted,
+   *  the [Add linked step] button is hidden. */
+  familyId?: string
 }
 
-export function RoutineSectionEditor({ sections, onChange, onBreakDown }: RoutineSectionEditorProps) {
+export function RoutineSectionEditor({ sections, onChange, onBreakDown, familyId }: RoutineSectionEditorProps) {
   const [showBrainDump, setShowBrainDump] = useState(false)
 
   const addSection = () => {
@@ -806,6 +956,7 @@ export function RoutineSectionEditor({ sections, onChange, onBreakDown }: Routin
           onMoveUp={() => moveSection(section.id, 'up')}
           onMoveDown={() => moveSection(section.id, 'down')}
           onBreakDown={(stepId) => onBreakDown?.(section.id, stepId)}
+          familyId={familyId}
         />
       ))}
 

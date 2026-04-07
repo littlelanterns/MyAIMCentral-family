@@ -163,6 +163,8 @@ export function StudioPage() {
 
   // SequentialCreatorModal state (Phase 1: replaces sequential route through TaskCreationModal)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
+  // Build J: Reading List template opens SequentialCreatorModal with mastery + duration tracking presets
+  const [sequentialTemplateId, setSequentialTemplateId] = useState<string | null>(null)
 
   // GuidedFormAssignModal state
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
@@ -224,8 +226,11 @@ export function StudioPage() {
       return
     }
 
-    // Sequential Collection → open SequentialCreatorModal (Phase 1 — not TaskCreationModal)
+    // Sequential Collection → open SequentialCreatorModal (Phase 1 — not TaskCreationModal).
+    // Build J: Track which template is opening so the modal can apply preset defaults
+    // (e.g., Reading List → mastery + duration tracking).
     if (template.templateType === 'sequential') {
+      setSequentialTemplateId(template.id)
       setSequentialModalOpen(true)
       return
     }
@@ -576,12 +581,27 @@ export function StudioPage() {
       )}
 
       {/* ── Sequential Creator Modal (PRD-09A/09B Studio Intelligence Phase 1) ─ */}
+      {/* Build J: Reading List template opens with mastery + duration tracking presets */}
       {sequentialModalOpen && family?.id && member?.id && (
         <SequentialCreatorModal
           isOpen={sequentialModalOpen}
-          onClose={() => setSequentialModalOpen(false)}
+          onClose={() => {
+            setSequentialModalOpen(false)
+            setSequentialTemplateId(null)
+          }}
           familyId={family.id}
           createdBy={member.id}
+          title={sequentialTemplateId === 'ex_reading_list' ? 'Create Reading List' : undefined}
+          initialDefaults={
+            sequentialTemplateId === 'ex_reading_list'
+              ? {
+                  defaultAdvancementMode: 'mastery',
+                  defaultRequireApproval: true,
+                  defaultRequireEvidence: false,
+                  defaultTrackDuration: true,
+                }
+              : undefined
+          }
         />
       )}
 

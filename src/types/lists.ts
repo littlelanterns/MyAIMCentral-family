@@ -24,6 +24,11 @@ export type PoolMode = 'individual' | 'shared'
 export type FrequencyPeriod = 'day' | 'week' | 'month'
 export type VictoryMode = 'none' | 'item_completed' | 'list_completed' | 'both'
 
+// ─── PRD-09A/09B Linked Steps (Build J) ─── advancement & draw modes
+export type AdvancementMode = 'complete' | 'practice_count' | 'mastery'
+export type MasteryStatus = 'practicing' | 'submitted' | 'approved' | 'rejected'
+export type DrawMode = 'focused' | 'buffet' | 'surprise'
+
 export interface List {
   id: string
   family_id: string
@@ -45,6 +50,14 @@ export interface List {
   pool_mode: PoolMode
   eligible_members: string[] | null
   archived_at: string | null
+  // Build J — randomizer-only; NULL for other list types
+  draw_mode: DrawMode | null
+  max_active_draws: number | null
+  default_advancement_mode: AdvancementMode | null
+  default_practice_target: number | null
+  default_require_approval: boolean | null
+  default_require_evidence: boolean | null
+  default_track_duration: boolean | null
   created_at: string
   updated_at: string
 }
@@ -87,6 +100,17 @@ export interface ListItem {
   period_completion_count: number
   reward_amount: number | null
   sort_order: number
+  // PRD-09A/09B Linked Steps (Build J) — advancement + mastery
+  advancement_mode: AdvancementMode
+  practice_target: number | null
+  practice_count: number
+  mastery_status: MasteryStatus | null
+  mastery_submitted_at: string | null
+  mastery_approved_by: string | null
+  mastery_approved_at: string | null
+  require_mastery_approval: boolean
+  require_mastery_evidence: boolean
+  track_duration: boolean
   created_at: string
   updated_at: string
 }

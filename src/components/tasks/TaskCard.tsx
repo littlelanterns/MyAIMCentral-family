@@ -35,6 +35,8 @@ import {
   GripVertical,
   StickyNote,
   Loader2,
+  GraduationCap,
+  ExternalLink,
 } from 'lucide-react'
 import { Badge } from '@/components/shared'
 import { useTimerContext } from '@/features/timer'
@@ -58,6 +60,10 @@ export interface TaskCardProps {
   compact?: boolean
   /** Props from @dnd-kit useSortable for drag handle — renders GripVertical icon */
   dragHandleProps?: Record<string, unknown>
+  /** Build J: log a practice session (practice_count or mastery mode) */
+  onLogPractice?: (task: Task) => void
+  /** Build J: open the mastery submission modal */
+  onSubmitMastery?: (task: Task) => void
 }
 
 const TASK_TYPE_ICONS: Record<string, typeof Circle> = {
@@ -110,6 +116,8 @@ export function TaskCard({
   showAssignee: _showAssignee = false,
   compact = false,
   dragHandleProps,
+  onLogPractice: _onLogPractice,
+  onSubmitMastery,
 }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [isPressed, _setIsPressed] = useState(false)
@@ -135,6 +143,35 @@ export function TaskCard({
   const isPendingApproval = task.status === 'pending_approval'
   const isInProgress = task.status === 'in_progress'
   const TypeIcon = TASK_TYPE_ICONS[task.task_type] ?? CheckCircle2
+
+  // Build J: advancement mode derived state (sequential tasks only)
+  const isSequential = task.task_type === 'sequential'
+  const advancementMode = (task as unknown as { advancement_mode?: string }).advancement_mode ?? 'complete'
+  const practiceCount = (task as unknown as { practice_count?: number }).practice_count ?? 0
+  const practiceTarget = (task as unknown as { practice_target?: number | null }).practice_target ?? null
+  const masteryStatus = (task as unknown as { mastery_status?: string | null }).mastery_status ?? null
+  const resourceUrl = (task as unknown as { resource_url?: string | null }).resource_url ?? null
+
+  let advancementSubtitle: string | null = null
+  if (isSequential && !isCompleted) {
+    if (advancementMode === 'practice_count' && practiceTarget != null) {
+      advancementSubtitle = `${practiceCount}/${practiceTarget} practices`
+    } else if (advancementMode === 'mastery') {
+      if (masteryStatus === 'submitted') {
+        advancementSubtitle = `Submitted for mastery — awaiting approval`
+      } else if (masteryStatus === 'approved') {
+        advancementSubtitle = `Mastered`
+      } else {
+        advancementSubtitle = `Practiced ${practiceCount} ${practiceCount === 1 ? 'time' : 'times'}`
+      }
+    }
+  }
+
+  const showMasteryButton =
+    isSequential &&
+    advancementMode === 'mastery' &&
+    (masteryStatus === null || masteryStatus === 'practicing' || masteryStatus === 'rejected') &&
+    !isCompleted
 
   // Long-press to open context menu
   const handlePressStart = useCallback(() => {
@@ -269,7 +306,7 @@ export function TaskCard({
         {dragHandleProps && (
           <button
             {...dragHandleProps}
-            className="flex-shrink-0 mt-0.5 cursor-grab active:cursor-grabbing touch-none"
+            className="shrink-0 mt-0.5 cursor-grab active:cursor-grabbing touch-none"
             style={{
               color: 'var(--color-text-secondary)',
               opacity: 0.4,
@@ -288,7 +325,7 @@ export function TaskCard({
           ref={checkboxRef}
           onClick={handleCheckboxClick}
           disabled={isCompleting}
-          className="flex-shrink-0 mt-0.5 transition-all"
+          className="shrink-0 mt-0.5 transition-all"
           style={{
             width: 20,
             height: 20,
@@ -347,6 +384,38 @@ export function TaskCard({
               Routine
               {task.template_id && ' — check steps'}
             </span>
+          )}
+
+          {/* Build J: Sequential advancement progress subtitle */}
+          {advancementSubtitle && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] mt-0.5 font-medium"
+              style={{
+                color: masteryStatus === 'submitted'
+                  ? 'var(--color-warning, #eab308)'
+                  : masteryStatus === 'approved'
+                  ? 'var(--color-success, #22c55e)'
+                  : 'var(--color-text-secondary)',
+              }}
+            >
+              <GraduationCap size={10} />
+              {advancementSubtitle}
+            </span>
+          )}
+
+          {/* Build J: Resource URL link (for curriculum items with embedded links) */}
+          {resourceUrl && !isCompleted && (
+            <a
+              href={resourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[11px] mt-0.5 font-medium underline-offset-2 hover:underline"
+              style={{ color: 'var(--color-btn-primary-bg)' }}
+            >
+              <ExternalLink size={10} />
+              Open resource
+            </a>
           )}
 
           {/* Description snippet */}
@@ -433,12 +502,32 @@ export function TaskCard({
               stopTimer={timerCtx.stopTimer}
             />
           )}
+
+          {/* Build J: Submit as Mastered button (only for mastery items currently practicing) */}
+          {showMasteryButton && onSubmitMastery && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                onSubmitMastery(task)
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium mt-2 transition-colors"
+              style={{
+                background: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px solid var(--color-btn-primary-bg)',
+              }}
+            >
+              <GraduationCap size={12} />
+              Submit as Mastered
+            </button>
+          )}
         </div>
 
         {/* Note icon */}
         <button
           onClick={handleNoteToggle}
-          className="flex-shrink-0 p-1 rounded"
+          className="shrink-0 p-1 rounded"
           style={{
             color: (showNoteInput || pendingNote || task.completion_note)
               ? 'var(--color-btn-primary-bg)'
@@ -456,7 +545,7 @@ export function TaskCard({
             e.stopPropagation()
             setShowMenu(!showMenu)
           }}
-          className="flex-shrink-0 p-1 rounded"
+          className="shrink-0 p-1 rounded"
           style={{ color: 'var(--color-text-secondary)' }}
           aria-label="Task options"
         >
@@ -821,7 +910,7 @@ export function TaskCardGuided({
       {!isCompleted && (
         <ChevronRight
           size={16}
-          className="ml-auto flex-shrink-0"
+          className="ml-auto shrink-0"
           style={{ color: 'var(--color-text-secondary)' }}
         />
       )}

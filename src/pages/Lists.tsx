@@ -37,6 +37,9 @@ import type { ListItem, ListType, ListShare, List as ListData, VictoryMode } fro
 import { Randomizer } from '@/components/lists/Randomizer'
 import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/FrequencyRulesEditor'
 import { PoolModeSelector } from '@/components/lists/PoolModeSelector'
+import { DrawModeSelector } from '@/components/lists/DrawModeSelector'
+import { useRandomizerPendingMastery } from '@/hooks/useRandomizerDraws'
+import { useApproveMasterySubmission, useRejectMasterySubmission } from '@/hooks/usePractice'
 import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 import { ReferenceListView } from '@/components/lists/ReferenceListView'
 import {
@@ -918,6 +921,14 @@ function RandomizerDetailView({
             onEligibleMembersChange={(members) => updateList.mutate({ id: list.id, eligible_members: members })}
           />
 
+          {/* Build J: Draw mode selector (randomizer-only) */}
+          <DrawModeSelector
+            drawMode={(list.draw_mode ?? 'focused') as 'focused' | 'buffet' | 'surprise'}
+            maxActiveDraws={list.max_active_draws ?? 1}
+            onDrawModeChange={(mode) => updateList.mutate({ id: list.id, draw_mode: mode })}
+            onMaxActiveDrawsChange={(n) => updateList.mutate({ id: list.id, max_active_draws: n })}
+          />
+
           {/* Per-item frequency rules */}
           <div
             className="rounded-lg p-3 space-y-2"
@@ -964,6 +975,15 @@ function RandomizerDetailView({
         </div>
       )}
 
+      {/* Build J: Randomizer mastery approval queue (mom only) */}
+      {isOwnerOrParent && (
+        <RandomizerMasteryApprovalInline
+          listId={list.id}
+          approverId={memberId}
+          familyMembers={familyMembers}
+        />
+      )}
+
       {/* Randomizer draw area */}
       <Randomizer
         listId={list.id}
@@ -973,6 +993,8 @@ function RandomizerDetailView({
         items={items}
         eligibleMembers={familyMembers}
         poolMode={poolMode}
+        drawMode={list.draw_mode}
+        maxActiveDraws={list.max_active_draws}
       />
 
       {/* Add item */}
@@ -2691,6 +2713,148 @@ function ListItemRow({
             <X size={14} />
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Build J: Randomizer Mastery Approval Inline ───────────────────
+// Shows pending mastery submissions on a randomizer list so mom can
+// approve/reject without leaving the list detail view. Sequential
+// mastery approvals live in the global PendingApprovalsSection on
+// Tasks.tsx; randomizer mastery approvals live here per-list.
+
+interface RandomizerMasteryApprovalInlineProps {
+  listId: string
+  approverId: string
+  familyMembers: { id: string; display_name: string }[]
+}
+
+function RandomizerMasteryApprovalInline({
+  listId,
+  approverId,
+  familyMembers,
+}: RandomizerMasteryApprovalInlineProps) {
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectionNote, setRejectionNote] = useState('')
+
+  const { data: pending = [] } = useRandomizerPendingMastery(listId)
+  const approve = useApproveMasterySubmission()
+  const reject = useRejectMasterySubmission()
+
+  if (pending.length === 0) return null
+
+  const memberName = (id: string | null | undefined) => {
+    if (!id) return 'Unknown'
+    return familyMembers.find(m => m.id === id)?.display_name ?? 'Unknown'
+  }
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        border: '2px solid var(--color-warning, var(--color-btn-primary-bg))',
+        backgroundColor: 'var(--color-bg-card)',
+      }}
+    >
+      <div
+        className="px-4 py-2.5 flex items-center gap-2"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--color-warning, var(--color-btn-primary-bg)) 10%, var(--color-bg-card))',
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
+        <Clock size={16} style={{ color: 'var(--color-warning, var(--color-btn-primary-bg))' }} />
+        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+          Mastery Submissions ({pending.length})
+        </span>
+      </div>
+      <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+        {pending.map((item) => {
+          const submittedBy = memberName(item.mastery_approved_by ?? item.checked_by ?? null)
+          const practiceCount = item.practice_count ?? 0
+          const title = item.item_name ?? item.content
+          return (
+            <div key={item.id} className="px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
+                    {title}
+                  </span>
+                </div>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                  Submitted for mastery · {practiceCount} practice{practiceCount === 1 ? '' : 's'} logged
+                  {submittedBy !== 'Unknown' && ` by ${submittedBy}`}
+                </p>
+              </div>
+
+              {rejectingId === item.id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={rejectionNote}
+                    onChange={e => setRejectionNote(e.target.value)}
+                    placeholder="Reason (optional)"
+                    className="px-2 py-1 rounded text-xs w-36"
+                    style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={async () => {
+                      await reject.mutateAsync({
+                        sourceType: 'randomizer_item',
+                        sourceId: item.id,
+                        rejectionNote: rejectionNote || null,
+                      })
+                      setRejectingId(null)
+                      setRejectionNote('')
+                    }}
+                    className="p-1.5 rounded-lg"
+                    style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                    disabled={reject.isPending}
+                  >
+                    <X size={14} />
+                  </button>
+                  <button
+                    onClick={() => { setRejectingId(null); setRejectionNote('') }}
+                    className="text-xs px-2 py-1"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <Tooltip content="Approve mastery">
+                    <button
+                      onClick={async () => {
+                        await approve.mutateAsync({
+                          sourceType: 'randomizer_item',
+                          sourceId: item.id,
+                          approverId,
+                        })
+                      }}
+                      disabled={approve.isPending}
+                      className="p-1.5 rounded-lg"
+                      style={{ backgroundColor: 'var(--color-success, #22c55e)', color: '#fff' }}
+                    >
+                      <Check size={14} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Reject (child keeps practicing)">
+                    <button
+                      onClick={() => setRejectingId(item.id)}
+                      className="p-1.5 rounded-lg"
+                      style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

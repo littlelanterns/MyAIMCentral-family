@@ -1168,6 +1168,7 @@ export function TaskCreationModal({
             <RoutineSectionEditor
               sections={data.routineSections ?? []}
               onChange={(sections) => update('routineSections', sections)}
+              familyId={currentMember?.family_id}
             />
           </div>
         )}

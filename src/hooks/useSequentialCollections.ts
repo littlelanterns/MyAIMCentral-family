@@ -87,11 +87,30 @@ export function useCreateSequentialCollection() {
       assigneeId,
       createdBy,
     }: {
+      // Collection accepts both legacy fields AND Build J advancement defaults.
+      // Build J callers should pass default_* fields; legacy callers get 'complete' defaults.
       collection: Omit<CreateSequentialCollection, 'task_ids' | 'current_index' | 'total_items'>
-      items: Array<{ title: string; description?: string | null; url?: string | null }>
+      items: Array<{
+        title: string
+        description?: string | null
+        url?: string | null
+        // Build J: optional per-item advancement overrides (otherwise inherit collection defaults)
+        advancement_mode?: 'complete' | 'practice_count' | 'mastery'
+        practice_target?: number | null
+        require_mastery_approval?: boolean
+        require_mastery_evidence?: boolean
+        track_duration?: boolean
+      }>
       assigneeId: string
       createdBy: string
     }) => {
+      // Build J: collection-level defaults propagate to child tasks unless overridden per item
+      const defaultAdvancement = collection.default_advancement_mode ?? 'complete'
+      const defaultPracticeTarget = collection.default_practice_target ?? null
+      const defaultRequireApproval = collection.default_require_approval ?? true
+      const defaultRequireEvidence = collection.default_require_evidence ?? false
+      const defaultTrackDuration = collection.default_track_duration ?? false
+
       // 1. Create the collection record
       const { data: newCollection, error: collError } = await supabase
         .from('sequential_collections')
@@ -102,6 +121,11 @@ export function useCreateSequentialCollection() {
           total_items: items.length,
           active_count: collection.active_count ?? 1,
           promotion_timing: collection.promotion_timing ?? 'immediate',
+          default_advancement_mode: defaultAdvancement,
+          default_practice_target: defaultPracticeTarget,
+          default_require_approval: defaultRequireApproval,
+          default_require_evidence: defaultRequireEvidence,
+          default_track_duration: defaultTrackDuration,
         })
         .select()
         .single()
@@ -111,33 +135,43 @@ export function useCreateSequentialCollection() {
       const col = newCollection as SequentialCollection
 
       // 2. Create individual task records for each item
-      const taskInserts = items.map((item, index) => ({
-        family_id: col.family_id,
-        created_by: createdBy,
-        assignee_id: assigneeId,
-        title: item.title,
-        description: item.description ?? null,
-        task_type: 'sequential' as const,
-        status: 'pending' as const,
-        source: 'template_deployed' as const,
-        source_reference_id: col.id,
-        sequential_collection_id: col.id,
-        sequential_position: index,
-        sequential_is_active: index < (collection.active_count ?? 1),
-        life_area_tag: collection.life_area_tag ?? null,
-        focus_time_seconds: 0,
-        sort_order: index,
-        big_rock: false,
-        is_shared: false,
-        incomplete_action: 'fresh_reset' as const,
-        require_approval: false,
-        victory_flagged: false,
-        time_tracking_enabled: false,
-        kanban_status: 'to_do' as const,
-        // Store URL in image_url as a general-purpose external URL field
-        // (dedicated url field may be added post-MVP)
-        image_url: item.url ?? null,
-      }))
+      const taskInserts = items.map((item, index) => {
+        const itemAdvancement = item.advancement_mode ?? defaultAdvancement
+        return {
+          family_id: col.family_id,
+          created_by: createdBy,
+          assignee_id: assigneeId,
+          title: item.title,
+          description: item.description ?? null,
+          task_type: 'sequential' as const,
+          status: 'pending' as const,
+          source: 'template_deployed' as const,
+          source_reference_id: col.id,
+          sequential_collection_id: col.id,
+          sequential_position: index,
+          sequential_is_active: index < (collection.active_count ?? 1),
+          life_area_tag: collection.life_area_tag ?? null,
+          focus_time_seconds: 0,
+          sort_order: index,
+          big_rock: false,
+          is_shared: false,
+          incomplete_action: 'fresh_reset' as const,
+          require_approval: false,
+          victory_flagged: false,
+          time_tracking_enabled: false,
+          kanban_status: 'to_do' as const,
+          // Build J: URLs live in resource_url (dedicated column), not image_url
+          resource_url: item.url ?? null,
+          // Build J: advancement inheritance (collection defaults, optional per-item override)
+          advancement_mode: itemAdvancement,
+          practice_target: item.practice_target ?? (itemAdvancement === 'practice_count' ? defaultPracticeTarget : null),
+          practice_count: 0,
+          mastery_status: itemAdvancement === 'mastery' ? 'practicing' : null,
+          require_mastery_approval: item.require_mastery_approval ?? defaultRequireApproval,
+          require_mastery_evidence: item.require_mastery_evidence ?? defaultRequireEvidence,
+          track_duration: item.track_duration ?? defaultTrackDuration,
+        }
+      })
 
       const { data: tasks, error: taskError } = await supabase
         .from('tasks')
@@ -303,17 +337,19 @@ export function useRedeploySequentialCollection() {
       if (collError) throw collError
       const col = collection as SequentialCollection
 
-      // Fetch all tasks from the collection as a template
+      // Fetch all tasks from the collection as a template.
+      // Build J: carry resource_url + advancement config into redeploys.
       const { data: sourceTasks, error: taskError } = await supabase
         .from('tasks')
-        .select('title, description, sequential_position, life_area_tag, image_url')
+        .select('title, description, sequential_position, life_area_tag, resource_url, advancement_mode, practice_target, require_mastery_approval, require_mastery_evidence, track_duration')
         .eq('sequential_collection_id', collectionId)
         .order('sequential_position')
 
       if (taskError) throw taskError
       if (!sourceTasks || sourceTasks.length === 0) return null
 
-      // Create a new collection for the new assignee
+      // Create a new collection for the new assignee.
+      // Carry the collection-level advancement defaults into the redeploy.
       const { data: newCollection, error: newCollError } = await supabase
         .from('sequential_collections')
         .insert({
@@ -326,6 +362,11 @@ export function useRedeploySequentialCollection() {
           life_area_tag: col.life_area_tag,
           reward_per_item_type: col.reward_per_item_type,
           reward_per_item_amount: col.reward_per_item_amount,
+          default_advancement_mode: col.default_advancement_mode ?? 'complete',
+          default_practice_target: col.default_practice_target ?? null,
+          default_require_approval: col.default_require_approval ?? true,
+          default_require_evidence: col.default_require_evidence ?? false,
+          default_track_duration: col.default_track_duration ?? false,
           current_index: 0,
           task_ids: [],
         })
@@ -341,7 +382,12 @@ export function useRedeploySequentialCollection() {
         description: string | null
         sequential_position: number
         life_area_tag: string | null
-        image_url: string | null
+        resource_url: string | null
+        advancement_mode: 'complete' | 'practice_count' | 'mastery'
+        practice_target: number | null
+        require_mastery_approval: boolean
+        require_mastery_evidence: boolean
+        track_duration: boolean
       }>).map((t, index) => ({
         family_id: familyId,
         created_by: createdBy,
@@ -356,7 +402,7 @@ export function useRedeploySequentialCollection() {
         sequential_position: t.sequential_position,
         sequential_is_active: index < col.active_count,
         life_area_tag: t.life_area_tag,
-        image_url: t.image_url,
+        resource_url: t.resource_url,
         focus_time_seconds: 0,
         sort_order: t.sequential_position,
         big_rock: false,
@@ -366,6 +412,14 @@ export function useRedeploySequentialCollection() {
         victory_flagged: false,
         time_tracking_enabled: false,
         kanban_status: 'to_do' as const,
+        // Build J: fresh progress on the new student, but inherit item advancement config
+        advancement_mode: t.advancement_mode,
+        practice_target: t.practice_target,
+        practice_count: 0,
+        mastery_status: t.advancement_mode === 'mastery' ? 'practicing' : null,
+        require_mastery_approval: t.require_mastery_approval,
+        require_mastery_evidence: t.require_mastery_evidence,
+        track_duration: t.track_duration,
       }))
 
       const { data: newTasks, error: insertError } = await supabase

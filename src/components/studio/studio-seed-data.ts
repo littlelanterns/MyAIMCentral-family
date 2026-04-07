@@ -176,6 +176,32 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
     isExample: true,
   },
   {
+    // Build J (PRD-09A/09B Linked Steps addendum Enhancement D): Reading List
+    // template. A sequential collection with mastery + duration tracking +
+    // active_count=1 + manual promotion pre-configured. Not a new list type —
+    // it's a Studio template that opens SequentialCreatorModal with presets.
+    id: 'ex_reading_list',
+    templateType: 'sequential',
+    name: 'Reading List',
+    tagline: 'One book at a time, with mastery approval and reading time tracking.',
+    description:
+      'A sequential reading list pre-configured for mastery advancement. Each book stays active until the child submits it as finished and mom approves. Practice each day logs reading time (15/30/45/60 minutes). Use it for chapter books, textbooks, classics, or any structured reading program. Deploy to multiple children — each gets independent progress.',
+    exampleUseCases: [
+      'Chapter books in order',
+      'Classics list',
+      'Literature curriculum',
+      "Biographies for the year",
+      'Homeschool reading program',
+    ],
+    howItWorks:
+      'Mom adds book titles. Child opens the current book from their routine, taps "Mark as Read" each day and logs time. When finished, they tap "Submit as Mastered" — mom approves, and the next book activates.',
+    capability_tags: [
+      'reading', 'books', 'mastery', 'duration_tracking', 'homeschool',
+      'curriculum', 'one_at_a_time', 'learning_path', 'tracks_progress',
+    ],
+    isExample: true,
+  },
+  {
     id: 'ex_tsg_randomizer',
     templateType: 'randomizer',
     name: 'TSG Extra Jobs Randomizer',

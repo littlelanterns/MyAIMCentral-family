@@ -264,43 +264,93 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
           <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
             {detail.tasks
               .sort((a: Task, b: Task) => (a.sequential_position ?? 0) - (b.sequential_position ?? 0))
-              .map((task: Task, idx: number) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded"
-                  style={{
-                    background: task.sequential_is_active
-                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
-                      : 'transparent',
-                    opacity: task.status === 'completed' ? 0.5 : 1,
-                  }}
-                >
-                  <span className="text-xs w-6 text-center" style={{ color: 'var(--color-text-secondary)' }}>
-                    {idx + 1}
-                  </span>
-                  <span
-                    className={`text-sm flex-1 ${task.status === 'completed' ? 'line-through' : ''}`}
+              .map((task: Task, idx: number) => {
+                // Build J: derive the progress subtitle from advancement mode
+                const advancementMode = task.advancement_mode ?? 'complete'
+                let progressSubtitle: string | null = null
+                if (advancementMode === 'practice_count' && task.practice_target != null) {
+                  progressSubtitle = `${task.practice_count}/${task.practice_target} practices`
+                } else if (advancementMode === 'mastery') {
+                  if (task.mastery_status === 'submitted') {
+                    progressSubtitle = `Submitted — awaiting approval (${task.practice_count} practices)`
+                  } else if (task.mastery_status === 'approved') {
+                    progressSubtitle = `Mastered`
+                  } else {
+                    progressSubtitle = `Practiced ${task.practice_count} ${task.practice_count === 1 ? 'time' : 'times'}`
+                  }
+                }
+
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-2 py-1.5 px-2 rounded"
                     style={{
-                      color: task.sequential_is_active
-                        ? 'var(--color-btn-primary-bg)'
-                        : 'var(--color-text-primary)',
+                      background: task.sequential_is_active
+                        ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
+                        : 'transparent',
+                      opacity: task.status === 'completed' ? 0.5 : 1,
                     }}
                   >
-                    {task.title}
-                  </span>
-                  {task.sequential_is_active && (
                     <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{
-                        background: 'var(--color-btn-primary-bg)',
-                        color: 'var(--color-btn-primary-text)',
-                      }}
+                      className="text-xs w-6 text-center shrink-0"
+                      style={{ color: 'var(--color-text-secondary)', marginTop: 1 }}
                     >
-                      Active
+                      {idx + 1}
                     </span>
-                  )}
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-sm flex-1 ${task.status === 'completed' ? 'line-through' : ''}`}
+                          style={{
+                            color: task.sequential_is_active
+                              ? 'var(--color-btn-primary-bg)'
+                              : 'var(--color-text-primary)',
+                          }}
+                        >
+                          {task.title}
+                        </span>
+                        {task.sequential_is_active && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                            style={{
+                              background: 'var(--color-btn-primary-bg)',
+                              color: 'var(--color-btn-primary-text)',
+                            }}
+                          >
+                            Active
+                          </span>
+                        )}
+                        {task.mastery_status === 'submitted' && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                            style={{
+                              background: 'color-mix(in srgb, var(--color-warning, #eab308) 20%, transparent)',
+                              color: 'var(--color-warning, #eab308)',
+                              border: '1px solid var(--color-warning, #eab308)',
+                            }}
+                          >
+                            Submitted
+                          </span>
+                        )}
+                        {task.mastery_status === 'approved' && (
+                          <CheckCircle2
+                            size={12}
+                            style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }}
+                          />
+                        )}
+                      </div>
+                      {progressSubtitle && (
+                        <div
+                          className="text-xs mt-0.5"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          {progressSubtitle}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
           </div>
 
           {/* Actions — hide when collection is complete (completion prompt shows instead) */}

@@ -30,9 +30,12 @@ import {
   Check,
   Clock,
   ListPlus,
+  GraduationCap,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
 import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
+import { useApproveMasterySubmission, useRejectMasterySubmission, useSubmitMastery } from '@/hooks/usePractice'
+import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySubmissionModal'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamily } from '@/hooks/useFamily'
@@ -123,6 +126,9 @@ export function TasksPage() {
   const [guidedNewTask, setGuidedNewTask] = useState('')
   const [guidedCreating, setGuidedCreating] = useState(false)
   const [completedTask, setCompletedTask] = useState<Task | null>(null)
+  // Build J: mastery submission modal state
+  const [masterySubmissionTask, setMasterySubmissionTask] = useState<Task | null>(null)
+  const submitMastery = useSubmitMastery()
 
   const { toggle, isCompleting } = useTaskCompletion({
     memberId: member?.id ?? '',
@@ -538,6 +544,7 @@ export function TasksPage() {
             isCompleting={isCompleting}
             showType={activeTab === 'my_tasks'}
             onEditTask={setEditingTask}
+            onSubmitMastery={(task) => setMasterySubmissionTask(task)}
           />
         )}
       </div>
@@ -556,6 +563,33 @@ export function TasksPage() {
           onClose={() => setSequentialModalOpen(false)}
           familyId={family.id}
           createdBy={activeMember.id}
+        />
+      )}
+
+      {/* Build J: MasterySubmissionModal — child submits a mastery item for review */}
+      {masterySubmissionTask && family?.id && activeMember?.id && (
+        <MasterySubmissionModal
+          isOpen={true}
+          onClose={() => setMasterySubmissionTask(null)}
+          itemTitle={masterySubmissionTask.title}
+          requireEvidence={
+            (masterySubmissionTask as unknown as { require_mastery_evidence?: boolean }).require_mastery_evidence ?? false
+          }
+          practiceCount={
+            (masterySubmissionTask as unknown as { practice_count?: number }).practice_count ?? 0
+          }
+          pending={submitMastery.isPending}
+          onSubmit={async ({ evidenceUrl, evidenceNote }) => {
+            await submitMastery.mutateAsync({
+              familyId: family.id,
+              familyMemberId: activeMember.id,
+              sourceType: 'sequential_task',
+              sourceId: masterySubmissionTask.id,
+              evidenceUrl,
+              evidenceNote,
+            })
+            setMasterySubmissionTask(null)
+          }}
         />
       )}
 
@@ -623,9 +657,11 @@ interface TaskListProps {
   isCompleting: (taskId: string) => boolean
   showType?: boolean
   onEditTask?: (task: Task) => void
+  /** Build J: open mastery submission modal for a sequential mastery task */
+  onSubmitMastery?: (task: Task) => void
 }
 
-function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask }: TaskListProps) {
+function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onSubmitMastery }: TaskListProps) {
   const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
   const qc = useQueryClient()
@@ -695,6 +731,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
             onToggle={onToggle}
             onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
             onDelete={() => {}}
+            onSubmitMastery={onSubmitMastery}
           />
 
           {/* Deploy button — always visible, not just on hover for clarity */}
@@ -1062,10 +1099,15 @@ interface PendingApprovalsSectionProps {
 function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingApprovalsSectionProps) {
   const approveCompletion = useApproveTaskCompletion()
   const rejectCompletion = useRejectTaskCompletion()
+  // Build J: mastery submissions use dedicated hooks that set mastery_status correctly
+  const approveMastery = useApproveMasterySubmission()
+  const rejectMastery = useRejectMasterySubmission()
   const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null)
   const [rejectionNote, setRejectionNote] = useState('')
 
-  // Fetch pending completions for these tasks
+  // Fetch pending completions for these tasks.
+  // Build J: also pull completion_type + mastery_evidence columns so we can fork
+  // the rendering and approval logic for mastery submissions.
   const taskIds = tasks.map(t => t.id)
   const { data: pendingCompletions = [] } = useQuery({
     queryKey: ['pending-completions', taskIds],
@@ -1073,7 +1115,7 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
       if (taskIds.length === 0) return []
       const { data, error } = await supabase
         .from('task_completions')
-        .select('id, task_id, member_id, completed_at, approval_status')
+        .select('id, task_id, member_id, completed_at, approval_status, completion_type, mastery_evidence_url, mastery_evidence_note')
         .in('task_id', taskIds)
         .eq('approval_status', 'pending')
       if (error) throw error
@@ -1091,6 +1133,18 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
     const completion = pendingCompletions.find(c => c.task_id === task.id)
     if (!completion) return
 
+    // Build J: mastery submissions go through the mastery approval hook which
+    // sets mastery_status='approved' + promotes next sequential item.
+    if ((completion as { completion_type?: string }).completion_type === 'mastery_submit') {
+      await approveMastery.mutateAsync({
+        sourceType: 'sequential_task',
+        sourceId: task.id,
+        approverId,
+        completionId: completion.id,
+      })
+      return
+    }
+
     await approveCompletion.mutateAsync({
       completionId: completion.id,
       taskId: task.id,
@@ -1101,6 +1155,20 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
   async function handleReject(task: Task) {
     const completion = pendingCompletions.find(c => c.task_id === task.id)
     if (!completion) return
+
+    // Build J: mastery rejections reset mastery_status to 'practicing' so the
+    // child continues practicing — NOT a permanent rejection.
+    if ((completion as { completion_type?: string }).completion_type === 'mastery_submit') {
+      await rejectMastery.mutateAsync({
+        sourceType: 'sequential_task',
+        sourceId: task.id,
+        completionId: completion.id,
+        rejectionNote: rejectionNote || null,
+      })
+      setRejectingTaskId(null)
+      setRejectionNote('')
+      return
+    }
 
     await rejectCompletion.mutateAsync({
       completionId: completion.id,
@@ -1130,17 +1198,61 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
           const completion = pendingCompletions.find(c => c.task_id === task.id)
           const completedBy = completion ? memberName(completion.member_id) : null
           const completedAt = completion ? new Date(completion.completed_at).toLocaleDateString() : null
+          // Build J: detect mastery submissions for distinct rendering
+          const isMasterySubmission = (completion as { completion_type?: string } | undefined)?.completion_type === 'mastery_submit'
+          const masteryEvidenceNote = (completion as { mastery_evidence_note?: string | null } | undefined)?.mastery_evidence_note
+          const masteryEvidenceUrl = (completion as { mastery_evidence_url?: string | null } | undefined)?.mastery_evidence_url
+          const practiceCount = (task as unknown as { practice_count?: number }).practice_count ?? 0
 
           return (
             <div key={task.id} className="px-4 py-3 flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
-                  {task.title}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  {isMasterySubmission && (
+                    <GraduationCap
+                      size={14}
+                      style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }}
+                    />
+                  )}
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
+                    {task.title}
+                  </p>
+                </div>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {completedBy && `Completed by ${completedBy}`}
-                  {completedAt && ` · ${completedAt}`}
+                  {isMasterySubmission
+                    ? `Submitted for mastery by ${completedBy ?? 'Unknown'} · ${practiceCount} practice${practiceCount === 1 ? '' : 's'} logged`
+                    : (
+                      <>
+                        {completedBy && `Completed by ${completedBy}`}
+                        {completedAt && ` · ${completedAt}`}
+                      </>
+                    )}
                 </p>
+                {isMasterySubmission && masteryEvidenceNote && (
+                  <p
+                    className="text-xs mt-1 italic"
+                    style={{
+                      color: 'var(--color-text-primary)',
+                      background: 'var(--color-bg-secondary)',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    "{masteryEvidenceNote}"
+                  </p>
+                )}
+                {isMasterySubmission && masteryEvidenceUrl && (
+                  <a
+                    href={masteryEvidenceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs mt-1 inline-flex items-center gap-1 underline-offset-2 hover:underline"
+                    style={{ color: 'var(--color-btn-primary-bg)' }}
+                  >
+                    View evidence
+                  </a>
+                )}
               </div>
 
               {rejectingTaskId === task.id ? (

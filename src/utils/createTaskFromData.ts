@@ -190,15 +190,31 @@ export async function createTaskFromData(
           .single()
 
         if (!secError && sectionRow) {
-          const stepInserts = section.steps.map(step => ({
-            section_id: sectionRow.id,
-            title: step.title,
-            step_name: step.title,
-            step_notes: step.notes || null,
-            instance_count: step.instanceCount,
-            require_photo: step.requirePhoto,
-            sort_order: step.sort_order,
-          }))
+          // Build J: persist linked-step columns when step_type !== 'static'.
+          // Back-compat: steps without a step_type default to 'static' at the
+          // DB level, so legacy callers don't need to change.
+          type StepWithLinkedFields = typeof section.steps[number] & {
+            step_type?: 'static' | 'linked_sequential' | 'linked_randomizer' | 'linked_task'
+            linked_source_id?: string | null
+            linked_source_type?: 'sequential_collection' | 'randomizer_list' | 'recurring_task' | null
+            display_name_override?: string | null
+          }
+          const stepInserts = section.steps.map(step => {
+            const s = step as StepWithLinkedFields
+            return {
+              section_id: sectionRow.id,
+              title: step.title,
+              step_name: step.title,
+              step_notes: step.notes || null,
+              instance_count: step.instanceCount,
+              require_photo: step.requirePhoto,
+              sort_order: step.sort_order,
+              step_type: s.step_type ?? 'static',
+              linked_source_id: s.linked_source_id ?? null,
+              linked_source_type: s.linked_source_type ?? null,
+              display_name_override: s.display_name_override ?? null,
+            }
+          })
           if (stepInserts.length > 0) {
             const { error: stepError } = await supabase.from('task_template_steps').insert(stepInserts)
             if (stepError) console.error('Failed to insert routine steps:', stepError)

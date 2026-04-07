@@ -54,6 +54,13 @@ export type TaskBreakerLevel = 'quick' | 'detailed' | 'granular'
 
 export type ClaimLockUnit = 'hours' | 'days' | 'weeks'
 
+// ─── Advancement modes (Build J / PRD-09A/09B Linked Steps addendum) ───
+export type AdvancementMode = 'complete' | 'practice_count' | 'mastery'
+export type MasteryStatus = 'practicing' | 'submitted' | 'approved' | 'rejected'
+export type CompletionType = 'complete' | 'practice' | 'mastery_submit'
+export type StepType = 'static' | 'linked_sequential' | 'linked_randomizer' | 'linked_task'
+export type LinkedSourceType = 'sequential_collection' | 'randomizer_list' | 'recurring_task'
+
 export type DurationEstimate =
   | '5min'
   | '10min'
@@ -238,6 +245,11 @@ export interface TaskTemplateStep {
   instance_count: number
   require_photo: boolean
   sort_order: number
+  // PRD-09A/09B Linked Steps (Build J)
+  step_type: StepType
+  linked_source_id: string | null
+  linked_source_type: LinkedSourceType | null
+  display_name_override: string | null
   created_at: string
   updated_at: string
 }
@@ -294,6 +306,18 @@ export interface Task {
   // Timer integration (PRD-36 addenda)
   time_tracking_enabled: boolean
   time_threshold_minutes: number | null
+  // PRD-09A/09B Linked Steps & Advancement (Build J)
+  advancement_mode: AdvancementMode
+  practice_target: number | null
+  practice_count: number
+  mastery_status: MasteryStatus | null
+  mastery_submitted_at: string | null
+  mastery_approved_by: string | null
+  mastery_approved_at: string | null
+  require_mastery_approval: boolean
+  require_mastery_evidence: boolean
+  track_duration: boolean
+  resource_url: string | null
   // View framework metadata
   eisenhower_quadrant: EisenhowerQuadrant | null
   frog_rank: number | null
@@ -368,6 +392,11 @@ export interface TaskCompletion {
   rejected: boolean
   rejection_note: string | null
   period_date: string
+  // PRD-09A/09B Linked Steps (Build J)
+  completion_type: CompletionType
+  duration_minutes: number | null
+  mastery_evidence_url: string | null
+  mastery_evidence_note: string | null
   created_at: string
 }
 
@@ -422,11 +451,21 @@ export interface SequentialCollection {
   life_area_tag: LifeAreaTag | null
   reward_per_item_type: string | null
   reward_per_item_amount: number | null
+  // PRD-09A/09B Linked Steps (Build J) — collection-level advancement defaults
+  default_advancement_mode: AdvancementMode
+  default_practice_target: number | null
+  default_require_approval: boolean
+  default_require_evidence: boolean
+  default_track_duration: boolean
   created_at: string
   updated_at: string
 }
 
-export type CreateSequentialCollection = Omit<SequentialCollection, 'id' | 'created_at' | 'updated_at'>
+// Build J: the new default_* advancement columns have DB defaults, so they are
+// optional on create. Legacy callers don't need to pass them; new callers can.
+export type CreateSequentialCollection =
+  Omit<SequentialCollection, 'id' | 'created_at' | 'updated_at' | 'default_advancement_mode' | 'default_practice_target' | 'default_require_approval' | 'default_require_evidence' | 'default_track_duration'>
+  & Partial<Pick<SequentialCollection, 'default_advancement_mode' | 'default_practice_target' | 'default_require_approval' | 'default_require_evidence' | 'default_track_duration'>>
 
 // ============================================================
 // Table: task_claims
@@ -548,4 +587,67 @@ export interface TaskViewSection {
   label: string
   tasks: Task[]
   maxItems?: number
+}
+
+// ============================================================
+// Build J: Linked Steps, Mastery & Practice Advancement
+// Tables: practice_log, randomizer_draws
+// ============================================================
+
+export type PracticeType = 'practice' | 'mastery_submit'
+export type PracticeSourceType = 'sequential_task' | 'randomizer_item'
+export type DrawMode = 'focused' | 'buffet' | 'surprise'
+export type DrawSource = 'manual' | 'auto_surprise'
+export type RandomizerDrawStatus = 'active' | 'completed' | 'mastered' | 'released' | 'submitted'
+
+export interface PracticeLog {
+  id: string
+  family_id: string
+  family_member_id: string
+  source_type: PracticeSourceType
+  source_id: string           // polymorphic: tasks.id | list_items.id
+  draw_id: string | null      // FK randomizer_draws
+  practice_type: PracticeType
+  duration_minutes: number | null
+  evidence_url: string | null
+  evidence_note: string | null
+  period_date: string
+  rejected: boolean
+  rejection_note: string | null
+  created_at: string
+}
+
+export type CreatePracticeLog = {
+  family_id: string
+  family_member_id: string
+  source_type: PracticeSourceType
+  source_id: string
+  draw_id?: string | null
+  practice_type?: PracticeType
+  duration_minutes?: number | null
+  evidence_url?: string | null
+  evidence_note?: string | null
+  period_date?: string
+}
+
+export interface RandomizerDraw {
+  id: string
+  list_id: string
+  list_item_id: string
+  family_member_id: string
+  drawn_at: string
+  draw_source: DrawSource
+  routine_instance_date: string | null
+  status: RandomizerDrawStatus
+  completed_at: string | null
+  practice_count: number
+  created_at: string
+}
+
+export type CreateRandomizerDraw = {
+  list_id: string
+  list_item_id: string
+  family_member_id: string
+  draw_source?: DrawSource
+  routine_instance_date?: string | null
 }

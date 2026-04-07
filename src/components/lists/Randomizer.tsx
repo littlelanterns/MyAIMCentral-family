@@ -17,7 +17,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react'
-import { Shuffle, Package, Tag, Clock } from 'lucide-react'
+import { Shuffle, Package, Tag, Clock, Wand2, Target, Layers } from 'lucide-react'
 import { Button } from '@/components/shared/Button'
 import { RandomizerSpinner } from './RandomizerSpinner'
 import { RandomizerResultCard } from './RandomizerResultCard'
@@ -25,8 +25,9 @@ import type { RandomizerItem } from './RandomizerResultCard'
 import { FrequencyBadge } from './FrequencyRulesEditor'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useSmartDraw, useSmartDrawCompletion, useListItemMemberTracking } from '@/hooks/useSmartDraw'
+import { useActiveDrawCount } from '@/hooks/useRandomizerDraws'
 import { supabase } from '@/lib/supabase/client'
-import type { ListItem, PoolMode } from '@/types/lists'
+import type { ListItem, PoolMode, DrawMode } from '@/types/lists'
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -40,6 +41,10 @@ interface RandomizerProps {
   items: ListItem[]
   eligibleMembers: FamilyMember[]
   poolMode?: PoolMode
+  /** Build J: draw mode — focused (one), buffet (N), or surprise (auto-drawn via routine) */
+  drawMode?: DrawMode | null
+  /** Build J: max active draws for buffet mode */
+  maxActiveDraws?: number | null
   onItemAssigned?: (itemId: string, taskId: string) => void
 }
 
@@ -79,6 +84,8 @@ export function Randomizer({
   items,
   eligibleMembers,
   poolMode = 'individual',
+  drawMode = 'focused',
+  maxActiveDraws = 1,
   onItemAssigned,
 }: RandomizerProps) {
   const [selectedCategory, setSelectedCategory] = useState<RandomizerCategory>('all')
@@ -89,6 +96,13 @@ export function Randomizer({
   // Smart draw hooks
   const { data: memberTracking = [] } = useListItemMemberTracking(listId, assigningMemberId)
   const completeDraw = useSmartDrawCompletion()
+
+  // Build J: count currently-active draws for slot management
+  const effectiveDrawMode: DrawMode = drawMode ?? 'focused'
+  const effectiveMaxActive = effectiveDrawMode === 'focused' ? 1 : (maxActiveDraws ?? 3)
+  const { data: activeDrawCount = 0 } = useActiveDrawCount(listId, assigningMemberId)
+  const slotsAvailable = effectiveMaxActive - activeDrawCount
+  const isDrawLocked = effectiveDrawMode !== 'surprise' && slotsAvailable <= 0
 
   // Filter items by category first
   const categoryFilteredItems = useMemo(() => {
@@ -240,8 +254,65 @@ export function Randomizer({
         </div>
       )}
 
+      {/* Build J: Draw mode indicator chip */}
+      <div className="flex items-center gap-2">
+        {effectiveDrawMode === 'focused' && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{
+              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+              color: 'var(--color-btn-primary-bg)',
+            }}
+          >
+            <Target size={10} />
+            Focused — one at a time
+          </span>
+        )}
+        {effectiveDrawMode === 'buffet' && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{
+              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+              color: 'var(--color-btn-primary-bg)',
+            }}
+          >
+            <Layers size={10} />
+            Buffet — {activeDrawCount}/{effectiveMaxActive} active
+          </span>
+        )}
+        {effectiveDrawMode === 'surprise' && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+            style={{
+              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+              color: 'var(--color-btn-primary-bg)',
+            }}
+          >
+            <Wand2 size={10} />
+            Surprise Me — auto-drawn daily
+          </span>
+        )}
+      </div>
+
       {/* Draw area */}
-      {(spinning || drawnItem) ? (
+      {effectiveDrawMode === 'surprise' ? (
+        // Surprise Me: no manual draw — the routine linked step auto-draws each day
+        <div
+          className="flex flex-col items-center gap-2 py-6 px-4 rounded-xl"
+          style={{
+            background: 'var(--color-bg-secondary)',
+            border: '1px dashed var(--color-border)',
+          }}
+        >
+          <Wand2 size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <p className="text-sm font-medium text-center" style={{ color: 'var(--color-text-heading)' }}>
+            Auto-drawn each day
+          </p>
+          <p className="text-xs text-center max-w-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            This randomizer is in Surprise Me mode. When you link it from a routine, the system picks one item each day using smart weighting. Change the draw mode in settings if you want to draw manually.
+          </p>
+        </div>
+      ) : (spinning || drawnItem) ? (
         <div className="flex flex-col items-center gap-4">
           <RandomizerSpinner
             items={poolNames}
@@ -265,13 +336,25 @@ export function Randomizer({
           <Button
             variant="primary"
             size="lg"
-            disabled={exhausted}
+            disabled={exhausted || isDrawLocked}
             onClick={handleDraw}
-            className="min-w-[200px]"
+            className="min-w-50"
           >
             <Shuffle size={20} aria-hidden />
-            {exhausted ? 'All caught up!' : 'Draw'}
+            {exhausted
+              ? 'All caught up!'
+              : isDrawLocked
+              ? `All ${effectiveMaxActive} slots active`
+              : 'Draw'}
           </Button>
+
+          {isDrawLocked && !exhausted && (
+            <p className="text-xs text-center max-w-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              {effectiveDrawMode === 'focused'
+                ? 'Complete the current item before drawing another.'
+                : `Complete one of your ${activeDrawCount} active items to open a new slot.`}
+            </p>
+          )}
 
           {exhausted && (
             <div className="flex flex-col items-center gap-1">
@@ -324,7 +407,7 @@ export function Randomizer({
               >
                 {item.category && (
                   <span
-                    className="px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 capitalize"
+                    className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 capitalize"
                     style={{
                       backgroundColor: 'color-mix(in srgb, var(--color-accent, var(--color-btn-primary-bg)) 15%, var(--color-bg-card))',
                       color: 'var(--color-accent, var(--color-btn-primary-bg))',

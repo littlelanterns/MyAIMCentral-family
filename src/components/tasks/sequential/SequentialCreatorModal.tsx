@@ -18,7 +18,7 @@
 
 import { useState, useMemo } from 'react'
 import { ModalV2 } from '@/components/shared'
-import { SequentialCreator, type SequentialCreateData } from './SequentialCreator'
+import { SequentialCreator, type SequentialCreateData, type SequentialCreateDefaults } from './SequentialCreator'
 import { useCreateSequentialCollection } from '@/hooks/useSequentialCollections'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
@@ -33,6 +33,10 @@ interface SequentialCreatorModalProps {
   defaultAssigneeId?: string
   /** Called after successful save with the new collection id. */
   onSaved?: (collectionId: string) => void
+  /** Build J: optional preset advancement defaults (e.g. Reading List template) */
+  initialDefaults?: Partial<SequentialCreateDefaults>
+  /** Build J: optional modal title override (e.g. "Create Reading List") */
+  title?: string
 }
 
 export function SequentialCreatorModal({
@@ -42,6 +46,8 @@ export function SequentialCreatorModal({
   createdBy,
   defaultAssigneeId,
   onSaved,
+  initialDefaults,
+  title,
 }: SequentialCreatorModalProps) {
   const { data: familyMembers = [] } = useFamilyMembers(familyId)
   const createCollection = useCreateSequentialCollection()
@@ -72,8 +78,16 @@ export function SequentialCreatorModal({
           life_area_tag: (data.lifeAreaTag as any) ?? null,
           reward_per_item_type: null,
           reward_per_item_amount: null,
+          // Build J: advancement defaults flow through from the creator form
+          default_advancement_mode: data.defaultAdvancementMode,
+          default_practice_target: data.defaultPracticeTarget,
+          default_require_approval: data.defaultRequireApproval,
+          default_require_evidence: data.defaultRequireEvidence,
+          default_track_duration: data.defaultTrackDuration,
         },
-        items: data.items.map(title => ({ title })),
+        // Build J: items carry optional per-item metadata from curriculum-parse.
+        // When metadata is absent the hook uses collection-level defaults.
+        items: data.items,
         assigneeId,
         createdBy,
       })
@@ -97,7 +111,7 @@ export function SequentialCreatorModal({
       isOpen={isOpen}
       onClose={handleClose}
       type="transient"
-      title="New Sequential Collection"
+      title={title ?? 'New Sequential Collection'}
       size="md"
     >
       <div className="flex flex-col gap-3">
@@ -154,8 +168,10 @@ export function SequentialCreatorModal({
 
         <SequentialCreator
           familyId={familyId}
+          memberId={createdBy}
           onSave={handleSave}
           onCancel={handleClose}
+          initialDefaults={initialDefaults}
         />
 
         {createCollection.isPending && (
