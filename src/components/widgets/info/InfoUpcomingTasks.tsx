@@ -50,10 +50,10 @@ export function InfoUpcomingTasks({ widget, isCompact }: Props) {
         <div className="space-y-1.5 flex-1">
           {tasks.map(t => (
             <div key={t.id} className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--color-accent)' }} />
+              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--color-accent)' }} />
               <span className="text-xs truncate flex-1" style={{ color: 'var(--color-text-primary)' }}>{t.title}</span>
               {t.due_date && (
-                <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
+                <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
                   {new Date(t.due_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </span>
               )}

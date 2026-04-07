@@ -99,7 +99,7 @@ function PrivacyFilteredItem({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <Tooltip content={
               item.is_included_in_ai
                 ? 'Included in your LiLa context -- click to exclude'
@@ -491,7 +491,7 @@ export function PrivacyFilteredPage() {
           <div className="flex gap-3">
             <Lock
               size={16}
-              className="flex-shrink-0 mt-0.5"
+              className="shrink-0 mt-0.5"
               style={{ color: 'var(--color-text-secondary)' }}
             />
             <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>

@@ -112,7 +112,7 @@ export function EatTheFrogView({
             {rest.map((task, i) => (
               <div key={task.id} className="flex items-center gap-2">
                 <span
-                  className="text-sm font-bold w-5 text-right flex-shrink-0"
+                  className="text-sm font-bold w-5 text-right shrink-0"
                   style={{ color: 'var(--color-text-secondary)' }}
                 >
                   {i + 2}
@@ -131,7 +131,7 @@ export function EatTheFrogView({
                 </div>
                 <button
                   onClick={() => promoteToFrog(task.id)}
-                  className="text-xs px-2 py-1 rounded flex-shrink-0"
+                  className="text-xs px-2 py-1 rounded shrink-0"
                   style={{
                     color: 'var(--color-btn-primary-bg)',
                     border: '1px solid var(--color-btn-primary-bg)',

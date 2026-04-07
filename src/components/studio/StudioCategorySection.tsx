@@ -76,7 +76,7 @@ export function StudioCategorySection({
           {!plannedContent && templates.length > 0 && (
             <ScrollRow>
               {templates.map(tpl => (
-                <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
+                <div key={tpl.id} className="snap-start shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
                   <StudioTemplateCard
                     template={tpl}
                     onCustomize={onCustomize}
@@ -105,7 +105,7 @@ export function StudioCategorySection({
                 <div className="mt-3">
                   <ScrollRow>
                     {exampleTemplates.map(tpl => (
-                      <div key={tpl.id} className="snap-start flex-shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
+                      <div key={tpl.id} className="snap-start shrink-0" style={{ minWidth: '260px', maxWidth: '300px' }}>
                         <StudioTemplateCard
                           template={tpl}
                           onCustomize={onCustomize}

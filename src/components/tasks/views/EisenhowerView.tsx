@@ -248,7 +248,7 @@ function QuadrantTaskItem({
         {!isCompleted && (
           <button
             onClick={() => setShowMoveMenu(!showMoveMenu)}
-            className="text-xs px-1 opacity-50 hover:opacity-100 flex-shrink-0"
+            className="text-xs px-1 opacity-50 hover:opacity-100 shrink-0"
             style={{ color: 'var(--color-text-secondary)' }}
             title="Move to another quadrant"
           >

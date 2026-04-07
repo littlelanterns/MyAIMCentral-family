@@ -119,7 +119,7 @@ export function CustomizedTemplateCard({
         </div>
 
         {/* Overflow menu */}
-        <div className="relative flex-shrink-0">
+        <div className="relative shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(m => !m) }}
             className="p-1 rounded-lg transition-colors"

@@ -38,7 +38,7 @@ export function BookSelector({ books, selectedBookIds, onToggle }: BookSelectorP
                 className="sr-only"
               />
               <span className={`w-2 h-2 rounded-full ${selected ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-default)]'}`} />
-              <span className="truncate max-w-[120px]">{book.title}</span>
+              <span className="truncate max-w-30">{book.title}</span>
             </label>
           )
         })}

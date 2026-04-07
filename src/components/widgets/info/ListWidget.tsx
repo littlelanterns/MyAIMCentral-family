@@ -64,7 +64,7 @@ export function ListWidget({ widget }: ListWidgetProps) {
               listId: list.id,
               checkedBy: member?.id,
             })}
-            className="mt-0.5 flex-shrink-0"
+            className="mt-0.5 shrink-0"
             disabled={!canEdit}
           >
             <div

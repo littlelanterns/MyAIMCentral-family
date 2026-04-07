@@ -243,7 +243,7 @@ function GlobalPermissionsSection({ familyId }: { familyId: string }) {
         className="w-full p-4 flex items-center gap-3 text-left"
       >
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
           style={{ backgroundColor: 'color-mix(in srgb, var(--color-sage-teal) 15%, transparent)' }}
         >
           <Globe size={18} style={{ color: 'var(--color-sage-teal)' }} />
@@ -317,7 +317,7 @@ function GlobalToggleRow({
         <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{description}</p>
       </div>
       <div
-        className="w-10 h-6 rounded-full flex items-center px-0.5 transition-colors flex-shrink-0 ml-3"
+        className="w-10 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0 ml-3"
         style={{ backgroundColor: enabled ? 'var(--color-sage-teal)' : 'var(--color-border)' }}
       >
         <div
@@ -437,7 +437,7 @@ function AdultPermissionCard({
         className="w-full p-4 flex items-center gap-3 text-left"
       >
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white flex-shrink-0"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white shrink-0"
           style={{ backgroundColor: adult.member_color || 'var(--color-sage-teal)' }}
         >
           {adult.display_name.charAt(0)}
@@ -870,7 +870,7 @@ function SpecialAdultCard({
         className="w-full p-4 flex items-center gap-3 text-left"
       >
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white flex-shrink-0"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white shrink-0"
           style={{ backgroundColor: specialAdult.member_color || 'var(--color-golden-honey)' }}
         >
           {specialAdult.display_name.charAt(0)}
@@ -1099,7 +1099,7 @@ function MomSelfRestrictionCard({
     >
       <button onClick={() => setExpanded(!expanded)} className="w-full p-4 flex items-center gap-3 text-left">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white flex-shrink-0"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white shrink-0"
           style={{ backgroundColor: teen.member_color || 'var(--color-deep-ocean)' }}
         >
           {teen.display_name.charAt(0)}
@@ -1424,7 +1424,7 @@ function ProfileSelectorModal({
               color: 'var(--color-text-primary)',
             }}
           >
-            <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-golden-honey)' }} />
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--color-golden-honey)' }} />
             <div>
               <p className="font-medium">This will reset all of {memberName}'s permissions</p>
               <p className="mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>

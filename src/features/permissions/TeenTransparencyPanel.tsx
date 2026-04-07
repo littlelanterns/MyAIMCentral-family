@@ -411,7 +411,7 @@ function TransparencyGrid({
             color: 'var(--color-text-secondary)',
           }}
         >
-          <Info size={13} className="mt-0.5 flex-shrink-0" />
+          <Info size={13} className="mt-0.5 shrink-0" />
           <span>Family sharing is coming soon. You'll be able to choose what the wider family can see.</span>
         </div>
       )}

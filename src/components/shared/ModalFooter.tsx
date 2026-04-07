@@ -11,7 +11,7 @@ interface ModalFooterProps {
 export function ModalFooter({ children }: ModalFooterProps) {
   return (
     <div
-      className="flex-shrink-0"
+      className="shrink-0"
       style={{
         padding: '0.75rem 1.25rem',
         borderTop: '1px solid var(--color-border)',

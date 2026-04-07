@@ -69,7 +69,7 @@ function MemberPickerGrid({
               }}
             >
               <span
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{ backgroundColor: color, color: 'var(--color-text-on-primary, #fff)' }}
               >
                 {m.display_name.charAt(0)}
@@ -129,7 +129,7 @@ function IntentionCard({
         data-testid={`intention-tap-${intention.id}`}
       >
         <span
-          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
           style={{
             backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
           }}
@@ -149,7 +149,7 @@ function IntentionCard({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Check size={14} style={{ color: 'var(--color-btn-primary-bg)' }} />
           <span
             className="text-sm font-bold"

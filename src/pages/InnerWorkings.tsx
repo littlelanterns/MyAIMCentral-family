@@ -312,7 +312,7 @@ export function InnerWorkingsPage() {
         <FeatureGuide featureKey="inner_workings" />
 
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="my_foundation" fallback={<Brain size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <FeatureIcon featureKey="my_foundation" fallback={<Brain size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="w-10! h-10! md:w-36! md:h-36!" assetSize={512} />
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
               InnerWorkings
@@ -386,7 +386,7 @@ export function InnerWorkingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FeatureIcon featureKey="my_foundation" fallback={<Brain size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="!w-10 !h-10 md:!w-36 md:!h-36" assetSize={512} />
+          <FeatureIcon featureKey="my_foundation" fallback={<Brain size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />} size={40} className="w-10! h-10! md:w-36! md:h-36!" assetSize={512} />
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}>
               InnerWorkings
@@ -691,7 +691,7 @@ export function InnerWorkingsPage() {
                       <Tooltip content="Restore">
                       <button
                         onClick={() => handleRestore(entry)}
-                        className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium flex-shrink-0"
+                        className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium shrink-0"
                         style={{ color: 'var(--color-btn-primary-bg)', minHeight: '44px' }}
                       >
                         <RotateCcw size={14} />
@@ -768,7 +768,7 @@ function SortableEntryCard({
       <Tooltip content="Drag to reorder">
       <button
         {...listeners}
-        className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+        className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing shrink-0 touch-none"
         style={{ color: 'var(--color-text-secondary)', minWidth: '28px', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <GripVertical size={14} />
@@ -779,7 +779,7 @@ function SortableEntryCard({
       <Tooltip content={entry.is_included_in_ai ? 'Exclude from AI context' : 'Include in AI context'}>
       <button
         onClick={onToggleAI}
-        className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
+        className="mt-0.5 p-1 rounded transition-colors shrink-0"
         style={{ color: entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)', minWidth: '28px', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         {entry.is_included_in_ai ? <Heart size={16} fill="currentColor" /> : <HeartOff size={16} />}
@@ -809,7 +809,7 @@ function SortableEntryCard({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-0.5 flex-shrink-0">
+      <div className="flex gap-0.5 shrink-0">
         <Tooltip content="Edit">
         <button
           onClick={onEdit}

@@ -123,7 +123,7 @@ export function StudyGuideLibrary({ onBack }: StudyGuideLibraryProps) {
                     className="text-left p-4 rounded-lg border border-[var(--color-border-default)] hover:bg-[var(--color-surface-secondary)] transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <BookOpen size={20} className="text-[var(--color-accent)] mt-0.5 flex-shrink-0" />
+                      <BookOpen size={20} className="text-[var(--color-accent)] mt-0.5 shrink-0" />
                       <div className="min-w-0">
                         <div className="font-medium text-sm text-[var(--color-text-primary)] truncate">
                           {book.title}
@@ -158,7 +158,7 @@ export function StudyGuideLibrary({ onBack }: StudyGuideLibraryProps) {
                     className="text-left p-4 rounded-lg border border-dashed border-[var(--color-border-default)] hover:bg-[var(--color-surface-secondary)] transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <GraduationCap size={20} className="text-[var(--color-text-tertiary)] mt-0.5 flex-shrink-0" />
+                      <GraduationCap size={20} className="text-[var(--color-text-tertiary)] mt-0.5 shrink-0" />
                       <div className="min-w-0">
                         <div className="font-medium text-sm text-[var(--color-text-primary)] truncate">
                           {book.title}

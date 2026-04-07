@@ -226,7 +226,7 @@ export function ReferenceListView({ listId, compact, canEdit = false }: Referenc
                         {canEdit && (
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteItem.mutate({ id: item.id, listId }) }}
-                            className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                            className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                             style={{ color: 'var(--color-text-secondary)' }}
                           >
                             <X size={12} />

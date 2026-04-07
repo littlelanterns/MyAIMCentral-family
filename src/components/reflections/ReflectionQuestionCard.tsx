@@ -78,7 +78,7 @@ export function ReflectionQuestionCard({
       >
         {/* Status indicator */}
         <span
-          className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+          className="mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
           style={{
             backgroundColor: isAnswered
               ? 'var(--color-success, #4b7c66)'

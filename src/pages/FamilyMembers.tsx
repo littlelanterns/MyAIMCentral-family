@@ -215,7 +215,7 @@ function MemberRow({
     >
       <div className="p-4 flex items-center gap-3">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white flex-shrink-0"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white shrink-0"
           style={{ backgroundColor: member.member_color || 'var(--color-sage-teal)' }}
         >
           {member.display_name.charAt(0).toUpperCase()}

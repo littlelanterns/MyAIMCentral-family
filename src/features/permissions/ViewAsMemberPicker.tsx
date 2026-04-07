@@ -58,7 +58,7 @@ function MemberCard({
     >
       {/* Avatar circle */}
       <div
-        className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0 overflow-hidden"
+        className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white shrink-0 overflow-hidden"
         style={{ backgroundColor: avatarBg }}
       >
         {member.avatar_url ? (

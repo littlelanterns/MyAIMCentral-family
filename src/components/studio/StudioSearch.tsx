@@ -25,7 +25,7 @@ export function StudioSearch({ value, onChange, placeholder = 'Search templatesâ
     >
       <Search
         size={16}
-        className="absolute left-3 flex-shrink-0"
+        className="absolute left-3 shrink-0"
         style={{ color: 'var(--color-text-secondary)' }}
       />
       <input

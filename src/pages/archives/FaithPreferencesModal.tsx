@@ -408,7 +408,7 @@ export function FaithPreferencesModal({ open, onClose, familyId }: FaithPreferen
               border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)',
             }}
           >
-            <BookHeart size={18} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <BookHeart size={18} className="shrink-0 mt-0.5" style={{ color: 'var(--color-btn-primary-bg)' }} />
             <p className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
               These preferences help LiLa respect and integrate your family's faith and values into conversations.
               Everything here is optional — share as much or as little as you like.

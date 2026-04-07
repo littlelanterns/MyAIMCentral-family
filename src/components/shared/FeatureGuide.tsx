@@ -122,7 +122,7 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
 
       <div className="flex items-start gap-3">
         <div
-          className="mt-0.5 flex-shrink-0 rounded-lg p-2"
+          className="mt-0.5 shrink-0 rounded-lg p-2"
           style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
         >
           <Lightbulb size={20} style={{ color: 'var(--color-btn-primary-text, #fff)' }} />
@@ -149,7 +149,7 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
                   style={{ color: 'var(--color-btn-primary-text, #fff)', opacity: 0.8 }}
                 >
                   <span
-                    className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ backgroundColor: 'var(--color-btn-primary-text, #fff)', opacity: 0.6 }}
                   />
                   {bullet}

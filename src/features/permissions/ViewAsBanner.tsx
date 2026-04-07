@@ -47,7 +47,7 @@ export function ViewAsBanner() {
       >
         {/* Left: identity */}
         <div className="flex items-center gap-2 min-w-0">
-          <Eye size={16} className="flex-shrink-0" />
+          <Eye size={16} className="shrink-0" />
           <span className="truncate">
             Viewing as{' '}
             <span className="font-semibold">{viewingAsMember.display_name}</span>
@@ -57,7 +57,7 @@ export function ViewAsBanner() {
         </div>
 
         {/* Right: actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setPickerOpen(true)}
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"

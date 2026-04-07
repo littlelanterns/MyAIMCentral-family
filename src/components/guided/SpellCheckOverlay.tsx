@@ -56,7 +56,7 @@ export function SpellCheckOverlay({
             </p>
             <button
               onClick={onClose}
-              className="p-0.5 rounded-full flex-shrink-0"
+              className="p-0.5 rounded-full shrink-0"
               style={{ background: 'transparent', color: 'inherit', minHeight: 'unset' }}
             >
               <X size={14} />
@@ -69,7 +69,7 @@ export function SpellCheckOverlay({
             {readingSupport && (
               <button
                 onClick={() => speak(coaching.explanation, 0.85)}
-                className="p-0.5 rounded-full flex-shrink-0 mt-0.5"
+                className="p-0.5 rounded-full shrink-0 mt-0.5"
                 style={{ background: 'transparent', color: 'inherit', minHeight: 'unset' }}
                 aria-label="Read aloud"
               >

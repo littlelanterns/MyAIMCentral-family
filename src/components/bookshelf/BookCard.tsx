@@ -214,7 +214,7 @@ function CompactRow({ book, selected, onSelect, onClick }: BookCardProps) {
       </label>
 
       <div
-        className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+        className="w-7 h-7 rounded flex items-center justify-center shrink-0"
         style={{
           backgroundColor: 'color-mix(in srgb, var(--color-accent) 12%, transparent)',
           color: 'var(--color-accent)',
@@ -232,7 +232,7 @@ function CompactRow({ book, selected, onSelect, onClick }: BookCardProps) {
             {book.title}
           </span>
           {book.author && (
-            <span className="text-xs truncate flex-shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
+            <span className="text-xs truncate shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
               {book.author}
             </span>
           )}
@@ -245,7 +245,7 @@ function CompactRow({ book, selected, onSelect, onClick }: BookCardProps) {
       />
 
       {book.tags.length > 0 && (
-        <div className="hidden lg:flex gap-1 flex-shrink-0">
+        <div className="hidden lg:flex gap-1 shrink-0">
           {book.tags.slice(0, 2).map(tag => (
             <span
               key={tag}

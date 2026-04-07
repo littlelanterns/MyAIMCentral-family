@@ -104,7 +104,7 @@ export function TodayIsWidget({ widget, isCompact }: TodayIsWidgetProps) {
           {displayHolidays.length > 0 ? displayHolidays.map(h => (
             <div key={h.id} className="flex items-start gap-1.5">
               <div
-                className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0"
+                className="w-1 h-1 rounded-full mt-1.5 shrink-0"
                 style={{ background: 'var(--color-accent)' }}
               />
               <span
@@ -184,7 +184,7 @@ function TodayIsFullList({ data, activeFilter, onFilterChange, onClose }: TodayI
               <button
                 key={tab.key}
                 onClick={(e) => { e.stopPropagation(); onFilterChange(tab.key) }}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                 style={{
                   background: isActive ? 'var(--surface-primary)' : 'var(--color-bg-secondary)',
                   color: isActive ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
@@ -230,7 +230,7 @@ function HolidayCard({ holiday }: { holiday: DailyHoliday }) {
       style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-default)' }}
     >
       <div className="flex items-start gap-2">
-        <PartyPopper size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--color-accent)' }} />
+        <PartyPopper size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent)' }} />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
             {holiday.name}

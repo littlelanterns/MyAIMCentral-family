@@ -71,7 +71,7 @@ export default function MemberPillSelector({
             data-testid={`member-pill-${m.id}`}
             data-member-name={m.display_name.split(' ')[0]}
             data-selected={isSelected}
-            className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+            className="shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
             style={
               isSelected
                 ? {

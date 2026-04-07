@@ -52,7 +52,7 @@ export function ReflectionsPage() {
             featureKey="reflections"
             fallback={<BookHeart size={40} style={{ color: 'var(--color-btn-primary-bg)' }} />}
             size={40}
-            className="!w-10 !h-10 md:!w-36 md:!h-36"
+            className="w-10! h-10! md:w-36! md:h-36!"
             assetSize={512}
           />
           <div>

@@ -72,7 +72,7 @@ const DAY_HEADERS_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 function ColorDot({ color, pending }: { color: string; pending?: boolean }) {
   return (
     <span
-      className="rounded-full inline-block flex-shrink-0"
+      className="rounded-full inline-block shrink-0"
       style={{
         width: '8px',
         height: '8px',
@@ -88,7 +88,7 @@ function StackedDots({ colors, pending }: { colors: string[]; pending?: boolean 
   const shown = colors.slice(0, 3)
   const overflow = colors.length - 3
   return (
-    <span className="inline-flex items-center gap-px flex-shrink-0">
+    <span className="inline-flex items-center gap-px shrink-0">
       {shown.map((c, i) => (
         <span
           key={i}
@@ -376,7 +376,7 @@ export function CalendarPage() {
           setTaskDetailId(t.id)
         }}
       >
-        {colorMode === 'dots' && <CheckSquare size={8} className="flex-shrink-0" style={{ opacity: 0.7 }} />}
+        {colorMode === 'dots' && <CheckSquare size={8} className="shrink-0" style={{ opacity: 0.7 }} />}
         <span className="truncate">{t.title}</span>
       </div>
     )
@@ -575,7 +575,7 @@ export function CalendarPage() {
                 const allSelected = allIds.every(id => pickedMemberIds.has(id))
                 setPickedMemberIds(allSelected ? new Set() : new Set(allIds))
               }}
-              className="text-[10px] font-medium flex-shrink-0"
+              className="text-[10px] font-medium shrink-0"
               style={{
                 color: 'var(--color-btn-primary-bg)',
                 background: 'none',
@@ -600,7 +600,7 @@ export function CalendarPage() {
                       return next
                     })
                   }}
-                  className="flex flex-col items-center gap-0.5 flex-shrink-0"
+                  className="flex flex-col items-center gap-0.5 shrink-0"
                   style={{
                     background: 'none',
                     border: 'none',

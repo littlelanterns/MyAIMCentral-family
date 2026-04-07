@@ -233,7 +233,7 @@ export function ModalV2({
         {/* Footer */}
         {footer && (
           <div
-            className="flex-shrink-0"
+            className="shrink-0"
             style={{
               padding: '0.75rem 1.25rem',
               borderTop: '1px solid var(--color-border)',

@@ -170,7 +170,7 @@ export function CropPreviewModal({
         {imageSrc ? (
           <div className="flex flex-col items-center gap-4">
             {/* Crop area */}
-            <div className="w-full max-h-[400px] overflow-hidden rounded-lg flex items-center justify-center"
+            <div className="w-full max-h-100 overflow-hidden rounded-lg flex items-center justify-center"
               style={{ backgroundColor: 'var(--color-bg-secondary)' }}
             >
               <ReactCrop

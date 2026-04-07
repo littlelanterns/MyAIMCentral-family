@@ -577,7 +577,7 @@ function MemberCard({
             />
           </label>
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0"
             style={{ backgroundColor: member.member_color, color: getContrastText(member.member_color) }}
           >
             {member.display_name ? member.display_name.charAt(0).toUpperCase() : '?'}

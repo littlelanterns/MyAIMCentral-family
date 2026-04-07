@@ -314,7 +314,7 @@ function MemberArchiveListCard({
         <Tooltip content={isIncluded ? 'Included in AI context — click to exclude' : 'Excluded from AI context — click to include'}>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleAI() }}
-          className="p-1.5 rounded transition-colors flex-shrink-0"
+          className="p-1.5 rounded transition-colors shrink-0"
           style={{ color: isIncluded ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
         >
           {isIncluded ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
@@ -833,7 +833,7 @@ export function ArchivesPage() {
             >
               <span>Add for a Person</span>
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                 style={{
                   background: 'var(--surface-primary, var(--color-btn-primary-bg))',
                   color: 'var(--color-btn-primary-text)',
@@ -859,7 +859,7 @@ export function ArchivesPage() {
             >
               <span>Voice Dump</span>
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                 style={{
                   background: 'var(--surface-primary, var(--color-btn-primary-bg))',
                   color: 'var(--color-btn-primary-text)',
@@ -886,7 +886,7 @@ export function ArchivesPage() {
             >
               <span>Bulk Add & Sort</span>
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                 style={{
                   background: 'var(--surface-primary, var(--color-btn-primary-bg))',
                   color: 'var(--color-btn-primary-text)',

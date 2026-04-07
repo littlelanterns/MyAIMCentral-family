@@ -189,7 +189,7 @@ function ContextItemRow({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
         <Tooltip content={item.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
         <button
           onClick={() => onToggleAI(!item.is_included_in_ai)}
@@ -328,7 +328,7 @@ function FolderGroup({
               <span className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
                 {folder.folder_name}
               </span>
-              <span className="text-xs flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
                 {activeCount}/{totalCount}
               </span>
             </>
@@ -339,7 +339,7 @@ function FolderGroup({
         <Tooltip content={folder.is_included_in_ai ? 'Folder included in LiLa' : 'Folder excluded from LiLa'}>
         <button
           onClick={(e) => { e.stopPropagation(); handleToggleFolderAI() }}
-          className="p-1 rounded transition-colors flex-shrink-0"
+          className="p-1 rounded transition-colors shrink-0"
           style={{
             color: folder.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
           }}
@@ -350,7 +350,7 @@ function FolderGroup({
 
         {/* Overflow menu for custom folders */}
         {!folder.is_system && (
-          <div className="relative flex-shrink-0">
+          <div className="relative shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu) }}
               className="p-1 rounded"
@@ -570,7 +570,7 @@ function AggregatedSourceSection({ group }: { group: AggregatedSourceGroup }) {
                         included: !entry.is_included_in_ai,
                       })
                     }
-                    className="p-1 rounded transition-colors flex-shrink-0 opacity-70 group-hover:opacity-100"
+                    className="p-1 rounded transition-colors shrink-0 opacity-70 group-hover:opacity-100"
                     style={{
                       color: entry.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
                     }}

@@ -45,7 +45,7 @@ export function Tabs({ tabs, activeKey, onChange, className = '' }: TabsProps) {
             aria-controls={`tabpanel-${tab.key}`}
             id={`tab-${tab.key}`}
             onClick={() => onChange(tab.key)}
-            className="flex items-center gap-1.5 whitespace-nowrap flex-shrink-0"
+            className="flex items-center gap-1.5 whitespace-nowrap shrink-0"
             style={{
               padding: '0.625rem 1rem',
               border: 'none',
@@ -76,7 +76,7 @@ export function Tabs({ tabs, activeKey, onChange, className = '' }: TabsProps) {
             }}
           >
             {tab.icon && (
-              <span aria-hidden="true" className="flex-shrink-0">
+              <span aria-hidden="true" className="shrink-0">
                 {tab.icon}
               </span>
             )}

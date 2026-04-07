@@ -360,7 +360,7 @@ export function AcceptInvite() {
           >
             <AlertCircle
               size={22}
-              className="flex-shrink-0 mt-0.5"
+              className="shrink-0 mt-0.5"
               style={{ color: AUTH_COLORS.error }}
             />
             <div>
@@ -409,7 +409,7 @@ export function AcceptInvite() {
         >
           <CheckCircle
             size={22}
-            className="flex-shrink-0"
+            className="shrink-0"
             style={{ color: AUTH_COLORS.success }}
           />
           <p style={{ color: AUTH_COLORS.text }}>

@@ -108,7 +108,7 @@ function EventsSection({ memberId, events }: { memberId: string; events: Array<R
           }}
         >
           {!!ev.start_time && (
-            <span className="flex-shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
               {formatTime(ev.start_time as string)}
             </span>
           )}
@@ -165,7 +165,7 @@ function TasksSection({
                 if (!isComplete) onComplete(t.id as string, memberId)
               }}
               data-testid={`task-checkbox-${t.id}`}
-              className="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center"
+              className="shrink-0 w-4 h-4 rounded border flex items-center justify-center"
               style={{
                 borderColor: isComplete ? 'var(--color-btn-primary-bg)' : 'var(--color-border-default)',
                 backgroundColor: isComplete ? 'var(--color-btn-primary-bg)' : 'transparent',
@@ -216,14 +216,14 @@ function BestIntentionsSection({
         return (
           <div key={intention.id as string} className="flex items-center gap-1.5 text-xs">
             <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
+              className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: (intention.color as string) || 'var(--color-btn-primary-bg)' }}
             />
             <span className="truncate" style={{ color: 'var(--color-text-primary)' }}>
               {intention.statement as string}
             </span>
             <span
-              className="ml-auto flex-shrink-0 font-medium"
+              className="ml-auto shrink-0 font-medium"
               style={{ color: 'var(--color-btn-primary-bg)' }}
             >
               x{count}
@@ -442,7 +442,7 @@ function MemberColumn({
 
   return (
     <div
-      className="flex-shrink-0 snap-start rounded-lg overflow-hidden"
+      className="shrink-0 snap-start rounded-lg overflow-hidden"
       data-testid={`member-column-${member.id}`}
       data-member-name={member.display_name.split(' ')[0]}
       style={{
@@ -461,7 +461,7 @@ function MemberColumn({
         }}
       >
         <span
-          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
           style={{ backgroundColor: color, color: 'var(--color-text-on-primary, #fff)' }}
         >
           {member.display_name.charAt(0)}
@@ -574,7 +574,7 @@ function FamilyOverviewCalendar({
                     style={{ opacity: ev.status === 'pending_approval' ? 0.5 : 1 }}
                   >
                     <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      className="w-2 h-2 rounded-full shrink-0"
                       style={{ backgroundColor: color }}
                     />
                     {ev.start_time && (

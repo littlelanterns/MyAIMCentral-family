@@ -137,7 +137,7 @@ export function ByCategoryView({
               style={{ backgroundColor: 'var(--color-bg-card)' }}
             >
               <span
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: color }}
               />
               <span className="font-semibold text-sm flex-1" style={{ color: 'var(--color-text-heading)' }}>

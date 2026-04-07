@@ -497,7 +497,7 @@ Return this exact structure:
                       type="checkbox"
                       checked={item.selected}
                       onChange={(e) => updateItem(index, { selected: e.target.checked })}
-                      className="mt-1 flex-shrink-0"
+                      className="mt-1 shrink-0"
                       style={{ accentColor: 'var(--color-btn-primary-bg)', width: 16, height: 16 }}
                     />
 

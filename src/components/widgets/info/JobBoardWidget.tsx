@@ -158,7 +158,7 @@ function JobRow({ job }: { job: OpportunityTask }) {
 
       {/* Claimed indicator */}
       {activeClaim && activeClaim.member && (
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <Lock size={10} style={{ color: 'var(--color-text-tertiary)' }} />
           <span
             className="text-[10px] font-medium"
@@ -172,7 +172,7 @@ function JobRow({ job }: { job: OpportunityTask }) {
       {/* Available badge */}
       {!activeClaim && (
         <span
-          className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+          className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
           style={{
             background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
             color: 'var(--color-accent)',
@@ -184,7 +184,7 @@ function JobRow({ job }: { job: OpportunityTask }) {
 
       {/* Reward */}
       {rewardDisplay && (
-        <span className="text-[10px] font-medium flex-shrink-0" style={{ color: 'var(--color-accent-deep)' }}>
+        <span className="text-[10px] font-medium shrink-0" style={{ color: 'var(--color-accent-deep)' }}>
           {rewardDisplay}
         </span>
       )}

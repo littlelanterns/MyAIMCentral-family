@@ -96,7 +96,7 @@ function SortableStarCard({
       {/* Drag handle */}
       <button
         {...listeners}
-        className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+        className="mt-1 p-1 rounded cursor-grab active:cursor-grabbing shrink-0 touch-none"
         style={{ color: 'var(--color-text-secondary)' }}
         aria-label="Drag to reorder"
       >
@@ -111,7 +111,7 @@ function SortableStarCard({
         }>
       <button
         onClick={() => onToggleAI(star)}
-        className="mt-0.5 p-1 rounded transition-colors flex-shrink-0"
+        className="mt-0.5 p-1 rounded transition-colors shrink-0"
         style={{
           color: star.is_included_in_ai
             ? 'var(--color-btn-primary-bg)'
@@ -157,7 +157,7 @@ function SortableStarCard({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-0.5 flex-shrink-0">
+      <div className="flex gap-0.5 shrink-0">
         <Tooltip content="Edit">
         <button
           onClick={() => onEdit(star)}
@@ -348,7 +348,7 @@ export function GuidingStarsPage() {
               />
             }
             size={40}
-            className="!w-10 !h-10 md:!w-36 md:!h-36"
+            className="w-10! h-10! md:w-36! md:h-36!"
             assetSize={512}
           />
           <div>

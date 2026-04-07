@@ -467,7 +467,7 @@ function SessionRow({ session, isMom, onEdit, onDelete }: SessionRowProps) {
       <div className="flex items-center gap-3">
         {/* Mode icon */}
         <div
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: 'var(--color-surface-raised, #f9fafb)' }}
         >
           <ModeIcon mode={session.timer_mode} />
@@ -523,7 +523,7 @@ function SessionRow({ session, isMom, onEdit, onDelete }: SessionRowProps) {
 
         {/* Mom controls */}
         {isMom && !confirmDelete && (
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => setEditing((v) => !v)}
               className="rounded-md p-1.5 transition-colors"
@@ -547,7 +547,7 @@ function SessionRow({ session, isMom, onEdit, onDelete }: SessionRowProps) {
 
         {/* Delete confirmation */}
         {isMom && confirmDelete && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-xs" style={{ color: 'var(--color-text-muted, #6b7280)' }}>
               Delete?
             </span>

@@ -329,7 +329,7 @@ export function WidgetPicker({
                     style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-default)' }}
                   >
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                       style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
                     >
                       {Icon ? <Icon size={16} /> : <LucideIcons.Box size={16} />}
@@ -388,7 +388,7 @@ function StarterConfigCard({ config, onSelect }: { config: WidgetStarterConfig; 
       style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-default)' }}
     >
       <div
-        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
         style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent)' }}
       >
         {Icon ? <Icon size={16} /> : <LucideIcons.Box size={16} />}
@@ -401,7 +401,7 @@ function StarterConfigCard({ config, onSelect }: { config: WidgetStarterConfig; 
       </div>
       <button
         onClick={onSelect}
-        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
         style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
       >
         Customize
@@ -424,7 +424,7 @@ function HubRecommendationCard({ recommendation, onSelect }: { recommendation: H
       }}
     >
       <div
-        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
         style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)', color: 'var(--color-accent)' }}
       >
         {Icon ? <Icon size={16} /> : <LucideIcons.Box size={16} />}
@@ -435,7 +435,7 @@ function HubRecommendationCard({ recommendation, onSelect }: { recommendation: H
       </div>
       <button
         onClick={onSelect}
-        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
         style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
       >
         Add
@@ -455,7 +455,7 @@ function RegistryTypeCard({ meta, onSelect }: { meta: { type: string; label: str
       style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border-default)' }}
     >
       <div
-        className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
         style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-accent)' }}
       >
         {Icon ? <Icon size={16} /> : <LucideIcons.Box size={16} />}
@@ -466,7 +466,7 @@ function RegistryTypeCard({ meta, onSelect }: { meta: { type: string; label: str
       </div>
       <button
         onClick={onSelect}
-        className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
         style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
       >
         Customize

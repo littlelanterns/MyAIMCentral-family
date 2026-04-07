@@ -341,7 +341,7 @@ export function BulkAddWithAI({
           )}
 
           {/* Regular items */}
-          <div className="space-y-1 max-h-[400px] overflow-y-auto">
+          <div className="space-y-1 max-h-100 overflow-y-auto">
             {regularItems.map(({ item, index }) => (
               <div
                 key={index}

@@ -685,7 +685,7 @@ export function ShiftView({ memberId: memberIdProp }: ShiftViewProps) {
             }}
           >
             <div
-              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
               style={{ backgroundColor: 'var(--color-success-soft, #d1fae5)' }}
             >
               <BadgeCheck size={22} style={{ color: 'var(--color-success, #059669)' }} />

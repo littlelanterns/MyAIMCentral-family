@@ -186,7 +186,7 @@ function ContextItemRow({
         )}
       </div>
 
-      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
         <Tooltip content={item.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
         <button
           onClick={() => onToggleAI(!item.is_included_in_ai)}
@@ -283,7 +283,7 @@ function OverviewSection({
         className="w-full flex items-center gap-3 p-4 text-left"
       >
         <div
-          className="p-2 rounded-lg flex-shrink-0"
+          className="p-2 rounded-lg shrink-0"
           style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)' }}
         >
           <Icon size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
@@ -319,7 +319,7 @@ function OverviewSection({
             e.stopPropagation()
             handleToggleFolderAI()
           }}
-          className="p-1.5 rounded transition-colors flex-shrink-0"
+          className="p-1.5 rounded transition-colors shrink-0"
           style={{
             color: section.folder.is_included_in_ai
               ? 'var(--color-btn-primary-bg)'
@@ -334,7 +334,7 @@ function OverviewSection({
         </button>
         </Tooltip>
 
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {expanded ? (
             <ChevronUp size={16} style={{ color: 'var(--color-text-secondary)' }} />
           ) : (
@@ -465,7 +465,7 @@ function GuidingStarRow({
       className="flex items-start gap-2 py-2 px-1 group"
       style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-border) 50%, transparent)' }}
     >
-      <Star size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-btn-primary-bg)' }} />
+      <Star size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--color-btn-primary-bg)' }} />
       <div className="flex-1 min-w-0">
         <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
           {star.content}
@@ -479,7 +479,7 @@ function GuidingStarRow({
       <Tooltip content={star.is_included_in_ai ? 'Included in LiLa context' : 'Excluded from LiLa context'}>
       <button
         onClick={() => onToggleAI(!star.is_included_in_ai)}
-        className="p-1.5 rounded transition-colors flex-shrink-0 opacity-70 group-hover:opacity-100"
+        className="p-1.5 rounded transition-colors shrink-0 opacity-70 group-hover:opacity-100"
         style={{
           color: star.is_included_in_ai ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
         }}

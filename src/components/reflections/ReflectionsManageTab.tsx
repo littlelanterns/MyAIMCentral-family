@@ -274,7 +274,7 @@ export function ReflectionsManageTab({ familyId, memberId }: ReflectionsManageTa
                 </p>
                 <button
                   onClick={() => handleRestore(p)}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs flex-shrink-0"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs shrink-0"
                   style={{
                     backgroundColor: 'var(--color-bg-secondary)',
                     color: 'var(--color-text-primary)',
@@ -373,7 +373,7 @@ function PromptRow({
           </span>
         )}
       </p>
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         {hasOriginal && (
           <button
             onClick={() => onRestoreOriginal(prompt)}

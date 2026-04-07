@@ -58,7 +58,7 @@ export function AnimatedList({
         >
           <div className="flex items-start gap-2">
             {icon && i < visibleCount && (
-              <span className="animated-list-icon flex-shrink-0 mt-0.5" style={{
+              <span className="animated-list-icon shrink-0 mt-0.5" style={{
                 animation: 'iconPop 0.3s ease-out forwards',
               }}>
                 {icon}

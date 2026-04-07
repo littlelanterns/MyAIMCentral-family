@@ -116,7 +116,7 @@ export function WriteDrawer() {
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+          className="flex items-center justify-between px-4 py-3 border-b shrink-0"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-card)' }}
         >
           <h2
@@ -137,7 +137,7 @@ export function WriteDrawer() {
 
         {/* Tab strip */}
         <div
-          className="flex border-b flex-shrink-0"
+          className="flex border-b shrink-0"
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-card)' }}
         >
           {tabs.map(tab => (

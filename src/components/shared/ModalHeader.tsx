@@ -26,7 +26,7 @@ export function ModalHeader({
 }: ModalHeaderProps) {
   if (type === 'persistent') {
     return (
-      <div className="flex-shrink-0">
+      <div className="shrink-0">
         <div className="modal-header-gradient" style={gradientHeaderStyle}>
           <div style={{ minWidth: 0 }}>
             <h2
@@ -108,7 +108,7 @@ export function ModalHeader({
   // Transient — plain header
   return (
     <div
-      className="flex-shrink-0"
+      className="shrink-0"
       style={{
         padding: '1rem 1.25rem',
         borderBottom: '1px solid var(--color-border)',

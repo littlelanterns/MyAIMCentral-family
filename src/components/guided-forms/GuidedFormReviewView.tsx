@@ -171,7 +171,7 @@ export function GuidedFormReviewView({
         style={{ backgroundColor: 'var(--color-bg-secondary)' }}
       >
         <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
           style={{
             backgroundColor: childMember.member_color ?? 'var(--color-bg-secondary)',
             color: 'var(--color-text-on-primary, #fff)',
@@ -307,7 +307,7 @@ export function GuidedFormReviewView({
                     <button
                       type="button"
                       onClick={() => setEditingComment(section.key)}
-                      className="text-xs flex-shrink-0"
+                      className="text-xs shrink-0"
                       style={{
                         background: 'transparent',
                         border: 'none',

@@ -153,7 +153,7 @@ export function RandomizerResultCard({
                 aria-pressed={selectedMemberId === member.id}
               >
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                   style={{
                     backgroundColor: member.member_color ?? 'var(--color-bg-secondary)',
                     color: 'var(--color-text-on-primary, #fff)',

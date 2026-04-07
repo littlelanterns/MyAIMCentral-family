@@ -243,13 +243,13 @@ function ReflectionCard({
         </div>
       ) : response ? (
         <div className="flex items-start gap-2">
-          <Check size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <Check size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-btn-primary-bg)' }} />
           <p className="text-sm flex-1" style={{ color: 'var(--color-text-primary)' }}>
             {response.response_text}
           </p>
           <button
             onClick={() => setEditing(true)}
-            className="p-1 rounded-full flex-shrink-0"
+            className="p-1 rounded-full shrink-0"
             style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
             aria-label="Edit response"
           >

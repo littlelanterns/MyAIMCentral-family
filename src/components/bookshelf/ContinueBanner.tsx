@@ -39,7 +39,7 @@ export function ContinueBanner() {
         <strong className="truncate">{bookTitle}</strong>
       </span>
       <button
-        className="px-3 py-1 rounded-md text-sm font-medium flex-shrink-0"
+        className="px-3 py-1 rounded-md text-sm font-medium shrink-0"
         style={{
           background: 'var(--surface-primary)',
           color: 'var(--color-text-on-primary)',
@@ -50,7 +50,7 @@ export function ContinueBanner() {
       </button>
       <button
         onClick={handleDismiss}
-        className="p-1 rounded hover:opacity-70 flex-shrink-0"
+        className="p-1 rounded hover:opacity-70 shrink-0"
         style={{ color: 'var(--color-text-tertiary)' }}
       >
         <X size={14} />

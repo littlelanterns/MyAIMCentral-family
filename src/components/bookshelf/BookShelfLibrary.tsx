@@ -234,7 +234,7 @@ export function BookShelfLibrary() {
     <div className="density-compact">
       <div className="flex min-h-0">
         {/* Collection sidebar — desktop only */}
-        <div className="hidden md:block w-56 flex-shrink-0">
+        <div className="hidden md:block w-56 shrink-0">
           <CollectionSidebar
             collections={collections}
             getBookCount={getBookCountForCollection}
@@ -413,7 +413,7 @@ export function BookShelfLibrary() {
                 style={{ scrollbarColor: 'var(--color-border) transparent' }}
               >
                 <button
-                  className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                   style={{
                     backgroundColor: !activeTag ? 'var(--color-accent)' : 'var(--color-bg-input)',
                     color: !activeTag ? 'var(--color-text-on-primary)' : 'var(--color-text-secondary)',
@@ -429,7 +429,7 @@ export function BookShelfLibrary() {
                   return (
                     <button
                       key={tag}
-                      className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap"
+                      className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap"
                       style={{
                         backgroundColor: isActive
                           ? 'var(--color-accent)'

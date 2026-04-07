@@ -57,7 +57,7 @@ export function InfoCalendarToday({ widget, isCompact }: Props) {
         <div className="space-y-1.5 flex-1">
           {events.map(ev => (
             <div key={ev.id} className="flex items-center gap-2">
-              <span className="text-[10px] w-12 flex-shrink-0 font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
+              <span className="text-[10px] w-12 shrink-0 font-medium" style={{ color: 'var(--color-text-tertiary)' }}>
                 {formatTime(ev.start_time, ev.is_all_day)}
               </span>
               <span className="text-xs truncate flex-1" style={{ color: 'var(--color-text-primary)' }}>{ev.title}</span>

@@ -172,7 +172,7 @@ export function GuidedFormFillView({
     >
       {/* ── Header ── */}
       <div
-        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+        className="flex items-center justify-between px-4 py-3 shrink-0"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         <button
@@ -216,7 +216,7 @@ export function GuidedFormFillView({
 
       {/* ── Progress bar ── */}
       <div
-        className="flex-shrink-0 px-4 py-2"
+        className="shrink-0 px-4 py-2"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         <div className="flex items-center justify-between mb-1">
@@ -243,7 +243,7 @@ export function GuidedFormFillView({
 
       {/* ── Section tabs (pills) ── */}
       <div
-        className="flex gap-1.5 px-4 py-2 overflow-x-auto flex-shrink-0"
+        className="flex gap-1.5 px-4 py-2 overflow-x-auto shrink-0"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
         {sections.map((s, i) => {
@@ -258,7 +258,7 @@ export function GuidedFormFillView({
               key={s.key}
               type="button"
               onClick={() => setCurrentIdx(i)}
-              className="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+              className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
               style={{
                 backgroundColor: isCurrent
                   ? 'var(--color-btn-primary-bg)'
@@ -329,7 +329,7 @@ export function GuidedFormFillView({
 
           {/* ── Footer navigation ── */}
           <div
-            className="flex-shrink-0 p-4 flex items-center justify-between gap-3"
+            className="shrink-0 p-4 flex items-center justify-between gap-3"
             style={{ borderTop: '1px solid var(--color-border)' }}
           >
             <Button

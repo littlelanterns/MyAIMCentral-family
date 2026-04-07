@@ -208,7 +208,7 @@ export function ViewCarousel({ shell, activeView, onViewChange }: ViewCarouselPr
               role="tab"
               aria-selected={isActive}
               onClick={() => handleSelect(view.key)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all"
+              className="shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-all"
               style={{
                 backgroundColor: isActive
                   ? 'var(--color-btn-primary-bg)'

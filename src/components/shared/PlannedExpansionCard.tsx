@@ -320,7 +320,7 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
             className="flex items-center gap-2.5 w-full text-left group"
           >
             <div
-              className="flex-shrink-0 w-10 h-5 rounded-full relative transition-colors"
+              className="shrink-0 w-10 h-5 rounded-full relative transition-colors"
               style={{
                 backgroundColor: notifyEnabled
                   ? 'var(--color-sage-teal, #68a395)'

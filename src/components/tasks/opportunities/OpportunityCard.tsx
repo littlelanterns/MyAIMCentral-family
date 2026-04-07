@@ -23,7 +23,7 @@ export function OpportunityCard({ task }: OpportunityCardProps) {
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <span
-        className="mt-0.5 flex-shrink-0"
+        className="mt-0.5 shrink-0"
         style={{ color: 'var(--color-btn-primary-bg)' }}
       >
         {isClaimable && <Lock size={16} />}

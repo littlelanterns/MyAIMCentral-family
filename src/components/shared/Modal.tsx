@@ -179,7 +179,7 @@ export function Modal({
         {/* Dirty state warning banner */}
         {showDirtyWarning && (
           <div
-            className="flex-shrink-0"
+            className="shrink-0"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -200,7 +200,7 @@ export function Modal({
         {/* Header with title */}
         {(title !== undefined) && (
           <div
-            className="flex items-center justify-between flex-shrink-0"
+            className="flex items-center justify-between shrink-0"
             style={{
               padding: '1rem 1.25rem',
               borderBottom: '1px solid var(--color-border)',
@@ -220,7 +220,7 @@ export function Modal({
         {/* No title — still show close button */}
         {title === undefined && (
           <div
-            className="flex justify-end flex-shrink-0"
+            className="flex justify-end shrink-0"
             style={{ padding: '0.75rem 0.75rem 0' }}
           >
             {closeButton}
@@ -238,7 +238,7 @@ export function Modal({
         {/* Footer */}
         {footer && (
           <div
-            className="flex-shrink-0"
+            className="shrink-0"
             style={{
               padding: '1rem 1.25rem',
               borderTop: '1px solid var(--color-border)',

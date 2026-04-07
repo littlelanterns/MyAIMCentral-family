@@ -43,7 +43,7 @@ export function HubCountdownsSection() {
           return (
             <div
               key={cd.id}
-              className="flex-shrink-0 rounded-lg p-4 text-center"
+              className="shrink-0 rounded-lg p-4 text-center"
               style={{
                 minWidth: 140,
                 maxWidth: 180,

@@ -107,7 +107,7 @@ function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none"
+        className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none"
         style={{
           backgroundColor: checked
             ? 'var(--color-btn-primary-bg, #68a395)'
@@ -149,7 +149,7 @@ function NumberField({ label, description, value, min = 0, max = 999, unit = 'mi
           </p>
         )}
       </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         <button
           onClick={() => onChange(Math.max(min, value - 1))}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-base font-bold"

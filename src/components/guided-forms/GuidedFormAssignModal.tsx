@@ -337,7 +337,7 @@ export function GuidedFormAssignModal({
                       aria-pressed={selected}
                     >
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
                         style={{
                           backgroundColor: child.member_color ?? 'var(--color-bg-secondary)',
                           color: 'var(--color-text-on-primary, #fff)',

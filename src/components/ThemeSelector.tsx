@@ -123,7 +123,7 @@ function ThemeSwatch({ themeKey, gradientEnabled, size = 28 }: { themeKey: Theme
   if (gradientEnabled) {
     return (
       <div
-        className="flex-shrink-0"
+        className="shrink-0"
         style={{
           width: size,
           height: size,
@@ -136,7 +136,7 @@ function ThemeSwatch({ themeKey, gradientEnabled, size = 28 }: { themeKey: Theme
   }
 
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" className="flex-shrink-0">
+    <svg width={size} height={size} viewBox="0 0 32 32" className="shrink-0">
       <path d="M16,16 L16,0 A16,16 0 0,1 29.86,24 Z" fill={c1} />
       <path d="M16,16 L29.86,24 A16,16 0 0,1 2.14,24 Z" fill={c2} />
       <path d="M16,16 L2.14,24 A16,16 0 0,1 16,0 Z" fill={c3} />
@@ -256,7 +256,7 @@ export function ThemeSelector() {
               <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Gradient</span>
               <button
                 onClick={() => setGradientEnabled(!gradientEnabled)}
-                className="w-9 h-5 rounded-full relative transition-colors flex-shrink-0"
+                className="w-9 h-5 rounded-full relative transition-colors shrink-0"
                 style={{
                   background: gradientEnabled
                     ? 'linear-gradient(135deg, var(--color-btn-primary-bg), var(--color-accent))'
@@ -348,7 +348,7 @@ export function ThemeSelector() {
 
           {/* Font Size — inline row */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <Type size={12} style={{ color: 'var(--color-text-secondary)' }} />
               <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
                 Text
@@ -375,7 +375,7 @@ export function ThemeSelector() {
 
           {/* Element Size — inline row */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <Maximize2 size={12} style={{ color: 'var(--color-text-secondary)' }} />
               <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
                 Elements
