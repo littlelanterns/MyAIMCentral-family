@@ -177,24 +177,102 @@ export interface RhythmPriorityItem {
 /**
  * MindSweep-Lite items — staged in rhythm_completions.metadata during
  * the evening rhythm session. Records are committed on Close My Day.
- * Phase A: empty array. Phase C (Enhancement 2) populates.
+ *
+ * Phase C decision: reuse the full `mindsweep-sort` destination set
+ * (NOT a simplified 5-disposition "lite" classifier). The only
+ * addition unique to MindSweep-Lite is `release` — a frontend-only
+ * override disposition that creates no record. Haiku never suggests
+ * it; users override to release when they want to acknowledge a
+ * thought without creating anything.
+ *
+ * Destination set mirrors `mindsweep-sort` CLASSIFICATION_CATEGORIES:
+ * task, list, calendar, journal, victory, guiding_stars, best_intentions,
+ * backburner, innerworkings, archives, recipe — plus release (Phase C).
+ *
+ * Teen dispositions (journal_about_it, talk_to_someone, let_it_go) are
+ * Phase D scope. When Phase D lands, the teen-tailored section component
+ * will either extend this union or use a separate teen-specific type
+ * that maps to these underlying destinations.
  */
 export type MindSweepLiteDisposition =
-  | 'schedule'
-  | 'delegate'
-  | 'note'
+  | 'task'
+  | 'list'
+  | 'calendar'
+  | 'journal'
+  | 'victory'
+  | 'guiding_stars'
+  | 'best_intentions'
   | 'backburner'
+  | 'innerworkings'
+  | 'archives'
+  | 'recipe'
   | 'release'
-  // Teen variants (Phase D)
-  | 'journal_about_it'
-  | 'talk_to_someone'
-  | 'let_it_go'
+
+/**
+ * Human-readable display names for each disposition. Used for the
+ * disposition tag rendering in the MindSweep-Lite section UI and the
+ * override dropdown.
+ */
+export const DISPOSITION_DISPLAY_NAMES: Record<MindSweepLiteDisposition, string> = {
+  task: 'Task',
+  list: 'List Item',
+  calendar: 'Calendar Event',
+  journal: 'Journal Entry',
+  victory: 'Victory',
+  guiding_stars: 'Guiding Star',
+  best_intentions: 'Best Intention',
+  backburner: 'Backburner',
+  innerworkings: 'Self-Knowledge',
+  archives: 'Archive Note',
+  recipe: 'Recipe',
+  release: 'Release',
+}
+
+/**
+ * Ordered list of dispositions for the override dropdown UI. Release
+ * sits at the end as the "let it go" escape hatch.
+ */
+export const DISPOSITION_PICK_ORDER: MindSweepLiteDisposition[] = [
+  'task',
+  'calendar',
+  'list',
+  'journal',
+  'best_intentions',
+  'guiding_stars',
+  'victory',
+  'innerworkings',
+  'archives',
+  'recipe',
+  'backburner',
+  'release',
+]
 
 export interface RhythmMindSweepItem {
+  /** The text extracted from the user's braindump. */
   text: string
+  /** Current disposition (possibly user-overridden from classifier_suggested). */
   disposition: MindSweepLiteDisposition
+  /**
+   * Haiku's original classification suggestion, preserved even after
+   * user override so the metadata captures the full audit trail.
+   * May differ from `disposition` if the user cycled the tag.
+   */
+  classifier_suggested: MindSweepLiteDisposition
+  /** Haiku confidence from mindsweep-sort: high | medium | low | review_required */
+  classifier_confidence?: string
+  /**
+   * Destination-specific parsed details from mindsweep-sort (e.g.,
+   * calendar_subtype + events array, list_type, etc.). Ignored for
+   * Phase C commit — Phase C writes task/list/calendar items in their
+   * simplest form. Preserved in metadata for future use.
+   */
+  destination_detail?: Record<string, unknown> | null
+  /** Record ID created on Close My Day commit, or null for release/error. */
   created_record_id: string | null
-  created_record_type: 'task' | 'list_item' | 'notepad_tab' | 'message' | null
+  /** Table name where the record was created. */
+  created_record_type: 'task' | 'list_item' | 'studio_queue' | 'journal_entry' | 'victory' | 'guiding_star' | 'best_intention' | 'self_knowledge' | null
+  /** If commit failed for this item, the error message. Other items still commit. */
+  commit_error?: string
 }
 
 /**
@@ -353,6 +431,87 @@ export const DEFAULT_ON_THE_HORIZON_CONFIG: Required<OnTheHorizonConfig> = {
   lookahead_days: 7,
   max_items: 5,
 }
+
+// ─── Phase C: Morning Insight (Enhancement 3) ────────────────
+
+/**
+ * One BookShelf extraction match returned by `match_book_extractions`
+ * RPC for the Morning Insight section. Displayed as a clickable card
+ * with title + section + snippet + link into BookShelf.
+ */
+export interface MorningInsightMatch {
+  extraction_id: string
+  book_library_id: string
+  book_title: string
+  extraction_type: string
+  content_type: string | null
+  item_text: string
+  section_title: string | null
+  section_index: number | null
+  is_key_point: boolean
+  is_hearted: boolean
+  similarity: number
+}
+
+// ─── Phase C: Feature Discovery (Enhancement 4) ──────────────
+
+/**
+ * One entry in the feature discovery pool. Curated features that are
+ * genuinely useful — the morning rhythm presents them one at a time.
+ *
+ * engagement_event_types: if any `activity_log_entries` row exists
+ * for this member in the last 14 days with `event_type` in this
+ * array, the candidate is treated as already-discovered and skipped.
+ *
+ * engagement_source_tables: same but for `source_table`. Either
+ * match counts as "meaningfully engaged."
+ *
+ * audiences: which audiences see this candidate. 'adult' = primary
+ * parent + additional adult. 'teen' = members with dashboard_mode
+ * 'independent'. Phase C populates adult-only; Phase D adds teen
+ * prioritization and teen-specific entries.
+ */
+export type FeatureDiscoveryAudience = 'adult' | 'teen'
+
+export interface FeatureDiscoveryCandidate {
+  feature_key: string
+  display_name: string
+  tagline: string
+  action_text: string
+  action_route: string
+  icon_key: string  // Lucide icon name
+  engagement_event_types: string[]
+  engagement_source_tables: string[]
+  audiences: FeatureDiscoveryAudience[]
+}
+
+// ─── Phase C: Rhythm Tracker Prompts (Enhancement 6) ─────────
+
+/**
+ * Widget-config augmentation documented here as a TypeScript helper
+ * (no schema change — lives inside `dashboard_widgets.config` JSONB
+ * at runtime). A tracker surfaces in a rhythm if its config.rhythm_keys
+ * array contains that rhythm's key.
+ *
+ * Mom configures via the "Show in rhythms" multi-select in
+ * WidgetConfiguration.tsx.
+ */
+export interface WidgetRhythmConfig {
+  /** Rhythm keys where this tracker should surface. Default: []. */
+  rhythm_keys?: string[]
+}
+
+/**
+ * System rhythm keys used in the "Show in rhythms" multi-select.
+ * Custom rhythms are listed separately and disabled for now.
+ */
+export const SYSTEM_RHYTHM_KEYS_FOR_WIDGETS = [
+  { key: 'morning', label: 'Morning Rhythm' },
+  { key: 'evening', label: 'Evening Rhythm' },
+  { key: 'weekly_review', label: 'Weekly Review' },
+  { key: 'monthly_review', label: 'Monthly Review' },
+  { key: 'quarterly_inventory', label: 'Quarterly Inventory' },
+] as const
 
 // ─── Helpers ─────────────────────────────────────────────────
 

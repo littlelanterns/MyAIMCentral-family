@@ -42,7 +42,8 @@ const InputSchema = z.object({
   aggressiveness: z.enum(['always_ask', 'trust_obvious', 'full_autopilot']).default('always_ask'),
   always_review_rules: z.array(z.string()).default([]),
   custom_review_rules: z.array(z.string()).default([]),
-  source_channel: z.enum(['routing_strip', 'quick_capture', 'share_to_app', 'email_forward', 'auto_sweep']),
+  // PRD-18 Phase C: rhythm_evening added for MindSweep-Lite (Enhancement 2)
+  source_channel: z.enum(['routing_strip', 'quick_capture', 'share_to_app', 'email_forward', 'auto_sweep', 'rhythm_evening']),
   input_type: z.enum(['voice', 'text', 'image', 'link', 'email', 'mixed']),
   family_member_names: z.array(FamilyMemberSchema).default([]),
 })

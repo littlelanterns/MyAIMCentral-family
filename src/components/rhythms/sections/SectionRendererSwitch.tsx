@@ -26,6 +26,10 @@ import { EveningTomorrowCaptureSection } from './EveningTomorrowCaptureSection'
 import { MorningPrioritiesRecallSection } from './MorningPrioritiesRecallSection'
 import { OnTheHorizonSection } from './OnTheHorizonSection'
 import { PeriodicCardsSlot } from './PeriodicCardsSlot'
+import { MindSweepLiteSection } from './MindSweepLiteSection'
+import { MorningInsightSection } from './MorningInsightSection'
+import { FeatureDiscoverySection } from './FeatureDiscoverySection'
+import { RhythmTrackerPromptsSection } from './RhythmTrackerPromptsSection'
 import { GuidedDayHighlightsSection } from './guided/GuidedDayHighlightsSection'
 import { GuidedPrideReflectionSection } from './guided/GuidedPrideReflectionSection'
 import { GuidedTomorrowLookAheadSection } from './guided/GuidedTomorrowLookAheadSection'
@@ -36,10 +40,6 @@ import {
   MilestoneCelebrationsSection,
   CarryForwardSection,
   BeforeCloseTheDaySection,
-  RhythmTrackerPromptsSection,
-  MindSweepLiteSection,
-  MorningInsightSection,
-  FeatureDiscoverySection,
 } from './StubSections'
 import type { OnTheHorizonConfig } from '@/types/rhythms'
 
@@ -109,11 +109,22 @@ export function SectionRendererSwitch({
         />
       )
 
-    // ─── Morning Phase C+ stubs ──────────────────────────
+    // ─── Morning Phase C ─────────────────────────────────
     case 'morning_insight':
-      return <MorningInsightSection />
+      return (
+        <MorningInsightSection
+          familyId={familyId}
+          memberId={memberId}
+          readingSupport={readingSupport}
+        />
+      )
     case 'feature_discovery':
-      return <FeatureDiscoverySection />
+      return (
+        <FeatureDiscoverySection
+          familyId={familyId}
+          memberId={memberId}
+        />
+      )
 
     // ─── Evening core (Phase A) ──────────────────────────
     case 'evening_greeting':
@@ -128,8 +139,17 @@ export function SectionRendererSwitch({
       return <CarryForwardSection />
     case 'evening_tomorrow_capture':
       return <EveningTomorrowCaptureSection familyId={familyId} memberId={memberId} />
-    case 'mindsweep_lite':
-      return <MindSweepLiteSection />
+    case 'mindsweep_lite': {
+      const cfg = section.config as { collapsed_by_default?: boolean } | undefined
+      return (
+        <MindSweepLiteSection
+          familyId={familyId}
+          memberId={memberId}
+          readingSupport={readingSupport}
+          collapsedByDefault={cfg?.collapsed_by_default ?? true}
+        />
+      )
+    }
     case 'closing_thought':
       return <ClosingThoughtSection memberId={memberId} />
     case 'from_your_library':
@@ -145,7 +165,13 @@ export function SectionRendererSwitch({
         />
       )
     case 'rhythm_tracker_prompts':
-      return <RhythmTrackerPromptsSection />
+      return (
+        <RhythmTrackerPromptsSection
+          familyId={familyId}
+          memberId={memberId}
+          rhythmKey={rhythmKey}
+        />
+      )
     case 'close_my_day':
       // close_my_day is rendered as the modal action bar, not a section
       return null

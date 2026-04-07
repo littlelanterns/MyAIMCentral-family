@@ -26,7 +26,9 @@ export type SweepEventSourceChannel =
   | 'quick_capture'
   | 'share_to_app'
   | 'email_forward'
-  | 'auto_sweep';
+  | 'auto_sweep'
+  // PRD-18 Phase C: MindSweep-Lite embedded in the evening rhythm
+  | 'rhythm_evening';
 
 export type SweepInputType = 'voice' | 'text' | 'image' | 'link' | 'email' | 'calendar_file' | 'mixed';
 

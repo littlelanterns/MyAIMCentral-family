@@ -1,5 +1,5 @@
 /**
- * PRD-18 — stub section components (remaining stubs after Phase B2)
+ * PRD-18 — stub section components (remaining stubs after Phase C)
  *
  * These sections are scheduled to receive real implementations in
  * later phases. They either:
@@ -12,21 +12,21 @@
  *   - MilestoneCelebrationsSection     — auto-hide (gamification dependency)
  *   - CarryForwardSection              — placeholder, off by default
  *   - BeforeCloseTheDaySection         — auto-hide
- *   - RhythmTrackerPromptsSection      — auto-hide (Phase C wiring)
- *   - MindSweepLiteSection             — Phase C placeholder
- *   - MorningInsightSection            — Phase C placeholder
- *   - FeatureDiscoverySection          — Phase C placeholder
  *
  * Previously stubbed, now wired:
  *   - EveningTomorrowCaptureSection    → Phase B2
  *   - MorningPrioritiesRecallSection   → Phase B2
  *   - OnTheHorizonSection              → Phase B3
+ *   - MindSweepLiteSection             → Phase C2
+ *   - MorningInsightSection            → Phase C3
+ *   - FeatureDiscoverySection          → Phase C3
+ *   - RhythmTrackerPromptsSection      → Phase C4
  *
  * Each placeholder is intentionally compact — it preserves the section's
  * place in the rhythm narrative arc without dominating the experience.
  */
 
-import { Brain, Lightbulb, Sparkles, Wand2 } from 'lucide-react'
+import { Lightbulb } from 'lucide-react'
 
 // ─── Auto-hiding sections (return null until wired) ──────────
 
@@ -42,11 +42,6 @@ export function MilestoneCelebrationsSection(): null {
 
 export function BeforeCloseTheDaySection(): null {
   // Phase A: cross-feature pending aggregation not built. Auto-hide.
-  return null
-}
-
-export function RhythmTrackerPromptsSection(): null {
-  // Phase A: dashboard_widgets.config.rhythm_keys not yet implemented (Phase C).
   return null
 }
 
@@ -109,50 +104,22 @@ export function CarryForwardSection() {
   )
 }
 
-// MindSweep-Lite (Enhancement 2) — Phase C replaces with Haiku
-// disposition classification.
-export function MindSweepLiteSection() {
-  return (
-    <StubPlaceholder
-      title="Something on your mind?"
-      description="Brain dump with auto-sort dispositions is coming."
-      phase="C"
-      Icon={Wand2}
-    />
-  )
-}
-
 // NOTE: EveningTomorrowCaptureSection and MorningPrioritiesRecallSection
 // were Phase A stubs. Phase B2 wired the real components at
 // src/components/rhythms/sections/EveningTomorrowCaptureSection.tsx and
 // src/components/rhythms/sections/MorningPrioritiesRecallSection.tsx.
-
+//
 // NOTE: OnTheHorizonSection was a Phase A stub. Phase B3 wired the
 // real component at src/components/rhythms/sections/OnTheHorizonSection.tsx.
-
-// Morning Insight (Enhancement 3) — Phase C BookShelf semantic pull.
-export function MorningInsightSection() {
-  return (
-    <StubPlaceholder
-      title="Something to think about"
-      description="A daily growth question paired with passages from your library."
-      phase="C"
-      Icon={Brain}
-    />
-  )
-}
-
-// Feature Discovery (Enhancement 4) — Phase C activity-log-driven nudge.
-export function FeatureDiscoverySection() {
-  return (
-    <StubPlaceholder
-      title="Something new"
-      description="Gentle 2-3x/week nudge toward useful features you haven't tried."
-      phase="C"
-      Icon={Sparkles}
-    />
-  )
-}
-
+//
+// NOTE: MindSweepLiteSection was a Phase A/B stub. Phase C2 wired the
+// real component at src/components/rhythms/sections/MindSweepLiteSection.tsx.
+//
+// NOTE: MorningInsightSection + FeatureDiscoverySection were Phase B stubs.
+// Phase C3 wires the real components.
+//
+// NOTE: RhythmTrackerPromptsSection was a Phase A/B stub. Phase C4 wires
+// the real component at src/components/rhythms/sections/RhythmTrackerPromptsSection.tsx.
+//
 // NOTE: PeriodicCardsSlot was a Phase A stub. Phase B4 wired the real
 // component at src/components/rhythms/sections/PeriodicCardsSlot.tsx.

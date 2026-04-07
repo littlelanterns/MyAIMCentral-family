@@ -35,7 +35,11 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import type { RhythmCompletionMetadata, RhythmPriorityItem } from '@/types/rhythms'
+import type {
+  RhythmCompletionMetadata,
+  RhythmPriorityItem,
+} from '@/types/rhythms'
+import type { StagedMindSweepLiteItem } from '@/lib/rhythm/commitMindSweepLite'
 
 interface RhythmMetadataContextValue {
   /**
@@ -45,10 +49,24 @@ interface RhythmMetadataContextValue {
   stagePriorityItems: (items: RhythmPriorityItem[]) => void
 
   /**
+   * Stage the MindSweep-Lite items (Phase C Enhancement 2). Called
+   * whenever the section's in-memory state changes. Replaces prior
+   * stage. These are committed to their classified destinations on
+   * Close My Day via `commitMindSweepLite`.
+   */
+  stageMindSweepItems: (items: StagedMindSweepLiteItem[]) => void
+
+  /**
    * Read the currently staged metadata. Modal calls this at commit time.
    * Returns a plain object — not a proxy — so it's safe to mutate.
    */
   readStagedMetadata: () => RhythmCompletionMetadata
+
+  /**
+   * Read the currently staged MindSweep-Lite items (before commit).
+   * Used by the modal's handleComplete to pass into commitMindSweepLite.
+   */
+  readStagedMindSweepItems: () => StagedMindSweepLiteItem[]
 }
 
 const RhythmMetadataCtx = createContext<RhythmMetadataContextValue | null>(null)
@@ -57,6 +75,10 @@ export function RhythmMetadataProvider({ children }: { children: ReactNode }) {
   // Ref holds the latest staged metadata. Section components write into
   // this via the callbacks below; nothing here causes a re-render.
   const metadataRef = useRef<RhythmCompletionMetadata>({})
+  // Phase C: MindSweep-Lite staged items are held separately (with
+  // richer per-item fields than RhythmMindSweepItem — the commit
+  // utility enriches them on Close My Day).
+  const mindSweepRef = useRef<StagedMindSweepLiteItem[]>([])
 
   const stagePriorityItems = useCallback((items: RhythmPriorityItem[]) => {
     metadataRef.current = {
@@ -65,13 +87,23 @@ export function RhythmMetadataProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const stageMindSweepItems = useCallback((items: StagedMindSweepLiteItem[]) => {
+    mindSweepRef.current = items
+  }, [])
+
   const readStagedMetadata = useCallback((): RhythmCompletionMetadata => {
     return { ...metadataRef.current }
   }, [])
 
+  const readStagedMindSweepItems = useCallback((): StagedMindSweepLiteItem[] => {
+    return [...mindSweepRef.current]
+  }, [])
+
   const value: RhythmMetadataContextValue = {
     stagePriorityItems,
+    stageMindSweepItems,
     readStagedMetadata,
+    readStagedMindSweepItems,
   }
 
   return <RhythmMetadataCtx.Provider value={value}>{children}</RhythmMetadataCtx.Provider>
@@ -90,6 +122,8 @@ export function useRhythmMetadataStaging(): RhythmMetadataContextValue {
   // renderable in isolation (e.g., Settings page preview, Storybook).
   return {
     stagePriorityItems: () => {},
+    stageMindSweepItems: () => {},
     readStagedMetadata: () => ({}),
+    readStagedMindSweepItems: () => [],
   }
 }

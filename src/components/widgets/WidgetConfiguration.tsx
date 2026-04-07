@@ -4,10 +4,11 @@
 // Multiplayer configuration section for supported types
 
 import { useState, useCallback } from 'react'
-import { LayoutDashboard, Save, Settings, Users, ChevronDown, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Save, Settings, Users, ChevronDown, ChevronRight, Clock } from 'lucide-react'
 import { ModalV2 } from '@/components/shared'
 import type { WidgetStarterConfig, WidgetSize, CreateWidget, TrackerType, MultiplayerMode, MultiplayerVisualStyle } from '@/types/widgets'
 import { getTrackerMeta, MULTIPLAYER_TRACKER_TYPES } from '@/types/widgets'
+import { SYSTEM_RHYTHM_KEYS_FOR_WIDGETS } from '@/types/rhythms'
 
 interface WidgetConfigurationProps {
   isOpen: boolean
@@ -59,6 +60,20 @@ export function WidgetConfiguration({
   const [mpSharedTarget, setMpSharedTarget] = useState<number | null>(null)
   const [mpExpanded, setMpExpanded] = useState(false)
 
+  // PRD-18 Phase C Enhancement 6: Rhythm surfacing
+  // rhythm_keys lives inside widget_config as a TEXT[] sub-field.
+  // Mom picks which rhythms this tracker should appear in. Default: [].
+  const initialRhythmKeys =
+    (defaultConfig as { rhythm_keys?: string[] }).rhythm_keys ?? []
+  const [rhythmKeys, setRhythmKeys] = useState<string[]>(initialRhythmKeys)
+  const [rhythmsExpanded, setRhythmsExpanded] = useState(initialRhythmKeys.length > 0)
+
+  const toggleRhythmKey = (key: string) => {
+    setRhythmKeys(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
   const updateField = useCallback((key: string, value: unknown) => {
     setConfigFields(prev => ({ ...prev, [key]: value }))
   }, [])
@@ -89,6 +104,9 @@ export function WidgetConfiguration({
       size,
       widget_config: {
         ...configFields,
+        // PRD-18 Phase C Enhancement 6: rhythm_keys surfaces this tracker
+        // in the selected rhythms' "Rhythm Tracker Prompts" section.
+        ...(rhythmKeys.length > 0 ? { rhythm_keys: rhythmKeys } : {}),
         ...(mpEnabled ? {
           multiplayer_enabled: true,
           multiplayer_participants: mpParticipants,
@@ -401,6 +419,72 @@ export function WidgetConfiguration({
             )}
           </div>
         )}
+
+        {/* PRD-18 Phase C Enhancement 6: Show in Rhythms */}
+        <div
+          className="rounded-lg overflow-hidden"
+          style={{ border: '1px solid var(--color-border-default)' }}
+        >
+          <button
+            onClick={() => setRhythmsExpanded(!rhythmsExpanded)}
+            className="w-full flex items-center gap-2 px-3 py-2.5"
+            style={{ background: 'var(--color-bg-secondary)' }}
+          >
+            <Clock size={16} style={{ color: 'var(--color-accent)' }} />
+            <span className="text-sm font-medium flex-1 text-left" style={{ color: 'var(--color-text-primary)' }}>
+              Show in Rhythms
+            </span>
+            {rhythmKeys.length > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}>
+                {rhythmKeys.length}
+              </span>
+            )}
+            {rhythmsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+
+          {rhythmsExpanded && (
+            <div className="p-3 space-y-3" style={{ background: 'var(--color-bg-primary)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                This tracker will appear in the rhythms you check. It still lives on the dashboard too — rhythms are a quick entry point.
+              </p>
+              <div className="space-y-1.5">
+                {SYSTEM_RHYTHM_KEYS_FOR_WIDGETS.map(rhythm => {
+                  const checked = rhythmKeys.includes(rhythm.key)
+                  return (
+                    <label
+                      key={rhythm.key}
+                      className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-colors"
+                      style={{
+                        background: checked
+                          ? 'color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary))'
+                          : 'var(--color-bg-secondary)',
+                        border: checked
+                          ? '1px solid var(--color-accent)'
+                          : '1px solid var(--color-border-default)',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleRhythmKey(rhythm.key)}
+                        className="accent-current"
+                      />
+                      <span className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                        {rhythm.label}
+                      </span>
+                    </label>
+                  )
+                })}
+                <p
+                  className="text-xs px-3 py-1.5 italic"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Custom rhythms (coming soon)
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </ModalV2>
   )

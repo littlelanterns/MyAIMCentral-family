@@ -33,6 +33,7 @@ import {
 import type { RhythmConfig, RhythmSection } from '@/types/rhythms'
 import { RhythmMetadataProvider, useRhythmMetadataStaging } from './RhythmMetadataContext'
 import { commitTomorrowCapture, type StagedPriorityItem } from '@/lib/rhythm/commitTomorrowCapture'
+import { commitMindSweepLite } from '@/lib/rhythm/commitMindSweepLite'
 import { supabase } from '@/lib/supabase/client'
 
 interface Props {
@@ -67,7 +68,7 @@ function RhythmModalInner({ config, familyId, memberId, isOpen, onClose, reading
     memberId,
     config.rhythm_key === 'morning' || config.rhythm_key === 'evening' ? config.rhythm_key : undefined
   )
-  const { readStagedMetadata } = useRhythmMetadataStaging()
+  const { readStagedMetadata, readStagedMindSweepItems } = useRhythmMetadataStaging()
   const queryClient = useQueryClient()
   const [showSnoozeMenu, setShowSnoozeMenu] = useState(false)
   const [commitError, setCommitError] = useState<string | null>(null)
@@ -124,6 +125,29 @@ function RhythmModalInner({ config, familyId, memberId, isOpen, onClose, reading
             : 'Something went wrong saving your priorities. Try again?'
         )
         return
+      }
+    }
+
+    // Phase C: Evening rhythm MindSweep-Lite commit. Unlike Tomorrow
+    // Capture, this NEVER throws — per-item failures are recorded as
+    // commit_error in metadata and the completion still writes. Mom's
+    // thoughts aren't lost to a transient write failure.
+    if (isEvening) {
+      const stagedMindSweep = readStagedMindSweepItems()
+      if (stagedMindSweep.length > 0) {
+        const enrichedMindSweep = await commitMindSweepLite({
+          familyId,
+          memberId,
+          items: stagedMindSweep,
+        })
+        finalMetadata = { ...finalMetadata, mindsweep_items: enrichedMindSweep }
+        // Invalidate caches for destinations that may have received new rows
+        queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
+        queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
+        queryClient.invalidateQueries({ queryKey: ['victories'] })
+        queryClient.invalidateQueries({ queryKey: ['guiding-stars'] })
+        queryClient.invalidateQueries({ queryKey: ['best-intentions'] })
+        queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
       }
     }
 

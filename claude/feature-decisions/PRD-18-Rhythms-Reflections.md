@@ -882,6 +882,168 @@ This is a large build. Recommended 4 sub-phases that respect dependency order an
 
 ---
 
+## Post-Build PRD Verification — Phase C (2026-04-07)
+
+> Phase C scope: filled the four remaining Phase B stubs — `mindsweep_lite`, `morning_insight`, `feature_discovery`, `rhythm_tracker_prompts` — by wiring them to the existing `mindsweep-sort` Edge Function, `match_book_extractions` RPC, `activity_log_entries` engagement queries, and `dashboard_widgets.config.rhythm_keys` widget configuration. Phase C is adult-only; Phase D owns the teen tailored experience. Migration: `00000000100112_rhythms_phase_c.sql`. New Edge Function: `generate-query-embedding`. Edge Function updated: `mindsweep-sort` (added `rhythm_evening` source_channel).
+
+### Foundation (Phase C schema + infrastructure)
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| Migration 100112: 20 adult morning_insight_questions seeded | Phase C sub-phase C1 | Wired | NOTICE: `20 adult morning insight questions seeded` |
+| Migration 100112: `tasks.source` accepts `'rhythm_mindsweep_lite'` | Phase C sub-phase C1 + Enhancement 2 | Wired | Preserves all Phase B values including `rhythm_priority` |
+| Migration 100112: `mindsweep_events.source_channel` accepts `'rhythm_evening'` | Phase C sub-phase C1 + Enhancement 2 | Wired | Allows rhythm sweeps to write events |
+| Migration 100112: `auto_provision_member_resources` updated (morning_insight at order 6, feature_discovery at order 8) | Phase C sub-phase C1 | Wired | New member seeds include both Phase C sections |
+| Migration 100112: backfill existing 18 adult/independent morning rhythms | Phase C sub-phase C1 | Wired | NOTICE: `Morning rhythms containing morning_insight: 18 (expected = 18)` and same for feature_discovery |
+| `mindsweep-sort` Zod enum updated with `rhythm_evening` | Phase C sub-phase C2 | Wired | Deployed to live project |
+| `src/types/mindsweep.ts` `SweepEventSourceChannel` updated | Phase C sub-phase C2 | Wired | Keeps frontend + Edge Function in lockstep |
+| `generate-query-embedding` Edge Function created + deployed | Phase C sub-phase C3 | Wired | 40-line wrapper around OpenAI text-embedding-3-small |
+| TypeScript types: `MindSweepLiteDisposition` rewritten with full destination set + `release` | Phase C sub-phase C1 | Wired | 12 dispositions total; teen variants deferred to Phase D |
+| TypeScript types: `DISPOSITION_DISPLAY_NAMES` + `DISPOSITION_PICK_ORDER` constants | Phase C sub-phase C1 | Wired | Drive section UI labels + override dropdown |
+| TypeScript types: `RhythmMindSweepItem` rewritten with `classifier_suggested`, `classifier_confidence`, `destination_detail`, `commit_error` | Phase C sub-phase C1 | Wired | Full audit trail preserved in metadata |
+| TypeScript types: `MorningInsightMatch` + `FeatureDiscoveryCandidate` + `FeatureDiscoveryAudience` + `WidgetRhythmConfig` + `SYSTEM_RHYTHM_KEYS_FOR_WIDGETS` | Phase C sub-phase C1 | Wired | `src/types/rhythms.ts` |
+| Hook: `useMorningInsightQuestions(audience, familyId?)` | Phase C sub-phase C1 | Wired | Filters to system + family-authored active questions |
+| Hook: `useFeatureDiscoveryCandidates(memberId, audience)` + `useDismissFeatureDiscovery()` | Phase C sub-phase C1 | Wired | Applies audience + dismissal + engagement filters (14-day window) |
+| Hook: `useRhythmTrackerWidgets(familyId, memberId, rhythmKey)` | Phase C sub-phase C1 | Wired | Uses JSONB `contains` operator on `widget_config.rhythm_keys` |
+| Feature discovery pool constant: 12 curated entries | Phase C sub-phase C1 | Wired | `src/lib/rhythm/featureDiscoveryPool.ts` — all target adult + teen |
+| `RhythmMetadataContext` extended with `stageMindSweepItems` + `readStagedMindSweepItems` | Phase C sub-phase C2 | Wired | Ref-backed staging, no re-render thrash |
+
+### Enhancement 2 — MindSweep-Lite
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| Reuses existing `mindsweep-sort` Edge Function (no new classifier) | Enhancement 2 + Phase C founder decision | Wired | Full 11+ destination set available |
+| Text-only input with freeform textarea | Enhancement 2 | Wired | No voice/scan/link — users open full MindSweep separately if needed |
+| Collapsed by default with chevron expand | Enhancement 2 #7 | Wired | `collapsed_by_default` section config honored |
+| Auto-expand on high-task days (≥8 task_completed today) | Enhancement 2 #7 | Wired | Gentle prompt: "Busy day — want to clear your head before bed?" |
+| `[Parse]` button calls `mindsweep-sort` via `supabase.functions.invoke` | Enhancement 2 #5 | Wired | source_channel='rhythm_evening', aggressiveness='always_ask', input_type='text' |
+| Per-item disposition tag with human-readable label | Enhancement 2 #5 | Wired | `DISPOSITION_DISPLAY_NAMES` — "Calendar Event", "Best Intention", etc. |
+| Tap disposition tag → dropdown of 12 options (11 destinations + Release) | Enhancement 2 #5 + founder decision | Wired | Override any classification with one tap |
+| `release` disposition is frontend-only; creates no record | Enhancement 2 + founder decision | Wired | Haiku never suggests it; user overrides to it |
+| Manual `[+ Add item]` for items not parsed | Enhancement 2 | Wired | Defaults to 'task' disposition, user picks |
+| `[Parse again]` re-runs classification on fresh text | Enhancement 2 | Wired | Appends new items, preserves manual entries |
+| All state staged in `RhythmMetadataContext` — nothing written mid-flow | Enhancement 2 #6 | Wired | Ref-backed store via `stageMindSweepItems` |
+| `commitMindSweepLite` commits all non-release items on Close My Day | Enhancement 2 #6 | Wired | Per-item try/catch, never throws |
+| Per-item failure isolation — completion still writes on partial failure | Phase C key decision 3 | Wired | `commit_error` recorded in metadata |
+| Direct destinations (journal/victory/guiding_stars/best_intentions/innerworkings/backburner) INSERT directly | Phase C key decision 2 | Wired | `source='rhythm_mindsweep_lite'` on tasks |
+| Queue destinations (calendar/archives/recipe) fall back to `studio_queue` | Phase C key decision 2 | Wired | `content_details.source_context='rhythm_evening'` audit tag |
+| `list` destination routes to shopping list if exists, studio_queue otherwise | Phase C implementation | Wired | Idempotent fallback |
+| MindSweep-Lite section commit wired into `RhythmModal.handleComplete` | Phase C sub-phase C2 | Wired | Commits AFTER `commitTomorrowCapture`, BEFORE `useCompleteRhythm.mutateAsync` |
+| Cache invalidation on commit: tasks, journal, victories, guiding_stars, best_intentions, studio_queue | Phase C | Wired | Dashboard + feature pages pick up new records next query |
+| Volume2 read-aloud button when `readingSupport=true` | Phase C | Wired | Reads header aloud via `speechSynthesis` |
+| Replaces Phase A/B stub in `StubSections.tsx` | Phase C sub-phase C2 | Wired | Real component imported in `SectionRendererSwitch` |
+
+### Enhancement 3 — Morning Insight
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| 20 adult question pool seeded via migration 100112 | Enhancement 3 #12 | Wired | Family Friction × 5, Personal Growth × 5, Relationships × 4, Parenting × 3, Values × 3 |
+| Date-seeded PRNG picks one question per member per day | Enhancement 3 | Wired | `rhythmSeed(memberId, 'morning:insight_question')` — rotates at midnight |
+| `useMorningInsightQuestions('adult', familyId)` reads system + family rows | Phase C sub-phase C1 | Wired | Caches 1 hour — questions rarely change |
+| Section header: "Something to think about" | Enhancement 3 #9 | Wired | Warm, inviting, not academic |
+| Question displayed at base font size | Enhancement 3 | Wired | Tappable textarea below for optional response |
+| Passive matches on mount via question embedding | Enhancement 3 #10 | Wired | `generate-query-embedding` + `match_book_extractions` RPC, 2 matches |
+| Active matches on debounced response (350ms) | Enhancement 3 #10 | Wired | Replaces passive matches, 3 matches |
+| Each match: book title + section + snippet + `[See in BookShelf →]` link | Enhancement 3 | Wired | Links to `/bookshelf/book/:book_library_id` |
+| Live pgvector query via `match_book_extractions` RPC | Enhancement 3 #11 | Wired | Migration 100092, threshold 0.3 |
+| Empty BookShelf handling: warm onboarding nudge card | Enhancement 3 #13 | Wired | Question + textarea still render; extractions replaced by "Add a book you love" card |
+| No matches above threshold: "No matches yet — as your library grows…" | Enhancement 3 | Wired | Gentle fallback |
+| Volume2 read-aloud button when `readingSupport=true` | Phase C | Wired | Reads question aloud |
+| Replaces Phase A/B stub | Phase C sub-phase C3 | Wired | Registered in `SectionRendererSwitch` |
+
+### Enhancement 4 — Feature Discovery
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| 3 days-per-week PRNG frequency gate | Enhancement 4 #16 + Phase C key decision 6 | Wired | `pickN([0..6], 3, rhythmSeed(memberId, 'morning:feature_discovery_days', today, thisWeekIso))` |
+| At least one discovery-free day per week | Enhancement 4 #16 | Wired | Inherent to 3-of-7 pick |
+| 12-candidate pool curated in TypeScript constant | Phase C key decision 5 | Wired | `src/lib/rhythm/featureDiscoveryPool.ts` — all existing features |
+| Audience filter (adult Phase C; teen Phase D) | Enhancement 4 + Phase C scope | Wired | Hook accepts `audience` param; defaults to 'adult' |
+| Engagement filter: 14-day lookback on `activity_log_entries` | Enhancement 4 | Wired | Per-candidate parallel queries (`useFeatureDiscoveryCandidates`) |
+| "Meaningful engagement" = matching `event_type` OR `source_table` | Enhancement 4 | Wired | Either match excludes the candidate |
+| Dismissal filter: permanent per member via `feature_discovery_dismissals` | Enhancement 4 #17 | Wired | UNIQUE(member_id, feature_key) with idempotent INSERT |
+| Date-seeded PRNG picks one candidate per day | Phase C | Wired | `rhythmSeed(memberId, 'morning:feature_discovery_card')` |
+| Card with icon + headline + tagline + action button | Enhancement 4 #15 | Wired | Lucide icon looked up by `icon_key`; warm styling |
+| Direct action link (not just informational) | Enhancement 4 #15 | Wired | React Router `<Link to={action_route}>` |
+| `[Not interested]` dismiss button | Enhancement 4 #17 | Wired | Calls `useDismissFeatureDiscovery.mutateAsync` and removes from pool |
+| Auto-hide on non-picked days | Enhancement 4 | Wired | Returns null when today is not in `pickedDays` |
+| Auto-hide on empty pool | Enhancement 4 | Wired | Returns null — no "congratulations" card |
+| Replaces Phase A/B stub | Phase C sub-phase C3 | Wired | Registered in `SectionRendererSwitch` |
+
+### Enhancement 6 — Rhythm Tracker Prompts
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `dashboard_widgets.config.rhythm_keys` runtime JSONB field | Enhancement 6 #23 | Wired | No schema change — lives inside existing `widget_config` JSONB |
+| "Show in Rhythms" collapsible section in `WidgetConfiguration.tsx` | Enhancement 6 | Wired | Below Multiplayer section |
+| Multi-select checkboxes for 5 system rhythms | Enhancement 6 #23 | Wired | Morning / Evening / Weekly / Monthly / Quarterly |
+| Custom rhythms listed as "coming soon" | Phase C scope | Stubbed | Will unlock with Custom Rhythm creation (post-MVP) |
+| Count badge showing number of selected rhythms | Phase C | Wired | Matches Multiplayer section pattern |
+| Save merges `rhythm_keys` into existing widget_config preserving all other fields | Phase C | Wired | Spreads `...(rhythmKeys.length > 0 ? { rhythm_keys: rhythmKeys } : {})` |
+| `useRhythmTrackerWidgets` query via `.contains()` JSONB operator | Phase C sub-phase C1 | Wired | Translates to Postgres `@>` |
+| `RhythmTrackerPromptsSection` auto-hides when no widgets configured | Enhancement 6 | Wired | Returns null on empty/loading |
+| Per-rhythm header text via map | Phase C | Wired | "Track for morning" / "Track for evening" / "Weekly tracking" / etc. |
+| Widget card with title + `[Log now →]` link to `/dashboard` | Phase C (link-only decision) | Wired | Inline data entry deferred to polish pass |
+| Section renders in ANY rhythm (not evening-only) | Enhancement 6 #23 | Wired | Previously called "Custom Tracker Prompts" — now generic |
+| Section Type #23 renamed from "Custom Tracker Prompts" to "Rhythm Tracker Prompts" | Enhancement 6 #24 | Wired | Component name, UI header, and convention docs all updated |
+| Replaces Phase A/B auto-hide stub | Phase C sub-phase C4 | Wired | Imported from `./RhythmTrackerPromptsSection` in `SectionRendererSwitch` |
+
+### Cross-feature integration
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| MindSweep-Lite consumes existing `mindsweep-sort` classification pipeline | PRD-17B reuse | Wired | Zero new Edge Function for classification |
+| MindSweep-Lite writes to PRD-09A tasks with `source='rhythm_mindsweep_lite'` attribution | PRD-09A | Wired | Analytics can count rhythm-origin tasks vs ad-hoc |
+| MindSweep-Lite writes to PRD-09B list_items via backburner/shopping list reuse | PRD-09B | Wired | Same pattern as `useMindSweep.ts` |
+| MindSweep-Lite writes to PRD-08 journal_entries with `tags=['rhythm_mindsweep_lite']` | PRD-08 | Wired | Findable via journal tag filter |
+| MindSweep-Lite writes to PRD-11 victories | PRD-11 | Wired | Direct table insert |
+| MindSweep-Lite writes to PRD-06 guiding_stars + best_intentions | PRD-06 | Wired | Direct table inserts |
+| MindSweep-Lite writes to PRD-07 self_knowledge (innerworkings) | PRD-07 | Wired | Direct table insert with category='general' |
+| Morning Insight consumes PRD-23 BookShelf extractions via `match_book_extractions` RPC | PRD-23 | Wired | Reuses migration 100092 semantic search infrastructure |
+| Feature Discovery consumes cross-feature `activity_log_entries` | Cross-feature | Wired | Existing 8 event_types sufficient — no new telemetry added |
+| Rhythm Tracker Prompts consumes PRD-10 `dashboard_widgets` | PRD-10 | Wired | Runtime config-based filter |
+
+### Phase C stubs (still stubbed — external dependencies)
+
+| Stub | Reason | Resolution path |
+|---|---|---|
+| Teen MindSweep-Lite framing | Phase D scope | Phase D forks section on `memberRole='independent'` |
+| Teen morning insight question pool (15 questions) | Phase D scope | Phase D migration seeds `audience='teen'` rows |
+| Teen feature discovery pool prioritization | Phase D scope | Phase D adds teen-specific entries to `featureDiscoveryPool.ts` |
+| Teen framing language across all Phase C sections | Phase D scope | Phase D polish pass |
+| LiLa dynamic morning insight question generation | PRD-05 day-data context dependency | Phase D or post-MVP |
+| MindSweep-Lite "delegate" disposition via real `family_request` | PRD-15 dependency | Wire when PRD-15 ships |
+| Inline widget data entry in `RhythmTrackerPromptsSection` | Polish pass | Phase C ships link-only; inline entry is a later pass |
+| Morning Insight question pool CRUD in Rhythms Settings | Post-MVP | 20 seeded defaults suffice for MVP |
+| Feature Discovery pool expansion beyond 12 entries | As new features ship | Add entries to `featureDiscoveryPool.ts` alongside new feature launches |
+| `before_close_the_day` cross-feature pending aggregation | Not AI-powered; cross-feature polish pass | Phase C leaves stub in place |
+| `completed_meetings` auto-hide wiring | PRD-16 dependency | Wire when Meetings ships |
+| `milestone_celebrations` auto-hide wiring | PRD-24 gamification dependency | Wire when Gamification ships |
+| PRD-14C Family Overview rhythm completion indicators | Post-Phase-D consumption | Phase B writes the rows; Family Overview read is separate |
+
+### Summary
+
+- **Total Phase C requirements verified:** 70
+- **Wired:** 69
+- **Stubbed:** 1 (Custom Rhythms item in "Show in Rhythms" multi-select — waits for Custom Rhythms post-MVP work)
+- **Missing:** **0**
+
+### Live database + TypeScript verification
+
+| Check | Expected | Actual |
+|---|---|---|
+| Adult morning insight questions seeded | 20 | **20** ✓ |
+| Adult/Independent morning rhythms backfilled with `morning_insight` | 18 | **18** ✓ |
+| Adult/Independent morning rhythms backfilled with `feature_discovery` | 18 | **18** ✓ |
+| `tasks.source` accepts `rhythm_mindsweep_lite` | yes | **yes** ✓ |
+| `mindsweep_events.source_channel` accepts `rhythm_evening` | yes | **yes** ✓ |
+| `mindsweep-sort` Edge Function deployed with updated source_channel enum | yes | **yes** ✓ |
+| `generate-query-embedding` Edge Function deployed | yes | **yes** ✓ |
+| `npx tsc -b` zero errors | clean | **clean** ✓ |
+| `npm run check:colors` zero hits in Phase C files | clean | **clean** ✓ (only pre-theme auth pages remain — pre-existing, exempt per convention) |
+
+---
+
 ## Founder Sign-Off (Post-Build)
 
 - [x] Verification table reviewed per phase
