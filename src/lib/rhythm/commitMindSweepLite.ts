@@ -8,19 +8,21 @@
  * (classified by mindsweep-sort, possibly user-overridden, stored in
  * RhythmMetadataContext) and routes each item per its disposition:
  *
- *   release        → no record (value is in the act of naming/releasing)
- *   task           → INSERT tasks with source='rhythm_mindsweep_lite'
- *   list           → INSERT into member's shopping list (find or skip)
- *   calendar       → route to studio_queue (approval flow — calendar
- *                    parsing is complex and belongs in CalendarTab)
- *   journal        → INSERT journal_entries (private by default)
- *   victory        → INSERT victories
- *   guiding_stars  → INSERT guiding_stars
+ *   release         → no record (value is in the act of naming/releasing)
+ *   task            → INSERT tasks with source='rhythm_mindsweep_lite'
+ *   list            → INSERT into member's shopping list (find or skip)
+ *   calendar        → route to studio_queue (approval flow — calendar
+ *                     parsing is complex and belongs in CalendarTab)
+ *   journal         → INSERT journal_entries (private by default)
+ *   victory         → INSERT victories
+ *   guiding_stars   → INSERT guiding_stars
  *   best_intentions → INSERT best_intentions
- *   backburner     → INSERT into member's backburner list
- *   innerworkings  → INSERT self_knowledge (category='general')
- *   archives       → route to studio_queue (archive folder picker)
- *   recipe         → route to studio_queue (dual routing handled there)
+ *   backburner      → INSERT into member's backburner list
+ *   innerworkings   → INSERT self_knowledge (category='general')
+ *   archives        → route to studio_queue (archive folder picker)
+ *   recipe          → route to studio_queue (dual routing handled there)
+ *   family_request  → INSERT family_requests with source='mindsweep_auto'
+ *                     (Build L.1 — PRD-15 delegation wiring)
  *
  * Error handling: per-item try/catch. If one item's write fails, its
  * `commit_error` is set and other items continue. The whole function
@@ -32,7 +34,7 @@
  * rather than a reuse — the rhythm use case needs:
  *   - A different source attribution (`rhythm_mindsweep_lite` vs `mindsweep_auto`)
  *   - Full per-item error isolation (not all-or-nothing)
- *   - Release as a first-class disposition
+ *   - Release + family_request as first-class dispositions
  * Mirroring keeps this function self-contained and safe to evolve.
  */
 
@@ -45,6 +47,17 @@ export interface StagedMindSweepLiteItem {
   classifier_suggested: RhythmMindSweepItem['disposition']
   classifier_confidence?: string
   destination_detail?: Record<string, unknown> | null
+  /**
+   * For `family_request` disposition: which family member the request
+   * should be sent to. Populated by MindSweepLiteSection when the
+   * mindsweep-sort classifier detects a cross-member reference
+   * (cross_member_id + cross_member_action='suggest_route'). Required
+   * at commit time for family_request items — if missing, the item
+   * falls back to `task` disposition to prevent orphan requests.
+   */
+  recipient_member_id?: string | null
+  /** Display name for UI rendering of the recipient chip. */
+  recipient_name?: string | null
 }
 
 export interface CommitMindSweepLiteParams {
@@ -71,12 +84,25 @@ export async function commitMindSweepLite({
   const enriched: RhythmMindSweepItem[] = []
 
   for (const item of populated) {
+    // Preserve recipient metadata on the enriched record so audit
+    // history + future rendering can show who the request went to.
+    const detailWithRecipient: Record<string, unknown> = {
+      ...(item.destination_detail ?? {}),
+    }
+    if (item.recipient_member_id) {
+      detailWithRecipient.recipient_member_id = item.recipient_member_id
+    }
+    if (item.recipient_name) {
+      detailWithRecipient.recipient_name = item.recipient_name
+    }
+
     const base: RhythmMindSweepItem = {
       text: item.text.trim(),
       disposition: item.disposition,
       classifier_suggested: item.classifier_suggested,
       classifier_confidence: item.classifier_confidence,
-      destination_detail: item.destination_detail ?? null,
+      destination_detail:
+        Object.keys(detailWithRecipient).length > 0 ? detailWithRecipient : null,
       created_record_id: null,
       created_record_type: null,
     }
@@ -87,10 +113,20 @@ export async function commitMindSweepLite({
       continue
     }
 
+    // Family request without a resolved recipient can't be routed —
+    // fall back to a task so the intent isn't lost. The recipient
+    // name (if known) is preserved in destination_detail for context.
+    let effectiveItem = item
+    if (item.disposition === 'family_request' && !item.recipient_member_id) {
+      effectiveItem = { ...item, disposition: 'task' }
+    }
+
     try {
-      const result = await routeItem(item, familyId, memberId)
+      const result = await routeItem(effectiveItem, familyId, memberId)
       enriched.push({
         ...base,
+        // Reflect the effective disposition if it was auto-downgraded
+        disposition: effectiveItem.disposition,
         created_record_id: result.id,
         created_record_type: result.type,
       })
@@ -139,6 +175,39 @@ async function routeItem(
         .single()
       if (error) throw error
       return { id: data.id as string, type: 'task' }
+    }
+
+    case 'family_request': {
+      // PRD-18 Phase C follow-up (Build L.1) — Build M wiring of the
+      // MindSweep-Lite delegate disposition into PRD-15's family_requests
+      // table. The caller guarantees recipient_member_id is present
+      // (the wrapper downgrades to 'task' if it isn't), so this path
+      // can trust the value. source='mindsweep_auto' matches the
+      // PRD-17B cross-PRD impact addendum convention for cross-member
+      // items originated by the sweep pipeline.
+      if (!item.recipient_member_id) {
+        // Defensive — the wrapper should have downgraded to 'task'
+        throw new Error('family_request missing recipient_member_id')
+      }
+      // family_requests has a separate title + details split. Keep the
+      // title short; put the full text in details if longer than the
+      // title limit so nothing is truncated silently.
+      const title = content.length <= 200 ? content : content.slice(0, 197) + '…'
+      const { data, error } = await supabase
+        .from('family_requests')
+        .insert({
+          family_id: familyId,
+          sender_member_id: memberId,
+          recipient_member_id: item.recipient_member_id,
+          title,
+          details: content.length > 200 ? content : null,
+          status: 'pending',
+          source: 'mindsweep_auto',
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      return { id: data.id as string, type: 'family_request' }
     }
 
     case 'journal': {

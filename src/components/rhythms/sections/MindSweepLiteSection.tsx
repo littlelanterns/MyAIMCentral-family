@@ -50,6 +50,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useRhythmMetadataStaging } from '../RhythmMetadataContext'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import {
   DISPOSITION_DISPLAY_NAMES,
   DISPOSITION_PICK_ORDER,
@@ -58,6 +59,7 @@ import {
 import type {
   MindSweepSortRequest,
   MindSweepSortResult,
+  FamilyMemberName,
 } from '@/types/mindsweep'
 import type { StagedMindSweepLiteItem } from '@/lib/rhythm/commitMindSweepLite'
 import { todayLocalIso } from '@/utils/dates'
@@ -112,6 +114,30 @@ export function MindSweepLiteSection({
 }: Props) {
   const { stageMindSweepItems } = useRhythmMetadataStaging()
 
+  // ─── Family members (for cross-member detection) ───────────
+  // Build L.1: feeds mindsweep-sort's detectCrossMember so the
+  // classifier can recognize delegation language like "ask Tenise"
+  // and return cross_member_id + cross_member_action='suggest_route'
+  // which we promote to disposition='family_request' below.
+  // Excludes the current member — "ask myself" shouldn't delegate.
+  const { data: allFamilyMembers = [] } = useFamilyMembers(familyId)
+  const familyMemberNames: FamilyMemberName[] = useMemo(
+    () =>
+      allFamilyMembers
+        .filter(m => m.id !== memberId && m.is_active)
+        .map(m => ({
+          id: m.id,
+          display_name: m.display_name,
+          nicknames: m.nicknames ?? [],
+        })),
+    [allFamilyMembers, memberId],
+  )
+  const memberNameLookup = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of allFamilyMembers) map.set(m.id, m.display_name)
+    return map
+  }, [allFamilyMembers])
+
   // ─── Auto-expand heuristic ─────────────────────────────────
   // Query today's task_completed activity log count. If >= threshold,
   // the section auto-expands with a gentle prompt.
@@ -155,6 +181,8 @@ export function MindSweepLiteSection({
         classifier_suggested: i.classifier_suggested,
         classifier_confidence: i.classifier_confidence,
         destination_detail: i.destination_detail,
+        recipient_member_id: i.recipient_member_id,
+        recipient_name: i.recipient_name,
       }))
     stageMindSweepItems(toStage)
   }, [items, stageMindSweepItems])
@@ -174,7 +202,7 @@ export function MindSweepLiteSection({
         custom_review_rules: [],
         source_channel: 'rhythm_evening',
         input_type: 'text',
-        family_member_names: [],
+        family_member_names: familyMemberNames,
       }
 
       const response = await supabase.functions.invoke('mindsweep-sort', {
@@ -195,16 +223,35 @@ export function MindSweepLiteSection({
       }
 
       // Append new items to any existing ones (Parse again behavior)
+      // Build L.1: cross-member detection promotes actionable items to
+      // disposition='family_request' so mom's "ask Dad" / "remind Sarah"
+      // flow directly into the PRD-15 requests pipeline on Close My Day.
       let key = nextKey
       const newItems: WorkingItem[] = results.map(r => {
-        const disposition = normalizeDestination(r.destination)
+        const classifierDestination = normalizeDestination(r.destination)
+        const isActionableCrossMember =
+          r.cross_member_action === 'suggest_route' && !!r.cross_member_id
+        const disposition: MindSweepLiteDisposition = isActionableCrossMember
+          ? 'family_request'
+          : classifierDestination
+        const recipient_member_id = isActionableCrossMember
+          ? (r.cross_member_id ?? null)
+          : null
+        const recipient_name = recipient_member_id
+          ? memberNameLookup.get(recipient_member_id) ?? r.cross_member ?? null
+          : null
         return {
           key: key++,
           text: r.extracted_text,
           disposition,
-          classifier_suggested: disposition,
+          // classifier_suggested stays as what the destination classifier
+          // would have picked (task/calendar/etc.) — the cross-member
+          // promotion is a UX-layer decision, not a classification.
+          classifier_suggested: classifierDestination,
           classifier_confidence: r.confidence,
           destination_detail: r.destination_detail ?? null,
+          recipient_member_id,
+          recipient_name,
         }
       })
       setItems(prev => [...prev, ...newItems])
@@ -219,7 +266,7 @@ export function MindSweepLiteSection({
     } finally {
       setParsing(false)
     }
-  }, [rawText, familyId, memberId, nextKey])
+  }, [rawText, familyId, memberId, nextKey, familyMemberNames, memberNameLookup])
 
   const handleAddManualItem = () => {
     setItems(prev => [
@@ -247,8 +294,44 @@ export function MindSweepLiteSection({
     key: number,
     disposition: MindSweepLiteDisposition,
   ) => {
-    setItems(prev => prev.map(i => (i.key === key ? { ...i, disposition } : i)))
+    setItems(prev =>
+      prev.map(i => {
+        if (i.key !== key) return i
+        // When switching OFF family_request, clear recipient. When
+        // switching TO family_request without an existing recipient,
+        // auto-select the first available member (mom can change it
+        // with the inline picker below the item).
+        if (i.disposition === 'family_request' && disposition !== 'family_request') {
+          return { ...i, disposition, recipient_member_id: null, recipient_name: null }
+        }
+        if (disposition === 'family_request' && !i.recipient_member_id && familyMemberNames.length > 0) {
+          const first = familyMemberNames[0]
+          return {
+            ...i,
+            disposition,
+            recipient_member_id: first.id,
+            recipient_name: first.display_name,
+          }
+        }
+        return { ...i, disposition }
+      }),
+    )
     setOpenDropdownKey(null)
+  }
+
+  const handleUpdateRecipient = (key: number, recipientId: string) => {
+    const recipient = allFamilyMembers.find(m => m.id === recipientId)
+    setItems(prev =>
+      prev.map(i =>
+        i.key === key
+          ? {
+              ...i,
+              recipient_member_id: recipientId,
+              recipient_name: recipient?.display_name ?? null,
+            }
+          : i,
+      ),
+    )
   }
 
   const readAloudHeader = useCallback(() => {
@@ -399,83 +482,121 @@ export function MindSweepLiteSection({
 
       {items.length > 0 && (
         <ul className="space-y-2 pt-2">
-          {items.map(item => (
-            <li
-              key={item.key}
-              className="rounded-lg p-2 flex items-start gap-2"
-              style={{
-                background: 'var(--color-bg-secondary)',
-                border: '1px solid var(--color-border-subtle)',
-              }}
-            >
-              <input
-                type="text"
-                value={item.text}
-                onChange={e => handleUpdateItemText(item.key, e.target.value)}
-                placeholder="(blank — add text or remove)"
-                className="flex-1 bg-transparent text-sm px-1 py-0.5"
-                style={{ color: 'var(--color-text-primary)' }}
-              />
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenDropdownKey(openDropdownKey === item.key ? null : item.key)
-                  }
-                  className="text-xs px-2 py-1 rounded-md inline-flex items-center gap-1"
-                  style={{
-                    background:
-                      item.disposition === 'release'
-                        ? 'color-mix(in srgb, var(--color-text-secondary) 15%, transparent)'
-                        : 'color-mix(in srgb, var(--color-accent-deep) 12%, transparent)',
-                    color:
-                      item.disposition === 'release'
-                        ? 'var(--color-text-secondary)'
-                        : 'var(--color-accent-deep)',
-                  }}
-                >
-                  {DISPOSITION_DISPLAY_NAMES[item.disposition]}
-                  <ChevronDown size={12} />
-                </button>
-                {openDropdownKey === item.key && (
-                  <div
-                    className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 min-w-40"
-                    style={{
-                      background: 'var(--color-bg-card)',
-                      border: '1px solid var(--color-border-default)',
-                    }}
-                  >
-                    {DISPOSITION_PICK_ORDER.map(opt => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => handleUpdateDisposition(item.key, opt)}
-                        className="w-full text-left text-xs px-3 py-1.5"
+          {items.map(item => {
+            const isFamilyRequest = item.disposition === 'family_request'
+            return (
+              <li
+                key={item.key}
+                className="rounded-lg p-2"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border-subtle)',
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <input
+                    type="text"
+                    value={item.text}
+                    onChange={e => handleUpdateItemText(item.key, e.target.value)}
+                    placeholder="(blank — add text or remove)"
+                    className="flex-1 bg-transparent text-sm px-1 py-0.5"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenDropdownKey(openDropdownKey === item.key ? null : item.key)
+                      }
+                      className="text-xs px-2 py-1 rounded-md inline-flex items-center gap-1"
+                      style={{
+                        background:
+                          item.disposition === 'release'
+                            ? 'color-mix(in srgb, var(--color-text-secondary) 15%, transparent)'
+                            : 'color-mix(in srgb, var(--color-accent-deep) 12%, transparent)',
+                        color:
+                          item.disposition === 'release'
+                            ? 'var(--color-text-secondary)'
+                            : 'var(--color-accent-deep)',
+                      }}
+                    >
+                      {DISPOSITION_DISPLAY_NAMES[item.disposition]}
+                      <ChevronDown size={12} />
+                    </button>
+                    {openDropdownKey === item.key && (
+                      <div
+                        className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 min-w-40"
                         style={{
-                          color: 'var(--color-text-primary)',
-                          background:
-                            item.disposition === opt
-                              ? 'color-mix(in srgb, var(--color-accent-deep) 10%, transparent)'
-                              : 'transparent',
+                          background: 'var(--color-bg-card)',
+                          border: '1px solid var(--color-border-default)',
                         }}
                       >
-                        {DISPOSITION_DISPLAY_NAMES[opt]}
-                      </button>
-                    ))}
+                        {DISPOSITION_PICK_ORDER.map(opt => {
+                          // Hide family_request option if there are no
+                          // other family members — nothing to delegate to.
+                          if (opt === 'family_request' && familyMemberNames.length === 0) {
+                            return null
+                          }
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => handleUpdateDisposition(item.key, opt)}
+                              className="w-full text-left text-xs px-3 py-1.5"
+                              style={{
+                                color: 'var(--color-text-primary)',
+                                background:
+                                  item.disposition === opt
+                                    ? 'color-mix(in srgb, var(--color-accent-deep) 10%, transparent)'
+                                    : 'transparent',
+                              }}
+                            >
+                              {DISPOSITION_DISPLAY_NAMES[opt]}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(item.key)}
+                    className="p-1"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                    aria-label="Remove item"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                {isFamilyRequest && familyMemberNames.length > 0 && (
+                  <div className="mt-2 flex items-center gap-2 pl-1">
+                    <span
+                      className="text-xs"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      Send to:
+                    </span>
+                    <select
+                      value={item.recipient_member_id ?? ''}
+                      onChange={e => handleUpdateRecipient(item.key, e.target.value)}
+                      className="text-xs rounded-md px-2 py-1"
+                      style={{
+                        background: 'var(--color-bg-card)',
+                        color: 'var(--color-text-primary)',
+                        border: '1px solid var(--color-border-default)',
+                      }}
+                    >
+                      {familyMemberNames.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.display_name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRemoveItem(item.key)}
-                className="p-1"
-                style={{ color: 'var(--color-text-secondary)' }}
-                aria-label="Remove item"
-              >
-                <X size={14} />
-              </button>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
 

@@ -1012,7 +1012,6 @@ This is a large build. Recommended 4 sub-phases that respect dependency order an
 | Teen feature discovery pool prioritization | Phase D scope | Phase D adds teen-specific entries to `featureDiscoveryPool.ts` |
 | Teen framing language across all Phase C sections | Phase D scope | Phase D polish pass |
 | LiLa dynamic morning insight question generation | PRD-05 day-data context dependency | Phase D or post-MVP |
-| MindSweep-Lite "delegate" disposition via real `family_request` | PRD-15 dependency | Wire when PRD-15 ships |
 | Inline widget data entry in `RhythmTrackerPromptsSection` | Polish pass | Phase C ships link-only; inline entry is a later pass |
 | Morning Insight question pool CRUD in Rhythms Settings | Post-MVP | 20 seeded defaults suffice for MVP |
 | Feature Discovery pool expansion beyond 12 entries | As new features ship | Add entries to `featureDiscoveryPool.ts` alongside new feature launches |
@@ -1023,10 +1022,40 @@ This is a large build. Recommended 4 sub-phases that respect dependency order an
 
 ### Summary
 
-- **Total Phase C requirements verified:** 70
-- **Wired:** 69
+- **Total Phase C requirements verified:** 72 (70 initial + 2 from Build L.1 follow-up)
+- **Wired:** 71
 - **Stubbed:** 1 (Custom Rhythms item in "Show in Rhythms" multi-select — waits for Custom Rhythms post-MVP work)
 - **Missing:** **0**
+
+### Build L.1 follow-up (2026-04-07) — MindSweep-Lite delegate wiring + family_member_names bug fix
+
+Post-ship audit caught two related issues:
+  1. **`family_member_names: []` bug** — `MindSweepLiteSection` was passing an empty array to `mindsweep-sort`, which meant the Edge Function's existing `detectCrossMember()` helper had nothing to match against. Any "ask Tenise" / "remind Dad" / "tell the girls" reference was invisible to the classifier during the rhythm evening flow. The section had no way to detect delegation intent at all.
+  2. **PRD-15 was already shipped** — my Phase C verification claimed `family_request` commit path was a "PRD-15 dependency — wire when PRD-15 ships," but PRD-15 Phases A through E + Messages group manager fix had all landed before Phase C started. `family_requests` table, RLS, hooks, and Universal Queue Modal Requests tab were fully functional. The blocker I documented didn't exist.
+
+Build L.1 wired both:
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `MindSweepLiteSection` passes real `family_member_names` to `mindsweep-sort` | Build L.1 bug fix | Wired | Pulled from `useFamilyMembers(familyId)`, excludes current member + inactive members, includes `nicknames` array |
+| `MindSweepLiteDisposition` union adds `'family_request'` | Build L.1 | Wired | Frontend-only override disposition (like `release`) |
+| `DISPOSITION_DISPLAY_NAMES['family_request'] = 'Send as Request'` | Build L.1 | Wired | Human-readable label for the tag UI |
+| `DISPOSITION_PICK_ORDER` includes `family_request` at position 2 (after task) | Build L.1 | Wired | Action-oriented options grouped at the top |
+| `RhythmMindSweepItem.created_record_type` accepts `'family_request'` | Build L.1 | Wired | Audit metadata now records delegation writes |
+| `StagedMindSweepLiteItem` carries `recipient_member_id` + `recipient_name` | Build L.1 | Wired | Required for family_request commit path |
+| Cross-member detection promotes `cross_member_action='suggest_route'` results to `family_request` disposition | Build L.1 Option B | Wired | Happens entirely in `MindSweepLiteSection.handleParse` — no `mindsweep-sort` change needed |
+| Recipient dropdown under family_request items | Build L.1 | Wired | Mom can override the auto-detected recipient or set one on manually-picked items |
+| User-picked `family_request` disposition auto-selects first family member as default recipient | Build L.1 | Wired | Prevents empty-recipient state |
+| `family_request` disposition hidden from dropdown when no other family members exist | Build L.1 | Wired | Graceful degradation (solo mom use case) |
+| `commitMindSweepLite.routeItem` case `'family_request'` INSERTs into `family_requests` | Build L.1 | Wired | `sender_member_id=memberId`, `recipient_member_id=item.recipient_member_id`, `source='mindsweep_auto'`, `status='pending'` |
+| Title ≤ 200 chars; longer text goes into `details` to avoid truncation | Build L.1 | Wired | Splits cleanly without silent data loss |
+| Defensive fallback: `family_request` without resolved recipient → auto-downgrade to `task` | Build L.1 | Wired | Wrapper in `commitMindSweepLite` handles edge case; prevents orphan requests |
+| Recipient metadata preserved in `rhythm_completions.metadata.mindsweep_items[*].destination_detail` | Build L.1 | Wired | `recipient_member_id` + `recipient_name` stored for audit/history rendering |
+| `family-requests` + `family-requests-sent` cache invalidation on commit | Build L.1 | Wired | `RhythmModal.handleComplete` invalidates both PRD-15 hook keys |
+| RLS verified: `fr_insert_own` policy allows member to INSERT where `sender_member_id` matches their auth.uid-mapped family_member row | Migration 100098 (pre-existing) | Wired | `commitMindSweepLite` runs client-side, works per spec |
+| PRD-15 dependency line corrected in this file | Build L.1 documentation | Wired | Previous "PRD-15 dependency — wire when PRD-15 ships" claim removed; PRD-15 was always shipped |
+
+**Total Build L.1 requirements:** 16 wired, 0 stubbed, 0 missing. `tsc -b` clean after all changes.
 
 ### Live database + TypeScript verification
 

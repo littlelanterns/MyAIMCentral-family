@@ -148,6 +148,11 @@ function RhythmModalInner({ config, familyId, memberId, isOpen, onClose, reading
         queryClient.invalidateQueries({ queryKey: ['guiding-stars'] })
         queryClient.invalidateQueries({ queryKey: ['best-intentions'] })
         queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+        // Build L.1: family_request disposition writes to family_requests,
+        // invalidate both inbox and sent-items queries so the Queue Modal
+        // Requests tab + any sent-items view refresh immediately.
+        queryClient.invalidateQueries({ queryKey: ['family-requests'] })
+        queryClient.invalidateQueries({ queryKey: ['family-requests-sent'] })
       }
     }
 

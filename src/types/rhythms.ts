@@ -180,19 +180,24 @@ export interface RhythmPriorityItem {
  *
  * Phase C decision: reuse the full `mindsweep-sort` destination set
  * (NOT a simplified 5-disposition "lite" classifier). The only
- * addition unique to MindSweep-Lite is `release` — a frontend-only
- * override disposition that creates no record. Haiku never suggests
- * it; users override to release when they want to acknowledge a
- * thought without creating anything.
+ * additions unique to MindSweep-Lite are:
+ *   - `release` — frontend-only override that creates no record
+ *   - `family_request` — frontend-only override for items mentioning
+ *     another family member with actionable intent, routed to the
+ *     existing PRD-15 `family_requests` table (Build L.1 follow-up)
  *
  * Destination set mirrors `mindsweep-sort` CLASSIFICATION_CATEGORIES:
  * task, list, calendar, journal, victory, guiding_stars, best_intentions,
- * backburner, innerworkings, archives, recipe — plus release (Phase C).
+ * backburner, innerworkings, archives, recipe — plus release and
+ * family_request (Phase C + Build L.1).
  *
  * Teen dispositions (journal_about_it, talk_to_someone, let_it_go) are
  * Phase D scope. When Phase D lands, the teen-tailored section component
  * will either extend this union or use a separate teen-specific type
- * that maps to these underlying destinations.
+ * that maps to these underlying destinations. Note: teen `talk_to_someone`
+ * is NOT the same as adult `family_request` — the teen version creates
+ * a journal/reminder note and lets the teen decide when/how to bring it
+ * up, while adult delegate creates a real request the recipient sees.
  */
 export type MindSweepLiteDisposition =
   | 'task'
@@ -207,6 +212,7 @@ export type MindSweepLiteDisposition =
   | 'archives'
   | 'recipe'
   | 'release'
+  | 'family_request'
 
 /**
  * Human-readable display names for each disposition. Used for the
@@ -226,14 +232,17 @@ export const DISPOSITION_DISPLAY_NAMES: Record<MindSweepLiteDisposition, string>
   archives: 'Archive Note',
   recipe: 'Recipe',
   release: 'Release',
+  family_request: 'Send as Request',
 }
 
 /**
  * Ordered list of dispositions for the override dropdown UI. Release
- * sits at the end as the "let it go" escape hatch.
+ * sits at the end as the "let it go" escape hatch. Family Request sits
+ * near Task/Calendar as an action-oriented option.
  */
 export const DISPOSITION_PICK_ORDER: MindSweepLiteDisposition[] = [
   'task',
+  'family_request',
   'calendar',
   'list',
   'journal',
@@ -270,7 +279,17 @@ export interface RhythmMindSweepItem {
   /** Record ID created on Close My Day commit, or null for release/error. */
   created_record_id: string | null
   /** Table name where the record was created. */
-  created_record_type: 'task' | 'list_item' | 'studio_queue' | 'journal_entry' | 'victory' | 'guiding_star' | 'best_intention' | 'self_knowledge' | null
+  created_record_type:
+    | 'task'
+    | 'list_item'
+    | 'studio_queue'
+    | 'journal_entry'
+    | 'victory'
+    | 'guiding_star'
+    | 'best_intention'
+    | 'self_knowledge'
+    | 'family_request'
+    | null
   /** If commit failed for this item, the error message. Other items still commit. */
   commit_error?: string
 }
