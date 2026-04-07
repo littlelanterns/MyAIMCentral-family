@@ -143,13 +143,35 @@ export interface RhythmConfig {
 
 /**
  * Tomorrow Capture priority items — staged in rhythm_completions.metadata
- * during the evening rhythm session. Phase A: empty array. Phase B
- * (Enhancement 1) populates with fuzzy-match results.
+ * during the evening rhythm session. Phase B (Enhancement 1) populates
+ * via EveningTomorrowCaptureSection → fuzzy match → batched commit on
+ * Close My Day. Morning Priorities Recall reads from this array.
+ *
+ * Fields:
+ *   text                  the exact text mom typed
+ *   matched_task_id       existing task row ID if fuzzy match was confirmed
+ *   matched_task_title    snapshot of the matched task's title at time of match
+ *                         (for morning recall display — survives if task
+ *                         is later renamed)
+ *   created_task_id       new task row ID if this was not a match
+ *   focus_selected        true if mom picked this as one of her top 3
+ *                         focus items when overflow (6+) triggered the
+ *                         focus picker. Morning recall shows ONLY rows
+ *                         where focus_selected=true when overflow existed;
+ *                         if no overflow, focus_selected is true for all.
+ *   prompt_variant_index  which of the 4 rotating prompt framings was
+ *                         shown when this item was captured. Morning
+ *                         recall can reflect it back ("Last night you
+ *                         said you wanted to get these done:") matching
+ *                         the tense of the evening prompt.
  */
 export interface RhythmPriorityItem {
   text: string
   matched_task_id: string | null
+  matched_task_title?: string | null
   created_task_id: string | null
+  focus_selected?: boolean
+  prompt_variant_index?: number
 }
 
 /**
@@ -175,10 +197,22 @@ export interface RhythmMindSweepItem {
   created_record_type: 'task' | 'list_item' | 'notepad_tab' | 'message' | null
 }
 
+/**
+ * Backlog prompt state (Enhancement 5) — when the carry-forward midnight
+ * job detects a member has ≥ carry_forward_backlog_threshold tasks older
+ * than 14 days, it marks the next pending evening completion so the
+ * evening rhythm can surface a gentle "want to do a quick sweep?" banner.
+ *
+ * last_backlog_prompt_at is read by the job to enforce max once-per-week
+ * frequency (or whatever the member preference says).
+ */
 export interface RhythmCompletionMetadata {
   priority_items?: RhythmPriorityItem[]
   mindsweep_items?: RhythmMindSweepItem[]
   brain_dump_notepad_tab_id?: string
+  backlog_prompt_pending?: boolean
+  backlog_prompt_task_count?: number
+  last_backlog_prompt_at?: string
 }
 
 export interface RhythmCompletion {
@@ -253,6 +287,74 @@ export function periodForRhythm(rhythmKey: RhythmKey, date: Date = new Date()): 
       return `${year}-${month}-${day}`
   }
 }
+
+// ─── Phase B: Carry Forward fallback (Enhancement 5) ─────────
+
+export type CarryForwardFallback =
+  | 'stay'
+  | 'roll_forward'
+  | 'expire'
+  | 'backburner'
+
+export type BacklogPromptFrequency = 'weekly' | 'daily'
+
+/**
+ * Member-level rhythm preferences — stored inside the existing
+ * family_members.preferences JSONB column. No schema migration
+ * required. Defaults are enforced at read time (not via DEFAULT).
+ *
+ *   carry_forward_fallback              default 'stay'
+ *   carry_forward_backburner_days       default 14
+ *   carry_forward_backlog_threshold     default 10
+ *   carry_forward_backlog_prompt_max_frequency  default 'weekly'
+ */
+export interface MemberRhythmPreferences {
+  carry_forward_fallback?: CarryForwardFallback
+  carry_forward_backburner_days?: number
+  carry_forward_backlog_threshold?: number
+  carry_forward_backlog_prompt_max_frequency?: BacklogPromptFrequency
+}
+
+export const DEFAULT_MEMBER_RHYTHM_PREFERENCES: Required<MemberRhythmPreferences> = {
+  carry_forward_fallback: 'stay',
+  carry_forward_backburner_days: 14,
+  carry_forward_backlog_threshold: 10,
+  carry_forward_backlog_prompt_max_frequency: 'weekly',
+}
+
+// ─── Phase B: Tomorrow Capture rotating prompts (Enhancement 1) ──
+
+/**
+ * The 4 rotating prompt framings for Evening Tomorrow Capture.
+ * Date-seeded PRNG picks one per member per day. Order matters
+ * only for the index — the actual selection is deterministic via
+ * rhythmSeed(memberId, 'evening:tomorrow_capture', date).
+ */
+export const EVENING_TOMORROW_CAPTURE_PROMPTS = [
+  'What do you want to get done tomorrow?',
+  "What's on your mind for tomorrow?",
+  'Anything you want to remember for tomorrow?',
+  'What would make tomorrow feel like a good day?',
+] as const
+
+// ─── Phase B: On the Horizon config (Enhancement 8) ──────────
+
+/**
+ * Per-member lookahead configuration for the On the Horizon
+ * section. Stored in rhythm_configs.sections[section_type='on_the_horizon'].config.
+ * Defaults applied at read time.
+ */
+export interface OnTheHorizonConfig {
+  lookahead_days?: number  // default 7, range 3-14
+  max_items?: number       // default 5, range 3-10
+}
+
+export const DEFAULT_ON_THE_HORIZON_CONFIG: Required<OnTheHorizonConfig> = {
+  lookahead_days: 7,
+  max_items: 5,
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
 
 /** Determine if the current time is inside a rhythm's active window. */
 export function isRhythmActive(timing: RhythmTiming, now: Date = new Date()): boolean {

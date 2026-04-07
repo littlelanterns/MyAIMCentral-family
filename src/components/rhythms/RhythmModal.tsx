@@ -19,15 +19,21 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { Sun, Moon, X, ChevronDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Sun, Moon, X, ChevronDown, Archive } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { SectionRendererSwitch } from './sections/SectionRendererSwitch'
 import {
   useCompleteRhythm,
   useSnoozeRhythm,
   useDismissRhythm,
+  useRhythmCompletion,
 } from '@/hooks/useRhythms'
 import type { RhythmConfig, RhythmSection } from '@/types/rhythms'
+import { RhythmMetadataProvider, useRhythmMetadataStaging } from './RhythmMetadataContext'
+import { commitTomorrowCapture, type StagedPriorityItem } from '@/lib/rhythm/commitTomorrowCapture'
+import { supabase } from '@/lib/supabase/client'
 
 interface Props {
   config: RhythmConfig
@@ -39,12 +45,32 @@ interface Props {
   readingSupport?: boolean
 }
 
-export function RhythmModal({ config, familyId, memberId, isOpen, onClose, readingSupport }: Props) {
+export function RhythmModal(props: Props) {
+  // Provide the metadata staging context around the inner component so
+  // section components can stage data for the Close My Day commit.
+  return (
+    <RhythmMetadataProvider>
+      <RhythmModalInner {...props} />
+    </RhythmMetadataProvider>
+  )
+}
+
+function RhythmModalInner({ config, familyId, memberId, isOpen, onClose, readingSupport }: Props) {
   const isMorning = config.rhythm_key === 'morning'
+  const isEvening = config.rhythm_key === 'evening'
   const completeRhythm = useCompleteRhythm()
   const snoozeRhythm = useSnoozeRhythm()
   const dismissRhythm = useDismissRhythm()
+  // Read the current period's completion (daily rhythms only) so the
+  // backlog prompt banner can check metadata.backlog_prompt_pending.
+  const { data: currentCompletion } = useRhythmCompletion(
+    memberId,
+    config.rhythm_key === 'morning' || config.rhythm_key === 'evening' ? config.rhythm_key : undefined
+  )
+  const { readStagedMetadata } = useRhythmMetadataStaging()
+  const queryClient = useQueryClient()
   const [showSnoozeMenu, setShowSnoozeMenu] = useState(false)
+  const [commitError, setCommitError] = useState<string | null>(null)
   const snoozeMenuRef = useRef<HTMLDivElement>(null)
 
   // Close snooze dropdown on outside click
@@ -65,13 +91,55 @@ export function RhythmModal({ config, familyId, memberId, isOpen, onClose, readi
     .filter(s => s.enabled)
 
   const handleComplete = async () => {
+    setCommitError(null)
+    let finalMetadata = readStagedMetadata()
+
+    // Evening rhythm: commit any staged priority_items to the DB
+    // (bump matched tasks to priority='now', insert new rhythm_priority
+    // tasks for unmatched items, enrich with created_task_id). Throws
+    // on write failure — we catch, show a toast, and DO NOT write the
+    // completion so the user can retry without losing staged state.
+    if (isEvening && finalMetadata.priority_items && finalMetadata.priority_items.length > 0) {
+      try {
+        const stagedItems: StagedPriorityItem[] = finalMetadata.priority_items.map(p => ({
+          text: p.text,
+          matchedTaskId: p.matched_task_id,
+          matchedTaskTitle: p.matched_task_title ?? null,
+          focusSelected: p.focus_selected ?? true,
+          promptVariantIndex: p.prompt_variant_index ?? 0,
+        }))
+        const enriched = await commitTomorrowCapture({
+          familyId,
+          memberId,
+          items: stagedItems,
+        })
+        finalMetadata = { ...finalMetadata, priority_items: enriched }
+        // Invalidate tasks cache so Morning Priorities Recall sees the
+        // new/bumped tasks next time it queries.
+        queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
+      } catch (err) {
+        setCommitError(
+          err instanceof Error
+            ? err.message
+            : 'Something went wrong saving your priorities. Try again?'
+        )
+        return
+      }
+    }
+
     await completeRhythm.mutateAsync({
       familyId,
       memberId,
       rhythmKey: config.rhythm_key,
-      // Phase A: empty metadata. Phase B/C populates priority_items + mindsweep_items.
-      metadata: {},
+      metadata: finalMetadata,
     })
+
+    // Invalidate the morning recall query so tomorrow morning reads
+    // the just-written completion.
+    queryClient.invalidateQueries({
+      queryKey: ['rhythm-last-evening-completion', familyId, memberId],
+    })
+
     onClose()
   }
 
@@ -175,6 +243,24 @@ export function RhythmModal({ config, familyId, memberId, isOpen, onClose, readi
       }
     >
       <div className="space-y-4">
+        {commitError && (
+          <div
+            className="rounded-lg px-4 py-3 text-sm"
+            style={{
+              background: 'color-mix(in srgb, var(--color-danger, #b91c1c) 10%, transparent)',
+              border: '1px solid var(--color-danger, #b91c1c)',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            {commitError}
+          </div>
+        )}
+        {isEvening && currentCompletion?.metadata?.backlog_prompt_pending && (
+          <BacklogPromptBanner
+            completionId={currentCompletion.id}
+            taskCount={currentCompletion.metadata.backlog_prompt_task_count ?? 0}
+          />
+        )}
         {orderedSections.map(section => (
           <SectionRendererSwitch
             key={section.section_type}
@@ -188,6 +274,105 @@ export function RhythmModal({ config, familyId, memberId, isOpen, onClose, readi
         ))}
       </div>
     </ModalV2>
+  )
+}
+
+// ─── Backlog Prompt Banner ───────────────────────────────────
+//
+// Rendered at the top of the evening rhythm modal when the carry
+// forward midnight job detected an accumulated backlog. Shows a
+// gentle "want to do a quick sweep?" prompt with two options:
+//   [Start Sweep]  → link to /tasks filtered by overdue
+//   [Not now]      → dismiss the banner for this period
+//
+// Dismiss writes metadata.last_backlog_prompt_at = NOW() and clears
+// metadata.backlog_prompt_pending. The cron's weekly-frequency check
+// then skips this member for the next week. "Start Sweep" also
+// records last_backlog_prompt_at so the prompt doesn't re-fire after
+// the user takes action.
+
+function BacklogPromptBanner({
+  completionId,
+  taskCount,
+}: {
+  completionId: string
+  taskCount: number
+}) {
+  const queryClient = useQueryClient()
+  const [dismissing, setDismissing] = useState(false)
+
+  const markHandled = async (): Promise<void> => {
+    setDismissing(true)
+    const { data: current } = await supabase
+      .from('rhythm_completions')
+      .select('metadata')
+      .eq('id', completionId)
+      .single()
+
+    const existing = (current?.metadata ?? {}) as Record<string, unknown>
+    const merged = {
+      ...existing,
+      backlog_prompt_pending: false,
+      last_backlog_prompt_at: new Date().toISOString(),
+    }
+
+    await supabase
+      .from('rhythm_completions')
+      .update({ metadata: merged })
+      .eq('id', completionId)
+
+    // Force the modal's currentCompletion query to refetch so the
+    // banner hides immediately.
+    queryClient.invalidateQueries({ queryKey: ['rhythm-completion'] })
+    setDismissing(false)
+  }
+
+  return (
+    <div
+      className="rounded-lg p-4 flex items-start gap-3"
+      style={{
+        background: 'color-mix(in srgb, var(--color-accent-deep) 8%, transparent)',
+        border: '1px solid var(--color-border-subtle)',
+      }}
+    >
+      <Archive
+        size={18}
+        style={{ color: 'var(--color-accent-deep)', flexShrink: 0, marginTop: 2 }}
+      />
+      <div className="flex-1">
+        <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+          You have {taskCount} things that have been sitting for a while. Want to do
+          a quick sweep?
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Link
+            to="/tasks?filter=overdue"
+            onClick={() => {
+              void markHandled()
+            }}
+            className="text-xs font-semibold rounded-md px-3 py-1.5"
+            style={{
+              background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+              color: 'var(--color-btn-primary-text)',
+            }}
+          >
+            Start sweep
+          </Link>
+          <button
+            type="button"
+            onClick={markHandled}
+            disabled={dismissing}
+            className="text-xs rounded-md px-3 py-1.5 disabled:opacity-50"
+            style={{
+              color: 'var(--color-text-secondary)',
+              backgroundColor: 'var(--color-bg-secondary)',
+            }}
+          >
+            Not now
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

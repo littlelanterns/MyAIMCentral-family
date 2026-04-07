@@ -51,7 +51,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 16 | PRD-15 | Messages, Requests & Notifications (12 tables, NotificationBell, Realtime, 4 Edge Functions, cross-cutting infrastructure) | Phase 06 | **Complete** | 2026-04-06 |
 | 17 | PRD-16 | Meetings | Phase 10, 16 | Pending |
 | 18 | PRD-17, PRD-17B | Universal Queue (PRD-17) + MindSweep Sprint 1+2 (PRD-17B Phase A + partial B) | Phase 10, 16 | **Partial** — PRD-17 complete 2026-04-03; PRD-17B Phase B remainder + Phase C pending |
-| 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | Pending |
+| 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | **Partial** — Phase A complete 2026-04-07 (foundation, morning + evening modals, Guided mini evening rhythm). Phase B complete 2026-04-07 (Tomorrow Capture + Morning Recall + On the Horizon + Carry Forward fallback + Weekly/Monthly/Quarterly cards + section cleanup). Phase C (MindSweep-Lite, Morning Insight, Feature Discovery, Rhythm Tracker Prompts) and Phase D (Independent Teen tailored experience) pending. |
 | 20 | PRD-19 | Family Context & Relationships | Phase 13 | Pending |
 | 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | Pending |
 | 22 | PRD-12A, PRD-12B | LifeLantern & Family Vision Quest | Phase 07, 08, 13 | Pending |

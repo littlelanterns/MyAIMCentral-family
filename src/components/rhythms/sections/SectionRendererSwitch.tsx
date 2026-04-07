@@ -22,24 +22,26 @@ import { AccomplishmentsVictoriesSection } from './AccomplishmentsVictoriesSecti
 import { ClosingThoughtSection } from './ClosingThoughtSection'
 import { FromYourLibrarySection } from './FromYourLibrarySection'
 import { ReflectionsSection } from './ReflectionsSection'
+import { EveningTomorrowCaptureSection } from './EveningTomorrowCaptureSection'
+import { MorningPrioritiesRecallSection } from './MorningPrioritiesRecallSection'
+import { OnTheHorizonSection } from './OnTheHorizonSection'
+import { PeriodicCardsSlot } from './PeriodicCardsSlot'
 import { GuidedDayHighlightsSection } from './guided/GuidedDayHighlightsSection'
 import { GuidedPrideReflectionSection } from './guided/GuidedPrideReflectionSection'
 import { GuidedTomorrowLookAheadSection } from './guided/GuidedTomorrowLookAheadSection'
 import { GuidedReflectionsSection } from './guided/GuidedReflectionsSection'
+import { GuidedEncouragingMessageSection } from './guided/GuidedEncouragingMessageSection'
 import {
   CompletedMeetingsSection,
   MilestoneCelebrationsSection,
   CarryForwardSection,
   BeforeCloseTheDaySection,
   RhythmTrackerPromptsSection,
-  EveningTomorrowCaptureSection,
   MindSweepLiteSection,
-  MorningPrioritiesRecallSection,
-  OnTheHorizonSection,
   MorningInsightSection,
   FeatureDiscoverySection,
-  PeriodicCardsSlot,
 } from './StubSections'
+import type { OnTheHorizonConfig } from '@/types/rhythms'
 
 interface Props {
   section: RhythmSection
@@ -70,8 +72,20 @@ export function SectionRendererSwitch({
       return <BestIntentionsFocusSection familyId={familyId} memberId={memberId} />
     case 'task_preview':
       return <TaskPreviewSection familyId={familyId} memberId={memberId} />
-    case 'calendar_preview':
-      return <CalendarPreviewSection />
+    case 'calendar_preview': {
+      // Founder rule: 'family' scope for adults (mom needs to see
+      // everything), 'member' scope for Independent/Guided/Play (only
+      // events the member attends). Stored per-section in
+      // rhythm_configs.sections[*].config.scope so mom can override
+      // from Rhythms Settings later without code changes. Default 'family'.
+      const cfg = section.config as { scope?: 'family' | 'member' } | undefined
+      return (
+        <CalendarPreviewSection
+          scope={cfg?.scope ?? 'family'}
+          memberId={memberId}
+        />
+      )
+    }
     case 'brain_dump':
       return (
         <BrainDumpSection
@@ -81,13 +95,19 @@ export function SectionRendererSwitch({
         />
       )
     case 'periodic_cards_slot':
-      return <PeriodicCardsSlot />
+      return <PeriodicCardsSlot familyId={familyId} memberId={memberId} />
 
-    // ─── Morning Phase B+ stubs ──────────────────────────
+    // ─── Morning Phase B (wired) ─────────────────────────
     case 'morning_priorities_recall':
-      return <MorningPrioritiesRecallSection />
+      return <MorningPrioritiesRecallSection familyId={familyId} memberId={memberId} />
     case 'on_the_horizon':
-      return <OnTheHorizonSection />
+      return (
+        <OnTheHorizonSection
+          familyId={familyId}
+          memberId={memberId}
+          config={section.config as OnTheHorizonConfig | undefined}
+        />
+      )
 
     // ─── Morning Phase C+ stubs ──────────────────────────
     case 'morning_insight':
@@ -107,7 +127,7 @@ export function SectionRendererSwitch({
     case 'carry_forward':
       return <CarryForwardSection />
     case 'evening_tomorrow_capture':
-      return <EveningTomorrowCaptureSection />
+      return <EveningTomorrowCaptureSection familyId={familyId} memberId={memberId} />
     case 'mindsweep_lite':
       return <MindSweepLiteSection />
     case 'closing_thought':
@@ -147,8 +167,21 @@ export function SectionRendererSwitch({
 
     // ─── Kid template sections ───────────────────────────
     case 'encouraging_message':
+      return (
+        <GuidedEncouragingMessageSection
+          familyId={familyId}
+          memberId={memberId}
+          readingSupport={readingSupport}
+        />
+      )
     case 'routine_checklist':
-      return null // Wired by Guided/Play shells, not the adult modal
+      // Routines surface on the Guided dashboard's Active Tasks
+      // section already (PRD-25). Showing them again inside the
+      // morning rhythm is duplication, not value. Section type
+      // stays in the registry for future custom rhythm building
+      // but is not seeded into Guided morning anymore (migration
+      // 100111 removes it from new + existing Guided members).
+      return null
 
     // ─── Guided evening rhythm sections (PRD-18 Phase A addition) ───
     case 'guided_day_highlights':

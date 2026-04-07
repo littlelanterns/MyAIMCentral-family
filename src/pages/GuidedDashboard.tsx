@@ -150,18 +150,26 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
     >
       <FeatureGuide featureKey="guided_dashboard" />
 
-      {/* PRD-18: mini evening rhythm for Guided. Auto-managed — renders
-          at position 0 (above all sections including greeting), outside
-          the section system. Self-hides when outside evening window AND
-          no completion. Coexists with the Celebrate button below — same
-          kid, different moments. */}
+      {/* PRD-18: morning + evening rhythms for Guided. Both render at
+          position 0 (above all sections including greeting), outside the
+          section system. Each card self-hides when outside its time
+          window AND no completion exists. Coexists with the Celebrate
+          button below — same kid, different moments. */}
       {displayFamilyId && displayMemberId && (
-        <RhythmDashboardCard
-          familyId={displayFamilyId}
-          memberId={displayMemberId}
-          rhythmKey="evening"
-          readingSupport={readingSupport}
-        />
+        <>
+          <RhythmDashboardCard
+            familyId={displayFamilyId}
+            memberId={displayMemberId}
+            rhythmKey="morning"
+            readingSupport={readingSupport}
+          />
+          <RhythmDashboardCard
+            familyId={displayFamilyId}
+            memberId={displayMemberId}
+            rhythmKey="evening"
+            readingSupport={readingSupport}
+          />
+        </>
       )}
 
       {visibleSections.map(section => {

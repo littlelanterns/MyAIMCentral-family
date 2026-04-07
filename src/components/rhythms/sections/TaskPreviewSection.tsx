@@ -13,6 +13,7 @@
 import { CheckSquare, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTasks } from '@/hooks/useTasks'
+import { todayLocalIso } from '@/utils/dates'
 
 interface Props {
   familyId: string
@@ -21,13 +22,12 @@ interface Props {
   maxItems?: number
 }
 
-function todayIso(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 export function TaskPreviewSection({ familyId, memberId, maxItems = 5 }: Props) {
-  const today = todayIso()
+  // Note: as of migration 100111 this section is no longer in the
+  // adult/independent or Guided morning rhythm seed (it duplicated the
+  // dashboard's Active Tasks section). It stays in the registry as an
+  // available section type for future custom rhythm building.
+  const today = todayLocalIso()
   const { data: tasks = [], isLoading } = useTasks(familyId, {
     assigneeId: memberId,
     status: ['pending', 'in_progress'],

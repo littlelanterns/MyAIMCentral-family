@@ -1,30 +1,32 @@
 /**
- * PRD-18 Phase A — stub section components
+ * PRD-18 — stub section components (remaining stubs after Phase B2)
  *
  * These sections are scheduled to receive real implementations in
- * later phases. In Phase A they either:
+ * later phases. They either:
  *   (a) auto-hide (return null) when their data dependency isn't
  *       available yet — so the rhythm modal still feels complete
  *   (b) render a small placeholder card noting the upcoming feature
  *
- * Sections covered here:
+ * Sections still stubbed:
  *   - CompletedMeetingsSection         — auto-hide (PRD-16 dependency)
  *   - MilestoneCelebrationsSection     — auto-hide (gamification dependency)
  *   - CarryForwardSection              — placeholder, off by default
  *   - BeforeCloseTheDaySection         — auto-hide
  *   - RhythmTrackerPromptsSection      — auto-hide (Phase C wiring)
- *   - EveningTomorrowCaptureSection    — Phase B placeholder
  *   - MindSweepLiteSection             — Phase C placeholder
- *   - MorningPrioritiesRecallSection   — Phase B placeholder
- *   - OnTheHorizonSection              — Phase B placeholder
  *   - MorningInsightSection            — Phase C placeholder
  *   - FeatureDiscoverySection          — Phase C placeholder
+ *
+ * Previously stubbed, now wired:
+ *   - EveningTomorrowCaptureSection    → Phase B2
+ *   - MorningPrioritiesRecallSection   → Phase B2
+ *   - OnTheHorizonSection              → Phase B3
  *
  * Each placeholder is intentionally compact — it preserves the section's
  * place in the rhythm narrative arc without dominating the experience.
  */
 
-import { Brain, Lightbulb, Sparkles, Telescope, Wand2 } from 'lucide-react'
+import { Brain, Lightbulb, Sparkles, Wand2 } from 'lucide-react'
 
 // ─── Auto-hiding sections (return null until wired) ──────────
 
@@ -107,19 +109,6 @@ export function CarryForwardSection() {
   )
 }
 
-// Tomorrow Capture (Enhancement 1) — Phase B replaces this with the
-// rotating prompts + fuzzy task matching + ADHD overflow handling.
-export function EveningTomorrowCaptureSection() {
-  return (
-    <StubPlaceholder
-      title="Tomorrow"
-      description="Conversational tomorrow capture with fuzzy task matching is coming."
-      phase="B"
-      Icon={Sparkles}
-    />
-  )
-}
-
 // MindSweep-Lite (Enhancement 2) — Phase C replaces with Haiku
 // disposition classification.
 export function MindSweepLiteSection() {
@@ -133,31 +122,13 @@ export function MindSweepLiteSection() {
   )
 }
 
-// Morning Priorities Recall (Enhancement 1) — Phase B reads previous
-// evening's metadata.priority_items and shows them.
-export function MorningPrioritiesRecallSection() {
-  return (
-    <StubPlaceholder
-      title="Last night you said..."
-      description="Your evening focus picks will appear here in the morning."
-      phase="B"
-      Icon={Sparkles}
-    />
-  )
-}
+// NOTE: EveningTomorrowCaptureSection and MorningPrioritiesRecallSection
+// were Phase A stubs. Phase B2 wired the real components at
+// src/components/rhythms/sections/EveningTomorrowCaptureSection.tsx and
+// src/components/rhythms/sections/MorningPrioritiesRecallSection.tsx.
 
-// On the Horizon (Enhancement 8) — Phase B 7-day lookahead +
-// Task Breaker integration.
-export function OnTheHorizonSection() {
-  return (
-    <StubPlaceholder
-      title="On the Horizon"
-      description="Forward-looking 7-day awareness with Task Breaker is coming."
-      phase="B"
-      Icon={Telescope}
-    />
-  )
-}
+// NOTE: OnTheHorizonSection was a Phase A stub. Phase B3 wired the
+// real component at src/components/rhythms/sections/OnTheHorizonSection.tsx.
 
 // Morning Insight (Enhancement 3) — Phase C BookShelf semantic pull.
 export function MorningInsightSection() {
@@ -183,10 +154,5 @@ export function FeatureDiscoverySection() {
   )
 }
 
-// ─── Periodic rhythm placeholders (Phase B) ──────────────────
-
-export function PeriodicCardsSlot(): null {
-  // Phase A: weekly/monthly/quarterly cards aren't built yet.
-  // Slot exists in default morning sections for Phase B to fill.
-  return null
-}
+// NOTE: PeriodicCardsSlot was a Phase A stub. Phase B4 wired the real
+// component at src/components/rhythms/sections/PeriodicCardsSlot.tsx.

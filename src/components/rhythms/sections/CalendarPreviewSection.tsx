@@ -2,16 +2,43 @@
  * PRD-18 Section Type #4: Calendar Preview
  *
  * Today's events at a glance. Tappable to navigate to /calendar.
- * Auto-hides if no events today.
+ * Auto-hides if no events match the configured scope.
+ *
+ * Two scopes (controlled by section.config.scope):
+ *
+ *   'family' (default — used by adult/independent morning rhythms):
+ *     Shows ALL family events for today. Mom's mental load includes
+ *     the whole family's day, so seeing "kids have co-op at 10" matters
+ *     even if she's not technically an attendee.
+ *
+ *   'member' (used by Guided morning rhythm seed):
+ *     Shows only events the member is an attendee on, OR family-wide
+ *     events with no specific attendees (which implicitly include
+ *     everyone). Filters out events that don't involve the kid at all
+ *     (e.g., "Dad's dentist appointment"). Reduces noise so the kid
+ *     sees only events relevant to them.
+ *
+ * Founder rule (2026-04-07):
+ *   "Calendar should only show anything that involves the member for
+ *    independent and guided. Mom really does need to know everything."
+ *
+ * The scope is read from rhythm_configs.sections JSONB so mom can
+ * change it per-rhythm via Rhythms Settings without code changes.
  */
 
 import { Calendar, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useEventsForDate } from '@/hooks/useCalendarEvents'
 
+export type CalendarPreviewScope = 'family' | 'member'
+
 interface Props {
   /** Maximum events to show inline. Default 5. */
   maxItems?: number
+  /** Scope: 'family' (default) shows all events; 'member' filters to events the member attends. */
+  scope?: CalendarPreviewScope
+  /** Member ID for scope='member' filtering. Required when scope='member'. */
+  memberId?: string
 }
 
 function formatTime(time: string | null): string {
@@ -25,14 +52,35 @@ function formatTime(time: string | null): string {
   return `${display}:${min} ${period}`
 }
 
-export function CalendarPreviewSection({ maxItems = 5 }: Props) {
+export function CalendarPreviewSection({
+  maxItems = 5,
+  scope = 'family',
+  memberId,
+}: Props) {
   const { data: events = [], isLoading } = useEventsForDate(new Date())
 
   if (isLoading) return null
-  if (events.length === 0) return null // auto-hide when nothing today
 
-  const visible = events.slice(0, maxItems)
-  const overflow = events.length - visible.length
+  // Apply member-scope filter if requested. The hook already returns
+  // event_attendees joined as a sub-array, so we filter in memory —
+  // no extra query needed. An event is "in scope" for a member if:
+  //   - the member is in the event_attendees list, OR
+  //   - the event has zero attendees (implicit family-wide event —
+  //     things like "Dentist appointment 2pm" with no attendee
+  //     selection get included for everyone)
+  const scopedEvents =
+    scope === 'member' && memberId
+      ? events.filter(e => {
+          const attendees = e.event_attendees ?? []
+          if (attendees.length === 0) return true // family-wide → include
+          return attendees.some(a => a.family_member_id === memberId)
+        })
+      : events
+
+  if (scopedEvents.length === 0) return null // auto-hide when nothing in scope
+
+  const visible = scopedEvents.slice(0, maxItems)
+  const overflow = scopedEvents.length - visible.length
 
   return (
     <Link
@@ -64,7 +112,7 @@ export function CalendarPreviewSection({ maxItems = 5 }: Props) {
             style={{ color: 'var(--color-text-primary)' }}
           >
             <span
-              className="text-xs font-mono flex-shrink-0 w-20"
+              className="text-xs font-mono shrink-0 w-20"
               style={{ color: 'var(--color-text-secondary)' }}
             >
               {formatTime(event.start_time)}

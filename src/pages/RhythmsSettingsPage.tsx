@@ -22,6 +22,7 @@ import {
   useToggleRhythmSection,
 } from '@/hooks/useRhythms'
 import type { RhythmConfig } from '@/types/rhythms'
+import { CarryForwardFallbackSetting } from '@/components/rhythms/settings/CarryForwardFallbackSetting'
 
 const RHYTHM_ICONS: Record<string, typeof Sun> = {
   morning: Sun,
@@ -149,6 +150,17 @@ export function RhythmsSettingsPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* Carry Forward Fallback — Phase B (Enhancement 5) */}
+      {effectiveMemberId && (
+        <CarryForwardFallbackSetting
+          memberId={effectiveMemberId}
+          memberName={
+            familyMembers.find(m => m.id === effectiveMemberId)?.display_name ??
+            'this member'
+          }
+        />
       )}
 
       {/* Custom Rhythms — Phase A stub */}
