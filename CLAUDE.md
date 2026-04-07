@@ -119,6 +119,11 @@ This process exists because weeks of careful planning went into every PRD and ad
     - Fill in the Post-Build Verification table in `CURRENT_BUILD.md`
     - Present the completed table to Tenise — every requirement, every status
     - Zero Missing items required before the build is considered complete. Any Missing must be built or explicitly approved as a stub.
+    - **Mobile/desktop navigation parity check:** if the build added or renamed any top-level page (anything that earns a sidebar entry), confirm:
+      (a) The page is registered exactly once, in `getSidebarSections()` in [src/components/shells/Sidebar.tsx](src/components/shells/Sidebar.tsx) — never as a parallel hand-maintained list inside `BottomNav.tsx` or anywhere else.
+      (b) Open the app in DevTools mobile viewport (375px), tap **More**, and visually confirm the new page appears in the same section, with the same label, the same icon, and in the same position as in the desktop sidebar. Both navs must read like the same map.
+      (c) Tap through the new entry from the More menu and confirm it routes correctly. "I added it to the sidebar" is not sufficient — eyes-on mobile verification is required, same standard as the Visual Verification rule in `claude/PRE_BUILD_PROCESS.md`.
+      (d) Note the parity check pass in the verification table (e.g. "Mobile More menu shows new page in correct section ✓").
     **Part B — File updates (after Tenise confirms verification):**
     - `BUILD_STATUS.md` — mark phase complete with date
     - `claude/database_schema.md` — update any new/changed tables and columns
@@ -130,7 +135,7 @@ This process exists because weeks of careful planning went into every PRD and ad
     - `claude/feature-decisions/README.md` — add the new file to the index table
 
 15. **Member colors:** Use the 44-color AIMfM palette from `src/config/member_colors.ts`. Never hardcode hex colors — use CSS custom properties with fallbacks. Run `npm run check:colors` to verify.
-16. **Mobile layout:** BottomNav handles mobile navigation. No hamburger menu. Hide "Back to Dashboard" buttons on mobile (`hidden md:flex`). LiLa drawer sits above bottom nav (`bottom-14 md:bottom-0`).
+16. **Mobile layout:** BottomNav handles mobile navigation. No hamburger menu. Hide "Back to Dashboard" buttons on mobile (`hidden md:flex`). LiLa drawer sits above bottom nav (`bottom-14 md:bottom-0`). **Mobile/desktop nav parity is non-negotiable:** the BottomNav "More" menu MUST be built from the same `getSidebarSections(shell)` source as the desktop sidebar in [src/components/shells/Sidebar.tsx](src/components/shells/Sidebar.tsx) — never hand-maintained as a parallel list. The only allowed difference is filtering items already pinned to the bottom tab bar (`/dashboard`, `/tasks`, `/bookshelf`, `/vault`). Section names, item ordering, item labels, routes, and icons MUST match the sidebar exactly. Whenever a new top-level page is added, it MUST appear in `getSidebarSections` and will then automatically flow into the More menu — no second registration needed.
 17. **PIN hashing:** All PINs are hashed server-side via `hash_member_pin` RPC (pgcrypto bcrypt). Never store plain-text PINs. Verify with `verify_member_pin` RPC.
 18. **Out of Nest members:** Stored in `out_of_nest_members` table (NOT `family_members`). They are descendants and their spouses only — below mom on the family tree. No dashboard, no PIN, no feature access. Grandparents who help are Special Adults, not Out of Nest.
 19. **Auto-provisioning:** The `auto_provision_member_resources` trigger creates an archive folder + dashboard_config for every new `family_members` insert. No manual creation needed.

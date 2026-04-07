@@ -16,7 +16,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
 
-interface NavItem {
+export interface NavItem {
   label: string
   path: string
   featureKey: string
@@ -25,13 +25,13 @@ interface NavItem {
   badge?: number
 }
 
-interface NavSection {
+export interface NavSection {
   title: string
   items: NavItem[]
   collapsible?: boolean
 }
 
-function getSidebarSections(shell: ShellType): NavSection[] {
+export function getSidebarSections(shell: ShellType): NavSection[] {
   const home: NavSection = {
     title: 'Home',
     collapsible: false,

@@ -5,6 +5,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useShell } from './ShellProvider'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
+import { getSidebarSections, type NavSection } from './Sidebar'
 
 /**
  * Mobile-only bottom navigation bar (PRD-04).
@@ -34,81 +35,19 @@ const NAV_RIGHT: BottomNavItem[] = [
 // Combined for icon fetching
 const NAV_ITEMS: BottomNavItem[] = [...NAV_LEFT, ...NAV_RIGHT]
 
-interface MoreNavItem {
-  path: string
-  label: string
-  description?: string
-  featureKey: string
-}
+/**
+ * Set of paths already reachable from the bottom tab bar (Home, Tasks,
+ * BookShelf, AI Vault). These are filtered out of the More menu so the
+ * menu doesn't duplicate buttons that are one tap away.
+ */
+const BOTTOM_NAV_PATHS = new Set<string>(['/dashboard', '/tasks', '/bookshelf', '/vault'])
 
-interface MoreNavSection {
-  title: string
-  items: MoreNavItem[]
-}
-
-const MORE_SECTIONS: MoreNavSection[] = [
-  {
-    title: 'Capture & Reflect',
-    items: [
-      { path: '/journal', label: 'Journal', description: 'Capture thoughts and reflect', featureKey: 'journal' },
-      { path: '/reflections', label: 'Reflections', description: 'Daily reflection questions', featureKey: 'reflections_basic' },
-      { path: '/rhythms/morning', label: 'Morning Rhythm', description: 'Start your day with intention', featureKey: 'morning_rhythm' },
-      { path: '/rhythms/evening', label: 'Evening Review', description: 'Reflect on your day', featureKey: 'evening_review' },
-      { path: '/notepad', label: 'Notepad', description: 'Quick capture workspace', featureKey: 'notepad' },
-    ],
-  },
-  {
-    title: 'Plan & Do',
-    items: [
-      { path: '/calendar', label: 'Calendar', description: 'Events & schedule', featureKey: 'calendar' },
-      { path: '/trackers', label: 'Trackers', description: 'Charts and trackers', featureKey: 'widgets_trackers' },
-      { path: '/lists', label: 'Lists', description: 'Checklists & references', featureKey: 'lists' },
-      { path: '/studio', label: 'Studio', description: 'Template workshop', featureKey: 'studio' },
-    ],
-  },
-  {
-    title: 'Grow',
-    items: [
-      { path: '/guiding-stars', label: 'Guiding Stars', description: 'Values & intentions', featureKey: 'guiding_stars' },
-      { path: '/best-intentions', label: 'BestIntentions', description: 'Intentions & iterations', featureKey: 'best_intentions' },
-      { path: '/inner-workings', label: 'InnerWorkings', description: 'Self-knowledge', featureKey: 'my_foundation' },
-      { path: '/victories', label: 'Victories', description: 'Celebrate wins', featureKey: 'victories' },
-      { path: '/life-lantern', label: 'LifeLantern', description: 'Life assessment', featureKey: 'lifelantern' },
-      { path: '/safe-harbor', label: 'Safe Harbor', description: 'Private processing space', featureKey: 'safe_harbor' },
-    ],
-  },
-  {
-    title: 'Family',
-    items: [
-      { path: '/hub', label: 'Family Hub', description: 'Shared coordination', featureKey: 'family_hub' },
-      { path: '/family-members', label: 'Family Members', description: 'Manage your family', featureKey: 'family_management' },
-      { path: '/meetings', label: 'Meetings', description: 'Family meetings', featureKey: 'meetings' },
-      { path: '/messages', label: 'Messages', description: 'Family conversations', featureKey: 'messages' },
-      { path: '/family-feed', label: 'Family Feed', description: 'Moments & updates', featureKey: 'family_feeds' },
-    ],
-  },
-  {
-    title: 'AI & Tools',
-    items: [
-      { path: '/bookshelf', label: 'BookShelf', description: 'Family book wisdom library', featureKey: 'bookshelf_basic' },
-      { path: '/bookshelf/prompts', label: 'Journal Prompts', description: 'Reflection prompts from books', featureKey: 'bookshelf_basic' },
-      { path: '/vault', label: 'AI Vault', description: 'Tutorials, tools, and prompts', featureKey: 'vault_browse' },
-      { path: '/bigplans', label: 'BigPlans', description: 'Project planning', featureKey: 'bigplans' },
-      { path: '/thoughtsift', label: 'ThoughtSift', description: 'Decision tools', featureKey: 'thoughtsift' },
-      { path: '/archives', label: 'Archives', description: 'Context & documents', featureKey: 'archives' },
-    ],
-  },
-]
-
-/** Batch-fetch illustrated icons for bottom nav + more menu */
+/** Batch-fetch illustrated icons for the bottom tab bar buttons */
 function useBottomNavIcons() {
   const { vibe } = useTheme()
   const [iconUrls, setIconUrls] = useState<Record<string, string | null>>({})
 
-  const allKeys = [
-    ...NAV_ITEMS.map(i => i.featureKey),
-    ...MORE_SECTIONS.flatMap(s => s.items.map(i => i.featureKey)),
-  ]
+  const allKeys = NAV_ITEMS.map(i => i.featureKey)
   const keysStr = allKeys.join(',')
 
   useEffect(() => {
@@ -132,6 +71,16 @@ export function BottomNav() {
 
   // Guided and play shells handle their own navigation
   if (shell === 'guided' || shell === 'play') return null
+
+  // Mirror the desktop sidebar exactly — same sections, same items, same
+  // order — and just drop anything already pinned to the bottom tab bar.
+  // This is the only place the More menu structure should ever be defined.
+  const moreSections: NavSection[] = getSidebarSections(shell)
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => !BOTTOM_NAV_PATHS.has(item.path)),
+    }))
+    .filter(section => section.items.length > 0)
 
   const renderNavItem = (item: BottomNavItem) => {
     const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
@@ -296,9 +245,9 @@ export function BottomNav() {
               </div>
             </div>
 
-            {/* Scrollable sections */}
+            {/* Scrollable sections — mirrors the desktop sidebar */}
             <div className="overflow-y-auto" style={{ maxHeight: 'calc(80dvh - 56px)' }}>
-              {MORE_SECTIONS.map((section) => (
+              {moreSections.map((section) => (
                 <div key={section.title} className="py-2">
                   <p
                     className="px-5 py-1 text-[10px] font-bold uppercase tracking-widest"
@@ -306,39 +255,36 @@ export function BottomNav() {
                   >
                     {section.title}
                   </p>
-                  {section.items.map((item) => {
-                    const illustratedUrl = iconUrls[item.featureKey]
-                    return (
-                      <NavLink
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => setMoreOpen(false)}
-                        className="flex items-center gap-3 px-5 py-2.5 min-h-[44px]"
-                        style={({ isActive }) => ({
-                          color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
-                          backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
-                          textDecoration: 'none',
-                          transition: 'background-color 0.15s ease',
-                        })}
-                      >
-                        {illustratedUrl && (
-                          <img src={illustratedUrl} alt="" width={18} height={18} className="shrink-0 rounded-sm" />
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMoreOpen(false)}
+                      className="flex items-center gap-3 px-5 py-2.5 min-h-[44px]"
+                      style={({ isActive }) => ({
+                        color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                        backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
+                        textDecoration: 'none',
+                        transition: 'background-color 0.15s ease',
+                      })}
+                    >
+                      <span className="shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+                        {item.icon}
+                      </span>
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">{item.label}</span>
+                        {showDescriptions && item.tooltip && (
+                          <span
+                            className="block text-xs"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                          >
+                            {item.tooltip}
+                          </span>
                         )}
-                        <div className="flex-1">
-                          <span className="text-sm font-medium">{item.label}</span>
-                          {showDescriptions && item.description && (
-                            <span
-                              className="block text-xs"
-                              style={{ color: 'var(--color-text-secondary)' }}
-                            >
-                              {item.description}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
-                      </NavLink>
-                    )
-                  })}
+                      </div>
+                      <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+                    </NavLink>
+                  ))}
                 </div>
               ))}
             </div>

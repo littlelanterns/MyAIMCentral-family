@@ -153,6 +153,36 @@ or a user flow to trigger), note exactly how to reproduce it in the
 Notes column of the verification table. Never mark visual items
 Wired without eyes-on confirmation.
 
+### Mobile/Desktop Navigation Parity Check
+
+If the build adds or renames any top-level page (anything that earns
+a sidebar entry):
+
+1. The page is registered **exactly once**, in `getSidebarSections()`
+   in `src/components/shells/Sidebar.tsx`. Never hand-maintained as a
+   parallel list inside `BottomNav.tsx` or anywhere else — the BottomNav
+   "More" menu reads from `getSidebarSections` so the two navs cannot
+   drift. If you find yourself editing a hardcoded `MORE_SECTIONS`-style
+   list, stop — you're working against the architecture.
+2. Open the app in DevTools mobile viewport (375px width), tap the
+   bottom **More** button, and visually confirm the new page appears
+   in the same section, with the same label, the same icon, and in
+   the same position as in the desktop sidebar. Both navs must read
+   like the same map.
+3. Tap through the entry from the More menu and confirm it routes
+   correctly.
+4. Repeat for every shell the page is available in (mom, adult,
+   independent — each shell has its own section list in
+   `getSidebarSections`). Guided and Play shells have their own
+   purpose-built navigation and are exempt.
+5. Record the parity check in the Post-Build Verification table:
+   "Mobile More menu shows new page in correct section ✓".
+
+The point of this check: every time mom can do something on desktop,
+she can do it just as easily on mobile, and the path to get there
+looks the same. Mobile and desktop should feel like the same product,
+not two different products.
+
 ---
 
 ## Step 7: Post-Build File Checklist (Convention #14)
