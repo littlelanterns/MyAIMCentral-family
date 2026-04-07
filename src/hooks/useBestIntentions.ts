@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
 import { MEMBER_COLORS } from '@/config/member_colors'
+import { todayLocalIso } from '@/utils/dates'
 
 /** Full AIMfM 44-color palette for intention color assignment */
 export const INTENTION_COLORS = MEMBER_COLORS.map((c) => c.hex)
@@ -106,7 +107,7 @@ export function useIntentionIterations(intentionId: string | undefined) {
 
 // Count iterations for a specific intention where day_date = today
 export function useTodaysIterations(intentionId: string | undefined) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayLocalIso()
 
   return useQuery({
     queryKey: ['intention-iterations-today', intentionId, today],
@@ -414,7 +415,7 @@ export function useLogIteration() {
       victoryReference?: string
       intentionStatement?: string
     }) => {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalIso()
 
       const { data, error } = await supabase
         .from('intention_iterations')

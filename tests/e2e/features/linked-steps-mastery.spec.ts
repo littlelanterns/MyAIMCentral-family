@@ -22,6 +22,7 @@ import { test, expect } from '@playwright/test'
 import { TEST_USERS } from '../helpers/seed-family'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import { todayLocalIso } from '../helpers/dates'
 
 dotenv.config({ path: '.env.local' })
 
@@ -149,7 +150,7 @@ async function logPracticeDirect(
   taskId: string,
   durationMinutes: number | null = null,
 ) {
-  const periodDate = new Date().toISOString().slice(0, 10)
+  const periodDate = todayLocalIso()
 
   // Mirror usePractice.logPractice for sequential items:
   //   1. practice_log row
@@ -567,7 +568,7 @@ test.describe.serial('Build J — Linked Steps, Mastery & Practice Advancement',
       task_id: taskId,
       member_id: member.id,
       family_member_id: member.id,
-      period_date: new Date().toISOString().slice(0, 10),
+      period_date: todayLocalIso(),
       completion_type: 'mastery_submit',
       approval_status: 'pending',
       rejected: false,
@@ -629,7 +630,7 @@ test.describe.serial('Build J — Linked Steps, Mastery & Practice Advancement',
     const firstItemId = ((items ?? []) as any[])[0].id
 
     // Insert a Surprise Me draw for today
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayLocalIso()
     const { data: draw1 } = await sb.from('randomizer_draws').insert({
       list_id: listId,
       list_item_id: firstItemId,
@@ -701,7 +702,7 @@ test.describe.serial('Build J — Linked Steps, Mastery & Practice Advancement',
       draw_id: drawId,
       practice_type: 'practice',
       duration_minutes: 20,
-      period_date: new Date().toISOString().slice(0, 10),
+      period_date: todayLocalIso(),
     }).select('id, source_type, draw_id').single()
     expect(error).toBeNull()
     expect((log as any).source_type).toBe('randomizer_item')

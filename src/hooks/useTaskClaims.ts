@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { TaskClaim } from '@/types/tasks'
+import { todayLocalIso } from '@/utils/dates'
 
 // ============================================================
 // useTaskClaims — all claims for a specific task
@@ -183,7 +184,7 @@ export function useCompleteClaim() {
       if (claimError) throw claimError
 
       // 2. Insert a task_completion record
-      const periodDate = new Date().toISOString().split('T')[0]
+      const periodDate = todayLocalIso()
       const { data: completion, error: compError } = await supabase
         .from('task_completions')
         .insert({

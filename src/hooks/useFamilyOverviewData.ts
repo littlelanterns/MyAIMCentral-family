@@ -5,8 +5,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamily } from './useFamily'
+import { todayLocalIso } from '@/utils/dates'
 
-const today = () => new Date().toISOString().split('T')[0]
+const today = () => todayLocalIso()
 
 // ─── Today's events per member ──────────────────────────────────────────────
 

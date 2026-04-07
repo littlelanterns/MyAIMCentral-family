@@ -5,6 +5,7 @@
 import { useMemo } from 'react'
 import { Flame, Plus } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 export function StreakTracker({ widget, dataPoints, onRecordData, variant: _variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -17,7 +18,7 @@ export function StreakTracker({ widget, dataPoints, onRecordData, variant: _vari
   const { currentStreak, longestStreak, todayCompleted } = useMemo(() => {
     if (dataPoints.length === 0) return { currentStreak: 0, longestStreak: 0, todayCompleted: false }
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalIso()
     const dates = [...new Set(dataPoints.map(dp => dp.recorded_date))].sort().reverse()
 
     const todayDone = dates[0] === today
@@ -36,7 +37,7 @@ export function StreakTracker({ widget, dataPoints, onRecordData, variant: _vari
 
     // Walk backwards through dates to find current streak
     for (let i = 0; i < 365; i++) {
-      const dateStr = checkDate.toISOString().split('T')[0]
+      const dateStr = localIso(checkDate)
       if (dateSet.has(dateStr)) {
         streak++
         checkDate.setDate(checkDate.getDate() - 1)
@@ -50,7 +51,7 @@ export function StreakTracker({ widget, dataPoints, onRecordData, variant: _vari
     for (const d of sortedDates) {
       const prev = new Date(d)
       prev.setDate(prev.getDate() - 1)
-      const prevStr = prev.toISOString().split('T')[0]
+      const prevStr = localIso(prev)
       if (dateSet.has(prevStr)) {
         currentRun++
       } else {

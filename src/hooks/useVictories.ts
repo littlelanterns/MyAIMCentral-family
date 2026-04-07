@@ -9,31 +9,36 @@ import type {
   VictoryFilters,
   VictoryPeriodFilter,
 } from '@/types/victories'
+import { localIso, todayLocalIso, startOfLocalDayUtc, endOfLocalDayUtc } from '@/utils/dates'
 
+// Returns proper UTC ISO timestamps representing local-day boundaries.
+// `created_at` is TIMESTAMPTZ — passing naive timezone-less strings would get
+// interpreted in the Postgres session timezone (UTC), not the user's local
+// wall clock. The helpers in @/utils/dates produce the correct UTC moments.
 function getPeriodRange(period: VictoryPeriodFilter, customStart?: string, customEnd?: string) {
   const now = new Date()
-  const todayStr = now.toISOString().slice(0, 10)
+  const todayStr = todayLocalIso()
 
   switch (period) {
     case 'today': {
-      return { start: `${todayStr}T00:00:00`, end: `${todayStr}T23:59:59.999` }
+      return { start: startOfLocalDayUtc(todayStr), end: endOfLocalDayUtc(todayStr) }
     }
     case 'this_week': {
       const day = now.getDay()
       const weekStart = new Date(now)
       weekStart.setDate(now.getDate() - day)
       return {
-        start: `${weekStart.toISOString().slice(0, 10)}T00:00:00`,
-        end: `${todayStr}T23:59:59.999`,
+        start: startOfLocalDayUtc(localIso(weekStart)),
+        end: endOfLocalDayUtc(todayStr),
       }
     }
     case 'this_month': {
       const monthStart = `${todayStr.slice(0, 7)}-01`
-      return { start: `${monthStart}T00:00:00`, end: `${todayStr}T23:59:59.999` }
+      return { start: startOfLocalDayUtc(monthStart), end: endOfLocalDayUtc(todayStr) }
     }
     case 'custom': {
       if (customStart && customEnd) {
-        return { start: `${customStart}T00:00:00`, end: `${customEnd}T23:59:59.999` }
+        return { start: startOfLocalDayUtc(customStart), end: endOfLocalDayUtc(customEnd) }
       }
       return null
     }

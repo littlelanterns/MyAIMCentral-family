@@ -167,6 +167,31 @@ When creating a stub for a future feature:
 
 ---
 
+## Date and Time (Local vs UTC)
+
+- Always use helpers from `src/utils/dates.ts` for any local-date computation. Never write `new Date().toISOString().split('T')[0]` — it returns the UTC date, not the user's local date, and causes off-by-one bugs in negative-offset timezones during late-evening writes (first surfaced by beta_glitch_reports `8dc4b2bd`, then found in 30+ files). **ESLint enforces this** via a `no-restricted-syntax` rule in `eslint.config.js` — `npm run prebuild` (which Vercel runs automatically before `npm run build`) will fail on any new occurrence.
+- For `DATE` columns and date-keyed query keys: `todayLocalIso()` / `localIso(date)` / `localIsoDaysFromToday(n)`.
+- For week / month / quarter period identifiers: `localWeekIso()` / `localMonthIso()` / `localQuarterIso()` — all use local time and match the ISO 8601 week algorithm used in `periodForRhythm()`.
+- For `TIMESTAMPTZ` range queries (e.g. "items created today in the user's local time"): `startOfLocalDayUtc()` / `endOfLocalDayUtc()` — these produce proper UTC ISO timestamps representing the local wall-clock boundary. Passing a naive `YYYY-MM-DD` string to a TIMESTAMPTZ filter is still wrong even if the date was computed locally — it gets interpreted in the Postgres session timezone (usually UTC), not the user's.
+- For `<input type="datetime-local">` round-trips: use `toDatetimeLocalInput(dateOrIsoString)` on the read side. The save side (`new Date(input.value).toISOString()`) is already correct because datetime-local values are parsed by the Date constructor as local time.
+- E2E tests live outside `src/` and don't use the `@/` path alias — they have their own mirror at `tests/e2e/helpers/dates.ts`. Keep the two files in sync if the algorithms ever change.
+
+---
+
+## ESLint
+
+- Config lives at `eslint.config.js` (flat config, ESLint 9+). It is intentionally an **allow list**: nothing is enabled unless explicitly turned on. We deliberately skip `typescript-eslint/recommended` and `js.configs.recommended` because they'd flag hundreds of existing patterns and create noise.
+- Active rules:
+  - `no-restricted-syntax` — blocks `.toISOString().split/slice/substring/substr` (the UTC date bug). Error.
+  - `react-hooks/rules-of-hooks` — error.
+  - `react-hooks/exhaustive-deps` — warning (too many false positives to be an error).
+  - `no-debugger`, `no-var` — error.
+  - `prefer-const` — warning.
+- ESLint runs as `npm run lint` (manual) or via the `prebuild` lifecycle hook which fires automatically when `npm run build` runs (locally and on Vercel). Errors block the build; warnings don't.
+- Adding a new rule? Run `npm run lint` first to count current violations. If there are more than ~10 of an error-level rule, either fix them all in the same PR or set the rule to `'warn'` for now and convert to `'error'` once fixed. **Don't introduce a rule that ships with broken builds.**
+
+---
+
 ## Edge Function Conventions
 
 - TypeScript with Deno runtime (Supabase Edge Functions).

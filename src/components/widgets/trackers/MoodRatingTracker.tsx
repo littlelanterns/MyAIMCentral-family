@@ -5,6 +5,7 @@
 import { useMemo } from 'react'
 import { Frown, Annoyed, Meh, Smile, Laugh } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 
 const MOOD_ICONS = [
@@ -16,7 +17,7 @@ const MOOD_ICONS = [
 ]
 
 function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  return todayLocalIso()
 }
 
 function getLast7Days(): string[] {
@@ -25,7 +26,7 @@ function getLast7Days(): string[] {
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    days.push(d.toISOString().split('T')[0])
+    days.push(localIso(d))
   }
   return days
 }

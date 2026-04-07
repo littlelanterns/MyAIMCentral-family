@@ -26,6 +26,7 @@ import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useContextExport, useArchiveFolders } from '@/hooks/useArchives'
 import { useRoutingToast } from '@/components/shared'
+import { todayLocalIso } from '@/utils/dates'
 
 // ---------------------------------------------------------------------------
 // Scope types
@@ -146,7 +147,7 @@ export function ContextExportPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `family-context-export-${new Date().toISOString().split('T')[0]}.md`
+    link.download = `family-context-export-${todayLocalIso()}.md`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

@@ -3,6 +3,7 @@ import { BookOpen, Copy, Trash2 } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useCelebrationArchive, useDeleteCelebration } from '@/hooks/useCelebrationArchive'
 import type { VictoryCelebration } from '@/types/victories'
+import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 
 interface CelebrationArchiveProps {
   memberId: string
@@ -10,17 +11,12 @@ interface CelebrationArchiveProps {
 }
 
 function formatCelebrationDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  const now = new Date()
-  const todayStr = now.toISOString().slice(0, 10)
-  const celebStr = d.toISOString().slice(0, 10)
+  // dateStr comes from DB as YYYY-MM-DD (DATE column) — compare as strings
+  if (dateStr === todayLocalIso()) return 'Today'
+  if (dateStr === localIsoDaysFromToday(-1)) return 'Yesterday'
 
-  if (celebStr === todayStr) return 'Today'
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (celebStr === yesterday.toISOString().slice(0, 10)) return 'Yesterday'
-
+  // Parse at noon local to avoid any DST/midnight boundary weirdness
+  const d = new Date(dateStr + 'T12:00:00')
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 

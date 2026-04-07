@@ -8,16 +8,17 @@ import { useAuth } from '@/hooks/useAuth'
 export function SignIn() {
   const navigate = useNavigate()
   const { user: existingUser, loading: authLoading } = useAuth()
-
-  // If already authenticated, redirect to dashboard
-  if (!authLoading && existingUser) {
-    return <Navigate to="/dashboard" replace />
-  }
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // If already authenticated, redirect to dashboard. This must come AFTER
+  // the hook calls above — early returns before hooks violate rules-of-hooks.
+  if (!authLoading && existingUser) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

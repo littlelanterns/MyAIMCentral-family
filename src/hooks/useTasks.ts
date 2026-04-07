@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
+import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 import type {
   Task,
   CreateTask,
@@ -224,7 +225,7 @@ export function useCompleteTask() {
       photoUrl?: string | null
       requireApproval?: boolean
     }) => {
-      const resolvedDate = periodDate ?? new Date().toISOString().split('T')[0]
+      const resolvedDate = periodDate ?? todayLocalIso()
 
       // 1. Insert completion record
       const { data: completion, error: compError } = await supabase
@@ -620,8 +621,8 @@ function buildTasksByView(tasks: Task[], viewType: TaskViewType): TasksByView {
     }
 
     case 'now_next_optional': {
-      const today = new Date().toISOString().split('T')[0]
-      const oneWeekOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      const today = todayLocalIso()
+      const oneWeekOut = localIsoDaysFromToday(7)
       // "Now" = required tasks due today or overdue
       const nowTasks = tasks.filter((t) => {
         const isOpportunity = t.task_type.startsWith('opportunity')

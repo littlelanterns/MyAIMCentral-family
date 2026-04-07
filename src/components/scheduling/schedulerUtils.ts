@@ -9,6 +9,7 @@ import { RRule, RRuleSet } from 'rrule'
 import type {
   SchedulerState, SchedulerOutput,
 } from './types'
+import { localIso, todayLocalIso } from '@/utils/dates'
 
 // ── RRULE day constants (rrule.js uses RRule.SU=0 etc.) ─────────────────
 
@@ -16,11 +17,11 @@ import type {
 const RRULE_DAY_MAP: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 }
 
 function toISODate(d: Date): string {
-  return d.toISOString().split('T')[0]
+  return localIso(d)
 }
 
 function todayISO(): string {
-  return toISODate(new Date())
+  return todayLocalIso()
 }
 
 // ── Build SchedulerOutput from internal state ───────────────────────────

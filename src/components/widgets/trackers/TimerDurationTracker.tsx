@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react'
 import { Clock, Plus, Timer } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 export function TimerDurationTracker({ widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -41,7 +42,7 @@ export function TimerDurationTracker({ widget, dataPoints, onRecordData, variant
   }, [dataPoints, periodBounds])
 
   // Today's date string
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const todayStr = useMemo(() => todayLocalIso(), [])
 
   // Today's total
   const todayTotal = useMemo(() => {
@@ -234,7 +235,7 @@ function TimeBarChart({
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
+      const dateStr = localIso(d)
       const dayTotal = dataPoints
         .filter(dp => dp.recorded_date === dateStr)
         .reduce((sum, dp) => sum + Number(dp.value), 0)

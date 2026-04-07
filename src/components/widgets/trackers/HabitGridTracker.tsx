@@ -5,6 +5,7 @@
 import React, { useMemo } from 'react'
 import { Grid3x3 } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 export function HabitGridTracker({ widget, dataPoints, onRecordData, variant: _variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -29,7 +30,7 @@ export function HabitGridTracker({ widget, dataPoints, onRecordData, variant: _v
       for (let i = 0; i < 7; i++) {
         const d = new Date(monday)
         d.setDate(monday.getDate() + i)
-        days.push(d.toISOString().split('T')[0])
+        days.push(localIso(d))
       }
       return { dates: days, monthLabel: `Week of ${monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` }
     }
@@ -38,7 +39,7 @@ export function HabitGridTracker({ widget, dataPoints, onRecordData, variant: _v
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const days: string[] = []
     for (let d = 1; d <= daysInMonth; d++) {
-      days.push(new Date(year, month, d).toISOString().split('T')[0])
+      days.push(localIso(new Date(year, month, d)))
     }
     const label = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     return { dates: days, monthLabel: label }
@@ -121,7 +122,7 @@ export function HabitGridTracker({ widget, dataPoints, onRecordData, variant: _v
               </div>
               {visibleDates.map(date => {
                 const filled = completionMap.has(`${habitIdx}:${date}`)
-                const isToday = date === new Date().toISOString().split('T')[0]
+                const isToday = date === todayLocalIso()
                 return (
                   <button
                     key={date}

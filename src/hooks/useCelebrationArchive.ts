@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import type { VictoryCelebration, CreateCelebration } from '@/types/victories'
+import { todayLocalIso } from '@/utils/dates'
 
 export function useCelebrationArchive(memberId: string | undefined) {
   const { data: member } = useFamilyMember()
@@ -37,7 +38,7 @@ export function useSaveCelebration() {
         .insert({
           family_id: input.family_id,
           family_member_id: input.family_member_id,
-          celebration_date: input.celebration_date ?? new Date().toISOString().slice(0, 10),
+          celebration_date: input.celebration_date ?? todayLocalIso(),
           mode: input.mode,
           period: input.period ?? null,
           narrative: input.narrative,

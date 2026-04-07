@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Trophy, Plus, Star, Sparkles, Clock, ChevronRight, ChevronDown, MessageSquarePlus, Archive } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useVictories, useVictoryCount, useLifeAreaBreakdown, useArchivedVictories } from '@/hooks/useVictories'
+import { startOfLocalDayUtc, endOfLocalDayUtc } from '@/utils/dates'
 import { RecordVictory } from '@/components/victories/RecordVictory'
 import { VictoryDetail } from '@/components/victories/VictoryDetail'
 import { CelebrationModal } from '@/components/victories/CelebrationModal'
@@ -67,14 +68,13 @@ export function VictoryRecorder() {
   const [activitySparse, setActivitySparse] = useState(false)
   useEffect(() => {
     if (!memberId || !member?.family_id) return
-    const today = new Date().toISOString().slice(0, 10)
     supabase
       .from('activity_log_entries')
       .select('id', { count: 'exact', head: true })
       .eq('family_id', member.family_id)
       .eq('member_id', memberId)
-      .gte('created_at', `${today}T00:00:00`)
-      .lte('created_at', `${today}T23:59:59.999`)
+      .gte('created_at', startOfLocalDayUtc())
+      .lte('created_at', endOfLocalDayUtc())
       .then(({ count }) => {
         setActivitySparse((count ?? 0) < 3)
       })

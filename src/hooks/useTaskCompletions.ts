@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
+import { todayLocalIso } from '@/utils/dates'
 import type {
   TaskCompletion,
   CreateTaskCompletion,
@@ -42,7 +43,7 @@ export function useTaskCompletionsForMember(
   memberId: string | undefined,
   periodDate?: string,
 ) {
-  const date = periodDate ?? new Date().toISOString().split('T')[0]
+  const date = periodDate ?? todayLocalIso()
 
   return useQuery({
     queryKey: ['task-completions-member', memberId, date],
@@ -229,7 +230,7 @@ export function useRoutineStepCompletions(
   memberId: string | undefined,
   periodDate?: string,
 ) {
-  const date = periodDate ?? new Date().toISOString().split('T')[0]
+  const date = periodDate ?? todayLocalIso()
 
   return useQuery({
     queryKey: ['routine-step-completions', taskId, memberId, date],
@@ -294,7 +295,7 @@ export function useUncompleteRoutineStep() {
       instanceNumber?: number
       periodDate?: string
     }) => {
-      const date = periodDate ?? new Date().toISOString().split('T')[0]
+      const date = periodDate ?? todayLocalIso()
       const inst = instanceNumber ?? 1
 
       const { error } = await supabase
@@ -328,7 +329,7 @@ export function useRoutineCompletionSummary(
   totalSteps: number,
   periodDate?: string,
 ) {
-  const date = periodDate ?? new Date().toISOString().split('T')[0]
+  const date = periodDate ?? todayLocalIso()
   const { data: completions } = useRoutineStepCompletions(taskId, memberId, date)
 
   const completedSteps = completions?.length ?? 0

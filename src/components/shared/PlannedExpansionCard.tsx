@@ -49,14 +49,10 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
     return () => { cancelled = true }
   }, [featureKey, vibe])
 
-  // Silent no-op if feature key not in registry
-  if (!entry) return null
-
-  // Hide for guided/play shells
-  const dashboardMode = member?.dashboard_mode
-  if (dashboardMode === 'guided' || dashboardMode === 'play') return null
-
-  // Load previous vote
+  // Load previous vote and notification preference. Must run BEFORE any
+  // conditional returns to satisfy rules-of-hooks. Both are member-keyed
+  // and short-circuit if member?.id is missing, so they're safe to fire
+  // on renders that will return null below.
   useEffect(() => {
     if (!member?.id) return
 
@@ -92,6 +88,13 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
         }
       })
   }, [member?.id, featureKey])
+
+  // Silent no-op if feature key not in registry
+  if (!entry) return null
+
+  // Hide for guided/play shells
+  const dashboardMode = member?.dashboard_mode
+  if (dashboardMode === 'guided' || dashboardMode === 'play') return null
 
   const handleVote = async (isYes: boolean) => {
     if (!member?.id || !member?.family_id) return

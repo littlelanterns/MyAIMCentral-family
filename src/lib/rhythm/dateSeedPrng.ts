@@ -1,3 +1,5 @@
+import { localIso } from '@/utils/dates'
+
 /**
  * PRD-18: Date-seeded deterministic PRNG for rhythm rotation.
  *
@@ -38,6 +40,10 @@ function mulberry32(seed: number): () => number {
 /**
  * Build a deterministic seed string from rotation context.
  * Defaults to today's date — caller can pass a Date if needed.
+ *
+ * Uses the caller's LOCAL date (not UTC) — a user in Central time opening
+ * rhythms at 9 PM still sees the same content they saw at 6 PM. Without
+ * this, rotation would "tick" at UTC midnight instead of local midnight.
  */
 export function rhythmSeed(
   memberId: string,
@@ -45,7 +51,7 @@ export function rhythmSeed(
   date: Date = new Date(),
   saltKey?: string
 ): number {
-  const dateKey = date.toISOString().slice(0, 10) // YYYY-MM-DD
+  const dateKey = localIso(date)
   const salt = saltKey ?? ''
   return djb2Hash(`${memberId}|${rhythmKey}|${dateKey}|${salt}`)
 }

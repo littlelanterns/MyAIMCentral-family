@@ -10,13 +10,14 @@ import type {
   SchedulerState, SchedulerAction, SchedulerOutput,
 } from './types'
 import { buildOutput, outputToState } from './schedulerUtils'
+import { todayLocalIso } from '@/utils/dates'
 
 function uid(): string {
   return crypto.randomUUID()
 }
 
 function todayISO(): string {
-  return new Date().toISOString().split('T')[0]
+  return todayLocalIso()
 }
 
 export function createInitialState(showTimeDefault: boolean): SchedulerState {

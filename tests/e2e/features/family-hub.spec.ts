@@ -16,6 +16,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 import { loginAsMom, loginAsDad, loginAsAlex } from '../helpers/auth'
+import { localIso } from '../helpers/dates'
 import {
   captureConsoleErrors,
   assertNoInfiniteRenders,
@@ -332,7 +333,7 @@ test.describe('PRD-14D: Family Hub', () => {
     // Set a future date (30 days from now)
     const futureDate = new Date()
     futureDate.setDate(futureDate.getDate() + 30)
-    const dateStr = futureDate.toISOString().slice(0, 10)
+    const dateStr = localIso(futureDate)
     const dateInput = page.locator('input[type="date"]')
     await dateInput.fill(dateStr)
 

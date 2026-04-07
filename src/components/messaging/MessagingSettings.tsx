@@ -19,6 +19,7 @@ import {
   useAllMessagingPermissions,
   useToggleMessagingPermission,
 } from '@/hooks/useMessagingSettings'
+import { toDatetimeLocalInput } from '@/utils/dates'
 
 interface MessagingSettingsProps {
   onClose: () => void
@@ -46,7 +47,7 @@ export function MessagingSettings({ onClose }: MessagingSettingsProps) {
       setGuidelines(settings.communication_guidelines || '')
       setViewingMode(settings.content_corner_viewing_mode as 'browse' | 'locked' || 'browse')
       setLockedUntil(settings.content_corner_locked_until
-        ? new Date(settings.content_corner_locked_until).toISOString().slice(0, 16)
+        ? toDatetimeLocalInput(settings.content_corner_locked_until)
         : '')
     }
   }, [settings])

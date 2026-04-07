@@ -8,6 +8,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { todayLocalIso } from '@/utils/dates'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -177,12 +178,8 @@ export function useArchiveFamilyBestIntention() {
 
 // ─── Today's iterations (tallies) ───────────────────────────────────────────
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function useTodayFamilyIterations(familyId: string | undefined) {
-  const today = todayStr()
+  const today = todayLocalIso()
 
   return useQuery({
     queryKey: ['family-intention-iterations', familyId, today],
@@ -218,7 +215,7 @@ export function useLogFamilyIntentionTally() {
           family_id: params.familyId,
           intention_id: params.intentionId,
           member_id: params.memberId,
-          day_date: todayStr(),
+          day_date: todayLocalIso(),
         })
         .select()
         .single()
@@ -227,7 +224,7 @@ export function useLogFamilyIntentionTally() {
     },
     onMutate: async (vars) => {
       // Optimistic update: add a fake iteration to the cache
-      const today = todayStr()
+      const today = todayLocalIso()
       const key = ['family-intention-iterations', vars.familyId, today]
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<FamilyIntentionIteration[]>(key) ?? []
@@ -246,7 +243,7 @@ export function useLogFamilyIntentionTally() {
       if (ctx) qc.setQueryData(ctx.key, ctx.prev)
     },
     onSettled: (_data, _err, vars) => {
-      const today = todayStr()
+      const today = todayLocalIso()
       qc.invalidateQueries({ queryKey: ['family-intention-iterations', vars.familyId, today] })
     },
   })

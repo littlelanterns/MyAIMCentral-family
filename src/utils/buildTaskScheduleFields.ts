@@ -3,6 +3,7 @@
 
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { dayToRRule } from '@/components/scheduling/schedulerUtils'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 interface TaskScheduleFields {
   due_date: string | null
@@ -16,7 +17,7 @@ export function buildTaskScheduleFields(data: CreateTaskData): TaskScheduleField
   }
 
   if (data.scheduleMode === 'daily') {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalIso()
     return {
       due_date: today,
       recurrence_rule: 'daily',
@@ -34,7 +35,7 @@ export function buildTaskScheduleFields(data: CreateTaskData): TaskScheduleField
     if (daysUntil < 0) daysUntil += 7
     const nextDate = new Date(today)
     nextDate.setDate(nextDate.getDate() + daysUntil)
-    const dueDate = nextDate.toISOString().split('T')[0]
+    const dueDate = localIso(nextDate)
     const byDay = data.weeklyDays.map(d => dayToRRule(d)).join(',')
     return {
       due_date: dueDate,
@@ -44,7 +45,7 @@ export function buildTaskScheduleFields(data: CreateTaskData): TaskScheduleField
   }
 
   if (data.scheduleMode === 'custom' && data.schedule) {
-    const dueDate = data.schedule.dtstart ?? new Date().toISOString().split('T')[0]
+    const dueDate = data.schedule.dtstart ?? todayLocalIso()
     return {
       due_date: dueDate,
       recurrence_rule: 'custom',

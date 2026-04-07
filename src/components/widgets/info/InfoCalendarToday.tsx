@@ -3,6 +3,7 @@ import { Calendar, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
 import type { DashboardWidget } from '@/types/widgets'
+import { todayLocalIso } from '@/utils/dates'
 
 interface Props {
   widget: DashboardWidget
@@ -15,7 +16,7 @@ export function InfoCalendarToday({ widget, isCompact }: Props) {
 
   useEffect(() => {
     if (!widget.family_id) return
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalIso()
     supabase
       .from('calendar_events')
       .select('id, title, start_time, is_all_day')

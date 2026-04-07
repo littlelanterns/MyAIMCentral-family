@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTasks } from './useTasks'
 import { useBestIntentions } from './useBestIntentions'
 import type { NBTSuggestion } from '@/types/guided-dashboard'
+import { localIso } from '@/utils/dates'
 
 export interface UseNBTEngineReturn {
   suggestions: NBTSuggestion[]
@@ -37,7 +38,7 @@ export function useNBTEngine(
     if (!memberId) return []
 
     const now = new Date()
-    const today = now.toISOString().split('T')[0]
+    const today = localIso(now)
     const currentHour = now.getHours()
     const currentMinutes = currentHour * 60 + now.getMinutes()
     const result: NBTSuggestion[] = []

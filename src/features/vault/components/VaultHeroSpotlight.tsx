@@ -18,10 +18,9 @@ const CTA_LABELS: Record<string, string> = {
 
 export function VaultHeroSpotlight({ items, memberId: _memberId }: Props) {
   const [index, setIndex] = useState(0)
-  const item = items[index]
-  if (!item) return null
 
-  // Auto-rotate every 8s
+  // Auto-rotate every 8s. Must run before any conditional return so the
+  // hook order is stable across renders.
   useEffect(() => {
     if (items.length <= 1) return
     const timer = setInterval(() => {
@@ -29,6 +28,9 @@ export function VaultHeroSpotlight({ items, memberId: _memberId }: Props) {
     }, 8000)
     return () => clearInterval(timer)
   }, [items.length])
+
+  const item = items[index]
+  if (!item) return null
 
   return (
     <section className="relative rounded-xl overflow-hidden" style={{ minHeight: '220px' }}>

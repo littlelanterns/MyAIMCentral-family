@@ -31,6 +31,7 @@ import {
 import type { BestIntention } from '@/hooks/useBestIntentions'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 // ---- Mini Sparkline (7-day trend, pure SVG) ----
 
@@ -249,9 +250,9 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
   const sevenDaysAgo = useMemo(() => {
     const d = new Date()
     d.setDate(d.getDate() - 6)
-    return d.toISOString().split('T')[0]
+    return localIso(d)
   }, [])
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const today = useMemo(() => todayLocalIso(), [])
 
   const intentionIds = useMemo(
     () => activeIntentions.map((i) => i.id),
@@ -270,7 +271,7 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
     const dates: string[] = []
     const cur = new Date(sevenDaysAgo + 'T00:00:00')
     for (let i = 0; i < 7; i++) {
-      dates.push(cur.toISOString().split('T')[0])
+      dates.push(localIso(cur))
       cur.setDate(cur.getDate() + 1)
     }
 

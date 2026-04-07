@@ -115,8 +115,6 @@ export function QuickCreate({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  if (!ALLOWED_SHELLS.has(shell)) return null
-
   const handleAction = useCallback((key: QuickActionKey) => {
     setIsOpen(false)
     switch (key) {
@@ -261,6 +259,10 @@ export function QuickCreate({
       bottom: isBottomHalf ? window.innerHeight - pos.y + 8 : undefined,
     }
   }, [pos])
+
+  // Hide on shells where Quick Create isn't shown. Must come AFTER all hook
+  // calls above so the hook order is stable across renders.
+  if (!ALLOWED_SHELLS.has(shell)) return null
 
   return (
     <>

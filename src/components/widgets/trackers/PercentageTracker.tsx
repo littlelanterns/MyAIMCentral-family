@@ -6,6 +6,7 @@
 import { useMemo } from 'react'
 import { PieChart } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { todayLocalIso } from '@/utils/dates'
 
 export function PercentageTracker({ widget, dataPoints, onRecordData: _onRecordData, variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -22,7 +23,7 @@ export function PercentageTracker({ widget, dataPoints, onRecordData: _onRecordD
       return Number(setPoints[setPoints.length - 1].value)
     }
     // Fall back to computing from boolean data points
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalIso()
     const todayPoints = dataPoints.filter(dp => dp.recorded_date === today)
     if (todayPoints.length === 0) return 0
     const completed = todayPoints.filter(dp => Number(dp.value) > 0).length

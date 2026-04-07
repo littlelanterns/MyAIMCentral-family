@@ -12,6 +12,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import { localIso, todayLocalIso } from './dates'
 
 dotenv.config({ path: '.env.local' })
 
@@ -147,7 +148,7 @@ async function hasData(table: string, extraFilter?: Record<string, string>): Pro
 // ─── Date Helpers ────────────────────────────────────────────────────────────
 
 const NOW = new Date()
-const TODAY = NOW.toISOString().split('T')[0]
+const TODAY = todayLocalIso()
 
 function daysAgo(n: number): string {
   const d = new Date(NOW)
@@ -158,7 +159,7 @@ function daysAgo(n: number): string {
 function dateOnly(daysBack: number): string {
   const d = new Date(NOW)
   d.setDate(d.getDate() - daysBack)
-  return d.toISOString().split('T')[0]
+  return localIso(d)
 }
 
 function hoursAgo(h: number): string {

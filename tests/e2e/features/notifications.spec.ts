@@ -28,6 +28,7 @@ import {
   assertNoInfiniteRenders,
   waitForAppReady,
 } from '../helpers/assertions'
+import { localIso } from '../helpers/dates'
 import dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
@@ -76,7 +77,7 @@ async function getTestFamilyIds() {
 async function createPendingCalendarEvent(familyId: string, createdBy: string, title: string) {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const dateStr = tomorrow.toISOString().split('T')[0]
+  const dateStr = localIso(tomorrow)
 
   const { data, error } = await adminSupabase
     .from('calendar_events')

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Tooltip } from '@/components/shared'
 import { LilaAvatar } from './LilaAvatar'
 import { HumanInTheMix } from '@/components/HumanInTheMix'
-import { useNotepadContext } from '@/components/notepad'
+import { useNotepadContextSafe } from '@/components/notepad'
 import type { LilaMessage } from '@/hooks/useLila'
 
 /**
@@ -38,9 +38,9 @@ export function LilaMessageBubble({
   const [copied, setCopied] = useState(false)
   const navigate = useNavigate()
 
-  // Safe notepad context access (may not be available in all shells)
-  let notepad: ReturnType<typeof useNotepadContext> | null = null
-  try { notepad = useNotepadContext() } catch { /* Not inside NotepadProvider */ }
+  // Safe notepad context access (may not be available in all shells —
+  // returns null when used outside a NotepadProvider tree).
+  const notepad = useNotepadContextSafe()
 
   async function handleCopy() {
     await navigator.clipboard.writeText(message.content)

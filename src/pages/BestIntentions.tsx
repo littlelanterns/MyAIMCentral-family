@@ -8,6 +8,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useWidgets, useCreateWidget } from '@/hooks/useWidgets'
 import { MEMBER_COLORS } from '@/config/member_colors'
+import { localIso } from '@/utils/dates'
 import {
   useBestIntentions,
   useArchivedIntentions,
@@ -669,8 +670,8 @@ function AnalyticsTabContent({
       start.setDate(end.getDate() - 29)
     }
     return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0],
+      start: localIso(start),
+      end: localIso(end),
     }
   }, [timeFrame])
 
@@ -692,7 +693,7 @@ function AnalyticsTabContent({
     const cur = new Date(dateRange.start + 'T00:00:00')
     const endD = new Date(dateRange.end + 'T00:00:00')
     while (cur <= endD) {
-      dates.push(cur.toISOString().split('T')[0])
+      dates.push(localIso(cur))
       cur.setDate(cur.getDate() + 1)
     }
 

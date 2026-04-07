@@ -15,6 +15,7 @@ import {
   assertNoInfiniteRenders,
   waitForAppReady,
 } from '../helpers/assertions'
+import { localIso } from '../helpers/dates'
 import dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
@@ -85,7 +86,7 @@ function getNextDayOfWeek(targetDay: number): string {
   if (daysUntil <= 0) daysUntil += 7
   const next = new Date(today)
   next.setDate(next.getDate() + daysUntil)
-  return next.toISOString().split('T')[0]
+  return localIso(next)
 }
 
 // ── Tests ────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ test.describe('Task Assignment & Schedule Fixes', () => {
     // Set due date (tomorrow)
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const dateStr = tomorrow.toISOString().split('T')[0]
+    const dateStr = localIso(tomorrow)
     const dateInput = modal.locator('input[type="date"]').first()
     await dateInput.scrollIntoViewIfNeeded()
     await dateInput.fill(dateStr)

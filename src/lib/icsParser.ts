@@ -1,3 +1,5 @@
+import { localIso } from '@/utils/dates'
+
 /**
  * .ics (iCalendar) file parser for MyAIM MindSweep calendar import.
  *
@@ -260,7 +262,7 @@ function unescapeICS(value: string): string {
 function subtractOneDay(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
   d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10)
+  return localIso(d)
 }
 
 /**

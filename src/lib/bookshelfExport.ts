@@ -6,6 +6,7 @@
  */
 import JSZip from 'jszip'
 import type { BookExtraction } from '@/types/bookshelf'
+import { todayLocalIso } from '@/utils/dates'
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ function toFilename(name: string): string {
 }
 
 function today(): string {
-  return new Date().toISOString().split('T')[0]
+  return todayLocalIso()
 }
 
 function escapeXml(str: string): string {

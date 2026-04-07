@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { todayLocalIso } from '@/utils/dates'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -131,28 +132,10 @@ async function seedDefaultPrompts(familyId: string, memberId: string) {
   if (error) throw error
 }
 
-// ─── Local-date helper ──────────────────────────────────────
-//
-// Bug fix (2026-04-07, beta_glitch_reports 8dc4b2bd): The previous
-// implementation used `new Date().toISOString().split('T')[0]` which
-// returns the UTC date. For users in negative-offset timezones (e.g.
-// US Central), this caused reflections saved in the late evening to
-// be tagged with TOMORROW's date because UTC had already ticked over.
-//
-// `todayLocalIso()` reads the user's local Y/M/D from the system clock,
-// matching what they see on their wall and what they expect to see in
-// the reflections page. The DB column `response_date` stores this as
-// a DATE (no TZ ambiguity). The display layer (ReflectionsPastTab)
-// already parses it as a local date string, so writes are now consistent
-// with reads.
-
-function todayLocalIso(): string {
-  const d = new Date()
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+// Local-date bug fix (2026-04-07, beta_glitch_reports 8dc4b2bd): all date
+// strings in this file use `todayLocalIso()` from @/utils/dates. NEVER use
+// `new Date().toISOString().split('T')[0]` — returns UTC, causes off-by-one
+// bugs for users in negative-offset timezones during late-evening writes.
 
 // ─── Queries ─────────────────────────────────────────────────
 

@@ -4,9 +4,10 @@
 import { useMemo } from 'react'
 import { CircleCheck, Circle, CalendarDays } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { todayLocalIso, localIso } from '@/utils/dates'
 
 export function BooleanCheckinTracker({ widget: _widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocalIso()
 
   const isDoneToday = useMemo(() => {
     return dataPoints.some(dp => dp.recorded_date === today && Number(dp.value) === 1)
@@ -100,7 +101,7 @@ function StreakDisplay({ dataPoints }: { dataPoints: TrackerProps['dataPoints'] 
     const d = new Date()
     // Check from today backwards
     while (true) {
-      const dateStr = d.toISOString().slice(0, 10)
+      const dateStr = localIso(d)
       if (completedDates.has(dateStr)) {
         count++
         d.setDate(d.getDate() - 1)
@@ -138,7 +139,7 @@ function CalendarDotsVariant({
   const today = new Date()
   const year = today.getFullYear()
   const month = today.getMonth()
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = localIso(today)
 
   const completedDates = useMemo(() => {
     return new Set(
