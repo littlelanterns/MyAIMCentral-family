@@ -374,20 +374,161 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
-# ── Edge Function per-function settings ──
-# The Supabase CLI defaults `verify_jwt = true` on deploys, which makes the
-# platform reject requests with a 401 before they reach the function. Every
-# function in this repo handles its own auth via `_shared/auth.ts`
-# (`authenticateRequest(req)`), so we keep platform-level JWT verification
-# OFF to avoid fighting the two layers. Lock it in here so future
-# `supabase functions deploy` commands can't silently flip it back to true.
+# ════════════════════════════════════════════════════════════════════════
+# Edge Function per-function settings — verify_jwt pinning
+# ════════════════════════════════════════════════════════════════════════
 #
-# Discovered 2026-04-08: a deploy of mindsweep-sort without `--no-verify-jwt`
-# returned 401 to every authenticated client call even though mindsweep-scan
-# (same auth pattern) worked. The fix was to redeploy with --no-verify-jwt
-# and pin the setting here.
+# CRITICAL: every Edge Function in this repo has its own auth layer via
+# _shared/auth.ts → authenticateRequest(req). The Supabase CLI's default
+# `verify_jwt = true` adds a redundant platform-level check that intercepts
+# requests BEFORE the function code runs, and empirically 401s valid
+# browser JWTs (discovered 2026-04-08 with mindsweep-sort).
+#
+# EVERY function must be pinned to `verify_jwt = false` below. If you add
+# a new Edge Function, you MUST add a `[functions.NAME] verify_jwt = false`
+# entry here. `scripts/check-function-jwt-config.cjs` runs in prebuild and
+# will fail CI if any function is missing its entry.
+#
+# Net security is unchanged: the platform check goes off, the function's
+# own Bearer-token verification via anonClient.auth.getUser() stays on.
+# We just pick which layer enforces auth — and we picked the one that
+# doesn't break.
+#
+# If you ever need to genuinely expose a function without auth (e.g. a
+# public webhook), remove _shared/auth.ts from that function's index.ts
+# AND document it inline. Do not try to use verify_jwt=true.
+# ════════════════════════════════════════════════════════════════════════
+
+# ── AI utilities (browser-invoked) ──
+[functions.ai-parse]
+verify_jwt = false
+
+[functions.embed]
+verify_jwt = false
+
+[functions.embed-text-admin]
+verify_jwt = false
+
+[functions.extract-insights]
+verify_jwt = false
+
+[functions.generate-query-embedding]
+verify_jwt = false
+
+[functions.task-breaker]
+verify_jwt = false
+
+[functions.whisper-transcribe]
+verify_jwt = false
+
+[functions.describe-vs-icon]
+verify_jwt = false
+
+# ── BookShelf ──
+[functions.bookshelf-discuss]
+verify_jwt = false
+
+[functions.bookshelf-extract]
+verify_jwt = false
+
+[functions.bookshelf-key-points]
+verify_jwt = false
+
+[functions.bookshelf-process]
+verify_jwt = false
+
+[functions.bookshelf-search]
+verify_jwt = false
+
+[functions.bookshelf-study-guide]
+verify_jwt = false
+
+# ── LiLa AI tools (PRD-05, PRD-21, PRD-34) ──
+[functions.lila-chat]
+verify_jwt = false
+
+[functions.lila-board-of-directors]
+verify_jwt = false
+
+[functions.lila-cyrano]
+verify_jwt = false
+
+[functions.lila-decision-guide]
+verify_jwt = false
+
+[functions.lila-gifts]
+verify_jwt = false
+
+[functions.lila-gratitude]
+verify_jwt = false
+
+[functions.lila-higgins-navigate]
+verify_jwt = false
+
+[functions.lila-higgins-say]
+verify_jwt = false
+
+[functions.lila-mediator]
+verify_jwt = false
+
+[functions.lila-message-respond]
+verify_jwt = false
+
+[functions.lila-observe-serve]
+verify_jwt = false
+
+[functions.lila-perspective-shifter]
+verify_jwt = false
+
+[functions.lila-quality-time]
+verify_jwt = false
+
+[functions.lila-translator]
+verify_jwt = false
+
+[functions.lila-words-affirmation]
+verify_jwt = false
+
+# ── MindSweep (PRD-17B) ──
+[functions.mindsweep-scan]
+verify_jwt = false
 
 [functions.mindsweep-sort]
+verify_jwt = false
+
+[functions.mindsweep-auto-sweep]
+verify_jwt = false
+
+[functions.mindsweep-email-intake]
+verify_jwt = false
+
+# ── Rhythms, Calendar, Tasks, Guided, Messages ──
+[functions.auto-title-thread]
+verify_jwt = false
+
+[functions.curriculum-parse]
+verify_jwt = false
+
+[functions.guided-nbt-glaze]
+verify_jwt = false
+
+[functions.message-coach]
+verify_jwt = false
+
+[functions.notify-out-of-nest]
+verify_jwt = false
+
+[functions.process-carry-forward-fallback]
+verify_jwt = false
+
+[functions.scan-activity-victories]
+verify_jwt = false
+
+[functions.spelling-coach]
+verify_jwt = false
+
+# ── Victory / Celebration (PRD-11) ──
+[functions.celebrate-victory]
 verify_jwt = false
 
 # Experimental features may be deprecated any time
