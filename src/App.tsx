@@ -19,6 +19,7 @@ import { TasksPage } from '@/pages/Tasks'
 import { ListsPage } from '@/pages/Lists'
 import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
+import { GamificationShowcase } from '@/components/gamification/demo/GamificationShowcase'
 import {
   VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage,
@@ -100,6 +101,9 @@ function App() {
 
               {/* Dev preview — browse without auth */}
               <Route path="/preview/*" element={<DevPreview />} />
+
+              {/* Gamification visual test page — PRD-24 foundation acceptance test */}
+              <Route path="/dev/gamification" element={<ProtectedRoute><GamificationShowcase /></ProtectedRoute>} />
 
               {/* Protected routes — AuthGuard + ShellProvider + RoleRouter */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
