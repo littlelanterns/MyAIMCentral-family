@@ -12,7 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Sparkles, ThumbsUp, ThumbsDown, Send, Check, Bell, BellOff, Map } from 'lucide-react'
+import { Sparkles, ThumbsUp, ThumbsDown, Send, Check, Bell, BellOff, Map, X } from 'lucide-react'
 import { FEATURE_EXPANSION_REGISTRY } from '@/config/feature_expansion_registry'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -39,6 +39,9 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
   const [previousVote, setPreviousVote] = useState<boolean | null>(null)
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [notifySubmitted, setNotifySubmitted] = useState(false)
+  // Dismiss state — hydrated from feature_expansion_dismissals on mount.
+  // `null` = unknown (loading), `true` = dismissed (return null), `false` = visible.
+  const [dismissed, setDismissed] = useState<boolean | null>(null)
 
   // Fetch illustrated hero image for this feature
   useEffect(() => {
@@ -74,18 +77,36 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
         }
       })
 
-    // Load notification preference
+    // Load notification preference.
+    // notification_preferences schema (migration 100098): family_member_id
+    // (NOT member_id), and `in_app_enabled` / `push_enabled` / `do_not_disturb`
+    // (NOT `is_enabled`). Pre-fix this card queried nonexistent columns and
+    // 400'd on every render since PRD-15 migration 100098 shipped. Category
+    // is free-text so `feature_launch_${featureKey}` is valid.
     supabase
       .from('notification_preferences')
-      .select('is_enabled')
-      .eq('member_id', member.id)
+      .select('in_app_enabled')
+      .eq('family_member_id', member.id)
       .eq('category', `feature_launch_${featureKey}`)
       .limit(1)
       .then(({ data }) => {
         if (data && data.length > 0) {
-          setNotifyEnabled(data[0].is_enabled)
+          setNotifyEnabled(data[0].in_app_enabled)
           setNotifySubmitted(true)
         }
+      })
+
+    // Load dismissal state. If a row exists in feature_expansion_dismissals
+    // for this (member, feature_key), return null and never render the card
+    // again for this member. Migration 100121 added this table.
+    supabase
+      .from('feature_expansion_dismissals')
+      .select('id')
+      .eq('family_member_id', member.id)
+      .eq('feature_key', featureKey)
+      .limit(1)
+      .then(({ data }) => {
+        setDismissed(data !== null && data.length > 0)
       })
   }, [member?.id, featureKey])
 
@@ -95,6 +116,26 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
   // Hide for guided/play shells
   const dashboardMode = member?.dashboard_mode
   if (dashboardMode === 'guided' || dashboardMode === 'play') return null
+
+  // Hide if dismissed by this member. `null` means "still loading the
+  // dismissal check" — we render nothing until we know, to avoid the
+  // card flashing in then disappearing when the check resolves.
+  if (dismissed === null || dismissed === true) return null
+
+  const handleDismiss = async () => {
+    if (!member?.id || !member?.family_id) return
+    // Optimistic hide — the card disappears immediately; the DB write
+    // is fire-and-forget. If the write fails, the card will reappear
+    // next page load, which is the correct recovery behavior.
+    setDismissed(true)
+    await supabase.from('feature_expansion_dismissals').insert({
+      family_id: member.family_id,
+      family_member_id: member.id,
+      feature_key: featureKey,
+      dismissed_via_view_as: isViewingAs,
+      actual_dismisser_id: isViewingAs && realViewerId ? realViewerId : null,
+    })
+  }
 
   const handleVote = async (isYes: boolean) => {
     if (!member?.id || !member?.family_id) return
@@ -136,19 +177,20 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
     const newValue = !notifyEnabled
     setNotifyEnabled(newValue)
 
+    // Schema alignment: notification_preferences uses family_member_id
+    // and in_app_enabled (see migration 100098). There is no `channel` column.
     if (notifySubmitted) {
       await supabase
         .from('notification_preferences')
-        .update({ is_enabled: newValue })
-        .eq('member_id', member.id)
+        .update({ in_app_enabled: newValue })
+        .eq('family_member_id', member.id)
         .eq('category', `feature_launch_${featureKey}`)
     } else {
       await supabase.from('notification_preferences').insert({
         family_id: member.family_id,
-        member_id: member.id,
+        family_member_id: member.id,
         category: `feature_launch_${featureKey}`,
-        is_enabled: newValue,
-        channel: 'in_app',
+        in_app_enabled: newValue,
       })
       setNotifySubmitted(true)
     }
@@ -172,11 +214,44 @@ export function PlannedExpansionCard({ featureKey }: PlannedExpansionCardProps) 
       <div
         className="rounded-xl overflow-hidden"
         style={{
+          position: 'relative',
           backgroundColor: 'var(--color-warm-cream, #FFF4EC)',
           border: '1.5px solid var(--color-soft-gold, #F4DCB7)',
           borderRadius: 'var(--vibe-radius-card, 0.75rem)',
         }}
       >
+        {/* Dismiss button — top-right, absolute. Mom can dismiss the card
+            whether she's voted, toggled notify, or neither. Persists via
+            feature_expansion_dismissals (migration 100121). */}
+        <button
+          type="button"
+          onClick={handleDismiss}
+          aria-label="Dismiss this card"
+          title="Dismiss — you won't see this card again"
+          style={{
+            position: 'absolute',
+            top: '0.5rem',
+            right: '0.5rem',
+            zIndex: 2,
+            width: 28,
+            height: 28,
+            borderRadius: '9999px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'color-mix(in srgb, var(--color-warm-earth, #6B4E3D) 8%, transparent)',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--color-warm-earth, #6B4E3D)',
+            opacity: 0.5,
+            transition: 'opacity 0.15s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = '0.5' }}
+        >
+          <X size={16} />
+        </button>
+
         {/* ── Hero image (illustrated vibes only) ── */}
         {heroUrl && (
           <div className="flex justify-center py-4" style={{ backgroundColor: 'var(--color-soft-gold, #F4DCB7)', opacity: 0.35 }}>

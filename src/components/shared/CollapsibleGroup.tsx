@@ -47,14 +47,13 @@ export function CollapsibleGroup({
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
-      <Tooltip content={description ?? ''} disabled={!description}>
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        aria-expanded={isOpen}
+      {/* Header — the expand/collapse button and the heart-all button are
+          siblings, not nested. Nesting buttons is a React hydration error
+          and breaks keyboard/screen-reader semantics. The wrapping <div>
+          gets the header chrome; only the two inner <button>s are
+          interactive, each with its own role and handler. */}
+      <div
         style={{
-          width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -62,50 +61,65 @@ export function CollapsibleGroup({
           background: isOpen
             ? 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-card))'
             : 'var(--color-bg-secondary, var(--color-bg-card))',
-          border: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
           transition: 'background var(--vibe-transition, 0.2s ease)',
           minHeight: '44px',
         }}
       >
-        <div className="flex items-center gap-2">
-          {isOpen
-            ? <ChevronDown size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
-            : <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
-          }
-          <span
+        <Tooltip content={description ?? ''} disabled={!description}>
+          <button
+            type="button"
+            onClick={() => setIsOpen((v) => !v)}
+            aria-expanded={isOpen}
+            className="flex items-center gap-2"
             style={{
-              color: 'var(--color-text-heading)',
-              fontSize: 'var(--font-size-sm, 0.875rem)',
-              fontWeight: 600,
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              textAlign: 'left',
+              minHeight: '24px',
             }}
           >
-            {label}
-          </span>
-          {count > 0 && (
+            {isOpen
+              ? <ChevronDown size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+              : <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+            }
             <span
-              className="px-1.5 py-0.5 rounded-full text-[10px]"
               style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-secondary)',
+                color: 'var(--color-text-heading)',
+                fontSize: 'var(--font-size-sm, 0.875rem)',
+                fontWeight: 600,
               }}
             >
-              {count}
+              {label}
             </span>
-          )}
-        </div>
+            {count > 0 && (
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[10px]"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                {count}
+              </span>
+            )}
+          </button>
+        </Tooltip>
 
-        {/* Heart all / unheart all toggle */}
+        {/* Heart all / unheart all toggle — sibling of the expand button,
+            no longer nested inside it. */}
         {onToggleAll && count > 0 && (
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleAll(!allHearted)
-            }}
+            onClick={() => onToggleAll(!allHearted)}
             className="flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors"
             style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              marginLeft: '0.5rem',
               color: allHearted ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
             }}
             title={allHearted ? 'Unheart all in this group' : 'Heart all in this group'}
@@ -117,8 +131,7 @@ export function CollapsibleGroup({
             {allHearted ? 'All' : noneHearted ? 'None' : `${heartedCount}/${count}`}
           </button>
         )}
-      </button>
-      </Tooltip>
+      </div>
 
       {/* Content */}
       {isOpen && (

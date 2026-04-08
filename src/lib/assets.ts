@@ -9,7 +9,11 @@ export type AssetCategory =
 
 export type AssetSize = 512 | 128 | 32
 
-// Get a specific asset by feature key and variant
+// Get a specific asset by feature key and variant.
+// Uses maybeSingle() so a missing row returns null cleanly instead of
+// raising a 406 Not Acceptable. Pre-Build-M this silently 406'd for
+// every feature_key that had no corresponding app_icon row (every stub
+// feature in PlannedExpansionCard, many registry entries without art).
 export async function getAsset(
   featureKey: string,
   category: AssetCategory,
@@ -22,7 +26,7 @@ export async function getAsset(
     .eq('feature_key', featureKey)
     .eq('category', category)
     .eq('variant', variant)
-    .single()
+    .maybeSingle()
 
   if (!data) return null
 

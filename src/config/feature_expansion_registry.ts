@@ -386,4 +386,20 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
       'The family command center view. See every family member\'s tasks in their own column — instantly spot who\'s overloaded, who needs more to do, and how the distribution looks. Drag tasks between members to rebalance. Only available on the Family Overview for mom and permitted adults.',
     location_hint: 'Tasks section, Family Overview',
   },
+
+  // ── Build M (PRD-26 Play Dashboard) ──────────────────────────────
+
+  play_reveal_tiles: {
+    name: 'Reveal Tiles',
+    description:
+      'Surprise tiles on the Play Dashboard that reveal a special task, treat, or activity when tapped. Mom queues up reveals from the Studio — anything from a sticker draw to a "you pick a movie tonight" surprise. The reveal animation matches the sticker book theme. Coming soon as the Play Dashboard grows.',
+    location_hint: 'Play Dashboard, Sub-phase D and forward',
+  },
+
+  play_message_receive: {
+    name: 'Mom Messages on the Play Dashboard',
+    description:
+      'A friendly card on the Play Dashboard where mom can leave a short note that pops up next time the kid opens their dashboard. Connects to the family messaging system once it ships. Think "love note" not "instruction list" — warm, optional, never demanding.',
+    location_hint: 'Play Dashboard, depends on PRD-15 messaging integration',
+  },
 }

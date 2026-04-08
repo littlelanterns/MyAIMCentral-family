@@ -17,7 +17,10 @@ const navItems = [
   { path: '/dashboard', emoji: '🏠', label: 'Home' },
   { path: '/tasks', emoji: '✅', label: 'Tasks' },
   { path: '/victories', emoji: '⭐', label: 'Stars' },
-  { path: '/rewards', emoji: '🎮', label: 'Play' },
+  // PRD-26 / Build M Sub-phase B: rename "Play" → "Fun" so the bottom-nav
+  // label doesn't collide with the shell name. Path stays `/rewards` so
+  // existing routing isn't disturbed; relabel only.
+  { path: '/rewards', emoji: '🎮', label: 'Fun' },
 ]
 
 export function PlayShell({ children }: PlayShellProps) {

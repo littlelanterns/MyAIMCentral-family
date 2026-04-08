@@ -33,6 +33,7 @@ import { supabase } from '@/lib/supabase/client'
 import FamilyOverview from '@/components/family-overview/FamilyOverview'
 import { FamilyHub } from '@/components/hub/FamilyHub'
 import { GuidedDashboard } from '@/pages/GuidedDashboard'
+import { PlayDashboard } from '@/pages/PlayDashboard'
 import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 
 interface DashboardProps {
@@ -583,9 +584,21 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   // ─── PRD-25: Route Guided members to GuidedDashboard ──────
   const memberDashboardMode = (displayMember as Record<string, unknown> | undefined)?.dashboard_mode as string | undefined
   const isGuidedMember = memberDashboardMode === 'guided'
+  const isPlayMember = memberDashboardMode === 'play'
 
   if (isGuidedMember) {
     return <GuidedDashboard isViewAsOverlay={isViewAsOverlay} />
+  }
+
+  // ─── PRD-26 (Build M Sub-phase B): Route Play members to PlayDashboard ──
+  if (isPlayMember && displayMember?.id && family?.id) {
+    return (
+      <PlayDashboard
+        memberId={displayMember.id}
+        familyId={family.id}
+        isViewAsOverlay={isViewAsOverlay}
+      />
+    )
   }
 
   // ─── Render ────────────────────────────────────────────────

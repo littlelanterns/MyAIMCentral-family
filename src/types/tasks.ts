@@ -318,6 +318,10 @@ export interface Task {
   require_mastery_evidence: boolean
   track_duration: boolean
   resource_url: string | null
+  // PRD-24+PRD-26 Build M Sub-phase A — Play task tile icon (soft reference)
+  // Lookup at render time against (category='visual_schedule', feature_key, variant)
+  icon_asset_key: string | null
+  icon_variant: 'A' | 'B' | 'C' | null
   // View framework metadata
   eisenhower_quadrant: EisenhowerQuadrant | null
   frog_rank: number | null

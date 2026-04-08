@@ -83,6 +83,11 @@ export async function createTaskFromData(
     victory_flagged: data.reward?.flagAsVictory ?? false,
     source: data.source ?? 'manual',
     source_reference_id: data.sourceReferenceId ?? null,
+    // Build M Sub-phase B: paper-craft icon for Play tile rendering.
+    // Written only when mom picked one (or auto-match assigned at save time).
+    // NULL for non-Play tasks — handled by the migration default.
+    icon_asset_key: data.iconAssetKey ?? null,
+    icon_variant: data.iconVariant ?? null,
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,

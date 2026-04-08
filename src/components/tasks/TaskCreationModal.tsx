@@ -30,6 +30,8 @@ import type { MemberAssignment } from './AssignmentSelector'
 import type { RoutineSection } from './RoutineSectionEditor'
 import type { SchedulerOutput } from '@/components/scheduling/types'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { TaskIconPicker } from './TaskIconPicker'
+import type { TaskIconSuggestion } from '@/types/play-dashboard'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -94,6 +96,15 @@ export interface CreateTaskData {
   taskBreakerSubtasks?: BrokenTask[]
   /** Detail level used for Task Breaker generation */
   taskBreakerLevel?: 'quick' | 'detailed' | 'granular'
+  /**
+   * Build M Sub-phase B (PRD-24+PRD-26): paper-craft icon for Play tile rendering.
+   * Soft reference to platform_assets — written to tasks.icon_asset_key /
+   * tasks.icon_variant. Only set when at least one assignee is a Play member;
+   * NULL otherwise. The picker auto-suggests the top match if mom never
+   * interacts with it.
+   */
+  iconAssetKey?: string | null
+  iconVariant?: 'A' | 'B' | 'C' | null
 }
 
 interface TaskCreationModalProps {
@@ -435,6 +446,10 @@ export function TaskCreationModal({
   const [showTaskBreaker, setShowTaskBreaker] = useState(false)
   const [showTaskBreakerPanel, setShowTaskBreakerPanel] = useState(false)
   const [listFreeformText, setListFreeformText] = useState('')
+  // Build M Sub-phase B: Play tile icon picker selection. Stored as the
+  // full TaskIconSuggestion so the picker can render the current state;
+  // synced into data.iconAssetKey/iconVariant on save.
+  const [selectedIcon, setSelectedIcon] = useState<TaskIconSuggestion | null>(null)
 
   // Batch state
   const [batchIndex, setBatchIndex] = useState(0)
@@ -457,7 +472,22 @@ export function TaskCreationModal({
     setShowTypesExplained(false)
     setShowTaskBreaker(false)
     setShowTaskBreakerPanel(false)
+    setSelectedIcon(null)
   }, [queueItem?.id, activeBatchItem?.id, initialTaskType])
+
+  // Build M Sub-phase B: detect whether any selected assignee is a Play
+  // member. Drives the conditional rendering of TaskIconPicker. If
+  // wholeFamily is on, we check all active members. Mom + dad are never
+  // Play members so this is a simple inclusion check.
+  const assigneeIsPlayMember = (() => {
+    const memberIds = data.wholeFamily
+      ? familyMembers.filter(m => m.is_active).map(m => m.id)
+      : data.assignments.map(a => a.memberId).filter((id): id is string => !!id)
+    if (memberIds.length === 0) return false
+    return familyMembers.some(
+      m => memberIds.includes(m.id) && m.dashboard_mode === 'play',
+    )
+  })()
 
   const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
     setData((d) => ({ ...d, [key]: val }))
@@ -466,12 +496,17 @@ export function TaskCreationModal({
     if (!data.title.trim()) return
     setLoading(true)
     try {
-      // Synthesize schedule state into the data object before saving
+      // Synthesize schedule state into the data object before saving.
+      // Build M Sub-phase B: also sync the selected paper-craft icon.
+      // Only set when at least one assignee is a Play member; cleared
+      // otherwise so non-Play tasks don't carry stale icon refs.
       const finalData: CreateTaskData = {
         ...data,
         scheduleMode,
         dueDate: scheduleMode === 'one_time' ? quickDate || undefined : undefined,
         weeklyDays: scheduleMode === 'weekly' ? quickDays : undefined,
+        iconAssetKey: assigneeIsPlayMember ? selectedIcon?.asset_key ?? null : null,
+        iconVariant: assigneeIsPlayMember ? selectedIcon?.variant ?? null : null,
       }
       await onSave(finalData)
       if (batchMode === 'sequential' && batchItems && batchIndex < batchItems.length - 1) {
@@ -482,7 +517,19 @@ export function TaskCreationModal({
     } finally {
       setLoading(false)
     }
-  }, [data, onSave, onClose, batchMode, batchItems, batchIndex])
+  }, [
+    data,
+    onSave,
+    onClose,
+    batchMode,
+    batchItems,
+    batchIndex,
+    scheduleMode,
+    quickDate,
+    quickDays,
+    assigneeIsPlayMember,
+    selectedIcon,
+  ])
 
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
@@ -526,6 +573,17 @@ export function TaskCreationModal({
         <SectionHeading icon={Users}>Who's Responsible?</SectionHeading>
         {renderAssignmentRows()}
       </SectionCard>
+
+      {/* Build M Sub-phase B: Play tile icon picker (Play assignees only) */}
+      {assigneeIsPlayMember && (
+        <TaskIconPicker
+          currentIcon={selectedIcon}
+          taskTitle={data.title}
+          category={data.lifeAreaTag || null}
+          onChange={setSelectedIcon}
+          assigneeIsPlayMember={assigneeIsPlayMember}
+        />
+      )}
 
       {/* Simple schedule */}
       <SectionCard>
@@ -1405,6 +1463,17 @@ export function TaskCreationModal({
         <SectionHeading icon={Users}>Who's Responsible?</SectionHeading>
         {renderAssignmentRows()}
       </SectionCard>
+
+      {/* Build M Sub-phase B: Play tile icon picker (Play assignees only) */}
+      {assigneeIsPlayMember && (
+        <TaskIconPicker
+          currentIcon={selectedIcon}
+          taskTitle={data.title}
+          category={data.lifeAreaTag || null}
+          onChange={setSelectedIcon}
+          assigneeIsPlayMember={assigneeIsPlayMember}
+        />
+      )}
 
       {/* 5. Schedule */}
       <SectionCard>
