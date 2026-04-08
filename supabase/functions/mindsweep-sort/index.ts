@@ -197,12 +197,87 @@ Deno.serve(async (req) => {
     }
 
     // ── Step 5: Cross-member detection ──
+    // Calendar destinations: detect ALL attendees (not just the first) and
+    // parse explicit driver mentions ("Mom is driving", "Dad will drive").
+    // Populate destination_detail.parsed_event.attendee_member_ids and
+    // optional driver_member_id. DO NOT flip owner_id — the event card must
+    // land on mom's Review Queue as a single approval with pre-filled attendees.
+    //
+    // Strategy: two sources for attendee detection, unioned.
+    //   Source A: Haiku returned "attendee_names" / "driver_name" directly
+    //     in destination_detail (we asked for it in the system prompt).
+    //   Source B: Regex-scan the extracted_text for any family member names.
+    //     Catches cases where the model missed a name or for legacy results.
+    //
+    // All other destinations: keep existing "first-match, route to that person"
+    // behavior via cross_member_id + cross_member_action='suggest_route'.
     for (const result of results) {
-      const crossMember = detectCrossMember(result.extracted_text, input.family_member_names, input.member_id)
-      if (crossMember) {
-        result.cross_member = crossMember.name
-        result.cross_member_id = crossMember.id
-        result.cross_member_action = crossMember.action
+      if (result.destination === 'calendar') {
+        const regexDetection = detectCalendarAttendees(
+          result.extracted_text,
+          input.family_member_names,
+        )
+
+        // Pull any LLM-provided names and resolve them through the same
+        // matcher. This catches names the regex scan might have missed
+        // (e.g. model paraphrased the name from context).
+        const existingParsed = (result.destination_detail?.parsed_event ?? {}) as Record<string, unknown>
+        const llmAttendeeNames = Array.isArray(existingParsed.attendee_names)
+          ? (existingParsed.attendee_names as string[]).filter(n => typeof n === 'string')
+          : []
+        const llmDriverName = typeof existingParsed.driver_name === 'string'
+          ? existingParsed.driver_name as string
+          : null
+
+        const llmDetection = llmAttendeeNames.length > 0 || llmDriverName
+          ? resolveAttendeeNameList(llmAttendeeNames, llmDriverName, input.family_member_names)
+          : { attendee_member_ids: [], attendee_names: [], driver_member_id: null, driver_name: null }
+
+        // Union the two detections (regex first to preserve stable family-list order,
+        // then LLM names not already covered).
+        const unionedIds: string[] = [...regexDetection.attendee_member_ids]
+        const unionedNames: string[] = [...regexDetection.attendee_names]
+        for (let i = 0; i < llmDetection.attendee_member_ids.length; i++) {
+          const id = llmDetection.attendee_member_ids[i]
+          if (!unionedIds.includes(id)) {
+            unionedIds.push(id)
+            unionedNames.push(llmDetection.attendee_names[i])
+          }
+        }
+
+        // Driver: regex detection wins if both sources found one (regex is
+        // text-anchored, LLM can paraphrase). Fall back to LLM if regex silent.
+        const driverId = regexDetection.driver_member_id ?? llmDetection.driver_member_id
+        const driverName = regexDetection.driver_name ?? llmDetection.driver_name
+
+        if (unionedIds.length > 0 || driverId) {
+          result.destination_detail = {
+            ...result.destination_detail,
+            parsed_event: {
+              ...existingParsed,
+              attendee_member_ids: unionedIds,
+              attendee_names: unionedNames,
+              driver_member_id: driverId,
+              driver_name: driverName,
+            },
+          }
+          // Set cross_member (first match) for backward-compat display, but
+          // 'note_reference' — NOT 'suggest_route' — so queueForReview does
+          // NOT flip owner_id. The event card must land on the sweeping user's
+          // Review Queue so mom can approve once for everyone.
+          if (unionedNames.length > 0) {
+            result.cross_member = unionedNames[0]
+            result.cross_member_id = unionedIds[0]
+            result.cross_member_action = 'note_reference'
+          }
+        }
+      } else {
+        const crossMember = detectCrossMember(result.extracted_text, input.family_member_names, input.member_id)
+        if (crossMember) {
+          result.cross_member = crossMember.name
+          result.cross_member_id = crossMember.id
+          result.cross_member_action = crossMember.action
+        }
       }
     }
 
@@ -462,13 +537,27 @@ Calendar destination_detail format:
   "calendar_subtype": "single" | "multi_day" | "options" | "recurring" | "series",
   "event_title": "...",
   "event_location": "...",
+  "event_description": "...",
   "events": [{"date": "YYYY-MM-DD", "start_time": "HH:MM", "end_time": "HH:MM", "notes": "..."}],
   "start_date": "YYYY-MM-DD",
   "end_date": "YYYY-MM-DD",
   "recurrence_days": ["monday", "tuesday", ...],
-  "details_by_day": {"monday": "...", "tuesday": "..."}
+  "details_by_day": {"monday": "...", "tuesday": "..."},
+  "attendee_names": ["Helam", "Gideon", "Miriam"],
+  "driver_name": "Mom" | null
 }
 Include only the fields relevant to the subtype. For "options", list every available date in "events". For "multi_day", use start_date and end_date. For "recurring", use recurrence_days + start/end times. For "series", list each event with its unique details in "events".
+
+CALENDAR ATTENDEE EXTRACTION (important for family events):
+- If the event mentions specific people by name (e.g. "Youth Activity for Helam, Gideon, Miriam" or "Piano lesson — Sarah"), list ALL their names in "attendee_names".
+- If the text says something explicit like "Mom is driving", "Dad will drive", "Sarah driving", "Driver: Mom", set "driver_name" to that person.
+- Only set "driver_name" if the text states it EXPLICITLY. Never guess.
+- If no names are mentioned, leave "attendee_names" empty ([]) and "driver_name" null.
+- The system will resolve names → family member IDs post-classification. Just return the exact names as they appear in the text.
+
+SINGLE-DOCUMENT RULE (critical for OCR / scan input):
+- If the input came from a scanned flyer or image, treat it as ONE event. Extract ONE calendar entry with all attendees in the attendee_names array — do NOT split each attendee into their own calendar event.
+- A flyer that says "Stake Youth Activity — Roaring River Hike — Helam, Gideon, Miriam" is ONE event with THREE attendees, not three events.
 
 Be generous with confidence:
 - "high" = clearly belongs in this category
@@ -613,6 +702,162 @@ function detectCrossMember(
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// ── Calendar Attendee + Driver Detection ──
+//
+// For calendar destinations we want to find EVERY family member mentioned
+// by name in the text (not just the first), and parse explicit driver
+// language like "Mom is driving", "Dad will drive", "Sarah driving".
+//
+// This powers the CalendarTab queue card that pre-selects kids as attendees
+// and pre-assigns a driver when the classifier saw an explicit mention.
+// Non-driver ambiguity stays a manual step for the founder to resolve in
+// Edit & Approve.
+
+interface CalendarAttendeeDetection {
+  attendee_member_ids: string[]
+  attendee_names: string[]
+  driver_member_id: string | null
+  driver_name: string | null
+}
+
+function detectCalendarAttendees(
+  text: string,
+  familyMembers: { id: string; display_name: string; nicknames?: string[] }[],
+): CalendarAttendeeDetection {
+  const attendeeIds: string[] = []
+  const attendeeNames: string[] = []
+  const seen = new Set<string>()
+
+  // Find every family member whose display_name or any nickname appears
+  // in the text as a whole-word match. Stable order: first-appearance in
+  // the familyMembers list, not first-appearance in text.
+  for (const member of familyMembers) {
+    const namesToCheck = [member.display_name, ...(member.nicknames || [])]
+    for (const name of namesToCheck) {
+      if (!name || name.length < 2) continue
+      const pattern = new RegExp(`\\b${escapeRegex(name)}\\b`, 'i')
+      if (pattern.test(text)) {
+        if (!seen.has(member.id)) {
+          seen.add(member.id)
+          attendeeIds.push(member.id)
+          attendeeNames.push(member.display_name)
+        }
+        break // don't double-add a member via multiple nicknames
+      }
+    }
+  }
+
+  // Driver detection. Looks for phrases like:
+  //   "Mom is driving"
+  //   "Dad will drive"
+  //   "Sarah driving"
+  //   "Mom drives"
+  //   "Driver: Dad"
+  //   "{name} is driving"
+  // Scans across ALL family members (including nicknames like "Mom"/"Dad"),
+  // not just already-detected attendees — a driver mention in the text is
+  // itself sufficient to include that person as an attendee. If no explicit
+  // mention found, returns null — the founder picks manually in Edit & Approve.
+  let driverMemberId: string | null = null
+  let driverName: string | null = null
+
+  outer: for (const member of familyMembers) {
+    const namesToCheck = [member.display_name, ...(member.nicknames || [])]
+    for (const name of namesToCheck) {
+      if (!name || name.length < 2) continue
+      const escapedName = escapeRegex(name)
+      const drivingPattern = new RegExp(
+        `\\b${escapedName}\\s+(?:is|will be|will|'s|is going to)\\s+(?:driving|drive)\\b|\\b${escapedName}\\s+drives?\\b|\\bdriver\\s*[:\\-]\\s*${escapedName}\\b`,
+        'i',
+      )
+      if (drivingPattern.test(text)) {
+        driverMemberId = member.id
+        driverName = member.display_name
+        // Ensure driver is also in the attendee list
+        if (!seen.has(member.id)) {
+          seen.add(member.id)
+          attendeeIds.push(member.id)
+          attendeeNames.push(member.display_name)
+        }
+        break outer
+      }
+    }
+  }
+
+  return {
+    attendee_member_ids: attendeeIds,
+    attendee_names: attendeeNames,
+    driver_member_id: driverMemberId,
+    driver_name: driverName,
+  }
+}
+
+// Resolve a list of names (from the LLM) to family member IDs.
+// Case-insensitive match against display_name + nicknames. Also handles
+// "Mom" / "Dad" by matching against the primary_parent-ish name hints
+// (we don't have role context here; rely on nickname/display_name).
+function resolveAttendeeNameList(
+  names: string[],
+  driverName: string | null,
+  familyMembers: { id: string; display_name: string; nicknames?: string[] }[],
+): CalendarAttendeeDetection {
+  const attendeeIds: string[] = []
+  const attendeeNames: string[] = []
+  const seen = new Set<string>()
+
+  const normalize = (s: string) => s.trim().toLowerCase()
+
+  function findMember(queryName: string): { id: string; display_name: string } | null {
+    const q = normalize(queryName)
+    if (!q) return null
+    for (const m of familyMembers) {
+      if (normalize(m.display_name) === q) return m
+      for (const nick of m.nicknames || []) {
+        if (nick && normalize(nick) === q) return m
+      }
+    }
+    // Fallback: substring contains (picks up "Helam S" when member is "Helam")
+    for (const m of familyMembers) {
+      if (normalize(m.display_name).includes(q) || q.includes(normalize(m.display_name))) {
+        return m
+      }
+    }
+    return null
+  }
+
+  for (const rawName of names) {
+    const match = findMember(rawName)
+    if (match && !seen.has(match.id)) {
+      seen.add(match.id)
+      attendeeIds.push(match.id)
+      attendeeNames.push(match.display_name)
+    }
+  }
+
+  let driverId: string | null = null
+  let resolvedDriverName: string | null = null
+  if (driverName) {
+    const match = findMember(driverName)
+    if (match) {
+      driverId = match.id
+      resolvedDriverName = match.display_name
+      // Driver is also an attendee — ensure they're in the attendee list
+      if (!seen.has(match.id)) {
+        seen.add(match.id)
+        attendeeIds.push(match.id)
+        attendeeNames.push(match.display_name)
+      }
+    }
+  }
+
+  return {
+    attendee_member_ids: attendeeIds,
+    attendee_names: attendeeNames,
+    driver_member_id: driverId,
+    driver_name: resolvedDriverName,
+  }
 }
 
 // ── Auto-Route Decision ──

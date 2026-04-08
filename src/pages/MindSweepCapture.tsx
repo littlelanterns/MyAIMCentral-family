@@ -27,6 +27,9 @@ import {
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import { parseICS, isICSContent, formatParseResultMessage } from '@/lib/icsParser'
 import { useImportCalendarEvents } from '@/hooks/useMindSweep'
+import { useStudioQueueCount } from '@/hooks/useStudioQueue'
+import { UniversalQueueModal } from '@/components/queue/UniversalQueueModal'
+import { BreathingGlow } from '@/components/ui/BreathingGlow'
 import type { MindSweepSettings } from '@/types/mindsweep'
 
 /** Resize an image file to fit within maxDim pixels (longest side) and return base64 JPEG.
@@ -109,10 +112,12 @@ export function MindSweepCapture() {
   const [calendarProcessing, setCalendarProcessing] = useState(false)
   const [calendarResult, setCalendarResult] = useState<string | null>(null)
   const [showCalendarHelp, setShowCalendarHelp] = useState(false)
+  const [queueModalOpen, setQueueModalOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const calendarFileRef = useRef<HTMLInputElement>(null)
   const importCalendar = useImportCalendarEvents()
+  const { data: queueCount = 0 } = useStudioQueueCount(familyId)
 
   // Handle share-to-app via Web Share Target API (manifest.json share_target)
   // Shared content arrives as URL params: ?title=...&text=...&url=...
@@ -405,6 +410,31 @@ export function MindSweepCapture() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Review Queue door — always present so mom can navigate
+              from a sweep back to the Review Queue without leaving /sweep.
+              Shows a breathing glow + count badge when items are pending. */}
+          <button
+            onClick={() => setQueueModalOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs"
+            style={{
+              backgroundColor: queueCount > 0
+                ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))'
+                : 'var(--color-bg-secondary)',
+              color: queueCount > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+              minHeight: 'unset',
+            }}
+            title={queueCount > 0 ? `${queueCount} pending — tap to review` : 'Open Review Queue'}
+          >
+            {queueCount > 0 ? (
+              <BreathingGlow active={true}>
+                <Inbox size={12} />
+              </BreathingGlow>
+            ) : (
+              <Inbox size={12} />
+            )}
+            <span>Queue{queueCount > 0 ? ` (${queueCount})` : ''}</span>
+          </button>
           {holdingItems.length > 0 && (
             <button
               onClick={() => setShowHolding(!showHolding)}
@@ -414,8 +444,9 @@ export function MindSweepCapture() {
                 color: showHolding ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
                 minHeight: 'unset',
               }}
+              title={`Holding (${holdingItems.length}) — items saved for later`}
             >
-              <Inbox size={12} />
+              <Clock size={12} />
               {holdingItems.length}
             </button>
           )}
@@ -432,6 +463,12 @@ export function MindSweepCapture() {
           </button>
         </div>
       </div>
+
+      {/* Review Queue modal — the door to everywhere MindSweep items land */}
+      <UniversalQueueModal
+        isOpen={queueModalOpen}
+        onClose={() => setQueueModalOpen(false)}
+      />
 
       {/* Settings panel */}
       {showSettings && (
@@ -771,16 +808,61 @@ export function MindSweepCapture() {
           )}
 
           {sweepStatus.status === 'complete' && sweepStatus.lastResult && (
-            <div className="flex items-center justify-center gap-2 py-3 rounded-xl"
-              style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)' }}
-            >
-              <Wand2 size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
-              <span className="text-sm" style={{ color: 'var(--color-text-heading)' }}>
-                {sweepStatus.lastResult.autoRouted > 0
-                  ? `Sorted! ${sweepStatus.lastResult.autoRouted} auto-routed, ${sweepStatus.lastResult.queued} in queue`
-                  : `${sweepStatus.lastResult.queued} items sent to your queue`}
-              </span>
-            </div>
+            (() => {
+              const { autoRouted, queued, failed, errors } = sweepStatus.lastResult
+              const hasFailures = failed > 0
+              const hasSuccess = autoRouted + queued > 0
+              return (
+                <div
+                  className="flex flex-col gap-1 py-3 px-3 rounded-xl"
+                  style={{
+                    backgroundColor: hasFailures
+                      ? 'color-mix(in srgb, var(--color-error, #e53e3e) 10%, transparent)'
+                      : 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={hasSuccess ? () => setQueueModalOpen(true) : undefined}
+                    disabled={!hasSuccess}
+                    className="flex items-center justify-center gap-2 text-sm"
+                    style={{
+                      color: hasFailures
+                        ? 'var(--color-error, #e53e3e)'
+                        : 'var(--color-text-heading)',
+                      background: 'transparent',
+                      minHeight: 'unset',
+                      cursor: hasSuccess ? 'pointer' : 'default',
+                    }}
+                  >
+                    <Wand2 size={16} style={{ color: hasFailures ? 'var(--color-error, #e53e3e)' : 'var(--color-btn-primary-bg)' }} />
+                    <span>
+                      {hasSuccess && !hasFailures && (
+                        autoRouted > 0
+                          ? `Sorted! ${autoRouted} auto-routed, ${queued} in queue — tap to review`
+                          : `${queued} ${queued === 1 ? 'item' : 'items'} sent to your queue — tap to review`
+                      )}
+                      {hasSuccess && hasFailures && (
+                        `${autoRouted + queued} saved, ${failed} failed — tap to review what made it`
+                      )}
+                      {!hasSuccess && hasFailures && (
+                        `${failed} ${failed === 1 ? 'item' : 'items'} failed to save`
+                      )}
+                    </span>
+                  </button>
+                  {hasFailures && errors.length > 0 && (
+                    <details className="text-xs mt-1" style={{ color: 'var(--color-error, #e53e3e)' }}>
+                      <summary className="cursor-pointer">Why did {failed === 1 ? 'it' : 'they'} fail?</summary>
+                      <ul className="mt-1 space-y-0.5 pl-4">
+                        {errors.slice(0, 5).map((e, i) => (
+                          <li key={i} className="wrap-break-word">{e}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )
+            })()
           )}
 
           {sweepStatus.status === 'error' && (

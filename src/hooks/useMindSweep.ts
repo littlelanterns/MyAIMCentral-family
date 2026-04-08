@@ -259,7 +259,14 @@ export function useTriggerSweep() {
       return response.data as MindSweepSortResponse
     },
     onSuccess: (_data, params) => {
+      // Note: this fires when the Edge Function returns classifications,
+      // BEFORE routeSweepResults writes the rows. The actual studio_queue
+      // count invalidation happens in useRunSweep AFTER routeSweepResults
+      // completes. We invalidate the list cache here eagerly so that any
+      // open Sort tab refreshes its paginated list; the count badge
+      // invalidation is deferred to useRunSweep.
       queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['studio-queue-count'] })
       queryClient.invalidateQueries({ queryKey: ['mindsweep-holding', params.familyId, params.memberId] })
     },
   })
@@ -276,24 +283,40 @@ export async function routeSweepResults(
   familyId: string,
   memberId: string,
   eventId: string | undefined,
-): Promise<{ autoRouted: number; queued: number }> {
+): Promise<{ autoRouted: number; queued: number; failed: number; errors: string[] }> {
   let autoRouted = 0
   let queued = 0
+  let failed = 0
+  const errors: string[] = []
 
-  // Run all inserts concurrently — they're independent
+  // Run all inserts concurrently — they're independent.
+  // Per-item try/catch: one failure doesn't block the rest, but failures
+  // are reported back to the caller so the UI can surface them honestly
+  // instead of silently incrementing the counter.
   const promises = results.map(async (result) => {
     const isAutoRoute = shouldAutoRoute(result.confidence, aggressiveness)
-    if (isAutoRoute) {
-      await routeDirectly(result, familyId, memberId, eventId)
-      autoRouted++
-    } else {
-      await queueForReview(result, familyId, memberId, eventId)
-      queued++
+    try {
+      if (isAutoRoute) {
+        await routeDirectly(result, familyId, memberId, eventId)
+        autoRouted++
+      } else {
+        await queueForReview(result, familyId, memberId, eventId)
+        queued++
+      }
+    } catch (err) {
+      failed++
+      const message = err instanceof Error ? err.message : String(err)
+      errors.push(`[${result.destination}] ${message}`)
+      console.error('[MindSweep] routeSweepResults failed for item:', {
+        destination: result.destination,
+        extracted_text: result.extracted_text?.slice(0, 80),
+        error: message,
+      })
     }
   })
 
   await Promise.all(promises)
-  return { autoRouted, queued }
+  return { autoRouted, queued, failed, errors }
 }
 
 function shouldAutoRoute(
@@ -327,7 +350,7 @@ async function routeDirectly(
 
   if (QUEUE_DESTINATIONS.has(destination) || destination === 'recipe') {
     // Even "auto-routed" queue destinations go to studio_queue with pre-filled details
-    await supabase.from('studio_queue').insert({
+    const { error } = await supabase.from('studio_queue').insert({
       family_id: familyId,
       owner_id: memberId,
       destination: destination === 'recipe' ? 'list' : destination,
@@ -337,51 +360,60 @@ async function routeDirectly(
       mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
       mindsweep_event_id: eventId || null,
     })
+    if (error) throw new Error(`studio_queue insert failed: ${error.message}`)
     return
   }
 
   // Direct routing for non-queue destinations
   switch (destination) {
-    case 'journal':
-      await supabase.from('journal_entries').insert({
+    case 'journal': {
+      const { error } = await supabase.from('journal_entries').insert({
         family_id: familyId,
         member_id: memberId,
         entry_type: 'quick_note',
         content: result.extracted_text,
         visibility: 'private',
       })
+      if (error) throw new Error(`journal_entries insert failed: ${error.message}`)
       break
+    }
 
-    case 'victory':
-      await supabase.from('victories').insert({
+    case 'victory': {
+      const { error } = await supabase.from('victories').insert({
         family_id: familyId,
         member_id: memberId,
         title: result.extracted_text.substring(0, 100),
         source: 'manual',
       })
+      if (error) throw new Error(`victories insert failed: ${error.message}`)
       break
+    }
 
-    case 'guiding_stars':
-      await supabase.from('guiding_stars').insert({
+    case 'guiding_stars': {
+      const { error } = await supabase.from('guiding_stars').insert({
         family_id: familyId,
         member_id: memberId,
         content: result.extracted_text,
         source: 'manual',
       })
+      if (error) throw new Error(`guiding_stars insert failed: ${error.message}`)
       break
+    }
 
-    case 'best_intentions':
-      await supabase.from('best_intentions').insert({
+    case 'best_intentions': {
+      const { error } = await supabase.from('best_intentions').insert({
         family_id: familyId,
         member_id: memberId,
         statement: result.extracted_text,
         source: 'manual',
       })
+      if (error) throw new Error(`best_intentions insert failed: ${error.message}`)
       break
+    }
 
     case 'backburner': {
       // Find or create backburner list for this member
-      const { data: backburnerList } = await supabase
+      const { data: backburnerList, error: listErr } = await supabase
         .from('lists')
         .select('id')
         .eq('family_id', familyId)
@@ -390,14 +422,17 @@ async function routeDirectly(
         .limit(1)
         .maybeSingle()
 
+      if (listErr) throw new Error(`backburner list lookup failed: ${listErr.message}`)
+
       if (backburnerList) {
-        await supabase.from('list_items').insert({
+        const { error } = await supabase.from('list_items').insert({
           list_id: backburnerList.id,
           content: result.extracted_text,
         })
+        if (error) throw new Error(`backburner list_items insert failed: ${error.message}`)
       } else {
         // Fallback: queue it
-        await supabase.from('studio_queue').insert({
+        const { error } = await supabase.from('studio_queue').insert({
           family_id: familyId,
           owner_id: memberId,
           destination: 'backburner',
@@ -406,23 +441,26 @@ async function routeDirectly(
           mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
           mindsweep_event_id: eventId || null,
         })
+        if (error) throw new Error(`backburner fallback studio_queue insert failed: ${error.message}`)
       }
       break
     }
 
-    case 'innerworkings':
-      await supabase.from('self_knowledge').insert({
+    case 'innerworkings': {
+      const { error } = await supabase.from('self_knowledge').insert({
         family_id: familyId,
         member_id: memberId,
         content: result.extracted_text,
         category: 'general',
         source_type: 'manual',
       })
+      if (error) throw new Error(`self_knowledge insert failed: ${error.message}`)
       break
+    }
 
-    case 'archives':
+    case 'archives': {
       // Route to archive_context_items — find member's root folder
-      await supabase.from('studio_queue').insert({
+      const { error } = await supabase.from('studio_queue').insert({
         family_id: familyId,
         owner_id: memberId,
         destination: 'archives',
@@ -431,7 +469,9 @@ async function routeDirectly(
         mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
         mindsweep_event_id: eventId || null,
       })
+      if (error) throw new Error(`archives studio_queue insert failed: ${error.message}`)
       break
+    }
 
     default:
       // Unknown destination — queue it
@@ -450,7 +490,7 @@ async function queueForReview(
     ? result.cross_member_id
     : memberId
 
-  await supabase.from('studio_queue').insert({
+  const { error } = await supabase.from('studio_queue').insert({
     family_id: familyId,
     owner_id: ownerId,
     destination: result.destination,
@@ -470,6 +510,7 @@ async function queueForReview(
     mindsweep_confidence: result.confidence === 'review_required' ? null : result.confidence,
     mindsweep_event_id: eventId || null,
   })
+  if (error) throw new Error(`studio_queue insert failed (owner=${ownerId}): ${error.message}`)
 }
 
 // ── Record Approval Pattern (learning data for future recommendations) ──
@@ -568,6 +609,7 @@ function mapContentTypeToInputType(contentType: string): SweepInputType {
 export function useRunSweep() {
   const triggerSweep = useTriggerSweep()
   const sweepStatus = useSweepStatus()
+  const queryClient = useQueryClient()
 
   const run = useCallback(async (params: {
     items: { content: string; content_type: string }[]
@@ -576,7 +618,7 @@ export function useRunSweep() {
     settings: MindSweepSettings | null
     sourceChannel: SweepEventSourceChannel
     familyMemberNames: FamilyMemberName[]
-  }): Promise<{ autoRouted: number; queued: number; totalItems: number } | null> => {
+  }): Promise<{ autoRouted: number; queued: number; failed: number; errors: string[]; totalItems: number } | null> => {
     sweepStatus.startSweep()
 
     try {
@@ -603,13 +645,21 @@ export function useRunSweep() {
         response.event_id,
       )
 
+      // Invalidate badge + list caches now that writes are actually done.
+      // useTriggerSweep.onSuccess only invalidates ['studio-queue'], but the
+      // badge query uses key ['studio-queue-count'] and never refreshes
+      // otherwise until the 30s refetch interval ticks. This is the only
+      // place where we know routeSweepResults has actually finished writing.
+      queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['studio-queue-count'] })
+
       sweepStatus.completeSweep(routeResult)
       return { ...routeResult, totalItems: response.results.length }
     } catch {
       sweepStatus.errorSweep()
       return null
     }
-  }, [triggerSweep, sweepStatus])
+  }, [triggerSweep, sweepStatus, queryClient])
 
   return { run, status: sweepStatus }
 }
@@ -622,7 +672,7 @@ const AUTO_RESET_MS = 8000
 
 export function useSweepStatus() {
   const [status, setStatus] = useState<SweepStatus>('idle')
-  const [lastResult, setLastResult] = useState<{ autoRouted: number; queued: number } | null>(null)
+  const [lastResult, setLastResult] = useState<{ autoRouted: number; queued: number; failed: number; errors: string[] } | null>(null)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const clearResetTimer = useCallback(() => {
@@ -637,7 +687,7 @@ export function useSweepStatus() {
     setStatus('processing')
   }, [clearResetTimer])
 
-  const completeSweep = useCallback((result: { autoRouted: number; queued: number }) => {
+  const completeSweep = useCallback((result: { autoRouted: number; queued: number; failed: number; errors: string[] }) => {
     setLastResult(result)
     setStatus('complete')
     clearResetTimer()
@@ -722,9 +772,12 @@ export function useImportCalendarEvents() {
       return { count: rows.length }
     },
     onSuccess: () => {
+      // useStudioQueueCount uses key ['studio-queue-count', familyId, destination].
+      // The previous ['queue-badge'] / ['queue-badge-calendar'] keys are
+      // ghosts — no query ever registered under them, so they invalidated
+      // nothing. Fixed 2026-04-08 alongside the MindSweep cross-member bug.
       queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
-      queryClient.invalidateQueries({ queryKey: ['queue-badge'] })
-      queryClient.invalidateQueries({ queryKey: ['queue-badge-calendar'] })
+      queryClient.invalidateQueries({ queryKey: ['studio-queue-count'] })
     },
   })
 }

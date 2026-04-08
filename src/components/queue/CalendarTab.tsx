@@ -249,27 +249,48 @@ export function CalendarTab() {
       const parsed = item.content_details?.parsed_event
       if (!parsed || !currentMember) throw new Error('Missing event data')
 
-      // Create the calendar event
-      const { error: eventErr } = await supabase.from('calendar_events').insert({
-        family_id: item.family_id,
-        created_by: currentMember.id,
-        title: parsed.title,
-        event_date: parsed.event_date,
-        start_time: parsed.start_time,
-        end_time: parsed.end_time,
-        end_date: parsed.end_date,
-        is_all_day: parsed.is_all_day,
-        location: parsed.location,
-        description: parsed.description,
-        recurrence_rule: parsed.recurrence_rule ? mapRRuleToSimple(parsed.recurrence_rule) : null,
-        recurrence_details: parsed.recurrence_rule ? { rrule: parsed.recurrence_rule } : null,
-        reminder_minutes: parsed.reminder_minutes,
-        status: 'approved',
-        approved_by: currentMember.id,
-        approved_at: new Date().toISOString(),
-        source_type: item.content_details?.source_type === 'ics_import' ? 'ics_import' : 'review_route',
-      })
+      // Create the calendar event — select back the new id so we can
+      // attach event_attendees rows for any detected attendees.
+      const { data: inserted, error: eventErr } = await supabase
+        .from('calendar_events')
+        .insert({
+          family_id: item.family_id,
+          created_by: currentMember.id,
+          title: parsed.title,
+          event_date: parsed.event_date,
+          start_time: parsed.start_time,
+          end_time: parsed.end_time,
+          end_date: parsed.end_date,
+          is_all_day: parsed.is_all_day,
+          location: parsed.location,
+          description: parsed.description,
+          recurrence_rule: parsed.recurrence_rule ? mapRRuleToSimple(parsed.recurrence_rule) : null,
+          recurrence_details: parsed.recurrence_rule ? { rrule: parsed.recurrence_rule } : null,
+          reminder_minutes: parsed.reminder_minutes,
+          status: 'approved',
+          approved_by: currentMember.id,
+          approved_at: new Date().toISOString(),
+          source_type: item.content_details?.source_type === 'ics_import' ? 'ics_import' : 'review_route',
+        })
+        .select('id')
+        .single()
       if (eventErr) throw eventErr
+      if (!inserted?.id) throw new Error('calendar_events insert returned no id')
+
+      // Persist detected attendees (mindsweep_detected path only).
+      // Driver (if any) gets attendee_role='driving', everyone else 'attending'.
+      const attendeeIds = parsed.attendee_member_ids ?? []
+      if (attendeeIds.length > 0) {
+        const driverId = parsed.driver_member_id ?? null
+        const attendeeRows = attendeeIds.map((memberId) => ({
+          event_id: inserted.id,
+          family_member_id: memberId,
+          attendee_role: memberId === driverId ? 'driving' : 'attending',
+          response_status: 'pending' as const,
+        }))
+        const { error: attErr } = await supabase.from('event_attendees').insert(attendeeRows)
+        if (attErr) throw attErr
+      }
 
       // Mark queue item processed
       const { error: queueErr } = await supabase
@@ -309,25 +330,42 @@ export function CalendarTab() {
         const parsed = item.content_details?.parsed_event
         if (!parsed || !currentMember) continue
 
-        await supabase.from('calendar_events').insert({
-          family_id: item.family_id,
-          created_by: currentMember.id,
-          title: parsed.title,
-          event_date: parsed.event_date,
-          start_time: parsed.start_time,
-          end_time: parsed.end_time,
-          end_date: parsed.end_date,
-          is_all_day: parsed.is_all_day,
-          location: parsed.location,
-          description: parsed.description,
-          recurrence_rule: parsed.recurrence_rule ? mapRRuleToSimple(parsed.recurrence_rule) : null,
-          recurrence_details: parsed.recurrence_rule ? { rrule: parsed.recurrence_rule } : null,
-          reminder_minutes: parsed.reminder_minutes,
-          status: 'approved',
-          approved_by: currentMember.id,
-          approved_at: new Date().toISOString(),
-          source_type: item.content_details?.source_type === 'ics_import' ? 'ics_import' : 'review_route',
-        })
+        const { data: inserted, error: eventErr } = await supabase
+          .from('calendar_events')
+          .insert({
+            family_id: item.family_id,
+            created_by: currentMember.id,
+            title: parsed.title,
+            event_date: parsed.event_date,
+            start_time: parsed.start_time,
+            end_time: parsed.end_time,
+            end_date: parsed.end_date,
+            is_all_day: parsed.is_all_day,
+            location: parsed.location,
+            description: parsed.description,
+            recurrence_rule: parsed.recurrence_rule ? mapRRuleToSimple(parsed.recurrence_rule) : null,
+            recurrence_details: parsed.recurrence_rule ? { rrule: parsed.recurrence_rule } : null,
+            reminder_minutes: parsed.reminder_minutes,
+            status: 'approved',
+            approved_by: currentMember.id,
+            approved_at: new Date().toISOString(),
+            source_type: item.content_details?.source_type === 'ics_import' ? 'ics_import' : 'review_route',
+          })
+          .select('id')
+          .single()
+        if (eventErr || !inserted?.id) continue
+
+        const attendeeIds = parsed.attendee_member_ids ?? []
+        if (attendeeIds.length > 0) {
+          const driverId = parsed.driver_member_id ?? null
+          const attendeeRows = attendeeIds.map((memberId) => ({
+            event_id: inserted.id,
+            family_member_id: memberId,
+            attendee_role: memberId === driverId ? 'driving' : 'attending',
+            response_status: 'pending' as const,
+          }))
+          await supabase.from('event_attendees').insert(attendeeRows)
+        }
       }
 
       // Mark all processed
@@ -346,9 +384,23 @@ export function CalendarTab() {
     },
   })
 
-  // Build a pre-filled CalendarEvent from queue item for EventCreationModal
+  // Build a pre-filled CalendarEvent from queue item for EventCreationModal.
+  // For mindsweep_detected items, pre-populate event_attendees from the
+  // detected attendee_member_ids and mark the driver (if any) with
+  // attendee_role='driving'. EventCreationModal reads this array into its
+  // attendees Map so everything shows up pre-selected when the modal opens.
   function queueItemToEditEvent(item: CalendarQueueItem): CalendarEvent & { event_attendees?: EventAttendee[] } {
     const parsed = item.content_details?.parsed_event
+    const attendeeIds = parsed?.attendee_member_ids ?? []
+    const driverId = parsed?.driver_member_id ?? null
+    const preAttendees: EventAttendee[] = attendeeIds.map((memberId) => ({
+      id: `preview-${memberId}`,
+      event_id: '',
+      family_member_id: memberId,
+      attendee_role: memberId === driverId ? 'driving' : 'attending',
+      response_status: 'pending',
+      created_at: new Date().toISOString(),
+    }))
     return ({
       id: '', // empty = create mode in EventCreationModal
       family_id: item.family_id,
@@ -391,7 +443,7 @@ export function CalendarTab() {
       is_included_in_ai: true,
       show_on_hub: false,
       acted_by: null,
-      event_attendees: [],
+      event_attendees: preAttendees,
     }) as unknown as CalendarEvent & { event_attendees?: EventAttendee[] }
   }
 
@@ -485,7 +537,41 @@ export function CalendarTab() {
                         Recurring
                       </span>
                     )}
+                    {parsed?.driver_member_id && (
+                      <span className="flex items-center gap-1" title="Detected driver">
+                        <Car size={12} />
+                        {getMemberName(parsed.driver_member_id)} driving
+                      </span>
+                    )}
                   </div>
+
+                  {/* Detected attendees — pre-selected member pills */}
+                  {parsed?.attendee_member_ids && parsed.attendee_member_ids.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <User size={12} style={{ color: 'var(--color-text-secondary)' }} />
+                      {parsed.attendee_member_ids.map((memberId) => {
+                        const name = getMemberName(memberId)
+                        const color = getMemberColor(memberId)
+                        const isDriver = memberId === parsed.driver_member_id
+                        return (
+                          <span
+                            key={memberId}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                            style={{
+                              backgroundColor: color
+                                ? `color-mix(in srgb, ${color} 18%, var(--color-bg-card))`
+                                : 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))',
+                              color: color ?? 'var(--color-btn-primary-bg)',
+                              border: `1px solid ${color ?? 'var(--color-border)'}`,
+                            }}
+                          >
+                            {isDriver && <Car size={10} />}
+                            {name}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
 
                   {/* Source badge */}
                   <div className="flex items-center gap-1.5" style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)' }}>

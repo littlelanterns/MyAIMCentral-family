@@ -179,6 +179,31 @@ export interface CalendarQueueEventDetail {
     description: string | null;
     recurrence_rule: string | null;
     reminder_minutes: number | null;
+    /**
+     * Family member IDs pre-detected by mindsweep-sort from the flyer text.
+     * CalendarTab uses these to pre-select attendees on the queue card and
+     * to populate event_attendees rows on approve. Optional — .ics imports
+     * never set this; only mindsweep_detected events do.
+     */
+    attendee_member_ids?: string[];
+    /**
+     * Display names of the detected attendees. Parallel array to
+     * attendee_member_ids. Shown as pills on the queue card for quick
+     * visual confirmation before approve.
+     */
+    attendee_names?: string[];
+    /**
+     * Family member ID for a person the flyer EXPLICITLY named as driving
+     * (e.g. "Mom is driving", "Dad will drive"). When set, the approval
+     * path writes their event_attendees row with attendee_role='driving'.
+     * Null when no explicit driver mention was found — the founder picks
+     * manually in Edit & Approve.
+     */
+    driver_member_id?: string | null;
+    /**
+     * Display name of the detected driver, for queue card rendering.
+     */
+    driver_name?: string | null;
   };
   source_type: 'ics_import' | 'mindsweep_detected';
   ics_uid?: string;

@@ -199,11 +199,14 @@ export function NotepadDrawer() {
       // Mark tab as routed
       updateTab.mutate({ id: activeTab.id, memberId, status: 'routed', routed_to: 'mindsweep' })
 
-      const msg = result.autoRouted > 0 && result.queued > 0
-        ? `MindSweep sorted ${result.totalItems} items — ${result.autoRouted} auto-routed, ${result.queued} in queue`
-        : result.autoRouted > 0
-          ? `MindSweep auto-routed ${result.autoRouted} items`
-          : `MindSweep sorted ${result.queued} items to your queue`
+      const saved = result.autoRouted + result.queued
+      const msg = result.failed > 0
+        ? `MindSweep saved ${saved}, ${result.failed} failed — check the Review Queue`
+        : result.autoRouted > 0 && result.queued > 0
+          ? `MindSweep sorted ${result.totalItems} items — ${result.autoRouted} auto-routed, ${result.queued} in queue`
+          : result.autoRouted > 0
+            ? `MindSweep auto-routed ${result.autoRouted} items`
+            : `MindSweep sorted ${result.queued} items to your queue`
 
       routingToast.show({ message: msg })
 
