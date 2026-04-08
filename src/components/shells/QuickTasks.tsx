@@ -482,19 +482,26 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
         </button>
       )}
 
-      {/* Queue indicator — opens Review Queue modal */}
-      {queueCount > 0 && (
-        <button
-          onClick={() => setQueueModalOpen(true)}
-          className="absolute right-9 top-1/2 flex items-center justify-center rounded-full transition-colors"
-          style={{
-            transform: 'translateY(-50%)',
-            minHeight: 'unset',
-            cursor: 'pointer',
-          }}
-          title={`${queueCount} pending queue item${queueCount !== 1 ? 's' : ''}`}
-        >
-          {indicatorMode === 'glow' ? (
+      {/* Queue indicator — opens Review Queue modal.
+          Always visible (mom needs to see the door exists even when
+          empty so she knows nothing is broken). Empty state is dimmed
+          with no glow and no badge. */}
+      <button
+        onClick={() => setQueueModalOpen(true)}
+        className="absolute right-9 top-1/2 flex items-center justify-center rounded-full transition-colors"
+        style={{
+          transform: 'translateY(-50%)',
+          minHeight: 'unset',
+          cursor: 'pointer',
+        }}
+        title={
+          queueCount > 0
+            ? `${queueCount} pending queue item${queueCount !== 1 ? 's' : ''}`
+            : 'Review Queue — all caught up'
+        }
+      >
+        {queueCount > 0 ? (
+          indicatorMode === 'glow' ? (
             <BreathingGlow active={true}>
               <Inbox size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
             </BreathingGlow>
@@ -511,9 +518,11 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
                 {queueCount}
               </span>
             </span>
-          )}
-        </button>
-      )}
+          )
+        ) : (
+          <Inbox size={16} style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }} />
+        )}
+      </button>
 
       {/* Review Queue modal */}
       <UniversalQueueModal

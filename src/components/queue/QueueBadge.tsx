@@ -31,9 +31,12 @@ interface QueueBadgeProps {
 
 export function QueueBadge({ count, defaultTab, label, icon, compact }: QueueBadgeProps) {
   const [open, setOpen] = useState(false)
+  const hasItems = count > 0
 
-  if (count === 0) return null
-
+  // Always render — mom needs to see the door exists even when empty, so
+  // she knows nothing is broken. Empty state is dimmed (muted colors, no
+  // breathing glow, no numeric badge). Clicking when empty still opens
+  // the modal to the "All caught up!" empty state.
   return (
     <>
       <button
@@ -43,31 +46,45 @@ export function QueueBadge({ count, defaultTab, label, icon, compact }: QueueBad
           padding: compact ? '0.25rem 0.5rem' : '0.35rem 0.75rem',
           borderRadius: '9999px',
           border: '1px solid var(--color-border)',
-          backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
-          color: 'var(--color-btn-primary-bg)',
+          backgroundColor: hasItems
+            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))'
+            : 'var(--color-bg-secondary)',
+          color: hasItems
+            ? 'var(--color-btn-primary-bg)'
+            : 'var(--color-text-secondary)',
           fontSize: compact ? 'var(--font-size-xs, 0.75rem)' : 'var(--font-size-sm, 0.875rem)',
           fontWeight: 500,
           cursor: 'pointer',
           minHeight: 'unset',
         }}
-        title={`${count} pending item${count !== 1 ? 's' : ''} — tap to review`}
+        title={
+          hasItems
+            ? `${count} pending item${count !== 1 ? 's' : ''} — tap to review`
+            : 'Review Queue — all caught up'
+        }
       >
-        <BreathingGlow active={true}>
-          {icon ?? <Inbox size={compact ? 13 : 15} />}
-        </BreathingGlow>
+        {hasItems ? (
+          <BreathingGlow active={true}>
+            {icon ?? <Inbox size={compact ? 13 : 15} />}
+          </BreathingGlow>
+        ) : (
+          icon ?? <Inbox size={compact ? 13 : 15} />
+        )}
         {label && <span>{label}</span>}
-        <span
-          className="flex items-center justify-center rounded-full text-[10px] font-bold leading-none"
-          style={{
-            minWidth: 16,
-            height: 16,
-            padding: '0 4px',
-            backgroundColor: 'var(--color-btn-primary-bg)',
-            color: 'var(--color-btn-primary-text)',
-          }}
-        >
-          {count}
-        </span>
+        {hasItems && (
+          <span
+            className="flex items-center justify-center rounded-full text-[10px] font-bold leading-none"
+            style={{
+              minWidth: 16,
+              height: 16,
+              padding: '0 4px',
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+            }}
+          >
+            {count}
+          </span>
+        )}
       </button>
 
       <UniversalQueueModal

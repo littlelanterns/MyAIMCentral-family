@@ -418,12 +418,16 @@ export function CalendarPage() {
             Calendar
           </h1>
           <div className="flex items-center gap-2">
-            {/* PRD-17: Pending approval badge → opens Queue Modal Calendar tab */}
-            {member?.role === 'primary_parent' && pendingCounts.calendar > 0 && (
+            {/* PRD-17: Pending approval badge → opens Queue Modal Calendar tab.
+                Always visible for mom so the door is discoverable even when
+                the queue is empty. QueueBadge itself handles the dimmed
+                empty state. */}
+            {member?.role === 'primary_parent' && (
               <QueueBadge
                 count={pendingCounts.calendar}
                 defaultTab="calendar"
                 compact
+                label="Review"
               />
             )}
           <button
