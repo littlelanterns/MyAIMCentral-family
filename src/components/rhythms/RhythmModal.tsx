@@ -30,7 +30,7 @@ import {
   useDismissRhythm,
   useRhythmCompletion,
 } from '@/hooks/useRhythms'
-import type { RhythmConfig, RhythmSection } from '@/types/rhythms'
+import type { RhythmAudience, RhythmConfig, RhythmSection } from '@/types/rhythms'
 import { RhythmMetadataProvider, useRhythmMetadataStaging } from './RhythmMetadataContext'
 import { commitTomorrowCapture, type StagedPriorityItem } from '@/lib/rhythm/commitTomorrowCapture'
 import { commitMindSweepLite } from '@/lib/rhythm/commitMindSweepLite'
@@ -40,6 +40,14 @@ interface Props {
   config: RhythmConfig
   familyId: string
   memberId: string
+  /**
+   * PRD-18 Phase D (Enhancement 7) — rhythm audience variant. Derived
+   * by RhythmDashboardCard from the member's dashboard_mode. Forwarded
+   * to SectionRendererSwitch so teen-aware sections can fork their
+   * framing/content without touching adult code paths. Defaults to
+   * 'adult' for safety when the prop is omitted.
+   */
+  audience?: RhythmAudience
   isOpen: boolean
   onClose: () => void
   /** Reading Support flag (Guided shell preference). Forwarded to sections. */
@@ -56,7 +64,15 @@ export function RhythmModal(props: Props) {
   )
 }
 
-function RhythmModalInner({ config, familyId, memberId, isOpen, onClose, readingSupport }: Props) {
+function RhythmModalInner({
+  config,
+  familyId,
+  memberId,
+  audience = 'adult',
+  isOpen,
+  onClose,
+  readingSupport,
+}: Props) {
   const isMorning = config.rhythm_key === 'morning'
   const isEvening = config.rhythm_key === 'evening'
   const completeRhythm = useCompleteRhythm()
@@ -297,6 +313,7 @@ function RhythmModalInner({ config, familyId, memberId, isOpen, onClose, reading
             rhythmKey={config.rhythm_key}
             familyId={familyId}
             memberId={memberId}
+            audience={audience}
             reflectionCount={config.reflection_guideline_count}
             readingSupport={readingSupport}
           />

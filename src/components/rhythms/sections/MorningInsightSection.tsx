@@ -23,7 +23,10 @@
  * skip the embedding call entirely and render a single warm onboarding
  * card instead of extraction results.
  *
- * Teen audience (15 teen-specific questions) is Phase D scope.
+ * Phase D (Enhancement 7): teen audience wired — the 15 teen-specific
+ * questions are seeded in morning_insight_questions with audience='teen'
+ * and rendered via the same infrastructure by passing audience='teen'
+ * through the renderer chain.
  */
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
@@ -33,21 +36,31 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useMorningInsightQuestions } from '@/hooks/useMorningInsightQuestions'
 import { rhythmSeed, pickOne } from '@/lib/rhythm/dateSeedPrng'
-import type { MorningInsightMatch } from '@/types/rhythms'
+import type { MorningInsightAudience, MorningInsightMatch } from '@/types/rhythms'
 
 interface Props {
   familyId: string
   memberId: string
   readingSupport?: boolean
+  /**
+   * Question pool audience. Phase D (Enhancement 7) passes 'teen' for
+   * Independent teen morning rhythms. Defaults to 'adult' for safety.
+   */
+  audience?: MorningInsightAudience
 }
 
 const DEBOUNCE_MS = 350
 const PASSIVE_MATCH_COUNT = 2
 const ACTIVE_MATCH_COUNT = 3
 
-export function MorningInsightSection({ familyId, memberId, readingSupport }: Props) {
+export function MorningInsightSection({
+  familyId,
+  memberId,
+  readingSupport,
+  audience = 'adult',
+}: Props) {
   const { data: questions = [], isLoading: questionsLoading } =
-    useMorningInsightQuestions('adult', familyId)
+    useMorningInsightQuestions(audience, familyId)
 
   // Pick today's question deterministically
   const todaysQuestion = useMemo(() => {

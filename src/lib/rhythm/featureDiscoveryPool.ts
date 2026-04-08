@@ -174,4 +174,48 @@ export const FEATURE_DISCOVERY_POOL: FeatureDiscoveryCandidate[] = [
     engagement_source_tables: [],
     audiences: ['adult', 'teen'],
   },
+
+  // ─── Phase D (Enhancement 7): teen-only school-use framings ────
+  // These sit alongside the shared entries above. Dynamic book-title
+  // injection ("Your library has [Biology Essentials]") is post-MVP
+  // — for now the school framing is generic but teen-targeted.
+  // Engagement exit uses the SAME source_tables as the shared entries
+  // so a teen who uploads any book or uses any translator will stop
+  // seeing both the generic AND the teen-targeted nudge.
+  {
+    feature_key: 'bookshelf_for_school',
+    display_name: 'BookShelf for school',
+    tagline:
+      "The books you're reading for school can work for you in here. Upload one and the morning insight questions will start pulling relevant passages from it — turn your textbooks into a study partner.",
+    action_text: 'Open BookShelf →',
+    action_route: '/bookshelf',
+    icon_key: 'BookOpen',
+    engagement_event_types: [],
+    engagement_source_tables: ['bookshelf_items'],
+    audiences: ['teen'],
+  },
+  {
+    feature_key: 'thoughtsift_translator_teen',
+    display_name: 'Rewrite what you need to say',
+    tagline:
+      "Nervous about sending a text? Not sure how to phrase something to mom, a teacher, or a friend? The Translator rewrites it in a warmer, firmer, or more direct tone. No more staring at the screen.",
+    action_text: 'Open Translator →',
+    action_route: '/thoughtsift/translator',
+    icon_key: 'Languages',
+    engagement_event_types: [],
+    engagement_source_tables: [],
+    audiences: ['teen'],
+  },
+  {
+    feature_key: 'journal_tagged_teen',
+    display_name: 'Your journal, your way',
+    tagline:
+      "Tag entries however you want — brain dumps, rants, notes, song lyrics, stuff you'd never say out loud. You can filter by tag later. It's just yours — mom can only see it if you choose to show her.",
+    action_text: 'Open Journal →',
+    action_route: '/journal',
+    icon_key: 'NotebookPen',
+    engagement_event_types: [],
+    engagement_source_tables: ['journal_entries'],
+    audiences: ['teen'],
+  },
 ]

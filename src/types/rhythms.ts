@@ -213,11 +213,16 @@ export type MindSweepLiteDisposition =
   | 'recipe'
   | 'release'
   | 'family_request'
+  | 'talk_to_someone'
 
 /**
  * Human-readable display names for each disposition. Used for the
- * disposition tag rendering in the MindSweep-Lite section UI and the
- * override dropdown.
+ * adult disposition tag rendering in MindSweepLiteSection + override
+ * dropdown. Teen section uses TEEN_DISPOSITION_DISPLAY_NAMES below.
+ *
+ * `talk_to_someone` is a TEEN-ONLY disposition — it's in this map
+ * for type completeness only. Adult UI never surfaces it because it
+ * is never in DISPOSITION_PICK_ORDER.
  */
 export const DISPOSITION_DISPLAY_NAMES: Record<MindSweepLiteDisposition, string> = {
   task: 'Task',
@@ -233,12 +238,17 @@ export const DISPOSITION_DISPLAY_NAMES: Record<MindSweepLiteDisposition, string>
   recipe: 'Recipe',
   release: 'Release',
   family_request: 'Send as Request',
+  talk_to_someone: 'Talk to someone',
 }
 
 /**
- * Ordered list of dispositions for the override dropdown UI. Release
- * sits at the end as the "let it go" escape hatch. Family Request sits
- * near Task/Calendar as an action-oriented option.
+ * Ordered list of dispositions for the ADULT override dropdown UI.
+ * Release sits at the end as the "let it go" escape hatch. Family
+ * Request sits near Task/Calendar as an action-oriented option.
+ *
+ * `talk_to_someone` is deliberately NOT in this list — it's the teen
+ * equivalent of family_request and lives in TEEN_DISPOSITION_PICK_ORDER.
+ * Adults never see it as an option.
  */
 export const DISPOSITION_PICK_ORDER: MindSweepLiteDisposition[] = [
   'task',
@@ -255,6 +265,86 @@ export const DISPOSITION_PICK_ORDER: MindSweepLiteDisposition[] = [
   'backburner',
   'release',
 ]
+
+/**
+ * Teen-only disposition subset. Teens see a simpler 5-option vocabulary
+ * instead of the adult 13-option dropdown. The underlying storage type
+ * is still MindSweepLiteDisposition — this is a narrowed view.
+ *
+ * Teen vocabulary per PRD-18 Enhancement 7 + Build N.2:
+ *   Schedule          → maps to 'task' backend (teens don't distinguish
+ *                       "calendar event" from "task with a date")
+ *   Ask someone       → maps to 'family_request' backend — Build N.2
+ *                       addition. The teen consciously chooses to send
+ *                       a real outbound request through PRD-15's
+ *                       family_requests table. Recipient sees it in
+ *                       their Universal Queue Modal Requests tab.
+ *                       NEVER auto-suggested by the classifier — only
+ *                       a deliberate teen override. The auto-detected
+ *                       cross-member path goes to talk_to_someone
+ *                       (private) instead, preserving privacy-first
+ *                       defaults.
+ *   Journal about it  → maps to 'journal' backend with teen tags
+ *   Talk to someone   → 'talk_to_someone' backend — writes a PRIVATE
+ *                       note the teen sees themselves, NOT an outbound
+ *                       request. This is the founder-critical rule:
+ *                       talk_to_someone is the auto-suggestion path
+ *                       for cross-member references; family_request
+ *                       is the deliberate teen choice to actually send
+ *                       something. Both can exist on the same parsed
+ *                       brain dump; the teen picks per-item.
+ *   Let it go         → maps to 'release' backend (no record)
+ */
+export type TeenDisposition =
+  | 'task'
+  | 'family_request'
+  | 'journal'
+  | 'talk_to_someone'
+  | 'release'
+
+/**
+ * Teen display names for the 5-option dropdown. Separate from the
+ * adult DISPOSITION_DISPLAY_NAMES so teen copy can evolve without
+ * touching adult UI. "Ask someone" parallels "Talk to someone"
+ * structurally — both action-verb-first, both 4 words including
+ * "someone" — making the relationship between the two visible.
+ */
+export const TEEN_DISPOSITION_DISPLAY_NAMES: Record<TeenDisposition, string> = {
+  task: 'Schedule',
+  family_request: 'Ask someone',
+  journal: 'Journal about it',
+  talk_to_someone: 'Talk to someone',
+  release: 'Let it go',
+}
+
+/**
+ * Teen dropdown order. Mirrors the adult pattern (task first, then
+ * family_request as the action-oriented outbound option). Talk to
+ * someone (private) sits AFTER Journal so the escalation reads:
+ *   schedule → ask → journal → talk later → let go
+ */
+export const TEEN_DISPOSITION_PICK_ORDER: TeenDisposition[] = [
+  'task',
+  'family_request',
+  'journal',
+  'talk_to_someone',
+  'release',
+]
+
+/**
+ * Rhythm audience flag, derived at render time from the active
+ * family member's `dashboard_mode`:
+ *   dashboard_mode === 'independent' → 'teen'
+ *   anything else                    → 'adult'
+ *
+ * Audience is NOT stored on rhythm_configs — it's a runtime
+ * computation so members who change dashboard_mode (future Guided →
+ * Independent → Adult transitions) instantly get the right rhythm
+ * variant without a migration. Per-section framing overrides can
+ * still be set via `rhythm_configs.sections[].config` for future
+ * mom customization.
+ */
+export type RhythmAudience = 'adult' | 'teen'
 
 export interface RhythmMindSweepItem {
   /** The text extracted from the user's braindump. */

@@ -11,7 +11,11 @@
  * intact even before later phases ship.
  */
 
-import type { RhythmSection } from '@/types/rhythms'
+import type {
+  MorningInsightAudience,
+  RhythmAudience,
+  RhythmSection,
+} from '@/types/rhythms'
 import { GuidingStarRotationSection } from './GuidingStarRotationSection'
 import { BestIntentionsFocusSection } from './BestIntentionsFocusSection'
 import { TaskPreviewSection } from './TaskPreviewSection'
@@ -27,6 +31,7 @@ import { MorningPrioritiesRecallSection } from './MorningPrioritiesRecallSection
 import { OnTheHorizonSection } from './OnTheHorizonSection'
 import { PeriodicCardsSlot } from './PeriodicCardsSlot'
 import { MindSweepLiteSection } from './MindSweepLiteSection'
+import { MindSweepLiteTeenSection } from './MindSweepLiteTeenSection'
 import { MorningInsightSection } from './MorningInsightSection'
 import { FeatureDiscoverySection } from './FeatureDiscoverySection'
 import { RhythmTrackerPromptsSection } from './RhythmTrackerPromptsSection'
@@ -48,6 +53,13 @@ interface Props {
   rhythmKey: string
   familyId: string
   memberId: string
+  /**
+   * PRD-18 Phase D (Enhancement 7) — rhythm audience variant. Forwarded
+   * from RhythmModal, derived from the rendered member's dashboard_mode.
+   * Teen-aware sections read this (or `section.config.variant/audience`)
+   * to fork their framing/content. Defaults to 'adult'.
+   */
+  audience?: RhythmAudience
   /** Reflection guideline count from rhythm_configs (defaults to 3). */
   reflectionCount?: number
   /** Reading Support enabled (Guided shell preference). */
@@ -59,15 +71,42 @@ export function SectionRendererSwitch({
   rhythmKey,
   familyId,
   memberId,
+  audience = 'adult',
   reflectionCount = 3,
   readingSupport,
 }: Props) {
   if (!section.enabled) return null
 
+  // Phase D (Enhancement 7): for section types that have teen-specific
+  // framing defaults, section.config can explicitly override framing
+  // via `framingText`. When unset, fall back to the audience-aware
+  // default (teen = ownership language, adult = the original wording).
+  // This gives mom the option to override per-section later without
+  // a code change.
+  const cfgFramingText =
+    typeof (section.config as { framingText?: unknown })?.framingText === 'string'
+      ? ((section.config as { framingText: string }).framingText)
+      : undefined
+
   switch (section.section_type) {
     // ─── Morning core (Phase A) ──────────────────────────
-    case 'guiding_star_rotation':
-      return <GuidingStarRotationSection memberId={memberId} rhythmKey={rhythmKey} />
+    case 'guiding_star_rotation': {
+      // Phase D: teen morning shows "You said this matters to you:"
+      // instead of adult "Remember who you are." Seeded via config.
+      // Teen audience also acts as a fallback framing selector if the
+      // seed is missing the explicit string (e.g. manually-created
+      // configs in Rhythms Settings).
+      const framingText =
+        cfgFramingText ??
+        (audience === 'teen' ? 'You said this matters to you:' : undefined)
+      return (
+        <GuidingStarRotationSection
+          memberId={memberId}
+          rhythmKey={rhythmKey}
+          framingText={framingText}
+        />
+      )
+    }
     case 'best_intentions_focus':
       return <BestIntentionsFocusSection familyId={familyId} memberId={memberId} />
     case 'task_preview':
@@ -110,27 +149,64 @@ export function SectionRendererSwitch({
       )
 
     // ─── Morning Phase C ─────────────────────────────────
-    case 'morning_insight':
+    case 'morning_insight': {
+      // Phase D (Enhancement 7): audience resolved from either the
+      // explicit config.audience marker (set in the teen morning seed)
+      // OR the derived audience prop from dashboard_mode. Teen audience
+      // pulls from the 15-question teen pool instead of the 20-question
+      // adult pool.
+      const cfgAud = (section.config as { audience?: string } | undefined)?.audience
+      const insightAudience: MorningInsightAudience =
+        cfgAud === 'teen' || audience === 'teen' ? 'teen' : 'adult'
       return (
         <MorningInsightSection
           familyId={familyId}
           memberId={memberId}
           readingSupport={readingSupport}
+          audience={insightAudience}
         />
       )
-    case 'feature_discovery':
+    }
+    case 'feature_discovery': {
+      // Phase D (Enhancement 7): teen audience prioritizes school-use
+      // entries via the feature discovery pool filter in the hook.
+      const cfgAud = (section.config as { audience?: string } | undefined)?.audience
+      const discoveryAudience: 'adult' | 'teen' =
+        cfgAud === 'teen' || audience === 'teen' ? 'teen' : 'adult'
       return (
         <FeatureDiscoverySection
           familyId={familyId}
           memberId={memberId}
+          audience={discoveryAudience}
         />
       )
+    }
 
     // ─── Evening core (Phase A) ──────────────────────────
-    case 'evening_greeting':
-      return <EveningGreetingSection />
-    case 'accomplishments_victories':
-      return <AccomplishmentsVictoriesSection memberId={memberId} />
+    case 'evening_greeting': {
+      // Phase D (Enhancement 7): teen variant uses looser ownership
+      // framing ("Hey [Name], how'd today go?"). Seeded via config.variant
+      // on the teen evening seed — audience prop is the safety fallback.
+      const cfgVariant = (section.config as { variant?: string } | undefined)?.variant
+      const greetingVariant: 'adult' | 'teen' =
+        cfgVariant === 'teen' || audience === 'teen' ? 'teen' : 'adult'
+      return <EveningGreetingSection variant={greetingVariant} />
+    }
+    case 'accomplishments_victories': {
+      // Phase D: teen variant renders header as "What went right today"
+      // instead of "Today's Wins". Seeded via config.title, falls back
+      // to audience default if unset.
+      const cfgTitle = (section.config as { title?: string } | undefined)?.title
+      const victoriesTitle =
+        cfgTitle ??
+        (audience === 'teen' ? 'What went right today' : undefined)
+      return (
+        <AccomplishmentsVictoriesSection
+          memberId={memberId}
+          title={victoriesTitle}
+        />
+      )
+    }
     case 'completed_meetings':
       return <CompletedMeetingsSection />
     case 'milestone_celebrations':
@@ -140,7 +216,29 @@ export function SectionRendererSwitch({
     case 'evening_tomorrow_capture':
       return <EveningTomorrowCaptureSection familyId={familyId} memberId={memberId} />
     case 'mindsweep_lite': {
-      const cfg = section.config as { collapsed_by_default?: boolean } | undefined
+      const cfg = section.config as
+        | { collapsed_by_default?: boolean; audience?: string }
+        | undefined
+      // Phase D (Enhancement 7): teens get a purpose-built sibling
+      // component with a 4-option dropdown (Schedule / Journal about it /
+      // Talk to someone / Let it go) and teen copy. Audience is resolved
+      // from EITHER the explicit config.audience marker (set in the teen
+      // evening seed) OR the derived audience prop from dashboard_mode.
+      // The config marker wins when present so mom can explicitly
+      // assign a teen variant via Rhythms Settings later. NEVER uses
+      // family_request — teen talk_to_someone writes a private journal
+      // note the teen sees themselves.
+      const isTeen = cfg?.audience === 'teen' || audience === 'teen'
+      if (isTeen) {
+        return (
+          <MindSweepLiteTeenSection
+            familyId={familyId}
+            memberId={memberId}
+            readingSupport={readingSupport}
+            collapsedByDefault={cfg?.collapsed_by_default ?? true}
+          />
+        )
+      }
       return (
         <MindSweepLiteSection
           familyId={familyId}
@@ -150,8 +248,17 @@ export function SectionRendererSwitch({
         />
       )
     }
-    case 'closing_thought':
-      return <ClosingThoughtSection memberId={memberId} />
+    case 'closing_thought': {
+      // Phase D (Enhancement 7): teen evening shows "Something you
+      // believe:" as identity reinforcement in the teen's own voice.
+      // Adult default = no label (moment of stillness). Seeded via
+      // config.framingText; audience acts as a fallback selector.
+      // Reuses the top-of-switch cfgFramingText helper.
+      const framingText =
+        cfgFramingText ??
+        (audience === 'teen' ? 'Something you believe:' : undefined)
+      return <ClosingThoughtSection memberId={memberId} framingText={framingText} />
+    }
     case 'from_your_library':
       return <FromYourLibrarySection memberId={memberId} />
     case 'before_close_the_day':

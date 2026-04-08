@@ -22,9 +22,17 @@ const MIN_POOL_SIZE_FOR_BEDTIME_ROTATION = 5
 
 interface Props {
   memberId: string
+  /**
+   * Optional uppercase framing label rendered below the star. Phase D
+   * Enhancement 7: teen evening passes "Something you believe:" so
+   * the star reads as the teen's own declared identity, not a
+   * directive from above. When omitted, no label is rendered
+   * (adult default — the star stands alone as a moment of stillness).
+   */
+  framingText?: string
 }
 
-export function ClosingThoughtSection({ memberId }: Props) {
+export function ClosingThoughtSection({ memberId, framingText }: Props) {
   const { data: stars = [], isLoading } = useGuidingStars(memberId)
 
   if (isLoading) return null
@@ -56,6 +64,14 @@ export function ClosingThoughtSection({ memberId }: Props) {
       >
         "{star.content}"
       </p>
+      {framingText && (
+        <p
+          className="mt-3 text-xs uppercase tracking-wide"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          {framingText}
+        </p>
+      )}
     </div>
   )
 }

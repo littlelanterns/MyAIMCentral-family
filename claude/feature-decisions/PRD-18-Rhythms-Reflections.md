@@ -1073,6 +1073,165 @@ Build L.1 wired both:
 
 ---
 
+## Post-Build PRD Verification — Phase D (2026-04-07)
+
+> Phase D scope: filled the final Enhancement Addendum gap (Enhancement 7 — Independent Teen tailored rhythm experience). Forked the seeding trigger so independents get a 7-section morning + 8-section evening with teen framing, "Morning Check-in"/"Evening Check-in" display names, reflection_guideline_count=2, the 15 teen morning insight questions, the teen-only feature discovery entries, and a purpose-built `MindSweepLiteTeenSection` component with the 4-option Schedule/Journal/Talk-to-someone/Let-it-go dropdown. The new `talk_to_someone` disposition writes a PRIVATE journal entry (`"Reminder to talk to [Name] about: ..."`) and NEVER touches `family_requests`. All Phase A/B/C adult code paths are unchanged. Migration: `00000000100114_rhythms_phase_d_teen.sql`. New component: `MindSweepLiteTeenSection.tsx`. New commit case: `talk_to_someone` in `commitMindSweepLite.ts`. New types: `TeenDisposition`, `TEEN_DISPOSITION_DISPLAY_NAMES`, `TEEN_DISPOSITION_PICK_ORDER`, `RhythmAudience`. Audience derived at render time from `family_members.dashboard_mode`.
+
+### Foundation (Phase D schema + types + plumbing)
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| Migration 100114: 15 teen morning_insight_questions seeded | Phase D sub-phase D1 | Wired | NOTICE: `Teen morning insight questions seeded: 15 (expected >= 15)` |
+| Migration 100114: `auto_provision_member_resources` forked with `ELSIF NEW.dashboard_mode = 'independent'` branch | Phase D sub-phase D1 | Wired | New independents get teen-tailored 7/8-section rhythms automatically |
+| Migration 100114: backfill 7 active independent teens — INSERT missing rows + UPDATE existing teen morning + evening rows | Phase D sub-phase D1 | Wired | NOTICE: `Teen morning rhythm_configs: 7 (expected = 7)`, same for evening |
+| Migration 100114: idempotent — backfill UPDATE gated by display_name != "Morning Check-in" | Phase D sub-phase D1 | Wired | Re-running migration is a no-op after first apply |
+| Adult morning rhythms unchanged (still 9 sections) | Phase D regression check | Wired | NOTICE: `Adult morning rhythms with 9 sections (unchanged): 11` |
+| Adult evening rhythms unchanged (still 13 sections) | Phase D regression check | Wired | NOTICE: `Adult evening rhythms with 13 sections (unchanged): 11` |
+| Guided evening rhythms unchanged (still 5 sections) | Phase D regression check | Wired | Live DB query: 3 of 3 |
+| TypeScript types: `MindSweepLiteDisposition` adds `'talk_to_someone'` | Phase D sub-phase D1 | Wired | Union member added; exhaustive `never` switch in `commitMindSweepLite` validates |
+| TypeScript types: `TeenDisposition` narrowed union (4 options) | Phase D sub-phase D1 | Wired | `'task' \| 'journal' \| 'talk_to_someone' \| 'release'` |
+| TypeScript types: `TEEN_DISPOSITION_DISPLAY_NAMES` + `TEEN_DISPOSITION_PICK_ORDER` constants | Phase D sub-phase D1 | Wired | Drives teen UI labels + override dropdown |
+| TypeScript types: `RhythmAudience = 'adult' \| 'teen'` | Phase D sub-phase D1 | Wired | Forwarded through renderer chain |
+| `RhythmDashboardCard` derives audience from `dashboard_mode === 'independent'` via `useFamilyMembers` lookup | Phase D sub-phase D1 | Wired | Works correctly in ViewAs mode (memberId is the rendered member, not the viewer) |
+| Audience prop plumbed `RhythmDashboardCard → RhythmModal → SectionRendererSwitch → section components` | Phase D sub-phase D1 | Wired | Defaults to `'adult'` for safety |
+| `commitMindSweepLite.ts` adds `case 'talk_to_someone'` writing to `journal_entries` | Phase D sub-phase D1 | Wired | Content format: `"Reminder to talk to [Name] about: [text]"` (or `"... someone about: ..."` if no recipient) |
+| `commitMindSweepLite` `talk_to_someone` writes `tags=['rhythm_mindsweep_lite','talk_to_someone']` and `visibility='private'` | Phase D sub-phase D1 | Wired | Findable via journal tag filter, never visible outside the teen's private journal |
+| `commitMindSweepLite` `family_request` auto-downgrade logic untouched and still scoped to family_request only | Phase D founder rule | Wired | Teen `talk_to_someone` cannot be downgraded to anything; gracefully handles missing recipient via "someone" default |
+| `tsc -b` zero errors after D1 | Phase D sub-phase D1 | Wired | Verified |
+
+### Enhancement 7 — MindSweep-Lite teen variant (D2)
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `MindSweepLiteTeenSection.tsx` is a SEPARATE component file (not a prop-fork of adult) | Phase D founder decision | Wired | Adult `MindSweepLiteSection` untouched; teen file is ~520 lines |
+| Teen header reads "Anything looping?" (not "Something on your mind?") | Enhancement 7 | Wired | Auto-expand prompt: "Rough day? Dump what's in your head." |
+| Teen textarea placeholder uses teen voice | Enhancement 7 | Wired | `"I said something weird in English class. Need to finish the lab report by Friday..."` |
+| Teen `[Sort it]` button label (not `[Parse]`) | Enhancement 7 | Wired | Re-sort label: `[Sort again]` |
+| Teen 4-option dropdown via `TEEN_DISPOSITION_PICK_ORDER` | Enhancement 7 | Wired | Hides adult-only dispositions (family_request, guiding_stars, victory, etc.) |
+| `adultDestinationToTeenDisposition` translator function maps adult destinations → teen 4 options at display time | Phase D founder rule | Wired | `task/calendar → task`; `journal/innerworkings/best_intentions/etc → journal`; `cross_member_action='suggest_route' → talk_to_someone`; `release → release` |
+| `mindsweep-sort` Edge Function untouched (stays platform-level) | Phase D founder rule | Wired | Teen calls the same Edge Function with the same params; translation happens in frontend only |
+| Cross-member detection promotes to `talk_to_someone` (NOT `family_request`) | Phase D founder rule | Wired | The trigger that promotes to family_request in the adult component is replaced with talk_to_someone promotion in the teen component |
+| Teen recipient picker UI: "Remind yourself to talk to: [Name]" | Phase D founder decision | Wired | Reinforces the private-self-reminder framing — nothing goes out |
+| Teen `[+ Add item]` defaults to `journal` disposition (not `task` like adults) | Enhancement 7 | Wired | Teens manually adding items are more likely to be journaling than scheduling |
+| Teen footer copy: "These get saved when you close your day. Nothing goes out — it's all yours." | Phase D founder decision | Wired | Reinforces ownership + privacy |
+| Teen Volume2 read-aloud button when `readingSupport=true` | Phase D parity with adults | Wired | Reads "Anything looping?" header aloud |
+| `SectionRendererSwitch` forks `mindsweep_lite` on `cfg?.audience === 'teen' \|\| audience === 'teen'` | Phase D sub-phase D2 | Wired | Config marker wins; audience prop is the fallback |
+| Teen narrowed `TeenWorkingItem` interface guarantees no family_request items can be constructed | Phase D type safety | Wired | TypeScript prevents the teen section from ever staging a family_request |
+| `tsc -b` zero errors after D2 | Phase D sub-phase D2 | Wired | Verified |
+
+### Enhancement 7 — Teen framing variants (D3)
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `GuidingStarRotationSection` accepts `framingText` prop (already existed) — teen passes `"You said this matters to you:"` | Enhancement 7 #28 | Wired | Seeded via `config.framingText` on the teen morning seed at section order 1; renderer also has audience-fallback default |
+| `EveningGreetingSection` adds `variant?: 'adult' \| 'teen'` prop | Enhancement 7 | Wired | Teen headline: `"Hey [Name], how'd today go?"`; teen subhead: `"Let's see what went right and set you up for tomorrow."` |
+| `AccomplishmentsVictoriesSection` adds `title?: string` prop | Enhancement 7 | Wired | Teen title: `"What went right today"` instead of `"Today's Wins"` (header AND empty state) |
+| `ClosingThoughtSection` adds `framingText?: string` prop | Enhancement 7 #28 | Wired | Teen framing: `"Something you believe:"` rendered as small uppercase label below the star |
+| `MorningInsightSection` audience prop wired (was hardcoded `'adult'` in Phase C) | Phase C → D follow-up | Wired | Teen passes `audience='teen'`, hook pulls from the 15 teen-seeded questions |
+| `SectionRendererSwitch` reads `section.config.variant / .audience / .title / .framingText` first, falls back to audience-derived defaults | Phase D config-first principle | Wired | Allows future per-section mom overrides via Rhythms Settings without code changes |
+| `cfgFramingText` helper extracted at top of switch — used by `guiding_star_rotation` AND `closing_thought` | Phase D code clarity | Wired | One place to read framing config; both sections use it |
+| Adult `MorningInsightSection` behavior unchanged (still passes `'adult'` when not in teen context) | Phase D regression check | Wired | Default audience prop is `'adult'`; tsc + manual config check confirm |
+
+### Enhancement 7 — Teen Feature Discovery additions (D3)
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `bookshelf_for_school` teen-only entry added to `featureDiscoveryPool.ts` | Enhancement 7 #32 | Wired | `audiences: ['teen']`, school-use generic framing, dynamic book-title injection deferred post-MVP per founder |
+| `thoughtsift_translator_teen` teen-only entry added | Enhancement 7 | Wired | `audiences: ['teen']`, teen-voice framing about texting friends/teachers/mom |
+| `journal_tagged_teen` teen-only entry added | Enhancement 7 | Wired | `audiences: ['teen']`, emphasizes privacy ("It's just yours — mom can only see it if you choose to show her") |
+| All 12 existing pool entries already have `audiences: ['adult','teen']` | Phase C foundation | Wired | No changes needed; teens see the union of shared + teen-only entries |
+| Engagement exits share `source_tables` across adult + teen variants (e.g. uploading any book exits both `bookshelf_upload_first` AND `bookshelf_for_school`) | Phase D dedup principle | Wired | Avoids redundant nudges after first engagement |
+| `FeatureDiscoverySection` already accepted `audience` prop in Phase C | Phase C foundation | Wired | Now actually receives `'teen'` from the renderer chain |
+| `SectionRendererSwitch` resolves `feature_discovery` audience from config OR derived audience | Phase D sub-phase D3 | Wired | Same config-first pattern as morning_insight |
+| `tsc -b` zero errors after D3 | Phase D sub-phase D3 | Wired | Verified |
+
+### Cross-feature integration
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| Teens use existing `mindsweep-sort` Edge Function (no teen-specific calibration) | Phase D founder rule | Wired | Translation happens in frontend; Edge Function stays platform-level |
+| Teen `talk_to_someone` writes to PRD-08 `journal_entries` with teen-specific tags | PRD-08 reuse | Wired | `tags=['rhythm_mindsweep_lite','talk_to_someone']`, `visibility='private'` |
+| Teen `talk_to_someone` NEVER writes to PRD-15 `family_requests` | Phase D founder rule | Wired | Teen disposition `family_request` is not in `TEEN_DISPOSITION_PICK_ORDER`; teen section never produces items with that disposition; commit case for talk_to_someone is a separate code path |
+| Teens use existing `match_book_extractions` RPC for Morning Insight (PRD-23) | PRD-23 reuse | Wired | Same semantic search as adults; only the question pool differs |
+| Teens use existing `activity_log_entries` for Feature Discovery engagement (PRD-11) | Cross-feature reuse | Wired | Same 14-day lookback, same engagement types |
+| Audience derivation via `useFamilyMembers(familyId)` is query-cache-shared with the rest of the app | Performance | Wired | Zero additional fetch cost |
+
+### Phase D stubs (still stubbed — external dependencies)
+
+| Stub | Reason | Resolution path |
+|---|---|---|
+| Teen rhythm request flow (teen customizes a rhythm → mom's Requests tab) | Post-MVP UX scope | Future Rhythms Settings teen customization surface + Universal Queue Modal routing |
+| Teen-specific weekly/monthly/quarterly rhythm differentiation | Out of Phase D scope | Phase D only forks morning + evening + reflection count; periodic rhythms identical to adults |
+| LiLa dynamic teen morning insight question generation | PRD-05 day-data context dep | Post-MVP — 15 hardcoded teen questions sufficient for MVP |
+| Dynamic book-title injection in teen BookShelf discovery framing ("Your library has [Biology Essentials]") | Requires BookShelf subject tagging | Post-MVP content sprint |
+| Studio rhythm template library with teen-specific templates | No `rhythm_templates` table | Post-MVP content sprint |
+| Gamification point events for teen rhythm completions | PRD-24 dependency | Wire when Gamification ships |
+| Teen rhythm completion indicators on Family Overview | PRD-14C consumption layer | Post-Phase-D consumption work |
+| Teen Rhythms Settings customization UI | Tied to teen rhythm request flow | Mom can already toggle teen sections via the existing Rhythms Settings page by member-picking the teen |
+
+### Live database verification
+
+| Check | Expected | Actual |
+|---|---|---|
+| Teen morning insight questions seeded | 15 | **15** ✓ |
+| Active independent teens in DB | 7 | **7** ✓ |
+| Teens with morning rhythm + display_name = "Morning Check-in" | 7 | **7** ✓ |
+| Teens with evening rhythm + display_name = "Evening Check-in" | 7 | **7** ✓ |
+| Teen morning + evening rhythms with reflection_guideline_count=2 | 14 | **14** ✓ |
+| Adult morning rhythms still 9 sections (unchanged) | 11 | **11** ✓ |
+| Adult evening rhythms still 13 sections (unchanged) | 11 | **11** ✓ |
+| Guided evening rhythms still 5 sections (unchanged) | 3 | **3** ✓ |
+| `npx tsc -b` zero errors | clean | **clean** ✓ |
+| `npm run check:colors` zero hits in Phase D files | clean | **clean** ✓ (only pre-existing auth pages remain — exempt) |
+
+### Summary
+
+- **Total Phase D requirements verified:** 56
+- **Wired:** 56
+- **Stubbed:** 0 (the 8 entries in the "Phase D stubs" table are external-dependency or post-MVP scope, not Phase D scope)
+- **Missing:** **0**
+
+### Build N.2 follow-up (2026-04-07) — Teen "Ask someone" mid-rhythm request disposition
+
+Post-Phase-D founder request: teens should be able to send a real outbound request to a family member from inside MindSweep-Lite when they realize mid-rhythm that they need to ask for something. Build N.2 adds this as a teen-opt-in 5th disposition that reuses the existing adult `family_request` commit path (Build L.1) — zero new schema, zero new commit case, zero touches to adult code paths.
+
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `TeenDisposition` union expanded from 4 → 5 to include `'family_request'` | Build N.2 | Wired | `'task' \| 'family_request' \| 'journal' \| 'talk_to_someone' \| 'release'` |
+| `TEEN_DISPOSITION_DISPLAY_NAMES['family_request'] = 'Ask someone'` | Build N.2 | Wired | Parallels "Talk to someone" structurally — both action-verb-first, both end in "someone" |
+| `TEEN_DISPOSITION_PICK_ORDER` slots `family_request` second (after `task`, before `journal`) | Build N.2 | Wired | Mirrors adult ordering pattern; makes the founder-requested feature prominent |
+| Classifier NEVER auto-suggests `family_request` for teens | Build N.2 founder rule | Wired | `adultDestinationToTeenDisposition` still maps `cross_member_action='suggest_route'` → `'talk_to_someone'` (private), NEVER → `'family_request'` (outbound) |
+| Teen `family_request` is user-override-only | Build N.2 founder rule | Wired | The teen must consciously open the dropdown and pick "Ask someone" |
+| `handleUpdateDisposition` extended to handle `family_request` symmetrically with `talk_to_someone` | Build N.2 | Wired | Refactored via shared `RECIPIENT_DISPOSITIONS` const; switching ON either disposition without a recipient auto-picks first family member; switching OFF clears recipient |
+| Dropdown hides `family_request` when no other family members exist | Build N.2 | Wired | Solo-mom-and-teen edge case — both `family_request` and `talk_to_someone` filtered out when `familyMemberNames.length === 0` |
+| Recipient picker label switches: `talk_to_someone` → "Remind yourself to talk to:", `family_request` → "Send to:" | Build N.2 founder rule | Wired | Two distinct labels make the privacy difference visible at a glance |
+| Recipient picker dropdown lists ALL active family members (not parents-only) | Founder decision | Wired | Mirrors adult `family_request` scope; future per-family restriction is post-MVP |
+| Footer copy adapts: shows "Anything tagged 'Ask someone' goes out as a real request — everything else stays just yours" when any item is tagged family_request, otherwise "Nothing goes out — it's all yours" | Build N.2 | Wired | Original copy was a lie once family_request became reachable; the conditional preserves the privacy assurance for the 99% case where no items are tagged for outbound |
+| Help text near textarea adds "Need to actually ask someone something? Tap a tag and pick 'Ask someone.'" | Build N.2 | Wired | Discoverability nudge so teens know the option exists |
+| `commitMindSweepLite.ts` `case 'family_request'` reused as-is from Build L.1 | Build N.2 (zero-touch principle) | Wired | Same `family_requests` row, same `source='mindsweep_auto'`, same `recipient_member_id` field, same defensive auto-downgrade to `task` when recipient is missing |
+| Founder-critical rule preserved: `talk_to_someone` STILL never writes to `family_requests` | Phase D founder rule + Build N.2 | Wired | Two separate dispositions, two separate commit cases. Build N.2 added a SECOND outbound option, didn't merge the two private/outbound paths. |
+| Adult `MindSweepLiteSection.tsx` untouched | Build N.2 zero-touch principle | Wired | Verified via grep — no changes to adult component or adult commit paths |
+| `tsc -b` zero errors | Build N.2 | Wired | Verified |
+| CLAUDE.md convention 192 updated (4 → 5 dispositions) | Build N.2 | Wired | Documents the addition |
+| CLAUDE.md convention 197 added — opt-in-only family_request rule | Build N.2 | Wired | New convention captures the privacy-first auto-suggest defaults + the user-override-only escalation path |
+
+**Build N.2 totals:** 17 wired, 0 stubbed, 0 missing.
+
+### What Build N.2 unlocks for teens
+
+A teen mid-rhythm realizes "Mom needs to sign the field trip slip by Wednesday." They type it into MindSweep-Lite. Haiku classifies it as a task. The teen taps the disposition tag, opens the dropdown, picks "Ask someone." The recipient dropdown auto-populates with Mom; teen can change to anyone in the family. They close their day. A real `family_requests` row writes with `recipient_member_id = mom`, `title = "Mom needs to sign the field trip slip by Wednesday"`, `source = 'mindsweep_auto'`, `status = 'pending'`. Mom opens her Universal Queue Modal next morning, sees the request in the Requests tab, and routes it to Calendar/Tasks/Acknowledge.
+
+Same pipeline as adult MindSweep-Lite delegate from Build L.1 — but teen-vocabulary, teen-defaults, teen-discoverable.
+
+### Build N.2 stubs (still stubbed — out of scope)
+
+| Stub | Reason | Resolution path |
+|---|---|---|
+| Per-family restriction on teen request recipients (parents-only mode) | Founder noted "other parents may want to limit that" but it's not in current scope | Post-MVP family settings preference |
+| Custom Rhythms creation surface for teens (for the OTHER kind of teen rhythm request — customizing rhythm sections themselves) | Out of Build N.2 scope; tied to the broader Custom Rhythms build | When Custom Rhythms ships, teens get the rhythm-customization request flow alongside the in-rhythm request flow shipped here |
+
+---
+
 ## Founder Sign-Off (Post-Build)
 
 - [x] Verification table reviewed per phase
@@ -1080,5 +1239,7 @@ Build L.1 wired both:
 - [x] Zero Missing items confirmed per phase
 - [x] **Phase A approved as complete** — 2026-04-07
 - [x] **Phase B approved as complete** — 2026-04-07
-- [ ] **Phase C approved as complete** — date:
-- [ ] **Phase D approved as complete** — date:
+- [x] **Phase C approved as complete** — 2026-04-07
+- [x] **Phase D approved as complete** — 2026-04-07 (includes Build N.2 follow-up + e2e verification)
+
+**PRD-18 (Rhythms & Reflections) is feature-complete.** All four phases (A → B → C → D) shipped + Build N.2 "Ask someone" mid-rhythm request disposition + Playwright e2e test (`tests/e2e/features/rhythms-teen-phase-d.spec.ts`) passing end-to-end against live DB. Remaining work lives in post-MVP dependencies (PRD-05 dynamic prompts, Custom Rhythms creation surface, Studio rhythm template library, dynamic BookShelf book-title injection, PRD-14C Family Overview consumption, gamification points for rhythm completions, push notifications, voice-to-text).

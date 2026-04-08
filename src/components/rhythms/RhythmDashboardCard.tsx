@@ -22,7 +22,13 @@ import { Sun, Moon, Check, Clock } from 'lucide-react'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
 import { RhythmModal } from './RhythmModal'
 import { useRhythmConfig, useRhythmCompletion } from '@/hooks/useRhythms'
-import { isRhythmActive, periodForRhythm, type RhythmKey } from '@/types/rhythms'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import {
+  isRhythmActive,
+  periodForRhythm,
+  type RhythmAudience,
+  type RhythmKey,
+} from '@/types/rhythms'
 
 interface Props {
   familyId: string
@@ -48,6 +54,19 @@ function formatTime(iso: string): string {
 export function RhythmDashboardCard({ familyId, memberId, rhythmKey, readingSupport }: Props) {
   const { data: config } = useRhythmConfig(memberId, rhythmKey)
   const { data: completion } = useRhythmCompletion(memberId, rhythmKey)
+  // Derive rhythm audience from the rendered member's dashboard_mode.
+  // Phase D (PRD-18 Enhancement 7): Independent teens get a tailored
+  // rhythm variant — teen framing text, teen MindSweep-Lite dispositions,
+  // teen morning insight pool, teen feature discovery. Adults unchanged.
+  //
+  // Works correctly in ViewAs mode because memberId is the viewed
+  // member's id, not the viewer's. We look up the member from the
+  // family roster (useFamilyMembers is already query-cached so there's
+  // no additional fetch cost).
+  const { data: roster = [] } = useFamilyMembers(familyId)
+  const renderedMember = roster.find(m => m.id === memberId)
+  const audience: RhythmAudience =
+    renderedMember?.dashboard_mode === 'independent' ? 'teen' : 'adult'
   const [isOpen, setIsOpen] = useState(false)
 
   // Auto-open logic — fires once per period per browser session
@@ -157,6 +176,7 @@ export function RhythmDashboardCard({ familyId, memberId, rhythmKey, readingSupp
         config={config}
         familyId={familyId}
         memberId={memberId}
+        audience={audience}
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         readingSupport={readingSupport}

@@ -178,7 +178,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | PRD-18 Phase B: Weekly/Monthly Review deep dive button | PRD-18 Phase B (Build K) | PRD-16 (Meetings) | ⏳ Unwired (MVP) | "Coming with Meetings" stub |
 | PRD-18 Phase B: Quarterly Inventory Stale Areas / LifeLantern launch | PRD-18 Phase B (Build K) | PRD-12A (LifeLantern) | ⏳ Unwired (MVP) | "LifeLantern coming soon" stub |
 | PRD-18 Phase B: On the Horizon "Schedule time for this?" calendar block creation | PRD-18 Phase B (Build K) | PRD-18 polish | ⏳ Unwired (MVP) | Component shows [Break into steps] + [Open task]; calendar block deferred |
-| PRD-18 Phase B: Independent Teen tailored experience | PRD-18 Phase B (Build K) | PRD-18 Phase D | ⏳ Unwired (MVP) | Phase D (teen evening template + dispositions + 15 questions) |
+| PRD-18 Phase D: Independent Teen tailored rhythm experience | PRD-18 Phase B (Build K) | PRD-18 Phase D (Build N) | ✅ Wired 2026-04-07 | Teen morning (7 sections) + evening (8 sections, section_order_locked) with "Morning Check-in"/"Evening Check-in" display names, reflection_guideline_count=2, MindSweepLiteTeenSection with 4-option dropdown (Schedule/Journal about it/Talk to someone/Let it go), 15 teen morning insight questions, 3 teen feature discovery entries, talk_to_someone disposition writing private journal reminders (NEVER family_requests). Migration 100114 seeded teen content and forked auto_provision_member_resources. |
 | Custom report templates (mom-authored) | PRD-19 | PRD-28B | ✅ Wired | Phase 32 |
 | State-specific compliance formatting | PRD-19 | PRD-28B | ✅ Wired | Phase 32 |
 | My Circle (non-family contacts) | PRD-19 | — | 📌 Post-MVP | — |

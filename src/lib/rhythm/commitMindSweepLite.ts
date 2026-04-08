@@ -22,7 +22,17 @@
  *   archives        → route to studio_queue (archive folder picker)
  *   recipe          → route to studio_queue (dual routing handled there)
  *   family_request  → INSERT family_requests with source='mindsweep_auto'
- *                     (Build L.1 — PRD-15 delegation wiring)
+ *                     (Build L.1 — PRD-15 delegation wiring, ADULT-ONLY)
+ *   talk_to_someone → INSERT journal_entries with content prefixed
+ *                     "Reminder to talk to [Name] about: [text]" and
+ *                     tags=['rhythm_mindsweep_lite','talk_to_someone'].
+ *                     TEEN-ONLY. NEVER writes to family_requests — teen
+ *                     delegation is a PRIVATE note the teen sees later,
+ *                     not an outbound message. This is the founder-
+ *                     critical rule: Phase D teen talk_to_someone and
+ *                     Phase C adult family_request must NEVER share a
+ *                     code path, because the former is a self-reminder
+ *                     and the latter is an outbound cross-member write.
  *
  * Error handling: per-item try/catch. If one item's write fails, its
  * `commit_error` is set and other items continue. The whole function
@@ -220,6 +230,39 @@ async function routeItem(
           content,
           visibility: 'private',
           tags: ['rhythm_mindsweep_lite'],
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      return { id: data.id as string, type: 'journal_entry' }
+    }
+
+    case 'talk_to_someone': {
+      // PRD-18 Phase D Enhancement 7 — TEEN-ONLY disposition.
+      //
+      // CRITICAL RULE: this path MUST NEVER reach 'family_request'
+      // logic. Teen "talk to someone" is a PRIVATE self-reminder,
+      // not an outbound request. The recipient_name is preserved in
+      // the content so the teen can find it later when they decide
+      // how to bring it up. Nothing leaves the teen's journal.
+      //
+      // Content format (founder approved 2026-04-07):
+      //   "Reminder to talk to [Name] about: [original text]"
+      //   "Reminder to talk to someone about: [original text]"  (if no recipient)
+      //
+      // Tags allow the teen to filter/find these notes later via the
+      // journal tag system built in PRD-08.
+      const recipientLabel = item.recipient_name?.trim() || 'someone'
+      const noteContent = `Reminder to talk to ${recipientLabel} about: ${content}`
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .insert({
+          family_id: familyId,
+          member_id: memberId,
+          entry_type: 'brain_dump',
+          content: noteContent,
+          visibility: 'private',
+          tags: ['rhythm_mindsweep_lite', 'talk_to_someone'],
         })
         .select('id')
         .single()

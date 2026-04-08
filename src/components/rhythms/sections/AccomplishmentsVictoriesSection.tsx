@@ -14,9 +14,18 @@ interface Props {
   memberId: string
   /** Maximum items to show inline. Default 5. */
   maxItems?: number
+  /**
+   * Section title. Defaults to "Today's Wins" for adults. Phase D
+   * Enhancement 7 passes "What went right today" for teens.
+   */
+  title?: string
 }
 
-export function AccomplishmentsVictoriesSection({ memberId, maxItems = 5 }: Props) {
+export function AccomplishmentsVictoriesSection({
+  memberId,
+  maxItems = 5,
+  title = "Today's Wins",
+}: Props) {
   const { data: victories = [], isLoading } = useVictories(memberId, { period: 'today' })
 
   if (isLoading) return null
@@ -36,7 +45,7 @@ export function AccomplishmentsVictoriesSection({ memberId, maxItems = 5 }: Prop
             className="text-sm font-semibold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
           >
-            Today's Wins
+            {title}
           </h3>
         </div>
         <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
@@ -66,7 +75,7 @@ export function AccomplishmentsVictoriesSection({ memberId, maxItems = 5 }: Prop
             className="text-sm font-semibold"
             style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
           >
-            Today's Wins ({victories.length})
+            {title} ({victories.length})
           </h3>
         </div>
         <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
