@@ -196,16 +196,31 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Step 5: Cross-member detection ──
+    // ── Step 5a: Normalize calendar destination_detail into parsed_event shape ──
+    // Haiku returns rich structured data for calendar items (event_title,
+    // event_location, event_description, events[], etc.) at the top level of
+    // destination_detail. The CalendarTab expects the canonical
+    // CalendarQueueEventDetail shape (parsed_event.title, parsed_event.event_date,
+    // parsed_event.start_time, etc.) — the same shape used by .ics imports.
+    // Transform Haiku's flat output into parsed_event here, BEFORE attendee
+    // detection runs, so the attendee pass has a place to merge into.
+    for (const result of results) {
+      if (result.destination === 'calendar') {
+        result.destination_detail = normalizeCalendarDetail(result.destination_detail)
+      }
+    }
+
+    // ── Step 5b: Cross-member detection ──
     // Calendar destinations: detect ALL attendees (not just the first) and
     // parse explicit driver mentions ("Mom is driving", "Dad will drive").
-    // Populate destination_detail.parsed_event.attendee_member_ids and
-    // optional driver_member_id. DO NOT flip owner_id — the event card must
-    // land on mom's Review Queue as a single approval with pre-filled attendees.
+    // Merge into the already-normalized parsed_event object. DO NOT flip
+    // owner_id — the event card must land on mom's Review Queue as a single
+    // approval with pre-filled attendees.
     //
     // Strategy: two sources for attendee detection, unioned.
     //   Source A: Haiku returned "attendee_names" / "driver_name" directly
     //     in destination_detail (we asked for it in the system prompt).
+    //     After normalization these live in parsed_event.attendee_names.
     //   Source B: Regex-scan the extracted_text for any family member names.
     //     Catches cases where the model missed a name or for legacy results.
     //
@@ -218,9 +233,10 @@ Deno.serve(async (req) => {
           input.family_member_names,
         )
 
-        // Pull any LLM-provided names and resolve them through the same
-        // matcher. This catches names the regex scan might have missed
-        // (e.g. model paraphrased the name from context).
+        // parsed_event exists now thanks to normalizeCalendarDetail above.
+        // Pull LLM-provided names and resolve them through the same matcher.
+        // This catches names the regex scan might have missed (e.g. model
+        // paraphrased the name from context).
         const existingParsed = (result.destination_detail?.parsed_event ?? {}) as Record<string, unknown>
         const llmAttendeeNames = Array.isArray(existingParsed.attendee_names)
           ? (existingParsed.attendee_names as string[]).filter(n => typeof n === 'string')
@@ -250,26 +266,28 @@ Deno.serve(async (req) => {
         const driverId = regexDetection.driver_member_id ?? llmDetection.driver_member_id
         const driverName = regexDetection.driver_name ?? llmDetection.driver_name
 
-        if (unionedIds.length > 0 || driverId) {
-          result.destination_detail = {
-            ...result.destination_detail,
-            parsed_event: {
-              ...existingParsed,
-              attendee_member_ids: unionedIds,
-              attendee_names: unionedNames,
-              driver_member_id: driverId,
-              driver_name: driverName,
-            },
-          }
-          // Set cross_member (first match) for backward-compat display, but
-          // 'note_reference' — NOT 'suggest_route' — so queueForReview does
-          // NOT flip owner_id. The event card must land on the sweeping user's
-          // Review Queue so mom can approve once for everyone.
-          if (unionedNames.length > 0) {
-            result.cross_member = unionedNames[0]
-            result.cross_member_id = unionedIds[0]
-            result.cross_member_action = 'note_reference'
-          }
+        // Merge attendee info into the normalized parsed_event. Always write
+        // the merged object back — even if no attendees detected, we want to
+        // preserve the normalized event metadata from step 5a.
+        result.destination_detail = {
+          ...result.destination_detail,
+          parsed_event: {
+            ...existingParsed,
+            attendee_member_ids: unionedIds,
+            attendee_names: unionedNames.length > 0 ? unionedNames : (existingParsed.attendee_names ?? []),
+            driver_member_id: driverId,
+            driver_name: driverName,
+          },
+        }
+
+        // Set cross_member (first match) for backward-compat display, but
+        // 'note_reference' — NOT 'suggest_route' — so queueForReview does
+        // NOT flip owner_id. The event card must land on the sweeping user's
+        // Review Queue so mom can approve once for everyone.
+        if (unionedIds.length > 0) {
+          result.cross_member = unionedNames[0]
+          result.cross_member_id = unionedIds[0]
+          result.cross_member_action = 'note_reference'
         }
       } else {
         const crossMember = detectCrossMember(result.extracted_text, input.family_member_names, input.member_id)
@@ -702,6 +720,192 @@ function detectCrossMember(
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// ── Calendar destination_detail normalization ──
+//
+// Haiku returns calendar metadata at the TOP level of destination_detail using
+// keys like `event_title`, `event_location`, `event_description`, `events[]`,
+// `start_date`, `end_date`, `recurrence_days`, plus `attendee_names` and
+// `driver_name`. But CalendarTab expects the canonical shape used by .ics
+// imports: `parsed_event.title`, `parsed_event.event_date`, etc.
+//
+// This function maps Haiku's flat output into parsed_event so the approval
+// card auto-fills title / date / start_time / end_time / location / description
+// instead of dumping the raw OCR dump into the title field.
+//
+// Supported calendar_subtype values: 'single' | 'multi_day' | 'options'
+//                                    | 'recurring' | 'series'
+//
+// - single:     one event, one date/time → parsed_event has all fields
+// - multi_day:  one event spanning multiple days → start_date+end_date used
+// - options:    one event with multiple available dates → take first, flag
+//               the rest in description
+// - recurring:  repeating schedule → recurrence_rule='weekly', first event
+//               seeds the time
+// - series:     multiple distinct scheduled events → take first, flag the
+//               rest in description
+//
+// If Haiku didn't return rich data (low confidence, unusual input), the
+// parsed_event fields will be blank strings/nulls. CalendarTab handles that
+// gracefully via `?? ''` / `?? null` fallbacks — mom just fills in manually
+// via Edit & Approve.
+
+interface HaikuCalendarEvent {
+  date?: string
+  start_time?: string
+  end_time?: string
+  notes?: string
+}
+
+interface HaikuCalendarDetail {
+  calendar_subtype?: string
+  event_title?: string
+  event_location?: string
+  event_description?: string
+  events?: HaikuCalendarEvent[]
+  start_date?: string
+  end_date?: string
+  recurrence_days?: string[]
+  details_by_day?: Record<string, string>
+  attendee_names?: string[]
+  driver_name?: string | null
+}
+
+function normalizeCalendarDetail(
+  raw: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!raw) return { parsed_event: emptyParsedEvent() }
+
+  const detail = raw as HaikuCalendarDetail & Record<string, unknown>
+  const subtype = (detail.calendar_subtype as string) || 'single'
+  const eventTitle = detail.event_title || ''
+  const eventLocation = detail.event_location || null
+  const eventDescription = detail.event_description || null
+  const events: HaikuCalendarEvent[] = Array.isArray(detail.events) ? detail.events : []
+  const startDate = detail.start_date || null
+  const endDate = detail.end_date || null
+  const recurrenceDays: string[] = Array.isArray(detail.recurrence_days) ? detail.recurrence_days : []
+  const firstEvent: HaikuCalendarEvent = events[0] || {}
+
+  let parsedEvent: Record<string, unknown>
+
+  switch (subtype) {
+    case 'multi_day':
+      parsedEvent = {
+        title: eventTitle,
+        event_date: startDate || firstEvent.date || '',
+        start_time: firstEvent.start_time || null,
+        end_time: firstEvent.end_time || null,
+        end_date: endDate || null,
+        is_all_day: !firstEvent.start_time,
+        location: eventLocation,
+        description: eventDescription,
+        recurrence_rule: null,
+        reminder_minutes: null,
+      }
+      break
+
+    case 'recurring': {
+      const recurrenceNote = recurrenceDays.length > 0
+        ? `Recurs: ${recurrenceDays.join(', ')}`
+        : null
+      parsedEvent = {
+        title: eventTitle,
+        event_date: firstEvent.date || startDate || '',
+        start_time: firstEvent.start_time || null,
+        end_time: firstEvent.end_time || null,
+        end_date: endDate || null,
+        is_all_day: !firstEvent.start_time,
+        location: eventLocation,
+        description: [eventDescription, recurrenceNote].filter(Boolean).join('\n\n') || null,
+        recurrence_rule: 'weekly',
+        reminder_minutes: null,
+      }
+      break
+    }
+
+    case 'options':
+    case 'series': {
+      // Multiple distinct dates. Take the first; include the full list in
+      // description so mom sees her options and can pick a different one in
+      // Edit & Approve.
+      const otherEvents = events.slice(1)
+      const optionsList = otherEvents.length > 0
+        ? otherEvents.map(e => {
+            const parts: string[] = []
+            if (e.date) parts.push(e.date)
+            if (e.start_time) parts.push(`@ ${e.start_time}`)
+            if (e.notes) parts.push(`(${e.notes})`)
+            return parts.join(' ')
+          }).filter(Boolean).join('; ')
+        : null
+      const optionsNote = optionsList
+        ? `Other options: ${optionsList}`
+        : null
+      parsedEvent = {
+        title: eventTitle,
+        event_date: firstEvent.date || '',
+        start_time: firstEvent.start_time || null,
+        end_time: firstEvent.end_time || null,
+        end_date: null,
+        is_all_day: !firstEvent.start_time,
+        location: eventLocation,
+        description: [eventDescription, optionsNote].filter(Boolean).join('\n\n') || null,
+        recurrence_rule: null,
+        reminder_minutes: null,
+      }
+      break
+    }
+
+    case 'single':
+    default:
+      parsedEvent = {
+        title: eventTitle,
+        event_date: firstEvent.date || startDate || '',
+        start_time: firstEvent.start_time || null,
+        end_time: firstEvent.end_time || null,
+        end_date: null,
+        is_all_day: !firstEvent.start_time,
+        location: eventLocation,
+        description: eventDescription,
+        recurrence_rule: null,
+        reminder_minutes: null,
+      }
+      break
+  }
+
+  // Preserve LLM-extracted attendee info. The cross-member detection pass
+  // will merge in the resolved member IDs and potentially add more names
+  // from regex scanning. The fields below are seed values only.
+  if (detail.attendee_names && Array.isArray(detail.attendee_names)) {
+    parsedEvent.attendee_names = detail.attendee_names
+  }
+  if (typeof detail.driver_name === 'string' && detail.driver_name.length > 0) {
+    parsedEvent.driver_name = detail.driver_name
+  }
+
+  // Preserve the original Haiku output alongside parsed_event for
+  // debugging + Platform Intelligence Pipeline visibility.
+  return {
+    ...raw,
+    parsed_event: parsedEvent,
+  }
+}
+
+function emptyParsedEvent(): Record<string, unknown> {
+  return {
+    title: '',
+    event_date: '',
+    start_time: null,
+    end_time: null,
+    end_date: null,
+    is_all_day: false,
+    location: null,
+    description: null,
+    recurrence_rule: null,
+    reminder_minutes: null,
+  }
 }
 
 // ── Calendar Attendee + Driver Detection ──
