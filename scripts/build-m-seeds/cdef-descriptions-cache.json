@@ -1,0 +1,1216 @@
+{
+  "vs_ask_help-1.jpg": {
+    "description": "A boy with brown hair raising his hand with palm open in a friendly gesture, wearing a tan button-up shirt, paper-craft dimensional style.",
+    "suggested_tags": [
+      "boy",
+      "hand",
+      "raising",
+      "waving",
+      "greeting",
+      "shirt",
+      "brown",
+      "hair",
+      "help",
+      "question"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 74
+    }
+  },
+  "vs_ask_help-2.jpg": {
+    "description": "A young child with brown hair reaching up and gently tugging on an adult's sweater sleeve, paper-craft dimensional style.",
+    "suggested_tags": [
+      "ask",
+      "help",
+      "child",
+      "tugging",
+      "sleeve",
+      "reaching",
+      "adult",
+      "assistance",
+      "support",
+      "request"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 71
+    }
+  },
+  "vs_bedtime_stretch-1.jpg": {
+    "description": "A child in pink striped pajamas stretching with arms raised high and yawning, standing next to a bed with moon and star decorations overhead.",
+    "suggested_tags": [
+      "bedtime",
+      "stretch",
+      "stretching",
+      "pajamas",
+      "yawning",
+      "sleepy",
+      "tired",
+      "arms",
+      "raised",
+      "bedroom"
+    ],
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 81
+    }
+  },
+  "vs_book_read-1.jpg": {
+    "description": "A brown-haired child sitting cross-legged on a round rug, holding an open book with mountain illustrations, paper-craft dimensional style.",
+    "suggested_tags": [
+      "book",
+      "reading",
+      "child",
+      "sitting",
+      "rug",
+      "mountains",
+      "story",
+      "literature",
+      "learning",
+      "pages"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 75
+    }
+  },
+  "vs_book_read-2.jpg": {
+    "description": "A child with brown hair lying on their stomach on a blue mat, reading an open book with both hands on the pages, paper-craft dimensional style.",
+    "suggested_tags": [
+      "reading",
+      "book",
+      "lying",
+      "stomach",
+      "mat",
+      "child",
+      "pages",
+      "open",
+      "study",
+      "literature"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 74
+    }
+  },
+  "vs_breathe_calm-1.jpg": {
+    "description": "A brown-haired child sitting cross-legged with eyes closed and hand on chest, surrounded by swirling air patterns, paper-craft dimensional style.",
+    "suggested_tags": [
+      "breathe",
+      "breathing",
+      "calm",
+      "meditation",
+      "sitting",
+      "cross-legged",
+      "relaxation",
+      "mindfulness",
+      "peaceful",
+      "chest"
+    ],
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 82
+    }
+  },
+  "vs_breathe_calm-2.jpg": {
+    "description": "A child sitting cross-legged with eyes closed and arms outstretched, surrounded by floating leaves in a peaceful meditation pose, paper-craft dimensional style.",
+    "suggested_tags": [
+      "breathe",
+      "calm",
+      "meditation",
+      "sitting",
+      "cross-legged",
+      "peaceful",
+      "relaxation",
+      "mindfulness",
+      "leaves",
+      "yoga"
+    ],
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 82
+    }
+  },
+  "vs_clear_table-1.jpg": {
+    "description": "A brown-haired child in an apron carrying a stack of plates and bowls from the kitchen counter, with crumpled napkins visible on the wooden table behind her.",
+    "suggested_tags": [
+      "clear",
+      "table",
+      "dishes",
+      "plates",
+      "bowls",
+      "carrying",
+      "kitchen",
+      "cleaning",
+      "apron",
+      "napkins"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 83
+    }
+  },
+  "vs_color_draw-1.jpg": {
+    "description": "A child with brown hair sitting at a round table, holding a crayon and coloring in an open book with scattered crayons around, paper-craft dimensional style.",
+    "suggested_tags": [
+      "coloring",
+      "drawing",
+      "crayons",
+      "book",
+      "table",
+      "art",
+      "creative",
+      "sitting",
+      "child",
+      "paper"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 81
+    }
+  },
+  "vs_color_draw-2.jpg": {
+    "description": "A smiling child with brown hair holding up a colorful drawing of a house with a tree and sun, paper-craft dimensional style.",
+    "suggested_tags": [
+      "drawing",
+      "coloring",
+      "art",
+      "picture",
+      "house",
+      "child",
+      "creative",
+      "paper",
+      "holding",
+      "artwork"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 72
+    }
+  },
+  "vs_deep_breath-1.jpg": {
+    "description": "A child with brown hair sitting cross-legged on a mat with eyes closed and hand on chest, surrounded by swirling air patterns, paper-craft dimensional style.",
+    "suggested_tags": [
+      "breathing",
+      "meditation",
+      "sitting",
+      "cross-legged",
+      "eyes closed",
+      "hand on chest",
+      "calm",
+      "relaxation",
+      "mindfulness",
+      "deep breath"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 87
+    }
+  },
+  "vs_deep_breath-2.jpg": {
+    "description": "A child with brown hair and closed eyes breathing out visible air swirls, hands positioned near chest, paper-craft dimensional style.",
+    "suggested_tags": [
+      "breathing",
+      "breath",
+      "exhale",
+      "calm",
+      "relaxation",
+      "mindfulness",
+      "air",
+      "swirls",
+      "meditation",
+      "peaceful"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 75
+    }
+  },
+  "vs_drink_water-1.jpg": {
+    "description": "A smiling child with brown hair holding a clear glass of water with both hands, surrounded by floating water droplets, paper-craft dimensional style.",
+    "suggested_tags": [
+      "drink",
+      "water",
+      "glass",
+      "hydration",
+      "holding",
+      "child",
+      "droplets",
+      "beverage",
+      "healthy",
+      "thirsty"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 78
+    }
+  },
+  "vs_drink_water-2.jpg": {
+    "description": "A child with brown hair tilting their head back to drink from a colorful striped water bottle, with water droplets visible, paper-craft dimensional style.",
+    "suggested_tags": [
+      "drink",
+      "water",
+      "bottle",
+      "child",
+      "drinking",
+      "hydrate",
+      "thirsty",
+      "beverage",
+      "striped",
+      "colorful"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 82
+    }
+  },
+  "vs_evening_journal-1.jpg": {
+    "description": "A brown-haired child writing in a notebook at a desk with a lamp and calendar, paper-craft dimensional style.",
+    "suggested_tags": [
+      "writing",
+      "journal",
+      "notebook",
+      "desk",
+      "lamp",
+      "calendar",
+      "evening",
+      "homework",
+      "studying",
+      "pencil"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 69
+    }
+  },
+  "vs_feel_excited-1.jpg": {
+    "description": "A child with brown hair raising both arms up in the air with a big smile, surrounded by colorful confetti pieces, paper-craft dimensional style.",
+    "suggested_tags": [
+      "excited",
+      "happy",
+      "celebrating",
+      "arms up",
+      "confetti",
+      "smile",
+      "joy",
+      "celebration",
+      "cheering",
+      "victory"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 77
+    }
+  },
+  "vs_feel_excited-2.jpg": {
+    "description": "A brown-haired child jumping with both arms raised high in the air, big smile on face, paper-craft dimensional style.",
+    "suggested_tags": [
+      "jumping",
+      "excited",
+      "happy",
+      "arms up",
+      "celebrating",
+      "joy",
+      "child",
+      "smile",
+      "energy",
+      "enthusiasm"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 71
+    }
+  },
+  "vs_feel_frustrated-1.jpg": {
+    "description": "A brown-haired child with crossed arms and a frowning expression standing under dark storm clouds with lightning bolts, paper-craft dimensional style.",
+    "suggested_tags": [
+      "frustrated",
+      "angry",
+      "storm",
+      "clouds",
+      "lightning",
+      "crossed arms",
+      "frowning",
+      "upset",
+      "emotions",
+      "feelings"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 77
+    }
+  },
+  "vs_feel_overwhelmed-1.jpg": {
+    "description": "A brown-haired child sitting curled up with knees drawn to chest, crying with visible tears, paper-craft dimensional style.",
+    "suggested_tags": [
+      "crying",
+      "tears",
+      "sad",
+      "sitting",
+      "curled",
+      "overwhelmed",
+      "emotions",
+      "upset",
+      "child",
+      "feelings"
+    ],
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 73
+    }
+  },
+  "vs_feel_proud-1.jpg": {
+    "description": "A brown-haired child standing with arms outstretched and a bright smile, surrounded by a warm glowing halo effect, paper-craft dimensional style.",
+    "suggested_tags": [
+      "proud",
+      "happy",
+      "smiling",
+      "arms",
+      "outstretched",
+      "standing",
+      "glow",
+      "halo",
+      "achievement",
+      "confident"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 83
+    }
+  },
+  "vs_feel_proud-2.jpg": {
+    "description": "A child with brown hair beaming with joy while holding up a drawing of a pink flower, paper-craft dimensional style.",
+    "suggested_tags": [
+      "proud",
+      "drawing",
+      "artwork",
+      "flower",
+      "holding",
+      "smiling",
+      "happy",
+      "creative",
+      "paper",
+      "craft"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 69
+    }
+  },
+  "vs_get_dressed-1.jpg": {
+    "description": "A brown-haired child pulling a teal sweater over their head while getting dressed, with a dresser and mirror visible in the background.",
+    "suggested_tags": [
+      "getting",
+      "dressed",
+      "sweater",
+      "shirt",
+      "pulling",
+      "over",
+      "head",
+      "clothes",
+      "dresser",
+      "mirror"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 75
+    }
+  },
+  "vs_get_dressed-2.jpg": {
+    "description": "A child with brown hair sitting on a wooden floor putting on blue sneakers, with socks and another shoe nearby, paper-craft dimensional style.",
+    "suggested_tags": [
+      "shoes",
+      "sneakers",
+      "socks",
+      "dressing",
+      "getting dressed",
+      "putting on",
+      "child",
+      "floor",
+      "laces",
+      "footwear"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 81
+    }
+  },
+  "vs_help_mom-1.jpg": {
+    "description": "A brown-haired child holding a wicker basket filled with vegetables, standing among paper-craft flowers in a garden setting.",
+    "suggested_tags": [
+      "help",
+      "mom",
+      "basket",
+      "vegetables",
+      "garden",
+      "flowers",
+      "carrying",
+      "helping",
+      "harvest",
+      "outdoors"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 70
+    }
+  },
+  "vs_help_mom-2.jpg": {
+    "description": "A child with brown hair carefully carrying a wooden tray with a cup and bowl, paper-craft dimensional style.",
+    "suggested_tags": [
+      "help",
+      "mom",
+      "carrying",
+      "tray",
+      "cup",
+      "bowl",
+      "serving",
+      "helping",
+      "kitchen",
+      "chores"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 68
+    }
+  },
+  "vs_kind_words-1.jpg": {
+    "description": "A child with brown hair speaking to another child, with a heart symbol in a speech bubble above them, paper-craft dimensional style.",
+    "suggested_tags": [
+      "speaking",
+      "talking",
+      "heart",
+      "speech bubble",
+      "conversation",
+      "kind words",
+      "children",
+      "communication",
+      "love",
+      "friendship"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 72
+    }
+  },
+  "vs_kindness-1.jpg": {
+    "description": "Two children embracing in a warm hug with a heart floating above them, paper-craft dimensional style.",
+    "suggested_tags": [
+      "hug",
+      "hugging",
+      "embrace",
+      "friendship",
+      "kindness",
+      "caring",
+      "love",
+      "heart",
+      "children",
+      "affection"
+    ],
+    "usage": {
+      "input_tokens": 752,
+      "output_tokens": 69
+    }
+  },
+  "vs_kindness-2.jpg": {
+    "description": "A boy with dark hair giving a small paper boat with a tiny dog inside to a smiling girl with brown bob hair, paper-craft dimensional style.",
+    "suggested_tags": [
+      "giving",
+      "sharing",
+      "boat",
+      "toy",
+      "children",
+      "kindness",
+      "gift",
+      "paper",
+      "friends",
+      "generosity"
+    ],
+    "usage": {
+      "input_tokens": 752,
+      "output_tokens": 76
+    }
+  },
+  "vs_lay_out_clothes-1.jpg": {
+    "description": "A brown-haired child kneeling on the floor holding up a green polka-dot sweater, with folded clothes on a wooden chair and jeans on the floor nearby.",
+    "suggested_tags": [
+      "clothes",
+      "laying",
+      "organizing",
+      "sweater",
+      "chair",
+      "bedroom",
+      "getting",
+      "dressed",
+      "folded",
+      "outfit"
+    ],
+    "usage": {
+      "input_tokens": 755,
+      "output_tokens": 84
+    }
+  },
+  "vs_listen_story-1.jpg": {
+    "description": "A child with brown hair wearing yellow headphones with eyes closed and a peaceful smile, surrounded by musical notes and sound waves, paper-craft dimensional style.",
+    "suggested_tags": [
+      "listen",
+      "story",
+      "headphones",
+      "music",
+      "audio",
+      "peaceful",
+      "eyes closed",
+      "sound",
+      "notes",
+      "hearing"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 76
+    }
+  },
+  "vs_listen_story-2.jpg": {
+    "description": "A child with brown hair wearing headphones and holding a tablet showing a story illustration, paper-craft dimensional style.",
+    "suggested_tags": [
+      "listen",
+      "story",
+      "headphones",
+      "tablet",
+      "child",
+      "reading",
+      "audiobook",
+      "digital",
+      "brown hair",
+      "technology"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 69
+    }
+  },
+  "vs_make_bed-1.jpg": {
+    "description": "A child with brown hair pulling up a colorful patchwork quilt on a wooden bed, paper-craft dimensional style.",
+    "suggested_tags": [
+      "make",
+      "bed",
+      "child",
+      "quilt",
+      "blanket",
+      "bedroom",
+      "morning",
+      "tidying",
+      "wooden",
+      "patchwork"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 74
+    }
+  },
+  "vs_make_bed-2.jpg": {
+    "description": "A brown-haired child in a green shirt pulling up a yellow blanket on a wooden bed, paper-craft dimensional style.",
+    "suggested_tags": [
+      "make",
+      "bed",
+      "blanket",
+      "pillow",
+      "bedroom",
+      "morning",
+      "child",
+      "wooden",
+      "yellow",
+      "green"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 72
+    }
+  },
+  "vs_make_up-1.jpg": {
+    "description": "Two children shaking hands and smiling at each other, paper-craft dimensional style.",
+    "suggested_tags": [
+      "handshake",
+      "greeting",
+      "friends",
+      "meeting",
+      "children",
+      "social",
+      "introduction",
+      "friendship",
+      "shake",
+      "hands"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 63
+    }
+  },
+  "vs_memorize-1.jpg": {
+    "description": "A brown-haired child holding up a card with geometric shapes while touching their chin in a thinking pose, paper-craft dimensional style.",
+    "suggested_tags": [
+      "memorize",
+      "studying",
+      "shapes",
+      "card",
+      "thinking",
+      "learning",
+      "geometric",
+      "concentration",
+      "memory",
+      "education"
+    ],
+    "usage": {
+      "input_tokens": 752,
+      "output_tokens": 72
+    }
+  },
+  "vs_memorize-2.jpg": {
+    "description": "A brown-haired child pointing at a chalkboard with word labels and geometric shapes, paper-craft dimensional style.",
+    "suggested_tags": [
+      "memorize",
+      "chalkboard",
+      "pointing",
+      "words",
+      "shapes",
+      "learning",
+      "study",
+      "board",
+      "child",
+      "teaching"
+    ],
+    "usage": {
+      "input_tokens": 752,
+      "output_tokens": 71
+    }
+  },
+  "vs_outside_play-1.jpg": {
+    "description": "A brown-haired child with arms spread wide jumping joyfully in grass under a bright sun, paper-craft dimensional style.",
+    "suggested_tags": [
+      "outside",
+      "play",
+      "jumping",
+      "grass",
+      "sun",
+      "outdoor",
+      "running",
+      "happy",
+      "child",
+      "sunny"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 70
+    }
+  },
+  "vs_outside_play-2.jpg": {
+    "description": "A brown-haired girl in a pink dress stepping through an open door into bright sunlight, arms outstretched with joy, paper-craft dimensional style.",
+    "suggested_tags": [
+      "outside",
+      "door",
+      "sunshine",
+      "girl",
+      "stepping",
+      "outdoors",
+      "sunlight",
+      "happy",
+      "entrance",
+      "going"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 79
+    }
+  },
+  "vs_pack_backpack-1.jpg": {
+    "description": "A brown-haired child in a hoodie placing a star-covered notebook into a teal polka-dot backpack, with school supplies on the table, paper-craft dimensional style.",
+    "suggested_tags": [
+      "pack",
+      "backpack",
+      "school",
+      "notebook",
+      "supplies",
+      "organize",
+      "prepare",
+      "child",
+      "hoodie",
+      "table"
+    ],
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 85
+    }
+  },
+  "vs_pack_backpack-2.jpg": {
+    "description": "A brown-haired child putting on a colorful backpack with shoulder straps, wearing a striped yellow jacket, paper-craft dimensional style.",
+    "suggested_tags": [
+      "backpack",
+      "pack",
+      "school",
+      "bag",
+      "straps",
+      "jacket",
+      "child",
+      "getting ready",
+      "shoulder",
+      "prepare"
+    ],
+    "usage": {
+      "input_tokens": 754,
+      "output_tokens": 77
+    }
+  },
+  "vs_pet_animal-1.jpg": {
+    "description": "A child in a beanie kneeling down and gently petting a small brown puppy with a wagging tail, paper-craft dimensional style.",
+    "suggested_tags": [
+      "pet",
+      "puppy",
+      "dog",
+      "petting",
+      "child",
+      "kneeling",
+      "animal",
+      "care",
+      "wagging",
+      "tail"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 80
+    }
+  },
+  "vs_pet_animal-2.jpg": {
+    "description": "A child with brown hair sitting cross-legged, gently petting a sleeping orange tabby cat curled up in their lap, paper-craft dimensional style.",
+    "suggested_tags": [
+      "pet",
+      "cat",
+      "petting",
+      "sitting",
+      "lap",
+      "animal",
+      "care",
+      "gentle",
+      "tabby",
+      "sleeping"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 79
+    }
+  },
+  "vs_prayer-1.jpg": {
+    "description": "A child with curly brown hair and closed eyes, hands clasped together at chest in prayer position, paper-craft dimensional style.",
+    "suggested_tags": [
+      "prayer",
+      "praying",
+      "hands",
+      "clasped",
+      "closed eyes",
+      "peaceful",
+      "spiritual",
+      "worship",
+      "meditation",
+      "reverent"
+    ],
+    "usage": {
+      "input_tokens": 751,
+      "output_tokens": 74
+    }
+  },
+  "vs_prayer-2.jpg": {
+    "description": "A child with brown hair kneeling beside their bed with hands pressed together in prayer, wearing striped pajamas, paper-craft dimensional style.",
+    "suggested_tags": [
+      "prayer",
+      "praying",
+      "kneeling",
+      "bedtime",
+      "pajamas",
+      "hands together",
+      "bedroom",
+      "cross",
+      "spiritual",
+      "nighttime"
+    ],
+    "usage": {
+      "input_tokens": 751,
+      "output_tokens": 80
+    }
+  },
+  "vs_put_on_pajamas-1.jpg": {
+    "description": "A child pulling on green polka-dotted pajama pants over white socks, paper-craft dimensional style.",
+    "suggested_tags": [
+      "pajamas",
+      "getting dressed",
+      "pants",
+      "polka dots",
+      "green",
+      "socks",
+      "bedtime",
+      "clothing",
+      "putting on"
+    ],
+    "usage": {
+      "input_tokens": 756,
+      "output_tokens": 71
+    }
+  },
+  "vs_quiet_time-1.jpg": {
+    "description": "A child with brown hair sitting cross-legged in a meditation pose with eyes closed and hands resting in lap, on a round woven mat with a book nearby, paper-craft dimensional style.",
+    "suggested_tags": [
+      "meditation",
+      "sitting",
+      "quiet",
+      "peaceful",
+      "cross-legged",
+      "mat",
+      "book",
+      "calm",
+      "mindfulness",
+      "relaxing"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 89
+    }
+  },
+  "vs_quiet_time-2.jpg": {
+    "description": "A child lying peacefully on a woven mat with eyes closed, holding a small book, surrounded by paper-craft stars and moon.",
+    "suggested_tags": [
+      "quiet",
+      "reading",
+      "book",
+      "sleeping",
+      "rest",
+      "mat",
+      "stars",
+      "moon",
+      "peaceful",
+      "bedtime"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 72
+    }
+  },
+  "vs_say_sorry-1.jpg": {
+    "description": "A brown-haired child with a concerned expression extending his hand toward another child while saying 'SORRY' in a speech bubble, paper-craft dimensional style.",
+    "suggested_tags": [
+      "sorry",
+      "apologize",
+      "apology",
+      "speech bubble",
+      "talking",
+      "children",
+      "hand gesture",
+      "remorse",
+      "communication",
+      "social skills"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 83
+    }
+  },
+  "vs_scripture_read-1.jpg": {
+    "description": "A brown-haired girl sitting cross-legged holding an open book, with white doves and stars in the background, paper-craft dimensional style.",
+    "suggested_tags": [
+      "reading",
+      "book",
+      "scripture",
+      "sitting",
+      "cross-legged",
+      "doves",
+      "stars",
+      "peaceful",
+      "study",
+      "bible"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 79
+    }
+  },
+  "vs_scripture_read-2.jpg": {
+    "description": "A brown-haired child sitting at a desk reading an open book, with an apple nearby, paper-craft dimensional style.",
+    "suggested_tags": [
+      "reading",
+      "book",
+      "desk",
+      "study",
+      "scripture",
+      "apple",
+      "sitting",
+      "child",
+      "open book",
+      "table"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 70
+    }
+  },
+  "vs_set_table-1.jpg": {
+    "description": "A child with brown hair wearing a pink apron arranging plates and cups on a wooden table, paper-craft dimensional style.",
+    "suggested_tags": [
+      "table",
+      "plates",
+      "cups",
+      "setting",
+      "arranging",
+      "dining",
+      "kitchen",
+      "apron",
+      "dishes",
+      "utensils"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 73
+    }
+  },
+  "vs_share-1.jpg": {
+    "description": "Two children holding a bowl of fruit together, both smiling as they share the colorful produce, paper-craft dimensional style.",
+    "suggested_tags": [
+      "share",
+      "sharing",
+      "fruit",
+      "bowl",
+      "children",
+      "together",
+      "food",
+      "cooperation",
+      "giving",
+      "friendship"
+    ],
+    "usage": {
+      "input_tokens": 751,
+      "output_tokens": 69
+    }
+  },
+  "vs_sleep-1.jpg": {
+    "description": "A child with brown hair sleeping peacefully in bed, cuddling a small teddy bear, paper-craft dimensional style.",
+    "suggested_tags": [
+      "sleep",
+      "sleeping",
+      "bed",
+      "pillow",
+      "blanket",
+      "teddy bear",
+      "bedtime",
+      "rest",
+      "child",
+      "peaceful"
+    ],
+    "usage": {
+      "input_tokens": 751,
+      "output_tokens": 74
+    }
+  },
+  "vs_take_medicine-1.jpg": {
+    "description": "A young girl with brown hair and a polka dot headband receiving a small cup or medicine container from an adult's hands, paper-craft dimensional style.",
+    "suggested_tags": [
+      "medicine",
+      "cup",
+      "child",
+      "girl",
+      "taking",
+      "receiving",
+      "adult",
+      "hands",
+      "healthcare",
+      "treatment"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 75
+    }
+  },
+  "vs_take_medicine-2.jpg": {
+    "description": "A girl with brown pigtails holding a blister pack of pills, with a glass of water and tablets on the table nearby, paper-craft dimensional style.",
+    "suggested_tags": [
+      "medicine",
+      "pills",
+      "tablets",
+      "water",
+      "glass",
+      "holding",
+      "healthcare",
+      "medication",
+      "blister pack",
+      "treatment"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 78
+    }
+  },
+  "vs_take_turns-1.jpg": {
+    "description": "Two children kneeling on the floor sharing a toy car, one child pushing it while the other waits patiently with hands clasped, paper-craft dimensional style.",
+    "suggested_tags": [
+      "take",
+      "turns",
+      "sharing",
+      "toy",
+      "car",
+      "children",
+      "playing",
+      "kneeling",
+      "waiting",
+      "together"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 81
+    }
+  },
+  "vs_try_again-1.jpg": {
+    "description": "A child with brown hair crouching down to pick up colorful building blocks from the floor, paper-craft dimensional style.",
+    "suggested_tags": [
+      "child",
+      "blocks",
+      "building",
+      "picking up",
+      "crouching",
+      "toys",
+      "cleanup",
+      "floor",
+      "playing"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 69
+    }
+  },
+  "vs_try_again-2.jpg": {
+    "description": "A child with brown hair kneeling and stacking colorful blocks while saying 'TRY AGAIN' in a speech bubble, paper-craft dimensional style.",
+    "suggested_tags": [
+      "try",
+      "again",
+      "blocks",
+      "stacking",
+      "building",
+      "kneeling",
+      "speech",
+      "bubble",
+      "encouragement",
+      "persistence"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 82
+    }
+  },
+  "vs_turn_off_light-1.jpg": {
+    "description": "A child with brown hair reaching over from bed to turn off a bedside table lamp, paper-craft dimensional style.",
+    "suggested_tags": [
+      "turn",
+      "off",
+      "light",
+      "lamp",
+      "bedside",
+      "bed",
+      "bedroom",
+      "nighttime",
+      "sleep",
+      "reaching"
+    ],
+    "usage": {
+      "input_tokens": 755,
+      "output_tokens": 69
+    }
+  },
+  "vs_wait_patiently-1.jpg": {
+    "description": "A child with brown hair sitting cross-legged with hands folded in lap, next to a smiling clock on the wall, paper-craft dimensional style.",
+    "suggested_tags": [
+      "wait",
+      "sitting",
+      "patient",
+      "clock",
+      "time",
+      "cross-legged",
+      "hands",
+      "folded",
+      "calm",
+      "still"
+    ],
+    "usage": {
+      "input_tokens": 755,
+      "output_tokens": 80
+    }
+  },
+  "vs_wake_up-1.jpg": {
+    "description": "A brown-haired child stretching both arms up high while sitting in bed, wearing striped pajamas with a big smile, paper-craft dimensional style.",
+    "suggested_tags": [
+      "wake up",
+      "stretching",
+      "bed",
+      "pajamas",
+      "morning",
+      "arms up",
+      "child",
+      "bedroom",
+      "window",
+      "plant"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 80
+    }
+  },
+  "vs_wake_up-2.jpg": {
+    "description": "A child with brown curly hair stretching both arms wide with mouth open in a big yawn, wearing green shirt and brown overalls, paper-craft dimensional style.",
+    "suggested_tags": [
+      "wake",
+      "up",
+      "yawn",
+      "stretch",
+      "arms",
+      "morning",
+      "child",
+      "overalls",
+      "sleepy",
+      "bedroom"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 81
+    }
+  },
+  "vs_wash_face-1.jpg": {
+    "description": "A child with brown hair cupping water in their hands and splashing it on their face at a bathroom sink, water droplets visible.",
+    "suggested_tags": [
+      "wash",
+      "face",
+      "water",
+      "sink",
+      "bathroom",
+      "splashing",
+      "hands",
+      "hygiene",
+      "clean",
+      "morning"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 73
+    }
+  },
+  "vs_wash_face-2.jpg": {
+    "description": "A brown-haired child holding a washcloth to their face in a bathroom, paper-craft dimensional style.",
+    "suggested_tags": [
+      "wash",
+      "face",
+      "washcloth",
+      "bathroom",
+      "child",
+      "cleaning",
+      "hygiene",
+      "sink",
+      "mirror",
+      "towel"
+    ],
+    "usage": {
+      "input_tokens": 753,
+      "output_tokens": 71
+    }
+  }
+}
