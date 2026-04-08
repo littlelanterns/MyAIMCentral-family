@@ -47,7 +47,13 @@ const REMINDER_OPTIONS = [
 ]
 
 export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent, onCreated, prefillTitle, prefillNotes }: EventCreationModalProps) {
-  const isEditing = !!initialEvent
+  // `initialEvent` with a non-empty id → edit mode (PATCH existing row).
+  // `initialEvent` with empty id → create mode pre-filled from queue item.
+  // Callers like CalendarTab.queueItemToEditEvent pass a synthetic
+  // CalendarEvent shape with id='' to pre-populate the form for approval
+  // of a mindsweep_detected / .ics-imported queue item. Without this check,
+  // isEditing would be truthy and save would PATCH with id='' → 400.
+  const isEditing = !!initialEvent && !!initialEvent.id
   const createEvent = useCreateEvent()
   const updateEvent = useUpdateEvent()
   const { data: categories } = useEventCategories()

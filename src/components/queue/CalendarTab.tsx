@@ -895,25 +895,32 @@ export function CalendarTab() {
         />
       )}
 
-      {/* Edit & Approve modal for queue items (create new event pre-filled) */}
+      {/* Edit & Approve modal for queue items (create new event pre-filled).
+          onCreated fires ONLY on successful save — that's when we mark the
+          queue item processed. onClose fires on save AND cancel, so it must
+          NOT mark processed (that would destroy the queue item if user
+          cancels). */}
       {editQueueEvent && (
         <EventCreationModal
           isOpen={true}
-          onClose={async () => {
-            // Mark the queue item as processed after the modal creates the event
+          initialEvent={queueItemToEditEvent(editQueueEvent)}
+          onCreated={async () => {
+            // Save succeeded — mark the queue item as processed and refresh.
             await supabase
               .from('studio_queue')
               .update({ processed_at: new Date().toISOString() })
               .eq('id', editQueueEvent.id)
 
-            setEditQueueEvent(null)
             queryClient.invalidateQueries({ queryKey: ['calendar'] })
             queryClient.invalidateQueries({ queryKey: ['studio-queue-calendar'] })
             queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
-            queryClient.invalidateQueries({ queryKey: ['queue-badge-calendar'] })
-            queryClient.invalidateQueries({ queryKey: ['queue-badge'] })
+            queryClient.invalidateQueries({ queryKey: ['studio-queue-count'] })
           }}
-          initialEvent={queueItemToEditEvent(editQueueEvent)}
+          onClose={() => {
+            // Fires on save AND cancel. Only closes the modal — the queue
+            // item stays pending on cancel so the user can retry.
+            setEditQueueEvent(null)
+          }}
         />
       )}
     </div>
