@@ -19,6 +19,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { Task } from '@/hooks/useTasks'
 import { useActedBy } from '@/hooks/useActedBy'
+import { todayLocalIso } from '@/utils/dates'
 
 interface UseTaskCompletionOptions {
   memberId: string
@@ -78,11 +79,16 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
       if (updateError) return { success: false, error: updateError.message }
 
       // Step 2B: Insert task_completion record
+      // period_date scopes the completion to a specific recurrence instance —
+      // critical for "any of them" shared recurring tasks (e.g., trash on Tuesdays).
+      // Without it, the same shared task can't reset week-to-week.
       const { error: completionError } = await supabase
         .from('task_completions')
         .insert({
           task_id: task.id,
           member_id: memberId,
+          family_member_id: memberId,
+          period_date: todayLocalIso(),
           completion_note: completionNote ?? null,
           photo_url: photoUrl ?? null,
           acted_by: actedBy,
@@ -229,7 +235,7 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
         })
       }
     },
-    [completingIds, completeTask, uncompleteTask]
+    [completingIds, completeTask, uncompleteTask, onComplete]
   )
 
   return {
