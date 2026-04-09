@@ -31,6 +31,7 @@
 import { test, expect, Page } from '@playwright/test'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import { todayLocalIso } from '../helpers/dates'
 
 dotenv.config({ path: '.env.local' })
 
@@ -775,7 +776,7 @@ test.describe.serial('Build M Sub-phase B — Play Dashboard + Icon Picker', () 
         task_id: task!.id,
         member_id: playMember.id,
         family_member_id: playMember.id,
-        period_date: new Date().toISOString().slice(0, 10),
+        period_date: todayLocalIso(),
         acted_by: momMemberId,
       })
       .select('id, member_id, acted_by')
@@ -886,7 +887,7 @@ test.describe.serial('Build M Sub-phase B — Play Dashboard + Icon Picker', () 
         task_id: task!.id,
         member_id: playMember.id,
         family_member_id: playMember.id,
-        period_date: new Date().toISOString().slice(0, 10),
+        period_date: todayLocalIso(),
       })
       .select('id')
       .single()
