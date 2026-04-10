@@ -31,6 +31,30 @@ import { createNotification } from '@/utils/createNotification'
 import type { CalendarEvent, EventAttendee } from '@/types/calendar'
 import type { CalendarQueueEventDetail } from '@/types/mindsweep'
 
+/**
+ * If the AI parsed a date in the past (wrong year), bump it forward to the
+ * next occurrence. MindSweep often parses "April 13 Sat" without a year and
+ * the LLM picks the wrong calendar year.
+ */
+function fixPastEventDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const parsed = new Date(dateStr + 'T00:00:00')
+  if (isNaN(parsed.getTime())) return dateStr
+  // If the date is more than 30 days in the past, bump the year forward
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  if (parsed < thirtyDaysAgo) {
+    // Bump year forward until the date is in the future (or within 30 days past)
+    while (parsed < thirtyDaysAgo) {
+      parsed.setFullYear(parsed.getFullYear() + 1)
+    }
+    return parsed.toISOString().split('T')[0]
+  }
+  return dateStr
+}
+
 // ── Studio queue calendar items ──
 
 interface CalendarQueueItem {
@@ -258,7 +282,7 @@ export function CalendarTab() {
           family_id: item.family_id,
           created_by: currentMember.id,
           title: parsed.title,
-          event_date: parsed.event_date,
+          event_date: fixPastEventDate(parsed.event_date),
           start_time: parsed.start_time,
           end_time: parsed.end_time,
           end_date: parsed.end_date,
@@ -337,7 +361,7 @@ export function CalendarTab() {
             family_id: item.family_id,
             created_by: currentMember.id,
             title: parsed.title,
-            event_date: parsed.event_date,
+            event_date: fixPastEventDate(parsed.event_date),
             start_time: parsed.start_time,
             end_time: parsed.end_time,
             end_date: parsed.end_date,

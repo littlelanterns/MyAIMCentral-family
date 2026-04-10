@@ -196,7 +196,7 @@ export function CalendarPage() {
   }, [filter, member, pickedMemberIds])
 
   const { data: events } = useEventsForRange(rangeStart, rangeEnd, memberFilter)
-  const { data: tasksDue } = useTasksDueInRange(rangeStart, rangeEnd)
+  const { data: tasksDue } = useTasksDueInRange(rangeStart, rangeEnd, memberFilter)
 
   // Build lookups
   const eventsByDate = useMemo(() => {

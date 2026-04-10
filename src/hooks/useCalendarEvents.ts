@@ -127,14 +127,14 @@ export function usePendingEvents() {
 // ─── Task Due Dates ──────────────────────────────────────────
 
 /** Get tasks with due dates in a range (read from tasks table, NOT calendar_events) */
-export function useTasksDueInRange(start: Date, end: Date) {
+export function useTasksDueInRange(start: Date, end: Date, memberFilter?: string[]) {
   const { data: family } = useFamily()
   const familyId = family?.id
 
   return useQuery({
-    queryKey: calendarKeys.tasksDue(familyId ?? '', toISODate(start), toISODate(end)),
+    queryKey: [...calendarKeys.tasksDue(familyId ?? '', toISODate(start), toISODate(end)), memberFilter ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tasks')
         .select('id, title, due_date, assignee_id, status, priority, created_by')
         .eq('family_id', familyId!)
@@ -144,6 +144,11 @@ export function useTasksDueInRange(start: Date, end: Date) {
         .is('archived_at', null)
         .order('due_date', { ascending: true })
 
+      if (memberFilter && memberFilter.length > 0) {
+        query = query.in('assignee_id', memberFilter)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return (data ?? []) as TaskDueDate[]
     },

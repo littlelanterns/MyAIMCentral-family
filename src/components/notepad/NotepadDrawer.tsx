@@ -700,7 +700,7 @@ function EditorView({
 
       {/* Content area — "paper" card inset with rich text editor */}
       <div
-        className="flex-1 flex flex-col min-h-0 mx-2 mb-1 rounded-lg"
+        className="flex-1 flex flex-col min-h-0 overflow-hidden mx-2 mb-1 rounded-lg"
         style={{
           background: 'linear-gradient(135deg, var(--color-bg-card, #fff), var(--color-bg-primary))',
           border: '1px solid var(--color-border)',

@@ -17,7 +17,7 @@
  * management is on the page.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BookHeart, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
@@ -42,20 +42,27 @@ export function ReflectionsSection({ familyId, memberId, count = 3 }: Props) {
     memberId
   )
 
+  // Stabilize prompt selection: compute once when prompts first load,
+  // don't recalculate when answeredIds changes (which happens on save).
+  // This prevents questions from shuffling when the user saves a response.
+  const selectedRef = useRef<ReflectionPrompt[] | null>(null)
+
   if (loadingPrompts || loadingResponses) return null
   if (prompts.length === 0) return null
 
-  // Build set of prompt IDs already answered today
-  const answeredIds = new Set(todaysResponses.map(r => r.prompt_id))
+  // Only compute selection on first render with data
+  if (selectedRef.current === null) {
+    const answeredIds = new Set(todaysResponses.map(r => r.prompt_id))
+    const seed = rhythmSeed(memberId, 'evening:reflections', new Date())
+    selectedRef.current = pickNPrioritized(
+      prompts,
+      count,
+      p => !answeredIds.has(p.id),
+      seed
+    )
+  }
 
-  // Date-seeded selection: prioritize unanswered
-  const seed = rhythmSeed(memberId, 'evening:reflections', new Date())
-  const selected = pickNPrioritized(
-    prompts,
-    count,
-    p => !answeredIds.has(p.id),
-    seed
-  )
+  const selected = selectedRef.current
 
   return (
     <div
