@@ -609,7 +609,6 @@ export function BackgroundCelebration({
     const pick = candidates[Math.floor(Math.random() * candidates.length)]
     lastAnimationIdRef.current = pick.id
     return pick
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, tier])
 
   // Tier base durations (ms)

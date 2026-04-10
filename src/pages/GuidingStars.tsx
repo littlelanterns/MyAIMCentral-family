@@ -384,7 +384,6 @@ export function GuidingStarsPage() {
           <button
             onClick={() => {
               // STUB: Craft with LiLa — PRD-06
-              // eslint-disable-next-line no-alert
               alert('Coming soon — Craft with LiLa will help you discover your guiding stars.')
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
@@ -632,7 +631,6 @@ export function GuidingStarsPage() {
             <button
               onClick={() => {
                 // STUB: Craft with LiLa — PRD-06
-                // eslint-disable-next-line no-alert
                 alert(
                   'Coming soon — Craft with LiLa will help you discover your guiding stars.'
                 )

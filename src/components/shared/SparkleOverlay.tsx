@@ -175,7 +175,6 @@ export function SparkleOverlay({ type, origin, onComplete }: SparkleOverlayProps
               transform: p.shape === 'square' ? 'rotate(45deg)' : undefined,
               animation: `sparkleParticleFly ${p.duration}ms ease-out ${p.delay}ms forwards`,
               // CSS custom property for the translate endpoint
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               ['--tx' as any]: `${tx}px`,
               ['--ty' as any]: `${ty}px`,
             }}

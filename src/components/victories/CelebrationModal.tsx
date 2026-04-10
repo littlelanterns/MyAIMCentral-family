@@ -74,7 +74,6 @@ function FireworkBurst() {
                 ? 'var(--color-sparkle-gold-light, #E8C547)'
                 : '#fff',
             opacity: 0,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ['--tx' as any]: `${p.tx}px`,
             ['--ty' as any]: `${p.ty}px`,
             animation: `fireworkBurst 1s ease-out ${p.delay}ms forwards`,

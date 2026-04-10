@@ -39,7 +39,6 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
   const speechRecognitionRef = useRef<any>(null)
   const webSpeechFinalRef = useRef<string>('')
   const webSpeechInterimRef = useRef<string>('')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const timerRef = useRef<any>(undefined)
   const startTimeRef = useRef<number>(0)
   const streamRef = useRef<MediaStream | null>(null)
