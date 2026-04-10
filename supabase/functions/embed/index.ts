@@ -219,6 +219,99 @@ async function processBookCache(limit: number): Promise<{ processed: number; fai
 }
 
 // ============================================================
+// Handle platform_intelligence.book_extractions via RPC
+// (not accessible via PostgREST — different schema)
+// ============================================================
+async function processBookExtractions(limit: number): Promise<{ processed: number; failed: number }> {
+  let processed = 0
+  let failed = 0
+
+  const { data, error } = await supabase.rpc('get_unembedded_book_extractions', { p_limit: limit })
+
+  if (error) {
+    // RPC not available yet — skip silently
+    if (error.message.includes('does not exist')) return { processed: 0, failed: 0 }
+    console.error('Error fetching book_extractions:', error.message)
+    return { processed: 0, failed: 0 }
+  }
+
+  if (!data?.length) return { processed: 0, failed: 0 }
+
+  for (const row of data) {
+    try {
+      // Declarations use declaration_text as the semantic key; all other types use text
+      const text = row.extraction_type === 'declaration' ? row.declaration_text : row.text
+      if (!text?.trim()) continue
+
+      const embedding = await getEmbedding(text)
+
+      const { error: updateError } = await supabase.rpc('update_book_extraction_embedding', {
+        p_id: row.id,
+        p_embedding: JSON.stringify(embedding),
+      })
+
+      if (updateError) {
+        console.error(`Failed to update book_extraction embedding for ${row.id}:`, updateError.message)
+        failed++
+      } else {
+        processed++
+      }
+    } catch (err) {
+      console.error(`Error embedding book_extraction ${row.id}:`, (err as Error).message)
+      failed++
+    }
+  }
+
+  return { processed, failed }
+}
+
+// ============================================================
+// Handle platform_intelligence.book_chunks via RPC
+// (not accessible via PostgREST — different schema)
+// ============================================================
+async function processBookChunks(limit: number): Promise<{ processed: number; failed: number }> {
+  let processed = 0
+  let failed = 0
+
+  const { data, error } = await supabase.rpc('get_unembedded_book_chunks', { p_limit: limit })
+
+  if (error) {
+    // RPC not available yet — skip silently
+    if (error.message.includes('does not exist')) return { processed: 0, failed: 0 }
+    console.error('Error fetching book_chunks:', error.message)
+    return { processed: 0, failed: 0 }
+  }
+
+  if (!data?.length) return { processed: 0, failed: 0 }
+
+  for (const row of data) {
+    try {
+      const text = row.text
+      if (!text?.trim()) continue
+
+      const embedding = await getEmbedding(text)
+
+      const { error: updateError } = await supabase.rpc('update_book_chunk_embedding', {
+        p_id: row.id,
+        p_embedding: JSON.stringify(embedding),
+      })
+
+      if (updateError) {
+        console.error(`Failed to update book_chunk embedding for ${row.id}:`, updateError.message)
+        failed++
+      } else {
+        processed++
+      }
+    } catch (err) {
+      console.error(`Error embedding book_chunk ${row.id}:`, (err as Error).message)
+      failed++
+    }
+  }
+
+  return { processed, failed }
+}
+
+// ============================================================
 // Main handler
 // ============================================================
 Deno.serve(async (req) => {
@@ -280,6 +373,22 @@ Deno.serve(async (req) => {
       const bcResult = await processBookCache(budgetLeft)
       totalProcessed += bcResult.processed
       totalFailed += bcResult.failed
+    }
+
+    // Process book_extractions separately (platform_intelligence schema)
+    budgetLeft = batchSize - totalProcessed
+    if (budgetLeft > 0) {
+      const beResult = await processBookExtractions(budgetLeft)
+      totalProcessed += beResult.processed
+      totalFailed += beResult.failed
+    }
+
+    // Process book_chunks separately (platform_intelligence schema)
+    budgetLeft = batchSize - totalProcessed
+    if (budgetLeft > 0) {
+      const bchResult = await processBookChunks(budgetLeft)
+      totalProcessed += bchResult.processed
+      totalFailed += bchResult.failed
     }
 
     // Log aggregate embedding cost (fire-and-forget). Embedding cost is per-token input only.
