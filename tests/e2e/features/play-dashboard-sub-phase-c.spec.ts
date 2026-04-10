@@ -32,6 +32,7 @@
 import { test, expect } from '@playwright/test'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import { todayLocalIso } from '../helpers/dates'
 
 dotenv.config({ path: '.env.local' })
 
@@ -169,7 +170,7 @@ test.describe.serial('Build M Sub-phase C — Gamification Write Path', () => {
         task_id: task!.id,
         member_id: playMember.id,
         family_member_id: playMember.id,
-        period_date: new Date().toISOString().slice(0, 10),
+        period_date: todayLocalIso(),
         acted_by: momMemberId,
         rejected: false,
       })
@@ -210,7 +211,7 @@ test.describe.serial('Build M Sub-phase C — Gamification Write Path', () => {
     // Streak is ≥ 1 after any completion (either bumped, held, or reset to 1)
     expect((after!.current_streak as number)).toBeGreaterThanOrEqual(1)
     expect(after!.last_task_completion_date).toBe(
-      new Date().toISOString().slice(0, 10),
+      todayLocalIso(),
     )
 
     // Restore the Play member's gamification state so the test is non-destructive
@@ -263,7 +264,7 @@ test.describe.serial('Build M Sub-phase C — Gamification Write Path', () => {
         task_id: task!.id,
         member_id: momMemberId,
         family_member_id: momMemberId,
-        period_date: new Date().toISOString().slice(0, 10),
+        period_date: todayLocalIso(),
         acted_by: momMemberId,
         rejected: false,
       })
@@ -331,7 +332,7 @@ test.describe.serial('Build M Sub-phase C — Gamification Write Path', () => {
         task_id: task!.id,
         member_id: playMember.id,
         family_member_id: playMember.id,
-        period_date: new Date().toISOString().slice(0, 10),
+        period_date: todayLocalIso(),
         acted_by: momMemberId,
         rejected: false,
       })
