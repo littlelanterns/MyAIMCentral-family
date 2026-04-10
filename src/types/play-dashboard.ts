@@ -12,6 +12,103 @@
 import type { Task } from './tasks'
 
 /* ─────────────────────────────────────────────────────────────────────
+ * Earning mode enums
+ * ───────────────────────────────────────────────────────────────────── */
+
+export type CreatureEarningMode =
+  | 'segment_complete'
+  | 'every_n_completions'
+  | 'complete_the_day'
+  | 'random_per_task'
+
+export type PageEarningMode =
+  | 'tracker_goal'
+  | 'every_n_creatures'
+  | 'every_n_completions'
+
+export type RevealStepCount = 5 | 10 | 15 | 20 | 30 | 50
+
+export type LineartPreference = 'simple' | 'medium' | 'complex'
+
+export type RandomizerRevealStyle = 'show_upfront' | 'mystery_tap'
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Task Segments
+ * ───────────────────────────────────────────────────────────────────── */
+
+export interface TaskSegment {
+  id: string
+  family_id: string
+  family_member_id: string
+  segment_name: string
+  icon_key: string | null
+  sort_order: number
+  day_filter: number[] | null
+  creature_earning_enabled: boolean
+  segment_complete_celebration: boolean
+  randomizer_reveal_style: RandomizerRevealStyle
+  theme_override_id: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Coloring Reveal Library (platform-level image definitions)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export interface ColoringRevealZone {
+  id: number
+  hex: string
+  name: string
+  pct: number
+}
+
+export interface ColoringRevealImage {
+  id: string
+  theme_id: string
+  slug: string
+  display_name: string
+  subject_category: 'animal' | 'scene'
+  color_zones: ColoringRevealZone[]
+  /** Keyed by step count ("5","10","15","20","30","50"), each an array of zone_id arrays */
+  reveal_sequences: Record<string, number[][]>
+  zone_count: number
+  sort_order: number
+  is_active: boolean
+  created_at: string
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Member Coloring Reveals (per-member progress on a coloring image)
+ * ───────────────────────────────────────────────────────────────────── */
+
+export interface MemberColoringReveal {
+  id: string
+  family_id: string
+  family_member_id: string
+  coloring_image_id: string
+  reveal_step_count: RevealStepCount
+  current_step: number
+  revealed_zone_ids: number[]
+  earning_mode: CreatureEarningMode
+  earning_threshold: number
+  earning_counter: number
+  earning_segment_ids: string[]
+  earning_tracker_widget_id: string | null
+  earning_tracker_threshold: number | null
+  lineart_preference: LineartPreference
+  is_complete: boolean
+  completed_at: string | null
+  printed_at: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  /** Joined image data (when queried with join) */
+  coloring_image?: ColoringRevealImage
+}
+
+/* ─────────────────────────────────────────────────────────────────────
  * Page-level props
  * ───────────────────────────────────────────────────────────────────── */
 
@@ -129,6 +226,18 @@ export interface StickerBookState {
     scene: string
     image_url: string
   } | null
+  // Earning mode config (Phase 1)
+  creature_earning_mode: CreatureEarningMode
+  creature_earning_threshold: number
+  creature_earning_counter: number
+  creature_earning_counter_resets: boolean
+  creature_earning_segment_ids: string[]
+  page_earning_mode: PageEarningMode
+  page_earning_completion_threshold: number
+  page_earning_completion_counter: number
+  page_earning_tracker_widget_id: string | null
+  page_earning_tracker_threshold: number
+  randomizer_reveal_style: RandomizerRevealStyle
 }
 
 export interface MemberCreature {

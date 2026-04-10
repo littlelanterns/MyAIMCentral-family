@@ -73,6 +73,16 @@ export interface GamificationResult {
   streak_updated?: boolean
   new_streak?: number
   streak_milestone?: number | null
+
+  // Phase 1 earning strategy additions
+  segment_completed?: { segment_id: string; segment_name: string } | null
+  coloring_reveals_advanced?: Array<{
+    reveal_id: string
+    new_step: number
+    total_steps: number
+    is_complete: boolean
+    image_slug: string
+  }>
 }
 
 /* ─────────────────────────────────────────────────────────────────────

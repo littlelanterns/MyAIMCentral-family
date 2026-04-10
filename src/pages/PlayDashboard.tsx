@@ -159,6 +159,19 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           if (newEvents.length > 0) {
             setRevealQueue(q => [...q, ...newEvents])
           }
+
+          // Phase 1: log segment completion + color reveal advancement
+          // Actual UI (segment celebration banners, color reveal widget) is Phase 2-3
+          if (result?.segment_completed) {
+            console.info('[Gamification] Segment completed:', result.segment_completed.segment_name)
+          }
+          if (result?.coloring_reveals_advanced && result.coloring_reveals_advanced.length > 0) {
+            for (const cr of result.coloring_reveals_advanced) {
+              console.info(
+                `[Gamification] Color reveal advanced: ${cr.image_slug} step ${cr.new_step}/${cr.total_steps}${cr.is_complete ? ' (COMPLETE!)' : ''}`,
+              )
+            }
+          }
         },
         onSettled: () => {
           setCompletingTaskIds(prev => {
