@@ -22,6 +22,7 @@ import { SequentialCreator, type SequentialCreateData, type SequentialCreateDefa
 import { useCreateSequentialCollection } from '@/hooks/useSequentialCollections'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface SequentialCreatorModalProps {
   isOpen: boolean
@@ -135,14 +136,14 @@ export function SequentialCreatorModal({
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                     style={{
                       background: selected
-                        ? (m.assigned_color ?? 'var(--color-btn-primary-bg)')
+                        ? getMemberColor(m)
                         : 'var(--color-bg-secondary)',
                       color: selected
                         ? 'var(--color-btn-primary-text)'
                         : 'var(--color-text-primary)',
                       border: selected
                         ? '1px solid transparent'
-                        : `1px solid ${m.assigned_color ?? 'var(--color-border)'}`,
+                        : `1px solid ${getMemberColor(m)}`,
                     }}
                   >
                     {m.display_name}

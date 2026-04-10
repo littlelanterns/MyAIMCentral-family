@@ -8,6 +8,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useWidgets, useCreateWidget } from '@/hooks/useWidgets'
 import { MEMBER_COLORS } from '@/config/member_colors'
+import { getMemberColor } from '@/lib/memberColors'
 import { localIso } from '@/utils/dates'
 import {
   useBestIntentions,
@@ -550,7 +551,7 @@ function IntentionForm({
           <div className="flex flex-wrap gap-1.5">
             {otherMembers.map((m) => {
               const selected = relatedMemberIds.includes(m.id)
-              const color = m.assigned_color ?? m.member_color ?? 'var(--color-btn-primary-bg)'
+              const color = getMemberColor(m)
               return (
                 <button
                   key={m.id}

@@ -13,6 +13,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Sparkles, Home, Settings, Frame, GripVertical, ArchiveRestore, Archive, ChevronLeft, Lock, Unlock, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
+import { getMemberColor } from '@/lib/memberColors'
 import { PullTab } from '@/components/shared/PullTab'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -363,7 +364,7 @@ export function FamilyHub({ context }: FamilyHubProps) {
               {(familyMembers ?? [])
                 .filter((m) => m.is_active && !m.out_of_nest)
                 .map((m) => {
-                  const color = m.calendar_color || m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                  const color = m.calendar_color || getMemberColor(m)
                   const hasPin = m.auth_method === 'pin' || m.auth_method === 'visual_password'
                   return (
                     <button

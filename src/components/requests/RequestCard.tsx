@@ -15,6 +15,7 @@ import {
   Clock, ChevronDown, MessageCircle, Wand2, User,
 } from 'lucide-react'
 import type { FamilyRequestWithSender, RequestRoutedTo } from '@/types/messaging'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface RequestCardProps {
   request: FamilyRequestWithSender
@@ -48,7 +49,7 @@ export function RequestCard({ request, onAccept, onDecline, onSnooze, onDiscuss 
   const [declineNote, setDeclineNote] = useState('')
 
   const isMindSweep = request.source.startsWith('mindsweep')
-  const avatarColor = request.sender_assigned_color || 'var(--color-btn-primary-bg)'
+  const avatarColor = getMemberColor({ assigned_color: request.sender_assigned_color, member_color: request.sender_member_color })
 
   return (
     <div

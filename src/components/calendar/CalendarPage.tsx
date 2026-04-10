@@ -18,6 +18,7 @@ import {
   CheckSquare, Circle, Check,
 } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
+import { getMemberColor } from '@/lib/memberColors'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -220,7 +221,7 @@ export function CalendarPage() {
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of familyMembers ?? []) {
-      map.set(m.id, m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)')
+      map.set(m.id, m.calendar_color || getMemberColor(m))
     }
     return map
   }, [familyMembers])
@@ -592,7 +593,7 @@ export function CalendarPage() {
             </button>
             {familyMembers.map(m => {
               const isActive = pickedMemberIds.has(m.id)
-              const mColor = m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)'
+              const mColor = m.calendar_color || getMemberColor(m)
               return (
                 <button
                   key={m.id}

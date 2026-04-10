@@ -3,6 +3,8 @@
 // Selected = solid fill + contrasting text. Deselected = outline + color text.
 // Reusable by Family Overview member selection and Calendar Pick Members filter.
 
+import { getMemberColor } from '@/lib/memberColors'
+
 export interface MemberPillItem {
   id: string
   display_name: string
@@ -21,7 +23,7 @@ interface MemberPillSelectorProps {
 }
 
 function getColor(m: MemberPillItem): string {
-  return m.calendar_color || m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+  return m.calendar_color || getMemberColor(m)
 }
 
 export default function MemberPillSelector({

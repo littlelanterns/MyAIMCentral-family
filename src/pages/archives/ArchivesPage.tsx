@@ -51,6 +51,7 @@ import { VoiceDumpModal } from '@/components/archives/VoiceDumpModal'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import { BulkAddSortModal } from '@/components/archives/BulkAddSortModal'
 import { CropPreviewModal } from '@/components/archives/CropPreviewModal'
+import { getMemberColor } from '@/lib/memberColors'
 
 // ---------------------------------------------------------------------------
 // Hooks — archive data queries (kept from original)
@@ -292,7 +293,7 @@ function MemberArchiveListCard({
         <Avatar
           name={member.display_name}
           src={member.avatar_url}
-          color={member.assigned_color || member.member_color || undefined}
+          color={getMemberColor(member)}
           size="md"
         />
         <div className="flex-1 min-w-0">
@@ -636,7 +637,7 @@ export function ArchivesPage() {
                         key={m.id}
                         name={m.display_name}
                         avatarUrl={m.avatar_url}
-                        memberColor={m.assigned_color || m.member_color || undefined}
+                        memberColor={getMemberColor(m)}
                         role={m.role as 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'}
                         includedInsights={stats?.includedInsights ?? 0}
                         totalInsights={stats?.totalInsights ?? 0}

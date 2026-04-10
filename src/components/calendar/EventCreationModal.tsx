@@ -13,6 +13,7 @@ import {
   Calendar as CalendarIcon, Clock, MapPin, FileText,
   Repeat, Users, Car, Tag, Bell, Home, Pencil,
 } from 'lucide-react'
+import { getMemberColor } from '@/lib/memberColors'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useCreateEvent, useUpdateEvent, useEventCategories, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -449,7 +450,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
               })()}
               {familyMembers.map(m => {
                 const isSelected = attendees.has(m.id)
-                const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                const color = getMemberColor(m)
                 return (
                   <button
                     key={m.id}
@@ -477,7 +478,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
               <div className="mt-2 space-y-1">
                 {familyMembers.filter(m => attendees.has(m.id)).map(m => {
                   const role = attendees.get(m.id) ?? 'attending'
-                  const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                  const color = getMemberColor(m)
                   return (
                     <div key={m.id} className="flex items-center gap-2">
                       <span className="text-xs font-medium" style={{ color, minWidth: '4rem' }}>

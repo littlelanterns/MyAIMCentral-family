@@ -20,6 +20,7 @@ import { useRenameThread } from '@/hooks/useConversationThreads'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useLilaMessageRespond } from '@/hooks/useLilaMessageRespond'
 import { useMessageCoaching } from '@/hooks/useMessageCoaching'
+import { getMemberColor } from '@/lib/memberColors'
 import { MessageInputBar } from './MessageInputBar'
 import { CoachingCheckpoint } from './CoachingCheckpoint'
 import { supabase } from '@/lib/supabase/client'
@@ -91,7 +92,7 @@ function MessageBubble({ msg, isOwn, showSender }: {
             borderRadius: '50%',
             backgroundColor: isLila
               ? 'var(--color-btn-primary-bg)'
-              : msg.sender_assigned_color ?? 'var(--color-bg-tertiary)',
+              : getMemberColor({ assigned_color: msg.sender_assigned_color, member_color: msg.sender_member_color }),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

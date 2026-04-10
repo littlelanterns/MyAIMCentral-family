@@ -440,6 +440,8 @@ This process exists because weeks of careful planning went into every PRD and ad
 
 206. **Task unmark cascade is explicitly NOT implemented (known limitation).** When a `task_completions` row is soft-deleted or a task is un-completed, points are NOT deducted, streak is NOT rewound, creatures are NOT removed from the collection, and pages are NOT re-locked. The PRD calls for this cascade but the baby step ships without it — mom can manually adjust `gamification_points` via settings if needed. A future build will add an UNDO pipeline. Registered in `STUB_REGISTRY.md` as a known gap during Sub-phase F.
 
+207. **Member color canonical field:** Always read member colors via `getMemberColor(member)` from `src/lib/memberColors.ts` or the `useMemberColor(memberId)` hook. Never read `assigned_color` or `member_color` directly in components. When saving a color pick in any settings UI, write BOTH `member_color` AND `assigned_color` simultaneously so the two fields stay in sync.
+
 ## Build Strictness (Non-Negotiable)
 
 121. **Before completing any build session, run `npx tsc --noEmit` and verify zero errors.** The production build (Vercel) uses strict TypeScript checking with `noUnusedLocals` and `noUnusedParameters` enabled. Vite's dev server does NOT type-check — it uses esbuild which ignores these flags. Code that works in `vite dev` can still fail on deploy. Never commit code that passes `vite dev` but would fail `npx tsc --noEmit`. Run the check before declaring any phase complete.

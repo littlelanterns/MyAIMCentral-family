@@ -9,6 +9,7 @@ import { ModalV2 } from '@/components/shared'
 import type { WidgetStarterConfig, WidgetSize, CreateWidget, TrackerType, MultiplayerMode, MultiplayerVisualStyle } from '@/types/widgets'
 import { getTrackerMeta, MULTIPLAYER_TRACKER_TYPES } from '@/types/widgets'
 import { SYSTEM_RHYTHM_KEYS_FOR_WIDGETS } from '@/types/rhythms'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface WidgetConfigurationProps {
   isOpen: boolean
@@ -17,7 +18,7 @@ interface WidgetConfigurationProps {
   editingWidget?: CreateWidget | null
   familyId: string
   memberId: string
-  familyMembers: { id: string; display_name: string; assigned_color?: string | null }[]
+  familyMembers: { id: string; display_name: string; assigned_color?: string | null; member_color?: string | null }[]
   onDeploy: (widget: CreateWidget) => void
   onSaveAsTemplate?: (widget: CreateWidget) => void
 }
@@ -308,7 +309,7 @@ export function WidgetConfiguration({
                         </button>
                         {familyMembers.map(m => {
                           const isSelected = mpParticipants.includes(m.id)
-                          const color = m.assigned_color || 'var(--color-accent)'
+                          const color = getMemberColor(m)
                           return (
                             <button
                               key={m.id}

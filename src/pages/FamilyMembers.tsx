@@ -332,6 +332,7 @@ function MemberRow({
                   dashboard_mode: mode,
                   date_of_birth: dob || null,
                   member_color: color,
+                  assigned_color: color,
                   age,
                 })
                 setSaving(false)

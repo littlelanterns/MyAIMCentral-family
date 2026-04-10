@@ -72,6 +72,7 @@ export interface ConversationSpaceMember {
   display_name?: string
   avatar_url?: string | null
   assigned_color?: string | null
+  member_color?: string | null
 }
 
 // ── Conversation Threads ───────────────────────────────────────────────────
@@ -136,6 +137,7 @@ export interface MessageWithSender extends Message {
   sender_display_name?: string
   sender_avatar_url?: string | null
   sender_assigned_color?: string | null
+  sender_member_color?: string | null
   reply_to?: Message | null
 }
 
@@ -212,6 +214,7 @@ export interface FamilyRequestWithSender extends FamilyRequest {
   sender_display_name?: string
   sender_avatar_url?: string | null
   sender_assigned_color?: string | null
+  sender_member_color?: string | null
 }
 
 // ── Notifications ──────────────────────────────────────────────────────────

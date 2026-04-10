@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { usePendingEvents } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor as resolveMemberColor } from '@/lib/memberColors'
 import { useFamily } from '@/hooks/useFamily'
 import { EventCreationModal } from '@/components/calendar/EventCreationModal'
 import { createNotification } from '@/utils/createNotification'
@@ -132,7 +133,7 @@ export function CalendarTab() {
 
   const getMemberColor = (memberId: string) => {
     const m = familyMembers.find((fm) => fm.id === memberId)
-    return m?.assigned_color ?? m?.member_color ?? undefined
+    return m ? resolveMemberColor(m) : undefined
   }
 
   // ── Mutations for pending calendar_events ──

@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, Calendar as CalendarIcon, Sett
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 import { useFamily } from '@/hooks/useFamily'
 import { DateDetailModal } from './DateDetailModal'
 import { MonthViewModal } from './MonthViewModal'
@@ -117,8 +118,8 @@ export function CalendarWidget({ hubMode, viewMode: _viewMode, personalMemberId 
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of familyMembers ?? []) {
-      if (m.calendar_color || m.assigned_color) {
-        map.set(m.id, m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)')
+      if (m.calendar_color || m.assigned_color || m.member_color) {
+        map.set(m.id, m.calendar_color || getMemberColor(m))
       }
     }
     return map

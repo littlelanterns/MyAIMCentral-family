@@ -27,6 +27,7 @@ interface PermittedContact {
   displayName: string
   avatarUrl: string | null
   assignedColor: string | null
+  memberColor: string | null
   role: FamilyMember['role']
 }
 
@@ -72,6 +73,7 @@ export function useMessagingPermissions() {
           displayName: m.display_name,
           avatarUrl: m.avatar_url,
           assignedColor: m.assigned_color,
+          memberColor: m.member_color ?? null,
           role: m.role,
         }))
       }
@@ -106,6 +108,7 @@ export function useMessagingPermissions() {
           displayName: m.display_name,
           avatarUrl: m.avatar_url,
           assignedColor: m.assigned_color,
+          memberColor: m.member_color ?? null,
           role: m.role,
         }))
     },

@@ -18,6 +18,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '@/lib/supabase/client'
+import { getMemberColor } from '@/lib/memberColors'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -2484,7 +2485,7 @@ function ShareListModal({
               })()}
               {otherMembers.map(m => {
                 const isShared = sharedMemberIds.has(m.id)
-                const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+                const color = getMemberColor(m)
                 return (
                   <button
                     key={m.id}

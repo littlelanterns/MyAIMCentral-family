@@ -4,6 +4,7 @@ import { ModalV2 } from '@/components/shared/ModalV2'
 import { supabase } from '@/lib/supabase/client'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 import type { VaultItem } from '../hooks/useVaultBrowse'
 
 interface Props {
@@ -17,6 +18,7 @@ interface FamilyMemberRow {
   display_name: string
   role: string
   assigned_color: string | null
+  member_color: string | null
   age: number | null
 }
 
@@ -39,7 +41,7 @@ export function MemberAssignmentModal({ open, onClose, item }: Props) {
     if (!family?.id || !open) return
     supabase
       .from('family_members')
-      .select('id, display_name, role, assigned_color, age')
+      .select('id, display_name, role, assigned_color, member_color, age')
       .eq('family_id', family.id)
       .eq('is_active', true)
       .order('role')
@@ -228,12 +230,10 @@ function MemberCheckbox({
         onChange={onChange}
         className="w-4 h-4 rounded"
       />
-      {member.assigned_color && (
-        <span
-          className="w-3 h-3 rounded-full shrink-0"
-          style={{ backgroundColor: member.assigned_color }}
-        />
-      )}
+      <span
+        className="w-3 h-3 rounded-full shrink-0"
+        style={{ backgroundColor: getMemberColor(member) }}
+      />
       <span className="text-sm flex-1" style={{ color: 'var(--color-text-primary)' }}>
         {member.display_name}
         {isSelf && <span style={{ color: 'var(--color-text-secondary)' }}> (you)</span>}

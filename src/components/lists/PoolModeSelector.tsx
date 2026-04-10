@@ -11,6 +11,7 @@
 import { Users } from 'lucide-react'
 import type { PoolMode } from '@/types/lists'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface PoolModeSelectorProps {
   poolMode: PoolMode
@@ -121,7 +122,7 @@ export function PoolModeSelector({
           </button>
           {allMembers.map(member => {
             const selected = effectiveEligible.includes(member.id)
-            const color = member.assigned_color || member.member_color || 'var(--color-text-secondary)'
+            const color = getMemberColor(member)
 
             return (
               <button

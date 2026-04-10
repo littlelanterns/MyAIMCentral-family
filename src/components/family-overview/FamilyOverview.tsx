@@ -4,6 +4,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
+import { getMemberColor } from '@/lib/memberColors'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import {
@@ -358,7 +359,7 @@ function MemberColumn({
   onToggleSection: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
   onCompleteTask: (taskId: string, memberId: string) => void
 }) {
-  const color = member.calendar_color || member.assigned_color || member.member_color || 'var(--color-btn-primary-bg)'
+  const color = member.calendar_color || getMemberColor(member)
 
   const isSectionCollapsed = (key: FamilyOverviewSectionKey) => {
     const state = sectionStates[key]
@@ -530,7 +531,7 @@ function FamilyOverviewCalendar({
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of allMembers ?? []) {
-      map.set(m.id, m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)')
+      map.set(m.id, m.calendar_color || getMemberColor(m))
     }
     return map
   }, [allMembers])
@@ -870,7 +871,7 @@ export default function FamilyOverview() {
               key={m.id}
               className="w-2 h-2 rounded-full"
               style={{
-                backgroundColor: m.calendar_color || m.assigned_color || 'var(--color-text-secondary)',
+                backgroundColor: m.calendar_color || getMemberColor(m),
                 opacity: 0.5,
               }}
             />

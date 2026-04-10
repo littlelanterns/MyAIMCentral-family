@@ -59,6 +59,7 @@ import {
 } from '@/hooks/useArchives'
 import type { ArchiveContextItem } from '@/types/archives'
 import { ReferencePhotosSection } from '@/components/archives/ReferencePhotosSection'
+import { getMemberColor } from '@/lib/memberColors'
 
 // ---------------------------------------------------------------------------
 // Relative time helper
@@ -827,7 +828,7 @@ export function MemberArchiveDetail() {
           <Avatar
             name={targetMember.display_name}
             src={targetMember.avatar_url}
-            color={targetMember.assigned_color || targetMember.member_color || undefined}
+            color={getMemberColor(targetMember)}
             size="lg"
           />
 

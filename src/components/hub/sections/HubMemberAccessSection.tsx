@@ -13,6 +13,7 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { HubMemberAuthModal } from '../HubMemberAuthModal'
+import { getMemberColor } from '@/lib/memberColors'
 
 /**
  * Calculate balanced column count to avoid single stragglers.
@@ -78,7 +79,7 @@ export function HubMemberAccessSection() {
       >
         {activeMembers.map((member) => {
           const color =
-            member.calendar_color || member.assigned_color || member.member_color || 'var(--color-btn-primary-bg)'
+            member.calendar_color || getMemberColor(member)
           const hasPinOrAuth =
             member.auth_method === 'pin' || member.auth_method === 'visual_password'
 

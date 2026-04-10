@@ -13,6 +13,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
+import { getMemberColor } from '@/lib/memberColors'
 import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -88,7 +89,7 @@ export function MonthViewModal({ isOpen, onClose, onDateSelect, inline }: MonthV
   const memberColorMap = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of familyMembers ?? []) {
-      map.set(m.id, m.calendar_color || m.assigned_color || 'var(--color-btn-primary-bg)')
+      map.set(m.id, m.calendar_color || getMemberColor(m))
     }
     return map
   }, [familyMembers])

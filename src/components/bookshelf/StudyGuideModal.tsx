@@ -8,6 +8,7 @@ import { Loader2, GraduationCap, Check } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface StudyGuideModalProps {
   isOpen: boolean
@@ -136,9 +137,9 @@ export function StudyGuideModal({
                         : 'border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)]'
                       }`}
                     style={selectedChild === child.id ? {
-                      backgroundColor: child.assigned_color || 'var(--color-accent)',
+                      backgroundColor: getMemberColor(child),
                     } : {
-                      borderColor: child.assigned_color || undefined,
+                      borderColor: getMemberColor(child),
                     }}
                   >
                     {child.display_name}

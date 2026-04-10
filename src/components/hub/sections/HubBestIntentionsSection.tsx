@@ -13,6 +13,7 @@ import { Target, Check } from 'lucide-react'
 import { useFamilyBestIntentions, useTodayFamilyIterations, useLogFamilyIntentionTally } from '@/hooks/useFamilyBestIntentions'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { getMemberColor } from '@/lib/memberColors'
 import type { FamilyBestIntention } from '@/hooks/useFamilyBestIntentions'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
@@ -56,7 +57,7 @@ function MemberPickerGrid({
         style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
         {members.map((m) => {
-          const color = m.calendar_color || m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+          const color = getMemberColor(m)
           return (
             <button
               key={m.id}

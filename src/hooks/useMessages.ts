@@ -38,7 +38,7 @@ export function useMessages(threadId: string | undefined) {
           id, thread_id, sender_member_id, message_type, content, metadata,
           reply_to_id, is_edited, edited_at, created_at,
           family_members!messages_sender_member_id_fkey (
-            display_name, avatar_url, assigned_color
+            display_name, avatar_url, assigned_color, member_color
           )
         `)
         .eq('thread_id', threadId)
@@ -52,6 +52,7 @@ export function useMessages(threadId: string | undefined) {
           display_name: string
           avatar_url: string | null
           assigned_color: string | null
+          member_color: string | null
         } | null
 
         return {
@@ -68,6 +69,7 @@ export function useMessages(threadId: string | undefined) {
           sender_display_name: sender?.display_name,
           sender_avatar_url: sender?.avatar_url ?? null,
           sender_assigned_color: sender?.assigned_color ?? null,
+          sender_member_color: sender?.member_color ?? null,
         }
       })
 

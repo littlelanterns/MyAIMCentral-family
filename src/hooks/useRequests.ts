@@ -39,7 +39,7 @@ export function useRequests(familyId: string | undefined, memberId: string | und
       const senderIds = [...new Set(data.map(r => r.sender_member_id))]
       const { data: members } = await supabase
         .from('family_members')
-        .select('id, display_name, avatar_url, assigned_color')
+        .select('id, display_name, avatar_url, assigned_color, member_color')
         .in('id', senderIds)
 
       const memberMap = new Map(members?.map(m => [m.id, m]) ?? [])
@@ -51,6 +51,7 @@ export function useRequests(familyId: string | undefined, memberId: string | und
           sender_display_name: sender?.display_name,
           sender_avatar_url: sender?.avatar_url ?? null,
           sender_assigned_color: sender?.assigned_color ?? null,
+          sender_member_color: sender?.member_color ?? null,
         }
       })
     },

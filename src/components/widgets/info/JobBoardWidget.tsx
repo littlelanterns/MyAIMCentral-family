@@ -6,6 +6,7 @@ import { ClipboardList, Lock } from 'lucide-react'
 import type { DashboardWidget } from '@/types/widgets'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface JobBoardWidgetProps {
   widget: DashboardWidget
@@ -20,7 +21,7 @@ interface OpportunityTask {
   points_override: number | null
   assignee_id: string | null
   task_rewards: { reward_type: string; reward_value: Record<string, unknown> }[]
-  task_claims: { member_id: string; status: string; member: { display_name: string; assigned_color: string | null } | null }[]
+  task_claims: { member_id: string; status: string; member: { display_name: string; assigned_color: string | null; member_color?: string | null } | null }[]
 }
 
 export function JobBoardWidget({ widget, isCompact }: JobBoardWidgetProps) {
@@ -36,7 +37,7 @@ export function JobBoardWidget({ widget, isCompact }: JobBoardWidgetProps) {
         .select(`
           id, title, task_type, status, points_override, assignee_id,
           task_rewards (reward_type, reward_value),
-          task_claims (member_id, status, member:family_members!task_claims_member_id_fkey(display_name, assigned_color))
+          task_claims (member_id, status, member:family_members!task_claims_member_id_fkey(display_name, assigned_color, member_color))
         `)
         .eq('family_id', familyId)
         .in('task_type', ['opportunity_repeatable', 'opportunity_claimable', 'opportunity_capped'])
@@ -162,7 +163,7 @@ function JobRow({ job }: { job: OpportunityTask }) {
           <Lock size={10} style={{ color: 'var(--color-text-tertiary)' }} />
           <span
             className="text-[10px] font-medium"
-            style={{ color: activeClaim.member.assigned_color ?? 'var(--color-text-secondary)' }}
+            style={{ color: activeClaim.member ? getMemberColor(activeClaim.member) : 'var(--color-text-secondary)' }}
           >
             {activeClaim.member.display_name}
           </span>

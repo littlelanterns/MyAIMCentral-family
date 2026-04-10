@@ -6,6 +6,7 @@
  */
 
 import { Users, Radio, MessageCircle } from 'lucide-react'
+import { getMemberColor } from '@/lib/memberColors'
 import type { ConversationSpaceWithPreview } from '@/types/messaging'
 
 interface SpaceListItemProps {
@@ -28,14 +29,14 @@ function getSpaceDisplayName(space: ConversationSpaceWithPreview, currentMemberI
 function getSpaceIcon(space: ConversationSpaceWithPreview, currentMemberId: string) {
   if (space.space_type === 'direct' && space.members) {
     const other = space.members.find(m => m.family_member_id !== currentMemberId)
-    if (other?.assigned_color) {
+    if (other) {
       return (
         <div
           style={{
             width: 36,
             height: 36,
             borderRadius: '50%',
-            backgroundColor: other.assigned_color,
+            backgroundColor: getMemberColor(other),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

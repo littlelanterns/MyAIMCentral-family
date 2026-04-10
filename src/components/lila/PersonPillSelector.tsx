@@ -8,6 +8,7 @@
 
 import { useMemo } from 'react'
 import type { ReactNode } from 'react'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface FamilyMember {
   id: string
@@ -79,7 +80,7 @@ export function PersonPillSelector({
       <div className="flex flex-wrap gap-1.5">
         {selectableMembers.map(fm => {
           const isSelected = selectedIds.includes(fm.id)
-          const pillColor = fm.calendar_color || fm.assigned_color || fm.member_color || 'var(--color-btn-primary-bg)'
+          const pillColor = fm.calendar_color || getMemberColor(fm)
           const isMe = fm.id === currentMemberId
           const displayLabel = isMe ? `Me (${fm.display_name.split(' ')[0]})` : fm.display_name.split(' ')[0]
 

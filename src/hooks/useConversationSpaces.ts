@@ -60,7 +60,7 @@ export function useConversationSpaces() {
         .from('conversation_space_members')
         .select(`
           id, space_id, family_member_id, role, notifications_muted, joined_at,
-          family_members!inner ( display_name, avatar_url, assigned_color )
+          family_members!inner ( display_name, avatar_url, assigned_color, member_color )
         `)
         .in('space_id', spaceIds)
 
@@ -163,7 +163,7 @@ export function useConversationSpaces() {
         const spaceMembers: ConversationSpaceMember[] = (allMembers ?? [])
           .filter(m => m.space_id === space.id)
           .map(m => {
-            const fm = m.family_members as unknown as { display_name: string; avatar_url: string | null; assigned_color: string | null }
+            const fm = m.family_members as unknown as { display_name: string; avatar_url: string | null; assigned_color: string | null; member_color: string | null }
             return {
               id: m.id,
               space_id: m.space_id,
@@ -174,6 +174,7 @@ export function useConversationSpaces() {
               display_name: fm?.display_name,
               avatar_url: fm?.avatar_url ?? null,
               assigned_color: fm?.assigned_color ?? null,
+              member_color: fm?.member_color ?? null,
             }
           })
 

@@ -17,6 +17,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Trash2, UserPlus, LogOut, Loader2, Check } from 'lucide-react'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useUpdateSpaceName,
@@ -286,7 +287,7 @@ export function ManageGroupModal({ isOpen, onClose, space }: ManageGroupModalPro
                         width: 28,
                         height: 28,
                         borderRadius: '50%',
-                        backgroundColor: m.assigned_color ?? 'var(--color-btn-primary-bg)',
+                        backgroundColor: getMemberColor(m),
                         color: '#fff',
                         display: 'flex',
                         alignItems: 'center',
@@ -346,7 +347,7 @@ export function ManageGroupModal({ isOpen, onClose, space }: ManageGroupModalPro
                       style={{
                         padding: '0.375rem 0.75rem',
                         borderRadius: 999,
-                        border: `1.5px solid ${m.assigned_color ?? 'var(--color-border)'}`,
+                        border: `1.5px solid ${getMemberColor(m)}`,
                         backgroundColor: 'transparent',
                         color: 'var(--color-text-primary)',
                         fontSize: '0.8125rem',

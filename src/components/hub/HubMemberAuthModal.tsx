@@ -16,6 +16,7 @@ import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 
 interface PinVerifyResult {
   success: boolean
@@ -143,7 +144,7 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
   const authMethod = member.auth_method as string | null
   if (!authMethod || authMethod === 'none') return null // handled by useEffect above
 
-  const color = member.calendar_color || member.assigned_color || member.member_color || 'var(--color-btn-primary-bg)'
+  const color = member.calendar_color || getMemberColor(member)
 
   return (
     <>

@@ -12,6 +12,7 @@ import { X, Send, Loader2, UsersRound } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useMessagingPermissions } from '@/hooks/useMessagingPermissions'
+import { getMemberColor } from '@/lib/memberColors'
 import { useCreateSpace, useConversationSpaces, findOrCreateDirectSpace } from '@/hooks/useConversationSpaces'
 import { useCreateThread } from '@/hooks/useConversationThreads'
 import type { SpaceType } from '@/types/messaging'
@@ -261,8 +262,8 @@ export function ComposeFlow({ isOpen, onClose, prefillContent, initialSendMode }
                     style={{
                       padding: '0.375rem 0.75rem',
                       borderRadius: 999,
-                      border: selected ? 'none' : `1.5px solid ${contact.assignedColor ?? 'var(--color-border)'}`,
-                      backgroundColor: selected ? (contact.assignedColor ?? 'var(--color-btn-primary-bg)') : 'transparent',
+                      border: selected ? 'none' : `1.5px solid ${getMemberColor({ assigned_color: contact.assignedColor, member_color: contact.memberColor })}`,
+                      backgroundColor: selected ? getMemberColor({ assigned_color: contact.assignedColor, member_color: contact.memberColor }) : 'transparent',
                       color: selected ? '#fff' : 'var(--color-text-primary)',
                       fontSize: '0.8125rem',
                       fontWeight: 500,

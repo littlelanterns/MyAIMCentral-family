@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { Button, ModalV2 } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
+import { getMemberColor } from '@/lib/memberColors'
 import { RoutineSectionEditor } from './RoutineSectionEditor'
 import { TaskBreaker } from './TaskBreaker'
 import type { BrokenTask } from './TaskBreaker'
@@ -652,7 +653,7 @@ export function TaskCreationModal({
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
           {assignableMembers.map((m) => {
             const selected = data.wholeFamily || data.assignments.some((a) => a.memberId === m.id)
-            const color = m.assigned_color || m.member_color || 'var(--color-btn-primary-bg)'
+            const color = getMemberColor(m)
             return (
               <button
                 key={m.id}
