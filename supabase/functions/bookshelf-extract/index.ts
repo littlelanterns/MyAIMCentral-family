@@ -35,8 +35,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
-const SONNET_MODEL = 'anthropic/claude-sonnet-4-20250514'
-const HAIKU_MODEL = 'anthropic/claude-haiku-4-5-20251001'
+const SONNET_MODEL = 'anthropic/claude-sonnet-4'
+const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
 
 // Service role client — needed for cross-table reads and writes
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -123,8 +123,246 @@ Look for: overlooked nuances, secondary insights, supporting evidence, contrasti
 }
 
 // ============================================================
+// Phase 1b-B: Persist extractions to platform + old tables
+// ============================================================
+
+interface ExtractionItem {
+  text?: string
+  guided_text?: string | null
+  independent_text?: string | null
+  content_type?: string
+  sort_order?: number
+  is_key_point?: boolean
+  is_from_go_deeper?: boolean
+  // Declaration-specific
+  declaration_text?: string
+  declaration_style?: string
+  style_variant?: string
+  value_name?: string
+  richness?: string
+  // Question-specific
+  question_type?: string
+}
+
+/**
+ * Persist extractions to both platform_intelligence.book_extractions (via RPC)
+ * and old per-family tables (dual-write). Non-fatal — errors are logged but
+ * never block the HTTP response.
+ */
+async function persistExtractions(opts: {
+  bookLibraryId: string | null
+  bookshelfItemId: string
+  familyId: string
+  memberId: string
+  extractionType: string // 'combined_section' or single-tab type
+  sectionTitle: string | null
+  sectionIndex: number | null
+  goDeeper: boolean
+  result: Record<string, unknown>
+}): Promise<void> {
+  const {
+    bookLibraryId, bookshelfItemId, familyId, memberId,
+    extractionType, sectionTitle, sectionIndex, goDeeper, result,
+  } = opts
+
+  // Map extraction_type to the 5 table types and their items
+  type ExtractionBucket = {
+    platformType: string // extraction_type for platform_intelligence
+    oldTable: string
+    items: ExtractionItem[]
+  }
+
+  const buckets: ExtractionBucket[] = []
+
+  if (extractionType === 'combined_section') {
+    // Combined has all 5 types in one result object
+    if (Array.isArray(result.summaries)) {
+      buckets.push({
+        platformType: 'summary',
+        oldTable: 'bookshelf_summaries',
+        items: result.summaries as ExtractionItem[],
+      })
+    }
+    if (Array.isArray(result.insights)) {
+      buckets.push({
+        platformType: 'insight',
+        oldTable: 'bookshelf_insights',
+        items: result.insights as ExtractionItem[],
+      })
+    }
+    if (Array.isArray(result.declarations)) {
+      buckets.push({
+        platformType: 'declaration',
+        oldTable: 'bookshelf_declarations',
+        items: result.declarations as ExtractionItem[],
+      })
+    }
+    if (Array.isArray(result.action_steps)) {
+      buckets.push({
+        platformType: 'action_step',
+        oldTable: 'bookshelf_action_steps',
+        items: result.action_steps as ExtractionItem[],
+      })
+    }
+    if (Array.isArray(result.questions)) {
+      buckets.push({
+        platformType: 'question',
+        oldTable: 'bookshelf_questions',
+        items: result.questions as ExtractionItem[],
+      })
+    }
+  } else {
+    // Single-tab: result has { items: [...] }
+    const items = result.items as ExtractionItem[] | undefined
+    if (!items || !Array.isArray(items) || items.length === 0) return
+
+    const typeMap: Record<string, { platformType: string; oldTable: string }> = {
+      summary_section: { platformType: 'summary', oldTable: 'bookshelf_summaries' },
+      insights_section: { platformType: 'insight', oldTable: 'bookshelf_insights' },
+      declarations_section: { platformType: 'declaration', oldTable: 'bookshelf_declarations' },
+      action_steps_section: { platformType: 'action_step', oldTable: 'bookshelf_action_steps' },
+      questions_section: { platformType: 'question', oldTable: 'bookshelf_questions' },
+    }
+    const mapping = typeMap[extractionType]
+    if (!mapping) return
+    buckets.push({ ...mapping, items })
+  }
+
+  if (buckets.length === 0) return
+
+  // 1. Write to platform_intelligence.book_extractions via RPC
+  if (bookLibraryId) {
+    try {
+      for (const bucket of buckets) {
+        const platformRows = bucket.items.map((item, idx) => ({
+          extraction_type: bucket.platformType,
+          text: bucket.platformType === 'declaration'
+            ? (item.declaration_text || item.text || '')
+            : (item.text || ''),
+          guided_text: item.guided_text || null,
+          independent_text: item.independent_text || null,
+          content_type: item.content_type || item.question_type || null,
+          declaration_text: bucket.platformType === 'declaration'
+            ? (item.declaration_text || null)
+            : null,
+          style_variant: item.style_variant || item.declaration_style || null,
+          value_name: item.value_name || null,
+          richness: item.richness || null,
+          section_title: sectionTitle,
+          section_index: sectionIndex,
+          sort_order: item.sort_order ?? idx,
+          is_key_point: item.is_key_point ?? false,
+          is_from_go_deeper: goDeeper,
+        }))
+
+        const { error: rpcErr } = await supabase.rpc('insert_book_extractions', {
+          p_book_library_id: bookLibraryId,
+          p_extractions: platformRows,
+          p_audience: 'original',
+        })
+
+        if (rpcErr) {
+          console.error(
+            `[bookshelf-extract] Platform insert failed for ${bucket.platformType}:`,
+            rpcErr.message,
+          )
+        } else {
+          console.log(
+            `[bookshelf-extract] Platform persisted ${platformRows.length} ${bucket.platformType} extractions`,
+          )
+        }
+      }
+    } catch (err) {
+      console.error('[bookshelf-extract] Platform extraction persistence failed (non-fatal):', err)
+    }
+  }
+
+  // 2. Dual-write to old per-family tables
+  try {
+    for (const bucket of buckets) {
+      const baseFields = {
+        family_id: familyId,
+        family_member_id: memberId,
+        bookshelf_item_id: bookshelfItemId,
+        section_title: sectionTitle,
+        section_index: sectionIndex,
+        audience: 'original',
+        is_from_go_deeper: goDeeper,
+        is_hearted: false,
+        is_deleted: false,
+        is_included_in_ai: true,
+      }
+
+      if (bucket.oldTable === 'bookshelf_declarations') {
+        // Declarations have a different column shape
+        const rows = bucket.items.map((item, idx) => ({
+          ...baseFields,
+          declaration_text: item.declaration_text || item.text || '',
+          value_name: item.value_name || null,
+          style_variant: item.style_variant || null,
+          richness: item.richness || null,
+          sort_order: item.sort_order ?? idx,
+          is_key_point: item.is_key_point ?? false,
+        }))
+        const { error } = await supabase.from(bucket.oldTable).insert(rows)
+        if (error) {
+          console.error(`[bookshelf-extract] Old table ${bucket.oldTable} insert failed:`, error.message)
+        }
+      } else {
+        // Summaries, insights, action_steps, questions all share a common shape
+        const rows = bucket.items.map((item, idx) => ({
+          ...baseFields,
+          text: item.text || '',
+          content_type: item.content_type || item.question_type || null,
+          sort_order: item.sort_order ?? idx,
+          is_key_point: item.is_key_point ?? false,
+        }))
+        const { error } = await supabase.from(bucket.oldTable).insert(rows)
+        if (error) {
+          console.error(`[bookshelf-extract] Old table ${bucket.oldTable} insert failed:`, error.message)
+        }
+      }
+    }
+    console.log(
+      `[bookshelf-extract] Old-table dual-write complete for ${buckets.length} extraction types`,
+    )
+  } catch (err) {
+    console.error('[bookshelf-extract] Old-table dual-write failed (non-fatal):', err)
+  }
+
+  // Mark bookshelf_items.extraction_status = 'completed' after first successful extraction
+  try {
+    await supabase
+      .from('bookshelf_items')
+      .update({ extraction_status: 'completed', intake_completed: true })
+      .eq('id', bookshelfItemId)
+      .eq('extraction_status', 'none') // Only update if not already completed (idempotent)
+  } catch {
+    // Non-fatal
+  }
+}
+
+// ============================================================
 // Extraction Prompts
 // ============================================================
+
+// Shared youth adaptation addendum — appended to every extraction prompt
+const YOUTH_ADAPTATION_ADDENDUM = `
+
+=== YOUTH ADAPTATIONS (include on EVERY item) ===
+Every item must include TWO additional text fields alongside the adult version:
+- "guided_text": Rewritten for ages 8-12 (Guided shell). Use simple vocabulary, concrete examples a child can picture, warm encouraging tone. Replace abstract concepts with relatable imagery. For stories, focus on what the character learned. For principles, say what it means in kid terms. 1-2 sentences max. For declarations, rewrite as something a kid would genuinely say — "I want to be someone who..." not "I choose to embody..."
+- "independent_text": Rewritten for ages 13-16 (Independent teen shell). Use age-appropriate vocabulary, relatable examples (school, friendships, identity, future). Preserve the core meaning but frame it through a teen's world. Can be slightly longer than guided (2-3 sentences). For declarations, teens can handle more sophisticated language but should still sound authentic to a teenager.
+
+CONTENT SAFETY FOR YOUTH VERSIONS:
+- Never encourage secrecy, exclusivity, or hidden relationships
+- Never suggest hiding things from parents or trusted adults
+- Frame all relationship advice around openness, kindness, and inclusion
+- If the original content promotes unhealthy dynamics, rewrite the youth version to model the POSITIVE alternative
+- For fiction: focus on what the CHARACTER LEARNED, not on imitating morally complex behaviors
+- Prioritize lessons about courage, integrity, kindness, resilience, and growth
+
+If the original item's content is genuinely not age-appropriate for a particular level (e.g., marital intimacy), set that level's text to null.`
 
 // NOTE: The insights prompt is adapted from StewardShip's FRAMEWORK_EXTRACTION_PROMPT.
 // Key difference: MyAIM v2 uses a FLAT bookshelf_insights table (no parent framework row).
@@ -148,18 +386,13 @@ Rules:
 Return ONLY a JSON object:
 {
   "items": [
-    { "content_type": "narrative_summary", "text": "Synopsis of what this section covers and its key takeaways...", "sort_order": 0 },
-    { "content_type": "key_concept", "text": "Clear explanation of the concept...", "sort_order": 1 },
-    { "content_type": "story", "text": "Brief but complete retelling of the key story and its lesson...", "sort_order": 2 },
-    { "content_type": "metaphor", "text": "The author's metaphor and what it illuminates...", "sort_order": 3 },
-    { "content_type": "lesson", "text": "A practical lesson drawn from the content...", "sort_order": 4 },
-    { "content_type": "quote", "text": "\\"Exact quote from the text.\\" — Speaker or context", "sort_order": 5 },
-    { "content_type": "insight", "text": "A deeper insight or observation...", "sort_order": 6 }
+    { "content_type": "narrative_summary", "text": "Synopsis...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 },
+    { "content_type": "key_concept", "text": "Clear explanation...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 1 }
   ]
 }
 
 Valid content_type values: "narrative_summary", "key_concept", "story", "metaphor", "lesson", "quote", "insight", "theme", "character_insight", "exercise", "principle"
-No markdown backticks, no preamble.`
+No markdown backticks, no preamble.` + YOUTH_ADAPTATION_ADDENDUM
 
 // Flat insights prompt — adapted from FRAMEWORK_EXTRACTION_PROMPT.
 // StewardShip output was { framework_name, principles: [...] }.
@@ -192,13 +425,12 @@ Rules:
 Return ONLY a JSON object:
 {
   "items": [
-    { "content_type": "principle", "text": "Principle statement here — complete thought, 1-3 sentences.", "sort_order": 0 },
-    { "content_type": "process", "text": "Process-type insight: (1) First step. (2) Second step. (3) Third step. This captures the full method.", "sort_order": 1 },
-    { "content_type": "framework", "text": "Framework description here.", "sort_order": 2 }
+    { "content_type": "principle", "text": "Principle statement...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 },
+    { "content_type": "process", "text": "Process: (1) Step. (2) Step.", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 1 }
   ]
 }
 
-No markdown backticks, no preamble.`
+No markdown backticks, no preamble.` + YOUTH_ADAPTATION_ADDENDUM
 
 const DECLARATIONS_EXTRACTION_PROMPT = `You are helping someone distill the wisdom from a book into personal declarations — honest commitment statements they can live by.
 
@@ -259,13 +491,11 @@ NEVER GENERATE:
 Return ONLY a JSON object:
 {
   "items": [
-    { "value_name": "Intentional Presence", "declaration_text": "I choose to be fully present in conversations, putting down my phone and making eye contact, because the people in front of me deserve my attention.", "declaration_style": "choosing_committing", "sort_order": 0 },
-    { "value_name": "Embracing Discomfort", "declaration_text": "I am learning to sit with discomfort instead of rushing to fix it, trusting that growth happens in the tension.", "declaration_style": "learning_striving", "sort_order": 1 },
-    { "value_name": "Unwavering Resolve", "declaration_text": "My face is set. My mission is clear.", "declaration_style": "resolute_unashamed", "sort_order": 2 }
+    { "value_name": "Intentional Presence", "declaration_text": "I choose to be fully present...", "guided_text": "Kid version...", "independent_text": "Teen version...", "declaration_style": "choosing_committing", "sort_order": 0 }
   ]
 }
 
-No markdown backticks, no preamble.`
+No markdown backticks, no preamble.` + YOUTH_ADAPTATION_ADDENDUM
 
 const ACTION_STEPS_EXTRACTION_PROMPT = `You are an expert at translating book wisdom into concrete, actionable steps. Given a section of text, extract specific actions, exercises, practices, and steps that a reader can carry out to apply what they've learned.
 
@@ -292,13 +522,12 @@ Rules:
 Return ONLY a JSON object:
 {
   "items": [
-    { "content_type": "exercise", "text": "Concrete exercise description with all steps...", "sort_order": 0 },
-    { "content_type": "daily_action", "text": "Each morning, before checking your phone...", "sort_order": 1 }
+    { "content_type": "exercise", "text": "Concrete exercise...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 }
   ]
 }
 
 Valid content_type values: "exercise", "practice", "habit", "conversation_starter", "project", "daily_action", "weekly_practice"
-No markdown backticks, no preamble.`
+No markdown backticks, no preamble.` + YOUTH_ADAPTATION_ADDENDUM
 
 const QUESTIONS_EXTRACTION_PROMPT = `You are an expert at crafting reflective questions that help readers deeply internalize and apply what they read. Given a section of text, extract and create thoughtful questions that guide personal growth.
 
@@ -333,14 +562,12 @@ Rules:
 Return ONLY a JSON object:
 {
   "items": [
-    { "content_type": "reflection", "text": "When you think about [concept from text], what area of your life comes to mind first — and what does that tell you about where you are right now?", "sort_order": 0 },
-    { "content_type": "implementation", "text": "The author describes [specific practice]. What would it look like to try this in your own context this week?", "sort_order": 1 },
-    { "content_type": "discussion", "text": "If you were discussing [theme] with a group, what personal example would you share to illustrate its importance?", "sort_order": 2 }
+    { "content_type": "reflection", "text": "Adult question...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 }
   ]
 }
 
 Valid content_type values: "reflection", "implementation", "recognition", "self_examination", "discussion", "scenario"
-No markdown backticks, no preamble.`
+No markdown backticks, no preamble.` + YOUTH_ADAPTATION_ADDENDUM
 
 // Combined: all five extractions in a single Sonnet call per section.
 // The insights section uses the FLAT structure (items array), not the nested framework object.
@@ -433,26 +660,38 @@ Create reflective questions that help the reader deeply internalize and apply th
 - Avoid surface-level comprehension questions. Every question should prompt self-examination or life application.
 - Label each with its content_type: "reflection", "implementation", "recognition", "self_examination", "discussion", "scenario"
 
+=== YOUTH ADAPTATIONS (on EVERY item in ALL five tasks) ===
+Every item must include TWO additional text fields alongside the adult version:
+- "guided_text": Rewritten for ages 8-12 (Guided shell). Use simple vocabulary, concrete examples, warm encouraging tone. Replace abstract concepts with things a child can picture. For stories, focus on what the character learned. For principles, say what it means in kid terms. 1-2 sentences max. For declarations, rewrite as something a kid would genuinely say — "I want to be someone who..." not "I choose to embody..."
+- "independent_text": Rewritten for ages 13-16 (Independent teen shell). Use age-appropriate vocabulary, relatable examples (school, friendships, identity, future). Preserve the core meaning but frame it through a teen's world. Can be slightly longer than guided (2-3 sentences). For declarations, teens can handle more sophisticated language but should still sound authentic to a teenager.
+
+CONTENT SAFETY FOR YOUTH VERSIONS:
+- Never encourage secrecy, exclusivity, or hidden relationships
+- Never suggest hiding things from parents or trusted adults
+- Frame all relationship advice around openness, kindness, and inclusion
+- If the original content promotes unhealthy dynamics, rewrite the youth version to model the POSITIVE alternative
+- For fiction: focus on what the CHARACTER LEARNED, not on imitating morally complex behaviors
+- Prioritize lessons about courage, integrity, kindness, resilience, and growth
+
+If the original item's content is genuinely not age-appropriate for a particular level (e.g., marital intimacy content), set that level's text to null rather than forcing an awkward adaptation.
+
 Return ONLY a JSON object with all five sections:
 {
   "summaries": [
-    { "content_type": "narrative_summary", "text": "Synopsis...", "sort_order": 0 },
-    { "content_type": "key_concept", "text": "Clear explanation...", "sort_order": 1 }
+    { "content_type": "narrative_summary", "text": "Synopsis...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 },
+    { "content_type": "key_concept", "text": "Clear explanation...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 1 }
   ],
   "insights": [
-    { "content_type": "principle", "text": "Principle statement — complete thought, 1-3 sentences.", "sort_order": 0 },
-    { "content_type": "process", "text": "Process-type insight: (1) First step. (2) Second step. (3) Third step.", "sort_order": 1 }
+    { "content_type": "principle", "text": "Principle statement...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 }
   ],
   "declarations": [
-    { "value_name": "Intentional Presence", "declaration_text": "I choose to be fully present...", "declaration_style": "choosing_committing", "sort_order": 0 }
+    { "value_name": "Intentional Presence", "declaration_text": "I choose to be fully present...", "guided_text": "Kid version...", "independent_text": "Teen version...", "declaration_style": "choosing_committing", "sort_order": 0 }
   ],
   "action_steps": [
-    { "content_type": "exercise", "text": "Concrete exercise with all steps...", "sort_order": 0 },
-    { "content_type": "daily_action", "text": "Each morning, before checking your phone...", "sort_order": 1 }
+    { "content_type": "exercise", "text": "Concrete exercise...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 }
   ],
   "questions": [
-    { "content_type": "reflection", "text": "When you consider [concept], what area of your life comes to mind first?", "sort_order": 0 },
-    { "content_type": "discussion", "text": "If discussing [theme] with a group, what personal example would you share?", "sort_order": 1 }
+    { "content_type": "reflection", "text": "Adult question...", "guided_text": "Kid version...", "independent_text": "Teen version...", "sort_order": 0 }
   ]
 }
 
@@ -714,10 +953,10 @@ Deno.serve(async (req) => {
       existing_items,
     } = parsed.data
 
-    // Fetch book metadata (title, genres) — needed for prompts
+    // Fetch book metadata (title, genres, book_library_id, book_cache_id) — needed for prompts + persistence + chunk lookup
     const { data: bookItem, error: bookErr } = await supabase
       .from('bookshelf_items')
-      .select('title, author, genres')
+      .select('title, author, genres, book_library_id, book_cache_id')
       .eq('id', bookshelf_item_id)
       .eq('family_id', family_id)
       .single()
@@ -734,6 +973,8 @@ Deno.serve(async (req) => {
     const bookAuthor = bookItem.author as string | null
     const displayTitle = bookAuthor ? `${bookTitle} by ${bookAuthor}` : bookTitle
     const genres = (bookItem.genres as string[]) || []
+    const bookLibraryId = bookItem.book_library_id as string | null
+    const bookCacheId = bookItem.book_cache_id as string | null
 
     const genreContext = buildGenreContext(genres)
     const goDeeperAddendum = go_deeper ? buildGoDeeperAddendum(existing_items) : ''
@@ -742,11 +983,12 @@ Deno.serve(async (req) => {
     // SECTION DISCOVERY (Haiku — cheap structural classification)
     // ============================================================
     if (extraction_type === 'discover_sections') {
-      // Fetch full text from chunks in order
+      // Fetch full text from chunks in order (bookshelf_chunks uses book_cache_id + chunk_text columns)
+      const chunkKey = bookCacheId || bookshelf_item_id
       const { data: chunks, error: chunkErr } = await supabase
         .from('bookshelf_chunks')
-        .select('chunk_index, text')
-        .eq('bookshelf_item_id', bookshelf_item_id)
+        .select('chunk_index, chunk_text')
+        .eq('book_cache_id', chunkKey)
         .order('chunk_index', { ascending: true })
 
       if (chunkErr || !chunks || chunks.length === 0) {
@@ -758,8 +1000,8 @@ Deno.serve(async (req) => {
         )
       }
 
-      const fullText = (chunks as Array<{ chunk_index: number; text: string }>)
-        .map((c) => c.text)
+      const fullText = (chunks as Array<{ chunk_index: number; chunk_text: string }>)
+        .map((c) => c.chunk_text)
         .join('\n\n')
 
       console.log(
@@ -902,10 +1144,11 @@ Deno.serve(async (req) => {
     }
 
     // Build section text from chunks that overlap the requested range
+    const sectionChunkKey = bookCacheId || bookshelf_item_id
     const { data: allChunks } = await supabase
       .from('bookshelf_chunks')
-      .select('chunk_index, text')
-      .eq('bookshelf_item_id', bookshelf_item_id)
+      .select('chunk_index, chunk_text')
+      .eq('book_cache_id', sectionChunkKey)
       .order('chunk_index', { ascending: true })
 
     if (!allChunks || allChunks.length === 0) {
@@ -916,8 +1159,8 @@ Deno.serve(async (req) => {
     }
 
     // Reconstruct full text to extract section slice
-    const fullText = (allChunks as Array<{ chunk_index: number; text: string }>)
-      .map((c) => c.text)
+    const fullText = (allChunks as Array<{ chunk_index: number; chunk_text: string }>)
+      .map((c) => c.chunk_text)
       .join('\n\n')
 
     let sectionText = fullText.substring(section_start, section_end)
@@ -947,7 +1190,7 @@ Deno.serve(async (req) => {
           headers: openRouterHeaders,
           body: JSON.stringify({
             model: SONNET_MODEL,
-            max_tokens: 20480,
+            max_tokens: 32768, // Increased for guided_text + independent_text youth adaptations
             messages: [
               { role: 'system', content: fullPrompt },
               { role: 'user', content: userContent },
@@ -1036,6 +1279,21 @@ Deno.serve(async (req) => {
         resultObj.insights = markKeyPoints(resultObj.insights as Array<Record<string, unknown>>)
       }
 
+      // Phase 1b-B: Persist to platform + old tables (non-blocking)
+      persistExtractions({
+        bookLibraryId,
+        bookshelfItemId: bookshelf_item_id,
+        familyId: family_id,
+        memberId: member_id,
+        extractionType: 'combined_section',
+        sectionTitle: section_title || null,
+        sectionIndex: section_start != null ? section_start : null,
+        goDeeper: go_deeper,
+        result: resultObj,
+      }).catch((err) => {
+        console.error('[bookshelf-extract] Extraction persistence failed (non-fatal):', err)
+      })
+
       return new Response(
         JSON.stringify({ extraction_type: 'combined_section', result: resultObj }),
         { headers: jsonHeaders },
@@ -1071,7 +1329,7 @@ Deno.serve(async (req) => {
       headers: openRouterHeaders,
       body: JSON.stringify({
         model: SONNET_MODEL,
-        max_tokens: 4096,
+        max_tokens: 8192, // Increased for guided_text + independent_text youth adaptations
         messages: [
           { role: 'system', content: fullPrompt },
           { role: 'user', content: userContent },
@@ -1142,6 +1400,21 @@ Deno.serve(async (req) => {
         item.is_from_go_deeper = true
       }
     }
+
+    // Phase 1b-B: Persist to platform + old tables (non-blocking)
+    persistExtractions({
+      bookLibraryId,
+      bookshelfItemId: bookshelf_item_id,
+      familyId: family_id,
+      memberId: member_id,
+      extractionType: extraction_type,
+      sectionTitle: section_title || null,
+      sectionIndex: section_start != null ? section_start : null,
+      goDeeper: go_deeper,
+      result: resultObj,
+    }).catch((err) => {
+      console.error('[bookshelf-extract] Extraction persistence failed (non-fatal):', err)
+    })
 
     return new Response(
       JSON.stringify({ extraction_type, result: resultObj }),

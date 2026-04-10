@@ -55,6 +55,7 @@ const RequestSchema = z.object({
   family_id: z.string().uuid(),
   member_id: z.string().uuid(),
   phase: z.enum(['extract', 'chunk']).optional(),
+  book_library_id: z.string().uuid().optional(),
 })
 
 // ============================================================
@@ -86,6 +87,102 @@ interface BookshelfItem {
   genres: string[] | null
   tags: string[] | null
   ai_summary: string | null
+  book_library_id: string | null
+  parent_bookshelf_item_id: string | null
+  isbn: string | null
+}
+
+// ============================================================
+// OpenAI Embedding (title+author for cache-hit)
+// ============================================================
+async function getOpenAIEmbedding(text: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text,
+    }),
+  })
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OpenAI embedding API error: ${response.status} ${error}`)
+  }
+  const data = await response.json()
+  return data.data[0].embedding
+}
+
+// ============================================================
+// Platform Library cache-hit check + link
+// ============================================================
+async function linkToBookLibrary(
+  bookshelfItemId: string,
+  item: BookshelfItem,
+): Promise<{ libraryId: string; wasCacheHit: boolean; similarity: number }> {
+  // Re-read the item to get the latest title/author (runClassification may have updated them)
+  const { data: fresh } = await supabase
+    .from('bookshelf_items')
+    .select('title, author, isbn, genres, tags, ai_summary')
+    .eq('id', bookshelfItemId)
+    .single()
+
+  const title = (fresh?.title as string) || item.title
+  const author = (fresh?.author as string | null) || item.author
+  const isbn = (fresh?.isbn as string | null) || item.isbn || null
+  const genres = (fresh?.genres as string[]) || item.genres || []
+  const tags = (fresh?.tags as string[]) || item.tags || []
+  const aiSummary = (fresh?.ai_summary as string | null) || item.ai_summary || null
+
+  // Generate title+author embedding
+  const embeddingText = author ? `${title} by ${author}` : title
+  let embeddingJson: string | null = null
+  try {
+    const embedding = await getOpenAIEmbedding(embeddingText)
+    embeddingJson = JSON.stringify(embedding)
+  } catch (err) {
+    console.error('[bookshelf-process] Title+author embedding failed (non-fatal):', err)
+  }
+
+  // Call the upsert RPC for atomic cache-hit check
+  const { data, error } = await supabase.rpc('upsert_book_library', {
+    p_title: title,
+    p_author: author,
+    p_isbn: isbn,
+    p_genres: genres,
+    p_tags: tags,
+    p_ai_summary: aiSummary,
+    p_toc: null,
+    p_title_author_embedding: embeddingJson,
+  })
+
+  if (error || !data || data.length === 0) {
+    throw new Error(`upsert_book_library failed: ${error?.message || 'no data returned'}`)
+  }
+
+  const result = data[0] as { library_id: string; was_cache_hit: boolean; matched_similarity: number }
+  const { library_id, was_cache_hit, matched_similarity } = result
+
+  console.log(
+    `[bookshelf-process] Library ${was_cache_hit ? 'CACHE HIT' : 'CACHE MISS'}: ` +
+      `library_id=${library_id}, similarity=${matched_similarity?.toFixed(4) ?? 'N/A'}, ` +
+      `title="${title}"`,
+  )
+
+  // Link bookshelf_items → book_library
+  const { error: linkErr } = await supabase.rpc('set_bookshelf_item_library_id', {
+    p_item_id: bookshelfItemId,
+    p_library_id: library_id,
+    p_extraction_status: was_cache_hit ? 'completed' : 'none',
+    p_chunk_count: 0,
+  })
+  if (linkErr) {
+    console.error('[bookshelf-process] set_bookshelf_item_library_id failed:', linkErr)
+  }
+
+  return { libraryId: library_id, wasCacheHit: was_cache_hit, similarity: matched_similarity ?? 0 }
 }
 
 // ============================================================
@@ -111,7 +208,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { bookshelf_item_id, family_id, member_id, phase } = parsed.data
+    const { bookshelf_item_id, family_id, member_id, phase, book_library_id: passedLibraryId } = parsed.data
 
     // Fetch the bookshelf item
     const { data: item, error: fetchErr } = await supabase
@@ -149,7 +246,7 @@ Deno.serve(async (req) => {
     if (phase === 'chunk') {
       const { data: freshItem } = await supabase
         .from('bookshelf_items')
-        .select('text_content, title, author')
+        .select('text_content, title, author, book_library_id')
         .eq('id', bookshelf_item_id)
         .single()
 
@@ -167,12 +264,18 @@ Deno.serve(async (req) => {
         )
       }
 
+      // Resolve book_library_id: prefer passed value, then DB value
+      const resolvedLibraryId = passedLibraryId
+        || (freshItem.book_library_id as string | null)
+        || null
+
       return await runChunkPhase(
         bookshelf_item_id,
         family_id,
         member_id,
         freshItem.text_content as string,
         setDetail,
+        resolvedLibraryId,
       )
     }
 
@@ -231,6 +334,59 @@ Deno.serve(async (req) => {
       console.error('[bookshelf-process] Classification failed (non-fatal):', classErr)
     }
 
+    // Platform library cache-hit check + link (Phase 1b-B)
+    let libraryId: string | null = null
+    let wasCacheHit = false
+    await setDetail('Checking platform library...')
+    try {
+      const linkResult = await linkToBookLibrary(bookshelf_item_id, bookItem)
+      libraryId = linkResult.libraryId
+      wasCacheHit = linkResult.wasCacheHit
+    } catch (linkErr) {
+      // Non-fatal — library linking failure doesn't block chunking
+      console.error('[bookshelf-process] Library linking failed (non-fatal):', linkErr)
+    }
+
+    // If cache hit, skip chunking entirely — reuse existing platform chunks
+    if (wasCacheHit && libraryId) {
+      // Find chunk count from another bookshelf_items row sharing this library
+      const { data: siblingItem } = await supabase
+        .from('bookshelf_items')
+        .select('chunk_count')
+        .eq('book_library_id', libraryId)
+        .not('id', 'eq', bookshelf_item_id)
+        .gt('chunk_count', 0)
+        .limit(1)
+        .single()
+      const existingChunkCount = (siblingItem?.chunk_count as number) || 0
+
+      // Update the current item with the library's chunk count and mark complete
+      await supabase
+        .from('bookshelf_items')
+        .update({
+          processing_status: 'completed',
+          extraction_status: 'completed',
+          chunk_count: existingChunkCount,
+          intake_completed: true,
+          processing_detail: null,
+        })
+        .eq('id', bookshelf_item_id)
+
+      console.log(
+        `[bookshelf-process] Cache hit — skipped chunking. Reusing library ${libraryId} (${existingChunkCount} chunks)`,
+      )
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          cache_hit: true,
+          library_id: libraryId,
+          text_length: fullText.trim().length,
+        }),
+        { headers: jsonHeaders },
+      )
+    }
+
     // Self-invoke chunk phase (separate CPU budget) and return immediately
     await supabase
       .from('bookshelf_items')
@@ -239,7 +395,13 @@ Deno.serve(async (req) => {
 
     supabase.functions
       .invoke('bookshelf-process', {
-        body: { bookshelf_item_id, family_id, member_id, phase: 'chunk' },
+        body: {
+          bookshelf_item_id,
+          family_id,
+          member_id,
+          phase: 'chunk',
+          book_library_id: libraryId,
+        },
       })
       .catch((err: unknown) => {
         console.warn('[bookshelf-process] Self-invoke chunk phase failed (client will retry):', err)
@@ -249,6 +411,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         needs_chunking: true,
+        library_id: libraryId,
         text_length: fullText.trim().length,
       }),
       { headers: jsonHeaders },
@@ -272,6 +435,7 @@ async function runChunkPhase(
   memberId: string,
   fullText: string,
   setDetail: (detail: string) => Promise<unknown>,
+  bookLibraryId: string | null = null,
 ): Promise<Response> {
   await setDetail('Chunking content...')
 
@@ -376,6 +540,45 @@ async function runChunkPhase(
     } else {
       totalChunksInserted += batchRecords.length
       totalTokens += batchRecords.reduce((sum, c) => sum + c.tokens_count, 0)
+    }
+  }
+
+  // Phase 1b-B: Dual-write chunks to platform_intelligence.book_chunks
+  if (bookLibraryId && totalChunksInserted > 0) {
+    await setDetail('Saving to platform library...')
+    try {
+      // Build JSONB array for the RPC
+      const platformChunks = chunks.map((chunk) => ({
+        chunk_index: chunk.index,
+        text: chunk.text,
+        tokens_count: chunk.tokenCount,
+        chapter_title: chunk.chapterTitle,
+        chapter_index: chunk.chapterIndex,
+      }))
+
+      // Insert in batches to avoid oversized RPC payloads
+      const PLATFORM_BATCH = 100
+      let platformTotal = 0
+      for (let i = 0; i < platformChunks.length; i += PLATFORM_BATCH) {
+        const batch = platformChunks.slice(i, i + PLATFORM_BATCH)
+        const { data: inserted, error: piErr } = await supabase.rpc('insert_book_chunks', {
+          p_book_library_id: bookLibraryId,
+          p_chunks: batch,
+        })
+        if (piErr) {
+          console.error(
+            `[bookshelf-process] Platform chunk insert failed (batch ${Math.floor(i / PLATFORM_BATCH) + 1}):`,
+            piErr.message,
+          )
+        } else {
+          platformTotal += (inserted as number) || batch.length
+        }
+      }
+      console.log(
+        `[bookshelf-process] Platform chunks dual-write: ${platformTotal} rows to book_library_id=${bookLibraryId}`,
+      )
+    } catch (piErr) {
+      console.error('[bookshelf-process] Platform chunk dual-write failed (non-fatal):', piErr)
     }
   }
 
