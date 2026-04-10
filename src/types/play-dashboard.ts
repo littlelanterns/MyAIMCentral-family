@@ -89,12 +89,18 @@ export type RevealEvent =
       creatureName: string
       rarity: 'common' | 'rare' | 'legendary'
       stickerPageId: string | null
+      /** Creature image URL for the reveal card (Sub-phase D) */
+      creatureImageUrl: string | null
+      /** Creature description for the reveal card (Sub-phase D) */
+      creatureDescription: string | null
     }
   | {
       type: 'page_unlocked'
       pageId: string
       pageName: string
       sceneName: string
+      /** Page thumbnail image URL for the reveal card (Sub-phase D) */
+      pageImageUrl: string | null
     }
 
 /* ─────────────────────────────────────────────────────────────────────

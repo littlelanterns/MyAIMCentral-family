@@ -1,25 +1,25 @@
 /**
- * PlayDashboard — Build M Sub-phase C
+ * PlayDashboard — Build M Sub-phase D
  *
  * Purpose-built dashboard for Play members (ages 3-7). Replaces the
  * adult Dashboard that was previously rendering inside PlayShell.
  *
  * Layout (top-down on phone):
- *   1. PlayDashboardHeader   — friendly greeting + 3 stat pills
- *   2. PlayStickerBookWidget — active page thumbnail + creature count
- *   3. PlayTaskTileGrid      — big tap-to-complete tiles, paper-craft icons
- *   4. PlayRevealTileStub    — placeholder for future reveal tiles
- *   5. PlayMomMessageStub    — placeholder for mom messages (PRD-15)
+ *   1. PlayDashboardHeader    — friendly greeting + 3 stat pills
+ *   2. PlayStickerBookWidget  — active page thumbnail + creature count
+ *   3. PlayTaskTileGrid       — big tap-to-complete tiles, paper-craft icons
+ *   4. PlayRevealTileStub     — placeholder for future reveal tiles
+ *   5. PlayMomMessageStub     — placeholder for mom messages (PRD-15)
  *
- * Sub-phase C wires useCompleteTask to the gamification pipeline RPC
+ * Sub-phase C wired useCompleteTask to the gamification pipeline RPC
  * (roll_creature_for_completion). The result flows back via the
  * mutation's onSuccess callback, and creature/page unlock events are
- * pushed onto a local FIFO queue that renders as inline placeholder
- * banners (auto-dismissing after 2s).
+ * pushed onto a local FIFO queue.
  *
- * Sub-phase D will replace the inline placeholders with full reveal
+ * Sub-phase D replaces the inline placeholder banners with full reveal
  * modals (CreatureRevealModal + PageUnlockRevealModal) that play the
- * Woodland Felt Mossy Chest + Fairy Door videos.
+ * Woodland Felt Mossy Chest + Fairy Door videos. Tapping the sticker
+ * book widget opens StickerBookDetailModal.
  *
  * NEVER renders emoji or Lucide icons on tiles. All tile imagery comes
  * from platform_assets (category='visual_schedule', variant='B') via
@@ -27,10 +27,11 @@
  * because it's chrome, not tile content.
  */
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTasks, useCompleteTask } from '@/hooks/useTasks'
 import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
+import { useGamificationTheme } from '@/hooks/useGamificationTheme'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
@@ -38,6 +39,9 @@ import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBo
 import { PlayTaskTileGrid } from '@/components/play-dashboard/PlayTaskTileGrid'
 import { PlayRevealTileStub } from '@/components/play-dashboard/PlayRevealTileStub'
 import { PlayMomMessageStub } from '@/components/play-dashboard/PlayMomMessageStub'
+import { CreatureRevealModal } from '@/components/play-dashboard/CreatureRevealModal'
+import { PageUnlockRevealModal } from '@/components/play-dashboard/PageUnlockRevealModal'
+import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
 import type { Task } from '@/types/tasks'
 import type { PlayDashboardProps, RevealEvent } from '@/types/play-dashboard'
 import {
@@ -73,6 +77,21 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
 
   const { data: stickerBookState } = useStickerBookState(memberId)
   const { data: creatures = [] } = useCreaturesForMember(memberId)
+  const { data: theme } = useGamificationTheme(stickerBookState?.active_theme_id)
+
+  // ── Sticker book detail modal state (Sub-phase D) ─────────────
+  const [stickerBookOpen, setStickerBookOpen] = useState(false)
+  const [stickerBookInitialPageId, setStickerBookInitialPageId] = useState<string | null>(null)
+
+  const openStickerBook = useCallback((pageId?: string | null) => {
+    setStickerBookInitialPageId(pageId ?? null)
+    setStickerBookOpen(true)
+  }, [])
+
+  const closeStickerBook = useCallback(() => {
+    setStickerBookOpen(false)
+    setStickerBookInitialPageId(null)
+  }, [])
 
   // ── Gamification stats (read from family_members; written by Sub-phase C) ──
   const memberData = displayMember as Record<string, unknown> | undefined
@@ -86,21 +105,15 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     new Set(),
   )
 
-  // Sub-phase C: real FIFO queue of reveal events. Populated by
-  // handleTapTask's onSuccess callback; rendered as inline placeholder
-  // banners that auto-dismiss after 2s (Sub-phase D replaces with
-  // CreatureRevealModal + PageUnlockRevealModal).
+  // FIFO queue of reveal events. Populated by handleTapTask's onSuccess
+  // callback. Sub-phase D renders CreatureRevealModal / PageUnlockRevealModal
+  // for the head event; advancing the queue is driven by modal dismiss.
   const [revealQueue, setRevealQueue] = useState<RevealEvent[]>([])
 
-  // Auto-dismiss the head of the queue after 2s so placeholders don't
-  // pile up during rapid task completions in demos.
-  useEffect(() => {
-    if (revealQueue.length === 0) return
-    const timer = setTimeout(() => {
-      setRevealQueue(q => q.slice(1))
-    }, 2000)
-    return () => clearTimeout(timer)
-  }, [revealQueue])
+  // Advance the queue: remove the head event (called by modal onClose)
+  const advanceRevealQueue = useCallback(() => {
+    setRevealQueue(q => q.slice(1))
+  }, [])
 
   function handleTapTask(task: Task) {
     if (completingTaskIds.has(task.id)) return
@@ -128,6 +141,8 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
               creatureName: result.creature.display_name,
               rarity: result.creature.rarity,
               stickerPageId: stickerBookState?.active_page_id ?? null,
+              creatureImageUrl: result.creature.image_url ?? null,
+              creatureDescription: result.creature.description ?? null,
             })
           }
 
@@ -137,6 +152,7 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
               pageId: result.page.id,
               pageName: result.page.display_name,
               sceneName: result.page.scene ?? result.page.display_name,
+              pageImageUrl: result.page.image_url ?? null,
             })
           }
 
@@ -155,10 +171,17 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     )
   }
 
-  // Sub-phase C placeholder banner — renders the head of the reveal
-  // queue inline. Sub-phase D will replace this with full-screen modals
-  // that play the Mossy Chest + Fairy Door videos.
+  // Head of the reveal queue drives the current modal
   const currentReveal = revealQueue[0] ?? null
+
+  // Handler for PageUnlockRevealModal "See my new page!" — dismiss
+  // the reveal modal and open the sticker book to the new page.
+  const handleViewNewPage = useCallback(() => {
+    if (currentReveal?.type === 'page_unlocked') {
+      openStickerBook(currentReveal.pageId)
+    }
+    advanceRevealQueue()
+  }, [currentReveal, openStickerBook, advanceRevealQueue])
 
   // ── Render ──────────────────────────────────────────────────────
   return (
@@ -182,61 +205,9 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
       <PlayStickerBookWidget
         state={stickerBookState ?? null}
         creatureCount={creatures.length}
-        hasNewActivity={false}
+        hasNewActivity={revealQueue.length > 0}
+        onOpen={() => openStickerBook()}
       />
-
-      {/* Sub-phase C placeholder reveal banner — replaced in Sub-phase D */}
-      {currentReveal && (
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="play-reveal-banner"
-          data-reveal-type={currentReveal.type}
-          style={{
-            padding: '1rem 1.25rem',
-            borderRadius: 'var(--vibe-radius-card, 1rem)',
-            backgroundColor: 'var(--color-bg-card-highlight, var(--color-bg-card))',
-            border: '2px solid var(--color-border-accent, var(--color-btn-primary-bg))',
-            color: 'var(--color-text-primary)',
-            fontSize: 'var(--font-size-lg)',
-            fontWeight: 600,
-            textAlign: 'center',
-            transition: 'opacity 0.2s',
-          }}
-        >
-          {currentReveal.type === 'creature_awarded' ? (
-            <>
-              <div style={{ fontSize: 'var(--font-size-xl)', marginBottom: '0.25rem' }}>
-                New friend! {currentReveal.creatureName}
-              </div>
-              <div
-                style={{
-                  fontSize: 'var(--font-size-sm)',
-                  color: 'var(--color-text-secondary)',
-                  fontWeight: 400,
-                }}
-              >
-                Rarity: {currentReveal.rarity} • (Sub-phase D reveal modal coming)
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 'var(--font-size-xl)', marginBottom: '0.25rem' }}>
-                New page unlocked: {currentReveal.pageName}!
-              </div>
-              <div
-                style={{
-                  fontSize: 'var(--font-size-sm)',
-                  color: 'var(--color-text-secondary)',
-                  fontWeight: 400,
-                }}
-              >
-                (Sub-phase D reveal modal coming)
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {tasksLoading ? (
         <div
@@ -262,6 +233,39 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
 
       <PlayRevealTileStub />
       <PlayMomMessageStub />
+
+      {/* ── Reveal modals (Sub-phase D) ──────────────────────────── */}
+      {currentReveal?.type === 'creature_awarded' && (
+        <CreatureRevealModal
+          creatureName={currentReveal.creatureName}
+          rarity={currentReveal.rarity}
+          creatureImageUrl={currentReveal.creatureImageUrl}
+          creatureDescription={currentReveal.creatureDescription}
+          videoUrl={theme?.creature_reveal_video_url ?? null}
+          onClose={advanceRevealQueue}
+        />
+      )}
+
+      {currentReveal?.type === 'page_unlocked' && (
+        <PageUnlockRevealModal
+          pageName={currentReveal.pageName}
+          sceneName={currentReveal.sceneName}
+          pageImageUrl={currentReveal.pageImageUrl}
+          videoUrl={theme?.page_reveal_video_url ?? null}
+          onClose={advanceRevealQueue}
+          onViewPage={handleViewNewPage}
+        />
+      )}
+
+      {/* ── Sticker Book Detail Modal ────────────────────────────── */}
+      {stickerBookOpen && stickerBookState && (
+        <StickerBookDetailModal
+          state={stickerBookState}
+          memberId={memberId}
+          onClose={closeStickerBook}
+          initialPageId={stickerBookInitialPageId}
+        />
+      )}
     </div>
   )
 }
