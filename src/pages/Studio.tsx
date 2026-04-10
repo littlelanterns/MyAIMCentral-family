@@ -47,8 +47,9 @@ import type { GuidedFormSubtype as GFSubtype } from '@/components/guided-forms/g
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { createTaskFromData } from '@/utils/createTaskFromData'
 import { useWidgetStarterConfigs } from '@/hooks/useWidgets'
 import { WidgetPicker } from '@/components/widgets/WidgetPicker'
 import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
@@ -151,6 +152,7 @@ export function StudioPage() {
   const { data: family } = useFamily()
   const { data: familyMembers = [] } = useFamilyMembers(family?.id)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [activeTab, setActiveTab] = useState<'browse' | 'customized'>('browse')
   const [searchQuery, setSearchQuery] = useState('')
@@ -247,9 +249,14 @@ export function StudioPage() {
     handleCustomize(template)
   }, [handleCustomize])
 
-  const handleTaskSaved = useCallback((_data: CreateTaskData) => {
+  const handleTaskSaved = useCallback(async (data: CreateTaskData) => {
+    if (!family?.id || !member?.id) return
+    await createTaskFromData(supabase, data, family.id, member.id, familyMembers)
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    queryClient.invalidateQueries({ queryKey: ['task-assignments-member'] })
+    queryClient.invalidateQueries({ queryKey: ['task_templates_customized', family.id] })
     setModalOpen(false)
-  }, [])
+  }, [family?.id, member?.id, familyMembers, queryClient])
 
   // ── Search filtering ─────────────────────────────────────────
 

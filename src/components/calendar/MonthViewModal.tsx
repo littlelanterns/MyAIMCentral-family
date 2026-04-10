@@ -71,8 +71,16 @@ export function MonthViewModal({ isOpen, onClose, onDateSelect, inline }: MonthV
   const eventsByDate = useMemo(() => {
     const map = new Map<string, (CalendarEvent & { event_attendees: EventAttendee[] })[]>()
     for (const ev of events ?? []) {
-      if (!map.has(ev.event_date)) map.set(ev.event_date, [])
-      map.get(ev.event_date)!.push(ev)
+      // Multi-day events: add to every date between event_date and end_date
+      const startDate = new Date(ev.event_date + 'T00:00:00')
+      const endDate = ev.end_date ? new Date(ev.end_date + 'T00:00:00') : startDate
+      const d = new Date(startDate)
+      while (d <= endDate) {
+        const key = toISODate(d)
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push(ev)
+        d.setDate(d.getDate() + 1)
+      }
     }
     return map
   }, [events])

@@ -44,7 +44,7 @@ function toISODate(d: Date): string {
 
 // ─── Events Queries ──────────────────────────────────────────
 
-/** Get events for a date range (family-scoped) */
+/** Get events for a date range (family-scoped) — includes multi-day events that overlap the range */
 export function useEventsForRange(start: Date, end: Date, memberFilter?: string[], hubOnly?: boolean) {
   const { data: family } = useFamily()
   const familyId = family?.id
@@ -52,12 +52,16 @@ export function useEventsForRange(start: Date, end: Date, memberFilter?: string[
   return useQuery({
     queryKey: calendarKeys.eventsRange(familyId ?? '', toISODate(start), toISODate(end)),
     queryFn: async () => {
+      // Multi-day fix: include events where event_date OR end_date falls within the range,
+      // or where the event spans the entire range (event_date before start AND end_date after end).
+      // Using .or() to cover: single-day events in range + multi-day events overlapping range.
+      const startStr = toISODate(start)
+      const endStr = toISODate(end)
       let query = supabase
         .from('calendar_events')
         .select('*, event_attendees(*)')
         .eq('family_id', familyId!)
-        .gte('event_date', toISODate(start))
-        .lte('event_date', toISODate(end))
+        .or(`and(event_date.gte.${startStr},event_date.lte.${endStr}),and(end_date.gte.${startStr},end_date.lte.${endStr}),and(event_date.lte.${startStr},end_date.gte.${endStr})`)
         .in('status', ['approved', 'pending_approval', 'penciled_in'])
         .order('event_date', { ascending: true })
         .order('start_time', { ascending: true, nullsFirst: false })
@@ -79,7 +83,7 @@ export function useEventsForRange(start: Date, end: Date, memberFilter?: string[
   })
 }
 
-/** Get events for a specific date */
+/** Get events for a specific date — includes multi-day events that span this date */
 export function useEventsForDate(date: Date) {
   const { data: family } = useFamily()
   const familyId = family?.id
@@ -88,11 +92,12 @@ export function useEventsForDate(date: Date) {
   return useQuery({
     queryKey: calendarKeys.eventsDate(familyId ?? '', dateStr),
     queryFn: async () => {
+      // Multi-day fix: include events where this date falls between event_date and end_date
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*, event_attendees(*)')
         .eq('family_id', familyId!)
-        .eq('event_date', dateStr)
+        .or(`and(event_date.eq.${dateStr},end_date.is.null),and(event_date.lte.${dateStr},end_date.gte.${dateStr}),and(event_date.eq.${dateStr},end_date.eq.${dateStr})`)
         .order('start_time', { ascending: true, nullsFirst: false })
 
       if (error) throw error

@@ -54,6 +54,7 @@ import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
+import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -201,6 +202,8 @@ export function TasksPage() {
     async (data: CreateTaskData) => {
       if (!editingTask) return
 
+      const scheduleFields = buildTaskScheduleFields(data)
+
       const { error } = await supabase
         .from('tasks')
         .update({
@@ -211,6 +214,9 @@ export function TasksPage() {
           incomplete_action: data.incompleteAction,
           require_approval: data.reward?.requireApproval ?? false,
           victory_flagged: data.reward?.flagAsVictory ?? false,
+          due_date: scheduleFields.due_date,
+          recurrence_rule: scheduleFields.recurrence_rule,
+          recurrence_details: scheduleFields.recurrence_details,
         })
         .eq('id', editingTask.id)
 
@@ -220,6 +226,7 @@ export function TasksPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
       setEditingTask(null)
     },
     [editingTask, queryClient]

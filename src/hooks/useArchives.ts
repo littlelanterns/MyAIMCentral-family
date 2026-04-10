@@ -125,6 +125,44 @@ export function useUpdateArchiveFolder() {
   })
 }
 
+/** Delete a custom folder — reassigns items to parent folder, then deletes the folder row */
+export function useDeleteArchiveFolder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, familyId, parentFolderId }: { id: string; familyId: string; parentFolderId: string | null }) => {
+      // Move items from this folder to its parent (or null if root-level custom folder)
+      const { error: moveError } = await supabase
+        .from('archive_context_items')
+        .update({ folder_id: parentFolderId })
+        .eq('folder_id', id)
+
+      if (moveError) throw moveError
+
+      // Move child folders up to the parent
+      const { error: reparentError } = await supabase
+        .from('archive_folders')
+        .update({ parent_folder_id: parentFolderId })
+        .eq('parent_folder_id', id)
+
+      if (reparentError) throw reparentError
+
+      // Delete the folder itself
+      const { error } = await supabase
+        .from('archive_folders')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      return { familyId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['archive-folders', data.familyId] })
+      queryClient.invalidateQueries({ queryKey: ['archive-context-items'] })
+    },
+  })
+}
+
 // ==========================================================================
 // useArchiveContextItems
 // ==========================================================================

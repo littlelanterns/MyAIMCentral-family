@@ -54,6 +54,7 @@ import {
   useToggleMemberPersonLevel,
   useToggleAggregatedAI,
   useUpdateArchiveFolder,
+  useDeleteArchiveFolder,
   type AggregatedSourceGroup,
   type ArchiveFolderNode,
 } from '@/hooks/useArchives'
@@ -239,6 +240,7 @@ function FolderGroup({
   const archiveItem = useArchiveContextItem()
   const updateItem = useUpdateArchiveContextItem()
   const updateFolder = useUpdateArchiveFolder()
+  const deleteFolder = useDeleteArchiveFolder()
   const createItem = useCreateArchiveContextItem()
   const [addingItem, setAddingItem] = useState(false)
   const [newItemValue, setNewItemValue] = useState('')
@@ -283,9 +285,12 @@ function FolderGroup({
   }
 
   const handleDeleteFolder = async () => {
-    // Soft delete: just set parent to null and move items. For now, simple delete via update
-    // STUB: Full folder deletion with item reassignment — wires to PRD-13
     setShowMenu(false)
+    deleteFolder.mutate({
+      id: folder.id,
+      familyId,
+      parentFolderId: folder.parent_folder_id,
+    })
   }
 
   return (
