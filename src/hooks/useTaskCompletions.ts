@@ -10,6 +10,28 @@ import type {
   RoutineStepCompletion,
   CreateRoutineStepCompletion,
 } from '@/types/tasks'
+import type { GamificationResult } from '@/types/gamification'
+
+// Build M Sub-phase C — gamification pipeline invocation
+// Same contract as the copy in useTasks.ts: never throws, logs on failure,
+// returns null when anything goes wrong. Gamification is additive.
+async function rollGamificationForCompletion(
+  completionId: string,
+): Promise<GamificationResult | null> {
+  try {
+    const { data, error } = await supabase.rpc('roll_creature_for_completion', {
+      p_task_completion_id: completionId,
+    })
+    if (error) {
+      console.warn('[gamification] roll_creature_for_completion failed:', error)
+      return null
+    }
+    return (data as GamificationResult) ?? null
+  } catch (err) {
+    console.warn('[gamification] roll_creature_for_completion threw:', err)
+    return null
+  }
+}
 
 // ============================================================
 // useTaskCompletions — completions for a single task
@@ -165,12 +187,22 @@ export function useApproveCompletion() {
         .single()
 
       if (taskError) throw taskError
-      return data
+
+      // Build M Sub-phase C — fire gamification pipeline at approval time.
+      // Idempotent via awarded_source_id if this path is ever re-fired.
+      const gamificationResult = await rollGamificationForCompletion(completionId)
+
+      return { ...data, gamificationResult }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['task-completions', data.id] })
       queryClient.invalidateQueries({ queryKey: ['pending-approvals', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
+
+      if (data.gamificationResult && !data.gamificationResult.error) {
+        queryClient.invalidateQueries({ queryKey: ['family-member'] })
+        queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
+      }
     },
   })
 }

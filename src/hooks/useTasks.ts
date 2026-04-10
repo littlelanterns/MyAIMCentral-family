@@ -22,6 +22,40 @@ import type {
   ImpactEffort,
   AbcdeCategory,
 } from '@/types/tasks'
+import type { GamificationResult } from '@/types/gamification'
+
+// ============================================================
+// Build M Sub-phase C: Gamification pipeline invocation
+// ============================================================
+// Calls the SECURITY DEFINER RPC that awards points, updates streak,
+// rolls a creature, and checks for a page unlock — all in one atomic
+// transaction, keyed by the task_completions.id that just fired.
+//
+// CRITICAL: never throws. If the RPC errors (network blip, DB error,
+// whatever) we log a warning and return null. Gamification is ADDITIVE.
+// A failure here must never block a task from being marked complete.
+//
+// The RPC itself handles every "skip" path: gamification disabled,
+// practice / mastery_submit completion_type, already processed (via
+// the awarded_source_id unique index on member_creature_collection),
+// and sticker book disabled. See migration 00000000100115 step 5.
+async function rollGamificationForCompletion(
+  completionId: string,
+): Promise<GamificationResult | null> {
+  try {
+    const { data, error } = await supabase.rpc('roll_creature_for_completion', {
+      p_task_completion_id: completionId,
+    })
+    if (error) {
+      console.warn('[gamification] roll_creature_for_completion failed:', error)
+      return null
+    }
+    return (data as GamificationResult) ?? null
+  } catch (err) {
+    console.warn('[gamification] roll_creature_for_completion threw:', err)
+    return null
+  }
+}
 
 // ============================================================
 // Shared helper: fetch task IDs where a member has a task_assignment
@@ -260,12 +294,41 @@ export function useCompleteTask() {
 
       if (taskError) throw taskError
 
-      return { completion, task: updatedTask as Task }
+      // 3. Build M Sub-phase C — gamification pipeline
+      // Only fire when the task is genuinely done. If require_approval=true,
+      // the task_completions row is 'pending' and the RPC would wrongly award
+      // points before mom reviewed the work. The approval hooks fire the RPC
+      // at approval time instead (useApproveTaskCompletion / useApproveCompletion).
+      let gamificationResult: GamificationResult | null = null
+      if (!requireApproval) {
+        gamificationResult = await rollGamificationForCompletion(completion.id)
+      }
+
+      return { completion, task: updatedTask as Task, gamificationResult }
     },
-    onSuccess: ({ task }) => {
+    onSuccess: ({ completion, task, gamificationResult }) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', task.id] })
       queryClient.invalidateQueries({ queryKey: ['task-completions', task.id] })
+
+      // Sub-phase C: refresh gamification-dependent queries when the
+      // pipeline actually ran (points / creatures / pages). Cheap no-ops
+      // when nothing is subscribed.
+      if (gamificationResult && !gamificationResult.error) {
+        // Header stats live on family_members columns — invalidate both
+        // shapes: the logged-in user's own row AND the family-wide list
+        // that ViewAs + PlayDashboard read from.
+        queryClient.invalidateQueries({ queryKey: ['family-member'] })
+        queryClient.invalidateQueries({ queryKey: ['family-members', task.family_id] })
+        // Sticker book widget + creature collection are keyed on the
+        // completing member (completion.family_member_id), not the task
+        // assignee (different for shared tasks).
+        const completerId = completion.family_member_id
+        if (completerId) {
+          queryClient.invalidateQueries({ queryKey: ['sticker-book-state', completerId] })
+          queryClient.invalidateQueries({ queryKey: ['member-creatures', completerId] })
+        }
+      }
     },
   })
 }
@@ -720,11 +783,23 @@ export function useApproveTaskCompletion() {
         .single()
 
       if (taskError) throw taskError
-      return data
+
+      // 3. Build M Sub-phase C — gamification pipeline
+      // The completion now represents a genuinely finished task (mom
+      // approved it). Fire the RPC against the approved completion id.
+      // RPC is idempotency-safe via member_creature_collection.awarded_source_id.
+      const gamificationResult = await rollGamificationForCompletion(completionId)
+
+      return { ...data, gamificationResult }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', data.id] })
+
+      if (data.gamificationResult && !data.gamificationResult.error) {
+        queryClient.invalidateQueries({ queryKey: ['family-member'] })
+        queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
+      }
     },
   })
 }

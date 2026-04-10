@@ -26,6 +26,27 @@ import type {
   SequentialCollection,
   Task,
 } from '@/types/tasks'
+import type { GamificationResult } from '@/types/gamification'
+
+// Build M Sub-phase C — gamification pipeline invocation
+// Mirror of the helpers in useTasks.ts / useTaskCompletions.ts. Never throws.
+async function rollGamificationForCompletion(
+  completionId: string,
+): Promise<GamificationResult | null> {
+  try {
+    const { data, error } = await supabase.rpc('roll_creature_for_completion', {
+      p_task_completion_id: completionId,
+    })
+    if (error) {
+      console.warn('[gamification] roll_creature_for_completion failed:', error)
+      return null
+    }
+    return (data as GamificationResult) ?? null
+  } catch (err) {
+    console.warn('[gamification] roll_creature_for_completion threw:', err)
+    return null
+  }
+}
 
 // ─── useLogPractice ────────────────────────────────────────────────
 // Records a practice session. For sequential items this also:
@@ -433,6 +454,10 @@ export function useApproveMasterySubmission() {
 
       if (params.sourceType === 'sequential_task') {
         // Approve the completion row if present
+        // Build M Sub-phase C: also flip completion_type from 'mastery_submit'
+        // → 'mastery_approved' so the roll_creature_for_completion RPC accepts
+        // this row past its Step 3 filter. Without this flip, the RPC would
+        // skip it with skipped_completion_type='mastery_submit'.
         if (params.completionId) {
           await supabase
             .from('task_completions')
@@ -440,6 +465,7 @@ export function useApproveMasterySubmission() {
               approved_by: params.approverId,
               approved_at: now,
               approval_status: 'approved',
+              completion_type: 'mastery_approved',
             })
             .eq('id', params.completionId)
         }
@@ -483,15 +509,33 @@ export function useApproveMasterySubmission() {
           }
         }
 
+        // Build M Sub-phase C — mastery approval fires the gamification
+        // pipeline. The completion row's completion_type was updated to
+        // 'mastery_approved' above, so the RPC's Step 3 filter accepts it.
+        // Idempotent via awarded_source_id if somehow re-fired.
+        let gamificationResult: GamificationResult | null = null
+        if (params.completionId) {
+          gamificationResult = await rollGamificationForCompletion(params.completionId)
+        }
+
         queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
         queryClient.invalidateQueries({ queryKey: ['pending-approvals', task.family_id] })
         queryClient.invalidateQueries({ queryKey: ['tasks-with-pending-approvals', task.family_id] })
         if (task.sequential_collection_id) {
           queryClient.invalidateQueries({ queryKey: ['sequential-collection', task.sequential_collection_id] })
         }
-        return { familyId: task.family_id }
+        if (gamificationResult && !gamificationResult.error) {
+          queryClient.invalidateQueries({ queryKey: ['family-member'] })
+          queryClient.invalidateQueries({ queryKey: ['family-members', task.family_id] })
+        }
+        return { familyId: task.family_id, gamificationResult }
       } else {
         // Randomizer: mark mastered + exit pool
+        // NOTE: Randomizer items do NOT go through task_completions, so the
+        // gamification pipeline (which is keyed on task_completions.id) is not
+        // fired here. Randomizer mastery awards are a known gap for Sub-phase
+        // C — flagged in CLAUDE.md and accepted. A follow-up build will route
+        // randomizer mastery through a separate pipeline call.
         const { data: item, error: itemErr } = await supabase
           .from('list_items')
           .update({
@@ -515,7 +559,7 @@ export function useApproveMasterySubmission() {
 
         queryClient.invalidateQueries({ queryKey: ['list-items', item.list_id] })
         queryClient.invalidateQueries({ queryKey: ['randomizer-draws', item.list_id] })
-        return { familyId: null }
+        return { familyId: null, gamificationResult: null }
       }
     },
   })
