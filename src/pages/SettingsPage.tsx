@@ -22,6 +22,7 @@ import type { MindSweepSettings } from '@/types/mindsweep'
 import { useFamily } from '@/hooks/useFamily'
 import { useTheme } from '@/lib/theme'
 import { supabase } from '@/lib/supabase/client'
+import { getMemberColor } from '@/lib/memberColors'
 import { useShell } from '@/components/shells/ShellProvider'
 
 // ── Tour Reset Helper ────────────────────────────────────────────
@@ -316,7 +317,7 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
     if (!familyId) return
     supabase
       .from('family_members')
-      .select('id, display_name, role, auth_method, is_active, date_of_birth')
+      .select('id, display_name, role, auth_method, is_active, date_of_birth, member_color, assigned_color')
       .eq('family_id', familyId)
       .eq('is_active', true)
       .then(({ data }) => {
@@ -354,8 +355,8 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
               style={{
-                backgroundColor: 'var(--color-btn-primary-bg)',
-                color: 'var(--color-btn-primary-text)',
+                backgroundColor: getMemberColor(m),
+                color: '#fff',
               }}
             >
               {m.display_name?.charAt(0)?.toUpperCase() || '?'}
