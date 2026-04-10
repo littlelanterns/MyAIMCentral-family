@@ -1,25 +1,21 @@
 /**
- * PlayDashboard — Build M Sub-phase D
+ * PlayDashboard — Build M Phase 2
  *
  * Purpose-built dashboard for Play members (ages 3-7). Replaces the
  * adult Dashboard that was previously rendering inside PlayShell.
  *
  * Layout (top-down on phone):
  *   1. PlayDashboardHeader    — friendly greeting + 3 stat pills
- *   2. PlayStickerBookWidget  — active page thumbnail + creature count
- *   3. PlayTaskTileGrid       — big tap-to-complete tiles, paper-craft icons
- *   4. PlayRevealTileStub     — placeholder for future reveal tiles
- *   5. PlayMomMessageStub     — placeholder for mom messages (PRD-15)
+ *   2. EarningProgressPill    — earning mode counter (Phase 2)
+ *   3. PlayStickerBookWidget  — active page thumbnail + creature count
+ *   4. PlayTaskTileGrid       — big tap-to-complete tiles, grouped by segment
+ *   5. PlayRevealTileStub     — placeholder for future reveal tiles
+ *   6. PlayMomMessageStub     — placeholder for mom messages (PRD-15)
  *
- * Sub-phase C wired useCompleteTask to the gamification pipeline RPC
- * (roll_creature_for_completion). The result flows back via the
- * mutation's onSuccess callback, and creature/page unlock events are
- * pushed onto a local FIFO queue.
- *
- * Sub-phase D replaces the inline placeholder banners with full reveal
- * modals (CreatureRevealModal + PageUnlockRevealModal) that play the
- * Woodland Felt Mossy Chest + Fairy Door videos. Tapping the sticker
- * book widget opens StickerBookDetailModal.
+ * Phase 2 adds:
+ *   - Segment-grouped task rendering in PlayTaskTileGrid
+ *   - Segment-complete celebrations (SparkleOverlay + banner glow)
+ *   - Earning progress counter pill per earning mode
  *
  * NEVER renders emoji or Lucide icons on tiles. All tile imagery comes
  * from platform_assets (category='visual_schedule', variant='B') via
@@ -27,7 +23,7 @@
  * because it's chrome, not tile content.
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useTasks, useCompleteTask } from '@/hooks/useTasks'
 import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
@@ -35,6 +31,7 @@ import { useGamificationTheme } from '@/hooks/useGamificationTheme'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
+import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
 import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBookWidget'
 import { PlayTaskTileGrid } from '@/components/play-dashboard/PlayTaskTileGrid'
 import { PlayRevealTileStub } from '@/components/play-dashboard/PlayRevealTileStub'
@@ -42,6 +39,7 @@ import { PlayMomMessageStub } from '@/components/play-dashboard/PlayMomMessageSt
 import { CreatureRevealModal } from '@/components/play-dashboard/CreatureRevealModal'
 import { PageUnlockRevealModal } from '@/components/play-dashboard/PageUnlockRevealModal'
 import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
+import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import type { Task } from '@/types/tasks'
 import type { PlayDashboardProps, RevealEvent } from '@/types/play-dashboard'
 import {
@@ -115,6 +113,16 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     setRevealQueue(q => q.slice(1))
   }, [])
 
+  // ── Segment celebration state (Phase 2) ────────────────────────
+  // Tracks segment IDs that just completed — drives glow animation
+  // on the segment banner + SparkleOverlay burst.
+  const [celebratingSegmentIds, setCelebratingSegmentIds] = useState<Set<string>>(new Set())
+  const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
+  const [showSegmentSparkle, setShowSegmentSparkle] = useState(false)
+
+  // Track which segments we've already celebrated to avoid re-firing
+  const celebratedSegmentsRef = useRef<Set<string>>(new Set())
+
   function handleTapTask(task: Task) {
     if (completingTaskIds.has(task.id)) return
     setCompletingTaskIds(prev => new Set(prev).add(task.id))
@@ -127,12 +135,43 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
       },
       {
         onSuccess: data => {
-          // Sub-phase C: read the gamification pipeline result and push
-          // reveal events onto the queue. All RPC branches land here;
-          // the type guards filter out the non-award outcomes (disabled,
-          // already_processed, skipped_completion_type, roll failed).
           const result = data.gamificationResult
           const newEvents: RevealEvent[] = []
+
+          // Phase 2: handle segment completion celebration
+          if (result?.segment_completed) {
+            const segId = result.segment_completed.segment_id
+
+            // Only celebrate once per segment per session
+            if (!celebratedSegmentsRef.current.has(segId)) {
+              celebratedSegmentsRef.current.add(segId)
+
+              // Add glow animation to the segment banner
+              setCelebratingSegmentIds(prev => new Set(prev).add(segId))
+
+              // Fire SparkleOverlay centered on the viewport
+              setSparkleOrigin({ x: window.innerWidth / 2, y: window.innerHeight / 3 })
+              setShowSegmentSparkle(true)
+
+              // Clear the celebrating state after the glow animation
+              setTimeout(() => {
+                setCelebratingSegmentIds(prev => {
+                  const next = new Set(prev)
+                  next.delete(segId)
+                  return next
+                })
+              }, 1200)
+            }
+          }
+
+          // Phase 1: log color reveal advancement
+          if (result?.coloring_reveals_advanced && result.coloring_reveals_advanced.length > 0) {
+            for (const cr of result.coloring_reveals_advanced) {
+              console.info(
+                `[Gamification] Color reveal advanced: ${cr.image_slug} step ${cr.new_step}/${cr.total_steps}${cr.is_complete ? ' (COMPLETE!)' : ''}`,
+              )
+            }
+          }
 
           if (gamificationDidAwardCreature(result)) {
             newEvents.push({
@@ -159,19 +198,6 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           if (newEvents.length > 0) {
             setRevealQueue(q => [...q, ...newEvents])
           }
-
-          // Phase 1: log segment completion + color reveal advancement
-          // Actual UI (segment celebration banners, color reveal widget) is Phase 2-3
-          if (result?.segment_completed) {
-            console.info('[Gamification] Segment completed:', result.segment_completed.segment_name)
-          }
-          if (result?.coloring_reveals_advanced && result.coloring_reveals_advanced.length > 0) {
-            for (const cr of result.coloring_reveals_advanced) {
-              console.info(
-                `[Gamification] Color reveal advanced: ${cr.image_slug} step ${cr.new_step}/${cr.total_steps}${cr.is_complete ? ' (COMPLETE!)' : ''}`,
-              )
-            }
-          }
         },
         onSettled: () => {
           setCompletingTaskIds(prev => {
@@ -196,6 +222,11 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     advanceRevealQueue()
   }, [currentReveal, openStickerBook, advanceRevealQueue])
 
+  const handleSegmentSparkleComplete = useCallback(() => {
+    setShowSegmentSparkle(false)
+    setSparkleOrigin(null)
+  }, [])
+
   // ── Render ──────────────────────────────────────────────────────
   return (
     <div
@@ -213,6 +244,11 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
         streak={streak}
         creatureCount={creatures.length}
         currencyName="stars"
+      />
+
+      <EarningProgressPill
+        stickerBookState={stickerBookState ?? null}
+        tasks={playTasks}
       />
 
       <PlayStickerBookWidget
@@ -241,11 +277,22 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           tasks={playTasks}
           completingTaskIds={completingTaskIds}
           onTapTask={handleTapTask}
+          memberId={memberId}
+          celebratingSegmentIds={celebratingSegmentIds}
         />
       )}
 
       <PlayRevealTileStub />
       <PlayMomMessageStub />
+
+      {/* ── Segment celebration sparkle (Phase 2) ─────────────────── */}
+      {showSegmentSparkle && sparkleOrigin && (
+        <SparkleOverlay
+          type="quick_burst"
+          origin={sparkleOrigin}
+          onComplete={handleSegmentSparkleComplete}
+        />
+      )}
 
       {/* ── Reveal modals (Sub-phase D) ──────────────────────────── */}
       {currentReveal?.type === 'creature_awarded' && (

@@ -322,6 +322,8 @@ export interface Task {
   // Lookup at render time against (category='visual_schedule', feature_key, variant)
   icon_asset_key: string | null
   icon_variant: 'A' | 'B' | 'C' | null
+  // Build M Phase 1 — task segment assignment
+  task_segment_id: string | null
   // View framework metadata
   eisenhower_quadrant: EisenhowerQuadrant | null
   frog_rank: number | null

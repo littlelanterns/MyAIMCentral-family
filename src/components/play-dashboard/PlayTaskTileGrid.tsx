@@ -1,49 +1,94 @@
 /**
- * PlayTaskTileGrid — Build M Sub-phase B
+ * PlayTaskTileGrid — Build M Phase 2
  *
- * Responsive grid wrapper for PlayTaskTile. Splits the task list into
- * pending and completed lanes:
- *   • Pending tiles render in the main 2-col (phone) / 3-col (tablet)
- *     / 4-col (desktop) grid
- *   • Completed tiles slide into a compact "Done today" row below at
- *     the same per-tile size, with reduced opacity (handled by the tile)
+ * Renders tasks grouped by segment when segments exist. Falls back to
+ * the original flat grid when no segments are configured.
  *
- * Sub-phase C will wire the gamification hooks; Sub-phase B just renders
- * the layout and forwards taps to the parent's onComplete handler.
+ * Each segment section has:
+ *   - Section banner: Lucide icon + segment name + progress ("3/4") + checkmark
+ *   - Progress bar: visual completion percentage
+ *   - Task tiles: PlayTaskTile components in a wrapping flex grid
+ *
+ * Tasks without a segment go into an "Other" group at the bottom.
  */
 
 import { useMemo } from 'react'
+import * as LucideIcons from 'lucide-react'
 import { PlayTaskTile } from './PlayTaskTile'
 import { usePlayTaskIcons } from '@/hooks/usePlayTaskIcons'
+import { useTaskSegments } from '@/hooks/useTaskSegments'
+import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import type { Task } from '@/types/tasks'
+import type { TaskSegment } from '@/types/play-dashboard'
 
 interface PlayTaskTileGridProps {
   tasks: Task[]
   completingTaskIds: Set<string>
   onTapTask: (task: Task) => void
+  /** Member ID for segment queries */
+  memberId?: string
+  /** Segment IDs that just completed — triggers celebration glow */
+  celebratingSegmentIds?: Set<string>
+}
+
+function getLucideIcon(name: string): React.FC<{ size?: number }> | null {
+  return (LucideIcons as unknown as Record<string, React.FC<{ size?: number }>>)[name] ?? null
+}
+
+/** Check if a segment should be visible today based on its day_filter. */
+function isSegmentActiveToday(segment: TaskSegment): boolean {
+  if (!segment.day_filter || segment.day_filter.length === 0) return true
+  return segment.day_filter.includes(new Date().getDay())
 }
 
 export function PlayTaskTileGrid({
   tasks,
   completingTaskIds,
   onTapTask,
+  memberId,
+  celebratingSegmentIds,
 }: PlayTaskTileGridProps) {
   // Resolve icon URLs in one batch (no N+1)
   const { iconUrls } = usePlayTaskIcons(tasks)
 
-  // Split into pending vs completed
-  const { pending, completed } = useMemo(() => {
-    const p: Task[] = []
-    const c: Task[] = []
+  // Load segments for this member
+  const { data: allSegments } = useTaskSegments(memberId)
+
+  // Filter segments visible today
+  const activeSegments = useMemo(
+    () => (allSegments ?? []).filter(isSegmentActiveToday),
+    [allSegments],
+  )
+
+  // Compute completion status per segment
+  const completionMap = useSegmentCompletionStatus(activeSegments, tasks)
+
+  const hasSegments = activeSegments.length > 0
+
+  // Group tasks by segment
+  const { segmentGroups, unsegmentedTasks } = useMemo(() => {
+    if (!hasSegments) return { segmentGroups: [] as Array<{ segment: TaskSegment; tasks: Task[] }>, unsegmentedTasks: tasks }
+
+    const grouped: Array<{ segment: TaskSegment; tasks: Task[] }> = activeSegments.map(seg => ({
+      segment: seg,
+      tasks: [],
+    }))
+
+    const segmentIndexMap = new Map<string, number>()
+    activeSegments.forEach((seg, idx) => segmentIndexMap.set(seg.id, idx))
+
+    const unseg: Task[] = []
+
     for (const task of tasks) {
-      if (task.status === 'completed' || task.status === 'pending_approval') {
-        c.push(task)
+      if (task.task_segment_id && segmentIndexMap.has(task.task_segment_id)) {
+        grouped[segmentIndexMap.get(task.task_segment_id)!].tasks.push(task)
       } else {
-        p.push(task)
+        unseg.push(task)
       }
     }
-    return { pending: p, completed: c }
-  }, [tasks])
+
+    return { segmentGroups: grouped, unsegmentedTasks: unseg }
+  }, [hasSegments, activeSegments, tasks])
 
   if (tasks.length === 0) {
     return (
@@ -62,6 +107,245 @@ export function PlayTaskTileGrid({
       </div>
     )
   }
+
+  // ── Flat grid (no segments configured) ───────────────────────────
+  if (!hasSegments) {
+    return <FlatGrid tasks={tasks} iconUrls={iconUrls} completingTaskIds={completingTaskIds} onTapTask={onTapTask} />
+  }
+
+  // ── Grouped grid ─────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {segmentGroups.map(({ segment, tasks: segTasks }) => {
+        // Skip empty segments (tasks may be filtered or none assigned)
+        if (segTasks.length === 0) return null
+        const status = completionMap[segment.id]
+        const isCelebrating = celebratingSegmentIds?.has(segment.id) ?? false
+
+        return (
+          <SegmentSection
+            key={segment.id}
+            segment={segment}
+            tasks={segTasks}
+            iconUrls={iconUrls}
+            completingTaskIds={completingTaskIds}
+            onTapTask={onTapTask}
+            total={status?.total ?? 0}
+            completed={status?.completed ?? 0}
+            isComplete={status?.isComplete ?? false}
+            isCelebrating={isCelebrating}
+          />
+        )
+      })}
+
+      {unsegmentedTasks.length > 0 && (
+        <section>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              marginBottom: '0.5rem',
+            }}
+          >
+            <span
+              style={{
+                fontSize: 'var(--font-size-base)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              Other
+            </span>
+            <span
+              style={{
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              {unsegmentedTasks.filter(t => t.status === 'completed' || t.status === 'pending_approval').length}
+              /{unsegmentedTasks.length}
+            </span>
+          </div>
+          <div className="play-tile-grid">
+            {unsegmentedTasks.map(task => (
+              <PlayTaskTile
+                key={task.id}
+                task={task}
+                iconUrl={iconUrls[task.id] ?? null}
+                isCompleting={completingTaskIds.has(task.id)}
+                onTap={onTapTask}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <TileGridStyles />
+    </div>
+  )
+}
+
+// ── Segment Section ──────────────────────────────────────────────────
+
+interface SegmentSectionProps {
+  segment: TaskSegment
+  tasks: Task[]
+  iconUrls: Record<string, string | null>
+  completingTaskIds: Set<string>
+  onTapTask: (task: Task) => void
+  total: number
+  completed: number
+  isComplete: boolean
+  isCelebrating: boolean
+}
+
+function SegmentSection({
+  segment,
+  tasks,
+  iconUrls,
+  completingTaskIds,
+  onTapTask,
+  total,
+  completed,
+  isComplete,
+  isCelebrating,
+}: SegmentSectionProps) {
+  const Icon = segment.icon_key ? getLucideIcon(segment.icon_key) : null
+  const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
+
+  return (
+    <section>
+      {/* Segment banner */}
+      <div
+        className={isCelebrating ? 'segment-banner segment-banner--celebrating' : 'segment-banner'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          padding: '0.625rem 0.75rem',
+          borderRadius: 'var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem) 0 0',
+          backgroundColor: isComplete
+            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))'
+            : 'var(--color-bg-card)',
+          borderTop: '1px solid var(--color-border)',
+          borderLeft: '1px solid var(--color-border)',
+          borderRight: '1px solid var(--color-border)',
+          transition: 'background-color 0.3s ease',
+        }}
+      >
+        {Icon && (
+          <span style={{ color: 'var(--color-btn-primary-bg)', display: 'inline-flex', flexShrink: 0 }}>
+            <Icon size={20} />
+          </span>
+        )}
+
+        <span
+          style={{
+            fontSize: 'var(--font-size-base)',
+            fontWeight: 600,
+            color: 'var(--color-text-primary)',
+            flex: 1,
+          }}
+        >
+          {segment.segment_name}
+        </span>
+
+        <span
+          style={{
+            fontSize: 'var(--font-size-sm)',
+            fontWeight: 500,
+            color: isComplete ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+          }}
+        >
+          {completed}/{total}
+        </span>
+
+        {isComplete && (
+          <span
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: '9999px',
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text, #fff)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            ✓
+          </span>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div
+        style={{
+          height: 4,
+          backgroundColor: 'var(--color-bg-secondary)',
+          borderLeft: '1px solid var(--color-border)',
+          borderRight: '1px solid var(--color-border)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${progressPct}%`,
+            backgroundColor: 'var(--color-btn-primary-bg)',
+            transition: 'width 0.4s ease',
+            borderRadius: progressPct >= 100 ? 0 : '0 2px 2px 0',
+          }}
+        />
+      </div>
+
+      {/* Task tiles */}
+      <div
+        style={{
+          padding: '0.75rem',
+          borderRadius: '0 0 var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem)',
+          backgroundColor: 'var(--color-bg-card)',
+          borderBottom: '1px solid var(--color-border)',
+          borderLeft: '1px solid var(--color-border)',
+          borderRight: '1px solid var(--color-border)',
+        }}
+      >
+        <div className="play-tile-grid">
+          {tasks.map(task => (
+            <PlayTaskTile
+              key={task.id}
+              task={task}
+              iconUrl={iconUrls[task.id] ?? null}
+              isCompleting={completingTaskIds.has(task.id)}
+              onTap={onTapTask}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Flat grid (backward compat when no segments exist) ───────────────
+
+function FlatGrid({
+  tasks,
+  iconUrls,
+  completingTaskIds,
+  onTapTask,
+}: {
+  tasks: Task[]
+  iconUrls: Record<string, string | null>
+  completingTaskIds: Set<string>
+  onTapTask: (task: Task) => void
+}) {
+  const pending = tasks.filter(t => t.status !== 'completed' && t.status !== 'pending_approval')
+  const completed = tasks.filter(t => t.status === 'completed' || t.status === 'pending_approval')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -117,23 +401,44 @@ export function PlayTaskTileGrid({
         </section>
       )}
 
-      <style>{`
-        .play-tile-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 0.75rem;
-        }
-        @media (min-width: 640px) {
-          .play-tile-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-          }
-        }
-        @media (min-width: 1024px) {
-          .play-tile-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-        }
-      `}</style>
+      <TileGridStyles />
     </div>
+  )
+}
+
+// ── Shared CSS ────────────────────────────────────────────────────────
+
+function TileGridStyles() {
+  return (
+    <style>{`
+      .play-tile-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+      @media (min-width: 640px) {
+        .play-tile-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      @media (min-width: 1024px) {
+        .play-tile-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .segment-banner--celebrating {
+        animation: segmentCelebrationGlow 1s ease-out forwards;
+      }
+      @keyframes segmentCelebrationGlow {
+        0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-btn-primary-bg) 50%, transparent); }
+        50% { box-shadow: 0 0 16px 4px color-mix(in srgb, var(--color-btn-primary-bg) 40%, transparent); }
+        100% { box-shadow: 0 0 0 0 transparent; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .segment-banner--celebrating {
+          animation: none;
+        }
+      }
+    `}</style>
   )
 }
