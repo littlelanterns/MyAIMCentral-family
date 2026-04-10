@@ -84,7 +84,7 @@ function matchesSearch(book: BookShelfItem, query: string): boolean {
 
 export function BookShelfLibrary() {
   const navigate = useNavigate()
-  const { parentBooks, loading, getPartsForBook } = useBookShelf()
+  const { parentBooks, loading, getPartsForBook, refetch: refetchBooks } = useBookShelf()
   const { settings, updateSetting } = useBookShelfSettings()
   const { collections, getBookCountForCollection } = useBookShelfCollections()
 
@@ -567,7 +567,7 @@ export function BookShelfLibrary() {
         onClose={() => setShowUpload(false)}
         existingBooks={parentBooks}
         onUploadComplete={() => {
-          // Refetch will happen via useBookShelf's polling/query invalidation
+          refetchBooks()
         }}
       />
 
