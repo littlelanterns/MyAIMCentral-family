@@ -3,9 +3,9 @@
  * Unified extraction reading mode. Accepts bookIds[]. Single array → single-book mode.
  * Handles tabs, filters, abridged logic, item actions, sidebar, chapter jump.
  */
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { ExtractionHeader } from './ExtractionHeader'
 import { ExtractionControls, buildTabs } from './ExtractionControls'
 import { ExtractionContent } from './ExtractionContent'
@@ -267,6 +267,72 @@ export function ExtractionBrowser({
     }
   }, [member, summaries, insights, declarations, actionSteps, questions, refetch])
 
+  // ── Full extraction trigger (for books with no extractions) ──────────
+  const [extracting, setExtracting] = useState(false)
+  const [extractProgress, setExtractProgress] = useState('')
+  const extractAbortRef = useRef(false)
+
+  const totalExtractions = summaries.length + insights.length + declarations.length + actionSteps.length + questions.length
+  const needsExtraction = isSingleBook && primaryBook && totalExtractions === 0 && !loading
+
+  const handleFullExtraction = useCallback(async () => {
+    if (!primaryBook || !member) return
+    setExtracting(true)
+    extractAbortRef.current = false
+    try {
+      const token = (await import('@/lib/supabase/client')).supabase.auth.getSession().then(s => s.data.session?.access_token)
+      const accessToken = await token
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }
+
+      // Step 1: Discover sections
+      setExtractProgress('Discovering sections...')
+      const discResp = await fetch(`${baseUrl}/functions/v1/bookshelf-extract`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          bookshelf_item_id: primaryBook.id, family_id: member.family_id,
+          member_id: member.id, extraction_type: 'discover_sections',
+        }),
+      })
+      if (!discResp.ok) throw new Error('Section discovery failed')
+      const discData = await discResp.json()
+      const sections = ((discData.sections || []) as Array<{ title?: string; start_char: number; end_char: number }>)
+        .filter((s: { title?: string }) => !s.title?.startsWith('[NON-CONTENT]'))
+
+      if (sections.length === 0) {
+        setExtractProgress('No extractable sections found.')
+        return
+      }
+
+      // Step 2: Extract each section
+      for (let i = 0; i < sections.length; i++) {
+        if (extractAbortRef.current) break
+        const s = sections[i]
+        setExtractProgress(`Extracting section ${i + 1} of ${sections.length}: ${(s.title || 'Untitled').substring(0, 40)}...`)
+
+        try {
+          await fetch(`${baseUrl}/functions/v1/bookshelf-extract`, {
+            method: 'POST', headers,
+            body: JSON.stringify({
+              bookshelf_item_id: primaryBook.id, family_id: member.family_id,
+              member_id: member.id, extraction_type: 'combined_section',
+              section_start: s.start_char, section_end: s.end_char, section_title: s.title,
+            }),
+          })
+        } catch {
+          // Non-fatal — continue with remaining sections
+        }
+      }
+
+      setExtractProgress('Done! Loading extractions...')
+      await refetch()
+    } catch (err) {
+      setExtractProgress(`Extraction failed: ${(err as Error).message}`)
+    } finally {
+      setExtracting(false)
+    }
+  }, [primaryBook, member, refetch])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -350,6 +416,45 @@ export function ExtractionBrowser({
         isSingleBook={isSingleBook}
       />
 
+      {/* Empty state: extraction trigger for books with no extractions */}
+      {(needsExtraction || extracting) && (
+        <div className="text-center py-12 px-4">
+          {extracting ? (
+            <div className="space-y-3">
+              <Loader2 size={32} className="animate-spin text-[var(--color-accent)] mx-auto" />
+              <p className="text-sm text-[var(--color-text-secondary)]">{extractProgress}</p>
+              <button
+                onClick={() => { extractAbortRef.current = true }}
+                className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Sparkles size={32} className="text-[var(--color-accent)] mx-auto" />
+              <div>
+                <p className="text-base font-medium text-[var(--color-text-primary)]">
+                  Ready to extract
+                </p>
+                <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                  AI will read this book and extract summaries, insights, declarations,
+                  action steps, and questions — with versions for adults, teens, and kids.
+                </p>
+              </div>
+              <button
+                onClick={handleFullExtraction}
+                className="px-6 py-2.5 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm font-medium"
+              >
+                <Sparkles size={14} className="inline mr-1.5" />
+                Extract This Book
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!needsExtraction && !extracting && (
       <div className="flex gap-6">
         <ExtractionSidebar
           chapters={chapters}
@@ -405,6 +510,7 @@ export function ExtractionBrowser({
           />
         </div>
       </div>
+      )}
 
       <ChapterJumpOverlay
         chapters={chapters}

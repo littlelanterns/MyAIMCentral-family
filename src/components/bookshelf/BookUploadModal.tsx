@@ -168,7 +168,7 @@ export function BookUploadModal({ isOpen, onClose, existingBooks, onUploadComple
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 rounded-lg bg-[var(--surface-primary)] text-[var(--color-text-on-primary)] text-sm font-medium"
+                className="px-4 py-2 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm font-medium"
               >
                 Choose Files
               </button>
@@ -221,7 +221,7 @@ export function BookUploadModal({ isOpen, onClose, existingBooks, onUploadComple
                 type="button"
                 onClick={handleTextNoteSave}
                 disabled={!textNoteTitle.trim() || !textNoteContent.trim() || processing}
-                className="px-4 py-1.5 rounded-lg bg-[var(--surface-primary)] text-[var(--color-text-on-primary)] text-sm font-medium disabled:opacity-50"
+                className="px-4 py-1.5 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm font-medium disabled:opacity-50"
               >
                 Save & Process
               </button>
@@ -282,7 +282,7 @@ export function BookUploadModal({ isOpen, onClose, existingBooks, onUploadComple
             <button
               type="button"
               onClick={processQueue}
-              className="px-5 py-2 rounded-lg bg-[var(--surface-primary)] text-[var(--color-text-on-primary)] text-sm font-medium"
+              className="px-5 py-2 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm font-medium"
             >
               Upload {pendingCount} file{pendingCount !== 1 ? 's' : ''}
             </button>
@@ -300,7 +300,7 @@ export function BookUploadModal({ isOpen, onClose, existingBooks, onUploadComple
             <button
               type="button"
               onClick={handleClose}
-              className="mt-2 px-4 py-1.5 rounded-lg bg-[var(--surface-primary)] text-[var(--color-text-on-primary)] text-sm"
+              className="mt-2 px-4 py-1.5 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm"
             >
               Done
             </button>
