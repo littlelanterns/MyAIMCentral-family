@@ -5,12 +5,15 @@
  * discussion types and five audience modes. Adapted from StewardShip's
  * manifest-discuss reference implementation for the MyAIM v2 architecture.
  *
+ * Phase 1b-D: Rewired from old per-family tables to platform RPCs.
+ * Context assembly now uses get_book_extractions (unified platform table).
+ * RAG search uses match_book_chunks + match_book_extractions (platform RPCs).
+ *
  * Context sources per book:
  *   - bookshelf_items metadata (title, author, genres, ai_summary)
- *   - bookshelf_summaries, bookshelf_insights, bookshelf_declarations,
- *     bookshelf_action_steps, bookshelf_questions (hearted items prioritized)
- *   - match_bookshelf_chunks RPC (passage-level RAG)
- *   - match_bookshelf_extractions RPC (semantic extraction search)
+ *   - get_book_extractions RPC (unified platform extractions + user state)
+ *   - match_book_chunks RPC (passage-level RAG)
+ *   - match_book_extractions RPC (semantic extraction search)
  *
  * User context sources:
  *   - guiding_stars (values and declarations)
@@ -241,7 +244,38 @@ Present conversationally. The user can refine tracking criteria and approach.`
 }
 
 // ============================================================
-// Book Context Assembly
+// Library ID Resolution
+// ============================================================
+
+/**
+ * Resolve bookshelf_item_ids → book_library_ids for the platform match RPCs.
+ * Returns the library IDs and a reverse map for result mapping.
+ */
+async function resolveLibraryIds(
+  bookshelfItemIds: string[],
+): Promise<{ libraryIds: string[]; libraryToItemMap: Map<string, string> }> {
+  const map = new Map<string, string>()
+
+  const { data } = await supabase
+    .from('bookshelf_items')
+    .select('id, book_library_id')
+    .in('id', bookshelfItemIds)
+    .not('book_library_id', 'is', null)
+
+  if (data) {
+    for (const row of data) {
+      if (row.book_library_id) {
+        map.set(row.book_library_id, row.id)
+      }
+    }
+  }
+
+  const libraryIds = [...new Set(data?.map(r => r.book_library_id).filter(Boolean) ?? [])]
+  return { libraryIds, libraryToItemMap: map }
+}
+
+// ============================================================
+// Book Context Assembly (Phase 1b-D: uses platform RPCs)
 // ============================================================
 
 type BookItem = {
@@ -253,12 +287,13 @@ type BookItem = {
 }
 
 type ExtractionRow = {
-  text?: string
-  declaration_text?: string
+  extraction_type: string
+  text: string | null
+  declaration_text: string | null
+  content_type: string | null
+  style_variant: string | null
   is_hearted: boolean
-  content_type?: string
-  style_variant?: string
-  content_type?: string
+  is_key_point: boolean
 }
 
 async function buildBookContext(
@@ -274,18 +309,21 @@ async function buildBookContext(
   const queryText = userMessage || bookshelfItemIds[0] // fallback if no message yet
   const queryEmbedding = await generateEmbedding(queryText)
 
+  // Resolve bookshelf_item_ids → book_library_ids for match RPCs
+  const { libraryIds, libraryToItemMap } = await resolveLibraryIds(bookshelfItemIds)
+
   for (const itemId of bookshelfItemIds) {
-    // 1. Book metadata
+    // 1. Book metadata (still from bookshelf_items — the family's pointer)
     const { data: item } = await supabase
       .from('bookshelf_items')
-      .select('id, title, author, genres, ai_summary')
+      .select('id, title, author, genres, ai_summary, book_library_id')
       .eq('id', itemId)
       .eq('family_id', familyId)
       .single()
 
     if (!item) continue
 
-    const bookItem = item as BookItem
+    const bookItem = item as BookItem & { book_library_id: string | null }
     const displayTitle = bookItem.author
       ? `${bookItem.title} by ${bookItem.author}`
       : bookItem.title
@@ -299,160 +337,86 @@ async function buildBookContext(
       bookSection += `\nGenres: ${bookItem.genres.join(', ')}`
     }
 
-    // 2. Summaries — hearted first, then non-hearted (limited)
-    const { data: summaries } = await supabase
-      .from('bookshelf_summaries')
-      .select('text, content_type, is_hearted')
-      .eq('bookshelf_item_id', itemId)
-      .eq('family_member_id', memberId)
-      .order('is_hearted', { ascending: false })
-      .order('created_at', { ascending: true })
+    // 2. Get ALL extractions for this book from the platform via get_book_extractions RPC
+    //    This replaces the 5 separate queries to old per-family tables.
+    const { data: extractions, error: extractionErr } = await supabase.rpc(
+      'get_book_extractions',
+      {
+        p_bookshelf_item_ids: [itemId],
+        p_member_id: memberId,
+      },
+    )
 
-    if (summaries && summaries.length > 0) {
-      const rows = summaries as ExtractionRow[]
-      const hearted = rows.filter((r) => r.is_hearted)
-      const others = rows.filter((r) => !r.is_hearted).slice(0, 15)
+    if (extractionErr) {
+      console.error('get_book_extractions error for item', itemId, extractionErr.message)
+    }
 
-      if (hearted.length > 0) {
-        bookSection += '\n\nHearted Key Insights:'
-        for (const s of hearted) {
-          bookSection += `\n- [${s.content_type || 'insight'}] ${s.text}`
+    if (extractions && extractions.length > 0) {
+      const rows = extractions as ExtractionRow[]
+
+      // Group by extraction_type, hearted first within each group
+      const grouped: Record<string, { hearted: ExtractionRow[]; other: ExtractionRow[] }> = {}
+      for (const row of rows) {
+        if (!grouped[row.extraction_type]) {
+          grouped[row.extraction_type] = { hearted: [], other: [] }
+        }
+        if (row.is_hearted) {
+          grouped[row.extraction_type].hearted.push(row)
+        } else {
+          grouped[row.extraction_type].other.push(row)
         }
       }
-      if (others.length > 0) {
-        bookSection += '\n\nOther Key Insights:'
-        for (const s of others) {
-          bookSection += `\n- [${s.content_type || 'insight'}] ${s.text}`
+
+      // Render each extraction type with hearted items first, limited non-hearted
+      const typeLabels: Record<string, { heartedLabel: string; otherLabel: string; limit: number }> = {
+        summary: { heartedLabel: 'Hearted Key Insights', otherLabel: 'Other Key Insights', limit: 15 },
+        insight: { heartedLabel: 'Hearted Principles & Frameworks', otherLabel: 'Other Principles & Frameworks', limit: 10 },
+        declaration: { heartedLabel: 'Hearted Declarations', otherLabel: 'Other Declarations', limit: 8 },
+        action_step: { heartedLabel: 'Hearted Action Steps', otherLabel: 'Other Action Steps', limit: 8 },
+        question: { heartedLabel: 'Hearted Reflection Questions', otherLabel: 'Other Reflection Questions', limit: 8 },
+      }
+
+      for (const [type, group] of Object.entries(grouped)) {
+        const labels = typeLabels[type] ?? { heartedLabel: `Hearted ${type}`, otherLabel: `Other ${type}`, limit: 8 }
+
+        if (group.hearted.length > 0) {
+          bookSection += `\n\n${labels.heartedLabel}:`
+          for (const r of group.hearted) {
+            const text = type === 'declaration' ? r.declaration_text : r.text
+            const contentType = r.content_type || type
+            if (type === 'declaration') {
+              bookSection += `\n- ${text}`
+            } else {
+              bookSection += `\n- [${contentType}] ${text}`
+            }
+          }
+        }
+        if (group.other.length > 0) {
+          const limited = group.other.slice(0, labels.limit)
+          bookSection += `\n\n${labels.otherLabel}:`
+          for (const r of limited) {
+            const text = type === 'declaration' ? r.declaration_text : r.text
+            const contentType = r.content_type || type
+            if (type === 'declaration') {
+              bookSection += `\n- ${text}`
+            } else {
+              bookSection += `\n- [${contentType}] ${text}`
+            }
+          }
         }
       }
     }
 
-    // 3. Insights — hearted first, then non-hearted (limited)
-    const { data: insights } = await supabase
-      .from('bookshelf_insights')
-      .select('text, content_type, is_hearted')
-      .eq('bookshelf_item_id', itemId)
-      .eq('family_member_id', memberId)
-      .order('is_hearted', { ascending: false })
-      .order('created_at', { ascending: true })
-
-    if (insights && insights.length > 0) {
-      const rows = insights as ExtractionRow[]
-      const hearted = rows.filter((r) => r.is_hearted)
-      const others = rows.filter((r) => !r.is_hearted).slice(0, 10)
-
-      if (hearted.length > 0) {
-        bookSection += '\n\nHearted Principles & Frameworks:'
-        for (const s of hearted) {
-          bookSection += `\n- [${s.content_type || 'insight'}] ${s.text}`
-        }
-      }
-      if (others.length > 0) {
-        bookSection += '\n\nOther Principles & Frameworks:'
-        for (const s of others) {
-          bookSection += `\n- [${s.content_type || 'insight'}] ${s.text}`
-        }
-      }
-    }
-
-    // 4. Declarations — hearted first, then non-hearted (limited)
-    const { data: declarations } = await supabase
-      .from('bookshelf_declarations')
-      .select('declaration_text, style_variant, is_hearted')
-      .eq('bookshelf_item_id', itemId)
-      .eq('family_member_id', memberId)
-      .order('is_hearted', { ascending: false })
-      .order('created_at', { ascending: true })
-
-    if (declarations && declarations.length > 0) {
-      const rows = declarations as ExtractionRow[]
-      const hearted = rows.filter((r) => r.is_hearted)
-      const others = rows.filter((r) => !r.is_hearted).slice(0, 8)
-
-      if (hearted.length > 0) {
-        bookSection += '\n\nHearted Declarations:'
-        for (const d of hearted) {
-          bookSection += `\n- ${d.declaration_text}`
-        }
-      }
-      if (others.length > 0) {
-        bookSection += '\n\nOther Declarations:'
-        for (const d of others) {
-          bookSection += `\n- ${d.declaration_text}`
-        }
-      }
-    }
-
-    // 5. Action Steps — hearted first, then non-hearted (limited)
-    const { data: actionSteps } = await supabase
-      .from('bookshelf_action_steps')
-      .select('text, content_type, is_hearted')
-      .eq('bookshelf_item_id', itemId)
-      .eq('family_member_id', memberId)
-      .order('is_hearted', { ascending: false })
-      .order('created_at', { ascending: true })
-
-    if (actionSteps && actionSteps.length > 0) {
-      const rows = actionSteps as ExtractionRow[]
-      const hearted = rows.filter((r) => r.is_hearted)
-      const others = rows.filter((r) => !r.is_hearted).slice(0, 8)
-
-      if (hearted.length > 0) {
-        bookSection += '\n\nHearted Action Steps:'
-        for (const a of hearted) {
-          bookSection += `\n- [${a.content_type || 'action'}] ${a.text}`
-        }
-      }
-      if (others.length > 0) {
-        bookSection += '\n\nOther Action Steps:'
-        for (const a of others) {
-          bookSection += `\n- [${a.content_type || 'action'}] ${a.text}`
-        }
-      }
-    }
-
-    // 6. Questions — hearted first, then non-hearted (limited)
-    const { data: questions } = await supabase
-      .from('bookshelf_questions')
-      .select('text, content_type, is_hearted')
-      .eq('bookshelf_item_id', itemId)
-      .eq('family_member_id', memberId)
-      .order('is_hearted', { ascending: false })
-      .order('created_at', { ascending: true })
-
-    if (questions && questions.length > 0) {
-      const rows = questions as Array<{
-        text: string
-        content_type: string | null
-        is_hearted: boolean
-      }>
-      const hearted = rows.filter((r) => r.is_hearted)
-      const others = rows.filter((r) => !r.is_hearted).slice(0, 8)
-
-      if (hearted.length > 0) {
-        bookSection += '\n\nHearted Reflection Questions:'
-        for (const q of hearted) {
-          bookSection += `\n- [${q.content_type || 'reflection'}] ${q.text}`
-        }
-      }
-      if (others.length > 0) {
-        bookSection += '\n\nOther Reflection Questions:'
-        for (const q of others) {
-          bookSection += `\n- [${q.content_type || 'reflection'}] ${q.text}`
-        }
-      }
-    }
-
-    // 7. RAG chunk search (passage-level)
-    if (queryEmbedding) {
+    // 3. RAG chunk search (passage-level) — now uses platform match_book_chunks
+    if (queryEmbedding && bookItem.book_library_id) {
       try {
         const chunkCount = bookshelfItemIds.length === 1 ? 8 : 5
         const { data: chunks, error: chunkErr } = await supabase.rpc(
-          'match_bookshelf_chunks',
+          'match_book_chunks',
           {
             query_embedding: queryEmbedding,
             p_family_id: familyId,
-            p_book_ids: [itemId],
+            p_book_library_ids: [bookItem.book_library_id],
             match_threshold: 0.3,
             match_count: chunkCount,
           },
@@ -479,17 +443,18 @@ async function buildBookContext(
     parts.push(bookSection)
   }
 
-  // 8. Semantic extraction search across all requested books (cross-book connections)
-  if (queryEmbedding) {
+  // 4. Semantic extraction search across all requested books (cross-book connections)
+  //    Now uses platform match_book_extractions
+  if (queryEmbedding && libraryIds.length > 0) {
     try {
       const extractionCount = bookshelfItemIds.length === 1 ? 6 : 10
       const { data: semanticMatches, error: semanticErr } = await supabase.rpc(
-        'match_bookshelf_extractions',
+        'match_book_extractions',
         {
           query_embedding: queryEmbedding,
           p_family_id: familyId,
           p_member_id: memberId,
-          p_book_ids: bookshelfItemIds,
+          p_book_library_ids: libraryIds,
           match_threshold: 0.4,
           match_count: extractionCount,
         },
@@ -505,15 +470,12 @@ async function buildBookContext(
 
         for (const m of semanticMatches as Array<{
           book_title: string
-          table_name: string
+          extraction_type: string
           content_type: string | null
           item_text: string
         }>) {
-          const sourceType = (m.table_name || '')
-            .replace('bookshelf_', '')
-            .replace(/_/g, ' ')
           lines.push(
-            `- [${m.book_title} — ${m.content_type || sourceType}] ${m.item_text}`,
+            `- [${m.book_title} — ${m.content_type || m.extraction_type}] ${m.item_text}`,
           )
         }
 
