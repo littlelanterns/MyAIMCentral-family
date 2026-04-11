@@ -39,7 +39,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!
 
-const HAIKU_MODEL = 'anthropic/claude-haiku-4-5-20251001'
+const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
 const STORAGE_BUCKET = 'bookshelf-files'
 const MAX_CHUNKS = 500
 
@@ -83,6 +83,7 @@ interface BookshelfItem {
   author: string | null
   file_type: string
   file_url: string | null
+  storage_path: string | null
   processing_status: string
   genres: string[] | null
   tags: string[] | null
@@ -90,6 +91,11 @@ interface BookshelfItem {
   book_library_id: string | null
   parent_bookshelf_item_id: string | null
   isbn: string | null
+}
+
+/** Resolve the storage path from either file_url or storage_path */
+function resolveFilePath(item: BookshelfItem): string | null {
+  return item.file_url || item.storage_path || null
 }
 
 // ============================================================
@@ -641,12 +647,12 @@ async function extractPDF(
   setDetail: (d: string) => Promise<unknown>,
 ): Promise<string | Response> {
   try {
-    if (!item.file_url) throw new Error('No file_url for PDF item')
+    if (!resolveFilePath(item)) throw new Error('No file_url or storage_path for PDF item')
 
     await setDetail('Downloading PDF...')
     const { data: fileData, error: downloadErr } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .download(getStoragePath(item.file_url))
+      .download(getStoragePath(resolveFilePath(item)!))
 
     if (downloadErr || !fileData) {
       throw new Error(`Failed to download PDF: ${downloadErr?.message}`)
@@ -706,7 +712,7 @@ async function extractPDF(
           const pdfMeta = await extractPDFMetadata(pdfBytes)
           const metaUpdate: Record<string, unknown> = {}
           if (pdfMeta.author) metaUpdate.author = pdfMeta.author
-          const filenameTitle = getFilenameTitle(item.file_url || '')
+          const filenameTitle = getFilenameTitle(resolveFilePath(item) || '')
           const pdfTitleGarbled = isProbablyGarbledTitle(pdfMeta.title)
           const currentTitleLooksGood = item.title && /\s/.test(item.title) && !isProbablyGarbledTitle(item.title)
           if (
@@ -770,12 +776,12 @@ async function extractEPUB(
   setDetail: (d: string) => Promise<unknown>,
 ): Promise<string | Response> {
   try {
-    if (!item.file_url) throw new Error('No file_url for EPUB item')
+    if (!resolveFilePath(item)) throw new Error('No file_url or storage_path for EPUB item')
 
     await setDetail('Downloading EPUB...')
     const { data: fileData, error: downloadErr } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .download(getStoragePath(item.file_url))
+      .download(getStoragePath(resolveFilePath(item)!))
 
     if (downloadErr || !fileData) {
       throw new Error(`Failed to download EPUB: ${downloadErr?.message}`)
@@ -813,7 +819,7 @@ async function extractEPUB(
       const metaUpdate: Record<string, unknown> = {}
       if (epubMeta.author) metaUpdate.author = epubMeta.author
       if (epubMeta.isbn) metaUpdate.isbn = epubMeta.isbn
-      const filenameTitle = getFilenameTitle(item.file_url || '')
+      const filenameTitle = getFilenameTitle(resolveFilePath(item) || '')
       const epubTitleGarbled = isProbablyGarbledTitle(epubMeta.title)
       const currentTitleLooksGood = item.title && /\s/.test(item.title) && !isProbablyGarbledTitle(item.title)
       if (
@@ -860,12 +866,12 @@ async function extractDOCX(
   setDetail: (d: string) => Promise<unknown>,
 ): Promise<string | Response> {
   try {
-    if (!item.file_url) throw new Error('No file_url for DOCX item')
+    if (!resolveFilePath(item)) throw new Error('No file_url or storage_path for DOCX item')
 
     await setDetail('Downloading DOCX...')
     const { data: fileData, error: downloadErr } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .download(getStoragePath(item.file_url))
+      .download(getStoragePath(resolveFilePath(item)!))
 
     if (downloadErr || !fileData) {
       throw new Error(`Failed to download DOCX: ${downloadErr?.message}`)
@@ -886,7 +892,7 @@ async function extractDOCX(
       const docxMeta = extractMetadataFromDOCXFiles(docxFiles)
       const metaUpdate: Record<string, unknown> = {}
       if (docxMeta.author) metaUpdate.author = docxMeta.author
-      const filenameTitle = getFilenameTitle(item.file_url || '')
+      const filenameTitle = getFilenameTitle(resolveFilePath(item) || '')
       if (docxMeta.title && item.title === filenameTitle) {
         metaUpdate.title = docxMeta.title
       }
@@ -926,12 +932,12 @@ async function extractPlainText(
   setDetail: (d: string) => Promise<unknown>,
 ): Promise<string | Response> {
   try {
-    if (!item.file_url) throw new Error('No file_url for text item')
+    if (!resolveFilePath(item)) throw new Error('No file_url or storage_path for text item')
 
     await setDetail('Downloading file...')
     const { data: fileData, error: downloadErr } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .download(getStoragePath(item.file_url))
+      .download(getStoragePath(resolveFilePath(item)!))
 
     if (downloadErr || !fileData) {
       throw new Error(`Failed to download file: ${downloadErr?.message}`)
@@ -970,10 +976,10 @@ async function extractImage(
   setDetail: (d: string) => Promise<unknown>,
 ): Promise<string | Response> {
   try {
-    if (!item.file_url) throw new Error('No file_url for image item')
+    if (!resolveFilePath(item)) throw new Error('No file_url or storage_path for image item')
 
     await setDetail('Analyzing image with AI vision...')
-    const visionText = await extractViaVision(item.file_url)
+    const visionText = await extractViaVision(resolveFilePath(item)!)
 
     if (visionText) {
       await supabase
@@ -1064,8 +1070,10 @@ Return ONLY a valid JSON object. No markdown, no explanation.`
     const update: Record<string, unknown> = {}
 
     // Only update title/author if current value looks like a raw filename
-    const filenameTitle = getFilenameTitle(item.file_url || '')
-    const currentTitleIsFilename = !item.title || item.title === filenameTitle
+    const filenameTitle = getFilenameTitle(resolveFilePath(item) || '')
+    // Also check: title has no spaces and contains underscores/hyphens → likely a filename
+    const looksLikeFilename = item.title && !/\s/.test(item.title) && /[_-]/.test(item.title)
+    const currentTitleIsFilename = !item.title || item.title === filenameTitle || looksLikeFilename
     if (classification.title && currentTitleIsFilename) {
       update.title = classification.title
     }
