@@ -57,7 +57,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Long conversation summarization | PRD-05 | — | 📌 Post-MVP | — |
 | Mode auto-routing mid-conversation | PRD-05 | — | ⏳ Unwired (MVP) | Phase 07+ |
 | Archive context loading | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
-| BookShelf RAG context | PRD-05 | PRD-23 | ⏳ Unwired (MVP) | Phase 28 |
+| BookShelf RAG context | PRD-05 | PRD-23 | ✅ Wired | 2026-04-11 (Phase 1b-E: context-assembler → get_bookshelf_context platform RPC) |
 | Tool permission management UI | PRD-05 | PRD-22 | ⏳ Unwired (MVP) | Phase 27 |
 | Victory detection/recording | PRD-05 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
 | Context Learning write-back | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
@@ -214,6 +214,9 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Semantic/vector search for Vault | PRD-21C | — | 📌 Post-MVP | — |
 | Out of Nest → sibling messaging | PRD-22 | — | 📌 Post-MVP | — |
 | Book social sharing | PRD-23 | — | 📌 Post-MVP | — |
+| Drop old per-family BookShelf tables (Phase 1c) | PRD-23 Phase 1b | PRD-23 Phase 1c | ⏳ Unwired (MVP) | 30-day soak after 1b-F, then drop bookshelf_summaries/insights/declarations/action_steps/questions + old RPCs |
+| bookshelf_chapters migration to platform | PRD-23 | — | 📌 Post-MVP | — |
+| Cross-family book recommendations | PRD-23 | — | 📌 Post-MVP | — |
 
 ## Gamification Stubs
 

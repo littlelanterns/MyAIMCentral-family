@@ -3022,7 +3022,7 @@
 ---
 
 ### `bookshelf_summaries`
-**PRD:** PRD-23 | **Domain:** bookshelf
+**PRD:** PRD-23 | **Domain:** bookshelf | **DEPRECATED 2026-04-11** — Read-only as of Phase 1b-F. Source of truth is `platform_intelligence.book_extractions`. Drop in Phase 1c after 30-day soak.
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -3045,7 +3045,7 @@
 ---
 
 ### `bookshelf_insights`
-**PRD:** PRD-23 | **Domain:** bookshelf
+**PRD:** PRD-23 | **Domain:** bookshelf | **DEPRECATED 2026-04-11** — Read-only as of Phase 1b-F. Source of truth is `platform_intelligence.book_extractions`. Drop in Phase 1c after 30-day soak.
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -3065,7 +3065,7 @@
 ---
 
 ### `bookshelf_declarations`
-**PRD:** PRD-23 | **Domain:** bookshelf
+**PRD:** PRD-23 | **Domain:** bookshelf | **DEPRECATED 2026-04-11** — Read-only as of Phase 1b-F. Source of truth is `platform_intelligence.book_extractions`. Drop in Phase 1c after 30-day soak.
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -3085,7 +3085,7 @@
 ---
 
 ### `bookshelf_action_steps`
-**PRD:** PRD-23 | **Domain:** bookshelf
+**PRD:** PRD-23 | **Domain:** bookshelf | **DEPRECATED 2026-04-11** — Read-only as of Phase 1b-F. Source of truth is `platform_intelligence.book_extractions`. Drop in Phase 1c after 30-day soak.
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -3105,7 +3105,7 @@
 ---
 
 ### `bookshelf_questions`
-**PRD:** PRD-23 | **Domain:** bookshelf
+**PRD:** PRD-23 | **Domain:** bookshelf | **DEPRECATED 2026-04-11** — Read-only as of Phase 1b-F. Source of truth is `platform_intelligence.book_extractions`. Drop in Phase 1c after 30-day soak.
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|

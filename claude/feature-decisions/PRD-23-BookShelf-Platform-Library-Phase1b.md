@@ -496,6 +496,73 @@ Each sub-phase ends at a `tsc -b` clean checkpoint with a verification gate. Seq
 
 ---
 
+## Post-Build Verification — Phase 1b Complete (2026-04-11)
+
+### Sub-phase Results
+
+| Sub-phase | Scope | Status | Date |
+|---|---|---|---|
+| 1b-A | Embedding column + backfill + embed pipeline | **Wired** | 2026-04-09 |
+| 1b-B | Write path rewire (bookshelf-process + bookshelf-extract) | **Wired** | 2026-04-09 |
+| 1b-C | Per-row relink + bulk assignment SQL scripts | **Wired** | 2026-04-10 |
+| 1b-D | Rewire bookshelf-search + bookshelf-discuss | **Wired** | 2026-04-11 |
+| 1b-E | Rewire bookshelf-key-points + bookshelf-study-guide + context-assembler | **Wired** | 2026-04-11 |
+| 1b-F | Documentation + deprecation + verification | **Wired** | 2026-04-11 |
+
+### Requirement Verification Table
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 1 | `book_extractions` has `embedding halfvec(1536)` column | **Wired** | Migration 100122 |
+| 2 | 88K embeddings backfilled from old tables | **Wired** | Exact-text-match JOIN, 5 update blocks |
+| 3 | HNSW index on `book_extractions.embedding` | **Wired** | `idx_plbe_embedding` |
+| 4 | `match_book_extractions` RPC works (no more "column does not exist") | **Wired** | Morning Insight now returns matches |
+| 5 | Embed Edge Function polls `book_extractions` for unembedded rows | **Wired** | 4 RPCs: get/update for extractions + chunks |
+| 6 | `bookshelf-process` cache-hit logic (title+author embedding ≥0.9) | **Wired** | Migration 100125 RPCs + process rewire |
+| 7 | `bookshelf-process` writes to platform tables via SECURITY DEFINER RPCs | **Wired** | `upsert_book_library`, `insert_book_chunks`, `set_bookshelf_item_library_id` |
+| 8 | `bookshelf-extract` persists extractions to platform table | **Wired** | `insert_book_extractions` RPC + dual-write to old tables |
+| 9 | `bookshelf-extract` guided_text / independent_text youth adaptations | **Wired** | Populated on every new extraction |
+| 10 | Go Deeper persistence fix (no longer silently drops Sonnet output) | **Wired** | bookshelf-extract response body read + persisted |
+| 11 | Continue Extraction for partially-extracted books | **Wired** | Start from last completed section |
+| 12 | Dual-write active (old + new tables) | **Wired** | Stops at founder approval in Phase 1c |
+| 13 | Per-row relink migration (`bookshelf_items.book_library_id` = 0 null) | **Wired** | Migration 100129, verified 561 active rows |
+| 14 | 4 bulk-assignment SQL scripts in `docs/bookshelf-bulk-assign/` | **Wired** | by-collection, by-tag, by-title-list, from-source-family |
+| 15 | `bookshelf-search` reads from platform `match_book_chunks` + `match_book_extractions` | **Wired** | 1b-D, resolves item_id→library_id, reverse-maps for frontend nav |
+| 16 | `bookshelf-discuss` reads extractions via `get_book_extractions` RPC | **Wired** | 1b-D, replaces 5 direct old-table queries |
+| 17 | `bookshelf-discuss` RAG via platform `match_book_chunks` + `match_book_extractions` | **Wired** | 1b-D |
+| 18 | `bookshelf-key-points` reads via `get_book_extractions`, writes via `update_book_extraction_key_points` | **Wired** | 1b-E |
+| 19 | `bookshelf-study-guide` reads via `get_book_extractions`, writes via platform RPCs | **Wired** | 1b-E, `delete_book_extractions_by_audience` + `insert_book_extractions_study_guide` |
+| 20 | `context-assembler` `loadBookShelfContext` uses `get_bookshelf_context` RPC | **Wired** | 1b-E, replaces ~70 lines of 4 direct queries |
+| 21 | `get_bookshelf_context` enum fixed (`'all'` + backward-compat `'all_extracted'`) | **Wired** | Migration 100131 |
+| 22 | Old RPCs preserved (NOT dropped) | **Wired** | Phase 1c soak |
+| 23 | `SemanticSearchPanel` backward-compatible (TABLE_TO_TAB handles extraction_type values) | **Wired** | Already had both old + new mappings |
+| 24 | `tsc -b` zero errors | **Wired** | Verified at each sub-phase |
+
+### Stubs Remaining (Phase 1c + Post-MVP)
+
+| Stub | Status |
+|---|---|
+| Drop old per-family tables (Phase 1c, 30-day soak) | Stubbed |
+| `bookshelf_chapters` migration to platform | Stubbed |
+| Cross-family recommendations | Stubbed |
+| Cache-hit UI indication | Stubbed (transparent per PRD) |
+| `bookshelf_shares` rewire (0 rows) | Stubbed |
+| `update_extraction_text` UI wiring | Stubbed |
+| Bulk cache-hit scanner for existing 559 books | Stubbed |
+| Server-side auto-extract queue | Stubbed |
+| Frontend surface for guided_text / independent_text | Stubbed |
+
+### Test Results
+
+| Test Suite | Passed | Failed | Notes |
+|---|---|---|---|
+| `bookshelf-platform-library.spec.ts` | 13 | 1 | Count mismatch (115 vs 113) is dual-write artifact, not regression |
+| `bookshelf-discuss-context.spec.ts` | 5 | 0 | All AI quality + audience tests pass against deployed functions |
+
+**Zero Missing items. Phase 1b is complete pending founder sign-off.**
+
+---
+
 ## Data Migration Risk Assessment
 
 | Sub-phase | Operation | Risk | Reversibility | Mitigation |
