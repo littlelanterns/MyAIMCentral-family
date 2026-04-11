@@ -329,8 +329,8 @@ export function GamificationSettingsModal({
                   <button
                     onClick={() => newSegmentName.trim() && handleCreateSegment(newSegmentName.trim())}
                     disabled={!newSegmentName.trim()}
-                    className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                    style={{ backgroundColor: 'var(--color-sage-teal)' }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--color-sage-teal)', color: 'var(--color-text-on-primary, #fff)' }}
                   >
                     <Check size={16} />
                   </button>
@@ -872,8 +872,8 @@ function SortableSegmentRow({
                 })
                 onToggleEdit()
               }}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-              style={{ backgroundColor: 'var(--color-sage-teal)' }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{ backgroundColor: 'var(--color-sage-teal)', color: 'var(--color-text-on-primary, #fff)' }}
             >
               Save
             </button>
@@ -1324,8 +1324,8 @@ function ConfirmDialog({
         <div className="flex gap-2">
           <button
             onClick={onConfirm}
-            className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--color-error, #ef4444)' }}
+            className="flex-1 py-2 rounded-lg text-sm font-medium"
+            style={{ backgroundColor: 'var(--color-error, #ef4444)', color: 'var(--color-text-on-primary, #fff)' }}
           >
             Confirm
           </button>
