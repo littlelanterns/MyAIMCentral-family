@@ -21,6 +21,7 @@ interface ExtractionHeaderProps {
   onOpenHistory?: () => void
   onGoDeeper?: (bookId: string, tab: string, sectionTitle?: string) => void
   goingDeeper?: boolean
+  activeTab?: string
   onOpenStudyGuide?: () => void
   /** Archive folder routing */
   onFolderChange?: (bookId: string, folderId: string | null) => void
@@ -36,7 +37,7 @@ export function ExtractionHeader({
   books, collectionName, showHearted, onBack,
   onTitleChange, onAuthorChange,
   siblingBooks, onNavigateToBook, onOpenSemanticSearch,
-  onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, onOpenStudyGuide,
+  onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, activeTab, onOpenStudyGuide,
   onFolderChange, archiveFolders, onGenresChange, onTagsChange, historyOpen,
 }: ExtractionHeaderProps) {
   const isSingleBook = books.length === 1
@@ -192,7 +193,7 @@ export function ExtractionHeader({
 
                 {onGoDeeper && book && (
                   <button
-                    onClick={() => onGoDeeper(book.id, 'summaries')}
+                    onClick={() => onGoDeeper(book.id, activeTab || 'summaries')}
                     disabled={goingDeeper}
                     className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                   >

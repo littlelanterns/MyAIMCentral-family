@@ -225,13 +225,28 @@ export function ExtractionBrowser({
     return map
   }, [allBooks])
 
+  // Read discovered_sections from the book (if previously saved) — needed by Go Deeper + Continue Extraction
+  const discoveredSections = useMemo(() => {
+    if (!primaryBook) return null
+    const ds = (primaryBook as { discovered_sections?: unknown }).discovered_sections
+    if (!ds || !Array.isArray(ds)) return null
+    return ds as Array<{ title?: string; start_char: number; end_char: number }>
+  }, [primaryBook])
+
   // Go Deeper handler
+  // Map UI tab names to Edge Function extraction_type values
+  const tabToExtractionType: Record<string, string> = {
+    summaries: 'summary_section',
+    insights: 'insights_section',
+    declarations: 'declarations_section',
+    action_steps: 'action_steps_section',
+    questions: 'questions_section',
+  }
+
   const handleGoDeeper = useCallback(async (bookId: string, tab: string, sectionTitle?: string) => {
     if (!member) return
     setGoingDeeper(true)
     try {
-      // Get existing items for the tab to prevent duplicates
-      // Filter items matching the book (via book_library_id from the bookshelf_item)
       const targetBook = books.find(b => b.id === bookId)
       const targetLibId = targetBook?.book_library_id
       const tabItems: BookExtraction[] =
@@ -245,18 +260,30 @@ export function ExtractionBrowser({
         .filter(i => !sectionTitle || (i as { section_title?: string | null }).section_title === sectionTitle)
         .map(i => ('declaration_text' in i ? (i as { declaration_text: string }).declaration_text : (i as { text?: string }).text) || '')
 
+      // Resolve section boundaries from discovered_sections
+      const ds = (targetBook as { discovered_sections?: unknown } | undefined)?.discovered_sections
+      const discoveredArr = (ds && Array.isArray(ds) ? ds : discoveredSections || []) as Array<{ title?: string; start_char: number; end_char: number }>
+      const matchedSection = sectionTitle
+        ? discoveredArr.find(s => s.title === sectionTitle)
+        : discoveredArr[0] // fallback to first section if no title specified
+
+      const { supabase } = await import('@/lib/supabase/client')
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token
+
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bookshelf-extract`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await import('@/lib/supabase/client')).supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           bookshelf_item_id: bookId,
-          extraction_type: tab,
+          extraction_type: tabToExtractionType[tab] || 'summary_section',
           go_deeper: true,
           existing_items: existingTexts,
           section_title: sectionTitle,
+          section_start: matchedSection?.start_char,
+          section_end: matchedSection?.end_char,
           family_id: member.family_id,
           member_id: member.id,
         }),
@@ -265,50 +292,100 @@ export function ExtractionBrowser({
     } finally {
       setGoingDeeper(false)
     }
-  }, [member, summaries, insights, declarations, actionSteps, questions, refetch])
+  }, [member, books, summaries, insights, declarations, actionSteps, questions, refetch, discoveredSections])
 
-  // ── Full extraction trigger (for books with no extractions) ──────────
+  // ── Full / continue extraction trigger ──────────────────────────────
   const [extracting, setExtracting] = useState(false)
   const [extractProgress, setExtractProgress] = useState('')
   const extractAbortRef = useRef(false)
 
   const totalExtractions = summaries.length + insights.length + declarations.length + actionSteps.length + questions.length
-  const needsExtraction = isSingleBook && primaryBook && totalExtractions === 0 && !loading
 
-  const handleFullExtraction = useCallback(async () => {
+  // Determine which sections have already been extracted (by section_title)
+  const extractedSectionTitles = useMemo(() => {
+    const titles = new Set<string>()
+    for (const item of [...summaries, ...insights, ...declarations, ...actionSteps, ...questions]) {
+      const st = (item as { section_title?: string | null }).section_title
+      if (st) titles.add(st)
+    }
+    return titles
+  }, [summaries, insights, declarations, actionSteps, questions])
+
+  // Count unextracted sections
+  const contentSections = useMemo(() => {
+    if (!discoveredSections) return null
+    return discoveredSections.filter(s => !s.title?.startsWith('[NON-CONTENT]'))
+  }, [discoveredSections])
+
+  const unextractedSections = useMemo(() => {
+    if (!contentSections) return null
+    return contentSections.filter(s => !extractedSectionTitles.has(s.title || ''))
+  }, [contentSections, extractedSectionTitles])
+
+  const needsExtraction = isSingleBook && primaryBook && totalExtractions === 0 && !loading
+  const hasPartialExtraction = isSingleBook && primaryBook && totalExtractions > 0
+    && unextractedSections && unextractedSections.length > 0 && !loading
+
+  const handleFullExtraction = useCallback(async (sectionsToExtract?: Array<{ title?: string; start_char: number; end_char: number }>) => {
     if (!primaryBook || !member) return
     setExtracting(true)
     extractAbortRef.current = false
     try {
-      const token = (await import('@/lib/supabase/client')).supabase.auth.getSession().then(s => s.data.session?.access_token)
-      const accessToken = await token
+      const { supabase } = await import('@/lib/supabase/client')
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token
       const baseUrl = import.meta.env.VITE_SUPABASE_URL
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }
 
-      // Step 1: Discover sections
-      setExtractProgress('Discovering sections...')
-      const discResp = await fetch(`${baseUrl}/functions/v1/bookshelf-extract`, {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          bookshelf_item_id: primaryBook.id, family_id: member.family_id,
-          member_id: member.id, extraction_type: 'discover_sections',
-        }),
-      })
-      if (!discResp.ok) throw new Error('Section discovery failed')
-      const discData = await discResp.json()
-      const sections = ((discData.sections || []) as Array<{ title?: string; start_char: number; end_char: number }>)
-        .filter((s: { title?: string }) => !s.title?.startsWith('[NON-CONTENT]'))
+      let sections = sectionsToExtract
+
+      if (!sections) {
+        // Step 1: Discover sections
+        setExtractProgress('Discovering sections...')
+        const discResp = await fetch(`${baseUrl}/functions/v1/bookshelf-extract`, {
+          method: 'POST', headers,
+          body: JSON.stringify({
+            bookshelf_item_id: primaryBook.id, family_id: member.family_id,
+            member_id: member.id, extraction_type: 'discover_sections',
+          }),
+        })
+        if (!discResp.ok) throw new Error('Section discovery failed')
+        const discData = await discResp.json()
+        const allSections = (discData.sections || []) as Array<{ title?: string; start_char: number; end_char: number }>
+
+        // Save discovered sections to DB for future resume
+        supabase
+          .from('bookshelf_items')
+          .update({ discovered_sections: allSections })
+          .eq('id', primaryBook.id)
+          .then(() => {}) // fire-and-forget
+
+        sections = allSections.filter((s) => !s.title?.startsWith('[NON-CONTENT]'))
+      }
 
       if (sections.length === 0) {
         setExtractProgress('No extractable sections found.')
         return
       }
 
-      // Step 2: Extract each section
-      for (let i = 0; i < sections.length; i++) {
+      // Filter out already-extracted sections (for continue mode)
+      const remaining = sections.filter(s => !extractedSectionTitles.has(s.title || ''))
+      const skipped = sections.length - remaining.length
+
+      if (remaining.length === 0) {
+        setExtractProgress('All sections already extracted!')
+        await refetch()
+        return
+      }
+
+      if (skipped > 0) {
+        setExtractProgress(`Skipping ${skipped} already-extracted sections...`)
+      }
+
+      // Step 2: Extract each remaining section
+      for (let i = 0; i < remaining.length; i++) {
         if (extractAbortRef.current) break
-        const s = sections[i]
-        setExtractProgress(`Extracting section ${i + 1} of ${sections.length}: ${(s.title || 'Untitled').substring(0, 40)}...`)
+        const s = remaining[i]
+        setExtractProgress(`Extracting section ${i + 1} of ${remaining.length}: ${(s.title || 'Untitled').substring(0, 40)}...`)
 
         try {
           await fetch(`${baseUrl}/functions/v1/bookshelf-extract`, {
@@ -331,7 +408,7 @@ export function ExtractionBrowser({
     } finally {
       setExtracting(false)
     }
-  }, [primaryBook, member, refetch])
+  }, [primaryBook, member, refetch, extractedSectionTitles])
 
   if (loading) {
     return (
@@ -372,6 +449,7 @@ export function ExtractionBrowser({
         historyOpen={showHistoryPanel}
         onGoDeeper={(bid, tab, section) => handleGoDeeper(bid, tab, section)}
         goingDeeper={goingDeeper}
+        activeTab={browserState.activeTab}
         onOpenStudyGuide={isSingleBook && primaryBook ? () => setShowStudyGuide(true) : undefined}
         onFolderChange={(bid, fid) => updateBookFolder(bid, fid)}
         archiveFolders={archiveFolders}
@@ -416,45 +494,67 @@ export function ExtractionBrowser({
         isSingleBook={isSingleBook}
       />
 
-      {/* Empty state: extraction trigger for books with no extractions */}
-      {(needsExtraction || extracting) && (
-        <div className="text-center py-12 px-4">
-          {extracting ? (
-            <div className="space-y-3">
-              <Loader2 size={32} className="animate-spin text-[var(--color-accent)] mx-auto" />
-              <p className="text-sm text-[var(--color-text-secondary)]">{extractProgress}</p>
-              <button
-                onClick={() => { extractAbortRef.current = true }}
-                className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <Sparkles size={32} className="text-[var(--color-accent)] mx-auto" />
-              <div>
-                <p className="text-base font-medium text-[var(--color-text-primary)]">
-                  Ready to extract
-                </p>
-                <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                  AI will read this book and extract summaries, insights, declarations,
-                  action steps, and questions — with versions for adults, teens, and kids.
-                </p>
-              </div>
-              <button
-                onClick={handleFullExtraction}
-                className="px-6 py-2.5 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm font-medium"
-              >
-                <Sparkles size={14} className="inline mr-1.5" />
-                Extract This Book
-              </button>
-            </div>
-          )}
+      {/* Extraction progress indicator */}
+      {extracting && (
+        <div className="text-center py-8 px-4">
+          <div className="space-y-3">
+            <Loader2 size={32} className="animate-spin text-[var(--color-accent)] mx-auto" />
+            <p className="text-sm text-[var(--color-text-secondary)]">{extractProgress}</p>
+            <button
+              onClick={() => { extractAbortRef.current = true }}
+              className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
-      {!needsExtraction && !extracting && (
+      {/* Empty state: no extractions at all */}
+      {needsExtraction && !extracting && (
+        <div className="text-center py-12 px-4">
+          <div className="space-y-4">
+            <Sparkles size={32} className="text-[var(--color-accent)] mx-auto" />
+            <div>
+              <p className="text-base font-medium text-[var(--color-text-primary)]">
+                Ready to extract
+              </p>
+              <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                AI will read this book and extract summaries, insights, declarations,
+                action steps, and questions — with versions for adults, teens, and kids.
+              </p>
+            </div>
+            <button
+              onClick={() => handleFullExtraction()}
+              className="px-6 py-2.5 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-sm font-medium"
+            >
+              <Sparkles size={14} className="inline mr-1.5" />
+              Extract This Book
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Partial extraction: some sections done, some remaining */}
+      {hasPartialExtraction && !extracting && (
+        <div className="flex items-center justify-between px-4 py-3 mb-2 rounded-lg bg-[color-mix(in_srgb,var(--color-accent)_8%,transparent)] border border-[var(--color-border-default)]">
+          <div className="text-sm text-[var(--color-text-secondary)]">
+            <span className="font-medium text-[var(--color-text-primary)]">
+              {extractedSectionTitles.size} of {contentSections?.length ?? '?'} sections
+            </span>
+            {' '}extracted — {unextractedSections?.length} remaining
+          </div>
+          <button
+            onClick={() => handleFullExtraction(unextractedSections ?? undefined)}
+            className="px-4 py-1.5 rounded-lg bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text,#fff)] text-xs font-medium"
+          >
+            <Sparkles size={12} className="inline mr-1" />
+            Continue Extraction
+          </button>
+        </div>
+      )}
+
+      {totalExtractions > 0 && !extracting && (
       <div className="flex gap-6">
         <ExtractionSidebar
           chapters={chapters}

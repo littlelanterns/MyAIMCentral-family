@@ -20,7 +20,7 @@ export function useBookShelf() {
       // Light query: only columns needed for library grid display
       const { data, error } = await supabase
         .from('bookshelf_items')
-        .select('id,family_id,uploaded_by_member_id,title,author,isbn,file_type,file_name,genres,tags,folder_group,processing_status,extraction_status,chunk_count,parent_bookshelf_item_id,part_number,part_count,last_viewed_at,archived_at,created_at,updated_at')
+        .select('id,family_id,uploaded_by_member_id,title,author,isbn,file_type,file_name,genres,tags,folder_group,processing_status,extraction_status,chunk_count,parent_bookshelf_item_id,part_number,part_count,last_viewed_at,archived_at,created_at,updated_at,discovered_sections,book_library_id')
         .eq('family_id', familyId)
         .is('archived_at', null)
         .order('created_at', { ascending: false })
