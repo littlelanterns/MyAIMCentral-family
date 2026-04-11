@@ -14,6 +14,7 @@ import { CheckCircle2, Circle, Clock, Star, ChevronDown, ChevronRight, Volume2 }
 import { useTasks, useCompleteTask } from '@/hooks/useTasks'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
+import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import { speak } from '@/utils/speak'
@@ -75,6 +76,9 @@ export function GuidedActiveTasksSection({
   )
   const segmentStatus = useSegmentCompletionStatus(activeSegments, tasks)
 
+  // Phase 6: fetch today's randomizer draws for tasks with linked_list_id
+  const { taskDrawMap } = useTaskRandomizerDraws(tasks, memberId)
+
   // Separate tasks and opportunities (for non-segment view)
   const regularTasks = tasks.filter(
     t => !t.task_type?.startsWith('opportunity')
@@ -109,6 +113,7 @@ export function GuidedActiveTasksSection({
     const isRoutine = task.task_type === 'routine'
     const isExpanded = expandedRoutines.has(task.id)
     const requiresApproval = task.require_approval
+    const draw = taskDrawMap[task.id]
 
     return (
       <div key={task.id} className="space-y-0">
@@ -162,6 +167,11 @@ export function GuidedActiveTasksSection({
                 </button>
               )}
             </div>
+            {draw && (
+              <span className="text-xs truncate block" style={{ color: 'var(--color-text-secondary)' }}>
+                Today: {draw.itemName}
+              </span>
+            )}
             {requiresApproval && task.status === 'pending' && (
               <div className="flex items-center gap-1 mt-0.5">
                 <Clock size={10} style={{ color: 'var(--color-text-tertiary)' }} />

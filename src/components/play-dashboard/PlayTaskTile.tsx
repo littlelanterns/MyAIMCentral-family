@@ -26,13 +26,15 @@ interface PlayTaskTileProps {
   iconUrl: string | null
   isCompleting: boolean
   onTap: (task: Task) => void
+  /** Optional subtitle — shown below the task title (e.g. drawn randomizer item name) */
+  subtitle?: string | null
 }
 
 const FALLBACK_ICON_URL = '' // intentional: triggers broken-image fallback
                               // until Manus generates vs_task_default. The
                               // 'No icon' label below is the visible fallback.
 
-export function PlayTaskTile({ task, iconUrl, isCompleting, onTap }: PlayTaskTileProps) {
+export function PlayTaskTile({ task, iconUrl, isCompleting, onTap, subtitle }: PlayTaskTileProps) {
   const [imageFailed, setImageFailed] = useState(false)
   const isCompleted = task.status === 'completed' || task.status === 'pending_approval'
   const resolvedUrl = iconUrl || FALLBACK_ICON_URL
@@ -116,12 +118,31 @@ export function PlayTaskTile({ task, iconUrl, isCompleting, onTap }: PlayTaskTil
           maxWidth: '100%',
           overflow: 'hidden',
           display: '-webkit-box',
-          WebkitLineClamp: 2,
+          WebkitLineClamp: subtitle ? 1 : 2,
           WebkitBoxOrient: 'vertical',
         }}
       >
         {task.title}
       </span>
+
+      {subtitle && (
+        <span
+          style={{
+            fontSize: 'var(--font-size-xs)',
+            fontWeight: 500,
+            color: 'var(--color-text-secondary)',
+            textAlign: 'center',
+            lineHeight: 1.2,
+            maxWidth: '100%',
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+        >
+          {subtitle}
+        </span>
+      )}
 
       {isCompleted && (
         <span

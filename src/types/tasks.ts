@@ -322,6 +322,9 @@ export interface Task {
   // Lookup at render time against (category='visual_schedule', feature_key, variant)
   icon_asset_key: string | null
   icon_variant: 'A' | 'B' | 'C' | null
+  // List-task link (migration 100054) — task wraps a randomizer/list
+  linked_list_id: string | null
+  list_delivery_mode: 'checklist' | 'batch' | 'sequential' | null
   // Build M Phase 1 — task segment assignment
   task_segment_id: string | null
   // View framework metadata

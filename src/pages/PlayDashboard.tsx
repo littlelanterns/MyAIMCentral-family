@@ -64,6 +64,9 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
   const displayMember =
     isViewAsOverlay && viewingAsMember ? viewingAsMember : ownMember
 
+  // Adults viewing a kid's dashboard can redraw randomizer activities
+  const isAdultViewing = ownMember?.role === 'primary_parent' || ownMember?.role === 'additional_adult'
+
   // ── Data ────────────────────────────────────────────────────────
   const { data: allTasks = [], isLoading: tasksLoading } = useTasks(familyId, {
     assigneeId: memberId,
@@ -342,6 +345,7 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           onTapTask={handleTapTask}
           memberId={memberId}
           celebratingSegmentIds={celebratingSegmentIds}
+          isAdultViewing={isAdultViewing}
         />
       )}
 

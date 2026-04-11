@@ -57,6 +57,7 @@ import { createTaskFromData } from '@/utils/createTaskFromData'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
+import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 
@@ -695,6 +696,9 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
   )
   const segmentStatus = useSegmentCompletionStatus(activeSegments, tasks)
 
+  // Phase 6: fetch today's randomizer draws for tasks with linked_list_id
+  const { taskDrawMap } = useTaskRandomizerDraws(tasks, segmentMemberId)
+
   const toggleSegmentCollapse = useCallback((segId: string) => {
     setCollapsedSegments(prev => {
       const next = new Set(prev)
@@ -746,7 +750,9 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
     if (deployingTaskId) setDeployingTaskId(null)
   }
 
-  const renderTaskRow = (task: Task) => (
+  const renderTaskRow = (task: Task) => {
+    const draw = taskDrawMap[task.id]
+    return (
     <div
       key={task.id}
       className="group"
@@ -763,6 +769,14 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         onDelete={() => {}}
         onSubmitMastery={onSubmitMastery}
       />
+      {draw && (
+        <div
+          className="px-3 pb-1 -mt-1 text-xs"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Today: {draw.itemName}
+        </div>
+      )}
 
       {/* Deploy button — always visible, not just on hover for clarity */}
       <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -858,7 +872,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         </div>
       </div>
     </div>
-  )
+  )}
 
   // ── Segment-grouped rendering (Build M Phase 5) ──────────────
   if (hasSegments) {

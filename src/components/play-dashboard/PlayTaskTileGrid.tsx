@@ -15,9 +15,12 @@
 import { useMemo } from 'react'
 import * as LucideIcons from 'lucide-react'
 import { PlayTaskTile } from './PlayTaskTile'
+import { MysteryTapTile } from './MysteryTapTile'
+import { RedrawButton } from './RedrawButton'
 import { usePlayTaskIcons } from '@/hooks/usePlayTaskIcons'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
+import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import type { Task } from '@/types/tasks'
 import type { TaskSegment } from '@/types/play-dashboard'
 
@@ -29,6 +32,8 @@ interface PlayTaskTileGridProps {
   memberId?: string
   /** Segment IDs that just completed — triggers celebration glow */
   celebratingSegmentIds?: Set<string>
+  /** True when an adult (mom/dad) is viewing — enables redraw buttons */
+  isAdultViewing?: boolean
 }
 
 function getLucideIcon(name: string): React.FC<{ size?: number }> | null {
@@ -47,9 +52,13 @@ export function PlayTaskTileGrid({
   onTapTask,
   memberId,
   celebratingSegmentIds,
+  isAdultViewing,
 }: PlayTaskTileGridProps) {
   // Resolve icon URLs in one batch (no N+1)
   const { iconUrls } = usePlayTaskIcons(tasks)
+
+  // Fetch today's randomizer draws for tasks with linked_list_id
+  const { taskDrawMap } = useTaskRandomizerDraws(tasks, memberId)
 
   // Load segments for this member
   const { data: allSegments } = useTaskSegments(memberId)
@@ -110,7 +119,7 @@ export function PlayTaskTileGrid({
 
   // ── Flat grid (no segments configured) ───────────────────────────
   if (!hasSegments) {
-    return <FlatGrid tasks={tasks} iconUrls={iconUrls} completingTaskIds={completingTaskIds} onTapTask={onTapTask} />
+    return <FlatGrid tasks={tasks} iconUrls={iconUrls} completingTaskIds={completingTaskIds} onTapTask={onTapTask} taskDrawMap={taskDrawMap} isAdultViewing={isAdultViewing} memberId={memberId} />
   }
 
   // ── Grouped grid ─────────────────────────────────────────────────
@@ -134,6 +143,9 @@ export function PlayTaskTileGrid({
             completed={status?.completed ?? 0}
             isComplete={status?.isComplete ?? false}
             isCelebrating={isCelebrating}
+            taskDrawMap={taskDrawMap}
+            isAdultViewing={isAdultViewing}
+            memberId={memberId}
           />
         )
       })}
@@ -169,15 +181,26 @@ export function PlayTaskTileGrid({
             </span>
           </div>
           <div className="play-tile-grid">
-            {unsegmentedTasks.map(task => (
-              <PlayTaskTile
-                key={task.id}
-                task={task}
-                iconUrl={iconUrls[task.id] ?? null}
-                isCompleting={completingTaskIds.has(task.id)}
-                onTap={onTapTask}
-              />
-            ))}
+            {unsegmentedTasks.map(task => {
+              const draw = taskDrawMap[task.id]
+              const isCompleted = task.status === 'completed' || task.status === 'pending_approval'
+              return (
+                <div key={task.id} className="flex flex-col gap-1">
+                  <PlayTaskTile
+                    task={task}
+                    iconUrl={iconUrls[task.id] ?? null}
+                    isCompleting={completingTaskIds.has(task.id)}
+                    onTap={onTapTask}
+                    subtitle={draw ? draw.itemName : undefined}
+                  />
+                  {draw && isAdultViewing && memberId && !isCompleted && (
+                    <div className="flex justify-center">
+                      <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </section>
       )}
@@ -199,6 +222,9 @@ interface SegmentSectionProps {
   completed: number
   isComplete: boolean
   isCelebrating: boolean
+  taskDrawMap: Record<string, import('@/hooks/useTaskRandomizerDraws').TaskRandomizerDraw>
+  isAdultViewing?: boolean
+  memberId?: string
 }
 
 function SegmentSection({
@@ -211,6 +237,9 @@ function SegmentSection({
   completed,
   isComplete,
   isCelebrating,
+  taskDrawMap,
+  isAdultViewing,
+  memberId,
 }: SegmentSectionProps) {
   const Icon = segment.icon_key ? getLucideIcon(segment.icon_key) : null
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
@@ -316,15 +345,50 @@ function SegmentSection({
         }}
       >
         <div className="play-tile-grid">
-          {tasks.map(task => (
-            <PlayTaskTile
-              key={task.id}
-              task={task}
-              iconUrl={iconUrls[task.id] ?? null}
-              isCompleting={completingTaskIds.has(task.id)}
-              onTap={onTapTask}
-            />
-          ))}
+          {tasks.map(task => {
+            const draw = taskDrawMap[task.id]
+            const isRandomizerLinked = !!task.linked_list_id && !!draw
+            const showRedraw = isRandomizerLinked && isAdultViewing && memberId
+            const isCompleted = task.status === 'completed' || task.status === 'pending_approval'
+
+            // Mystery tap: sparkly reveal card for randomizer-linked tasks
+            if (isRandomizerLinked && segment.randomizer_reveal_style === 'mystery_tap') {
+              return (
+                <div key={task.id} className="flex flex-col gap-1">
+                  <MysteryTapTile
+                    task={task}
+                    iconUrl={iconUrls[task.id] ?? null}
+                    isCompleting={completingTaskIds.has(task.id)}
+                    onTap={onTapTask}
+                    drawnItemName={draw.itemName}
+                  />
+                  {showRedraw && !isCompleted && (
+                    <div className="flex justify-center">
+                      <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            // Show upfront: normal tile with drawn item name as subtitle
+            return (
+              <div key={task.id} className="flex flex-col gap-1">
+                <PlayTaskTile
+                  task={task}
+                  iconUrl={iconUrls[task.id] ?? null}
+                  isCompleting={completingTaskIds.has(task.id)}
+                  onTap={onTapTask}
+                  subtitle={isRandomizerLinked ? draw.itemName : undefined}
+                />
+                {showRedraw && !isCompleted && (
+                  <div className="flex justify-center">
+                    <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </section>
@@ -338,11 +402,17 @@ function FlatGrid({
   iconUrls,
   completingTaskIds,
   onTapTask,
+  taskDrawMap,
+  isAdultViewing,
+  memberId,
 }: {
   tasks: Task[]
   iconUrls: Record<string, string | null>
   completingTaskIds: Set<string>
   onTapTask: (task: Task) => void
+  taskDrawMap: Record<string, import('@/hooks/useTaskRandomizerDraws').TaskRandomizerDraw>
+  isAdultViewing?: boolean
+  memberId?: string
 }) {
   const pending = tasks.filter(t => t.status !== 'completed' && t.status !== 'pending_approval')
   const completed = tasks.filter(t => t.status === 'completed' || t.status === 'pending_approval')
@@ -362,15 +432,25 @@ function FlatGrid({
             What's next
           </h2>
           <div className="play-tile-grid">
-            {pending.map(task => (
-              <PlayTaskTile
-                key={task.id}
-                task={task}
-                iconUrl={iconUrls[task.id] ?? null}
-                isCompleting={completingTaskIds.has(task.id)}
-                onTap={onTapTask}
-              />
-            ))}
+            {pending.map(task => {
+              const draw = taskDrawMap[task.id]
+              return (
+                <div key={task.id} className="flex flex-col gap-1">
+                  <PlayTaskTile
+                    task={task}
+                    iconUrl={iconUrls[task.id] ?? null}
+                    isCompleting={completingTaskIds.has(task.id)}
+                    onTap={onTapTask}
+                    subtitle={draw ? draw.itemName : undefined}
+                  />
+                  {draw && isAdultViewing && memberId && (
+                    <div className="flex justify-center">
+                      <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </section>
       )}
@@ -388,15 +468,19 @@ function FlatGrid({
             Done today
           </h2>
           <div className="play-tile-grid">
-            {completed.map(task => (
-              <PlayTaskTile
-                key={task.id}
-                task={task}
-                iconUrl={iconUrls[task.id] ?? null}
-                isCompleting={false}
-                onTap={onTapTask}
-              />
-            ))}
+            {completed.map(task => {
+              const draw = taskDrawMap[task.id]
+              return (
+                <PlayTaskTile
+                  key={task.id}
+                  task={task}
+                  iconUrl={iconUrls[task.id] ?? null}
+                  isCompleting={false}
+                  onTap={onTapTask}
+                  subtitle={draw ? draw.itemName : undefined}
+                />
+              )
+            })}
           </div>
         </section>
       )}

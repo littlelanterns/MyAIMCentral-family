@@ -700,6 +700,7 @@ function SortableSegmentRow({
   const [editDays, setEditDays] = useState<number[]>(segment.day_filter ?? [])
   const [editCreature, setEditCreature] = useState(segment.creature_earning_enabled)
   const [editCelebration, setEditCelebration] = useState(segment.segment_complete_celebration)
+  const [editRevealStyle, setEditRevealStyle] = useState<'show_upfront' | 'mystery_tap'>(segment.randomizer_reveal_style)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -823,6 +824,42 @@ function SortableSegmentRow({
             onChange={setEditCelebration}
           />
 
+          <div>
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+              Randomizer reveal style
+            </label>
+            <div className="flex gap-1.5">
+              {([
+                { value: 'mystery_tap' as const, label: 'Mystery tap' },
+                { value: 'show_upfront' as const, label: 'Show upfront' },
+              ]).map(opt => {
+                const isActive = editRevealStyle === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setEditRevealStyle(opt.value)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      backgroundColor: isActive
+                        ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))'
+                        : 'var(--color-bg-secondary)',
+                      color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                      border: isActive ? '1.5px solid var(--color-btn-primary-bg)' : '1.5px solid var(--color-border)',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}>
+              {editRevealStyle === 'mystery_tap'
+                ? 'Sparkly tile — child taps to see the activity'
+                : 'Activity is visible when the dashboard loads'}
+            </p>
+          </div>
+
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => {
@@ -831,6 +868,7 @@ function SortableSegmentRow({
                   day_filter: editDays.length === 0 || editDays.length === 7 ? null : editDays,
                   creature_earning_enabled: editCreature,
                   segment_complete_celebration: editCelebration,
+                  randomizer_reveal_style: editRevealStyle,
                 })
                 onToggleEdit()
               }}
