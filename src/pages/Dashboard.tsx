@@ -35,6 +35,9 @@ import { FamilyHub } from '@/components/hub/FamilyHub'
 import { GuidedDashboard } from '@/pages/GuidedDashboard'
 import { PlayDashboard } from '@/pages/PlayDashboard'
 import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
+import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
+import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
+import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 
 interface DashboardProps {
   /** When true, this instance is inside the ViewAsModal overlay */
@@ -80,6 +83,21 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 
   // PRD-17: Queue pending counts for badge (PRD-15: filtered by recipient for requests)
   const pendingCounts = usePendingCounts(displayFamilyId, displayMemberId)
+
+  // Build M Phase 5: Coloring reveal tally widgets for gamification opt-in
+  const { data: gamConfig } = useGamificationConfig(displayMemberId)
+  const { data: colorReveals = [] } = useMemberColoringReveals(
+    gamConfig?.enabled ? displayMemberId : undefined,
+  )
+  const taskLinkedReveals = useMemo(
+    () => colorReveals.filter(r => r.earning_task_id && !r.is_complete && r.is_active),
+    [colorReveals],
+  )
+  // Fetch tasks for linked reveals (lightweight — only when reveals exist)
+  const { data: revealLinkedTasks = [] } = useTasks(
+    taskLinkedReveals.length > 0 ? displayFamilyId : undefined,
+    { assigneeId: displayMemberId },
+  )
 
   // ─── PRD-14: Section system ────────────────────────────────
 
@@ -682,6 +700,16 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
                   )}
                 </>
               )}
+
+              {/* Build M Phase 5: Coloring reveal tally widgets (gamification opt-in) */}
+              {taskLinkedReveals.map(reveal => (
+                <ColorRevealTallyWidget
+                  key={reveal.id}
+                  reveal={reveal}
+                  linkedTask={revealLinkedTasks.find(t => t.id === reveal.earning_task_id)}
+                  memberId={displayMemberId ?? ''}
+                />
+              ))}
 
               {activeSections.map((section) => {
                 // Greeting: always rendered, no wrapper needed for collapse/edit

@@ -2,11 +2,20 @@
  * PRD-25: Guided Active Tasks Section ("My Tasks")
  * Two views: Simple List (default) | Now/Next/Optional
  * Task completion triggers celebration animation.
+ *
+ * Build M Phase 5: Added segment grouping. When segments exist for
+ * the member, tasks are grouped under compact SegmentHeader components
+ * with progress bars. Unsegmented tasks render in a flat list below.
+ * Day-of-week filtering hides segments not scheduled for today.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { CheckCircle2, Circle, Clock, Star, ChevronDown, ChevronRight, Volume2 } from 'lucide-react'
 import { useTasks, useCompleteTask } from '@/hooks/useTasks'
+import { useTaskSegments } from '@/hooks/useTaskSegments'
+import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
+import { SegmentHeader } from '@/components/segments/SegmentHeader'
+import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import { speak } from '@/utils/speak'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
@@ -29,6 +38,7 @@ export function GuidedActiveTasksSection({
     archived: false,
   })
   const completeTask = useCompleteTask()
+  const { data: allSegments } = useTaskSegments(memberId)
 
   const [viewMode, setViewMode] = useState<'simple_list' | 'now_next_optional'>(
     preferences.guided_task_view_default
@@ -51,7 +61,21 @@ export function GuidedActiveTasksSection({
     })
   }
 
-  // Separate tasks and opportunities
+  // Filter segments to today
+  const activeSegments = useMemo(
+    () => (allSegments ?? []).filter(isSegmentActiveToday),
+    [allSegments],
+  )
+
+  // Segment grouping
+  const hasSegments = activeSegments.length > 0
+  const { segmentGroups, unsegmentedTasks: unsegmented } = useMemo(
+    () => groupTasksBySegment(activeSegments, tasks),
+    [activeSegments, tasks],
+  )
+  const segmentStatus = useSegmentCompletionStatus(activeSegments, tasks)
+
+  // Separate tasks and opportunities (for non-segment view)
   const regularTasks = tasks.filter(
     t => !t.task_type?.startsWith('opportunity')
   )
@@ -184,6 +208,63 @@ export function GuidedActiveTasksSection({
     )
   }
 
+  // ── Segment-grouped rendering ──────────────────────────────────
+  if (hasSegments) {
+    // Separate unsegmented into regular + opportunities
+    const unsegRegular = unsegmented.filter(t => !t.task_type?.startsWith('opportunity'))
+    const unsegOpps = unsegmented.filter(t => t.task_type?.startsWith('opportunity'))
+
+    return (
+      <div className="space-y-2">
+        {segmentGroups.map(({ segment, tasks: segTasks }) => {
+          const status = segmentStatus[segment.id]
+          return (
+            <SegmentHeader
+              key={segment.id}
+              name={segment.segment_name}
+              iconKey={segment.icon_key}
+              completedCount={status?.completed ?? 0}
+              totalCount={status?.total ?? segTasks.length}
+            >
+              <div className="space-y-0.5 mt-1">
+                {segTasks.map(renderTask)}
+              </div>
+            </SegmentHeader>
+          )
+        })}
+
+        {/* Unsegmented tasks */}
+        {unsegRegular.length > 0 && (
+          <div className="space-y-0.5">
+            {segmentGroups.length > 0 && (
+              <div
+                className="text-xs font-medium uppercase tracking-wider py-2 px-3"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Other Tasks
+              </div>
+            )}
+            {unsegRegular.map(renderTask)}
+          </div>
+        )}
+
+        {/* Opportunities */}
+        {unsegOpps.length > 0 && (
+          <div className="space-y-0.5">
+            <div
+              className="text-xs font-medium uppercase tracking-wider py-2 px-3"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              Opportunities
+            </div>
+            {unsegOpps.map(renderTask)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Flat rendering (no segments) ───────────────────────────────
   return (
     <div className="space-y-3">
       {/* View mode toggle */}

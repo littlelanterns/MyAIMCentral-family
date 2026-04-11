@@ -21,6 +21,10 @@ import {
   CelebrateSection,
 } from '@/components/guided'
 import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
+import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
+import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
+import { useGamificationConfig } from '@/hooks/useGamificationSettings'
+import { useTasks } from '@/hooks/useTasks'
 import { DashboardSectionWrapper } from '@/components/dashboard'
 import type { SectionKey } from '@/components/dashboard'
 import type { GuidedSectionKey } from '@/types/guided-dashboard'
@@ -58,6 +62,20 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
   const points = (memberData?.gamification_points as number) ?? 0
   const streak = (memberData?.current_streak as number) ?? 0
   const readingSupport = preferences.reading_support_enabled
+
+  // Build M Phase 5: Coloring reveal tally widgets (gamification opt-in)
+  const { data: gamConfig } = useGamificationConfig(displayMemberId)
+  const { data: colorReveals = [] } = useMemberColoringReveals(
+    gamConfig?.enabled ? displayMemberId : undefined,
+  )
+  const taskLinkedReveals = useMemo(
+    () => colorReveals.filter(r => r.earning_task_id && !r.is_complete && r.is_active),
+    [colorReveals],
+  )
+  const { data: revealLinkedTasks = [] } = useTasks(
+    taskLinkedReveals.length > 0 ? displayFamilyId : undefined,
+    { assigneeId: displayMemberId },
+  )
 
   // Visible sections sorted by order
   const visibleSections = useMemo(
@@ -171,6 +189,16 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
           />
         </>
       )}
+
+      {/* Build M Phase 5: Coloring reveal tally widgets */}
+      {taskLinkedReveals.map(reveal => (
+        <ColorRevealTallyWidget
+          key={reveal.id}
+          reveal={reveal}
+          linkedTask={revealLinkedTasks.find(t => t.id === reveal.earning_task_id)}
+          memberId={displayMemberId ?? ''}
+        />
+      ))}
 
       {visibleSections.map(section => {
         const key = section.key as GuidedSectionKey

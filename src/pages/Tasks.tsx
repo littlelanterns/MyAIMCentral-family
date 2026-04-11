@@ -55,6 +55,10 @@ import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
+import { useTaskSegments } from '@/hooks/useTaskSegments'
+import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
+import { SegmentHeader } from '@/components/segments/SegmentHeader'
+import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -552,6 +556,7 @@ export function TasksPage() {
             showType={activeTab === 'my_tasks'}
             onEditTask={setEditingTask}
             onSubmitMastery={(task) => setMasterySubmissionTask(task)}
+            segmentMemberId={activeTab === 'my_tasks' ? activeMember?.id : undefined}
           />
         )}
       </div>
@@ -666,13 +671,38 @@ interface TaskListProps {
   onEditTask?: (task: Task) => void
   /** Build J: open mastery submission modal for a sequential mastery task */
   onSubmitMastery?: (task: Task) => void
+  /** Build M Phase 5: member ID for segment grouping */
+  segmentMemberId?: string
 }
 
-function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onSubmitMastery }: TaskListProps) {
+function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onSubmitMastery, segmentMemberId }: TaskListProps) {
   const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
   const qc = useQueryClient()
   const [deployingTaskId, setDeployingTaskId] = useState<string | null>(null)
+  const [collapsedSegments, setCollapsedSegments] = useState<Set<string>>(new Set())
+
+  // Build M Phase 5: segment grouping for Adult/Independent
+  const { data: allSegments } = useTaskSegments(segmentMemberId)
+  const activeSegments = useMemo(
+    () => (allSegments ?? []).filter(isSegmentActiveToday),
+    [allSegments],
+  )
+  const hasSegments = activeSegments.length > 0
+  const { segmentGroups, unsegmentedTasks: unsegmented } = useMemo(
+    () => groupTasksBySegment(activeSegments, tasks),
+    [activeSegments, tasks],
+  )
+  const segmentStatus = useSegmentCompletionStatus(activeSegments, tasks)
+
+  const toggleSegmentCollapse = useCallback((segId: string) => {
+    setCollapsedSegments(prev => {
+      const next = new Set(prev)
+      if (next.has(segId)) next.delete(segId)
+      else next.add(segId)
+      return next
+    })
+  }, [])
   const { data: familyMembers = [] } = useQuery({
     queryKey: ['family-members-for-deploy', ffamily?.id],
     queryFn: async () => {
@@ -716,6 +746,165 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
     if (deployingTaskId) setDeployingTaskId(null)
   }
 
+  const renderTaskRow = (task: Task) => (
+    <div
+      key={task.id}
+      className="group"
+      style={{
+        position: 'relative',
+        zIndex: deployingTaskId === task.id ? 50 : 'auto',
+      }}
+    >
+      <TaskCard
+        task={task}
+        isCompleting={isCompleting(task.id)}
+        onToggle={onToggle}
+        onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
+        onDelete={() => {}}
+        onSubmitMastery={onSubmitMastery}
+      />
+
+      {/* Deploy button — always visible, not just on hover for clarity */}
+      <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ zIndex: deployingTaskId === task.id ? 51 : 1 }}
+      >
+        <div className="relative">
+          <button
+            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg"
+            style={{
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setDeployingTaskId(deployingTaskId === task.id ? null : task.id)
+            }}
+          >
+            {task.assignee_id ? 'Reassign' : 'Deploy'}
+            <ChevronDown size={10} />
+          </button>
+
+          {/* Member picker dropdown — positioned above sibling cards */}
+          {deployingTaskId === task.id && (
+            <div
+              className="absolute right-0 top-full mt-1 min-w-50 rounded-lg shadow-xl overflow-hidden"
+              style={{
+                backgroundColor: 'var(--color-bg-card)',
+                border: '1px solid var(--color-border)',
+                zIndex: 52,
+                boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+              }}
+            >
+              <p
+                className="px-3 py-2 text-xs font-medium"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  borderBottom: '1px solid var(--color-border)',
+                }}
+              >
+                Assign to...
+              </p>
+
+              {/* Whole Family option */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDeployAll(task.id)
+                }}
+                className="w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors"
+                style={{
+                  color: 'var(--color-btn-primary-bg)',
+                  borderBottom: '1px solid var(--color-border)',
+                  background: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-card))',
+                }}
+              >
+                <Users size={16} />
+                Whole Family
+              </button>
+
+              {/* Individual members */}
+              {familyMembers
+                .filter(m => m.id !== fmember?.id)
+                .map(m => (
+                <button
+                  key={m.id}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeploy(task.id, m.id, m.display_name)
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2"
+                  style={{
+                    color: 'var(--color-text-primary)',
+                    borderBottom: '1px solid color-mix(in srgb, var(--color-border) 50%, transparent)',
+                  }}
+                >
+                  <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                    style={{
+                      backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))',
+                      color: 'var(--color-btn-primary-bg)',
+                    }}
+                  >
+                    {m.display_name.charAt(0)}
+                  </span>
+                  {m.display_name}
+                  {task.assignee_id === m.id && (
+                    <span className="ml-auto text-[10px] opacity-60">current</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Segment-grouped rendering (Build M Phase 5) ──────────────
+  if (hasSegments) {
+    return (
+      <div className="space-y-3 py-2">
+        {deployingTaskId && (
+          <div className="fixed inset-0 z-40" onClick={handleBackdropClick} />
+        )}
+
+        {segmentGroups.map(({ segment, tasks: segTasks }) => {
+          const status = segmentStatus[segment.id]
+          return (
+            <SegmentHeader
+              key={segment.id}
+              name={segment.segment_name}
+              iconKey={segment.icon_key}
+              completedCount={status?.completed ?? 0}
+              totalCount={status?.total ?? segTasks.length}
+              isCollapsed={collapsedSegments.has(segment.id)}
+              onToggleCollapse={() => toggleSegmentCollapse(segment.id)}
+            >
+              <div className="space-y-2 mt-1">
+                {segTasks.map(renderTaskRow)}
+              </div>
+            </SegmentHeader>
+          )
+        })}
+
+        {unsegmented.length > 0 && (
+          <div className="space-y-2">
+            {segmentGroups.length > 0 && (
+              <div
+                className="text-xs font-medium uppercase tracking-wider py-2 px-3"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Other Tasks
+              </div>
+            )}
+            {unsegmented.map(renderTaskRow)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Flat rendering (no segments) ─────────────────────────────
   return (
     <div className="space-y-2 py-2">
       {/* Invisible backdrop to close dropdown */}
@@ -723,119 +912,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         <div className="fixed inset-0 z-40" onClick={handleBackdropClick} />
       )}
 
-      {tasks.map((task) => (
-        <div
-          key={task.id}
-          className="group"
-          style={{
-            position: 'relative',
-            zIndex: deployingTaskId === task.id ? 50 : 'auto',
-          }}
-        >
-          <TaskCard
-            task={task}
-            isCompleting={isCompleting(task.id)}
-            onToggle={onToggle}
-            onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
-            onDelete={() => {}}
-            onSubmitMastery={onSubmitMastery}
-          />
-
-          {/* Deploy button — always visible, not just on hover for clarity */}
-          <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ zIndex: deployingTaskId === task.id ? 51 : 1 }}
-          >
-            <div className="relative">
-              <button
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg"
-                style={{
-                  backgroundColor: 'var(--color-btn-primary-bg)',
-                  color: 'var(--color-btn-primary-text)',
-                }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setDeployingTaskId(deployingTaskId === task.id ? null : task.id)
-                }}
-              >
-                {task.assignee_id ? 'Reassign' : 'Deploy'}
-                <ChevronDown size={10} />
-              </button>
-
-              {/* Member picker dropdown — positioned above sibling cards */}
-              {deployingTaskId === task.id && (
-                <div
-                  className="absolute right-0 top-full mt-1 min-w-50 rounded-lg shadow-xl overflow-hidden"
-                  style={{
-                    backgroundColor: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
-                    zIndex: 52,
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-                  }}
-                >
-                  <p
-                    className="px-3 py-2 text-xs font-medium"
-                    style={{
-                      color: 'var(--color-text-secondary)',
-                      borderBottom: '1px solid var(--color-border)',
-                    }}
-                  >
-                    Assign to...
-                  </p>
-
-                  {/* Whole Family option */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeployAll(task.id)
-                    }}
-                    className="w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors"
-                    style={{
-                      color: 'var(--color-btn-primary-bg)',
-                      borderBottom: '1px solid var(--color-border)',
-                      background: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-card))',
-                    }}
-                  >
-                    <Users size={16} />
-                    Whole Family
-                  </button>
-
-                  {/* Individual members */}
-                  {familyMembers
-                    .filter(m => m.id !== fmember?.id)
-                    .map(m => (
-                    <button
-                      key={m.id}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeploy(task.id, m.id, m.display_name)
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2"
-                      style={{
-                        color: 'var(--color-text-primary)',
-                        borderBottom: '1px solid color-mix(in srgb, var(--color-border) 50%, transparent)',
-                      }}
-                    >
-                      <span
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{
-                          backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))',
-                          color: 'var(--color-btn-primary-bg)',
-                        }}
-                      >
-                        {m.display_name.charAt(0)}
-                      </span>
-                      {m.display_name}
-                      {task.assignee_id === m.id && (
-                        <span className="ml-auto text-[10px] opacity-60">current</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
+      {tasks.map(renderTaskRow)}
     </div>
   )
 }

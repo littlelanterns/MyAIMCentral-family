@@ -38,6 +38,7 @@ import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHe
 import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
 import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBookWidget'
 import { ColorRevealWidget } from '@/components/play-dashboard/ColorRevealWidget'
+import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
 import { ColorRevealDetailModal } from '@/components/play-dashboard/ColorRevealDetailModal'
 import { CompletedBookGallery } from '@/components/play-dashboard/CompletedBookGallery'
 import { PlayTaskTileGrid } from '@/components/play-dashboard/PlayTaskTileGrid'
@@ -295,8 +296,23 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
         onOpen={() => openStickerBook()}
       />
 
+      {/* Task-linked coloring reveals — "I did it!" tally widgets */}
+      {coloringReveals
+        .filter(r => r.earning_task_id && !r.is_complete && r.is_active)
+        .map(reveal => (
+          <ColorRevealTallyWidget
+            key={reveal.id}
+            reveal={reveal}
+            linkedTask={allTasks.find(t => t.id === reveal.earning_task_id)}
+            memberId={memberId}
+            isShimmering={shimmeringRevealIds.has(reveal.id)}
+          />
+        ))
+      }
+
+      {/* Non-task-linked coloring reveals — original gallery widget */}
       <ColorRevealWidget
-        reveals={coloringReveals}
+        reveals={coloringReveals.filter(r => !r.earning_task_id)}
         onOpenReveal={reveal => {
           setColorRevealCelebration(false)
           setColorRevealDetailOpen(reveal)

@@ -327,6 +327,7 @@ export function useCompleteTask() {
         if (completerId) {
           queryClient.invalidateQueries({ queryKey: ['sticker-book-state', completerId] })
           queryClient.invalidateQueries({ queryKey: ['member-creatures', completerId] })
+          queryClient.invalidateQueries({ queryKey: ['member-coloring-reveals', completerId] })
         }
       }
     },
