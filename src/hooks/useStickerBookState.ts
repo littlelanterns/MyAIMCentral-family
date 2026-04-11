@@ -46,6 +46,7 @@ export function useStickerBookState(familyMemberId: string | undefined) {
           page_earning_tracker_widget_id,
           page_earning_tracker_threshold,
           randomizer_reveal_style,
+          creature_roll_chance_per_task,
           active_page:active_page_id (
             id,
             slug,
@@ -100,6 +101,7 @@ export function useStickerBookState(familyMemberId: string | undefined) {
         page_earning_tracker_widget_id: data.page_earning_tracker_widget_id ?? null,
         page_earning_tracker_threshold: data.page_earning_tracker_threshold ?? 5,
         randomizer_reveal_style: data.randomizer_reveal_style ?? 'mystery_tap',
+        creature_roll_chance_per_task: data.creature_roll_chance_per_task ?? 40,
       } satisfies StickerBookState
     },
     enabled: !!familyMemberId,

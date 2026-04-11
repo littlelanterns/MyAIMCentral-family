@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard } from 'lucide-react'
+import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
 import { FeatureGuide } from '@/components/shared'
 import { GuidedManagementScreen } from '@/components/guided'
+import { GamificationSettingsModal } from '@/components/gamification/settings'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import { QRCodeSVG } from 'qrcode.react'
 
@@ -203,6 +204,7 @@ function MemberRow({
   const [color, setColor] = useState(member.member_color || '')
   const [saving, setSaving] = useState(false)
   const [manageDashboardOpen, setManageDashboardOpen] = useState(false)
+  const [gamificationOpen, setGamificationOpen] = useState(false)
 
   const roleLabel = member.role === 'additional_adult' ? 'Adult'
     : member.role === 'special_adult' ? (member.custom_role || 'Special Adult')
@@ -369,6 +371,26 @@ function MemberRow({
           <GuidedManagementScreen
             isOpen={manageDashboardOpen}
             onClose={() => setManageDashboardOpen(false)}
+            memberId={member.id}
+            memberName={member.display_name}
+            familyId={member.family_id}
+          />
+          {/* Gamification settings — available for ALL member roles (decision #7) */}
+          <button
+            onClick={() => setGamificationOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+              color: 'var(--color-btn-primary-bg)',
+              border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 25%, transparent)',
+            }}
+          >
+            <Sparkles size={16} />
+            Gamification Settings
+          </button>
+          <GamificationSettingsModal
+            isOpen={gamificationOpen}
+            onClose={() => setGamificationOpen(false)}
             memberId={member.id}
             memberName={member.display_name}
             familyId={member.family_id}

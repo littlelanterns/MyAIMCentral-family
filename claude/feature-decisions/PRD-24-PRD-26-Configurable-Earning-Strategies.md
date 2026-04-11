@@ -411,6 +411,12 @@ One new migration adding `task_segments` table, `tasks.task_segment_id` column, 
 
 8. **Randomizer reveal style** — **Mom choice** per child: show upfront vs mystery tap. Confirmed 2026-04-10.
 
+9. **Coloring reveals are 1:1 task-linked, NOT earning-mode-driven.** Each coloring picture is linked to a specific task via `earning_task_id`. Each completion of that task = one reveal step. No earning mode picker on coloring reveals — the earning mode system is for creatures only. Coloring reveals are visual tally counters tied to a specific repeatable action (e.g., "Using the Toilet" → each completion → one color zone revealed). Confirmed 2026-04-10.
+
+10. **Coloring reveal renders as a dashboard WIDGET, not a task tile.** The coloring image appears as its own widget/card on the Play Dashboard with an "I did it!" button underneath. Similar to a Best Intentions widget but the visual is the progressive color reveal instead of a counter. Confirmed 2026-04-10.
+
+11. **Coloring reveal config is simplified to 4 fields:** pick image, pick linked task, pick step count (how many completions until full reveal), pick lineart preference (for printing). No earning mode cards, no thresholds, no segment checkboxes. Confirmed 2026-04-10.
+
 ### Per-shell segment rendering (confirmed)
 
 | Shell | Visual treatment |

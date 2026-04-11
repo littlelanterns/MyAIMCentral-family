@@ -48,3 +48,6 @@ export * from './widgets'
 
 // Dashboard layer
 export * from './dashboard'
+
+// Settings
+export * from './settings'

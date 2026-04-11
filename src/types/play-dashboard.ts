@@ -97,6 +97,7 @@ export interface MemberColoringReveal {
   earning_segment_ids: string[]
   earning_tracker_widget_id: string | null
   earning_tracker_threshold: number | null
+  earning_task_id: string | null
   lineart_preference: LineartPreference
   is_complete: boolean
   completed_at: string | null
@@ -238,6 +239,7 @@ export interface StickerBookState {
   page_earning_tracker_widget_id: string | null
   page_earning_tracker_threshold: number
   randomizer_reveal_style: RandomizerRevealStyle
+  creature_roll_chance_per_task: number
 }
 
 export interface MemberCreature {
