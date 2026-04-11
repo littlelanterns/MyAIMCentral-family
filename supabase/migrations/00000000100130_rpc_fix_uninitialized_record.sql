@@ -1,12 +1,12 @@
 -- ============================================================================
--- Build M Phase 5 — Wire earning_task_id into roll_creature_for_completion
+-- Build M Phase 5 — Fix uninitialized RECORD access in return statement
 --
--- Updates Step 10 (coloring reveal loop) to handle 1:1 task-linked reveals.
--- If earning_task_id is set: only advance when completed task matches, and
--- advance unconditionally (bypassing earning_mode). If NULL: unchanged.
+-- PL/pgSQL RECORD variables initialized to NULL cannot have their fields
+-- accessed even inside a CASE WHEN guard. This migration pre-builds the
+-- creature and page JSONB objects inside the IF FOUND blocks, then uses
+-- the pre-built variables in the return.
 --
--- This is a CREATE OR REPLACE of the function from migration 100126.
--- The ONLY delta is in Step 10's FOR loop body (lines marked "Phase 5").
+-- This is a CREATE OR REPLACE of the same function.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.roll_creature_for_completion(
@@ -34,9 +34,9 @@ DECLARE
   v_creature_roll      INTEGER;
   v_rarity_roll        INTEGER;
   v_chosen_rarity      TEXT := NULL;
-  v_creature           RECORD := NULL;
+  v_creature           RECORD;
   v_creature_awarded   BOOLEAN := false;
-  v_page               RECORD := NULL;
+  v_page               RECORD;
   v_page_unlocked      BOOLEAN := false;
   v_next_page_id       UUID;
   v_position_x         REAL;
@@ -355,10 +355,6 @@ BEGIN
   END IF;
 
   -- Step 10: Advance coloring reveals
-  -- Phase 5 UPDATE: Check earning_task_id FIRST for 1:1 task-linked reveals.
-  -- If earning_task_id is set, only advance when the completed task matches,
-  -- and advance unconditionally (each completion = one step).
-  -- If earning_task_id IS NULL, fall through to earning_mode logic (unchanged).
   FOR v_reveal IN
     SELECT mcr.* FROM public.member_coloring_reveals mcr
      WHERE mcr.family_member_id = v_member.id
@@ -372,7 +368,6 @@ BEGIN
         v_should_advance := true;
       END IF;
     ELSE
-      -- Original earning_mode logic (unchanged from migration 100126)
       CASE v_reveal.earning_mode
         WHEN 'every_n_completions' THEN
           UPDATE public.member_coloring_reveals
@@ -440,7 +435,6 @@ BEGIN
 END;
 $fn$;
 
--- Verification
 DO $$ BEGIN
-  RAISE NOTICE 'migration 100128: roll_creature_for_completion updated with earning_task_id check';
+  RAISE NOTICE 'migration 100129: fixed uninitialized RECORD access in roll_creature_for_completion';
 END $$;
