@@ -258,13 +258,13 @@ CONTENT SAFETY — CRITICAL:
     }
 
     // Log AI cost
-    await logAICost(supabase, {
-      family_id,
-      member_id,
-      feature_key: 'bookshelf_study_guide',
-      model: 'haiku',
-      tokens_input: totalInput,
-      tokens_output: totalOutput,
+    logAICost({
+      familyId: family_id,
+      memberId: member_id,
+      featureKey: 'bookshelf_study_guide',
+      model: 'anthropic/claude-haiku-4.5',
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
     })
 
     return new Response(

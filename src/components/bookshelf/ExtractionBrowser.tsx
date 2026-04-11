@@ -288,7 +288,20 @@ export function ExtractionBrowser({
           member_id: member.id,
         }),
       })
-      if (resp.ok) await refetch()
+      if (resp.ok) {
+        await refetch()
+      } else {
+        const errData = await resp.json().catch(() => ({}))
+        const msg = (errData as { error?: string }).error || `Go Deeper failed (${resp.status})`
+        console.error('[Go Deeper]', msg)
+        // Show a brief error in extractProgress so user sees feedback
+        setExtractProgress(msg)
+        setTimeout(() => setExtractProgress(''), 5000)
+      }
+    } catch (err) {
+      console.error('[Go Deeper] Error:', err)
+      setExtractProgress(`Go Deeper failed: ${(err as Error).message}`)
+      setTimeout(() => setExtractProgress(''), 5000)
     } finally {
       setGoingDeeper(false)
     }
@@ -532,6 +545,13 @@ export function ExtractionBrowser({
               Extract This Book
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Go Deeper / extraction error message (auto-dismisses after 5s) */}
+      {!extracting && extractProgress && (
+        <div className="px-4 py-2 mb-2 text-sm text-[var(--color-error)] bg-[color-mix(in_srgb,var(--color-error)_8%,transparent)] rounded-lg">
+          {extractProgress}
         </div>
       )}
 

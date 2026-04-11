@@ -232,7 +232,7 @@ export async function sendToSelfKnowledge(
       member_id: data.memberId,
       content: data.text,
       category: data.category || 'general',
-      source_type: 'content_extraction',
+      source_type: 'manual', // CHECK constraint allows: manual, upload, lila_guided, bulk_add
       source_reference_id: data.sourceItemId,
       source: data.sourceType,
       is_included_in_ai: true,

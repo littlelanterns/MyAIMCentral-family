@@ -258,8 +258,7 @@ type ExtractionRow = {
   is_hearted: boolean
   content_type?: string
   style_variant?: string
-  action_type?: string
-  question_type?: string
+  content_type?: string
 }
 
 async function buildBookContext(
@@ -387,7 +386,7 @@ async function buildBookContext(
     // 5. Action Steps — hearted first, then non-hearted (limited)
     const { data: actionSteps } = await supabase
       .from('bookshelf_action_steps')
-      .select('text, action_type, is_hearted')
+      .select('text, content_type, is_hearted')
       .eq('bookshelf_item_id', itemId)
       .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
@@ -401,13 +400,13 @@ async function buildBookContext(
       if (hearted.length > 0) {
         bookSection += '\n\nHearted Action Steps:'
         for (const a of hearted) {
-          bookSection += `\n- [${a.action_type || 'action'}] ${a.text}`
+          bookSection += `\n- [${a.content_type || 'action'}] ${a.text}`
         }
       }
       if (others.length > 0) {
         bookSection += '\n\nOther Action Steps:'
         for (const a of others) {
-          bookSection += `\n- [${a.action_type || 'action'}] ${a.text}`
+          bookSection += `\n- [${a.content_type || 'action'}] ${a.text}`
         }
       }
     }
@@ -415,7 +414,7 @@ async function buildBookContext(
     // 6. Questions — hearted first, then non-hearted (limited)
     const { data: questions } = await supabase
       .from('bookshelf_questions')
-      .select('question_text, question_type, is_hearted')
+      .select('text, content_type, is_hearted')
       .eq('bookshelf_item_id', itemId)
       .eq('family_member_id', memberId)
       .order('is_hearted', { ascending: false })
@@ -423,8 +422,8 @@ async function buildBookContext(
 
     if (questions && questions.length > 0) {
       const rows = questions as Array<{
-        question_text: string
-        question_type: string | null
+        text: string
+        content_type: string | null
         is_hearted: boolean
       }>
       const hearted = rows.filter((r) => r.is_hearted)
@@ -433,13 +432,13 @@ async function buildBookContext(
       if (hearted.length > 0) {
         bookSection += '\n\nHearted Reflection Questions:'
         for (const q of hearted) {
-          bookSection += `\n- [${q.question_type || 'reflection'}] ${q.question_text}`
+          bookSection += `\n- [${q.content_type || 'reflection'}] ${q.text}`
         }
       }
       if (others.length > 0) {
         bookSection += '\n\nOther Reflection Questions:'
         for (const q of others) {
-          bookSection += `\n- [${q.question_type || 'reflection'}] ${q.question_text}`
+          bookSection += `\n- [${q.content_type || 'reflection'}] ${q.text}`
         }
       }
     }

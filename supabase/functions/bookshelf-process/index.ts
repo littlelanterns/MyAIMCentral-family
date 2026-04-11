@@ -509,12 +509,14 @@ async function runChunkPhase(
   }
 
   // Delete any existing chunks (re-processing case)
+  // bookshelf_chunks uses book_cache_id, not bookshelf_item_id
+  const chunkDeleteKey = bookLibraryId || bookshelfItemId
   await supabase
     .from('bookshelf_chunks')
     .delete()
-    .eq('bookshelf_item_id', bookshelfItemId)
+    .eq('book_cache_id', chunkDeleteKey)
 
-  // Insert chunks in batches — without embeddings (backfilled async by bookshelf-embed)
+  // Insert chunks in batches — without embeddings (backfilled async by embed Edge Function)
   const INSERT_BATCH = 200
   let totalChunksInserted = 0
   let totalTokens = 0
@@ -525,11 +527,12 @@ async function runChunkPhase(
     await setDetail(`Saving chunks (batch ${batchNum} of ${totalBatches})...`)
     const batch = chunks.slice(i, i + INSERT_BATCH)
 
+    // bookshelf_chunks columns: book_cache_id, chunk_index, chunk_text, token_count
     const batchRecords = batch.map((chunk) => ({
-      bookshelf_item_id: bookshelfItemId,
+      book_cache_id: chunkDeleteKey,
       chunk_index: chunk.index,
-      text: chunk.text,
-      tokens_count: chunk.tokenCount,
+      chunk_text: chunk.text,
+      token_count: chunk.tokenCount,
       chapter_title: chunk.chapterTitle,
       chapter_index: chunk.chapterIndex,
     }))
@@ -545,7 +548,7 @@ async function runChunkPhase(
       )
     } else {
       totalChunksInserted += batchRecords.length
-      totalTokens += batchRecords.reduce((sum, c) => sum + c.tokens_count, 0)
+      totalTokens += batchRecords.reduce((sum, c) => sum + c.token_count, 0)
     }
   }
 
@@ -588,27 +591,15 @@ async function runChunkPhase(
     }
   }
 
-  // Trigger embedding backfill (separate invocation — non-fatal if it fails)
+  // Trigger embedding backfill via the generic embed function (non-fatal)
   if (OPENAI_API_KEY && totalChunksInserted > 0) {
     await setDetail('Generating embeddings...')
     try {
-      // If a dedicated bookshelf-embed function exists, invoke it.
-      // Otherwise fall back to the generic embed function.
-      await supabase.functions.invoke('bookshelf-embed', {
-        body: { bookshelf_item_id: bookshelfItemId },
+      await supabase.functions.invoke('embed', {
+        body: { bookshelf_item_id: bookshelfItemId, table: 'bookshelf_chunks' },
       })
-    } catch {
-      // Try the generic embed function as fallback
-      try {
-        await supabase.functions.invoke('embed', {
-          body: { bookshelf_item_id: bookshelfItemId, table: 'bookshelf_chunks' },
-        })
-      } catch (embedErr) {
-        console.warn(
-          '[bookshelf-process] Async embedding invocation failed (non-fatal):',
-          embedErr,
-        )
-      }
+    } catch (embedErr) {
+      console.warn('[bookshelf-process] Async embedding invocation failed (non-fatal):', embedErr)
     }
   }
 
