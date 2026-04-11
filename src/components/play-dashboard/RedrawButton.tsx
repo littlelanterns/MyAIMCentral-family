@@ -32,15 +32,7 @@ export function RedrawButton({ drawId, listId, memberId }: RedrawButtonProps) {
 
   const redrawMutation = useMutation({
     mutationFn: async () => {
-      const today = todayLocalIso()
-
-      // 1. Release current draw
-      await supabase
-        .from('randomizer_draws')
-        .update({ status: 'released', completed_at: new Date().toISOString() })
-        .eq('id', drawId)
-
-      // 2. Fetch eligible items from the list
+      // 1. Fetch eligible items from the list (exclude the current item)
       const { data: items } = await supabase
         .from('list_items')
         .select('*')
@@ -49,8 +41,18 @@ export function RedrawButton({ drawId, listId, memberId }: RedrawButtonProps) {
 
       if (!items || items.length === 0) return null
 
+      // 2. Get current draw to exclude from pick
+      const { data: currentDraw } = await supabase
+        .from('randomizer_draws')
+        .select('list_item_id')
+        .eq('id', drawId)
+        .single()
+
+      const eligible = items.filter(i => i.id !== currentDraw?.list_item_id)
+      if (eligible.length === 0) return null // Only one item in the list
+
       // 3. Weighted pick (3× for under-frequency-min items)
-      const weights = items.map(item => {
+      const weights = eligible.map(item => {
         if (item.frequency_min != null && item.period_completion_count < item.frequency_min) {
           return 3
         }
@@ -58,33 +60,28 @@ export function RedrawButton({ drawId, listId, memberId }: RedrawButtonProps) {
       })
       const total = weights.reduce((a: number, b: number) => a + b, 0)
       let r = Math.random() * total
-      let winner = items[items.length - 1]
-      for (let i = 0; i < items.length; i++) {
+      let winner = eligible[eligible.length - 1]
+      for (let i = 0; i < eligible.length; i++) {
         r -= weights[i]
-        if (r <= 0) { winner = items[i]; break }
+        if (r <= 0) { winner = eligible[i]; break }
       }
 
-      // 4. Insert new draw
-      const { data: newDraw, error } = await supabase
+      // 4. UPDATE the existing draw row to the new item
+      //    (can't insert a second auto_surprise for the same day —
+      //     UNIQUE partial index blocks it regardless of status)
+      const { data: updated, error } = await supabase
         .from('randomizer_draws')
-        .insert({
-          list_id: listId,
-          list_item_id: winner.id,
-          family_member_id: memberId,
-          draw_source: 'auto_surprise',
-          routine_instance_date: today,
-          status: 'active',
-        })
+        .update({ list_item_id: winner.id, status: 'active' })
+        .eq('id', drawId)
         .select()
-        .maybeSingle()
+        .single()
 
       if (error) {
-        // The UNIQUE partial index may conflict if there's a race.
-        // Fetch whatever exists instead.
-        console.warn('Redraw insert conflict:', error.message)
+        console.warn('Redraw update failed:', error.message)
+        return null
       }
 
-      return newDraw
+      return updated
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task-randomizer-draws'] })
