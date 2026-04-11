@@ -18,15 +18,13 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { RefreshCw, X } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { todayLocalIso } from '@/utils/dates'
-
 interface RedrawButtonProps {
   drawId: string
   listId: string
   memberId: string
 }
 
-export function RedrawButton({ drawId, listId, memberId }: RedrawButtonProps) {
+export function RedrawButton({ drawId, listId }: RedrawButtonProps) {
   const [showGate, setShowGate] = useState(false)
   const queryClient = useQueryClient()
 

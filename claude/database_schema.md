@@ -3500,6 +3500,95 @@
 
 ---
 
+### `task_segments`
+**PRD:** PRD-24/PRD-26 (Build M Expansion) | **Domain:** gamification
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| family_id | UUID | — | NO | FK families |
+| family_member_id | UUID | — | NO | FK family_members |
+| segment_name | TEXT | — | NO | "Morning", "School", etc. |
+| icon_key | TEXT | — | YES | Lucide icon name |
+| sort_order | INTEGER | 0 | NO | Display order on dashboard |
+| day_filter | INTEGER[] | — | YES | Day-of-week (0=Sun..6=Sat). NULL = every day |
+| creature_earning_enabled | BOOLEAN | true | NO | Whether completing segment awards creature |
+| segment_complete_celebration | BOOLEAN | true | NO | Mini-celebration on segment completion |
+| randomizer_reveal_style | TEXT | 'mystery_tap' | NO | CHECK: 'show_upfront','mystery_tap' |
+| theme_override_id | UUID | — | YES | FK gamification_themes (future: Sunday List) |
+| is_active | BOOLEAN | true | NO | |
+| created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Family read. Primary parent write.
+**Indexes:** `idx_task_segments_member_active` ON (family_member_id, is_active, sort_order)
+**Triggers:** `trg_task_segments_updated_at`
+
+---
+
+### `coloring_reveal_library`
+**PRD:** PRD-24/PRD-26 (Build M Expansion) | **Domain:** gamification
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| theme_id | UUID | — | NO | FK gamification_themes |
+| slug | TEXT | — | NO | e.g. 'fox_mushroom'. Asset URLs derived from slug. |
+| display_name | TEXT | — | NO | |
+| category | TEXT | — | NO | CHECK: 'animal','scene' |
+| reveal_sequences | JSONB | — | NO | `{"5": [[zone_ids], ...], "10": [...], ...}` |
+| is_active | BOOLEAN | true | NO | |
+| created_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Authenticated read. Admin write.
+**Indexes:** `idx_coloring_library_theme` ON theme_id
+**Seed data:** 32 rows (20 animals + 12 scenes) with 6 step-count variants each.
+
+---
+
+### `member_coloring_reveals`
+**PRD:** PRD-24/PRD-26 (Build M Expansion) | **Domain:** gamification
+
+| Column | Type | Default | Nullable | Notes |
+|--------|------|---------|----------|-------|
+| id | UUID | gen_random_uuid() | NO | PK |
+| family_id | UUID | — | NO | FK families |
+| family_member_id | UUID | — | NO | FK family_members |
+| library_image_id | UUID | — | NO | FK coloring_reveal_library |
+| earning_task_id | UUID | — | YES | FK tasks. 1:1 task linkage for tally reveal. |
+| total_steps | INTEGER | — | NO | Step count chosen (5/10/15/20/30/50) |
+| current_step | INTEGER | 0 | NO | Progress counter |
+| revealed_zone_ids | INTEGER[] | '{}' | NO | Zone IDs revealed so far |
+| is_complete | BOOLEAN | false | NO | True when current_step >= total_steps |
+| completed_at | TIMESTAMPTZ | — | YES | |
+| lineart_preference | TEXT | 'medium' | NO | CHECK: 'simple','medium','complex' |
+| created_at | TIMESTAMPTZ | now() | NO | |
+| updated_at | TIMESTAMPTZ | now() | NO | |
+
+**RLS:** Family read. Primary parent write. Member read own.
+**Indexes:** `idx_member_coloring_member` ON (family_member_id); `idx_member_coloring_task` ON earning_task_id WHERE earning_task_id IS NOT NULL
+**Triggers:** `trg_member_coloring_updated_at`
+
+---
+
+### Altered Tables (Build M Expansion)
+
+**`tasks`** — Added `task_segment_id UUID FK task_segments(id) ON DELETE SET NULL`
+
+**`member_sticker_book_state`** — Added 10 earning mode columns:
+- `creature_earning_mode TEXT DEFAULT 'random_per_task'` CHECK: 'segment_complete','every_n_completions','complete_the_day','random_per_task'
+- `creature_earning_threshold INTEGER DEFAULT 3`
+- `creature_earning_counter INTEGER DEFAULT 0`
+- `creature_earning_counter_resets BOOLEAN DEFAULT true`
+- `page_earning_mode TEXT DEFAULT 'every_n_creatures'` CHECK: 'tracker_goal','every_n_creatures','every_n_completions'
+- `page_earning_completion_threshold INTEGER DEFAULT 20`
+- `page_earning_completion_counter INTEGER DEFAULT 0`
+- `page_earning_tracker_widget_id UUID FK dashboard_widgets`
+- `page_earning_tracker_threshold INTEGER DEFAULT 5`
+- `randomizer_reveal_style TEXT DEFAULT 'mystery_tap'`
+
+---
+
 ## Platform Complete (PRD-27 through PRD-38)
 
 ### `trackable_event_categories`

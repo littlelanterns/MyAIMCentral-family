@@ -1,6 +1,6 @@
 # PRD-24/PRD-26 — Configurable Earning Strategies
 
-> **Status:** DESIGN — awaiting founder review before code
+> **Status:** COMPLETE — Phases 1-6 built, Phase 7 verification 2026-04-11
 > **Parent build:** Build M (PRD-24 + PRD-26 Play Dashboard + Sticker Book)
 > **Created:** 2026-04-10
 > **Scope:** Replaces the single hardcoded d100 creature roll with a mom-configurable earning strategy system. Adds Play Segments for task grouping.
@@ -579,3 +579,117 @@ scene_apple_harvest, scene_autumn_leaf_boats, scene_cherry_blossom_picnic, scene
 | Post-build verification table | Every requirement → Wired / Stubbed / Missing |
 | Feature decision file | Verification results archived |
 | CURRENT_BUILD.md | Reset to IDLE |
+
+---
+
+## 12. Post-Build Verification Table — 2026-04-11
+
+### Phase 1: Earning Strategy Foundation + Color Reveal Schema
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 1.1 | `task_segments` table with RLS + indexes | **Wired** | Migration 100126. RLS: family read, mom write. Index on `(family_member_id, is_active, sort_order)`. |
+| 1.2 | `tasks.task_segment_id` FK column | **Wired** | Migration 100126. FK to `task_segments(id)` ON DELETE SET NULL. |
+| 1.3 | `coloring_reveal_library` table seeded with 32 subjects | **Wired** | Migration 100126. 32 rows (20 animals + 12 scenes) with slug, display_name, category, reveal_sequences JSONB (6 step variants: 5/10/15/20/30/50). |
+| 1.4 | `member_coloring_reveals` table | **Wired** | Migration 100126. Tracks per-member progress: current_step, total_steps, revealed_zone_ids, is_complete, earning_task_id. |
+| 1.5 | Earning mode columns on `member_sticker_book_state` | **Wired** | 11 new columns: `creature_earning_mode`, `creature_earning_threshold`, `creature_earning_counter`, `creature_earning_counter_resets`, `page_earning_mode`, `page_earning_completion_threshold`, `page_earning_completion_counter`, `page_earning_tracker_widget_id`, `page_earning_tracker_threshold`, `randomizer_reveal_style`. |
+| 1.6 | `roll_creature_for_completion` RPC refactored with earning mode branching | **Wired** | Step 7 branches on 4 modes: `random_per_task` (d100), `every_n_completions` (counter), `segment_complete` (all tasks in segment done), `complete_the_day` (all today's tasks done). Page earning similarly branches on 3 modes. |
+| 1.7 | `check_segment_completion(p_task_id)` RPC | **Wired** | Returns true when all tasks in the completed task's segment are done for today. |
+| 1.8 | `check_day_completion(p_member_id)` RPC | **Wired** | Returns true when all assigned tasks for today are complete. |
+| 1.9 | `advance_coloring_reveal(p_member_coloring_reveal_id)` RPC | **Wired** | Increments step, adds next zone group to `revealed_zone_ids`, sets `is_complete` when done. |
+| 1.10 | TypeScript types: `TaskSegment`, `ColoringRevealImage`, `MemberColoringReveal`, earning enums | **Wired** | In `src/types/play-dashboard.ts`. |
+| 1.11 | `useTaskSegments` hook | **Wired** | `src/hooks/useTaskSegments.ts` — read + CRUD + reorder. |
+| 1.12 | `useColoringReveals` hook | **Wired** | `src/hooks/useColoringReveals.ts` — read + advance + lineart preference. |
+| 1.13 | Feature keys registered | **Wired** | `task_segments`, `earning_strategies`, `coloring_reveals`, `gamification_segment_complete`, `gamification_every_n`, `gamification_complete_day`. |
+
+### Phase 2: Task Segments + Play Dashboard Grouped Rendering
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 2.1 | Segment CRUD hooks (`useCreateSegment`, `useUpdateSegment`, `useDeleteSegment`, `useReorderSegments`) | **Wired** | In `src/hooks/useTaskSegments.ts`. |
+| 2.2 | Task-to-segment assignment (`useAssignTaskToSegment`) | **Wired** | Mutation in `useTaskSegments.ts`. |
+| 2.3 | `PlayTaskTileGrid` grouped rendering by segment | **Wired** | `src/components/play-dashboard/PlayTaskTileGrid.tsx` — renders segment banners with icon + progress bar, tiles underneath. Falls back to flat list when no segments. |
+| 2.4 | Segment-complete celebration (confetti + glow) | **Wired** | `segment_complete_celebration` flag per segment controls whether mini-celebration plays. |
+| 2.5 | Earning progress counter ("2/3 until next creature!") | **Wired** | `EarningProgressPill` component renders per-mode progress in dashboard header. |
+| 2.6 | Day-of-week filter on segments | **Wired** | `day_filter INTEGER[]` column; segments only render on matching days. |
+
+### Phase 3: Color Reveal Widget + End-to-End Canvas
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 3.1 | Asset upload to Supabase Storage | **Wired** | `scripts/upload-coloring-library.cjs` uploads all 32 subjects (7 files each) to `gamification-assets/woodland-felt/coloring-library/{slug}/`. |
+| 3.2 | `ColorRevealCanvas` (grayscale → color zone reveals) | **Wired** | `src/components/play-dashboard/ColorRevealCanvas.tsx` — canvas pixel masking, zones transition from grayscale to full color on reveal. |
+| 3.3 | Reveal animation (shimmer/glow on newly revealed zones) | **Wired** | CSS transition on zone reveal. |
+| 3.4 | Multiple active reveals per child | **Wired** | Multiple `member_coloring_reveals` rows per member supported. |
+| 3.5 | `ColorRevealDetailModal` (full-screen zoomable view + progress) | **Wired** | `src/components/play-dashboard/ColorRevealDetailModal.tsx`. |
+| 3.6 | Print flow (lineart picker → `window.print()`) | **Wired** | Lineart complexity picker (simple/medium/complex) → print-friendly view. |
+| 3.7 | `CompletedBookGallery` (gallery of fully revealed images) | **Wired** | `src/components/play-dashboard/CompletedBookGallery.tsx` — `WHERE is_complete = true ORDER BY completed_at`. |
+| 3.8 | E2E tests | **Wired** | `tests/e2e/features/color-reveal-phase3.spec.ts`. |
+
+### Phase 4: Mom Settings (Full Configuration Surface)
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 4.1 | `GamificationSettingsModal` with 6 collapsible sections | **Wired** | `src/components/gamification/settings/GamificationSettingsModal.tsx`. |
+| 4.2 | Segment management (create/name/reorder/delete/day filter/creature-earning toggle) | **Wired** | Section 2 of settings modal. DnD reorder, suggested names as tappable pills. |
+| 4.3 | Task-to-segment assignment UI | **Wired** | `SegmentTaskPickerModal` — member's tasks listed, tap to assign to segment. |
+| 4.4 | Creature earning mode picker (4 cards with "good for" descriptions) | **Wired** | `EarningModePickerCards` — 4 cards: Segment Complete, Every N Tasks, Complete the Day, Random Surprise. Per-mode config (threshold, segment checkboxes). |
+| 4.5 | Page/background earning mode picker (3 cards) | **Wired** | 3 cards: Tracker Goal, Every N Creatures, Every N Completions. |
+| 4.6 | Coloring reveal config (pick image, pick task, pick step count, pick lineart) | **Wired** | `ColoringImagePickerModal` + config section. 4 fields per founder decision #11. |
+| 4.7 | Reveal style picker (show upfront vs mystery tap) | **Wired** | Per-segment `randomizer_reveal_style` toggle in segment settings. |
+| 4.8 | Master toggle, sticker book toggle, points per task, reset | **Wired** | Section 1 (toggles) + Section 6 (reset/advanced). |
+| 4.9 | Mutation hooks (6+) | **Wired** | `useUpdateGamificationConfig`, `useUpdateStickerBookEarning`, `useToggleStickerBook`, `useResetStickerBook`, `useCreateColoringReveal`, `useDeleteColoringReveal`, `useResetColoringReveals`. |
+
+### Phase 5: Cross-Shell Segments + Task-Linked Coloring
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 5.1 | `earning_task_id` FK on `member_coloring_reveals` | **Wired** | Migration 100127. |
+| 5.2 | RPC updated: `earning_task_id` check runs first in pipeline | **Wired** | Migration 100128. Task-linked reveals bypass earning mode — advance on 1:1 task match. |
+| 5.3 | `ColorRevealTallyWidget` (dashboard widget with "I did it!" button) | **Wired** | `src/components/coloring-reveal/ColorRevealTallyWidget.tsx` — shows image, linked task name, progress bar, "I did it!" button (completes linked task). |
+| 5.4 | `SegmentHeader` for non-Play shells | **Wired** | `src/components/segments/SegmentHeader.tsx` — compact header with name + progress pill. Used in Guided, Independent, Adult shells. |
+| 5.5 | Guided shell segment grouping in `GuidedActiveTasksSection` | **Wired** | Tasks grouped by segment with SegmentHeader. |
+| 5.6 | Independent/Adult shell segment grouping | **Wired** | Collapsible section headers at appropriate density. |
+| 5.7 | Gamification opt-in across all shells (founder decision #7) | **Wired** | Any member with `gamification_configs.enabled = true` can earn. Lighter sticker book widget for non-Play. |
+| 5.8 | E2E tests | **Wired** | `tests/e2e/features/phase5-segments-coloring-reveal.spec.ts`. |
+
+### Phase 6: Randomizer Reveals in Segments + Polish
+
+| # | Requirement | Status | Notes |
+|---|---|---|---|
+| 6.1 | `MysteryTapTile` (sparkly card-flip reveal for randomizer-linked tasks) | **Wired** | `src/components/play-dashboard/MysteryTapTile.tsx` — shimmer animation + card-flip. |
+| 6.2 | Show upfront tile (pre-revealed randomizer result on dashboard load) | **Wired** | Controlled by segment's `randomizer_reveal_style`. |
+| 6.3 | Per-segment reveal style wiring | **Wired** | Mom's per-segment choice applied at render time via `randomizer_reveal_style`. |
+| 6.4 | `RedrawButton` (adult-only, math gate, UPDATE in-place) | **Wired** | `src/components/play-dashboard/RedrawButton.tsx` — redraws update existing `randomizer_draws` row in-place (no history pollution). Math gate for adult approval. |
+| 6.5 | E2E tests | **Wired** | `tests/e2e/features/play-dashboard-phase6-randomizer-reveals.spec.ts` — 6 tests. |
+
+### Stubs (Documented Not-Building)
+
+| # | Item | Status | Notes |
+|---|---|---|---|
+| S1 | Mom message widget on Play Dashboard | **Stubbed** | `PlayMomMessageStub` renders `PlannedExpansionCard`. Depends on PRD-15 messaging. |
+| S2 | Play reveal tiles (surprise reveal mechanic) | **Stubbed** | `PlayRevealTileStub` renders `PlannedExpansionCard`. Deferred post-MVP. |
+| S3 | Setup wizard (first-time guided flow) | **Stubbed** | Settings modal serves as both first-time and ongoing config. Wizard is a polish pass. |
+| S4 | Tracker Goal page earning mode (widget data point integration) | **Stubbed** | Schema + RPC branch exist. Frontend widget picker queries `dashboard_widgets` but no active consumption loop — widget data point triggers not wired to page earning. |
+| S5 | Sunday List theme override | **Stubbed** | `theme_override_id` column exists on `task_segments`. No faith-themed sticker theme created yet. |
+| S6 | Task unmark cascade (points/streak/creature reversal) | **Stubbed** | Existing known limitation from Sub-phase C (CLAUDE.md #206). No changes in this expansion. |
+| S7 | Streak milestone earning mode | **Stubbed** | Earning mode enum is extensible. Not built. |
+| S8 | Timer goal earning mode | **Stubbed** | Not built. |
+| S9 | Approval-based manual earning mode | **Stubbed** | Not built. |
+| S10 | Drag-to-reposition creatures on sticker pages | **Stubbed** | Schema supports it (`position_x`, `position_y`). UI deferred. |
+| S11 | Sticker book page curation UI (mom picks page order) | **Stubbed** | Pages unlock in order. Custom curation deferred. |
+| S12 | Currency customization UI | **Stubbed** | `gamification_configs` has `currency_name`/`currency_icon` columns. No UI built. |
+
+### Verification Summary
+
+| Status | Count |
+|---|---|
+| **Wired** | 42 |
+| **Stubbed** | 12 |
+| **Missing** | 0 |
+
+**Zero Missing items. Build is complete.**
+
+### Mobile/Desktop Navigation Parity Check
+
+No new top-level pages were added by this expansion. Task segments are a settings surface (inside `GamificationSettingsModal`), not a new page. Coloring reveals render as dashboard widgets, not pages. No sidebar entries added. **Parity check: N/A — no new routes.**

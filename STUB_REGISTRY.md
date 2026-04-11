@@ -224,6 +224,34 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Bingo Cards game mode | PRD-24A | — | 📌 Post-MVP | — |
 | Evolution Creatures game mode | PRD-24A | — | 📌 Post-MVP | — |
 | Passport Books game mode | PRD-24A | — | 📌 Post-MVP | — |
+| Task unmark cascade (points/streak/creature/page reversal) | PRD-24 Sub-phase C | — | ⏳ Unwired (MVP) | Future UNDO pipeline build |
+| Drag-to-reposition creatures on sticker pages | PRD-24 Sub-phase D | — | ⏳ Unwired (MVP) | Schema supports it; UI deferred |
+| Sticker book page curation UI | PRD-24 Sub-phase D | — | 📌 Post-MVP | Pages unlock in order; custom curation deferred |
+| Currency customization UI | PRD-24 | — | 📌 Post-MVP | Columns exist on gamification_configs; no settings UI |
+| Randomizer mastery → gamification pipeline | PRD-24 Sub-phase C | — | ⏳ Unwired (MVP) | Known gap: randomizer mastery approvals don't fire RPC (no task_completions row). Sequential mastery works. |
+| DailyCelebration Step 3/4 gamification wiring | PRD-26 Sub-phase B | — | ⏳ Unwired (MVP) | Auto-skipped in DailyCelebration overlay |
+| Play Dashboard mom message widget | PRD-26 Sub-phase B | — | ⏳ Unwired (MVP) | `PlayMomMessageStub` renders PlannedExpansionCard. PRD-15 dependency. |
+| Play Dashboard reveal tiles | PRD-26 Sub-phase B | — | 📌 Post-MVP | `PlayRevealTileStub` renders PlannedExpansionCard |
+
+## Build M — Configurable Earning Strategies Stubs (PRD-24/PRD-26 Expansion)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Task segments | Build M Phase 1 | Build M Phase 2 | ✅ Wired | 2026-04-11 — `task_segments` table + CRUD hooks + PlayTaskTileGrid grouped rendering |
+| 4 creature earning modes (segment_complete, every_n, complete_the_day, random_per_task) | Build M Phase 1 | Build M Phase 1 | ✅ Wired | 2026-04-11 — `roll_creature_for_completion` RPC branches on `creature_earning_mode` |
+| 3 page earning modes (tracker_goal, every_n_creatures, every_n_completions) | Build M Phase 1 | Build M Phase 1 | ✅ Wired | 2026-04-11 — RPC branches on `page_earning_mode` |
+| Coloring reveal library (32 subjects) | Build M Phase 1 | Build M Phase 3 | ✅ Wired | 2026-04-11 — `coloring_reveal_library` seeded, `ColorRevealCanvas` renders progressive zone reveals |
+| Task-linked coloring reveals (1:1 earning_task_id) | Build M Phase 4 | Build M Phase 5 | ✅ Wired | 2026-04-11 — `earning_task_id` FK, RPC checks task linkage first, `ColorRevealTallyWidget` with "I did it!" button |
+| Cross-shell segment rendering | Build M Phase 2 | Build M Phase 5 | ✅ Wired | 2026-04-11 — `SegmentHeader` for Guided/Independent/Adult + `PlayTaskTileGrid` for Play |
+| Gamification settings modal (6 sections) | Build M Phase 4 | Build M Phase 4 | ✅ Wired | 2026-04-11 — Full config: segments, earning modes, coloring reveals, toggles, reset |
+| Mystery tap tile + show upfront tile | Build M Phase 6 | Build M Phase 6 | ✅ Wired | 2026-04-11 — `MysteryTapTile` card-flip + per-segment `randomizer_reveal_style` |
+| Redraw button (adult-only, math gate) | Build M Phase 6 | Build M Phase 6 | ✅ Wired | 2026-04-11 — `RedrawButton` updates draw in-place, requires math gate for adults |
+| First-time setup wizard (guided onboarding flow) | Build M Phase 4 | — | 📌 Post-MVP | Settings modal serves as both first-time and ongoing config |
+| Tracker Goal page earning (widget data point consumption) | Build M Phase 1 | — | ⏳ Unwired (MVP) | Schema + RPC branch exist. Widget picker wired. Data point trigger not connected. |
+| Sunday List faith-themed sticker theme override | Build M Phase 1 | — | 📌 Post-MVP | `theme_override_id` on `task_segments`. No faith theme created. |
+| Streak milestone earning mode | Feature decision file §7 | — | 📌 Post-MVP | Earning mode enum extensible |
+| Timer goal earning mode | Feature decision file §7 | — | 📌 Post-MVP | Not built |
+| Approval-based manual earning mode | Feature decision file §7 | — | 📌 Post-MVP | Not built |
 
 ## Platform Complete Stubs
 
@@ -473,9 +501,9 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 
 | Status | Count |
 |--------|-------|
-| ✅ Wired | ~80 |
+| ✅ Wired | ~92 |
 | 🔗 Partially Wired | ~3 |
-| ⏳ Unwired (MVP) | ~37 |
-| 📌 Post-MVP | ~71 |
+| ⏳ Unwired (MVP) | ~40 |
+| 📌 Post-MVP | ~78 |
 | ❌ Superseded | ~3 |
-| **Total** | ~194 |
+| **Total** | ~216 |

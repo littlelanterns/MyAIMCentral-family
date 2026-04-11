@@ -442,6 +442,38 @@ This process exists because weeks of careful planning went into every PRD and ad
 
 207. **Member color canonical field:** Always read member colors via `getMemberColor(member)` from `src/lib/memberColors.ts` or the `useMemberColor(memberId)` hook. Never read `assigned_color` or `member_color` directly in components. When saving a color pick in any settings UI, write BOTH `member_color` AND `assigned_color` simultaneously so the two fields stay in sync.
 
+## Configurable Earning Strategies (PRD-24/PRD-26 — Build M Expansion)
+
+208. **Task segments are per-member day organizers, available in ALL shells.** `task_segments` table groups tasks into named sections (Morning, School, Jobs, Evening) with sort order, day-of-week filter (`day_filter INTEGER[]`), and per-segment creature earning toggle. Play renders big tile banners; Guided/Independent/Adult render `SegmentHeader` with compact progress bars. If no segments exist, dashboards render tasks as flat lists (backward compatible). Segments are optional — mom creates them in gamification settings.
+
+209. **4 creature earning modes, mom-configurable per child.** Stored in `member_sticker_book_state.creature_earning_mode`: `'random_per_task'` (default, d100 roll), `'every_n_completions'` (counter with configurable threshold), `'segment_complete'` (all tasks in a segment done), `'complete_the_day'` (all today's tasks done). `roll_creature_for_completion` RPC branches on this mode in Step 7. Mode-specific config columns: `creature_earning_threshold`, `creature_earning_counter`, `creature_earning_counter_resets`.
+
+210. **3 page/background earning modes, independent from creature earning.** Stored in `member_sticker_book_state.page_earning_mode`: `'every_n_creatures'` (default, page unlocks after N creatures), `'every_n_completions'` (page after N task completions), `'tracker_goal'` (page when a dashboard widget reaches a threshold). Mode-specific columns: `page_earning_completion_threshold`, `page_earning_completion_counter`, `page_earning_tracker_widget_id`, `page_earning_tracker_threshold`.
+
+211. **Coloring reveals are 1:1 task-linked tally counters, NOT earning-mode-driven.** Each `member_coloring_reveals` row has an `earning_task_id` FK linking it to one specific task. Each completion of that task = one reveal step (one zone group transitions from grayscale to color). The RPC checks `earning_task_id` FIRST — if the completed task matches a linked reveal, it advances that reveal regardless of creature earning mode. This is a visual tally counter tied to a specific repeatable action, not a gamification reward.
+
+212. **Coloring reveal config is 4 fields only:** pick image (from `coloring_reveal_library`), pick linked task (`earning_task_id`), pick step count (5/10/15/20/30/50 — maps to `reveal_sequences` JSONB key), pick lineart preference (simple/medium/complex — for printing). No earning mode cards, no thresholds, no segment checkboxes on coloring reveals.
+
+213. **`coloring_reveal_library` stores 32 Woodland Felt subjects** (20 animals + 12 scenes). Each row has `slug`, `display_name`, `category` (animal/scene), `theme_id`, and `reveal_sequences JSONB` with 6 step-count variants. Asset URLs are derived at runtime from `{CDN_BASE}/gamification-assets/woodland-felt/coloring-library/{slug}/{file}` — database stores only the slug.
+
+214. **Randomizer reveal styles are per-segment, mom-configurable.** `task_segments.randomizer_reveal_style` is `'mystery_tap'` (default, sparkly card-flip animation) or `'show_upfront'` (activity visible when dashboard loads). The underlying randomizer draw is deterministic per day regardless of style. Completed tasks always show revealed. Mom configures per-segment in gamification settings.
+
+215. **Redraw mechanism: UPDATE in-place, math gate, adult-only.** `RedrawButton` redraws the randomizer selection for a segment by updating the existing `randomizer_draws` row in-place (no history pollution, no new rows). Adult members must solve a simple math gate before redrawing — prevents children from fishing for preferred activities. Only adults (mom/additional_adult) see the redraw button.
+
+216. **`segment_complete_celebration` is a per-segment boolean flag.** When all tasks in a segment are marked complete and this flag is `true`, a mini-celebration (confetti + glow) plays before any creature earning logic fires. Mom can disable per-segment for kids who find celebrations between segments annoying.
+
+217. **Cross-shell segment rendering uses shell-appropriate components.** Play shell: `PlayTaskTileGrid` with big section banners, chunky progress bars, large tiles. Guided shell: `SegmentHeader` with name + compact progress bar, standard task cards. Independent shell: collapsible section headers in task list, progress pill in header. Adult shell: collapsible section headers at adult density. All shells read the same `task_segments` table.
+
+218. **Earning progress is visible to children.** For `every_n_completions` mode, `EarningProgressPill` shows "2/3 until next creature!" on the Play Dashboard. For `segment_complete`, progress shows per-segment (3/4 complete). For `complete_the_day`, progress shows total day completion. Gamification is motivating, not hidden.
+
+219. **Earned creatures and pages are NEVER taken away.** If mom adds a task mid-day after "complete the day" fired, the creature stays earned. Past awards are permanent. The day-complete status rechecks live for future evaluations only. Consistent with "celebration only, never punishment" (CLAUDE.md principle).
+
+220. **Gamification opt-in is available across all shells, not just Play.** A 13-year-old Independent teen with `gamification_configs.enabled = true` earns creatures on task completion with a lighter sticker book widget. Gamification and allowance calculations (PRD-28) coexist — both consume `task_completions` rows independently.
+
+221. **`GamificationSettingsModal` has 6 collapsible sections.** (1) Master toggles (enable gamification, sticker book, base points per task). (2) Day Segments (CRUD with DnD reorder, suggested names, day-of-week filters, per-segment creature earning toggle). (3) Creature Earning (4-card mode picker with "good for" descriptions). (4) Background/Page Earning (3-card mode picker). (5) Coloring Reveals (browse library, assign task, pick step count + lineart). (6) Reset & Advanced (stats, reset buttons). Accessible from Settings → [Play Child] → Gamification.
+
+222. **`ColorRevealTallyWidget` is a dashboard widget, not a task tile.** Renders the coloring image with grayscale→color progressive reveal, linked task name, progress bar (current/total steps), and an "I did it!" button that completes the linked task. On full reveal, shows "Print it!" button with lineart complexity picker. Similar to a Best Intentions widget but with a visual reveal instead of a counter.
+
 ## Build Strictness (Non-Negotiable)
 
 121. **Before completing any build session, run `npx tsc --noEmit` and verify zero errors.** The production build (Vercel) uses strict TypeScript checking with `noUnusedLocals` and `noUnusedParameters` enabled. Vite's dev server does NOT type-check — it uses esbuild which ignores these flags. Code that works in `vite dev` can still fail on deploy. Never commit code that passes `vite dev` but would fail `npx tsc --noEmit`. Run the check before declaring any phase complete.
