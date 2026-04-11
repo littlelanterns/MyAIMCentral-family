@@ -187,7 +187,9 @@ export function MorningInsightSection({
         }}
       />
 
-      {/* Match results */}
+      {/* Match results — silent when nothing surfaces. Never show a
+          dead-end "nothing yet" message; the user is often being
+          vulnerable here and we don't punish an empty return. */}
       {hasBookshelfItems === false ? (
         <EmptyBookShelfNudge />
       ) : (passiveLoading || activeFetching) && displayedMatches.length === 0 ? (
@@ -212,13 +214,6 @@ export function MorningInsightSection({
             <ExtractionCard key={match.extraction_id} match={match} />
           ))}
         </div>
-      ) : hasBookshelfItems && !passiveLoading && !activeFetching ? (
-        <p
-          className="text-xs"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          No matches yet — as your library grows, we'll surface relevant wisdom here.
-        </p>
       ) : null}
     </div>
   )
