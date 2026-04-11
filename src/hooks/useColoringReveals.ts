@@ -6,9 +6,13 @@
  *   - useMemberColoringReveals: read a member's active/completed coloring reveal progress
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import type { ColoringRevealImage, MemberColoringReveal } from '@/types/play-dashboard'
+import type {
+  ColoringRevealImage,
+  MemberColoringReveal,
+  LineartPreference,
+} from '@/types/play-dashboard'
 
 /**
  * Browse the coloring reveal library for a given theme.
@@ -87,5 +91,38 @@ export function useMemberColoringReveals(familyMemberId: string | undefined) {
     },
     enabled: !!familyMemberId,
     staleTime: 30_000,
+  })
+}
+
+/**
+ * Update a member's coloring reveal record (lineart_preference, printed_at).
+ */
+export function useUpdateColoringReveal(familyMemberId: string | undefined) {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      revealId: string
+      lineart_preference?: LineartPreference
+      printed_at?: string
+    }) => {
+      const updates: Record<string, unknown> = {}
+      if (params.lineart_preference !== undefined) {
+        updates.lineart_preference = params.lineart_preference
+      }
+      if (params.printed_at !== undefined) {
+        updates.printed_at = params.printed_at
+      }
+
+      const { error } = await supabase
+        .from('member_coloring_reveals')
+        .update(updates)
+        .eq('id', params.revealId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['member-coloring-reveals', familyMemberId] })
+    },
   })
 }

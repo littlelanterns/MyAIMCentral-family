@@ -1,5 +1,5 @@
 /**
- * PlayDashboard — Build M Phase 2
+ * PlayDashboard — Build M Phase 3
  *
  * Purpose-built dashboard for Play members (ages 3-7). Replaces the
  * adult Dashboard that was previously rendering inside PlayShell.
@@ -8,14 +8,17 @@
  *   1. PlayDashboardHeader    — friendly greeting + 3 stat pills
  *   2. EarningProgressPill    — earning mode counter (Phase 2)
  *   3. PlayStickerBookWidget  — active page thumbnail + creature count
- *   4. PlayTaskTileGrid       — big tap-to-complete tiles, grouped by segment
- *   5. PlayRevealTileStub     — placeholder for future reveal tiles
- *   6. PlayMomMessageStub     — placeholder for mom messages (PRD-15)
+ *   4. ColorRevealWidget      — active coloring reveals (Phase 3)
+ *   5. PlayTaskTileGrid       — big tap-to-complete tiles, grouped by segment
+ *   6. PlayRevealTileStub     — placeholder for future reveal tiles
+ *   7. PlayMomMessageStub     — placeholder for mom messages (PRD-15)
  *
- * Phase 2 adds:
- *   - Segment-grouped task rendering in PlayTaskTileGrid
- *   - Segment-complete celebrations (SparkleOverlay + banner glow)
- *   - Earning progress counter pill per earning mode
+ * Phase 3 adds:
+ *   - ColorRevealWidget showing grayscale → color progressive reveal
+ *   - ColorRevealDetailModal for full-screen view + print flow
+ *   - CompletedBookGallery for finished coloring reveals
+ *   - Shimmer animation on widget when a reveal advances
+ *   - Completion celebration (ConfettiBurst + SparkleOverlay)
  *
  * NEVER renders emoji or Lucide icons on tiles. All tile imagery comes
  * from platform_assets (category='visual_schedule', variant='B') via
@@ -28,11 +31,15 @@ import { useTasks, useCompleteTask } from '@/hooks/useTasks'
 import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
 import { useGamificationTheme } from '@/hooks/useGamificationTheme'
+import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
 import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
 import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBookWidget'
+import { ColorRevealWidget } from '@/components/play-dashboard/ColorRevealWidget'
+import { ColorRevealDetailModal } from '@/components/play-dashboard/ColorRevealDetailModal'
+import { CompletedBookGallery } from '@/components/play-dashboard/CompletedBookGallery'
 import { PlayTaskTileGrid } from '@/components/play-dashboard/PlayTaskTileGrid'
 import { PlayRevealTileStub } from '@/components/play-dashboard/PlayRevealTileStub'
 import { PlayMomMessageStub } from '@/components/play-dashboard/PlayMomMessageStub'
@@ -41,7 +48,7 @@ import { PageUnlockRevealModal } from '@/components/play-dashboard/PageUnlockRev
 import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import type { Task } from '@/types/tasks'
-import type { PlayDashboardProps, RevealEvent } from '@/types/play-dashboard'
+import type { PlayDashboardProps, RevealEvent, MemberColoringReveal } from '@/types/play-dashboard'
 import {
   gamificationDidAwardCreature,
   gamificationDidUnlockPage,
@@ -76,6 +83,13 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
   const { data: stickerBookState } = useStickerBookState(memberId)
   const { data: creatures = [] } = useCreaturesForMember(memberId)
   const { data: theme } = useGamificationTheme(stickerBookState?.active_theme_id)
+  const { data: coloringReveals = [] } = useMemberColoringReveals(memberId)
+
+  // ── Color reveal modal state (Phase 3) ────────────────────────
+  const [colorRevealDetailOpen, setColorRevealDetailOpen] = useState<MemberColoringReveal | null>(null)
+  const [colorRevealGalleryOpen, setColorRevealGalleryOpen] = useState(false)
+  const [colorRevealCelebration, setColorRevealCelebration] = useState(false)
+  const [shimmeringRevealIds, setShimmeringRevealIds] = useState<Set<string>>(new Set())
 
   // ── Sticker book detail modal state (Sub-phase D) ─────────────
   const [stickerBookOpen, setStickerBookOpen] = useState(false)
@@ -164,12 +178,35 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
             }
           }
 
-          // Phase 1: log color reveal advancement
+          // Phase 3: handle color reveal advancement
           if (result?.coloring_reveals_advanced && result.coloring_reveals_advanced.length > 0) {
+            const advancedIds = new Set<string>()
+            let anyComplete = false
+
             for (const cr of result.coloring_reveals_advanced) {
-              console.info(
-                `[Gamification] Color reveal advanced: ${cr.image_slug} step ${cr.new_step}/${cr.total_steps}${cr.is_complete ? ' (COMPLETE!)' : ''}`,
-              )
+              advancedIds.add(cr.reveal_id)
+              if (cr.is_complete) anyComplete = true
+            }
+
+            // Trigger shimmer animation on the widget
+            setShimmeringRevealIds(advancedIds)
+            setTimeout(() => setShimmeringRevealIds(new Set()), 600)
+
+            // If a reveal just completed, open detail modal with celebration
+            if (anyComplete) {
+              const completedCr = result.coloring_reveals_advanced.find(cr => cr.is_complete)
+              if (completedCr) {
+                // Find the matching reveal from our local data (will be updated after invalidation)
+                const matchingReveal = coloringReveals.find(r => r.id === completedCr.reveal_id)
+                if (matchingReveal) {
+                  setColorRevealCelebration(true)
+                  setColorRevealDetailOpen({
+                    ...matchingReveal,
+                    is_complete: true,
+                    current_step: completedCr.total_steps,
+                  })
+                }
+              }
             }
           }
 
@@ -258,6 +295,16 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
         onOpen={() => openStickerBook()}
       />
 
+      <ColorRevealWidget
+        reveals={coloringReveals}
+        onOpenReveal={reveal => {
+          setColorRevealCelebration(false)
+          setColorRevealDetailOpen(reveal)
+        }}
+        onOpenGallery={() => setColorRevealGalleryOpen(true)}
+        shimmeringRevealIds={shimmeringRevealIds}
+      />
+
       {tasksLoading ? (
         <div
           style={{
@@ -324,6 +371,31 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           memberId={memberId}
           onClose={closeStickerBook}
           initialPageId={stickerBookInitialPageId}
+        />
+      )}
+
+      {/* ── Color Reveal Detail Modal (Phase 3) ─────────────────── */}
+      {colorRevealDetailOpen && (
+        <ColorRevealDetailModal
+          reveal={colorRevealDetailOpen}
+          onClose={() => {
+            setColorRevealDetailOpen(null)
+            setColorRevealCelebration(false)
+          }}
+          showCompletionCelebration={colorRevealCelebration}
+        />
+      )}
+
+      {/* ── Completed Book Gallery (Phase 3) ─────────────────────── */}
+      {colorRevealGalleryOpen && (
+        <CompletedBookGallery
+          reveals={coloringReveals}
+          onClose={() => setColorRevealGalleryOpen(false)}
+          onOpenReveal={reveal => {
+            setColorRevealGalleryOpen(false)
+            setColorRevealCelebration(false)
+            setColorRevealDetailOpen(reveal)
+          }}
         />
       )}
     </div>
