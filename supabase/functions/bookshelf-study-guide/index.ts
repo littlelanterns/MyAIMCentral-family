@@ -3,6 +3,10 @@
  * Generates age-adapted study guides from a book's key-point extractions.
  * Uses Haiku to rewrite existing extractions for a specific child's level.
  *
+ * Phase 1b-E: Rewired from old per-family tables to platform RPCs.
+ * Reads via get_book_extractions, deletes via delete_book_extractions_by_audience,
+ * inserts via insert_book_extractions_study_guide.
+ *
  * Input: bookshelf_item_id, target_member_id, detail_level
  * Output: Inserts rewritten items with audience = 'study_guide_{memberId}'
  */
@@ -26,12 +30,12 @@ const InputSchema = z.object({
   detail_level: z.enum(['brief', 'standard', 'detailed']).default('standard'),
 })
 
-// Tables to rewrite (skip insights — too analytical for kids)
-const STUDY_TABLES = [
-  { table: 'bookshelf_summaries', textCol: 'text', typeCol: 'content_type', label: 'Key Ideas' },
-  { table: 'bookshelf_action_steps', textCol: 'text', typeCol: 'content_type', label: 'Try This' },
-  { table: 'bookshelf_questions', textCol: 'text', typeCol: 'content_type', label: 'Think About' },
-  { table: 'bookshelf_declarations', textCol: 'declaration_text', typeCol: 'style_variant', label: 'Principles to Remember' },
+// Extraction types to rewrite (skip insights — too analytical for kids)
+const STUDY_TYPES = [
+  { type: 'summary', label: 'Key Ideas' },
+  { type: 'action_step', label: 'Try This' },
+  { type: 'question', label: 'Think About' },
+  { type: 'declaration', label: 'Principles to Remember' },
 ] as const
 
 Deno.serve(async (req) => {
@@ -86,50 +90,82 @@ Deno.serve(async (req) => {
       )
       .join('\n')
 
-    // Load book info
+    // Load book info + resolve book_library_id
     const { data: book } = await supabase
       .from('bookshelf_items')
-      .select('title, author')
+      .select('title, author, book_library_id')
       .eq('id', bookshelf_item_id)
       .single()
 
     const bookTitle = book?.title || 'this book'
     const bookAuthor = book?.author || ''
+    const bookLibraryId = book?.book_library_id
 
-    // Check if study guide already exists for this child+book
+    if (!bookLibraryId) {
+      return new Response(
+        JSON.stringify({ error: 'Book has no library link' }),
+        { status: 400, headers: jsonHeaders }
+      )
+    }
+
+    // Load ALL key-point extractions from the platform via get_book_extractions RPC
+    type ExtractionRow = {
+      id: string
+      extraction_type: string
+      text: string | null
+      declaration_text: string | null
+      content_type: string | null
+      style_variant: string | null
+      section_title: string | null
+      is_key_point: boolean
+      sort_order: number | null
+    }
+
+    const allExtractions: ExtractionRow[] = []
+    let offset = 0
+    while (true) {
+      const { data, error } = await supabase.rpc('get_book_extractions', {
+        p_bookshelf_item_ids: [bookshelf_item_id],
+        p_member_id: member_id,
+        p_audience: 'original',
+      }).range(offset, offset + 999)
+
+      if (error) {
+        console.error('get_book_extractions error:', error.message)
+        break
+      }
+      if (!data || data.length === 0) break
+      allExtractions.push(...(data as ExtractionRow[]))
+      if (data.length < 1000) break
+      offset += 1000
+    }
+
     const audienceKey = `study_guide_${target_member_id}`
+
+    // Delete any existing study guide for this child+book
+    await supabase.rpc('delete_book_extractions_by_audience', {
+      p_book_library_id: bookLibraryId,
+      p_audience: audienceKey,
+    })
 
     let totalItemsCreated = 0
     let totalInput = 0
     let totalOutput = 0
 
-    for (const { table, textCol, typeCol, label } of STUDY_TABLES) {
-      // Load existing key-point items for the book (original audience only)
-      // Limit to 15 key points per table to keep AI response manageable
-      const { data: items } = await supabase
-        .from(table)
-        .select(`id, section_title, ${textCol}, ${typeCol}, is_key_point`)
-        .eq('bookshelf_item_id', bookshelf_item_id)
-        .eq('family_member_id', member_id)
-        .eq('is_key_point', true)
-        .eq('is_deleted', false)
-        .eq('audience', 'original')
-        .order('sort_order', { ascending: true })
-        .limit(15)
+    for (const { type: extType, label } of STUDY_TYPES) {
+      // Filter to key-point items of this type
+      const items = allExtractions.filter(e =>
+        e.extraction_type === extType && e.is_key_point
+      )
 
-      if (!items || items.length === 0) {
-        console.log(`No key points found for ${table}`)
+      if (items.length === 0) {
+        console.log(`No key points found for ${extType}`)
         continue
       }
-      console.log(`Processing ${items.length} key points from ${table}`)
+      console.log(`Processing ${items.length} key points of type ${extType}`)
 
-      // Delete any existing study guide items for this child+book+table
-      await supabase
-        .from(table)
-        .delete()
-        .eq('bookshelf_item_id', bookshelf_item_id)
-        .eq('family_member_id', member_id)
-        .eq('audience', audienceKey)
+      // Limit to 15 key points per type to keep AI response manageable
+      const limitedItems = items.slice(0, 15)
 
       // Build prompt for Haiku
       const lengthGuide = detail_level === 'brief'
@@ -138,8 +174,11 @@ Deno.serve(async (req) => {
         ? 'Include supporting detail and examples the child can relate to. 3-4 sentences each.'
         : 'Rewrite clearly in 2-3 sentences at the child\'s level.'
 
-      const itemTexts = (items as Array<Record<string, unknown>>)
-        .map((item, i) => `${i + 1}. ${item[textCol] as string}`)
+      const itemTexts = limitedItems
+        .map((item, i) => {
+          const text = extType === 'declaration' ? item.declaration_text : item.text
+          return `${i + 1}. ${text || ''}`
+        })
         .join('\n')
 
       const systemPrompt = `You are rewriting book extractions for a ${childAge}-year-old named ${childName}.
@@ -166,7 +205,7 @@ CONTENT SAFETY — CRITICAL:
 - Return ONLY a JSON array of objects with "index" (1-based) and "text" (rewritten version)
 - Do NOT add commentary or explanations outside the JSON`
 
-      const userPrompt = `Rewrite these ${items.length} extractions for ${childName}:\n\n${itemTexts}`
+      const userPrompt = `Rewrite these ${limitedItems.length} extractions for ${childName}:\n\n${itemTexts}`
 
       const aiResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -187,7 +226,7 @@ CONTENT SAFETY — CRITICAL:
 
       if (!aiResp.ok) {
         const errText = await aiResp.text()
-        console.error(`AI call failed for ${table} (${aiResp.status}):`, errText)
+        console.error(`AI call failed for ${extType} (${aiResp.status}):`, errText)
         continue
       }
 
@@ -200,7 +239,7 @@ CONTENT SAFETY — CRITICAL:
       totalOutput += aiData.usage?.completion_tokens || 0
 
       const content = aiData.choices?.[0]?.message?.content || ''
-      console.log(`AI response for ${table} (${content.length} chars):`, content.substring(0, 200))
+      console.log(`AI response for ${extType} (${content.length} chars):`, content.substring(0, 200))
 
       // Parse the JSON array from response
       let rewritten: Array<{ index: number; text: string }> = []
@@ -209,50 +248,54 @@ CONTENT SAFETY — CRITICAL:
         if (jsonMatch) {
           rewritten = JSON.parse(jsonMatch[0])
         } else {
-          console.error(`No JSON array found in response for ${table}`)
+          console.error(`No JSON array found in response for ${extType}`)
         }
       } catch (parseErr) {
-        console.error(`Failed to parse study guide response for ${table}:`, parseErr)
+        console.error(`Failed to parse study guide response for ${extType}:`, parseErr)
         continue
       }
-      console.log(`Parsed ${rewritten.length} rewritten items for ${table}`)
+      console.log(`Parsed ${rewritten.length} rewritten items for ${extType}`)
 
-      // Insert rewritten items
-      const inserts: Array<Record<string, unknown>> = []
-      for (const rw of rewritten) {
-        const originalItem = (items as Array<Record<string, unknown>>)[rw.index - 1]
-        if (!originalItem) continue
+      // Build JSONB array for the insert RPC
+      const insertItems = rewritten
+        .filter(rw => rw.index >= 1 && rw.index <= limitedItems.length)
+        .map(rw => {
+          const originalItem = limitedItems[rw.index - 1]
+          const item: Record<string, unknown> = {
+            extraction_type: extType,
+            section_title: originalItem.section_title,
+            sort_order: rw.index,
+          }
 
-        const insert: Record<string, unknown> = {
-          family_id,
-          family_member_id: member_id,
-          bookshelf_item_id,
-          section_title: originalItem.section_title,
-          audience: audienceKey,
-          is_key_point: true,
-          is_hearted: false,
-          is_deleted: false,
-          is_included_in_ai: true,
-          sort_order: rw.index,
-        }
+          // Set text or declaration_text based on type
+          if (extType === 'declaration') {
+            item.declaration_text = rw.text
+            item.text = null
+            item.style_variant = originalItem.style_variant
+          } else {
+            item.text = rw.text
+            item.declaration_text = null
+            item.content_type = originalItem.content_type
+          }
 
-        // Set the text column and type column
-        insert[textCol] = rw.text
-        if (typeCol && originalItem[typeCol]) {
-          insert[typeCol] = originalItem[typeCol]
-        }
+          return item
+        })
 
-        inserts.push(insert)
-      }
+      if (insertItems.length > 0) {
+        const { data: count, error: insertError } = await supabase.rpc(
+          'insert_book_extractions_study_guide',
+          {
+            p_book_library_id: bookLibraryId,
+            p_audience: audienceKey,
+            p_items: insertItems,
+          },
+        )
 
-      console.log(`Attempting to insert ${inserts.length} items into ${table}`)
-      if (inserts.length > 0) {
-        const { error: insertError } = await supabase.from(table).insert(inserts)
         if (insertError) {
-          console.error(`Insert failed for ${table}:`, JSON.stringify(insertError))
+          console.error(`Insert failed for ${extType}:`, JSON.stringify(insertError))
         } else {
-          totalItemsCreated += inserts.length
-          console.log(`Successfully inserted ${inserts.length} items into ${table}`)
+          totalItemsCreated += (count as number) || insertItems.length
+          console.log(`Successfully inserted ${insertItems.length} items for ${extType}`)
         }
       }
     }

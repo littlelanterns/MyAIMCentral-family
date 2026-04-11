@@ -3,6 +3,9 @@
  * Uses Claude Haiku to select key points from extraction sections.
  * For sections with 3+ items, AI picks 2-3 most important.
  * For sections with ≤2 items, all are marked as key points.
+ *
+ * Phase 1b-E: Rewired from old per-family tables to platform RPCs.
+ * Reads via get_book_extractions, writes via update_book_extraction_key_points.
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.23.8'
@@ -21,14 +24,6 @@ const InputSchema = z.object({
   member_id: z.string().uuid(),
   family_id: z.string().uuid().optional(),
 })
-
-const EXTRACTION_TABLES = [
-  { table: 'bookshelf_summaries', textCol: 'text' },
-  { table: 'bookshelf_insights', textCol: 'text' },
-  { table: 'bookshelf_declarations', textCol: 'declaration_text' },
-  { table: 'bookshelf_action_steps', textCol: 'text' },
-  { table: 'bookshelf_questions', textCol: 'text' },
-] as const
 
 Deno.serve(async (req) => {
   const cors = handleCors(req)
@@ -53,21 +48,53 @@ Deno.serve(async (req) => {
     let totalOutput = 0
     let sectionsProcessed = 0
 
-    for (const { table, textCol } of EXTRACTION_TABLES) {
-      // Fetch all items for this book in this table
-      const { data: items, error } = await supabase
-        .from(table)
-        .select(`id, section_title, section_index, ${textCol}, sort_order`)
-        .eq('bookshelf_item_id', bookshelf_item_id)
-        .eq('family_member_id', member_id)
-        .eq('is_deleted', false)
-        .order('section_index', { ascending: true, nullsFirst: false })
-        .order('sort_order', { ascending: true })
+    // Load ALL extractions for this book from the platform via get_book_extractions RPC
+    // Paginate to handle large books (some have 1000+ extractions)
+    type ExtractionRow = {
+      id: string
+      extraction_type: string
+      text: string | null
+      declaration_text: string | null
+      section_title: string | null
+      section_index: number | null
+      sort_order: number | null
+    }
 
-      if (error || !items || items.length === 0) continue
+    const allExtractions: ExtractionRow[] = []
+    let offset = 0
+    while (true) {
+      const { data, error } = await supabase.rpc('get_book_extractions', {
+        p_bookshelf_item_ids: [bookshelf_item_id],
+        p_member_id: member_id,
+        p_audience: 'original',
+      }).range(offset, offset + 999)
+
+      if (error) {
+        console.error('get_book_extractions error:', error.message)
+        break
+      }
+      if (!data || data.length === 0) break
+      allExtractions.push(...(data as ExtractionRow[]))
+      if (data.length < 1000) break
+      offset += 1000
+    }
+
+    if (allExtractions.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, sections_processed: 0 }),
+        { headers: jsonHeaders }
+      )
+    }
+
+    // Process each extraction type separately (mirrors old 5-table loop)
+    const extractionTypes = ['summary', 'insight', 'declaration', 'action_step', 'question']
+
+    for (const extType of extractionTypes) {
+      const items = allExtractions.filter(e => e.extraction_type === extType)
+      if (items.length === 0) continue
 
       // Group by section
-      const sections = new Map<string, typeof items>()
+      const sections = new Map<string, ExtractionRow[]>()
       for (const item of items) {
         const key = item.section_title || 'General'
         const arr = sections.get(key) || []
@@ -79,18 +106,18 @@ Deno.serve(async (req) => {
         if (sectionItems.length <= 2) {
           // Mark all as key points
           const ids = sectionItems.map(i => i.id)
-          await supabase
-            .from(table)
-            .update({ is_key_point: true })
-            .in('id', ids)
+          await supabase.rpc('update_book_extraction_key_points', {
+            p_ids: ids,
+            p_is_key_point: true,
+          })
           sectionsProcessed++
           continue
         }
 
         // Use Haiku to select 2-3 most important
         const itemTexts = sectionItems.map((item, idx) => {
-          const text = (item as Record<string, unknown>)[textCol] as string
-          return `[${idx}] ${text.slice(0, 300)}`
+          const text = extType === 'declaration' ? item.declaration_text : item.text
+          return `[${idx}] ${(text || '').slice(0, 300)}`
         }).join('\n\n')
 
         const prompt = `You are selecting key points from a book section. Below are ${sectionItems.length} extracted items from the section "${sectionTitle}".
@@ -138,18 +165,18 @@ ${itemTexts}`
             .filter(item => !keyPointIds.includes(item.id))
             .map(item => item.id)
 
-          // Update key points
+          // Update key points via platform RPC
           if (keyPointIds.length > 0) {
-            await supabase
-              .from(table)
-              .update({ is_key_point: true })
-              .in('id', keyPointIds)
+            await supabase.rpc('update_book_extraction_key_points', {
+              p_ids: keyPointIds,
+              p_is_key_point: true,
+            })
           }
           if (nonKeyIds.length > 0) {
-            await supabase
-              .from(table)
-              .update({ is_key_point: false })
-              .in('id', nonKeyIds)
+            await supabase.rpc('update_book_extraction_key_points', {
+              p_ids: nonKeyIds,
+              p_is_key_point: false,
+            })
           }
 
           sectionsProcessed++
@@ -157,16 +184,16 @@ ${itemTexts}`
           console.error(`AI error for section ${sectionTitle}:`, aiErr)
           // Fallback: mark first 2 as key points
           const fallbackIds = sectionItems.slice(0, 2).map(i => i.id)
-          await supabase
-            .from(table)
-            .update({ is_key_point: true })
-            .in('id', fallbackIds)
+          await supabase.rpc('update_book_extraction_key_points', {
+            p_ids: fallbackIds,
+            p_is_key_point: true,
+          })
           sectionsProcessed++
         }
       }
     }
 
-    // Log AI cost — use provided family_id or look up
+    // Log AI cost
     if (totalInput > 0 || totalOutput > 0) {
       let familyId = providedFamilyId
       if (!familyId) {

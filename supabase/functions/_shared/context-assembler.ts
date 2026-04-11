@@ -405,8 +405,11 @@ export async function assembleContext(
 
 /**
  * Load BookShelf extraction items filtered by the member's book_knowledge_access setting.
- * Queries summaries, insights, declarations, action_steps (skips questions).
- * Hearted items first, capped at 25 total.
+ *
+ * Phase 1b-E: Rewired from 4 direct old-table queries to the single
+ * get_bookshelf_context platform RPC (migration 100094, enum-fixed in 100131).
+ * The RPC queries platform_intelligence.book_extractions + bookshelf_user_state,
+ * handles hearted-first ordering, access-level filtering, and book title attribution.
  */
 async function loadBookShelfContext(
   familyId: string,
@@ -426,92 +429,64 @@ async function loadBookShelfContext(
     const access = (settings?.book_knowledge_access as string) || 'hearted_only'
     if (access === 'none') return empty
 
-    // Load book titles for attribution
-    const { data: booksRaw } = await supabase
-      .from('bookshelf_items')
-      .select('id, title')
-      .eq('family_id', familyId)
-      .eq('extraction_status', 'completed')
+    // Map member setting to RPC access_level parameter
+    // PRD-23 enum: 'hearted_only' | 'all' | 'insights_only' | 'none'
+    const accessLevel = access === 'insights_only' ? 'insights_only'
+      : access === 'all' ? 'all'
+      : 'hearted_only' // default
 
-    const bookTitles = new Map<string, string>()
-    for (const b of (booksRaw || []) as Array<{ id: string; title: string }>) {
-      bookTitles.set(b.id, b.title)
-    }
-    if (bookTitles.size === 0) return empty
-
-    const bookIds = [...bookTitles.keys()]
-    const lines: string[] = []
     const MAX_ITEMS = 25
-    const heartedOnly = access === 'hearted_only'
-    const insightsOnly = access === 'insights_only'
 
-    async function queryTable(
-      table: string,
-      textCol: string,
-      typeCol: string | null,
-      limit: number,
-    ): Promise<Array<{ text: string; type: string | null; bookTitle: string }>> {
-      const selectCols = `${textCol}, ${typeCol ? typeCol + ',' : ''} is_hearted, bookshelf_item_id`
-      let query = supabase
-        .from(table)
-        .select(selectCols)
-        .eq('family_id', familyId)
-        .eq('family_member_id', memberId)
-        .eq('is_included_in_ai', true)
-        .eq('is_deleted', false)
-        .in('bookshelf_item_id', bookIds)
+    const { data, error } = await supabase.rpc('get_bookshelf_context', {
+      p_family_id: familyId,
+      p_member_id: memberId,
+      p_access_level: accessLevel,
+      p_max_items: MAX_ITEMS,
+    })
 
-      if (heartedOnly) {
-        query = query.eq('is_hearted', true)
-      }
-
-      const { data } = await query
-        .order('is_hearted', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(limit)
-
-      if (!data) return []
-      return (data as Array<Record<string, unknown>>).map(row => ({
-        text: ((row[textCol] as string) || '').substring(0, 250),
-        type: typeCol ? (row[typeCol] as string) : null,
-        bookTitle: bookTitles.get(row.bookshelf_item_id as string) || 'Unknown',
-      }))
+    if (error) {
+      console.error('get_bookshelf_context RPC error:', error.message)
+      return empty
     }
 
-    let results: Array<{ text: string; type: string | null; bookTitle: string }>
-    if (insightsOnly) {
-      results = await queryTable('bookshelf_insights', 'text', 'content_type', MAX_ITEMS)
-    } else {
-      const [summaries, insights, declarations, actionSteps] = await Promise.all([
-        queryTable('bookshelf_summaries', 'text', 'content_type', 8),
-        queryTable('bookshelf_insights', 'text', 'content_type', 8),
-        queryTable('bookshelf_declarations', 'declaration_text', null, 5),
-        queryTable('bookshelf_action_steps', 'text', 'action_type', 4),
-      ])
-      results = [...summaries, ...insights, ...declarations, ...actionSteps]
+    if (!data || data.length === 0) return empty
+
+    type ContextRow = {
+      extraction_type: string
+      text: string | null
+      declaration_text: string | null
+      content_type: string | null
+      style_variant: string | null
+      is_hearted: boolean
+      book_title: string
     }
 
-    if (results.length === 0) return empty
+    const rows = data as ContextRow[]
 
-    // Group by book title for cleaner output
+    // Group by book title for cleaner output (same format as before)
     const grouped = new Map<string, string[]>()
-    for (const r of results.slice(0, MAX_ITEMS)) {
-      const prefix = r.type ? `[${r.type}] ` : ''
-      const list = grouped.get(r.bookTitle) || []
-      list.push(`- ${prefix}${r.text}`)
-      grouped.set(r.bookTitle, list)
+    for (const r of rows) {
+      const itemText = r.extraction_type === 'declaration'
+        ? (r.declaration_text || '').substring(0, 250)
+        : (r.text || '').substring(0, 250)
+
+      const prefix = r.content_type ? `[${r.content_type}] ` : ''
+      const list = grouped.get(r.book_title) || []
+      list.push(`- ${prefix}${itemText}`)
+      grouped.set(r.book_title, list)
     }
 
+    const lines: string[] = []
     for (const [title, items] of grouped) {
       lines.push(`\nFrom "${title}":`)
       lines.push(...items)
     }
 
-    const reason = heartedOnly ? 'hearted BookShelf items' :
-      insightsOnly ? 'BookShelf insights/principles' :
+    const reason = accessLevel === 'hearted_only' ? 'hearted BookShelf items' :
+      accessLevel === 'insights_only' ? 'BookShelf insights/principles' :
       'all BookShelf extractions'
 
-    return { contextLines: lines, itemCount: results.length, reason }
+    return { contextLines: lines, itemCount: rows.length, reason }
   } catch (err) {
     console.error('BookShelf context loading failed:', err)
     return empty
