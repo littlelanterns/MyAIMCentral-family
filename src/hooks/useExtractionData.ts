@@ -98,7 +98,7 @@ export function useExtractionData(bookIds: string[], audience?: string): UseExtr
       // Fetch book records for title lookups and chapter info
       const bookRes = await supabase
         .from('bookshelf_items')
-        .select('id,family_id,uploaded_by_member_id,title,author,file_type,genres,tags,extraction_status,parent_bookshelf_item_id,part_number,part_count,book_library_id,created_at,updated_at')
+        .select('id,family_id,uploaded_by_member_id,title,author,file_type,genres,tags,extraction_status,parent_bookshelf_item_id,part_number,part_count,book_library_id,discovered_sections,created_at,updated_at')
         .in('id', bookIds)
 
       if (fetchId !== abortRef.current) return
@@ -107,7 +107,7 @@ export function useExtractionData(bookIds: string[], audience?: string): UseExtr
       // For multi-part parents, also fetch children for chapter lookups
       const { data: childParts } = await supabase
         .from('bookshelf_items')
-        .select('id,family_id,uploaded_by_member_id,title,author,file_type,genres,tags,extraction_status,parent_bookshelf_item_id,part_number,part_count,book_library_id,created_at,updated_at')
+        .select('id,family_id,uploaded_by_member_id,title,author,file_type,genres,tags,extraction_status,parent_bookshelf_item_id,part_number,part_count,book_library_id,discovered_sections,created_at,updated_at')
         .in('parent_bookshelf_item_id', bookIds)
         .order('part_number', { ascending: true })
 
