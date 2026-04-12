@@ -253,6 +253,10 @@ export function ViewAsModal() {
           backgroundColor: 'var(--color-bg-primary)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
           border: '2px solid var(--color-golden-honey, #d6a461)',
+          // Creates a containing block so position:fixed elements inside
+          // shells (bottom navs, floating buttons) stay within the modal
+          // bounds instead of escaping to the viewport.
+          transform: 'translateZ(0)',
         }}
       >
         {/* View As banner pinned to top */}
@@ -260,11 +264,8 @@ export function ViewAsModal() {
           <ViewAsBanner />
         </div>
 
-        {/* Shell + page content with state-based navigation.
-            transform: translateZ(0) creates a new containing block so that
-            fixed-position elements inside the shell (floating buttons, etc.)
-            position relative to this container, not the viewport. */}
-        <div className="flex-1 overflow-y-auto" style={{ transform: 'translateZ(0)' }}>
+        {/* Shell + page content — scrollable area */}
+        <div className="flex-1 overflow-y-auto">
           <ViewAsNavContext.Provider value={{ currentPath, navigate }}>
             <SettingsProvider>
               <ShellWrapper shell={targetShell}>

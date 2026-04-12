@@ -26,6 +26,28 @@ import type { CreateTaskData, StudioQueueItem } from '@/components/tasks/TaskCre
 import type { CalendarEvent, CalendarSubtype } from '@/types/calendar'
 import type { CalendarQueueEventDetail } from '@/types/mindsweep'
 
+// ─── Past-date fix (same logic as CalendarTab) ───────────────
+function fixPastEventDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const parsed = new Date(dateStr + 'T00:00:00')
+  if (isNaN(parsed.getTime())) return dateStr
+  // If the date is more than 30 days in the past, bump the year forward
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  if (parsed < thirtyDaysAgo) {
+    while (parsed < thirtyDaysAgo) {
+      parsed.setFullYear(parsed.getFullYear() + 1)
+    }
+    const y = parsed.getFullYear()
+    const m = String(parsed.getMonth() + 1).padStart(2, '0')
+    const d = String(parsed.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  return dateStr
+}
+
 // ─── Dismiss Modal ────────────────────────────────────────────
 
 interface DismissConfirmProps {
@@ -280,8 +302,8 @@ export function SortTab() {
         family_id: item.family_id,
         created_by: currentMember?.id ?? '',
         title: p.title ?? item.content,
-        event_date: p.event_date ?? '',
-        end_date: p.end_date ?? null,
+        event_date: fixPastEventDate(p.event_date) ?? '',
+        end_date: fixPastEventDate(p.end_date) ?? null,
         start_time: p.start_time ?? null,
         end_time: p.end_time ?? null,
         is_all_day: p.is_all_day ?? false,
@@ -315,8 +337,8 @@ export function SortTab() {
       family_id: item.family_id,
       created_by: currentMember?.id ?? '',
       title: String(details?.event_title ?? item.content),
-      event_date: firstEvent?.date ?? String(details?.start_date ?? ''),
-      end_date: subtype === 'multi_day' ? String(details?.end_date ?? '') : null,
+      event_date: fixPastEventDate(firstEvent?.date ?? String(details?.start_date ?? '')) ?? '',
+      end_date: subtype === 'multi_day' ? (fixPastEventDate(String(details?.end_date ?? '')) ?? null) : null,
       start_time: firstEvent?.start_time ?? null,
       end_time: firstEvent?.end_time ?? null,
       is_all_day: !firstEvent?.start_time,
@@ -362,7 +384,7 @@ export function SortTab() {
     const promises = events.map((e) =>
       createEvent.mutateAsync({
         title: eventTitle,
-        event_date: e.date ?? '',
+        event_date: fixPastEventDate(e.date) ?? '',
         start_time: e.start_time ?? undefined,
         end_time: e.end_time ?? undefined,
         is_all_day: !e.start_time,
