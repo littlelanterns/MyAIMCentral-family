@@ -18,6 +18,7 @@ import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import { speak } from '@/utils/speak'
+import { RoutineStepChecklist } from '@/components/tasks/RoutineStepChecklist'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
 interface GuidedActiveTasksSectionProps {
@@ -202,16 +203,18 @@ export function GuidedActiveTasksSection({
           )}
         </div>
 
-        {/* Routine step expansion placeholder */}
-        {isRoutine && isExpanded && (
+        {/* Routine step checklist — expandable, with linked content resolution */}
+        {isRoutine && isExpanded && task.template_id && (
           <div
-            className="ml-10 pl-3 py-1 border-l-2 text-xs space-y-1"
-            style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}
+            className="ml-10 pl-3 py-1 border-l-2"
+            style={{ borderColor: 'var(--color-border)' }}
           >
-            <p>Routine steps will show here</p>
+            <RoutineStepChecklist
+              taskId={task.id}
+              templateId={task.template_id}
+              memberId={memberId}
+              compact
+            />
           </div>
         )}
       </div>

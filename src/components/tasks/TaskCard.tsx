@@ -43,6 +43,8 @@ import { useTimerContext } from '@/features/timer'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { supabase } from '@/lib/supabase/client'
 import { TaskCompletionExpander } from './TaskCompletionExpander'
+import { RoutineStepChecklist } from './RoutineStepChecklist'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 import type { Task } from '@/hooks/useTasks'
 
 export interface TaskCardProps {
@@ -122,6 +124,8 @@ export function TaskCard({
   const [showMenu, setShowMenu] = useState(false)
   const [isPressed, _setIsPressed] = useState(false)
   const [showExpander, setShowExpander] = useState(false)
+  const [routineExpanded, setRoutineExpanded] = useState(false)
+  const { data: currentMember } = useFamilyMember()
   const [pendingOrigin, setPendingOrigin] = useState<{ x: number; y: number } | undefined>()
   const [showNoteInput, setShowNoteInput] = useState(false)
   const [pendingNote, setPendingNote] = useState('')
@@ -374,16 +378,35 @@ export function TaskCard({
             </p>
           </div>
 
-          {/* Routine step indicator — shows when task_type is routine */}
+          {/* Routine step indicator — clickable to expand checklist */}
           {task.task_type === 'routine' && !isCompleted && (
-            <span
+            <button
+              onClick={(e) => { e.stopPropagation(); setRoutineExpanded(!routineExpanded) }}
               className="inline-flex items-center gap-1 text-[11px] mt-0.5 font-medium"
-              style={{ color: 'var(--color-text-secondary)' }}
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', padding: 0, minHeight: 'unset', cursor: 'pointer' }}
             >
               <Repeat size={10} />
               Routine
-              {task.template_id && ' — check steps'}
-            </span>
+              {task.template_id && (routineExpanded ? ' — hide steps' : ' — show steps')}
+              {task.template_id && (routineExpanded
+                ? <ChevronRight size={10} style={{ transform: 'rotate(90deg)', transition: 'transform 0.15s' }} />
+                : <ChevronRight size={10} style={{ transition: 'transform 0.15s' }} />
+              )}
+            </button>
+          )}
+
+          {/* Routine step checklist — expandable */}
+          {task.task_type === 'routine' && routineExpanded && task.template_id && currentMember && (
+            <div
+              className="mt-1.5 pl-1 border-l-2"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <RoutineStepChecklist
+                taskId={task.id}
+                templateId={task.template_id}
+                memberId={task.assignee_id ?? currentMember.id}
+              />
+            </div>
           )}
 
           {/* Build J: Sequential advancement progress subtitle */}

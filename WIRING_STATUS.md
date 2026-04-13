@@ -54,9 +54,10 @@
 | Sequential detail view from Lists page | Back-button wrapper rendering `<SequentialCollectionCard>` | **Wired** | Phase 1 — uses exported `SequentialCollectionCard`. Card has its own expand/collapse. |
 | `createTaskFromData` guard | Throws `Error` on `taskType='sequential'` | **Wired** | Prevents silent re-introduction of the broken path. |
 | `TaskCreationModal` guard | Skips `initialTaskType='sequential'` with `console.warn` | **Wired** | Defensive layer above the guard. |
-| Advancement modes (practice_count / mastery) | — | Stub | Session 2 (Linked Steps addendum) |
-| Linked routine steps | — | Stub | Session 2 |
-| `curriculum-parse` Edge Function | — | Stub | Session 2 |
+| Advancement modes (practice_count / mastery) | — | **Wired** | Build J (2026-04-06) |
+| Linked routine steps — editor + persistence | — | **Wired** | Build J (2026-04-06) |
+| Linked routine steps — dashboard rendering | RoutineStepChecklist expands inline with linked content from sequential/randomizer/task sources | **Wired** | GuidedActiveTasksSection + TaskCard. 2026-04-13. |
+| `curriculum-parse` Edge Function | — | **Wired** | Build J (2026-04-06) |
 
 ## Studio Capability Tags (PRD-09A/09B Studio Intelligence Phase 1)
 
