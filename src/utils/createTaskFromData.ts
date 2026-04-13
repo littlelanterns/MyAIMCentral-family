@@ -217,7 +217,7 @@ export async function createTaskFromData(
     if (!tmplError && template) {
       result.routineTemplateCreated = true
       result.templateId = template.id
-      for (const section of data.routineSections) {
+      for (const section of data.routineSections!) {
         let frequencyRule = section.frequency
         let frequencyDays: number[] | null = null
         if (section.frequency === 'custom') {

@@ -852,7 +852,8 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         </div>
       )}
 
-      {/* Deploy button — always visible, not just on hover for clarity */}
+      {/* Deploy/Reassign button — adults only (kids must not reassign their own chores) */}
+      {(member?.role === 'primary_parent' || member?.role === 'additional_adult') && (
       <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ zIndex: deployingTaskId === task.id ? 51 : 1 }}
       >
@@ -945,6 +946,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
           )}
         </div>
       </div>
+      )}
     </div>
   )}
 
