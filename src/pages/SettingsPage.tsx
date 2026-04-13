@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
-  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2,
+  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import {
@@ -128,6 +128,18 @@ export function SettingsPage() {
       {(shell === 'mom' || shell === 'adult') && (
         <SettingsSection title="MindSweep" icon={Wand2}>
           <MindSweepSection memberId={member?.id} familyId={member?.family_id} />
+        </SettingsSection>
+      )}
+
+      {/* Allowance & Finances (Mom only) — PRD-28 */}
+      {shell === 'mom' && (
+        <SettingsSection title="Allowance & Finances" icon={DollarSign}>
+          <SettingsNavRow
+            icon={DollarSign}
+            label="Allowance & Finances"
+            description="Configure allowance and track finances for each child"
+            to="/settings/allowance"
+          />
         </SettingsSection>
       )}
 

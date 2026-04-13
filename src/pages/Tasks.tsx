@@ -13,7 +13,7 @@
  * - Queue(N): studio_queue items waiting to be configured
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   CheckSquare,
   Plus,
@@ -31,6 +31,7 @@ import {
   Clock,
   ListPlus,
   GraduationCap,
+  DollarSign,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
 import { useTasks, useArchiveTask, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
@@ -60,6 +61,8 @@ import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
+import { FinancesTab } from '@/features/financial/FinancesTab'
+import { useSearchParams } from 'react-router-dom'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -95,7 +98,7 @@ function useStudioQueue(familyId: string | undefined, memberId: string | undefin
 // ─────────────────────────────────────────────
 // Type definitions
 // ─────────────────────────────────────────────
-type TaskTab = 'my_tasks' | 'routines' | 'opportunities' | 'sequential' | 'queue'
+type TaskTab = 'my_tasks' | 'routines' | 'opportunities' | 'sequential' | 'queue' | 'finances'
 type SortOrder = 'name' | 'last_deployed' | 'most_assigned' | 'recently_created'
 type FilterStatus = 'all' | 'active' | 'completed' | 'unassigned' | 'archived'
 
@@ -137,6 +140,25 @@ export function TasksPage() {
   const submitMastery = useSubmitMastery()
   const archiveTask = useArchiveTask()
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<Task | null>(null)
+  // PRD-28: makeup work URL params (?new=1&type=makeup&assignee=X)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [makeupConfig, setMakeupConfig] = useState<{ assigneeId: string } | null>(null)
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1' && searchParams.get('type') === 'makeup') {
+      const assigneeId = searchParams.get('assignee')
+      if (assigneeId) {
+        setMakeupConfig({ assigneeId })
+        setShowCreateModal(true)
+        setActiveTab('finances')
+        // Clean URL params
+        setSearchParams({}, { replace: true })
+      }
+    } else if (searchParams.get('tab') === 'finances') {
+      setActiveTab('finances')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams])
 
   const { toggle, isCompleting } = useTaskCompletion({
     memberId: member?.id ?? '',
@@ -256,6 +278,12 @@ export function TasksPage() {
           label: `Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`,
           icon: <Inbox size={15} />,
         },
+        // PRD-28: Finances tab — mom (primary_parent) only
+        ...(member?.role === 'primary_parent' ? [{
+          key: 'finances' as const,
+          label: 'Finances',
+          icon: <DollarSign size={15} />,
+        }] : []),
       ]
 
   // ── Filter tasks for each tab (memoized) ──
@@ -508,6 +536,10 @@ export function TasksPage() {
           <div className="flex justify-center py-12">
             <LoadingSpinner size="md" />
           </div>
+        ) : activeTab === 'finances' ? (
+          family?.id ? (
+            <FinancesTab familyId={family.id} />
+          ) : null
         ) : activeTab === 'queue' ? (
           <QueueTab queueItems={queueItems} />
         ) : activeTab === 'opportunities' ? (
@@ -568,8 +600,9 @@ export function TasksPage() {
       {/* TaskCreationModal — Create */}
       <TaskCreationModal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => { setShowCreateModal(false); setMakeupConfig(null) }}
         onSave={handleCreateTask}
+        makeupConfig={makeupConfig}
       />
 
       {/* SequentialCreatorModal — Phase 1 replacement for sequential creation */}

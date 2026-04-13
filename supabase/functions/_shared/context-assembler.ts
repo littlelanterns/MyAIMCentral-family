@@ -8,6 +8,13 @@
  *   Layer 3 — Search only: book chunks, journal entries (via semantic RPCs)
  *
  * Principle: "LiLa appears smarter by knowing less at the right time."
+ *
+ * PRD-28 EXCLUSION: Financial data is NEVER loaded into LiLa context.
+ * This includes: financial_transactions, allowance_configs, allowance_periods,
+ * loans, and any dollar amounts. LiLa may reference task completion percentages
+ * in general terms ("Emma has completed 84% of her tasks this week") but must
+ * NEVER reference specific dollar amounts ("$11.77 earned"). This exclusion
+ * is by design — no tables to load, no queries to add.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'

@@ -33,7 +33,7 @@ const PICKER_CATEGORIES: { key: string; label: string; icon: string; trackerType
   { key: 'routine_trackers', label: 'Routine Trackers', icon: 'CalendarDays', trackerTypes: ['streak', 'checklist', 'multi_habit_grid', 'boolean_checkin', 'timer_duration'] },
   { key: 'goal_pursuit', label: 'Goal Pursuit', icon: 'Target', trackerTypes: ['sequential_path', 'countdown', 'snapshot_comparison', 'color_reveal', 'gameboard'] },
   { key: 'progress_visualizers', label: 'Progress Visualizers', icon: 'TrendingUp', trackerTypes: ['tally', 'percentage'] },
-  { key: 'reward_allowance', label: 'Reward & Allowance', icon: 'Coins', trackerTypes: ['allowance_calculator'] },
+  { key: 'reward_allowance', label: 'Reward & Allowance', icon: 'Coins', trackerTypes: ['allowance_calculator', 'privilege_status'] },
   { key: 'achievement_recognition', label: 'Achievement & Recognition', icon: 'Trophy', trackerTypes: ['achievement_badge', 'xp_level'] },
   { key: 'reflection_insight', label: 'Reflection & Insight', icon: 'Brain', trackerTypes: ['mood_rating'] },
   { key: 'family_social', label: 'Family & Social', icon: 'Users', trackerTypes: ['leaderboard'] },

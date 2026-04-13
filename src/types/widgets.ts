@@ -23,6 +23,7 @@ export type TrackerType =
   | 'color_reveal'
   | 'gameboard'
   | 'randomizer_spinner'
+  | 'privilege_status'
 
 // Phase A tracker types
 export type PhaseATrackerType = 'tally' | 'streak' | 'percentage' | 'checklist' | 'multi_habit_grid'
@@ -467,6 +468,17 @@ export const TRACKER_TYPE_REGISTRY: TrackerTypeMeta[] = [
     defaultVariant: 'standard_spinner',
     availableVariants: ['standard_spinner'],
     category: 'quick_action_tracker',
+    supportsMultiplayer: false,
+    phaseA: true,
+  },
+  {
+    type: 'privilege_status',
+    label: 'Privilege Status',
+    description: 'Color-zone display (Red/Yellow/Green) based on task completion percentage. Mom sets thresholds and descriptions. Visibility only — never blocks anything.',
+    icon: 'Shield',
+    defaultVariant: 'color_zone',
+    availableVariants: ['color_zone'],
+    category: 'reward_allowance',
     supportsMultiplayer: false,
     phaseA: true,
   },

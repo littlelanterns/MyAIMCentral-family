@@ -9,7 +9,7 @@
 import { CheckSquare, RefreshCcw, Star, Repeat } from 'lucide-react'
 import { Input } from '@/components/shared'
 
-export type TaskType = 'task' | 'routine' | 'opportunity' | 'habit' | 'list'
+export type TaskType = 'task' | 'routine' | 'opportunity' | 'habit' | 'list' | 'makeup'
 export type OpportunitySubType = 'repeatable' | 'claimable' | 'capped'
 
 interface TaskTypeSelectorProps {

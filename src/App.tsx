@@ -37,6 +37,9 @@ import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
 import { ReflectionsPage } from '@/pages/ReflectionsPage'
 import { BookShelfPage } from '@/pages/BookShelfPage'
 import { MindSweepCapture } from '@/pages/MindSweepCapture'
+import { AllowanceSettingsPage } from '@/features/financial/AllowanceSettingsPage'
+import { ChildAllowanceConfigPage } from '@/features/financial/ChildAllowanceConfig'
+import { TransactionHistoryPage } from '@/features/financial/TransactionHistory'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
@@ -144,6 +147,10 @@ function App() {
               <Route path="/rhythms/settings" element={<ProtectedRoute><RhythmsSettingsPage /></ProtectedRoute>} />
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              {/* PRD-28: Allowance & Financial routes */}
+              <Route path="/settings/allowance" element={<ProtectedRoute><AllowanceSettingsPage /></ProtectedRoute>} />
+              <Route path="/settings/allowance/:memberId" element={<ProtectedRoute><ChildAllowanceConfigPage /></ProtectedRoute>} />
+              <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
               <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />

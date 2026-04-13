@@ -694,6 +694,25 @@ function TemplateSpecificFields({
           />
         </div>
       )
+    case 'privilege_status':
+      return (
+        <div className="space-y-3">
+          <NumberField label="Red Zone (below %)" field="red_threshold" config={config} onChange={onChange} />
+          <NumberField label="Yellow Zone (below %)" field="yellow_threshold" config={config} onChange={onChange} />
+          <TextField label="Red Zone Description" field="red_description" config={config} onChange={onChange} placeholder="What applies when below the red threshold..." />
+          <TextField label="Yellow Zone Description" field="yellow_description" config={config} onChange={onChange} placeholder="What applies in the yellow zone..." />
+          <TextField label="Green Zone Description" field="green_description" config={config} onChange={onChange} placeholder="What applies when at or above the yellow threshold..." />
+          <SelectField label="Calculate completion using..." field="fallback_calculation_mode" config={config} onChange={onChange}
+            options={[
+              { value: 'today', label: 'Today' },
+              { value: 'this_week', label: 'This week' },
+              { value: 'rolling_7', label: 'Rolling 7 days' },
+              { value: 'this_month', label: 'This month' },
+              { value: 'rolling_30', label: 'Rolling 30 days' },
+            ]}
+          />
+        </div>
+      )
     default:
       return null
   }

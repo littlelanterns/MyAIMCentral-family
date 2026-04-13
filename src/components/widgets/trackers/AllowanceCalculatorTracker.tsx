@@ -5,6 +5,7 @@
 import { useMemo } from 'react'
 import { Coins, TrendingUp } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
+import { useAllowanceConfig, useActivePeriod } from '@/hooks/useFinancial'
 
 interface AllowanceConfig {
   base_amount?: number
@@ -44,6 +45,84 @@ export function AllowanceCalculatorTracker({
   const bonusThreshold = config.bonus_threshold ?? 0.85
   const bonusPercentage = config.bonus_percentage ?? 0.2
 
+  // PRD-28: Try to read real allowance data when config exists
+  const memberId = widget.assigned_member_id ?? widget.family_member_id
+  const { data: realConfig } = useAllowanceConfig(memberId)
+  const { data: activePeriod } = useActivePeriod(realConfig?.enabled ? memberId : undefined)
+  const usePrd28Data = !!realConfig?.enabled && !!activePeriod
+
+  // When PRD-28 data exists, override the dataPoints calculation
+  if (usePrd28Data) {
+    const earned = activePeriod.total_earned
+    const pctDisplay = Math.round(activePeriod.completion_percentage)
+    const formatDollars = (val: number) => `$${Number(val).toFixed(2)}`
+
+    // Check child_can_see_finances — Play mode always hides
+    const childCanSee = realConfig.child_can_see_finances
+    const isPlayWidget = widget.widget_config && (widget.widget_config as Record<string, unknown>).play_mode === true
+
+    if (isCompact) {
+      return (
+        <div className="flex flex-col h-full items-center justify-center gap-1">
+          <Coins size={20} style={{ color: 'var(--color-accent)' }} />
+          <div className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+            {childCanSee && !isPlayWidget ? formatDollars(Number(earned)) : `${pctDisplay}%`}
+          </div>
+          <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            {childCanSee && !isPlayWidget ? `${pctDisplay}% done` : 'completion'}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex flex-col h-full gap-3">
+        <div className="flex items-center gap-2">
+          <Coins size={18} style={{ color: 'var(--color-accent)' }} />
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>This Week</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+            {activePeriod.effective_tasks_completed}
+          </span>
+          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            / {activePeriod.effective_tasks_assigned} tasks
+          </span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border-default)' }}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pctDisplay, 100)}%`, background: 'var(--surface-primary)' }} />
+        </div>
+        <div className="flex flex-col gap-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="flex justify-between">
+            <span>Completion</span>
+            <span style={{ color: 'var(--color-text-primary)' }}>{pctDisplay}%</span>
+          </div>
+          {childCanSee && !isPlayWidget && (
+            <div className="flex justify-between">
+              <span>Earned</span>
+              <span style={{ color: 'var(--color-text-primary)' }}>{formatDollars(Number(earned))}</span>
+            </div>
+          )}
+        </div>
+        {activePeriod.bonus_applied && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium" style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)', color: 'var(--color-accent)' }}>
+            <TrendingUp size={12} />
+            Bonus earned!
+          </div>
+        )}
+        <div className="mt-auto flex items-baseline justify-between">
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            {childCanSee && !isPlayWidget ? 'Earned' : 'Progress'}
+          </span>
+          <span className="text-xl font-bold" style={{ color: 'var(--color-accent)' }}>
+            {childCanSee && !isPlayWidget ? formatDollars(Number(earned)) : `${pctDisplay}%`}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback: existing dataPoints-based calculation for unconfigured families
   const { completed, totalPossible, percentage, earnedAmount, bonusEarned } = useMemo(() => {
     const periodStart = getPeriodStartDate(period)
 

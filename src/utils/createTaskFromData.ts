@@ -28,6 +28,8 @@ export interface CreateTaskResult {
   taskIds: string[]
   /** Whether a routine template was persisted */
   routineTemplateCreated: boolean
+  /** ID of the routine template if one was created */
+  templateId?: string
   /** Whether a queue item was marked processed */
   queueItemProcessed: boolean
 }
@@ -89,6 +91,11 @@ export async function createTaskFromData(
     // NULL for non-Play tasks — handled by the migration default.
     icon_asset_key: data.iconAssetKey ?? null,
     icon_variant: data.iconVariant ?? null,
+    // PRD-28: task-level tracking flags
+    counts_for_allowance: data.countsForAllowance ?? false,
+    counts_for_homework: data.countsForHomework ?? false,
+    counts_for_gamification: data.countsForGamification ?? true,
+    allowance_points: data.allowancePoints ?? null,
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,
@@ -96,6 +103,12 @@ export async function createTaskFromData(
       claim_lock_unit: data.claimLockUnit || null,
     }),
   }
+
+  // Template-only mode: skip task creation, go straight to routine template persistence.
+  // Used by "Save to Studio" flow — builds the reusable template without assigning to anyone.
+  if (data.templateOnly && data.taskType === 'routine') {
+    // Jump to routine template creation below; skip task + assignment rows entirely
+  } else {
 
   // Determine who gets the task
   const assignees: AssigneeLike[] = data.wholeFamily
@@ -175,6 +188,8 @@ export async function createTaskFromData(
     }
   }
 
+  } // end: not templateOnly
+
   // Persist routine sections if this is a routine
   if (data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0) {
     const { data: template, error: tmplError } = await supabase
@@ -192,6 +207,7 @@ export async function createTaskFromData(
 
     if (!tmplError && template) {
       result.routineTemplateCreated = true
+      result.templateId = template.id
       for (const section of data.routineSections) {
         let frequencyRule = section.frequency
         let frequencyDays: number[] | null = null

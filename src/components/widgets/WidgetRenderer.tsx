@@ -22,6 +22,7 @@ import { CountdownTracker } from './trackers/CountdownTracker'
 import { TimerDurationTracker } from './trackers/TimerDurationTracker'
 import { SnapshotComparisonTracker } from './trackers/SnapshotComparisonTracker'
 import { RandomizerSpinnerTracker } from './trackers/RandomizerSpinnerTracker'
+import { PrivilegeStatusTracker } from './trackers/PrivilegeStatusTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
 import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget, InfoFamilyIntention, InfoCountdown } from './info'
 import { ListWidget } from './info/ListWidget'
@@ -84,6 +85,8 @@ export function WidgetRenderer({ widget, dataPoints, onRecordData, onUpdateConfi
       return <BestIntentionTracker widget={widget} isCompact={isCompact} />
     case 'randomizer_spinner':
       return <RandomizerSpinnerTracker widget={widget} dataPoints={dataPoints} onRecordData={onRecordData} variant={variant} isCompact={isCompact} />
+    case 'privilege_status':
+      return <PrivilegeStatusTracker widget={widget} isCompact={isCompact} />
     default:
       return <PlannedTrackerStub trackerType={widget.template_type} />
   }

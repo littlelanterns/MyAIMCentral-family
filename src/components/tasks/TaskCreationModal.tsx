@@ -14,9 +14,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
-  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles,
+  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw,
 } from 'lucide-react'
-import { Button, ModalV2 } from '@/components/shared'
+import { Button, ModalV2, Tooltip } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
 import { getMemberColor } from '@/lib/memberColors'
 import { RoutineSectionEditor } from './RoutineSectionEditor'
@@ -31,6 +31,7 @@ import type { MemberAssignment } from './AssignmentSelector'
 import type { RoutineSection } from './RoutineSectionEditor'
 import type { SchedulerOutput } from '@/components/scheduling/types'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { TaskIconPicker } from './TaskIconPicker'
 import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
@@ -88,6 +89,9 @@ export interface CreateTaskData {
   weeklyDays?: number[]
   saveAsTemplate: boolean
   templateName: string
+  /** When true, saves only the routine template (task_templates + sections + steps)
+   *  without creating any task rows. Used for "Save to Studio" flow. */
+  templateOnly?: boolean
   sourceQueueItemId?: string
   sourceBatchIds?: string[]
   /** Source feature that created this task (e.g. 'bookshelf', 'notepad_routed') */
@@ -107,6 +111,11 @@ export interface CreateTaskData {
    */
   iconAssetKey?: string | null
   iconVariant?: 'A' | 'B' | 'C' | null
+  // PRD-28: Task-level tracking flags
+  countsForAllowance?: boolean
+  countsForHomework?: boolean
+  countsForGamification?: boolean
+  allowancePoints?: number | null
 }
 
 interface TaskCreationModalProps {
@@ -126,6 +135,8 @@ interface TaskCreationModalProps {
   sourceReferenceId?: string
   /** When true, modal shows "Edit Task" header and save button says "Save Changes" */
   editMode?: boolean
+  /** PRD-28: Pre-configure as makeup work (task_type='makeup', counts_for_allowance=true, counts_for_gamification=false) */
+  makeupConfig?: { assigneeId: string } | null
 }
 
 // ─── Defaults ────────────────────────────────────────────────
@@ -173,6 +184,10 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
     saveAsTemplate: false,
     templateName: '',
     sourceQueueItemId: queueItem?.id,
+    // PRD-28: default tracking flags
+    countsForAllowance: false,
+    countsForHomework: false,
+    countsForGamification: true, // default checked — preserves current behavior
   }
 }
 
@@ -185,7 +200,7 @@ const TASK_TYPES_GRID: {
   icon: React.ComponentType<{ size: number }>
 }[] = [
   { key: 'task', label: 'Task', description: 'One-time or recurring responsibility', icon: CheckSquare },
-  { key: 'routine', label: 'Routine', description: 'Multi-step checklist with sections', icon: RotateCcw },
+  { key: 'routine', label: 'Routine', description: 'Multi-step checklist — paste a schedule and AI sorts it by day', icon: RotateCcw },
   { key: 'opportunity' as TaskType, label: 'Opportunity', description: 'Optional — earn rewards, no pressure', icon: Star },
   { key: 'habit', label: 'Habit', description: 'Track consistency over time', icon: TrendingUp },
 ]
@@ -416,9 +431,11 @@ export function TaskCreationModal({
   defaultDescription,
   sourceReferenceId,
   editMode,
+  makeupConfig,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
+  const homeworkTrackingEnabled = useCanAccess('homeschool_subjects')
 
   const [data, setData] = useState<CreateTaskData>(() => {
     const d = defaultTaskData(queueItem)
@@ -438,6 +455,19 @@ export function TaskCreationModal({
     if (sourceReferenceId) d.sourceReferenceId = sourceReferenceId
     return d
   })
+  // PRD-28: Apply makeup work pre-configuration
+  useEffect(() => {
+    if (makeupConfig && isOpen) {
+      setData(prev => ({
+        ...prev,
+        taskType: 'makeup' as TaskType,
+        countsForAllowance: true,
+        countsForGamification: false,
+        assignments: [{ memberId: makeupConfig.assigneeId, copyMode: 'individual' as const }],
+      }))
+    }
+  }, [makeupConfig, isOpen])
+
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'quick' | 'full'>(initialMode ?? 'full')
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time')
@@ -546,6 +576,22 @@ export function TaskCreationModal({
     assigneeIsPlayMember,
     selectedIcon,
   ])
+
+  const handleSaveToStudio = useCallback(async () => {
+    if (!data.title.trim()) return
+    if (!data.routineSections || data.routineSections.length === 0) return
+    setLoading(true)
+    try {
+      const finalData: CreateTaskData = {
+        ...data,
+        templateOnly: true,
+      }
+      await onSave(finalData)
+      onClose()
+    } finally {
+      setLoading(false)
+    }
+  }, [data, onSave, onClose])
 
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
@@ -721,40 +767,118 @@ export function TaskCreationModal({
         {/* Any / Each toggle — appears when 2+ people selected */}
         {selectedCount >= 2 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <div
-              className="flex rounded-lg overflow-hidden"
-              style={{ border: '1px solid var(--color-border)' }}
+            <Tooltip
+              content={data.assignMode === 'any'
+                ? '"Any" means one shared task — whoever does it first gets credit. Great for chores where you just need someone to do it.'
+                : '"Each" means every person gets their own independent copy. Each person completes it on their own.'}
+              position="top"
+              maxWidth={280}
             >
-              <button
-                type="button"
-                onClick={() => setAssignMode('any')}
-                className="text-xs font-medium px-3 py-1"
-                style={{
-                  background: data.assignMode === 'any' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
-                  color: data.assignMode === 'any' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                  border: 'none', minHeight: 'unset', cursor: 'pointer',
-                }}
+              <div
+                className="flex rounded-lg overflow-hidden"
+                style={{ border: '1px solid var(--color-border)' }}
               >
-                Any of them
-              </button>
-              <button
-                type="button"
-                onClick={() => setAssignMode('each')}
-                className="text-xs font-medium px-3 py-1"
-                style={{
-                  background: data.assignMode === 'each' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
-                  color: data.assignMode === 'each' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-                  border: 'none', minHeight: 'unset', cursor: 'pointer',
-                }}
-              >
-                Each of them
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setAssignMode('any')}
+                  className="text-xs font-medium px-3 py-1"
+                  style={{
+                    background: data.assignMode === 'any' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+                    color: data.assignMode === 'any' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                    border: 'none', minHeight: 'unset', cursor: 'pointer',
+                  }}
+                >
+                  Any of them
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignMode('each')}
+                  className="text-xs font-medium px-3 py-1"
+                  style={{
+                    background: data.assignMode === 'each' ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+                    color: data.assignMode === 'each' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                    border: 'none', minHeight: 'unset', cursor: 'pointer',
+                  }}
+                >
+                  Each of them
+                </button>
+              </div>
+            </Tooltip>
             <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
               {data.assignMode === 'any'
                 ? 'Shared — anyone can check it off'
                 : 'Individual — each gets their own copy'}
             </span>
+          </div>
+        )}
+
+        {/* Rotation toggle — visible for routines/tasks, disabled until 2+ people assigned */}
+        {(data.taskType === 'routine' || data.taskType === 'task') && (
+          <div style={{ marginTop: '0.625rem' }}>
+            <Tooltip
+              content="Automatically rotate who's responsible on a schedule. Assign 2 or more people to enable rotation."
+              position="top"
+              maxWidth={260}
+              disabled={selectedCount >= 2}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  opacity: selectedCount >= 2 ? 1 : 0.5,
+                  cursor: selectedCount >= 2 ? 'pointer' : 'default',
+                }}
+                onClick={selectedCount >= 2 ? () => setData(d => ({ ...d, rotationEnabled: !d.rotationEnabled })) : undefined}
+              >
+                <RefreshCw size={14} style={{ color: data.rotationEnabled && selectedCount >= 2 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }} />
+                <input
+                  type="checkbox"
+                  checked={data.rotationEnabled && selectedCount >= 2}
+                  disabled={selectedCount < 2}
+                  onChange={(e) => setData(d => ({ ...d, rotationEnabled: e.target.checked }))}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                <span style={{
+                  fontSize: 'var(--font-size-sm, 0.875rem)',
+                  color: selectedCount >= 2 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  fontWeight: 500,
+                }}>
+                  Rotate weekly
+                </span>
+                {selectedCount < 2 && (
+                  <span style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
+                    (assign 2+ people)
+                  </span>
+                )}
+              </div>
+            </Tooltip>
+
+            {/* Rotation frequency picker — visible when rotation is on */}
+            {data.rotationEnabled && selectedCount >= 2 && (
+              <div style={{ marginTop: '0.375rem', paddingLeft: '2.125rem' }}>
+                <select
+                  value={data.rotationFrequency}
+                  onChange={(e) => setData(d => ({ ...d, rotationFrequency: e.target.value }))}
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: 'var(--font-size-xs, 0.75rem)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--vibe-radius-input, 6px)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text-primary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="weekly">Every week</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Every month</option>
+                </select>
+                <p style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                  Each person takes a turn, then it passes to the next
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1486,6 +1610,11 @@ export function TaskCreationModal({
       {/* 4. Who's Responsible */}
       <SectionCard>
         <SectionHeading icon={Users}>Who's Responsible?</SectionHeading>
+        {data.taskType === 'routine' && (
+          <HelperText>
+            Pick who to assign this routine to now, or skip and use "Save to Studio" to assign later.
+          </HelperText>
+        )}
         {renderAssignmentRows()}
       </SectionCard>
 
@@ -1641,6 +1770,37 @@ export function TaskCreationModal({
             />
             Flag completion as a Victory
           </label>
+
+          {/* PRD-28: Task-level tracking flags */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.countsForAllowance ?? false}
+              onChange={(e) => update('countsForAllowance', e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Count toward allowance pool
+          </label>
+          {homeworkTrackingEnabled && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={data.countsForHomework ?? false}
+                onChange={(e) => update('countsForHomework', e.target.checked)}
+                style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+              />
+              Count toward homework tracking
+            </label>
+          )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.countsForGamification ?? true}
+              onChange={(e) => update('countsForGamification', e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Count toward gamification points
+          </label>
         </div>
 
         {/* Bonus config — visible only when reward is set */}
@@ -1680,51 +1840,69 @@ export function TaskCreationModal({
         )}
       </SectionCard>
 
-      {/* 8. Template (not a card — simple row) */}
-      <div style={{ padding: '0.25rem 0', marginBottom: '0.5rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
-          <input
-            type="checkbox"
-            checked={data.saveAsTemplate}
-            onChange={(e) => update('saveAsTemplate', e.target.checked)}
-            style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-          />
-          Save as a reusable template in your Studio library
-        </label>
-        {data.saveAsTemplate && (
-          <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-            <input
-              type="text"
-              value={data.templateName}
-              onChange={(e) => update('templateName', e.target.value)}
-              placeholder="e.g., Weekly Bedroom Clean, Daily Reading Practice..."
-              style={inputStyle}
-            />
-            <HelperText>Name it something descriptive so you can find it later</HelperText>
-          </div>
-        )}
-      </div>
+      {/* 8. Studio library info */}
+      {data.taskType === 'routine' && (
+        <div style={{
+          padding: '0.625rem 0.75rem',
+          marginBottom: '0.5rem',
+          borderRadius: 'var(--vibe-radius-input, 8px)',
+          backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-card))',
+          border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 20%, transparent)',
+        }}>
+          <p style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            Routines are automatically saved to your <strong style={{ color: 'var(--color-text-primary)' }}>Studio library</strong>.
+            You can redeploy them to other kids anytime from Studio &rarr; My Customized.
+            {(data.assignments.length === 0 && !data.wholeFamily) &&
+              ' Or use "Save to Studio" below to save this routine without assigning it yet.'
+            }
+          </p>
+        </div>
+      )}
     </div>
   )
 
   // ─── Footer ─────────────────────────────────────────────────
 
+  const hasRoutineSections = data.taskType === 'routine' && (data.routineSections?.length ?? 0) > 0
+  const hasAssignees = data.assignments.length > 0 || data.wholeFamily
+
   const footer = (
-    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%' }}>
+    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%', flexWrap: 'wrap' }}>
       <Button variant="ghost" onClick={onClose} type="button">
         Cancel
       </Button>
+      {/* Save to Studio — routine templates only, when there are sections to save */}
+      {hasRoutineSections && !editMode && (
+        <Tooltip
+          content="Save this routine to your Studio library without assigning it to anyone yet. Deploy it later from Studio &rarr; My Customized."
+          position="top"
+          maxWidth={280}
+        >
+          <span style={{ display: 'inline-flex' }}>
+            <Button
+              variant="secondary"
+              onClick={handleSaveToStudio}
+              loading={loading}
+              disabled={!data.title.trim()}
+            >
+              Save to Studio
+            </Button>
+          </span>
+        </Tooltip>
+      )}
       <Button
         variant="primary"
         onClick={handleSave}
         loading={loading}
-        disabled={!data.title.trim()}
+        disabled={!data.title.trim() || (hasRoutineSections && !hasAssignees)}
       >
         {editMode
           ? 'Save Changes'
           : batchMode === 'sequential' && batchIndex < batchTotal - 1
             ? 'Save & Next'
-            : 'Create Task'}
+            : hasRoutineSections
+              ? 'Assign & Create'
+              : 'Create Task'}
       </Button>
     </div>
   )
@@ -1738,7 +1916,7 @@ export function TaskCreationModal({
       onClose={onClose}
       type="persistent"
       size="lg"
-      title={editMode ? 'Edit task' : 'New task'}
+      title={editMode ? 'Edit task' : makeupConfig ? 'Assign Makeup Work' : 'New task'}
       subtitle={srcLabel ?? undefined}
       icon={CheckSquare}
       hasUnsavedChanges={hasUnsavedChanges}
