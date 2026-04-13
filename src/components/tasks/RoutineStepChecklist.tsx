@@ -452,15 +452,22 @@ function isSectionActiveToday(section: RoutineSection, completedStepIds: Set<str
   const today = new Date().getDay() // 0=Sun, 6=Sat
   const days = section.frequency_days?.map(Number) ?? []
 
-  // 'custom' frequency — show on listed days, OR always if show_until_complete and not all done
+  // 'custom' frequency — show on listed days, OR carry forward after the scheduled day if show_until_complete
   if (section.frequency_rule === 'custom' && days.length) {
     const isScheduledToday = days.includes(today)
     if (isScheduledToday) return true
 
-    // show_until_complete: show every day (after the scheduled day) until all steps are done
+    // show_until_complete: show AFTER the scheduled day(s) until all steps are done.
+    // Only carry forward if today is past the latest scheduled day this week.
     if (section.show_until_complete) {
       const allDone = section.steps.every(s => completedStepIds.has(s.id))
-      return !allDone
+      if (allDone) return false
+
+      // Check if today is AFTER any of the scheduled days this week
+      // e.g., Monday section (day 1) should carry forward to Tue-Sat (days 2-6)
+      // but NOT show on Sunday (day 0) before Monday arrives
+      const earliestDay = Math.min(...days)
+      return today > earliestDay
     }
     return false
   }
