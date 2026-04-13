@@ -104,97 +104,10 @@ export async function createTaskFromData(
     }),
   }
 
-  // Template-only mode: skip task creation, go straight to routine template persistence.
-  // Used by "Save to Studio" flow — builds the reusable template without assigning to anyone.
-  if (data.templateOnly && data.taskType === 'routine') {
-    // Jump to routine template creation below; skip task + assignment rows entirely
-  } else {
-
-  // Determine who gets the task
-  const assignees: AssigneeLike[] = data.wholeFamily
-    ? familyMembers.filter(m => m.is_active)
-    : data.assignments ?? []
-  const mode = data.assignMode ?? 'each'
-
-  if (assignees.length >= 2 && mode === 'each') {
-    // "Each of them" — individual copies per person
-    const inserts = assignees.map(a => ({
-      ...taskBase,
-      assignee_id: resolveAssigneeId(a),
-      is_shared: false,
-    }))
-    const { data: rows, error } = await supabase.from('tasks').insert(inserts).select('id')
-    if (error) {
-      console.error('Failed to create tasks:', error)
-      return result
-    }
-    result.taskIds = (rows ?? []).map(r => r.id)
-  } else {
-    // "Any of them" (shared) or single assignee
-    const primaryId = assignees.length > 0 ? resolveAssigneeId(assignees[0]) : null
-
-    const { data: newTask, error } = await supabase.from('tasks').insert({
-      ...taskBase,
-      assignee_id: primaryId,
-      is_shared: assignees.length >= 2,
-    }).select().single()
-
-    if (error) {
-      console.error('Failed to create task:', error)
-      return result
-    }
-
-    result.taskIds = [newTask.id]
-
-    // Create task_assignments for all assignees on shared task
-    if (newTask && assignees.length > 0) {
-      const isRotation = data.rotationEnabled && assignees.length >= 2
-      const assignments = assignees.map((a, idx) => {
-        const mid = resolveAssigneeId(a)
-        return {
-          task_id: newTask.id,
-          member_id: mid,
-          family_member_id: mid,
-          assigned_by: creatorId,
-          ...(isRotation ? {
-            rotation_position: idx,
-            is_active: idx === 0, // first member starts active
-          } : {}),
-        }
-      })
-      const { error: assignError } = await supabase.from('task_assignments').insert(assignments)
-      if (assignError) {
-        console.error('Failed to create task assignments:', assignError)
-      }
-
-      // Write rotation config into recurrence_details if enabled
-      if (isRotation) {
-        const memberIds = assignees.map(a => resolveAssigneeId(a))
-        const existingDetails = (newTask.recurrence_details as Record<string, unknown>) ?? {}
-        const { error: rotErr } = await supabase.from('tasks').update({
-          recurrence_details: {
-            ...existingDetails,
-            rotation: {
-              enabled: true,
-              frequency: data.rotationFrequency ?? 'weekly',
-              members: memberIds,
-              current_index: 0,
-              last_rotated_at: todayLocalIso(),
-            },
-          },
-        }).eq('id', newTask.id)
-        if (rotErr) console.error('Failed to write rotation config:', rotErr)
-      }
-    }
-  }
-
-  } // end: not templateOnly
-
-  // Persist routine sections if this is a routine
+  // ── Step 1: Create routine template FIRST (so template_id can be set on task rows) ──
   const hasSections = data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0
-  if (!hasSections && data.taskType === 'routine') {
-    console.warn('[createTaskFromData] Routine has no sections — skipping template creation. routineSections:', data.routineSections)
-  }
+  let routineTemplateId: string | null = null
+
   if (hasSections) {
     const { data: template, error: tmplError } = await supabase
       .from('task_templates')
@@ -217,6 +130,7 @@ export async function createTaskFromData(
     if (!tmplError && template) {
       result.routineTemplateCreated = true
       result.templateId = template.id
+      routineTemplateId = template.id
       for (const section of data.routineSections!) {
         let frequencyRule = section.frequency
         let frequencyDays: number[] | null = null
@@ -278,8 +192,88 @@ export async function createTaskFromData(
           console.error('Failed to insert routine section:', secError)
         }
       }
-    } else if (tmplError) {
-      console.error('Failed to create routine template:', tmplError)
+    }
+  } else if (data.taskType === 'routine') {
+    console.warn('[createTaskFromData] Routine has no sections — skipping template creation.')
+  }
+
+  // ── Step 2: Create task row(s) with template_id (skip if templateOnly) ──
+  if (!(data.templateOnly && data.taskType === 'routine')) {
+    // Add template_id to the task if we created one
+    const taskInsertBase = {
+      ...taskBase,
+      ...(routineTemplateId ? { template_id: routineTemplateId } : {}),
+    }
+
+    const assignees: AssigneeLike[] = data.wholeFamily
+      ? familyMembers.filter(m => m.is_active)
+      : data.assignments ?? []
+    const mode = data.assignMode ?? 'each'
+
+    if (assignees.length >= 2 && mode === 'each') {
+      const inserts = assignees.map(a => ({
+        ...taskInsertBase,
+        assignee_id: resolveAssigneeId(a),
+        is_shared: false,
+      }))
+      const { data: rows, error } = await supabase.from('tasks').insert(inserts).select('id')
+      if (error) {
+        console.error('Failed to create tasks:', error)
+        return result
+      }
+      result.taskIds = (rows ?? []).map(r => r.id)
+    } else {
+      const primaryId = assignees.length > 0 ? resolveAssigneeId(assignees[0]) : null
+
+      const { data: newTask, error } = await supabase.from('tasks').insert({
+        ...taskInsertBase,
+        assignee_id: primaryId,
+        is_shared: assignees.length >= 2,
+      }).select().single()
+
+      if (error) {
+        console.error('Failed to create task:', error)
+        return result
+      }
+
+      result.taskIds = [newTask.id]
+
+      if (newTask && assignees.length > 0) {
+        const isRotation = data.rotationEnabled && assignees.length >= 2
+        const assignments = assignees.map((a, idx) => {
+          const mid = resolveAssigneeId(a)
+          return {
+            task_id: newTask.id,
+            member_id: mid,
+            family_member_id: mid,
+            assigned_by: creatorId,
+            ...(isRotation ? {
+              rotation_position: idx,
+              is_active: idx === 0,
+            } : {}),
+          }
+        })
+        const { error: assignError } = await supabase.from('task_assignments').insert(assignments)
+        if (assignError) console.error('Failed to create task assignments:', assignError)
+
+        if (isRotation) {
+          const memberIds = assignees.map(a => resolveAssigneeId(a))
+          const existingDetails = (newTask.recurrence_details as Record<string, unknown>) ?? {}
+          const { error: rotErr } = await supabase.from('tasks').update({
+            recurrence_details: {
+              ...existingDetails,
+              rotation: {
+                enabled: true,
+                frequency: data.rotationFrequency ?? 'weekly',
+                members: memberIds,
+                current_index: 0,
+                last_rotated_at: todayLocalIso(),
+              },
+            },
+          }).eq('id', newTask.id)
+          if (rotErr) console.error('Failed to write rotation config:', rotErr)
+        }
+      }
     }
   }
 
