@@ -101,14 +101,7 @@ export const VIEW_DEFINITIONS: ViewDefinition[] = [
     availableTo: ['mom', 'adult', 'independent'],
     isPlanned: true,
   },
-  {
-    key: 'abcde',
-    label: 'ABCDE Method',
-    tier: 'enhanced',
-    description: 'Five priority categories A through E.',
-    availableTo: ['mom', 'adult', 'independent'],
-    isPlanned: true,
-  },
+  // ABCDE removed per founder decision 2026-04-13
   {
     key: 'moscow',
     label: 'MoSCoW',
