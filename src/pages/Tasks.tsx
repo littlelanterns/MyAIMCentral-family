@@ -45,6 +45,7 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
+import type { RoutineSection } from '@/components/tasks/RoutineSectionEditor'
 import { SequentialCollectionView } from '@/components/tasks/sequential/SequentialCollectionView'
 import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
 import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
@@ -132,6 +133,7 @@ export function TasksPage() {
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editRoutineSections, setEditRoutineSections] = useState<RoutineSection[] | undefined>(undefined)
   const [guidedNewTask, setGuidedNewTask] = useState('')
   const [guidedCreating, setGuidedCreating] = useState(false)
   const [completedTask, setCompletedTask] = useState<Task | null>(null)
@@ -243,9 +245,12 @@ export function TasksPage() {
           incomplete_action: data.incompleteAction,
           require_approval: data.reward?.requireApproval ?? false,
           victory_flagged: data.reward?.flagAsVictory ?? false,
-          due_date: scheduleFields.due_date,
+          due_date: data.taskType === 'routine' ? data.dueDate || null : scheduleFields.due_date,
           recurrence_rule: scheduleFields.recurrence_rule,
           recurrence_details: scheduleFields.recurrence_details,
+          counts_for_allowance: data.countsForAllowance ?? false,
+          counts_for_homework: data.countsForHomework ?? false,
+          counts_for_gamification: data.countsForGamification ?? true,
         })
         .eq('id', editingTask.id)
 
@@ -254,12 +259,143 @@ export function TasksPage() {
         return
       }
 
+      // Update routine template sections if editing a routine with an existing template
+      if (data.editingTemplateId && data.routineSections?.length) {
+        // Delete old sections/steps
+        const { data: oldSections } = await supabase
+          .from('task_template_sections')
+          .select('id')
+          .eq('template_id', data.editingTemplateId)
+        for (const sec of oldSections ?? []) {
+          await supabase.from('task_template_steps').delete().eq('section_id', sec.id)
+        }
+        await supabase.from('task_template_sections').delete().eq('template_id', data.editingTemplateId)
+
+        // Update template title
+        await supabase.from('task_templates')
+          .update({ title: data.title, template_name: data.title })
+          .eq('id', data.editingTemplateId)
+
+        // Rewrite sections and steps
+        for (const section of data.routineSections) {
+          let frequencyRule = section.frequency as string
+          let frequencyDays: number[] | null = null
+          if (section.frequency === 'custom') {
+            frequencyDays = section.customDays
+          } else if (section.frequency === 'mwf') {
+            frequencyRule = 'custom'
+            frequencyDays = [1, 3, 5]
+          } else if (section.frequency === 't_th') {
+            frequencyRule = 'custom'
+            frequencyDays = [2, 4]
+          }
+
+          const { data: sectionRow, error: secError } = await supabase
+            .from('task_template_sections')
+            .insert({
+              template_id: data.editingTemplateId,
+              title: section.name,
+              section_name: section.name,
+              frequency_rule: frequencyRule,
+              frequency_days: frequencyDays,
+              show_until_complete: section.showUntilComplete,
+              sort_order: section.sort_order,
+            })
+            .select('id')
+            .single()
+
+          if (!secError && sectionRow) {
+            const stepInserts = section.steps.map(step => ({
+              section_id: sectionRow.id,
+              title: step.title,
+              step_name: step.title,
+              step_notes: step.notes || null,
+              instance_count: step.instanceCount,
+              require_photo: step.requirePhoto,
+              sort_order: step.sort_order,
+              step_type: step.step_type ?? 'static',
+              linked_source_id: step.linked_source_id ?? null,
+              linked_source_type: step.linked_source_type ?? null,
+              display_name_override: step.display_name_override ?? null,
+            }))
+            if (stepInserts.length > 0) {
+              await supabase.from('task_template_steps').insert(stepInserts)
+            }
+          }
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['calendar'] })
+      queryClient.invalidateQueries({ queryKey: ['task_templates_customized'] })
       setEditingTask(null)
+      setEditRoutineSections(undefined)
     },
     [editingTask, queryClient]
   )
+
+  // ── Open task for editing (loads routine sections if applicable) ──
+  const openEditTask = useCallback(async (task: Task) => {
+    setEditingTask(task)
+
+    // For routines, load the template sections so the editor is pre-filled
+    if (task.task_type === 'routine' && task.template_id) {
+      const { data: sections } = await supabase
+        .from('task_template_sections')
+        .select('id, title, section_name, frequency_rule, frequency_days, show_until_complete, sort_order')
+        .eq('template_id', task.template_id)
+        .order('sort_order')
+
+      if (sections?.length) {
+        const routineSections: RoutineSection[] = []
+        for (const sec of sections) {
+          const { data: steps } = await supabase
+            .from('task_template_steps')
+            .select('id, title, step_name, step_notes, instance_count, require_photo, sort_order, step_type, linked_source_id, linked_source_type, display_name_override')
+            .eq('section_id', sec.id)
+            .order('sort_order')
+
+          let frequency: RoutineSection['frequency'] = 'daily'
+          const days = (sec.frequency_days as number[]) ?? []
+          if (sec.frequency_rule === 'custom') {
+            const sorted = [...days].sort().join(',')
+            if (sorted === '1,2,3,4,5') frequency = 'weekdays'
+            else if (sorted === '1,3,5') frequency = 'mwf'
+            else if (sorted === '2,4') frequency = 't_th'
+            else frequency = 'custom'
+          } else {
+            frequency = (sec.frequency_rule as typeof frequency) ?? 'daily'
+          }
+
+          routineSections.push({
+            id: sec.id,
+            name: sec.section_name ?? sec.title ?? '',
+            frequency,
+            customDays: days.map(Number),
+            showUntilComplete: sec.show_until_complete ?? false,
+            sort_order: sec.sort_order ?? 0,
+            isEditing: false,
+            steps: (steps ?? []).map(st => ({
+              id: st.id,
+              title: st.title ?? st.step_name ?? '',
+              notes: st.step_notes ?? '',
+              showNotes: !!(st.step_notes),
+              instanceCount: st.instance_count ?? 1,
+              requirePhoto: st.require_photo ?? false,
+              sort_order: st.sort_order ?? 0,
+              step_type: (st.step_type as 'static' | 'linked_sequential' | 'linked_randomizer' | 'linked_task') ?? 'static',
+              linked_source_id: st.linked_source_id ?? null,
+              linked_source_type: st.linked_source_type ?? null,
+              display_name_override: st.display_name_override ?? null,
+            })),
+          })
+        }
+        setEditRoutineSections(routineSections)
+      }
+    } else {
+      setEditRoutineSections(undefined)
+    }
+  }, [])
 
   // ── Tab definitions ──
   // Guided members get only My Tasks + Opportunities (PRD-25 Phase C)
@@ -595,7 +731,7 @@ export function TasksPage() {
             onToggle={toggle}
             isCompleting={isCompleting}
             showType={activeTab === 'my_tasks'}
-            onEditTask={setEditingTask}
+            onEditTask={openEditTask}
             onDelete={setConfirmDeleteTask}
             onSubmitMastery={(task) => setMasterySubmissionTask(task)}
             segmentMemberId={activeTab === 'my_tasks' ? activeMember?.id : undefined}
@@ -652,10 +788,14 @@ export function TasksPage() {
       {editingTask && (
         <TaskCreationModal
           isOpen={true}
-          onClose={() => setEditingTask(null)}
+          onClose={() => { setEditingTask(null); setEditRoutineSections(undefined) }}
           onSave={handleEditTask}
+          editMode
+          initialTaskType={editingTask.task_type}
           defaultTitle={editingTask.title}
           defaultDescription={editingTask.description ?? ''}
+          initialRoutineSections={editRoutineSections}
+          editingTemplateId={editingTask.template_id ?? undefined}
         />
       )}
 

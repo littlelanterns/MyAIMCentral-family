@@ -12,10 +12,14 @@
  * useUncompleteRoutineStep from useTaskCompletions.ts.
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Check, Layers, Shuffle, Link2, ExternalLink, ChevronDown, ChevronRight,
+  Pencil, Plus, Trash2, X as XIcon,
 } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useRoutineTemplateSteps, type RoutineSection } from '@/hooks/useRoutineTemplateSteps'
 import {
   useRoutineStepCompletions,
@@ -231,6 +235,8 @@ function SectionGroup({
   completedStepIds,
   onToggleStep,
   togglingStepId,
+  canEdit,
+  onStepsChanged,
 }: {
   section: RoutineSection
   taskId: string
@@ -238,42 +244,108 @@ function SectionGroup({
   completedStepIds: Set<string>
   onToggleStep: (stepId: string, completed: boolean) => void
   togglingStepId: string | null
+  canEdit: boolean
+  onStepsChanged: () => void
 }) {
   const [expanded, setExpanded] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [editSteps, setEditSteps] = useState<{ id: string; title: string }[]>([])
+  const [saving, setSaving] = useState(false)
+  const [newStepTitle, setNewStepTitle] = useState('')
   const completedCount = section.steps.filter(s => completedStepIds.has(s.id)).length
   const totalCount = section.steps.length
 
-  // Check if this section should show today based on frequency_rule + frequency_days
-  const isActiveToday = isSectionActiveToday(section)
+  const isActiveToday = isSectionActiveToday(section, completedStepIds)
   if (!isActiveToday) return null
+
+  const startEditing = () => {
+    setEditSteps(section.steps.map(s => ({ id: s.id, title: s.display_name_override || s.title })))
+    setEditing(true)
+    setExpanded(true)
+  }
+
+  const saveEdits = async () => {
+    setSaving(true)
+    try {
+      // Update existing steps
+      for (const step of editSteps) {
+        const original = section.steps.find(s => s.id === step.id)
+        if (original && (original.title !== step.title)) {
+          await supabase.from('task_template_steps')
+            .update({ title: step.title, step_name: step.title })
+            .eq('id', step.id)
+        }
+      }
+      // Delete removed steps
+      const editIds = new Set(editSteps.map(s => s.id))
+      for (const step of section.steps) {
+        if (!editIds.has(step.id)) {
+          await supabase.from('task_template_steps').delete().eq('id', step.id)
+        }
+      }
+      onStepsChanged()
+    } finally {
+      setSaving(false)
+      setEditing(false)
+    }
+  }
+
+  const addStep = async () => {
+    if (!newStepTitle.trim()) return
+    setSaving(true)
+    try {
+      const maxOrder = Math.max(0, ...section.steps.map(s => s.sort_order ?? 0))
+      await supabase.from('task_template_steps').insert({
+        section_id: section.id,
+        title: newStepTitle.trim(),
+        step_name: newStepTitle.trim(),
+        sort_order: maxOrder + 1,
+      })
+      setNewStepTitle('')
+      onStepsChanged()
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div>
-      {/* Section header — only show if more than one section */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 w-full py-1 text-left"
-        style={{ minHeight: 'unset' }}
-      >
-        {expanded
-          ? <ChevronDown size={12} style={{ color: 'var(--color-text-secondary)' }} />
-          : <ChevronRight size={12} style={{ color: 'var(--color-text-secondary)' }} />
-        }
-        <span
-          className="text-[11px] font-medium uppercase tracking-wide"
-          style={{ color: 'var(--color-text-secondary)' }}
+      <div className="flex items-center gap-1.5 w-full py-1">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 flex-1 text-left"
+          style={{ minHeight: 'unset' }}
         >
-          {section.title}
-        </span>
+          {expanded
+            ? <ChevronDown size={12} style={{ color: 'var(--color-text-secondary)' }} />
+            : <ChevronRight size={12} style={{ color: 'var(--color-text-secondary)' }} />
+          }
+          <span
+            className="text-[11px] font-medium uppercase tracking-wide"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            {section.title}
+          </span>
+        </button>
         <span
-          className="text-[10px] ml-auto"
+          className="text-[10px]"
           style={{ color: 'var(--color-text-secondary)' }}
         >
           {completedCount}/{totalCount}
         </span>
-      </button>
+        {canEdit && !editing && (
+          <button
+            onClick={startEditing}
+            className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:opacity-100! transition-opacity"
+            style={{ minHeight: 'unset', color: 'var(--color-text-secondary)' }}
+            title="Edit steps"
+          >
+            <Pencil size={11} />
+          </button>
+        )}
+      </div>
 
-      {expanded && (
+      {expanded && !editing && (
         <div className="pl-1">
           {section.steps.map(step => (
             <StepRow
@@ -288,23 +360,115 @@ function SectionGroup({
           ))}
         </div>
       )}
+
+      {/* Inline edit mode */}
+      {expanded && editing && (
+        <div className="pl-1 space-y-1 py-1">
+          {editSteps.map((step, idx) => (
+            <div key={step.id} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={step.title}
+                onChange={e => {
+                  const next = [...editSteps]
+                  next[idx] = { ...step, title: e.target.value }
+                  setEditSteps(next)
+                }}
+                className="flex-1 text-xs px-2 py-1 rounded"
+                style={{
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                  minHeight: 'unset',
+                }}
+              />
+              <button
+                onClick={() => setEditSteps(editSteps.filter((_, i) => i !== idx))}
+                className="p-0.5 rounded"
+                style={{ minHeight: 'unset', color: 'var(--color-text-secondary)' }}
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+          {/* Add new step inline */}
+          <div className="flex items-center gap-1.5 mt-1">
+            <input
+              type="text"
+              value={newStepTitle}
+              onChange={e => setNewStepTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addStep() }}
+              placeholder="Add a step..."
+              className="flex-1 text-xs px-2 py-1 rounded"
+              style={{
+                border: '1px dashed var(--color-border)',
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-primary)',
+                minHeight: 'unset',
+              }}
+            />
+            <button
+              onClick={addStep}
+              disabled={!newStepTitle.trim()}
+              className="p-0.5 rounded"
+              style={{ minHeight: 'unset', color: 'var(--color-btn-primary-bg)', opacity: newStepTitle.trim() ? 1 : 0.3 }}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+          {/* Save / Cancel */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={saveEdits}
+              disabled={saving}
+              className="text-[11px] font-medium px-2 py-0.5 rounded"
+              style={{
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                color: 'var(--color-btn-primary-text)',
+                minHeight: 'unset',
+                opacity: saving ? 0.5 : 1,
+              }}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="text-[11px] px-2 py-0.5 rounded"
+              style={{ color: 'var(--color-text-secondary)', minHeight: 'unset' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 /** Check if a routine section should display today based on its frequency rule */
-function isSectionActiveToday(section: RoutineSection): boolean {
+function isSectionActiveToday(section: RoutineSection, completedStepIds: Set<string>): boolean {
   if (!section.frequency_rule || section.frequency_rule === 'daily') return true
 
   const today = new Date().getDay() // 0=Sun, 6=Sat
-  const days = section.frequency_days
+  const days = section.frequency_days?.map(Number) ?? []
 
-  if (section.frequency_rule === 'specific_days' && days?.length) {
-    return days.includes(today)
+  // 'custom' frequency — show on listed days, OR always if show_until_complete and not all done
+  if (section.frequency_rule === 'custom' && days.length) {
+    const isScheduledToday = days.includes(today)
+    if (isScheduledToday) return true
+
+    // show_until_complete: show every day (after the scheduled day) until all steps are done
+    if (section.show_until_complete) {
+      const allDone = section.steps.every(s => completedStepIds.has(s.id))
+      return !allDone
+    }
+    return false
   }
 
-  // show_until_complete: always show (weekly/monthly sections that persist until done)
-  if (section.frequency_rule === 'show_until_complete') return true
+  // Legacy 'specific_days' (shouldn't appear but handle gracefully)
+  if (section.frequency_rule === 'specific_days' && days.length) {
+    return days.includes(today)
+  }
 
   return true
 }
@@ -325,6 +489,12 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
   const [togglingStepId, setTogglingStepId] = useState<string | null>(null)
+  const { data: currentMember } = useFamilyMember()
+  const queryClient = useQueryClient()
+  const canEdit = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
+  const refreshSteps = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['routine-template-steps', templateId] })
+  }, [queryClient, templateId])
 
   if (isLoading) {
     return (
@@ -371,7 +541,7 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
   }
 
   // Filter to sections active today
-  const activeSections = sections.filter(isSectionActiveToday)
+  const activeSections = sections.filter(s => isSectionActiveToday(s, completedStepIds))
   const showHeaders = !compact || activeSections.length > 1
 
   if (activeSections.length === 0) {
@@ -394,6 +564,8 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
             completedStepIds={completedStepIds}
             onToggleStep={handleToggleStep}
             togglingStepId={togglingStepId}
+            canEdit={!!canEdit}
+            onStepsChanged={refreshSteps}
           />
         ) : (
           // Single section, compact mode — just render steps without header
