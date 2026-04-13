@@ -166,6 +166,8 @@ export function StudioPage() {
   const [modalInitialType, setModalInitialType] = useState<string>('task')
   const [modalDefaultTitle, setModalDefaultTitle] = useState<string>('')
   const [modalPreloadedSections, setModalPreloadedSections] = useState<RoutineSection[] | undefined>(undefined)
+  /** When editing an existing routine template, this holds the template ID for UPDATE instead of INSERT */
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
 
   // SequentialCreatorModal state (Phase 1: replaces sequential route through TaskCreationModal)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
@@ -597,6 +599,7 @@ export function StudioPage() {
                   key={tpl.id}
                   template={tpl}
                   onDeploy={(t) => {
+                    setEditingTemplateId(null) // Deploy = create new task from template
                     if (t.templateType === 'routine') {
                       loadRoutineTemplate(t.id, t.name)
                     } else {
@@ -606,6 +609,7 @@ export function StudioPage() {
                     }
                   }}
                   onEdit={(t) => {
+                    setEditingTemplateId(t.id) // Edit = update existing template
                     if (t.templateType === 'routine') {
                       loadRoutineTemplate(t.id, t.name)
                     } else {
@@ -672,11 +676,14 @@ export function StudioPage() {
             setModalOpen(false)
             setModalDefaultTitle('')
             setModalPreloadedSections(undefined)
+            setEditingTemplateId(null)
           }}
           onSave={handleTaskSaved}
           initialTaskType={modalInitialType}
           defaultTitle={modalDefaultTitle || undefined}
           initialRoutineSections={modalPreloadedSections}
+          editMode={!!editingTemplateId}
+          editingTemplateId={editingTemplateId}
         />
       )}
 

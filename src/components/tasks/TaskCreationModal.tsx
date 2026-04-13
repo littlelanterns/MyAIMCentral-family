@@ -92,6 +92,8 @@ export interface CreateTaskData {
   /** When true, saves only the routine template (task_templates + sections + steps)
    *  without creating any task rows. Used for "Save to Studio" flow. */
   templateOnly?: boolean
+  /** When editing an existing template, this ID triggers UPDATE instead of INSERT */
+  editingTemplateId?: string | null
   sourceQueueItemId?: string
   sourceBatchIds?: string[]
   /** Source feature that created this task (e.g. 'bookshelf', 'notepad_routed') */
@@ -139,6 +141,8 @@ interface TaskCreationModalProps {
   makeupConfig?: { assigneeId: string } | null
   /** Pre-loaded routine sections from a saved template (Studio Deploy/Edit) */
   initialRoutineSections?: RoutineSection[]
+  /** When editing an existing routine template, pass its ID to UPDATE instead of INSERT */
+  editingTemplateId?: string | null
 }
 
 // ─── Defaults ────────────────────────────────────────────────
@@ -435,6 +439,7 @@ export function TaskCreationModal({
   editMode,
   makeupConfig,
   initialRoutineSections,
+  editingTemplateId,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
@@ -550,6 +555,7 @@ export function TaskCreationModal({
       const finalData: CreateTaskData = {
         ...data,
         scheduleMode,
+        editingTemplateId: editingTemplateId ?? undefined,
         // For routines, preserve the "Run until" dueDate set by the routine duration picker.
         // For other task types, derive from the schedule mode radio buttons.
         dueDate: data.taskType === 'routine'
@@ -595,6 +601,7 @@ export function TaskCreationModal({
       const finalData: CreateTaskData = {
         ...data,
         templateOnly: true,
+        editingTemplateId: editingTemplateId ?? undefined,
       }
       await onSave(finalData)
       onClose()

@@ -104,33 +104,57 @@ export async function createTaskFromData(
     }),
   }
 
-  // ── Step 1: Create routine template FIRST (so template_id can be set on task rows) ──
+  // ── Step 1: Create or update routine template FIRST (so template_id can be set on task rows) ──
   const hasSections = data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0
   let routineTemplateId: string | null = null
 
   if (hasSections) {
-    const { data: template, error: tmplError } = await supabase
-      .from('task_templates')
-      .insert({
-        family_id: familyId,
-        created_by: creatorId,
-        title: data.title,
-        template_name: data.title,
-        description: data.description || null,
-        task_type: 'routine',
-        template_type: 'routine',
-      })
-      .select('id')
-      .single()
+    // Editing existing template: delete old sections/steps, then rewrite
+    if (data.editingTemplateId) {
+      routineTemplateId = data.editingTemplateId
+      result.routineTemplateCreated = true
+      result.templateId = data.editingTemplateId
 
-    if (tmplError) {
-      console.error('[createTaskFromData] Failed to create routine template:', tmplError)
+      // Update template title
+      await supabase.from('task_templates')
+        .update({ title: data.title, template_name: data.title, description: data.description || null })
+        .eq('id', data.editingTemplateId)
+
+      // Delete old steps and sections (cascade: steps reference sections)
+      const { data: oldSections } = await supabase.from('task_template_sections')
+        .select('id').eq('template_id', data.editingTemplateId)
+      for (const sec of oldSections ?? []) {
+        await supabase.from('task_template_steps').delete().eq('section_id', sec.id)
+      }
+      await supabase.from('task_template_sections').delete().eq('template_id', data.editingTemplateId)
+    } else {
+      // Creating new template
+      const { data: template, error: tmplError } = await supabase
+        .from('task_templates')
+        .insert({
+          family_id: familyId,
+          created_by: creatorId,
+          title: data.title,
+          template_name: data.title,
+          description: data.description || null,
+          task_type: 'routine',
+          template_type: 'routine',
+        })
+        .select('id')
+        .single()
+
+      if (tmplError) {
+        console.error('[createTaskFromData] Failed to create routine template:', tmplError)
+      }
+
+      if (!tmplError && template) {
+        routineTemplateId = template.id
+      }
     }
 
-    if (!tmplError && template) {
+    if (routineTemplateId) {
       result.routineTemplateCreated = true
-      result.templateId = template.id
-      routineTemplateId = template.id
+      result.templateId = routineTemplateId
       for (const section of data.routineSections!) {
         let frequencyRule = section.frequency
         let frequencyDays: number[] | null = null
