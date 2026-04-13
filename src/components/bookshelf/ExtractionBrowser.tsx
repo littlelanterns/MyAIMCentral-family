@@ -44,7 +44,7 @@ export function ExtractionBrowser({
 }: ExtractionBrowserProps) {
   const navigate = useNavigate()
   const { data: member } = useFamilyMember()
-  const { books: allBooks, updateBookTitle, updateBookAuthor, updateBookFolder, updateBookGenres, updateBookTags, updateLastViewedAt } = useBookShelf()
+  const { books: allBooks, updateBookTitle, updateBookAuthor, updateBookFolder, updateBookGenres, updateBookTags, updateLastViewedAt, archiveBook } = useBookShelf()
   const { getBookIdsForCollection, collections } = useBookShelfCollections()
 
   // Resolve book IDs from props
@@ -468,6 +468,10 @@ export function ExtractionBrowser({
         archiveFolders={archiveFolders}
         onGenresChange={(bid, genres) => updateBookGenres(bid, genres)}
         onTagsChange={(bid, tags) => updateBookTags(bid, tags)}
+        onArchiveBook={async (bid) => {
+          await archiveBook(bid)
+          onBack()
+        }}
       />
 
       {collectionId && (

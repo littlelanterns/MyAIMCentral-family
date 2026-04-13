@@ -2,7 +2,7 @@
  * MultiSelectBar — floating action bar when books are selected (PRD-23)
  */
 import { useState } from 'react'
-import { BookOpen, FolderPlus, X } from 'lucide-react'
+import { BookOpen, FolderPlus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/shared'
 import { CollectionQuickPicker } from './CollectionQuickPicker'
 
@@ -10,11 +10,13 @@ interface MultiSelectBarProps {
   count: number
   selectedIds: Set<string>
   onViewExtractions: () => void
+  onArchiveSelected?: () => void
   onClear: () => void
 }
 
-export function MultiSelectBar({ count, selectedIds, onViewExtractions, onClear }: MultiSelectBarProps) {
+export function MultiSelectBar({ count, selectedIds, onViewExtractions, onArchiveSelected, onClear }: MultiSelectBarProps) {
   const [showCollectionPicker, setShowCollectionPicker] = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
 
   return (
     <div
@@ -56,6 +58,36 @@ export function MultiSelectBar({ count, selectedIds, onViewExtractions, onClear 
           </>
         )}
       </div>
+
+      {onArchiveSelected && (
+        showArchiveConfirm ? (
+          <div className="flex items-center gap-1.5 text-xs">
+            <span style={{ color: 'var(--color-text-tertiary)' }}>Remove {count}?</span>
+            <button
+              onClick={() => {
+                onArchiveSelected()
+                setShowArchiveConfirm(false)
+              }}
+              className="px-2 py-0.5 rounded text-white hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-error)' }}
+            >
+              Remove
+            </button>
+            <button
+              onClick={() => setShowArchiveConfirm(false)}
+              className="px-2 py-0.5 rounded hover:opacity-70"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={() => setShowArchiveConfirm(true)} className="gap-1.5">
+            <Trash2 size={14} />
+            Remove
+          </Button>
+        )
+      )}
 
       <button
         onClick={onClear}

@@ -3,7 +3,7 @@
  * Back button, title (editable for single-book), book info collapsible section.
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Search, MessageSquare, Clock, Sparkles, GraduationCap, FolderOpen, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Search, MessageSquare, Clock, Sparkles, GraduationCap, FolderOpen, X, Trash2 } from 'lucide-react'
 import type { BookShelfItem } from '@/types/bookshelf'
 
 interface ExtractionHeaderProps {
@@ -31,6 +31,8 @@ interface ExtractionHeaderProps {
   onTagsChange?: (bookId: string, tags: string[]) => void
   /** Whether the history panel is currently open */
   historyOpen?: boolean
+  /** Archive (soft-delete) this book from the family library */
+  onArchiveBook?: (bookId: string) => void
 }
 
 export function ExtractionHeader({
@@ -38,7 +40,7 @@ export function ExtractionHeader({
   onTitleChange, onAuthorChange,
   siblingBooks, onNavigateToBook, onOpenSemanticSearch,
   onOpenDiscussion, onOpenHistory, onGoDeeper, goingDeeper, activeTab, onOpenStudyGuide,
-  onFolderChange, archiveFolders, onGenresChange, onTagsChange, historyOpen,
+  onFolderChange, archiveFolders, onGenresChange, onTagsChange, historyOpen, onArchiveBook,
 }: ExtractionHeaderProps) {
   const isSingleBook = books.length === 1
   const book = isSingleBook ? books[0] : null
@@ -47,6 +49,7 @@ export function ExtractionHeader({
   const [editingAuthor, setEditingAuthor] = useState(false)
   const [titleDraft, setTitleDraft] = useState(book?.title || '')
   const [authorDraft, setAuthorDraft] = useState(book?.author || '')
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [editingTags, setEditingTags] = useState(false)
   const [tagsDraft, setTagsDraft] = useState('')
   const [newGenre, setNewGenre] = useState('')
@@ -214,7 +217,7 @@ export function ExtractionHeader({
 
                 {/* History clock icon */}
                 {onOpenHistory && (
-                  <div className="relative ml-auto">
+                  <div className="relative">
                     <button
                       onClick={onOpenHistory}
                       className={`p-1 rounded hover:bg-[var(--color-surface-tertiary)] ${historyOpen ? 'bg-[var(--color-surface-tertiary)]' : ''}`}
@@ -222,6 +225,40 @@ export function ExtractionHeader({
                     >
                       <Clock size={14} className="text-[var(--color-text-tertiary)]" />
                     </button>
+                  </div>
+                )}
+
+                {/* Delete book */}
+                {onArchiveBook && book && (
+                  <div className="relative ml-auto">
+                    {showArchiveConfirm ? (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-[var(--color-text-tertiary)]">Remove from library?</span>
+                        <button
+                          onClick={() => {
+                            onArchiveBook(book.id)
+                            setShowArchiveConfirm(false)
+                          }}
+                          className="px-2 py-0.5 rounded bg-[var(--color-error)] text-white hover:opacity-90"
+                        >
+                          Remove
+                        </button>
+                        <button
+                          onClick={() => setShowArchiveConfirm(false)}
+                          className="px-2 py-0.5 rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-tertiary)]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowArchiveConfirm(true)}
+                        className="p-1 rounded hover:bg-[var(--color-surface-tertiary)]"
+                        title="Remove from library"
+                      >
+                        <Trash2 size={14} className="text-[var(--color-text-tertiary)]" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

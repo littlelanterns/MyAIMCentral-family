@@ -84,7 +84,7 @@ function matchesSearch(book: BookShelfItem, query: string): boolean {
 
 export function BookShelfLibrary() {
   const navigate = useNavigate()
-  const { parentBooks, loading, getPartsForBook, refetch: refetchBooks } = useBookShelf()
+  const { parentBooks, loading, getPartsForBook, archiveBook, refetch: refetchBooks } = useBookShelf()
   const { settings, updateSetting } = useBookShelfSettings()
   const { collections, getBookCountForCollection } = useBookShelfCollections()
 
@@ -555,6 +555,12 @@ export function BookShelfLibrary() {
           onViewExtractions={() => {
             const ids = Array.from(selectedIds).join(',')
             navigate(`/bookshelf?books=${ids}`)
+          }}
+          onArchiveSelected={async () => {
+            for (const id of selectedIds) {
+              await archiveBook(id)
+            }
+            clearSelection()
           }}
           onClear={clearSelection}
           selectedIds={selectedIds}
