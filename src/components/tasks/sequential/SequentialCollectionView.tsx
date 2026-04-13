@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2, Settings2 } from 'lucide-react'
 import {
   useSequentialCollections,
   useSequentialCollection,
@@ -15,8 +15,150 @@ import {
 } from '@/hooks/useSequentialCollections'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
+import { Toggle } from '@/components/shared'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
-import type { SequentialCollection, Task } from '@/types/tasks'
+import type { SequentialCollection, Task, AdvancementMode } from '@/types/tasks'
+
+// ─── Per-Item Advancement Override Editor ────────────────────
+
+function ItemAdvancementEditor({
+  task,
+  collectionId,
+  onClose,
+}: {
+  task: Task
+  collectionId: string
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [mode, setMode] = useState<AdvancementMode>(task.advancement_mode ?? 'complete')
+  const [target, setTarget] = useState(task.practice_target ?? 5)
+  const [requireApproval, setRequireApproval] = useState(task.require_mastery_approval ?? false)
+  const [requireEvidence, setRequireEvidence] = useState(task.require_mastery_evidence ?? false)
+  const [trackDuration, setTrackDuration] = useState(task.track_duration ?? false)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    const { error } = await supabase.from('tasks').update({
+      advancement_mode: mode,
+      practice_target: mode === 'practice_count' ? target : null,
+      require_mastery_approval: mode === 'mastery' ? requireApproval : false,
+      require_mastery_evidence: mode === 'mastery' ? requireEvidence : false,
+      track_duration: trackDuration,
+    }).eq('id', task.id)
+
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['sequential-collection', collectionId] })
+      onClose()
+    } else {
+      console.error('Failed to update item advancement:', error)
+    }
+    setSaving(false)
+  }
+
+  const MODE_OPTIONS: { key: AdvancementMode; label: string; desc: string }[] = [
+    { key: 'complete', label: 'Complete once', desc: 'Mark done to advance' },
+    { key: 'practice_count', label: 'Practice N times', desc: 'Auto-advance after target' },
+    { key: 'mastery', label: 'Mastery', desc: 'Practice + approval to advance' },
+  ]
+
+  return (
+    <div
+      className="mt-2 p-2.5 rounded-lg flex flex-col gap-2"
+      style={{
+        background: 'var(--color-bg-secondary)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <div className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+        Advancement for this item
+      </div>
+
+      {/* Mode selector */}
+      <div className="flex gap-1.5">
+        {MODE_OPTIONS.map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => setMode(opt.key)}
+            className="flex-1 text-center py-1.5 px-1 rounded text-[10px] font-medium transition-colors"
+            style={{
+              background: mode === opt.key ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+              color: mode === opt.key ? 'var(--color-btn-primary-text)' : 'var(--color-text-primary)',
+              border: `1px solid ${mode === opt.key ? 'transparent' : 'var(--color-border)'}`,
+              minHeight: 'unset',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Practice target */}
+      {mode === 'practice_count' && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Target:</span>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={target}
+            onChange={e => setTarget(parseInt(e.target.value) || 1)}
+            className="w-16 px-2 py-1 rounded text-xs text-center"
+            style={{
+              background: 'var(--color-bg-card)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+          />
+          <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>completions</span>
+        </div>
+      )}
+
+      {/* Mastery options */}
+      {mode === 'mastery' && (
+        <div className="flex flex-col gap-1.5">
+          <Toggle checked={requireApproval} onChange={setRequireApproval} label="Require mom approval" />
+          <Toggle checked={requireEvidence} onChange={setRequireEvidence} label="Require evidence" />
+        </div>
+      )}
+
+      {/* Duration tracking */}
+      <Toggle checked={trackDuration} onChange={setTrackDuration} label="Track duration" />
+
+      {/* Actions */}
+      <div className="flex gap-2 mt-1">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 py-1.5 rounded text-xs font-medium"
+          style={{
+            background: 'var(--color-btn-primary-bg)',
+            color: 'var(--color-btn-primary-text)',
+            minHeight: 'unset',
+          }}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 rounded text-xs"
+          style={{
+            background: 'var(--color-bg-card)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border)',
+            minHeight: 'unset',
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Exports ────────────────────────────────────────────
 
 interface SequentialCollectionViewProps {
   familyId: string
@@ -72,6 +214,7 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
   const [expanded, setExpanded] = useState(false)
   const [showRedeployPicker, setShowRedeployPicker] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const { data: detail } = useSequentialCollection(expanded ? collection.id : undefined)
   const redeploy = useRedeploySequentialCollection()
   const { data: familyMembers = [] } = useFamilyMembers(collection.family_id)
@@ -283,7 +426,7 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
                 return (
                   <div
                     key={task.id}
-                    className="flex items-start gap-2 py-1.5 px-2 rounded"
+                    className="flex items-start gap-2 py-1.5 px-2 rounded group"
                     style={{
                       background: task.sequential_is_active
                         ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
@@ -338,6 +481,17 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
                             style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }}
                           />
                         )}
+                        {/* Per-item advancement override — settings icon */}
+                        {task.status !== 'completed' && (
+                          <button
+                            onClick={() => setEditingItemId(editingItemId === task.id ? null : task.id)}
+                            className="shrink-0 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ background: 'transparent', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
+                            title="Edit advancement settings"
+                          >
+                            <Settings2 size={12} style={{ color: 'var(--color-text-secondary)' }} />
+                          </button>
+                        )}
                       </div>
                       {progressSubtitle && (
                         <div
@@ -346,6 +500,14 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
                         >
                           {progressSubtitle}
                         </div>
+                      )}
+                      {/* Inline advancement override editor */}
+                      {editingItemId === task.id && (
+                        <ItemAdvancementEditor
+                          task={task}
+                          collectionId={detail.collection.id}
+                          onClose={() => setEditingItemId(null)}
+                        />
                       )}
                     </div>
                   </div>
