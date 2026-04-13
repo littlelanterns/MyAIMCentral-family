@@ -4,7 +4,9 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: PRE-BUILD — PRD-28 Tracking, Allowance & Financial
+## Status: ACTIVE — PRD-28 Tracking, Allowance & Financial (Sub-phase A COMPLETE, Sub-phase B pending)
+
+> **Sub-phase A completed 2026-04-13.** Migration 100134 deployed. 14 new files, 12 modified files. 24 Playwright E2E tests passing. `tsc -b` clean, `npm run build` clean. Commits: `855275b` (main build) + `e328cc4` (build fix: conditional useMemo + Edge Function config). Post-build file checklist deferred until Sub-phase B completes.
 
 > **Previous builds signed off:**
 > Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build M (PRD-24+PRD-26 Play Dashboard + Sticker Book) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
