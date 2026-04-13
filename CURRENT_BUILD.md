@@ -4,9 +4,12 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: ACTIVE — PRD-28 Tracking, Allowance & Financial (Sub-phase A COMPLETE, Sub-phase B pending)
+## Status: IDLE
 
-> **Sub-phase A completed 2026-04-13.** Migration 100134 deployed. 14 new files, 12 modified files. 24 Playwright E2E tests passing. `tsc -b` clean, `npm run build` clean. Commits: `855275b` (main build) + `e328cc4` (build fix: conditional useMemo + Edge Function config). Post-build file checklist deferred until Sub-phase B completes.
+> **PRD-28 completed 2026-04-13.** Sub-phase A (allowance system + financial ledger + Privilege Status Widget) + Sub-phase B (homework subjects + time logging + Log Learning widget). 55 requirements wired, 8 stubbed (all post-MVP/deferred), 0 missing. 35 Playwright E2E tests passing. Migrations: 100134 + 100135 + 100136 + 100137.
+
+> **Previous builds signed off:**
+> PRD-28 (Tracking, Allowance & Financial) — 2026-04-13. Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build M (PRD-24+PRD-26 Play Dashboard + Sticker Book) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
 
 > **Previous builds signed off:**
 > Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build M (PRD-24+PRD-26 Play Dashboard + Sticker Book) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
@@ -184,46 +187,92 @@ The financial system is ENTIRELY separate from PRD-24's gamification points. Bot
   - Allowance Calculator widget shows completion % only, no dollar amounts
   - Play mode: ALWAYS % only, regardless of toggle
 
-#### Sub-Phase B — Homeschool Tracking (schema + subjects + time logging + Log Learning widget)
+#### Sub-Phase B — Homework Tracking (schema + subjects + time logging + Log Learning widget)
 
-**Migration `00000000100135_homeschool_tracking.sql`:**
-- CREATE TABLE `homeschool_subjects` (7 columns, UNIQUE on `(family_id, name)`, family-scoped RLS)
-- CREATE TABLE `homeschool_configs` (7 columns, UNIQUE on `family_member_id`, per-child override)
-- CREATE TABLE `homeschool_time_logs` (15 columns, compliance-ready indexing — `(member, subject, date)`, `(member, date)`, `(family, subject, date)`, `(status)`, `(source, reference)`)
-- RLS: mom reads all, writes all. Members read own. Children INSERT with `status='pending'` only.
-- `set_updated_at` triggers
-- Feature key `homeschool_subjects` already registered in Sub-phase A migration
+> **Founder decisions applied 2026-04-13:** (1) Migration number verified — highest existing is 100135, using **100136**. (2) Unlimited subjects confirmed. (3) School year dates added to `homeschool_configs`. (4) Hour targets are opt-in, NULL by default — counting not measuring. (5) Widget alignment with existing infrastructure confirmed.
+
+**Migration `00000000100136_homeschool_tracking.sql`:**
+- CREATE TABLE `homeschool_subjects` (8 columns, UNIQUE on `(family_id, name)`, family-scoped RLS)
+  - `id UUID PK`, `family_id UUID FK NOT NULL`, `name TEXT NOT NULL`, `default_weekly_hours DECIMAL(5,2) DEFAULT NULL` (**nullable, no default — targets are opt-in**), `icon_key TEXT NULL` (Lucide icon for Play variant), `sort_order INTEGER DEFAULT 0`, `is_active BOOLEAN DEFAULT true`, `created_at`, `updated_at`
+  - UNIQUE on `(family_id, name)`, index on `(family_id, is_active)`
+  - RLS: family-scoped, mom full CRUD, members read. **No cap on subject count — mom can add unlimited subjects.**
+  - Subjects can be renamed, reordered, and archived at any time. **Archive = `is_active=false`. Deletion is never allowed — historical time logs must always have a valid FK reference.**
+- CREATE TABLE `homeschool_configs` (10 columns, family-default + per-child override pattern)
+  - `id UUID PK`, `family_id UUID FK NOT NULL`, `family_member_id UUID FK NULL` (**NULL = family-wide default**, non-NULL = per-child override), `time_allocation_mode TEXT DEFAULT 'full'` CHECK `('full','weighted','strict')`, `allow_subject_overlap BOOLEAN DEFAULT true`, `subject_hour_overrides JSONB DEFAULT '{}'`, `school_year_start DATE NULL`, `school_year_end DATE NULL`, `term_breaks JSONB DEFAULT '[]'` (array of `{name, start_date, end_date}` for semester/term boundaries), `created_at`, `updated_at`
+  - **Two partial unique indexes:** `UNIQUE (family_id) WHERE family_member_id IS NULL` (one family default per family) + `UNIQUE (family_member_id) WHERE family_member_id IS NOT NULL` (one per child)
+  - **Family-first, per-child override:** Mom configures school year dates once at the family level. Per-child records override only when a specific child diverges (different program, different grade level). When a per-child field is NULL, inherit from the family default.
+  - **Resolution order:** child override (if set) → family default (if set) → system default
+  - Summary views filter time logs to the resolved school year when set. PRD-28B compliance reporting will consume these boundaries.
+  - `term_breaks` is optional — most families won't use it at MVP but the schema is ready for semester/quarterly breakdowns.
+- CREATE TABLE `homeschool_time_logs` (15 columns, compliance-ready indexing)
+  - `id UUID PK`, `family_id UUID FK NOT NULL`, `family_member_id UUID FK NOT NULL`, `subject_id UUID FK NOT NULL` → `homeschool_subjects`, `task_id UUID FK NULL` → `tasks`, `log_date DATE NOT NULL`, `minutes_logged INTEGER NOT NULL`, `allocation_mode_used TEXT NOT NULL`, `source TEXT NOT NULL` CHECK `('task_completed','child_report','manual_entry','timer_session')`, `source_reference_id UUID NULL`, `status TEXT DEFAULT 'confirmed'` CHECK `('pending','confirmed','rejected')`, `description TEXT NULL`, `approved_by UUID FK NULL`, `approved_at TIMESTAMPTZ NULL`, `created_at`, `updated_at`
+  - Indexes: `(family_member_id, subject_id, log_date)`, `(family_member_id, log_date)`, `(family_id, subject_id, log_date)`, `(status)`, `(source, source_reference_id)`
+  - RLS: family-scoped, mom reads all + writes all, members read own, children INSERT with `status='pending'` only
+- `set_updated_at` triggers on all 3 tables
+- Feature key `homeschool_subjects` already registered in Sub-phase A migration 100134
 
 **TypeScript types** (`src/types/homeschool.ts`):
 - `HomeschoolSubject`, `HomeschoolConfig`, `HomeschoolTimeLog`
+- `TermBreak = { name: string; start_date: string; end_date: string }`
 - Enums: `TimeAllocationMode`, `LogSource`, `LogStatus`
+- `SubjectProgress = { subject: HomeschoolSubject; minutesLogged: number; targetMinutes: number | null }` — `targetMinutes` is null when no target set
+- `LogLearningInput` — form data shape for the modal
 
 **Hooks** (`src/hooks/useHomeschool.ts`):
-- `useHomeschoolSubjects(familyId)` — query + CRUD mutations
-- `useHomeschoolConfig(memberId)` — query + upsert mutation
-- `useHomeschoolTimeLogs(memberId, dateRange?, subjectId?)` — filtered time logs
-- `useHomeschoolDailySummary(memberId, date?)` — per-subject hours for a day
-- `useHomeschoolWeeklySummary(memberId, weekStart?)` — per-subject hours for a week
-- `useLogLearning()` — creates `homeschool_time_logs` records + optional victory
-- `useApproveTimeLog()` — pending → confirmed, sets approved_by/approved_at
-- `useRejectTimeLog()` — pending → rejected
+- `useHomeschoolSubjects(familyId)` — query active subjects ordered by `sort_order`. Returns all when `includeArchived=true`.
+- `useCreateSubject()` — insert new `homeschool_subjects` row (no cap — unlimited)
+- `useUpdateSubject()` — update name, hours, icon_key, sort_order
+- `useArchiveSubject()` — set `is_active=false` (**never delete — preserves historical logs**)
+- `useReorderSubjects()` — batch update `sort_order` after drag-to-reorder
+- `useHomeschoolFamilyConfig(familyId)` — query the family-wide default config (`family_member_id IS NULL`)
+- `useHomeschoolChildConfig(memberId)` — query per-child override config
+- `useResolvedHomeschoolConfig(familyId, memberId)` — resolves child override → family default → system default for all fields
+- `useUpsertHomeschoolConfig()` — upsert either family-level or per-child config (determined by whether `family_member_id` is passed)
+- `useHomeschoolTimeLogs(memberId, dateRange?, subjectId?)` — filtered time logs, respects resolved school year boundaries when set
+- `useDailySummary(memberId, date?)` — per-subject minutes for a day (for widget progress bars)
+- `useWeeklySummary(memberId, weekStart?)` — per-subject minutes for a week
+- `useSchoolYearSummary(memberId)` — per-subject minutes across configured school year (for compliance)
+- `useLogLearning()` — creates `homeschool_time_logs` records + optional victory + optional approval request
+- `useApproveTimeLog()` — `pending` → `confirmed`, sets `approved_by`/`approved_at`
+- `useRejectTimeLog()` — `pending` → `rejected`
 
 **Components:**
-- `HomeschoolSettingsPage` — Screen 3: subject list, time allocation mode, per-child overrides
-- `SubjectEditor` — inline editing for subject name + default weekly hours
-- `ChildHomeschoolOverrides` — per-child hour targets + mode override
-- `LogLearningWidget` — Screen 6: daily subject progress bars + "Log Learning" button + upcoming assignments + [Start] timer
-- `LogLearningModal` — Screen 7: description + time (manual or timer) + subject checkboxes + "Also add as Victory?" checkbox
-- `LogLearningModalPlay` — Play variant: subject icons instead of checkboxes, preset time buttons (15/30/60 min), description optional
+- `HomeworkSettingsPage` — Screen 3: family-wide subject list with drag-to-reorder, time allocation mode, school year dates, per-child overrides
+  - **Suggested defaults on first visit:** 7 subjects (Math, Reading / Language Arts, Science, History & Geography, Art, Music, Physical Education) pre-populated **with `default_weekly_hours = NULL`** — no targets set. Mom can edit, remove, or add more before saving.
+  - **[+ Add Subject]** — inline input, no cap. Mom can add unlimited subjects beyond the 7 suggestions.
+  - **Subject lifecycle:** rename, reorder (drag-to-reorder via dnd-kit), archive (X icon → `is_active=false`). **No delete button.** Archived subjects preserve all historical time logs and appear in historical reports but are no longer available for new entries.
+  - **School Year Configuration section (family-level, at the top):** `school_year_start` + `school_year_end` date pickers (optional). Stored on the family-wide `homeschool_configs` record (`family_member_id IS NULL`). When set, all summary views respect these boundaries. `[+ Add Term Break]` for optional semester/term boundaries. **This is the one-time config for most families.**
+  - **Time Allocation Mode** — family-wide default: Full / Weighted / Strict radio buttons with descriptions. Stored on the family-wide config record.
+  - **Per-child overrides** — member pill buttons. Tapping opens per-child config panel showing **inherited** values from the family default with an **"Override for this child"** toggle/link that unlocks the fields for that specific child: allocation mode override, per-subject hour override JSONB, school year date overrides (for children at different school levels or programs). When override fields are NULL on the child record, the family default is shown as the inherited value.
+- `SubjectEditor` — inline editing: editable text name + optional hours input + optional icon picker for Play variant. Save on blur or Enter.
+- `ChildHomeschoolOverrides` — per-child config panel showing inherited family defaults with "Override for this child" unlock for allocation mode, subject hour overrides, school year dates
+- `LogLearningTracker` — Screen 6: dashboard widget registered as `log_learning` in `TRACKER_TYPE_REGISTRY`
+  - **Two display modes based on whether targets are set:**
+    - **No target set (`default_weekly_hours = NULL`):** Shows accumulating count only — "2h 15m this week" per subject. No progress bar percentage, no implied goal. Just the facts.
+    - **Target set:** Shows progress bar with "Xh Ym of Zh target" per subject.
+  - **Widget label adapts:** header "Today's Homework", per-subject rows show count-only or count-vs-target based on whether that subject has a target.
+  - **[Log Learning]** button → opens `LogLearningModal`
+  - **Upcoming assignments** — queries `tasks WHERE assignee_id=memberId AND counts_for_homework=true AND status IN ('pending','in_progress') AND due_date >= today`, limit 3. Each with **[Start]** timer button.
+  - **Compact mode** — total minutes logged today + [Log Learning] button only
+  - **Widget registration:** `TRACKER_TYPE_REGISTRY` entry (`type: 'log_learning'`, `category: 'reflection_insight'`, `icon: 'BookOpen'`), added to `PICKER_CATEGORIES['reflection_insight']` tracker types, case in `WidgetRenderer.tsx` switch
+- `LogLearningModal` — Screen 7: description + time + subject checkboxes + "Also add as Victory?"
+  - Standard layout (Guided/Independent/Adult): textarea (required), time input (manual or [Use Timer]), subject checkbox grid, submit, victory checkbox
+  - **Play variant** (same component, `variant='play'` prop): subject icons instead of checkboxes, preset time buttons (15/30/60 min), description optional, larger tap targets
+  - Submit routing: Play/Guided → `status='pending'` + `useCreateRequest({ source: 'homeschool_child_report' })`. Independent → `status='confirmed'`. Adults → `status='confirmed'`.
+  - Victory creation: `source='homeschool_logged'` immediately on submission (not on approval)
+  - Time allocation on submit: `full` = each subject gets full minutes; `weighted` = proportional by target hours; `strict` = divide equally
 
 **Settings integration:**
-- Add "Homeschool Subjects" `SettingsSection` in `SettingsPage.tsx` (conditional: visible when homeschool subjects configured or `life_area_tag='homeschool'` exists on any task)
-- `SettingsNavRow` navigating to `/settings/homeschool`
+- Add "Homework & Subjects" `SettingsSection` in `SettingsPage.tsx` (conditional: `useCanAccess('homeschool_subjects')`)
+- `SettingsNavRow` with label **"Homework & Subjects"** (user-facing — not "Homeschool Subjects")
+- Navigate to `/settings/homework`
 - Add route in `App.tsx`
 
 **Widget registration:**
-- Register `log_learning` widget type in widget catalog
-- Wire into `WidgetRenderer.tsx`
+- Register `log_learning` in `TRACKER_TYPE_REGISTRY` (`src/types/widgets.ts`)
+- Add `'log_learning'` to `PICKER_CATEGORIES` under `reflection_insight`
+- Add case in `WidgetRenderer.tsx` switch → `<LogLearningTracker />`
+- Starter configs: "Today's Homework" (daily, assigned to children) + "My Learning Log" (adult-focused variant)
 
 **Timer integration (reading `time_sessions`):**
 - `LogLearningModal` [Use Timer] button: starts a timer via `useTimerActions().startTimer()` with `source_type='learning_log'`
@@ -266,6 +315,11 @@ The financial system is ENTIRELY separate from PRD-24's gamification points. Bot
 8. **Finances tab is mom-only.** Independent teens see their own data via `BalanceCard` on dashboard + `/finances/history` route (own data, RLS-filtered).
 9. **Log Learning widget is universal.** Assignable to any family member. Adults/teens submit directly; children submit for approval.
 10. **Financial data excluded from LiLa.** Explicit check in `context-assembler.ts` — never load from `financial_transactions`, `allowance_configs`, or `loans`.
+11. **Migration number verified.** Highest existing is `00000000100135_allowance_bonus_type.sql`. Sub-phase B uses **`00000000100136_homeschool_tracking.sql`**.
+12. **Unlimited subjects, no cap.** Mom can add as many subjects as she wants beyond the 7 suggested defaults. Subjects can be renamed, reordered (drag-to-reorder), and archived at any time. **Deletion is never allowed** — archived subjects preserve all historical time log FK references.
+13. **School year / term date configuration — family-first, per-child override.** `school_year_start DATE NULL`, `school_year_end DATE NULL`, `term_breaks JSONB DEFAULT '[]'` on `homeschool_configs`. The table uses `family_member_id NULL` for the family-wide default record + non-NULL for per-child overrides. Two partial unique indexes enforce one family default + one per child. Most families configure once at the family level. Per-child overrides only when a child has a different academic calendar. Resolution: child override → family default → system default. PRD-28B compliance reporting will consume these boundaries.
+14. **Hours counting, NOT measuring against targets — opt-in targets.** `homeschool_subjects.default_weekly_hours` is nullable, default NULL — no targets pre-populated. The 7 suggested subjects ship with NULL targets. Widget display has two modes: **no target** = accumulating count only ("2h 15m this week"), no progress bar %; **target set** = progress bar with "Xh Ym of Zh target". Mom opts IN to targets — they are never the default. No pressure, no judgment.
+15. **Log Learning widget uses existing infrastructure.** `TRACKER_TYPE_REGISTRY`, `WidgetRenderer`, `WidgetConfiguration` — all consumed as-is. No widget system changes needed, just a new widget type registration.
 
 #### Open Questions for Founder
 

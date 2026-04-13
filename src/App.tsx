@@ -40,6 +40,7 @@ import { MindSweepCapture } from '@/pages/MindSweepCapture'
 import { AllowanceSettingsPage } from '@/features/financial/AllowanceSettingsPage'
 import { ChildAllowanceConfigPage } from '@/features/financial/ChildAllowanceConfig'
 import { TransactionHistoryPage } from '@/features/financial/TransactionHistory'
+import { HomeworkSettingsPage } from '@/features/financial/HomeworkSettingsPage'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
@@ -150,6 +151,8 @@ function App() {
               {/* PRD-28: Allowance & Financial routes */}
               <Route path="/settings/allowance" element={<ProtectedRoute><AllowanceSettingsPage /></ProtectedRoute>} />
               <Route path="/settings/allowance/:memberId" element={<ProtectedRoute><ChildAllowanceConfigPage /></ProtectedRoute>} />
+              {/* PRD-28: Homework tracking route */}
+              <Route path="/settings/homework" element={<ProtectedRoute><HomeworkSettingsPage /></ProtectedRoute>} />
               <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />

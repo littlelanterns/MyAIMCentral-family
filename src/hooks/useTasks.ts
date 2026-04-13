@@ -304,12 +304,49 @@ export function useCompleteTask() {
         gamificationResult = await rollGamificationForCompletion(completion.id)
       }
 
+      // 4. PRD-28: Auto-create homeschool_time_logs when a homework-flagged task
+      // with assigned subjects is completed (not pending approval).
+      // Additive, non-blocking — failure does NOT prevent the task from being complete.
+      if (!requireApproval && updatedTask.counts_for_homework && updatedTask.homework_subject_ids?.length > 0) {
+        try {
+          const durationMinutes = updatedTask.focus_time_seconds
+            ? Math.round(updatedTask.focus_time_seconds / 60)
+            : updatedTask.duration_estimate
+              ? parseInt(updatedTask.duration_estimate, 10)
+              : 30 // fallback 30 min if no duration info
+
+          const logRows = updatedTask.homework_subject_ids.map((subjectId: string) => ({
+            family_id: updatedTask.family_id,
+            family_member_id: memberId,
+            subject_id: subjectId,
+            log_date: resolvedDate,
+            minutes_logged: durationMinutes,
+            allocation_mode_used: 'full',
+            source: 'task_completed',
+            source_reference_id: completion.id,
+            status: 'confirmed',
+            description: updatedTask.title,
+          }))
+
+          await supabase.from('homeschool_time_logs').insert(logRows)
+        } catch (err) {
+          console.warn('[useCompleteTask] homework time log auto-create failed (non-blocking):', err)
+        }
+      }
+
       return { completion, task: updatedTask as Task, gamificationResult }
     },
     onSuccess: ({ completion, task, gamificationResult }) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', task.id] })
       queryClient.invalidateQueries({ queryKey: ['task-completions', task.id] })
+
+      // PRD-28: invalidate homework summaries when homework time logged
+      if (task.counts_for_homework && task.homework_subject_ids?.length > 0) {
+        const completerId = completion.family_member_id ?? completion.member_id
+        queryClient.invalidateQueries({ queryKey: ['homeschool-daily-summary', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['homeschool-weekly-summary', completerId] })
+      }
 
       // Sub-phase C: refresh gamification-dependent queries when the
       // pipeline actually ran (points / creatures / pages). Cheap no-ops

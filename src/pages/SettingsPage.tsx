@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
-  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign,
+  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import {
@@ -139,6 +139,18 @@ export function SettingsPage() {
             label="Allowance & Finances"
             description="Configure allowance and track finances for each child"
             to="/settings/allowance"
+          />
+        </SettingsSection>
+      )}
+
+      {/* Homework & Subjects (Mom only, Enhanced tier) — PRD-28 Sub-phase B */}
+      {shell === 'mom' && (
+        <SettingsSection title="Homework & Subjects" icon={BookOpen}>
+          <SettingsNavRow
+            icon={BookOpen}
+            label="Homework & Subjects"
+            description="Configure subjects and track homework hours"
+            to="/settings/homework"
           />
         </SettingsSection>
       )}

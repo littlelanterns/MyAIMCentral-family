@@ -499,6 +499,14 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 | Conversational school year planner | Linked Steps addendum | Studio Intelligence Phase 3 | 📌 Post-MVP | Depends on PRD-05, PRD-18, PRD-29 |
 | Living shopping list enhancement | Concept capture 2026-04-06 | — | 📌 Post-MVP | `specs/Concept-Capture-Shopping-List-Backburner-Victory.md` |
 | Backburner/Ideas activation as victory | Concept capture 2026-04-06 | — | 📌 Post-MVP | Wire when Backburner activation paths are built |
+| `homeschool_time_review` LiLa guided mode | PRD-28 Screen 7 | PRD-05 dependency | 📌 Post-MVP | AI subject estimation from child's Log Learning description. Haiku reviews text, estimates subject allocation. Requires PRD-05 day-data context enhancement. |
+| Subject Tracking section in TaskCreationModal | PRD-28 Addendum | Polish pass | ⏳ Unwired (MVP) | Per-task subject assignment checkboxes in "Rewards & Completion Tracking" section. Would enable automatic `homeschool_time_logs` creation on task completion for homework-tagged tasks. Currently mom uses Log Learning widget for manual entry. |
+| PRD-28B Compliance & Progress Reporting (6 tables) | PRD-28B | Separate build | ⏳ Unwired (MVP) | `homeschool_family_config`, `homeschool_student_config`, `education_standards`, `standard_evidence`, `report_templates`, `esa_invoices`. Consumes `homeschool_time_logs` + `homeschool_subjects` from PRD-28. Needs working data first. |
+| Biweekly/monthly allowance periods | PRD-28 + PRD-35 | PRD-35 integration | 📌 Post-MVP | Weekly only at MVP. PRD-35 Universal Scheduler biweekly/monthly support needed. |
+| Business work export (formatted PDF/CSV) | PRD-28 | — | 📌 Post-MVP | Export timer sessions × hourly rate data for business work invoicing. |
+| Dad payment delegation | PRD-28 | — | 📌 Post-MVP | Allow additional_adult to mark payments on behalf of mom. |
+| Teen purchase deduction requests via PRD-15 | PRD-28 + PRD-15 | PRD-15 Messages | 📌 Post-MVP | Teen requests a purchase deduction through family_requests, mom approves/declines. |
+| Allowance history trend charts | PRD-28 | — | 📌 Post-MVP | Visual charts showing completion %, earnings, and balance over time per child. |
 
 ## Summary
 
@@ -506,7 +514,7 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 |--------|-------|
 | ✅ Wired | ~92 |
 | 🔗 Partially Wired | ~3 |
-| ⏳ Unwired (MVP) | ~40 |
-| 📌 Post-MVP | ~78 |
+| ⏳ Unwired (MVP) | ~42 |
+| 📌 Post-MVP | ~84 |
 | ❌ Superseded | ~3 |
-| **Total** | ~216 |
+| **Total** | ~224 |

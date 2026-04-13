@@ -327,6 +327,12 @@ export interface Task {
   list_delivery_mode: 'checklist' | 'batch' | 'sequential' | null
   // Build M Phase 1 — task segment assignment
   task_segment_id: string | null
+  // PRD-28: Task-level tracking flags
+  counts_for_allowance: boolean
+  counts_for_homework: boolean
+  counts_for_gamification: boolean
+  allowance_points: number | null
+  homework_subject_ids: string[]
   // View framework metadata
   eisenhower_quadrant: EisenhowerQuadrant | null
   frog_rank: number | null

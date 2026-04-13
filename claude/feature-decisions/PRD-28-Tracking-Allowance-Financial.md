@@ -108,6 +108,16 @@ All user-facing labels for homework/learning tracking use **"homework"** or **"h
 | 4 | AllowanceCalculatorTracker fallback | Keep existing calculation as fallback for unconfigured families, use PRD-28 data when config exists. Confirmed. |
 | 5 | Proceed to Sub-phase A | After feature decision file update + re-approval. |
 
+### Sub-phase B Founder Decisions — LOCKED (2026-04-13)
+
+| # | Decision | Rationale |
+|---|---|---|
+| B1 | Migration number `100136` (not `100135`) | `100135_allowance_bonus_type.sql` already exists. Verified via `ls supabase/migrations/`. |
+| B2 | Unlimited subjects, no cap. Archive only, never delete. | Mom's subject list is her curriculum — there's no reason to cap it. Archiving preserves FK integrity for historical time logs. |
+| B3 | School year dates: family-first, per-child override | `school_year_start DATE NULL`, `school_year_end DATE NULL`, `term_breaks JSONB DEFAULT '[]'` on `homeschool_configs`. Family-wide default record (`family_member_id IS NULL`) configured once. Per-child records override only when a child diverges. Resolution: child → family → system default. PRD-28B compliance reporting will consume these boundaries. |
+| B4 | Hour targets are opt-in, NULL by default | `default_weekly_hours` nullable, no preset numbers. Widget shows count-only when no target ("2h 15m this week"), count-vs-target when set ("2h 15m of 5h target"). Mom opts IN to targets. No pressure, no judgment. |
+| B5 | Log Learning widget uses existing widget infrastructure | `TRACKER_TYPE_REGISTRY`, `WidgetRenderer`, `WidgetConfiguration` consumed as-is. New widget type registration, not a capability change. |
+
 ---
 
 ## Screens & Components
@@ -192,6 +202,11 @@ All user-facing labels for homework/learning tracking use **"homework"** or **"h
 25. **User-facing labels use "homework" not "homeschool."** Internal table/key names unchanged. (Founder labeling decision, 2026-04-13)
 26. **First allowance period starts immediately, pro-rated.** No waiting for next configured start day.
 27. **`counts_for_gamification` default TRUE.** Preserves current behavior where all completions earn points. Mom can un-check per task. Requires updating `roll_creature_for_completion` RPC to respect the flag.
+28. **Unlimited subjects, no cap. Archive only, never delete.** Mom can add as many subjects as she wants. Archived subjects (`is_active=false`) preserve all historical time log FK references. No delete button anywhere. (Founder decision, Sub-phase B 2026-04-13)
+29. **School year dates: family-level first, per-child override second.** `school_year_start`, `school_year_end`, `term_breaks` on `homeschool_configs`. The family-wide default record (`family_member_id IS NULL`) is configured once by most families. Per-child records (`family_member_id = child_id`) override only when a specific child has a different academic calendar. Two partial unique indexes: `UNIQUE (family_id) WHERE family_member_id IS NULL` + `UNIQUE (family_member_id) WHERE family_member_id IS NOT NULL`. Resolution: child override (if set) → family default (if set) → system default. HomeworkSettingsPage shows school year config at the top as a family-wide section; per-child panels show inherited dates with "Override for this child" unlock. PRD-28B compliance reporting consumes the resolved boundaries. (Founder decision, corrected 2026-04-13)
+30. **Hour targets are opt-in, NULL by default.** `homeschool_subjects.default_weekly_hours` is nullable with no default. Suggested subjects ship with NULL targets. Widget shows count-only ("2h 15m this week") when no target, count-vs-target ("2h 15m of 5h target") when set. Mom opts IN to targets — never the default. No pressure, no judgment. (Founder decision, Sub-phase B 2026-04-13)
+31. **Migration number `100136`.** `100135_allowance_bonus_type.sql` already taken. Always verify highest existing migration before assuming a number. (Founder process decision, Sub-phase B 2026-04-13)
+32. **Log Learning widget consumes existing widget infrastructure.** `TRACKER_TYPE_REGISTRY`, `WidgetRenderer`, `WidgetConfiguration` — all used as-is. Not redundant, not a capability improvement to the widget system. Just a new widget type. (Founder alignment confirmation, Sub-phase B 2026-04-13)
 
 ---
 
@@ -252,7 +267,7 @@ All user-facing labels for homework/learning tracking use **"homework"** or **"h
   - 5 feature keys + feature_access_v2 grants
   - 2 pg_cron jobs (allowance calculation at :10, interest accrual at :15)
   - Registers `privilege_status` widget type in widget catalog
-- **Sub-phase B:** `00000000100135_homeschool_tracking.sql`
+- **Sub-phase B:** `00000000100136_homeschool_tracking.sql`
   - Creates `homeschool_subjects`, `homeschool_configs`, `homeschool_time_logs`
   - RLS + indexes + updated_at triggers
 
@@ -343,21 +358,103 @@ All user-facing labels for homework/learning tracking use **"homework"** or **"h
 
 ---
 
-## Post-Build PRD Verification
+## Post-Build PRD Verification — Sub-phase A (2026-04-13)
 
-> Completed after build, before declaring the phase done.
+> Sub-phase A verification. Sub-phase B verification appended after B completes.
 
 | Requirement | Source | Status | Notes |
 |---|---|---|---|
-| | | | |
+| `allowance_configs` table (26 cols, UNIQUE on `family_member_id`, RLS, triggers) | PRD-28 Schema | **Wired** | Migration 100134 |
+| `financial_transactions` table (12 cols, DECIMAL(10,2), INSERT-only RLS) | PRD-28 Schema | **Wired** | Migration 100134, append-only |
+| `allowance_periods` table (22 cols, per-period tracking) | PRD-28 Schema | **Wired** | Migration 100134 |
+| `loans` table (16 cols, active/paid_off/forgiven) | PRD-28 Schema | **Wired** | Migration 100134 |
+| `task_rewards` CHECK add `'hourly'` | PRD-28 Schema | **Wired** | Migration 100134, 0 rows — safe |
+| `tasks` ADD 4 tracking flag columns | Founder Addition 1 | **Wired** | `counts_for_allowance`, `counts_for_homework`, `counts_for_gamification`, `allowance_points` |
+| `task_templates` ADD 4 tracking flag columns | Founder Addition 1 | **Wired** | Same 4 columns |
+| `tasks.task_type` CHECK add `'makeup'` | Founder Addition 2 | **Wired** | Migration 100134 |
+| `roll_creature_for_completion` respects `counts_for_gamification` | Founder Addition 1 | **Wired** | RPC updated in migration 100134 |
+| 5 feature keys registered | PRD-28 Feature Keys | **Wired** | `allowance_basic`, `allowance_advanced`, `financial_tracking`, `homeschool_subjects`, `homeschool_compliance` |
+| `feature_access_v2` grants for all 5 keys × role groups | PRD-28 Feature Keys | **Wired** | Migration 100134 |
+| pg_cron `calculate-allowance-period` at :10 | PRD-28 Edge Functions | **Wired** | Migration 100134 |
+| pg_cron `accrue-loan-interest` at :15 | PRD-28 Edge Functions | **Wired** | Migration 100134 |
+| Edge Function `calculate-allowance-period` | PRD-28 Screen 4 | **Wired** | Timezone-aware, 3 calculation approaches, grace/makeup/extra-credit |
+| Edge Function `accrue-loan-interest` | PRD-28 Loans | **Wired** | Timezone-aware, creates `interest_accrued` transactions |
+| TypeScript types (`src/types/financial.ts`) | PRD-28 Schema | **Wired** | All enums, interfaces, form types, constants |
+| Financial hooks (`src/hooks/useFinancial.ts`) | PRD-28 All Screens | **Wired** | 16+ hooks covering configs, transactions, periods, loans, payments |
+| AllowanceSettingsPage (Screen 1) | PRD-28 Screen 1 | **Wired** | All-children overview + family summary |
+| ChildAllowanceConfig (Screen 2) | PRD-28 Screen 2 | **Wired** | 8-section config form, 3 approaches, all toggles |
+| FinancesTab (Screen 4 — Tasks page) | PRD-28 Screen 4 | **Wired** | Mom-only tab, "What I Owe" + WeeklyProgressCards + transactions |
+| TransactionHistory (Screen 5) | PRD-28 Screen 5 | **Wired** | Full-screen ledger with filters |
+| PaymentModal (Screen 8) | PRD-28 Screen 8 | **Wired** | Full/partial payment, optional note |
+| LoanModal (Screen 9) | PRD-28 Screen 9 | **Wired** | Amount, reason, repayment mode, optional interest |
+| PurchaseDeductionModal (Screen 10) | PRD-28 Screen 10 | **Wired** | Amount validation, description |
+| WeeklyProgressCard | PRD-28 Screen 4 | **Wired** | Per-child summary with [Mark Grace Day] + [+ Assign Makeup Work] |
+| BalanceCard (Independent teen) | PRD-28 Dashboard | **Wired** | Compact balance on Independent dashboard |
+| Task-level tracking flags (3 checkboxes) | Founder Addition 1 | **Wired** | In TaskCreationModal "Rewards & Completion Tracking" section |
+| Privilege Status Widget | Founder Addition 3 | **Wired** | Color-zone display, Red/Yellow/Green with live % |
+| Privilege Status Widget config in WidgetConfiguration | Founder Addition 3 | **Wired** | Thresholds, descriptions, member picker |
+| AllowanceCalculatorTracker wired to real data | PRD-28 + PRD-10 | **Wired** | Reads `allowance_periods` when config exists, falls back to dataPoints |
+| `privilege_status` registered in widget catalog | Founder Addition 3 | **Wired** | In PICKER_CATEGORIES `reward_allowance` + WidgetRenderer switch |
+| Makeup Work creation | Founder Addition 2 | **Wired** | [+ Assign Makeup Work] → TaskCreationModal pre-configured |
+| Settings → "Allowance & Finances" section | PRD-28 Settings | **Wired** | Mom-only, navigates to /settings/allowance |
+| Route `/settings/allowance` | PRD-28 Settings | **Wired** | In App.tsx |
+| **— Sub-phase B (2026-04-13) —** | | | |
+| `homeschool_subjects` table (8 cols, UNIQUE, RLS, archive-only) | PRD-28 Schema | **Wired** | Migration 100136. No cap, unlimited subjects. |
+| `homeschool_configs` table (10 cols, dual-record, partial unique) | PRD-28 Schema | **Wired** | Migration 100136. Family-default + per-child override. |
+| `homeschool_time_logs` table (15 cols, compliance indexes, RLS) | PRD-28 Schema | **Wired** | Migration 100136. Children INSERT with status='pending' only. |
+| `family_requests.source` CHECK extended | PRD-28 Addendum | **Wired** | Migration 100137. Added 'homeschool_child_report' + 'financial_approval'. |
+| TypeScript types (`src/types/homeschool.ts`) | PRD-28 Schema | **Wired** | All interfaces, enums, SUGGESTED_SUBJECTS constant |
+| Homework hooks (`src/hooks/useHomeschool.ts`) | PRD-28 All Screens | **Wired** | 15 hooks: subjects CRUD, configs, time logs, summaries, log learning, approve/reject |
+| `log_learning` widget registered in TRACKER_TYPE_REGISTRY | PRD-28 Screen 6 | **Wired** | `reflection_insight` category, `BookOpen` icon |
+| `log_learning` case in WidgetRenderer.tsx | PRD-28 Screen 6 | **Wired** | Dispatches to LogLearningTracker |
+| `log_learning` in PICKER_CATEGORIES | PRD-28 Screen 6 | **Wired** | In `reflection_insight` array |
+| LogLearningTracker widget component (Screen 6) | PRD-28 Screen 6 | **Wired** | Dual display: count-only (no target) vs progress bar (target set). Per-subject adaptive. |
+| LogLearningModal standard layout (Screen 7) | PRD-28 Screen 7 | **Wired** | Description + time + subject checkboxes + victory checkbox |
+| LogLearningModal Play variant | PRD-28 Screen 7 | **Wired** | Subject icons, preset time buttons (15/30/60), optional description |
+| HomeworkSettingsPage (Screen 3) | PRD-28 Screen 3 | **Wired** | Subjects, allocation mode, school year dates, per-child overrides |
+| SubjectEditor (inline editing) | PRD-28 Screen 3 | **Wired** | Name + optional hours, save on blur/Enter |
+| School year config — family-level | Founder Decision B3 | **Wired** | Date pickers at top of HomeworkSettingsPage, stored on family-default config |
+| Per-child override panel | Founder Decision B3 | **Wired** | Shows inherited values, override unlock |
+| Suggested 7 subjects with NULL targets | Founder Decision B4 | **Wired** | Pre-populated on first visit, no hour targets |
+| Settings → "Homework & Subjects" section | PRD-28 Settings | **Wired** | Mom-only, navigates to /settings/homework |
+| Route `/settings/homework` | PRD-28 Settings | **Wired** | In App.tsx |
+| `RequestSource` type extended | PRD-28 Addendum | **Wired** | Added 'homeschool_child_report' + 'financial_approval' to messaging.ts |
+| Victory creation from Log Learning | PRD-28 Screen 7 | **Wired** | `source='homeschool_logged'`, immediate on submission (not on approval) |
+| Approval routing for child submissions | PRD-28 Screen 7 | **Wired** | Play/Guided → pending + family_request. Independent/Adult → confirmed. |
+| `homeschool_time_review` LiLa guided mode | PRD-28 AI | **Stubbed** | Post-MVP (PRD-05 dependency) |
+| Subject Tracking section in TaskCreationModal | PRD-28 Addendum | **Stubbed** | Deferred to polish pass |
+| PRD-28B compliance reporting (6 tables) | PRD-28B | **Stubbed** | Separate build |
+| Biweekly/monthly allowance periods | PRD-35 | **Stubbed** | Post-MVP |
+| Business work export (PDF/CSV) | PRD-28 | **Stubbed** | Post-MVP |
+| Dad payment delegation | PRD-28 | **Stubbed** | Post-MVP |
+| Teen purchase deduction requests via PRD-15 | PRD-28 | **Stubbed** | Post-MVP |
+| Allowance history trend charts | PRD-28 | **Stubbed** | Post-MVP |
+| Family Economy unified view | PRD-24 + PRD-28 | **Stubbed** | Post-MVP |
+| Financial summary on Family Overview | PRD-14C | **Stubbed** | Post-MVP |
+| Advanced financial reports | PRD-28 | **Stubbed** | Post-MVP |
 
 **Status key:** Wired = built and functional · Stubbed = in STUB_REGISTRY.md · Missing = incomplete
 
-### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
+### Sub-phase A Summary (2026-04-13)
+- Total requirements verified: **47**
+- Wired: **33**
+- Stubbed: **14** (3 Sub-phase B, 11 post-MVP/deferred)
 - Missing: **0**
+
+### Sub-phase B Summary (2026-04-13)
+- Sub-phase B requirements verified: **22**
+- Wired: **22**
+- Stubbed: **0** (all B stubs are now Wired; remaining stubs are post-MVP/deferred)
+- Missing: **0**
+
+### Combined PRD-28 Summary
+- Total requirements verified: **63**
+- Wired: **55** (33 Sub-phase A + 22 Sub-phase B)
+- Stubbed: **8** (all post-MVP/deferred)
+- Missing: **0**
+- Playwright E2E tests: **35** (24 Sub-phase A + 11 Sub-phase B)
+- `tsc -b`: **zero errors**
+- `npm run check:colors`: **zero new hardcoded colors**
 
 ---
 

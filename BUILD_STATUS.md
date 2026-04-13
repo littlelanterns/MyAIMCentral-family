@@ -64,7 +64,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 29 | PRD-24, PRD-24A, PRD-24B | Gamification | Phase 10, 12 | Pending |
 | 30 | PRD-25, PRD-26 | Guided & Play Dashboards | Phase 14, 29 | Pending |
 | 31 | PRD-27 | Caregiver Tools | Phase 02, 05 | Pending |
-| 32 | PRD-28, PRD-28B | Tracking, Allowance & Compliance | Phase 05, 10, 11 | Pending |
+| 32 | PRD-28, PRD-28B | Tracking, Allowance & Compliance | Phase 05, 10, 11 | **Partial** — PRD-28 complete 2026-04-13 (Sub-phase A: allowance system + financial ledger + Privilege Status Widget; Sub-phase B: homework subjects + time logging + Log Learning widget). PRD-28B (Compliance & Progress Reporting) pending. | 2026-04-13 |
 | 33 | PRD-29 | BigPlans | Phase 06, 10, 12 | Pending |
 | 34 | PRD-30 | Safety Monitoring | Phase 06, 16 | Pending |
 | 35 | PRD-34 | ThoughtSift — Decision & Thinking Tools (5 tools, 6 tables, 5 Edge Functions) | Phase 06, 20 | **Complete** | 2026-03-26 |

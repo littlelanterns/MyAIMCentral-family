@@ -32,6 +32,7 @@ import type { RoutineSection } from './RoutineSectionEditor'
 import type { SchedulerOutput } from '@/components/scheduling/types'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
+import { useHomeschoolSubjects } from '@/hooks/useHomeschool'
 import { TaskIconPicker } from './TaskIconPicker'
 import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
@@ -118,6 +119,8 @@ export interface CreateTaskData {
   countsForHomework?: boolean
   countsForGamification?: boolean
   allowancePoints?: number | null
+  // PRD-28: Per-task subject assignment for auto time logging on completion
+  homeworkSubjectIds?: string[]
 }
 
 interface TaskCreationModalProps {
@@ -194,6 +197,7 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
     countsForAllowance: false,
     countsForHomework: false,
     countsForGamification: true, // default checked — preserves current behavior
+    homeworkSubjectIds: [],
   }
 }
 
@@ -444,6 +448,7 @@ export function TaskCreationModal({
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
   const homeworkTrackingEnabled = useCanAccess('homeschool_subjects')
+  const { data: homeschoolSubjects } = useHomeschoolSubjects(currentMember?.family_id)
 
   const [data, setData] = useState<CreateTaskData>(() => {
     const d = defaultTaskData(queueItem)
@@ -1845,15 +1850,53 @@ export function TaskCreationModal({
             Count toward allowance pool
           </label>
           {homeworkTrackingEnabled && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
-              <input
-                type="checkbox"
-                checked={data.countsForHomework ?? false}
-                onChange={(e) => update('countsForHomework', e.target.checked)}
-                style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-              />
-              Count toward homework tracking
-            </label>
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                <input
+                  type="checkbox"
+                  checked={data.countsForHomework ?? false}
+                  onChange={(e) => {
+                    update('countsForHomework', e.target.checked)
+                    if (!e.target.checked) update('homeworkSubjectIds', [])
+                  }}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                Count toward homework tracking
+              </label>
+              {data.countsForHomework && homeschoolSubjects && homeschoolSubjects.length > 0 && (
+                <div style={{ marginLeft: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                  {homeschoolSubjects.map(s => {
+                    const selected = (data.homeworkSubjectIds ?? []).includes(s.id)
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          const current = data.homeworkSubjectIds ?? []
+                          update('homeworkSubjectIds', selected
+                            ? current.filter(id => id !== s.id)
+                            : [...current, s.id]
+                          )
+                        }}
+                        style={{
+                          padding: '0.25rem 0.625rem',
+                          borderRadius: '999px',
+                          fontSize: 'var(--font-size-xs)',
+                          fontWeight: 500,
+                          backgroundColor: selected ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                          color: selected ? 'var(--color-text-on-primary)' : 'var(--color-text-primary)',
+                          border: `1px solid ${selected ? 'var(--color-accent)' : 'var(--color-border-default)'}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {s.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
             <input

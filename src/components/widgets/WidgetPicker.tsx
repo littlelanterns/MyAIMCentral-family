@@ -35,7 +35,7 @@ const PICKER_CATEGORIES: { key: string; label: string; icon: string; trackerType
   { key: 'progress_visualizers', label: 'Progress Visualizers', icon: 'TrendingUp', trackerTypes: ['tally', 'percentage'] },
   { key: 'reward_allowance', label: 'Reward & Allowance', icon: 'Coins', trackerTypes: ['allowance_calculator', 'privilege_status'] },
   { key: 'achievement_recognition', label: 'Achievement & Recognition', icon: 'Trophy', trackerTypes: ['achievement_badge', 'xp_level'] },
-  { key: 'reflection_insight', label: 'Reflection & Insight', icon: 'Brain', trackerTypes: ['mood_rating'] },
+  { key: 'reflection_insight', label: 'Reflection & Insight', icon: 'Brain', trackerTypes: ['mood_rating', 'log_learning'] },
   { key: 'family_social', label: 'Family & Social', icon: 'Users', trackerTypes: ['leaderboard'] },
   { key: 'skill_tracking', label: 'Skill Tracking', icon: 'BookOpen', trackerTypes: ['sequential_path'] },
 ]

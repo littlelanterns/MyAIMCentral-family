@@ -24,6 +24,7 @@ export type TrackerType =
   | 'gameboard'
   | 'randomizer_spinner'
   | 'privilege_status'
+  | 'log_learning'
 
 // Phase A tracker types
 export type PhaseATrackerType = 'tally' | 'streak' | 'percentage' | 'checklist' | 'multi_habit_grid'
@@ -62,6 +63,7 @@ export type VisualVariant =
   // Phase B-1 additions
   | 'simple_toggle' | 'calendar_dots' | 'stamp_card' | 'heatmap'
   | 'number_scale'
+  | 'entry_card' // Log Learning widget
   | string // Allow future variants without type errors
 
 // ============================================================
@@ -401,6 +403,17 @@ export const TRACKER_TYPE_REGISTRY: TrackerTypeMeta[] = [
     icon: 'Smile',
     defaultVariant: 'emoji_row_trend',
     availableVariants: ['emoji_row_trend', 'color_gradient', 'weather_metaphor', 'number_scale'],
+    category: 'reflection_insight',
+    supportsMultiplayer: false,
+    phaseA: false,
+  },
+  {
+    type: 'log_learning',
+    label: 'Learning Log',
+    description: 'Track homework hours by subject with daily progress. Log what you learned and how long it took.',
+    icon: 'BookOpen',
+    defaultVariant: 'entry_card',
+    availableVariants: ['entry_card'],
     category: 'reflection_insight',
     supportsMultiplayer: false,
     phaseA: false,

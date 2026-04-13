@@ -14,7 +14,7 @@ export type RequestStatus = 'pending' | 'accepted' | 'declined' | 'snoozed'
 
 export type RequestRoutedTo = 'calendar' | 'tasks' | 'list' | 'acknowledged'
 
-export type RequestSource = 'quick_request' | 'notepad_route' | 'mindsweep_auto'
+export type RequestSource = 'quick_request' | 'notepad_route' | 'mindsweep_auto' | 'homeschool_child_report' | 'financial_approval'
 
 export type NotificationType =
   | 'new_message'
