@@ -33,7 +33,7 @@ import {
   GraduationCap,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
-import { useTasks, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
+import { useTasks, useArchiveTask, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
 import { useApproveMasterySubmission, useRejectMasterySubmission, useSubmitMastery } from '@/hooks/usePractice'
 import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySubmissionModal'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -135,6 +135,8 @@ export function TasksPage() {
   // Build J: mastery submission modal state
   const [masterySubmissionTask, setMasterySubmissionTask] = useState<Task | null>(null)
   const submitMastery = useSubmitMastery()
+  const archiveTask = useArchiveTask()
+  const [confirmDeleteTask, setConfirmDeleteTask] = useState<Task | null>(null)
 
   const { toggle, isCompleting } = useTaskCompletion({
     memberId: member?.id ?? '',
@@ -657,6 +659,43 @@ export function TasksPage() {
           onDismiss={() => setCompletedTask(null)}
         />
       )}
+
+      {/* Themed delete confirmation — replaces window.confirm() */}
+      {confirmDeleteTask && (
+        <ModalV2
+          id="confirm-delete-task"
+          isOpen
+          onClose={() => setConfirmDeleteTask(null)}
+          type="transient"
+          size="sm"
+          title="Archive Task"
+        >
+          <div style={{ padding: '0.5rem 0' }}>
+            <p style={{ color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)', marginBottom: '1rem' }}>
+              Archive <strong>"{confirmDeleteTask.title}"</strong>? It will be hidden from your task list but can be restored later.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDeleteTask(null)}
+                className="px-4 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  archiveTask.mutate(confirmDeleteTask.id)
+                  setConfirmDeleteTask(null)
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium"
+                style={{ backgroundColor: 'var(--color-error, #dc2626)', color: '#fff' }}
+              >
+                Archive
+              </button>
+            </div>
+          </div>
+        </ModalV2>
+      )}
     </div>
   )
 }
@@ -766,7 +805,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         isCompleting={isCompleting(task.id)}
         onToggle={onToggle}
         onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
-        onDelete={() => {}}
+        onDelete={(t) => setConfirmDeleteTask(t)}
         onSubmitMastery={onSubmitMastery}
       />
       {draw && (

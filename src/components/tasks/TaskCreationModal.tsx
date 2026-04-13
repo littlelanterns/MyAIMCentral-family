@@ -11,7 +11,7 @@
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
   CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles,
@@ -32,6 +32,7 @@ import type { RoutineSection } from './RoutineSectionEditor'
 import type { SchedulerOutput } from '@/components/scheduling/types'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { TaskIconPicker } from './TaskIconPicker'
+import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
 
 // ─── Types ───────────────────────────────────────────────────
@@ -447,6 +448,7 @@ export function TaskCreationModal({
   const [showTaskBreaker, setShowTaskBreaker] = useState(false)
   const [showTaskBreakerPanel, setShowTaskBreakerPanel] = useState(false)
   const [listFreeformText, setListFreeformText] = useState('')
+  const routineSectionRef = useRef<HTMLDivElement>(null)
   // Build M Sub-phase B: Play tile icon picker selection. Stored as the
   // full TaskIconSuggestion so the picker can render the current state;
   // synced into data.iconAssetKey/iconVariant on save.
@@ -490,6 +492,14 @@ export function TaskCreationModal({
     )
   })()
 
+  // Auto-suggestion results for Play icons — used as fallback when mom doesn't
+  // manually pick an icon. The top result is written to the task at save time.
+  const { results: iconAutoSuggestions } = useTaskIconSuggestions(
+    data.title,
+    data.lifeAreaTag,
+    assigneeIsPlayMember,
+  )
+
   const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
     setData((d) => ({ ...d, [key]: val }))
 
@@ -506,8 +516,13 @@ export function TaskCreationModal({
         scheduleMode,
         dueDate: scheduleMode === 'one_time' ? quickDate || undefined : undefined,
         weeklyDays: scheduleMode === 'weekly' ? quickDays : undefined,
-        iconAssetKey: assigneeIsPlayMember ? selectedIcon?.asset_key ?? null : null,
-        iconVariant: assigneeIsPlayMember ? selectedIcon?.variant ?? null : null,
+        // Use mom's manual pick, or fall back to the top auto-suggestion
+        iconAssetKey: assigneeIsPlayMember
+          ? (selectedIcon?.asset_key ?? iconAutoSuggestions[0]?.asset_key ?? null)
+          : null,
+        iconVariant: assigneeIsPlayMember
+          ? (selectedIcon?.variant ?? iconAutoSuggestions[0]?.variant ?? null)
+          : null,
       }
       await onSave(finalData)
       if (batchMode === 'sequential' && batchItems && batchIndex < batchItems.length - 1) {
@@ -933,11 +948,20 @@ export function TaskCreationModal({
               <button
                 key={tt.key}
                 type="button"
-                onClick={() => setData((d) => ({
-                  ...d,
-                  taskType: tt.key,
-                  incompleteAction: tt.key === 'routine' ? 'fresh_reset' : 'auto_reschedule',
-                }))}
+                onClick={() => {
+                  setData((d) => ({
+                    ...d,
+                    taskType: tt.key,
+                    incompleteAction: tt.key === 'routine' ? 'fresh_reset' : 'auto_reschedule',
+                  }))
+                  // Auto-scroll to the routine section editor when Routine is selected.
+                  // Delay enough for React to render the section editor before scrolling.
+                  if (tt.key === 'routine') {
+                    setTimeout(() => {
+                      routineSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                    }, 300)
+                  }
+                }}
                 className="btn-inline"
                 style={{
                   padding: '0.75rem',
@@ -1223,7 +1247,7 @@ export function TaskCreationModal({
 
         {/* Routine section editor (appears when routine is selected) */}
         {data.taskType === 'routine' && (
-          <div style={{ marginTop: '0.75rem' }}>
+          <div ref={routineSectionRef} style={{ marginTop: '0.75rem' }}>
             <RoutineSectionEditor
               sections={data.routineSections ?? []}
               onChange={(sections) => update('routineSections', sections)}

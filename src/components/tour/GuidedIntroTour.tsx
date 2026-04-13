@@ -20,7 +20,9 @@ import { useNotepadContextSafe } from '@/components/notepad'
 const STORAGE_KEY = 'myaim_intro_tour_dismissed'
 const SESSION_COUNT_KEY = 'myaim_intro_tour_session_count'
 const SESSION_SEEN_KEY = 'myaim_intro_tour_seen_this_session'
-const MAX_AUTO_SHOW_SESSIONS = 3
+// Disabled during beta — FeatureGuide cards serve this role now.
+// Restore to 3 when ready for production onboarding.
+const MAX_AUTO_SHOW_SESSIONS = 0
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Star, Heart, Sparkles, FileText, CheckSquare, Archive, Feather, Brain,

@@ -14,6 +14,7 @@
 import { useState } from 'react'
 import { ArrowRight, RotateCcw, Check, User } from 'lucide-react'
 import { Button } from '@/components/shared/Button'
+import { getMemberColor } from '@/lib/memberColors'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
 // ─── List item shape (randomizer fields) ─────────────────────────
@@ -143,10 +144,11 @@ export function RandomizerResultCard({
                 onClick={() => setSelectedMemberId(member.id)}
                 className="flex items-center gap-2.5 p-2.5 rounded-lg transition-all text-left"
                 style={{
-                  border: `1px solid ${selectedMemberId === member.id ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                  border: `1px solid ${selectedMemberId === member.id ? getMemberColor(member) : 'var(--color-border)'}`,
+                  borderLeft: selectedMemberId === member.id ? `3px solid ${getMemberColor(member)}` : undefined,
                   backgroundColor:
                     selectedMemberId === member.id
-                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))'
+                      ? `color-mix(in srgb, ${getMemberColor(member)} 10%, var(--color-bg-card))`
                       : 'var(--color-bg-card)',
                   cursor: 'pointer',
                 }}
@@ -155,8 +157,8 @@ export function RandomizerResultCard({
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                   style={{
-                    backgroundColor: member.member_color ?? 'var(--color-bg-secondary)',
-                    color: 'var(--color-text-on-primary, #fff)',
+                    backgroundColor: getMemberColor(member),
+                    color: '#fff',
                   }}
                 >
                   {member.display_name.charAt(0).toUpperCase()}

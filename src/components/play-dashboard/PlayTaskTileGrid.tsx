@@ -12,8 +12,9 @@
  * Tasks without a segment go into an "Other" group at the bottom.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import * as LucideIcons from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { PlayTaskTile } from './PlayTaskTile'
 import { MysteryTapTile } from './MysteryTapTile'
 import { RedrawButton } from './RedrawButton'
@@ -44,6 +45,33 @@ function getLucideIcon(name: string): React.FC<{ size?: number }> | null {
 function isSegmentActiveToday(segment: TaskSegment): boolean {
   if (!segment.day_filter || segment.day_filter.length === 0) return true
   return segment.day_filter.includes(new Date().getDay())
+}
+
+/**
+ * Determine whether a segment should start collapsed based on the current
+ * time of day and the segment's name. This prevents young kids from seeing
+ * evening tasks (pajamas, bedtime) during the morning and getting fixated.
+ *
+ * Heuristic based on segment name keywords:
+ *   - "morning" → expanded before noon, collapsed after
+ *   - "evening" / "night" / "bedtime" → collapsed before 5 PM, expanded after
+ *   - "school" → expanded 8 AM – 3 PM
+ *   - everything else → expanded by default
+ */
+function shouldStartCollapsed(segment: TaskSegment): boolean {
+  const name = segment.segment_name.toLowerCase()
+  const hour = new Date().getHours()
+
+  if (name.includes('evening') || name.includes('night') || name.includes('bedtime')) {
+    return hour < 17 // collapsed before 5 PM
+  }
+  if (name.includes('morning')) {
+    return hour >= 12 // collapsed after noon
+  }
+  if (name.includes('school') || name.includes('learning')) {
+    return hour < 8 || hour >= 15 // collapsed outside school hours
+  }
+  return false // default: expanded
 }
 
 export function PlayTaskTileGrid({
@@ -126,11 +154,11 @@ export function PlayTaskTileGrid({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {segmentGroups.map(({ segment, tasks: segTasks }) => {
-        // Skip empty segments (tasks may be filtered or none assigned)
-        if (segTasks.length === 0) return null
         const status = completionMap[segment.id]
         const isCelebrating = celebratingSegmentIds?.has(segment.id) ?? false
 
+        // Show all segments including empty ones — they render as collapsed
+        // headers so mom can see the full day structure at a glance.
         return (
           <SegmentSection
             key={segment.id}
@@ -243,27 +271,40 @@ function SegmentSection({
 }: SegmentSectionProps) {
   const Icon = segment.icon_key ? getLucideIcon(segment.icon_key) : null
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
+  const [collapsed, setCollapsed] = useState(() => shouldStartCollapsed(segment))
+  const isEmpty = tasks.length === 0
 
   return (
     <section>
-      {/* Segment banner */}
-      <div
+      {/* Segment banner — tappable to expand/collapse */}
+      <button
+        type="button"
+        onClick={() => setCollapsed(prev => !prev)}
         className={isCelebrating ? 'segment-banner segment-banner--celebrating' : 'segment-banner'}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '0.5rem',
-          padding: '0.625rem 0.75rem',
-          borderRadius: 'var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem) 0 0',
+          padding: '0.75rem',
+          width: '100%',
+          borderRadius: collapsed || isEmpty
+            ? 'var(--vibe-radius-card, 0.75rem)'
+            : 'var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem) 0 0',
           backgroundColor: isComplete
             ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))'
             : 'var(--color-bg-card)',
-          borderTop: '1px solid var(--color-border)',
-          borderLeft: '1px solid var(--color-border)',
-          borderRight: '1px solid var(--color-border)',
+          border: '1px solid var(--color-border)',
+          borderBottom: collapsed || isEmpty ? undefined : 'none',
           transition: 'background-color 0.3s ease',
+          cursor: 'pointer',
+          textAlign: 'left',
         }}
       >
+        {/* Collapse/expand chevron */}
+        <span style={{ color: 'var(--color-text-secondary)', display: 'inline-flex', flexShrink: 0 }}>
+          {collapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+        </span>
+
         {Icon && (
           <span style={{ color: 'var(--color-btn-primary-bg)', display: 'inline-flex', flexShrink: 0 }}>
             <Icon size={20} />
@@ -281,17 +322,29 @@ function SegmentSection({
           {segment.segment_name}
         </span>
 
-        <span
-          style={{
-            fontSize: 'var(--font-size-sm)',
-            fontWeight: 500,
-            color: isComplete ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-          }}
-        >
-          {completed}/{total}
-        </span>
+        {isEmpty ? (
+          <span
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--color-text-secondary)',
+              fontStyle: 'italic',
+            }}
+          >
+            No tasks yet
+          </span>
+        ) : (
+          <span
+            style={{
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 500,
+              color: isComplete ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+            }}
+          >
+            {completed}/{total}
+          </span>
+        )}
 
-        {isComplete && (
+        {isComplete && !isEmpty && (
           <span
             style={{
               width: 20,
@@ -310,87 +363,92 @@ function SegmentSection({
             ✓
           </span>
         )}
-      </div>
+      </button>
 
-      {/* Progress bar */}
-      <div
-        style={{
-          height: 4,
-          backgroundColor: 'var(--color-bg-secondary)',
-          borderLeft: '1px solid var(--color-border)',
-          borderRight: '1px solid var(--color-border)',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            height: '100%',
-            width: `${progressPct}%`,
-            backgroundColor: 'var(--color-btn-primary-bg)',
-            transition: 'width 0.4s ease',
-            borderRadius: progressPct >= 100 ? 0 : '0 2px 2px 0',
-          }}
-        />
-      </div>
+      {/* Collapsible content — progress bar + task tiles */}
+      {!collapsed && !isEmpty && (
+        <>
+          {/* Progress bar */}
+          <div
+            style={{
+              height: 4,
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderLeft: '1px solid var(--color-border)',
+              borderRight: '1px solid var(--color-border)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${progressPct}%`,
+                backgroundColor: 'var(--color-btn-primary-bg)',
+                transition: 'width 0.4s ease',
+                borderRadius: progressPct >= 100 ? 0 : '0 2px 2px 0',
+              }}
+            />
+          </div>
 
-      {/* Task tiles */}
-      <div
-        style={{
-          padding: '0.75rem',
-          borderRadius: '0 0 var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem)',
-          backgroundColor: 'var(--color-bg-card)',
-          borderBottom: '1px solid var(--color-border)',
-          borderLeft: '1px solid var(--color-border)',
-          borderRight: '1px solid var(--color-border)',
-        }}
-      >
-        <div className="play-tile-grid">
-          {tasks.map(task => {
-            const draw = taskDrawMap[task.id]
-            const isRandomizerLinked = !!task.linked_list_id && !!draw
-            const showRedraw = isRandomizerLinked && isAdultViewing && memberId
-            const isCompleted = task.status === 'completed' || task.status === 'pending_approval'
+          {/* Task tiles */}
+          <div
+            style={{
+              padding: '0.75rem',
+              borderRadius: '0 0 var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem)',
+              backgroundColor: 'var(--color-bg-card)',
+              borderBottom: '1px solid var(--color-border)',
+              borderLeft: '1px solid var(--color-border)',
+              borderRight: '1px solid var(--color-border)',
+            }}
+          >
+            <div className="play-tile-grid">
+              {tasks.map(task => {
+                const draw = taskDrawMap[task.id]
+                const isRandomizerLinked = !!task.linked_list_id && !!draw
+                const showRedraw = isRandomizerLinked && isAdultViewing && memberId
+                const isCompleted = task.status === 'completed' || task.status === 'pending_approval'
 
-            // Mystery tap: sparkly reveal card for randomizer-linked tasks
-            if (isRandomizerLinked && segment.randomizer_reveal_style === 'mystery_tap') {
-              return (
-                <div key={task.id} className="flex flex-col gap-1">
-                  <MysteryTapTile
-                    task={task}
-                    iconUrl={iconUrls[task.id] ?? null}
-                    isCompleting={completingTaskIds.has(task.id)}
-                    onTap={onTapTask}
-                    drawnItemName={draw.itemName}
-                  />
-                  {showRedraw && !isCompleted && (
-                    <div className="flex justify-center">
-                      <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
+                // Mystery tap: sparkly reveal card for randomizer-linked tasks
+                if (isRandomizerLinked && segment.randomizer_reveal_style === 'mystery_tap') {
+                  return (
+                    <div key={task.id} className="flex flex-col gap-1">
+                      <MysteryTapTile
+                        task={task}
+                        iconUrl={iconUrls[task.id] ?? null}
+                        isCompleting={completingTaskIds.has(task.id)}
+                        onTap={onTapTask}
+                        drawnItemName={draw.itemName}
+                      />
+                      {showRedraw && !isCompleted && (
+                        <div className="flex justify-center">
+                          <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )
-            }
+                  )
+                }
 
-            // Show upfront: normal tile with drawn item name as subtitle
-            return (
-              <div key={task.id} className="flex flex-col gap-1">
-                <PlayTaskTile
-                  task={task}
-                  iconUrl={iconUrls[task.id] ?? null}
-                  isCompleting={completingTaskIds.has(task.id)}
-                  onTap={onTapTask}
-                  subtitle={isRandomizerLinked ? draw.itemName : undefined}
-                />
-                {showRedraw && !isCompleted && (
-                  <div className="flex justify-center">
-                    <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
+                // Show upfront: normal tile with drawn item name as subtitle
+                return (
+                  <div key={task.id} className="flex flex-col gap-1">
+                    <PlayTaskTile
+                      task={task}
+                      iconUrl={iconUrls[task.id] ?? null}
+                      isCompleting={completingTaskIds.has(task.id)}
+                      onTap={onTapTask}
+                      subtitle={isRandomizerLinked ? draw.itemName : undefined}
+                    />
+                    {showRedraw && !isCompleted && (
+                      <div className="flex justify-center">
+                        <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </section>
   )
 }

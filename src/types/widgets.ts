@@ -22,6 +22,7 @@ export type TrackerType =
   | 'snapshot_comparison'
   | 'color_reveal'
   | 'gameboard'
+  | 'randomizer_spinner'
 
 // Phase A tracker types
 export type PhaseATrackerType = 'tally' | 'streak' | 'percentage' | 'checklist' | 'multi_habit_grid'
@@ -456,6 +457,17 @@ export const TRACKER_TYPE_REGISTRY: TrackerTypeMeta[] = [
     category: 'goal_pursuit',
     supportsMultiplayer: true,
     phaseA: false,
+  },
+  {
+    type: 'randomizer_spinner',
+    label: 'Spinner',
+    description: 'Spin a linked randomizer list and assign the result. Consequence spinner, activity picker, reward wheel.',
+    icon: 'RotateCw',
+    defaultVariant: 'standard_spinner',
+    availableVariants: ['standard_spinner'],
+    category: 'quick_action_tracker',
+    supportsMultiplayer: false,
+    phaseA: true,
   },
 ]
 

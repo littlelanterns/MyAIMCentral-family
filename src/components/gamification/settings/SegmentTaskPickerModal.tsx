@@ -75,6 +75,20 @@ export function SegmentTaskPickerModal({
     setSaving(false)
   }
 
+  async function handleSegmentChange(taskId: string, newSegmentId: string | null) {
+    setSaving(true)
+    try {
+      await assignMutation.mutateAsync({
+        taskId,
+        segmentId: newSegmentId,
+        familyId,
+      })
+    } catch {
+      // mutation error logging covers it
+    }
+    setSaving(false)
+  }
+
   return (
     <ModalV2
       id={`segment-task-picker-${segment.id}`}
@@ -116,38 +130,55 @@ export function SegmentTaskPickerModal({
             filtered.map((task) => {
               const taskSegmentId = (task as { task_segment_id?: string | null }).task_segment_id ?? null
               const isInThisSegment = taskSegmentId === segment.id
-              const isInOtherSegment = taskSegmentId && taskSegmentId !== segment.id
-              const otherSegmentName = taskSegmentId ? segmentNameById.get(taskSegmentId) : null
 
               return (
-                <button
+                <div
                   key={task.id}
-                  type="button"
-                  onClick={() => handleToggle(task.id, taskSegmentId)}
-                  disabled={saving}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
                   style={{
                     backgroundColor: isInThisSegment
                       ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))'
                       : 'transparent',
                   }}
                 >
-                  {isInThisSegment ? (
-                    <CheckSquare size={18} style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }} />
-                  ) : (
-                    <Square size={18} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate" style={{ color: 'var(--color-text-primary)' }}>
-                      {task.title}
-                    </p>
-                    {isInOtherSegment && otherSegmentName && (
-                      <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                        Currently in: {otherSegmentName}
-                      </p>
+                  {/* Checkbox — toggle assignment to the current segment */}
+                  <button
+                    type="button"
+                    onClick={() => handleToggle(task.id, taskSegmentId)}
+                    disabled={saving}
+                    style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    {isInThisSegment ? (
+                      <CheckSquare size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                    ) : (
+                      <Square size={18} style={{ color: 'var(--color-text-secondary)' }} />
                     )}
-                  </div>
-                </button>
+                  </button>
+
+                  {/* Task title */}
+                  <p className="flex-1 text-sm truncate" style={{ color: 'var(--color-text-primary)' }}>
+                    {task.title}
+                  </p>
+
+                  {/* Segment quick-assign dropdown — lets mom move tasks between segments inline */}
+                  <select
+                    value={taskSegmentId ?? ''}
+                    onChange={(e) => handleSegmentChange(task.id, e.target.value || null)}
+                    disabled={saving}
+                    className="text-xs rounded-md px-1.5 py-1 outline-none"
+                    style={{
+                      backgroundColor: 'var(--color-bg-primary)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-secondary)',
+                      maxWidth: '7rem',
+                    }}
+                  >
+                    <option value="">None</option>
+                    {allSegments.map((s) => (
+                      <option key={s.id} value={s.id}>{s.segment_name}</option>
+                    ))}
+                  </select>
+                </div>
               )
             })
           )}
