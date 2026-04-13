@@ -6,7 +6,7 @@
  * When a feature is built, remove its entry here.
  * The component renders nothing if the key is not found (silent no-op).
  *
- * Every description should sell the vision — these are what judges and users see.
+ * Every description should sell the vision — these are what users see.
  * Write in present-future tense. Make someone think "I want that."
  */
 

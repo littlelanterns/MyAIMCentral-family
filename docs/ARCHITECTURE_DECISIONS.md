@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-*Every technical choice in MyAIM Family was made for a reason. This document explains the reasoning for judges evaluating the codebase — both the AI scanning the repository and the humans exploring the live app.*
+*Every technical choice in MyAIM Family was made for a reason. This document explains the reasoning behind the architecture.*
 
 ---
 
@@ -110,7 +110,7 @@ The same principle applies throughout the platform: guided mode definitions, gam
 
 ## Why the Audit Happened
 
-Before the Vibeathon build sprint, a comprehensive audit was conducted: 97 files (42 PRDs, 42 addenda, 4 specs) read by 14 parallel agents. The audit discovered that early build phases had been coded from a summary document that diverged from the actual PRDs — resulting in a ~39% pass rate across ~1,067 checkpoints.
+Before the main build sprint, a comprehensive audit was conducted: 97 files (42 PRDs, 42 addenda, 4 specs) read by 14 parallel agents. The audit discovered that early build phases had been coded from a summary document that diverged from the actual PRDs — resulting in a ~39% pass rate across ~1,067 checkpoints.
 
 The decision was made to rebuild from the PRDs directly rather than patch the divergent code.
 

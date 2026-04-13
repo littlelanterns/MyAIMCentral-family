@@ -8,7 +8,7 @@
 >
 > **What we did about it:** We rebuilt from the PRDs directly. Working code was discarded in favor of correct code. Seven corrected reference documents were produced (see below) and now serve as the authoritative foundation for all development.
 >
-> **Why this matters for judges:** This audit demonstrates that the team prioritizes architectural integrity over speed. The willingness to throw away working code and rebuild from specifications — under competition time pressure — is the clearest possible signal that this platform is being built to earn family trust, not just to ship features.
+> **Why this matters:** This audit demonstrates that the team prioritizes architectural integrity over speed. The willingness to throw away working code and rebuild from specifications is the clearest possible signal that this platform is being built to earn family trust, not just to ship features.
 >
 > The detailed findings below show the depth of the analysis and the rigor of the correction process.
 

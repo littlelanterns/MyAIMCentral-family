@@ -8,8 +8,6 @@ She taught herself to code using AI. Not in a bootcamp. Not with a mentor. Alone
 
 The first product was StewardShip — a family management app her family uses every single day. It handles their tasks, their schedules, their routines, their celebrations. It works. It's more intuitive and more useful to her than the multi-million-dollar compliance portal she's required to use for her daughter's Medicaid waiver program. She built something better for her family than a funded company built for theirs.
 
-In November 2025, she entered Missouri's first Vibeathon in Joplin — a 36-hour AI coding hackathon focused on healthcare. She built MedHarmony, a healthcare scheduling solution, solo. She won Best of Show and 1st Prize. The judges' assessment was clear: people with context beat people with credentials.
-
 Then she turned her attention to the problem she lives every day.
 
 MyAIM Family is StewardShip rebuilt from the ground up — not for one family, but for every family. She wrote 40+ product requirement documents specifying every screen, every interaction, every data model, every permission boundary across five user roles. Professional development teams would charge over a million dollars for what she designed. She did it between bedtimes and therapy appointments.

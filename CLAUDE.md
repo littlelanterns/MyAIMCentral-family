@@ -168,7 +168,7 @@ This process exists because weeks of careful planning went into every PRD and ad
 ## PlannedExpansionCard (PRD-32A)
 
 31. **PlannedExpansionCard enhanced pattern:** Every PlannedExpansionCard includes THREE sections:
-    (a) "What this will do" — A FeatureGuide-style description of the planned feature written in present-future tense. Pulled from `feature_expansion_registry.ts` description field. This shows judges and users the vision.
+    (a) "What this will do" — A FeatureGuide-style description of the planned feature written in present-future tense. Pulled from `feature_expansion_registry.ts` description field. This shows users the vision.
     (b) "I'm interested" — Yes/No vote buttons + optional freeform note (500 char) on Yes. Saves to `feature_demand_responses` table. Shows previous vote state on return. This collects real user demand data.
     (c) "Notify me when it's ready" — Toggle that opts user into a notification when the feature launches. This builds anticipation.
     The card should feel warm and exciting ("On our roadmap!"), not like a dead end ("Coming soon"). Use btn-primary styling, warm brand energy. Every PlannedExpansionCard page ALSO gets a FeatureGuide card explaining the demand validation concept itself ("Help us build what matters most to your family!").
