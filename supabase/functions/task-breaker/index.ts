@@ -1,7 +1,9 @@
 // MyAIM Central — Task Breaker Edge Function (PRD-09A)
 // Non-streaming utility AI call that decomposes a task into subtasks.
-// Three detail levels: quick (3-5), detailed (5-10), granular (10-20).
-// Uses Haiku for lightweight structured JSON generation.
+// Two modes:
+//   1. Text mode — Haiku, text description → subtasks (Enhanced tier)
+//   2. Image mode — Sonnet, photo of task/situation → physical action steps (Full Magic tier)
+// Three detail levels apply to both modes: quick (3-5), detailed (5-10), granular (10-20).
 
 import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
@@ -9,7 +11,8 @@ import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
-const MODEL = 'anthropic/claude-haiku-4.5'
+const TEXT_MODEL = 'anthropic/claude-haiku-4.5'
+const IMAGE_MODEL = 'anthropic/claude-sonnet-4'
 
 const SYSTEM_PROMPT = `You are a task decomposition assistant for a family management app. Break down the given task into practical, action-oriented subtasks.
 
@@ -35,6 +38,14 @@ Format: {"subtasks": [{"title": "...", "description": "...", "suggested_assignee
 - suggested_assignee_id (string, optional): family member ID if suggesting an assignee
 - sort_order (number, required): sequential order starting at 1`
 
+const IMAGE_SYSTEM_ADDITION = `
+
+You are also analyzing an image the user has provided. Describe physical actions based on what you see in the image. Focus on:
+- What specific things need to be done based on what's visible
+- Practical ordering (what should happen first, second, etc.)
+- Age-appropriate task assignment if family members are provided
+- Concrete, observable completion criteria ("Put all books on the shelf" not "Tidy the area")`
+
 const FamilyMemberSchema = z.object({
   id: z.string().uuid(),
   display_name: z.string(),
@@ -50,6 +61,9 @@ const InputSchema = z.object({
   active_task_count_by_member: z.record(z.string(), z.number()).optional(),
   family_id: z.string().uuid().optional(),
   member_id: z.string().uuid().optional(),
+  // Image mode (Full Magic tier) — base64 data URI or plain base64
+  image_base64: z.string().optional(),
+  image_mime_type: z.string().optional(),
 })
 
 Deno.serve(async (req) => {
@@ -70,9 +84,12 @@ Deno.serve(async (req) => {
       task_title, task_description, detail_level,
       family_members, life_area_tag, active_task_count_by_member,
       family_id, member_id,
+      image_base64, image_mime_type,
     } = parsed.data
 
-    // Build user message with all context
+    const hasImage = !!image_base64
+
+    // Build user message text with all context
     const parts: string[] = [
       `Task: ${task_title}`,
     ]
@@ -85,6 +102,10 @@ Deno.serve(async (req) => {
       parts.push(`Life area: ${life_area_tag}`)
     }
 
+    if (hasImage) {
+      parts.push('\nI have attached a photo of the task/situation. Please analyze it and generate action steps based on what you see.')
+    }
+
     if (family_members && family_members.length > 0) {
       const memberLines = family_members.map(m => {
         const taskCount = active_task_count_by_member?.[m.id]
@@ -94,7 +115,28 @@ Deno.serve(async (req) => {
       parts.push(`\nFamily members:\n${memberLines.join('\n')}`)
     }
 
-    const userMessage = parts.join('\n')
+    const userMessageText = parts.join('\n')
+
+    // Select model: Sonnet for image (higher reasoning), Haiku for text-only
+    const model = hasImage ? IMAGE_MODEL : TEXT_MODEL
+    const systemPrompt = hasImage ? SYSTEM_PROMPT + IMAGE_SYSTEM_ADDITION : SYSTEM_PROMPT
+
+    // Build messages — multimodal content array when image is present
+    type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+
+    let userContent: string | ContentPart[]
+    if (hasImage) {
+      const mimeType = image_mime_type || 'image/jpeg'
+      const dataUri = image_base64!.startsWith('data:')
+        ? image_base64!
+        : `data:${mimeType};base64,${image_base64}`
+      userContent = [
+        { type: 'image_url', image_url: { url: dataUri } },
+        { type: 'text', text: userMessageText },
+      ]
+    } else {
+      userContent = userMessageText
+    }
 
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -105,10 +147,10 @@ Deno.serve(async (req) => {
         'X-Title': 'MyAIM Central',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
         ],
         max_tokens: 2048,
       }),
@@ -146,8 +188,8 @@ Deno.serve(async (req) => {
       logAICost({
         familyId: family_id,
         memberId: member_id,
-        featureKey: 'tasks_task_breaker_text',
-        model: MODEL,
+        featureKey: hasImage ? 'tasks_task_breaker_image' : 'tasks_task_breaker_text',
+        model,
         inputTokens,
         outputTokens,
       })

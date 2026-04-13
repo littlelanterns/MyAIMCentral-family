@@ -17,7 +17,7 @@
 import { useState, useEffect, useRef, useCallback, createContext, useContext, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, CheckSquare, Trophy, Calendar, Brain, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Heart, Feather, GraduationCap, Map } from 'lucide-react'
+import { BookOpen, CheckSquare, Trophy, Calendar, Brain, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox, Heart, Feather, GraduationCap, Map, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
@@ -27,12 +27,13 @@ import { useFamily } from '@/hooks/useFamily'
 import { useStudioQueueCount } from '@/hooks/useStudioQueue'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
 import { UniversalQueueModal } from '@/components/queue/UniversalQueueModal'
+import { StandaloneTaskBreakerModal } from '@/components/tasks/StandaloneTaskBreakerModal'
 import { supabase } from '@/lib/supabase/client'
 // QuickCreate now renders as FAB at shell level — no longer in the strip
 
 // ─── Types ───────────────────────────────────────────────────
 
-type QuickActionKind = 'path' | 'notepad' | 'tool' | 'submenu'
+type QuickActionKind = 'path' | 'notepad' | 'tool' | 'submenu' | 'task_breaker'
 
 interface ToolSubmenuItem {
   key: string
@@ -101,6 +102,13 @@ const QUICK_ACTIONS: QuickAction[] = [
     featureKey: 'tasks',
     kind: 'path',
     path: '/tasks',
+  },
+  {
+    key: 'task_breaker',
+    label: 'Task Breaker',
+    icon: Zap,
+    featureKey: 'tasks_task_breaker_text',
+    kind: 'task_breaker',
   },
   {
     key: 'mind_sweep',
@@ -294,6 +302,7 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
   const { data: queueCount = 0 } = useStudioQueueCount(family?.id)
   const [indicatorMode] = useState<IndicatorMode>(getIndicatorMode)
   const [queueModalOpen, setQueueModalOpen] = useState(false)
+  const [taskBreakerOpen, setTaskBreakerOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const { canScrollLeft, canScrollRight } = useScrollOverflow(scrollRef)
 
@@ -323,6 +332,8 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
     if (submenuModeKey) {
       // Launched from a submenu item
       openTool(submenuModeKey)
+    } else if (action.kind === 'task_breaker') {
+      setTaskBreakerOpen(true)
     } else if (action.kind === 'path' && action.path) {
       navigate(action.path)
     } else if (action.kind === 'tool' && action.toolModeKey) {
@@ -532,6 +543,12 @@ export function QuickTasks({ forceCollapsed }: { forceCollapsed?: boolean } = {}
           setQueueModalOpen(false)
           navigate('/messages')
         }}
+      />
+
+      {/* Task Breaker standalone modal */}
+      <StandaloneTaskBreakerModal
+        isOpen={taskBreakerOpen}
+        onClose={() => setTaskBreakerOpen(false)}
       />
 
       {/* Collapse toggle — overlaid at right edge */}

@@ -397,8 +397,8 @@ Stubs 38-43 are pragmatic deferrals that do not block the homeschool use case. R
 
 ## Founder Sign-Off (Post-Build)
 
-- [ ] Verification table reviewed
-- [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md
-- [ ] Zero Missing items confirmed
-- [ ] **Phase approved as complete**
+- [x] Verification table reviewed
+- [x] All stubs are acceptable for this phase and in STUB_REGISTRY.md
+- [x] Zero Missing items confirmed
+- [x] **Phase approved as complete**
 - **Completion date:** 2026-04-06

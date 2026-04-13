@@ -141,7 +141,7 @@
 | Text Mode — Detailed | Same flow → 5-10 subtasks with descriptions | **Wired** | |
 | Text Mode — Granular | Same flow → 10-20 micro-steps | **Wired** | |
 | Subtask creation | Accepted subtasks → child `tasks` rows via `parent_task_id` | **Wired** | Created in `createTaskFromData` |
-| Image Mode | Camera/upload → visual task decomposition | Stub | Full Magic tier, separate session |
+| Image Mode | Camera/upload → Sonnet vision → action steps as subtasks | **Wired** | Full Magic tier (`tasks_task_breaker_image`). Camera capture + file upload in TaskBreaker.tsx, multimodal message to task-breaker Edge Function (Sonnet when image, Haiku for text-only). 2026-04-13. |
 
 ## Opportunity Claim Lock Expiration (PRD-09A)
 

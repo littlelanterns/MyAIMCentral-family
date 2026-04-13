@@ -1,22 +1,26 @@
 /**
- * PRD-09A: Task Breaker AI — Text Mode
+ * PRD-09A: Task Breaker AI — Text + Image Mode
  * Calls the task-breaker Edge Function to decompose a task into subtasks.
+ * Text mode: Haiku, Enhanced tier. Image mode: Sonnet vision, Full Magic tier.
  * Three detail levels: quick (3-5), detailed (5-10), granular (10-20).
  * Human-in-the-Mix: user reviews, edits, reorders, removes before applying.
  */
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
-  Zap, ChevronDown, ChevronUp, X, Loader2, Check,
+  Zap, ChevronDown, ChevronUp, X, Loader2, Check, Camera, ImageIcon, Trash2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import type { TaskBreakerLevel } from '@/types/tasks'
 
 interface TaskBreakerProps {
   taskTitle: string
   taskDescription?: string
   lifeAreaTag?: string
+  /** Pre-existing image URL from the task (e.g. task.image_url) */
+  existingImageUrl?: string
   onApply: (subtasks: BrokenTask[]) => void
   onCancel: () => void
 }
@@ -35,13 +39,52 @@ const DETAIL_LEVELS: { key: TaskBreakerLevel; label: string; description: string
   { key: 'granular', label: 'Granular', description: '10\u201320 micro-steps' },
 ]
 
-export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, onApply, onCancel }: TaskBreakerProps) {
+export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, existingImageUrl, onApply, onCancel }: TaskBreakerProps) {
   const { data: member } = useFamilyMember()
   const { data: familyMembers } = useFamilyMembers(member?.family_id)
+  const { allowed: canUseImageMode } = useCanAccess('tasks_task_breaker_image')
   const [level, setLevel] = useState<TaskBreakerLevel>('detailed')
   const [subtasks, setSubtasks] = useState<BrokenTask[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Image mode state
+  const [imageBase64, setImageBase64] = useState<string | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(existingImageUrl ?? null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.')
+      return
+    }
+
+    // 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image must be under 10MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      setImageBase64(result) // data URI with mime prefix
+      setImagePreview(result)
+      setError(null)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function clearImage() {
+    setImageBase64(null)
+    setImagePreview(existingImageUrl ?? null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const hasImage = !!imageBase64
 
   async function handleBreakDown() {
     setLoading(true)
@@ -69,6 +112,19 @@ export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, onApply, 
         }
       }
 
+      // For image mode, extract raw base64 from the data URI
+      let imagePayload: string | undefined
+      let imageMime: string | undefined
+      if (imageBase64) {
+        const match = imageBase64.match(/^data:([^;]+);base64,(.+)$/)
+        if (match) {
+          imageMime = match[1]
+          imagePayload = match[2]
+        } else {
+          imagePayload = imageBase64
+        }
+      }
+
       const { data, error: fnError } = await supabase.functions.invoke('task-breaker', {
         body: {
           task_title: taskTitle,
@@ -83,6 +139,8 @@ export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, onApply, 
           active_task_count_by_member: activeTaskCounts,
           family_id: member?.family_id,
           member_id: member?.id,
+          image_base64: imagePayload,
+          image_mime_type: imageMime,
         },
       })
 
@@ -160,6 +218,68 @@ export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, onApply, 
         {taskTitle}
       </div>
 
+      {/* Image upload — visible when image mode is available and no results yet */}
+      {canUseImageMode && subtasks.length === 0 && (
+        <div>
+          <label className="text-xs font-medium block mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+            Photo (optional — snap what needs to be done)
+          </label>
+          {imagePreview ? (
+            <div className="relative inline-block">
+              <img
+                src={imagePreview}
+                alt="Task photo"
+                className="w-full max-h-40 object-cover rounded-lg"
+                style={{ border: '1px solid var(--color-border)' }}
+              />
+              <button
+                onClick={clearImage}
+                className="absolute top-1.5 right-1.5 p-1 rounded-full"
+                style={{ background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)' }}
+                title="Remove photo"
+              >
+                <Trash2 size={14} style={{ color: 'var(--color-text-secondary)' }} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <Camera size={14} />
+                Take Photo
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <ImageIcon size={14} />
+                Upload
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+        </div>
+      )}
+
       {/* Detail level selector */}
       {subtasks.length === 0 && (
         <>
@@ -210,12 +330,12 @@ export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, onApply, 
             {loading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Breaking down...
+                {hasImage ? 'Analyzing photo...' : 'Breaking down...'}
               </>
             ) : (
               <>
-                <Zap size={16} />
-                Break It Down
+                {hasImage ? <Camera size={16} /> : <Zap size={16} />}
+                {hasImage ? 'Break Down Photo' : 'Break It Down'}
               </>
             )}
           </button>
