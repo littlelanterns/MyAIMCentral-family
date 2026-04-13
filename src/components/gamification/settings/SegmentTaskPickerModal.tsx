@@ -52,7 +52,7 @@ export function SegmentTaskPickerModal({
     return activeTasks.filter((t) => t.title.toLowerCase().includes(q))
   }, [activeTasks, search])
 
-  const segmentNameById = useMemo(() => {
+  const _segmentNameById = useMemo(() => {
     const map = new Map<string, string>()
     for (const s of allSegments) {
       map.set(s.id, s.segment_name)

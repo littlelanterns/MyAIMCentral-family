@@ -14,7 +14,7 @@
 
 import { useState } from 'react'
 import {
-  Check, Circle, Layers, Shuffle, Link2, ExternalLink, ChevronDown, ChevronRight,
+  Check, Layers, Shuffle, Link2, ExternalLink, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { useRoutineTemplateSteps, type RoutineSection } from '@/hooks/useRoutineTemplateSteps'
 import {
@@ -154,7 +154,7 @@ function LinkedTaskContent({ sourceId }: { sourceId: string }) {
 
 function StepRow({
   step,
-  taskId,
+  taskId: _taskId,
   memberId,
   isCompleted,
   onToggle,

@@ -558,6 +558,7 @@ export function TasksPage() {
             isCompleting={isCompleting}
             showType={activeTab === 'my_tasks'}
             onEditTask={setEditingTask}
+            onDelete={setConfirmDeleteTask}
             onSubmitMastery={(task) => setMasterySubmissionTask(task)}
             segmentMemberId={activeTab === 'my_tasks' ? activeMember?.id : undefined}
           />
@@ -709,13 +710,14 @@ interface TaskListProps {
   isCompleting: (taskId: string) => boolean
   showType?: boolean
   onEditTask?: (task: Task) => void
+  onDelete?: (task: Task) => void
   /** Build J: open mastery submission modal for a sequential mastery task */
   onSubmitMastery?: (task: Task) => void
   /** Build M Phase 5: member ID for segment grouping */
   segmentMemberId?: string
 }
 
-function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onSubmitMastery, segmentMemberId }: TaskListProps) {
+function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onDelete, onSubmitMastery, segmentMemberId }: TaskListProps) {
   const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
   const qc = useQueryClient()
@@ -805,7 +807,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         isCompleting={isCompleting(task.id)}
         onToggle={onToggle}
         onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
-        onDelete={(t) => setConfirmDeleteTask(t)}
+        onDelete={onDelete}
         onSubmitMastery={onSubmitMastery}
       />
       {draw && (

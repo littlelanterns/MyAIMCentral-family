@@ -14,7 +14,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react'
-import { RotateCw, User, Check, RefreshCw } from 'lucide-react'
+import { RotateCw, Check, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'

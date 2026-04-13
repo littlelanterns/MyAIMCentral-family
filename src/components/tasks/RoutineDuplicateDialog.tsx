@@ -250,7 +250,7 @@ export function RoutineDuplicateDialog({
                   className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                   style={{
                     background: targetMemberId === m.id
-                      ? `var(--member-color-${m.assigned_color_token ?? 'sage'}, var(--color-btn-primary-bg))`
+                      ? `var(--member-color-${m.assigned_color ?? 'sage'}, var(--color-btn-primary-bg))`
                       : 'var(--color-bg-secondary)',
                     color: targetMemberId === m.id
                       ? 'var(--color-btn-primary-text)'

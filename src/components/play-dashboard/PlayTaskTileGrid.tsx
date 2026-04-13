@@ -12,7 +12,7 @@
  * Tasks without a segment go into an "Other" group at the bottom.
  */
 
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import * as LucideIcons from 'lucide-react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { PlayTaskTile } from './PlayTaskTile'

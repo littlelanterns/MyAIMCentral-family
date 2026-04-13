@@ -100,6 +100,7 @@ export type WidgetCategory =
   | 'reflection_insight'
   | 'family_social'
   | 'skill_tracking'
+  | 'quick_action_tracker'
 
 // ============================================================
 // Database Record Types
