@@ -15,7 +15,7 @@
 import { useState, useCallback } from 'react'
 import {
   Check, Layers, Shuffle, Link2, ExternalLink, ChevronDown, ChevronRight,
-  Pencil, Plus, Trash2, X as XIcon,
+  Pencil, Plus, Trash2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'

@@ -14,6 +14,7 @@ export interface RoutineSection {
   sort_order: number
   frequency_rule: string | null
   frequency_days: number[] | null
+  show_until_complete: boolean
   steps: TaskTemplateStep[]
 }
 
@@ -27,7 +28,7 @@ export function useRoutineTemplateSteps(templateId: string | undefined) {
       // Fetch sections
       const { data: sections, error: secError } = await supabase
         .from('task_template_sections')
-        .select('id, title, sort_order, frequency_rule, frequency_days')
+        .select('id, title, sort_order, frequency_rule, frequency_days, show_until_complete')
         .eq('template_id', templateId)
         .order('sort_order', { ascending: true })
 
