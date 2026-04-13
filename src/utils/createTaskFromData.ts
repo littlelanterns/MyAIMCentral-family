@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
+import { todayLocalIso } from '@/utils/dates'
 
 interface FamilyMemberLike {
   id: string
@@ -134,18 +135,42 @@ export async function createTaskFromData(
 
     // Create task_assignments for all assignees on shared task
     if (newTask && assignees.length > 0) {
-      const assignments = assignees.map(a => {
+      const isRotation = data.rotationEnabled && assignees.length >= 2
+      const assignments = assignees.map((a, idx) => {
         const mid = resolveAssigneeId(a)
         return {
           task_id: newTask.id,
           member_id: mid,
           family_member_id: mid,
           assigned_by: creatorId,
+          ...(isRotation ? {
+            rotation_position: idx,
+            is_active: idx === 0, // first member starts active
+          } : {}),
         }
       })
       const { error: assignError } = await supabase.from('task_assignments').insert(assignments)
       if (assignError) {
         console.error('Failed to create task assignments:', assignError)
+      }
+
+      // Write rotation config into recurrence_details if enabled
+      if (isRotation) {
+        const memberIds = assignees.map(a => resolveAssigneeId(a))
+        const existingDetails = (newTask.recurrence_details as Record<string, unknown>) ?? {}
+        const { error: rotErr } = await supabase.from('tasks').update({
+          recurrence_details: {
+            ...existingDetails,
+            rotation: {
+              enabled: true,
+              frequency: data.rotationFrequency ?? 'weekly',
+              members: memberIds,
+              current_index: 0,
+              last_rotated_at: todayLocalIso(),
+            },
+          },
+        }).eq('id', newTask.id)
+        if (rotErr) console.error('Failed to write rotation config:', rotErr)
       }
     }
   }

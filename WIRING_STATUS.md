@@ -141,7 +141,18 @@
 | Text Mode — Detailed | Same flow → 5-10 subtasks with descriptions | **Wired** | |
 | Text Mode — Granular | Same flow → 10-20 micro-steps | **Wired** | |
 | Subtask creation | Accepted subtasks → child `tasks` rows via `parent_task_id` | **Wired** | Created in `createTaskFromData` |
-| Image Mode | Camera/upload → Sonnet vision → action steps as subtasks | **Wired** | Full Magic tier (`tasks_task_breaker_image`). Camera capture + file upload in TaskBreaker.tsx, multimodal message to task-breaker Edge Function (Sonnet when image, Haiku for text-only). 2026-04-13. |
+| Image Mode | Camera/upload → Sonnet vision → action steps as subtasks | **Wired** | Camera capture + file upload in TaskBreaker.tsx, multimodal message to task-breaker Edge Function (Sonnet when image, Haiku for text-only). 2026-04-13. |
+| Standalone Modal | StandaloneTaskBreakerModal — type task name + description, break down, save parent+children | **Wired** | QuickTasks strip (Zap icon pill), also openable from AI Vault. 2026-04-13. |
+| AI Vault Entry | Single "Task Breaker" vault item covering text + image modes | **Wired** | Migration 100132. No tier assignment (deferred post-beta). 2026-04-13. |
+| QuickTasks Strip | Zap icon pill → opens StandaloneTaskBreakerModal | **Wired** | Between Tasks and MindSweep in action order. 2026-04-13. |
+
+## Task Rotation Advancement (PRD-09A)
+
+| Feature | How It Works | Status | Notes |
+|---|---|---|---|
+| Rotation config persistence | `createTaskFromData` writes `recurrence_details.rotation` JSONB + `task_assignments` with `rotation_position` + `is_active` when `rotationEnabled=true` | **Wired** | 2026-04-13. Members array, current_index, frequency, last_rotated_at all stored. |
+| Rotation cron | `advance_task_rotations()` runs daily at 00:15 UTC via pg_cron. Finds tasks with elapsed rotation periods, bumps current_index (wrapping), flips is_active on assignments, updates assignee_id. | **Wired** | Migration 100133. Supports weekly, biweekly, monthly, custom (defaults to weekly). |
+| Rotation UI | AssignmentSelector toggle + frequency dropdown (weekly/biweekly/monthly/custom) | **Wired** | Already existed — now the config actually persists. |
 
 ## Opportunity Claim Lock Expiration (PRD-09A)
 
