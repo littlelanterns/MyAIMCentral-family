@@ -28,6 +28,7 @@ import { StudioSearch } from '@/components/studio/StudioSearch'
 import { CustomizedTemplateCard } from '@/components/studio/CustomizedTemplateCard'
 import type { StudioTemplate } from '@/components/studio/StudioTemplateCard'
 import type { CustomizedTemplate } from '@/components/studio/CustomizedTemplateCard'
+import { RoutineDuplicateDialog } from '@/components/tasks/RoutineDuplicateDialog'
 import type { TabItem } from '@/components/shared'
 import {
   TASK_TEMPLATES_BLANK,
@@ -167,6 +168,9 @@ export function StudioPage() {
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   // Build J: Reading List template opens SequentialCreatorModal with mastery + duration tracking presets
   const [sequentialTemplateId, setSequentialTemplateId] = useState<string | null>(null)
+
+  // Routine duplication dialog state
+  const [duplicateRoutine, setDuplicateRoutine] = useState<{ id: string; name: string } | null>(null)
 
   // GuidedFormAssignModal state
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
@@ -530,18 +534,21 @@ export function StudioPage() {
                     setModalInitialType(t.templateType as string || 'task')
                     setModalOpen(true)
                   }}
-                  onDuplicate={async (t) => {
-                    // Duplicate: copy the template record with a new name
-                    const { error } = await supabase.from('task_templates').insert({
-                      family_id: family?.id,
-                      created_by: member?.id,
-                      title: `${t.name} (copy)`,
-                      task_type: t.templateType,
-                      is_system: false,
-                    })
-                    if (!error) {
-                      // Refresh the customized list
-                      window.location.reload()
+                  onDuplicate={(t) => {
+                    if (t.templateType === 'routine') {
+                      // Routines get the deep-copy dialog with linked step resolution
+                      setDuplicateRoutine({ id: t.id, name: t.name })
+                    } else {
+                      // Non-routines: shallow copy (template row only)
+                      supabase.from('task_templates').insert({
+                        family_id: family?.id,
+                        created_by: member?.id,
+                        title: `${t.name} (copy)`,
+                        task_type: t.templateType,
+                        is_system: false,
+                      }).then(({ error }) => {
+                        if (!error) window.location.reload()
+                      })
                     }
                   }}
                   onArchive={async (t) => {
@@ -633,6 +640,22 @@ export function StudioPage() {
           familyId={family?.id ?? ''}
           assigningMemberId={member?.id ?? ''}
           eligibleChildren={familyMembers.filter(m => m.id !== member?.id)}
+        />
+      )}
+
+      {/* ── Routine Duplicate Dialog ────────────────────────────── */}
+      {duplicateRoutine && (
+        <RoutineDuplicateDialog
+          isOpen={true}
+          onClose={() => setDuplicateRoutine(null)}
+          templateId={duplicateRoutine.id}
+          templateName={duplicateRoutine.name}
+          familyId={family?.id ?? ''}
+          createdBy={member?.id ?? ''}
+          onDuplicated={() => {
+            setDuplicateRoutine(null)
+            window.location.reload()
+          }}
         />
       )}
 
