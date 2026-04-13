@@ -11,6 +11,7 @@ import {
   CALCULATION_APPROACH_LABELS,
   PERIOD_START_DAY_LABELS,
   type AllowanceConfigInput,
+  type BonusType,
   type CalculationApproach,
   type PeriodStartDay,
   type RoundingBehavior,
@@ -45,7 +46,9 @@ export function ChildAllowanceConfigPage() {
         default_point_value: config.default_point_value,
         minimum_threshold: config.minimum_threshold,
         bonus_threshold: config.bonus_threshold,
+        bonus_type: config.bonus_type ?? 'percentage',
         bonus_percentage: config.bonus_percentage,
+        bonus_flat_amount: config.bonus_flat_amount ?? 0,
         rounding_behavior: config.rounding_behavior,
         grace_days_enabled: config.grace_days_enabled,
         makeup_window_enabled: config.makeup_window_enabled,
@@ -69,7 +72,9 @@ export function ChildAllowanceConfigPage() {
         default_point_value: 1,
         minimum_threshold: 0,
         bonus_threshold: 90,
+        bonus_type: 'flat',
         bonus_percentage: 20,
+        bonus_flat_amount: 5,
         rounding_behavior: 'nearest_cent',
         grace_days_enabled: true,
         makeup_window_enabled: false,
@@ -245,14 +250,72 @@ export function ChildAllowanceConfigPage() {
             max={100}
             suffix="%"
           />
-          <NumberInput
-            label="Bonus percentage"
-            value={form.bonus_percentage ?? 20}
-            onChange={v => autoSave({ bonus_percentage: v })}
-            min={0}
-            max={100}
-            suffix="% extra"
-          />
+
+          {/* Bonus mode: percentage or flat dollar */}
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-heading)' }}>
+              Bonus amount
+            </label>
+            <div className="flex gap-2 mb-3">
+              {([
+                { value: 'percentage' as BonusType, label: '% of allowance' },
+                { value: 'flat' as BonusType, label: 'Flat $' },
+              ]).map(opt => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm"
+                  style={{
+                    backgroundColor: form.bonus_type === opt.value
+                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)'
+                      : 'var(--color-bg-secondary)',
+                    border: form.bonus_type === opt.value
+                      ? '1px solid var(--color-btn-primary-bg)'
+                      : '1px solid var(--color-border)',
+                    color: form.bonus_type === opt.value
+                      ? 'var(--color-btn-primary-bg)'
+                      : 'var(--color-text-secondary)',
+                    fontWeight: form.bonus_type === opt.value ? 600 : 400,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="bonus-type"
+                    checked={form.bonus_type === opt.value}
+                    onChange={() => autoSave({ bonus_type: opt.value })}
+                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+
+            {form.bonus_type === 'flat' ? (
+              <NumberInput
+                label="Bonus amount"
+                prefix="$"
+                value={form.bonus_flat_amount ?? 0}
+                onChange={v => autoSave({ bonus_flat_amount: v })}
+                min={0}
+                step={0.5}
+              />
+            ) : (
+              <NumberInput
+                label="Bonus percentage"
+                value={form.bonus_percentage ?? 20}
+                onChange={v => autoSave({ bonus_percentage: v })}
+                min={0}
+                max={100}
+                suffix="% extra"
+              />
+            )}
+
+            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+              {form.bonus_type === 'flat'
+                ? `Earns an extra $${(form.bonus_flat_amount ?? 0).toFixed(2)} when completing ${form.bonus_threshold ?? 90}%+ of tasks`
+                : `Earns ${form.bonus_percentage ?? 20}% extra ($${((form.weekly_amount ?? 0) * (form.bonus_percentage ?? 20) / 100).toFixed(2)}) when completing ${form.bonus_threshold ?? 90}%+ of tasks`
+              }
+            </p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>

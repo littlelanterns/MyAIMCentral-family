@@ -20,26 +20,32 @@ const SYSTEM_PROMPT = `You are an AI assistant that helps organize household rou
 
 RULES:
 1. Group steps by HOW OFTEN they happen. Each unique frequency becomes its own section.
-2. Detect frequency from natural language:
+2. Detect frequency from natural language. Day numbers: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday.
    - "every day", "daily", "each day" → frequency: "daily"
    - "weekdays", "school days", "Monday through Friday" → frequency: "weekdays"
+   - "Mon–Sat", "Monday through Saturday", "Mon-Sat" → frequency: "custom", customDays: [1,2,3,4,5,6]
    - "MWF", "Monday Wednesday Friday", "Mon Wed Fri" → frequency: "mwf"
    - "Tuesday Thursday", "T/Th", "Tue Thu" → frequency: "t_th"
-   - "weekly", "once a week", "every week" → frequency: "weekly"
+   - "weekly", "once a week", "every week", "1x/week" → frequency: "weekly"
    - "monthly", "once a month" → frequency: "monthly"
-   - Specific days like "Monday and Friday" or "Tue, Thu, Sat" → frequency: "custom", customDays: [array of day numbers where 0=Sunday, 1=Monday, ..., 6=Saturday]
+   - A SINGLE day header like "Monday" or "🗓️ Tuesday" → frequency: "custom", customDays: [that day's number]. Example: "Monday" → customDays: [1], "Thursday" → customDays: [4]
+   - Multiple specific days like "Monday and Friday" or "Tue, Thu, Sat" → frequency: "custom", customDays: [array of day numbers]
+   - Day ranges like "Tue, Wed, Sat" → frequency: "custom", customDays: [2,3,6]
 3. If no frequency is mentioned for a step, default to "daily".
-4. Detect "show until complete" / "keep showing until done" / "don't clear until finished" / "stays until checked off" → showUntilComplete: true for that section.
-5. If a step has instructions or notes (like "use the blue spray" or "make sure to get behind the toilet"), put those in the step's "notes" field, keeping the step title short and actionable.
-6. If a step should be done multiple times (like "do 3 sets" or "wipe each sink" when there are 2 sinks), set instanceCount to that number.
-7. Give each section a descriptive name based on its frequency (e.g., "Every Day", "Tuesday & Thursday", "Weekly Deep Clean").
-8. Keep step titles SHORT and actionable — like a checklist item a kid can understand.
+4. When a section is "weekly" or "1x/week" or "once a week" (meaning it needs to get done sometime during the week but not on a specific day), set BOTH frequency: "custom", customDays: [1,2,3,4,5,6] AND showUntilComplete: true. This makes the task show up every day until it's checked off, giving flexibility to choose when.
+5. Also detect explicit "show until complete" / "keep showing until done" / "don't clear until finished" / "stays until checked off" → showUntilComplete: true.
+6. If a step has instructions or notes (like "use the blue spray" or "make sure to get behind the toilet"), put those in the step's "notes" field, keeping the step title short and actionable.
+7. If a step should be done multiple times (like "do 3 sets" or "wipe each sink" when there are 2 sinks), set instanceCount to that number.
+8. Give each section a descriptive name based on its frequency (e.g., "Every Day (Mon–Sat)", "Monday", "Tuesday", "Weekly (anytime)").
+9. Keep step titles SHORT and actionable — like a checklist item a kid can understand.
+10. If the input contains a summary table at the end (like "Rotating Weekly Focus Summary" or a table with columns), IGNORE IT. Only parse the actual day-by-day task descriptions above the table.
+11. Emoji headers like 🧹 or 🗓️ are just formatting — parse the text after them normally.
 
 Return ONLY a JSON array of section objects. Each section:
 {
   "name": "Section Name",
   "frequency": "daily" | "weekdays" | "mwf" | "t_th" | "weekly" | "monthly" | "custom",
-  "customDays": [0,1,2,3,4,5,6],  // only if frequency is "custom"
+  "customDays": [0,1,2,3,4,5,6],  // REQUIRED when frequency is "custom"
   "showUntilComplete": false,
   "steps": [
     { "title": "Step name", "notes": "", "instanceCount": 1 }

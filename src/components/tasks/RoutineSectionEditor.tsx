@@ -923,25 +923,78 @@ export function RoutineSectionEditor({ sections, onChange, onBreakDown, familyId
       {sorted.length === 0 && !showBrainDump && (
         <div
           style={{
-            padding: '1.5rem',
-            textAlign: 'center',
-            border: '2px dashed var(--color-border)',
-            borderRadius: 'var(--vibe-radius-input, 8px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
           }}
-          className="space-y-3"
         >
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm, 0.875rem)' }}>
-            Add sections to organize your routine steps, or describe the whole routine and let AI sort it out.
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setShowBrainDump(true)}
+          {/* Primary option: AI sort */}
+          <button
             type="button"
+            onClick={() => setShowBrainDump(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.75rem',
+              padding: '1rem',
+              border: '2px solid var(--color-btn-primary-bg)',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-card))',
+              cursor: 'pointer',
+              textAlign: 'left',
+              width: '100%',
+            }}
           >
-            <MessageSquareText size={14} />
-            Describe it to AI
-          </Button>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '2.25rem',
+              height: '2.25rem',
+              borderRadius: '0.5rem',
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)',
+              flexShrink: 0,
+              marginTop: '0.125rem',
+            }}>
+              <Sparkles size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm, 0.875rem)', color: 'var(--color-text-primary)', marginBottom: '0.25rem' }}>
+                Paste your schedule and let AI organize it
+              </div>
+              <div style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                Describe or paste your routine however it makes sense to you. AI will sort everything into the right sections by day and frequency.
+              </div>
+            </div>
+          </button>
+
+          {/* Secondary option: manual build */}
+          <button
+            type="button"
+            onClick={addSection}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.75rem 1rem',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              backgroundColor: 'var(--color-bg-card)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              width: '100%',
+            }}
+          >
+            <Plus size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 'var(--font-size-sm, 0.875rem)', color: 'var(--color-text-primary)' }}>
+                Build sections manually
+              </div>
+              <div style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)' }}>
+                Create each section and add steps one at a time
+              </div>
+            </div>
+          </button>
         </div>
       )}
 

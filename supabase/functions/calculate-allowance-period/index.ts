@@ -219,10 +219,13 @@ Deno.serve(async (req) => {
             calculatedAmount = 0
           }
 
-          // Check bonus
+          // Check bonus — supports both percentage and flat dollar modes
           const bonusApplied = completionPct >= config.bonus_threshold
+          const bonusType = config.bonus_type ?? 'percentage'
           const bonusAmount = bonusApplied
-            ? baseAmount * (config.bonus_percentage / 100)
+            ? bonusType === 'flat'
+              ? Number(config.bonus_flat_amount ?? 0)
+              : baseAmount * ((config.bonus_percentage ?? 20) / 100)
             : 0
 
           let totalEarned = calculatedAmount + bonusAmount

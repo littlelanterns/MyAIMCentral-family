@@ -191,19 +191,28 @@ export async function createTaskFromData(
   } // end: not templateOnly
 
   // Persist routine sections if this is a routine
-  if (data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0) {
+  const hasSections = data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0
+  if (!hasSections && data.taskType === 'routine') {
+    console.warn('[createTaskFromData] Routine has no sections — skipping template creation. routineSections:', data.routineSections)
+  }
+  if (hasSections) {
     const { data: template, error: tmplError } = await supabase
       .from('task_templates')
       .insert({
         family_id: familyId,
         created_by: creatorId,
         title: data.title,
+        template_name: data.title,
         description: data.description || null,
         task_type: 'routine',
         template_type: 'routine',
       })
       .select('id')
       .single()
+
+    if (tmplError) {
+      console.error('[createTaskFromData] Failed to create routine template:', tmplError)
+    }
 
     if (!tmplError && template) {
       result.routineTemplateCreated = true

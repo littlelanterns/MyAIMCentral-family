@@ -544,7 +544,11 @@ export function TaskCreationModal({
       const finalData: CreateTaskData = {
         ...data,
         scheduleMode,
-        dueDate: scheduleMode === 'one_time' ? quickDate || undefined : undefined,
+        // For routines, preserve the "Run until" dueDate set by the routine duration picker.
+        // For other task types, derive from the schedule mode radio buttons.
+        dueDate: data.taskType === 'routine'
+          ? data.dueDate || undefined
+          : scheduleMode === 'one_time' ? quickDate || undefined : undefined,
         weeklyDays: scheduleMode === 'weekly' ? quickDays : undefined,
         // Use mom's manual pick, or fall back to the top auto-suggestion
         iconAssetKey: assigneeIsPlayMember
@@ -1629,55 +1633,101 @@ export function TaskCreationModal({
         />
       )}
 
-      {/* 5. Schedule */}
-      <SectionCard>
-        <SectionHeading icon={Calendar}>How Often?</SectionHeading>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-          {SCHEDULE_OPTIONS.map((opt) => (
-            <RadioOption
-              key={opt.key}
-              name="schedule"
-              value={opt.key}
-              checked={scheduleMode === opt.key}
-              onChange={(v) => {
-                setScheduleMode(v)
-                if (v === 'custom') setShowScheduler(true)
-                else setShowScheduler(false)
-              }}
-              label={opt.label}
-              description={opt.description}
-            />
-          ))}
-        </div>
+      {/* 5. Schedule — routines get a simplified version since sections handle day frequency */}
+      {data.taskType === 'routine' ? (
+        <SectionCard>
+          <SectionHeading icon={Calendar}>How Long Should This Run?</SectionHeading>
+          <HelperText>
+            Each section above already controls which days its steps appear. This sets when the whole routine starts and stops.
+          </HelperText>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="routine-duration"
+                  checked={!data.dueDate}
+                  onChange={() => update('dueDate', undefined)}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>Ongoing</span>
+              </label>
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                Runs until you stop it
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="routine-duration"
+                  checked={!!data.dueDate}
+                  onChange={() => update('dueDate', '')}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>Run until</span>
+              </label>
+              {data.dueDate !== undefined && (
+                <input
+                  type="date"
+                  value={data.dueDate || ''}
+                  onChange={(e) => update('dueDate', e.target.value)}
+                  style={{ ...inputStyle, flex: 1, maxWidth: '180px' }}
+                />
+              )}
+            </div>
+          </div>
+        </SectionCard>
+      ) : (
+        <SectionCard>
+          <SectionHeading icon={Calendar}>How Often?</SectionHeading>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+            {SCHEDULE_OPTIONS.map((opt) => (
+              <RadioOption
+                key={opt.key}
+                name="schedule"
+                value={opt.key}
+                checked={scheduleMode === opt.key}
+                onChange={(v) => {
+                  setScheduleMode(v)
+                  if (v === 'custom') setShowScheduler(true)
+                  else setShowScheduler(false)
+                }}
+                label={opt.label}
+                description={opt.description}
+              />
+            ))}
+          </div>
 
-        {/* Contextual pickers */}
-        {scheduleMode === 'one_time' && (
-          <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-            <input
-              type="date"
-              value={quickDate}
-              onChange={(e) => setQuickDate(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-        )}
-        {scheduleMode === 'weekly' && (
-          <div style={{ paddingLeft: '1.5rem' }}>
-            <DayChips days={quickDays} onChange={setQuickDays} />
-          </div>
-        )}
-        {scheduleMode === 'custom' && showScheduler && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <UniversalScheduler
-              value={data.schedule}
-              onChange={(v) => update('schedule', v)}
-              showTimeDefault={false}
-              compactMode
-            />
-            <HelperText>For complex schedules like "every other Wednesday" or "first Monday of each month"</HelperText>
-          </div>
-        )}
-      </SectionCard>
+          {/* Contextual pickers */}
+          {scheduleMode === 'one_time' && (
+            <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+              <input
+                type="date"
+                value={quickDate}
+                onChange={(e) => setQuickDate(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          )}
+          {scheduleMode === 'weekly' && (
+            <div style={{ paddingLeft: '1.5rem' }}>
+              <DayChips days={quickDays} onChange={setQuickDays} />
+            </div>
+          )}
+          {scheduleMode === 'custom' && showScheduler && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <UniversalScheduler
+                value={data.schedule}
+                onChange={(v) => update('schedule', v)}
+                showTimeDefault={false}
+                compactMode
+              />
+              <HelperText>For complex schedules like "every other Wednesday" or "first Monday of each month"</HelperText>
+            </div>
+          )}
+        </SectionCard>
+      )}
 
       {/* 6. If Not Completed */}
       <SectionCard>

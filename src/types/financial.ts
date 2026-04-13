@@ -17,6 +17,7 @@ export type TransactionType =
 export type PeriodStatus = 'active' | 'makeup_window' | 'calculated' | 'closed'
 export type LoanStatus = 'active' | 'paid_off' | 'forgiven'
 export type RoundingBehavior = 'round_up' | 'round_down' | 'nearest_cent'
+export type BonusType = 'percentage' | 'flat'
 export type PeriodStartDay = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 export type LoanInterestPeriod = 'weekly' | 'monthly'
 export type RepaymentMode = 'manual' | 'auto_deduct'
@@ -39,7 +40,9 @@ export interface AllowanceConfig {
   default_point_value: number
   minimum_threshold: number
   bonus_threshold: number
+  bonus_type: BonusType
   bonus_percentage: number
+  bonus_flat_amount: number
   rounding_behavior: RoundingBehavior
   grace_days_enabled: boolean
   makeup_window_enabled: boolean
@@ -179,7 +182,9 @@ export interface AllowanceConfigInput {
   default_point_value?: number
   minimum_threshold?: number
   bonus_threshold?: number
+  bonus_type?: BonusType
   bonus_percentage?: number
+  bonus_flat_amount?: number
   rounding_behavior?: RoundingBehavior
   grace_days_enabled?: boolean
   makeup_window_enabled?: boolean
