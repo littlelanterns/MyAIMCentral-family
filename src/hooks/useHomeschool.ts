@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { todayLocalIso } from '@/utils/dates'
+import { todayLocalIso, localIso } from '@/utils/dates'
 import type {
   HomeschoolSubject,
   HomeschoolConfig,
@@ -465,11 +465,11 @@ function getWeekStart(dateIso: string): string {
   // Monday = start of week (ISO)
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
-  return d.toISOString().split('T')[0]
+  return localIso(d)
 }
 
 function addDays(dateIso: string, days: number): string {
   const d = new Date(dateIso + 'T00:00:00')
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return localIso(d)
 }
