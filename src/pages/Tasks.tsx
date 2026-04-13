@@ -853,7 +853,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
       )}
 
       {/* Deploy/Reassign button — adults only (kids must not reassign their own chores) */}
-      {(member?.role === 'primary_parent' || member?.role === 'additional_adult') && (
+      {(fmember?.role === 'primary_parent' || fmember?.role === 'additional_adult') && (
       <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ zIndex: deployingTaskId === task.id ? 51 : 1 }}
       >
