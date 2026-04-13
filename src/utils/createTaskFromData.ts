@@ -96,7 +96,6 @@ export async function createTaskFromData(
     counts_for_homework: data.countsForHomework ?? false,
     counts_for_gamification: data.countsForGamification ?? true,
     allowance_points: data.allowancePoints ?? null,
-    homework_subject_ids: (data.homeworkSubjectIds?.length ?? 0) > 0 ? data.homeworkSubjectIds : [],
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,

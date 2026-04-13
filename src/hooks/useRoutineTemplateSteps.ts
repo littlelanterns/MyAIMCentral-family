@@ -59,6 +59,7 @@ export function useRoutineTemplateSteps(templateId: string | undefined) {
         sort_order: sec.sort_order,
         frequency_rule: sec.frequency_rule ?? null,
         frequency_days: sec.frequency_days ?? null,
+        show_until_complete: sec.show_until_complete ?? false,
         steps: stepsBySection.get(sec.id) ?? [],
       }))
 
