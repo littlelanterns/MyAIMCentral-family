@@ -41,6 +41,7 @@ import {
 } from '@/components/studio/studio-seed-data'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
+import type { RoutineSection } from '@/components/tasks/RoutineSectionEditor'
 import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
 import { GuidedFormAssignModal } from '@/components/guided-forms/GuidedFormAssignModal'
 import { getSectionsForSubtype } from '@/components/guided-forms/guidedFormTypes'
@@ -163,6 +164,8 @@ export function StudioPage() {
   // TaskCreationModal state
   const [modalOpen, setModalOpen] = useState(false)
   const [modalInitialType, setModalInitialType] = useState<string>('task')
+  const [modalDefaultTitle, setModalDefaultTitle] = useState<string>('')
+  const [modalPreloadedSections, setModalPreloadedSections] = useState<RoutineSection[] | undefined>(undefined)
 
   // SequentialCreatorModal state (Phase 1: replaces sequential route through TaskCreationModal)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
@@ -199,6 +202,74 @@ export function StudioPage() {
     data: customizedTemplates = [],
     isLoading: customizedLoading,
   } = useCustomizedTemplates(family?.id)
+
+  // ── Load routine template sections + steps from DB ─────────
+  const loadRoutineTemplate = useCallback(async (templateId: string, templateName: string) => {
+    const { data: sections } = await supabase
+      .from('task_template_sections')
+      .select('id, title, section_name, frequency_rule, frequency_days, show_until_complete, sort_order')
+      .eq('template_id', templateId)
+      .order('sort_order')
+
+    if (!sections?.length) {
+      // No sections — just open the modal with the type and title
+      setModalDefaultTitle(templateName)
+      setModalInitialType('routine')
+      setModalOpen(true)
+      return
+    }
+
+    const routineSections: RoutineSection[] = []
+    for (const sec of sections) {
+      const { data: steps } = await supabase
+        .from('task_template_steps')
+        .select('id, title, step_name, step_notes, instance_count, require_photo, sort_order, step_type, linked_source_id, linked_source_type, display_name_override')
+        .eq('section_id', sec.id)
+        .order('sort_order')
+
+      // Map frequency_rule back to SectionFrequency
+      let frequency: 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'mwf' | 't_th' | 'custom' = 'daily'
+      const days = (sec.frequency_days as number[]) ?? []
+      if (sec.frequency_rule === 'custom') {
+        // Check if it maps to a named frequency
+        const sorted = [...days].sort().join(',')
+        if (sorted === '1,2,3,4,5') frequency = 'weekdays'
+        else if (sorted === '1,3,5') frequency = 'mwf'
+        else if (sorted === '2,4') frequency = 't_th'
+        else frequency = 'custom'
+      } else {
+        frequency = (sec.frequency_rule as typeof frequency) ?? 'daily'
+      }
+
+      routineSections.push({
+        id: sec.id,
+        name: sec.section_name ?? sec.title ?? '',
+        frequency,
+        customDays: days.map(Number),
+        showUntilComplete: sec.show_until_complete ?? false,
+        sort_order: sec.sort_order ?? 0,
+        isEditing: false,
+        steps: (steps ?? []).map(st => ({
+          id: st.id,
+          title: st.title ?? st.step_name ?? '',
+          notes: st.step_notes ?? '',
+          showNotes: !!(st.step_notes),
+          instanceCount: st.instance_count ?? 1,
+          requirePhoto: st.require_photo ?? false,
+          sort_order: st.sort_order ?? 0,
+          step_type: (st.step_type as 'static' | 'linked_sequential' | 'linked_randomizer' | 'linked_task') ?? 'static',
+          linked_source_id: st.linked_source_id ?? null,
+          linked_source_type: st.linked_source_type ?? null,
+          display_name_override: st.display_name_override ?? null,
+        })),
+      })
+    }
+
+    setModalDefaultTitle(templateName)
+    setModalPreloadedSections(routineSections)
+    setModalInitialType('routine')
+    setModalOpen(true)
+  }, [])
 
   // ── Customize handler ────────────────────────────────────────
 
@@ -526,13 +597,22 @@ export function StudioPage() {
                   key={tpl.id}
                   template={tpl}
                   onDeploy={(t) => {
-                    // Open TaskCreationModal pre-filled from this template
-                    setModalInitialType(t.templateType as string || 'task')
-                    setModalOpen(true)
+                    if (t.templateType === 'routine') {
+                      loadRoutineTemplate(t.id, t.name)
+                    } else {
+                      setModalDefaultTitle(t.name)
+                      setModalInitialType(t.templateType as string || 'task')
+                      setModalOpen(true)
+                    }
                   }}
                   onEdit={(t) => {
-                    setModalInitialType(t.templateType as string || 'task')
-                    setModalOpen(true)
+                    if (t.templateType === 'routine') {
+                      loadRoutineTemplate(t.id, t.name)
+                    } else {
+                      setModalDefaultTitle(t.name)
+                      setModalInitialType(t.templateType as string || 'task')
+                      setModalOpen(true)
+                    }
                   }}
                   onDuplicate={(t) => {
                     if (t.templateType === 'routine') {
@@ -588,9 +668,15 @@ export function StudioPage() {
       {modalOpen && (
         <TaskCreationModal
           isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false)
+            setModalDefaultTitle('')
+            setModalPreloadedSections(undefined)
+          }}
           onSave={handleTaskSaved}
           initialTaskType={modalInitialType}
+          defaultTitle={modalDefaultTitle || undefined}
+          initialRoutineSections={modalPreloadedSections}
         />
       )}
 

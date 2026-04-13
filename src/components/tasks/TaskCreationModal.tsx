@@ -137,6 +137,8 @@ interface TaskCreationModalProps {
   editMode?: boolean
   /** PRD-28: Pre-configure as makeup work (task_type='makeup', counts_for_allowance=true, counts_for_gamification=false) */
   makeupConfig?: { assigneeId: string } | null
+  /** Pre-loaded routine sections from a saved template (Studio Deploy/Edit) */
+  initialRoutineSections?: RoutineSection[]
 }
 
 // ─── Defaults ────────────────────────────────────────────────
@@ -432,6 +434,7 @@ export function TaskCreationModal({
   sourceReferenceId,
   editMode,
   makeupConfig,
+  initialRoutineSections,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
@@ -453,6 +456,7 @@ export function TaskCreationModal({
     if (defaultTitle) d.title = defaultTitle
     if (defaultDescription) d.description = defaultDescription
     if (sourceReferenceId) d.sourceReferenceId = sourceReferenceId
+    if (initialRoutineSections?.length) d.routineSections = initialRoutineSections
     return d
   })
   // PRD-28: Apply makeup work pre-configuration
@@ -497,6 +501,8 @@ export function TaskCreationModal({
     if (initialTaskType && initialTaskType !== 'sequential') {
       d.taskType = initialTaskType as TaskType
     }
+    if (defaultTitle) d.title = defaultTitle
+    if (initialRoutineSections?.length) d.routineSections = initialRoutineSections
     setData(d)
     setScheduleMode('one_time')
     setQuickDays([])
@@ -506,7 +512,7 @@ export function TaskCreationModal({
     setShowTaskBreaker(false)
     setShowTaskBreakerPanel(false)
     setSelectedIcon(null)
-  }, [queueItem?.id, activeBatchItem?.id, initialTaskType])
+  }, [queueItem?.id, activeBatchItem?.id, initialTaskType, defaultTitle, initialRoutineSections])
 
   // Build M Sub-phase B: detect whether any selected assignee is a Play
   // member. Drives the conditional rendering of TaskIconPicker. If

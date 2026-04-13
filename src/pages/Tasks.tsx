@@ -292,11 +292,17 @@ export function TasksPage() {
 
     const myId = activeMember?.id
     if (myId && activeTab !== 'queue') {
+      // On the routines tab, mom sees ALL routines she created (including those
+      // assigned to kids). On other tabs, the standard "my tasks" filter applies.
+      const isMomOnRoutines = activeTab === 'routines' &&
+        (activeMember?.role === 'primary_parent' || activeMember?.role === 'additional_adult')
+
       filtered = filtered.filter(
         (t) =>
           t.assignee_id === myId ||
           (!t.assignee_id && t.created_by === myId) ||
-          myAssignedTaskIds.has(t.id)
+          myAssignedTaskIds.has(t.id) ||
+          (isMomOnRoutines && t.created_by === myId)
       )
     }
 
