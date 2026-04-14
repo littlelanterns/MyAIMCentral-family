@@ -509,6 +509,9 @@ verify_jwt = false
 [functions.curriculum-parse]
 verify_jwt = false
 
+[functions.smart-list-import]
+verify_jwt = false
+
 [functions.guided-nbt-glaze]
 verify_jwt = false
 
