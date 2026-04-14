@@ -65,6 +65,9 @@ import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import { FinancesTab } from '@/features/financial/FinancesTab'
 import { useSearchParams } from 'react-router-dom'
+import { useOpportunityLists, useOpportunityItems } from '@/hooks/useOpportunityLists'
+import { OpportunityListBrowse } from '@/components/lists/OpportunityListBrowse'
+import type { List as ListData } from '@/types/lists'
 
 // ─────────────────────────────────────────────
 // Studio Queue hook (lightweight, inline)
@@ -731,7 +734,7 @@ export function TasksPage() {
         ) : activeTab === 'queue' ? (
           <QueueTab queueItems={queueItems} />
         ) : activeTab === 'opportunities' ? (
-          <OpportunitiesTab tasks={displayTasks} onToggle={toggle} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} />
+          <OpportunitiesTab tasks={displayTasks} onToggle={toggle} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} familyId={family?.id} memberId={activeMember?.id} createdBy={member?.id} />
         ) : activeTab === 'sequential' ? (
           family?.id ? (
             <SequentialCollectionView
@@ -1396,15 +1399,23 @@ interface OpportunitiesTabProps {
   onToggle: (task: Task, origin?: { x: number; y: number }) => void
   isCompleting: (taskId: string) => boolean
   onCreate: () => void
+  familyId: string | undefined
+  memberId: string | undefined
+  createdBy: string | undefined
 }
 
-function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate }: OpportunitiesTabProps) {
-  if (tasks.length === 0) {
+function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate, familyId, memberId, createdBy }: OpportunitiesTabProps) {
+  const { data: opportunityLists = [] } = useOpportunityLists(familyId, memberId)
+
+  const hasStandaloneTasks = tasks.length > 0
+  const hasOpportunityLists = opportunityLists.length > 0
+
+  if (!hasStandaloneTasks && !hasOpportunityLists) {
     return (
       <EmptyState
         icon={<Star size={36} />}
         title="No opportunities yet"
-        description="Create repeatable tasks, claimable jobs, or individual opportunity lists for your family members to earn rewards."
+        description="Create repeatable tasks, claimable jobs, or opportunity lists for your family members to earn rewards."
         action={
           <Button variant="primary" size="sm" onClick={onCreate}>
             <Plus size={14} />
@@ -1415,13 +1426,25 @@ function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate }: Opportuni
     )
   }
 
-  // Group by sub-type
+  // Group standalone tasks by sub-type
   const repeatable = tasks.filter((t) => t.task_type === 'opportunity_repeatable')
   const claimable = tasks.filter((t) => t.task_type === 'opportunity_claimable')
   const capped = tasks.filter((t) => t.task_type === 'opportunity_capped')
 
   return (
     <div className="space-y-4 py-2">
+      {/* Opportunity lists (primary — the list IS the board) */}
+      {opportunityLists.map(list => (
+        <OpportunityListCard
+          key={list.id}
+          list={list}
+          memberId={memberId ?? ''}
+          familyId={familyId ?? ''}
+          createdBy={createdBy ?? ''}
+        />
+      ))}
+
+      {/* Standalone opportunity tasks (backward compat) */}
       {repeatable.length > 0 && (
         <OpportunityGroup label="Repeatable Tasks" tasks={repeatable} onToggle={onToggle} isCompleting={isCompleting} />
       )}
@@ -1430,6 +1453,73 @@ function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate }: Opportuni
       )}
       {capped.length > 0 && (
         <OpportunityGroup label="Capped Opportunities" tasks={capped} onToggle={onToggle} isCompleting={isCompleting} />
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// OpportunityListCard — expandable card for an opportunity list
+// ─────────────────────────────────────────────
+function OpportunityListCard({
+  list,
+  memberId,
+  familyId,
+  createdBy,
+}: {
+  list: ListData
+  memberId: string
+  familyId: string
+  createdBy: string
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const { data: items = [] } = useOpportunityItems(expanded ? list.id : undefined)
+  const availableCount = items.filter(i => i.is_available).length
+
+  const rewardType = list.default_reward_type
+  const rewardAmount = list.default_reward_amount
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ border: '1px solid var(--color-border)' }}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 py-2.5 flex items-center gap-2 text-left"
+        style={{ backgroundColor: 'var(--color-bg-card)', borderBottom: expanded ? '1px solid var(--color-border)' : 'none' }}
+      >
+        <Star size={14} style={{ color: 'var(--color-warning)' }} />
+        <span className="text-sm font-semibold flex-1" style={{ color: 'var(--color-text-heading)' }}>
+          {list.title}
+        </span>
+        {rewardType && rewardAmount != null && (
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-success) 15%, var(--color-bg-card))',
+              color: 'var(--color-success)',
+            }}
+          >
+            {rewardType === 'money' ? `$${rewardAmount}` : `${rewardAmount} pts`}/item
+          </span>
+        )}
+        {expanded ? (
+          <Badge variant="default" size="sm">{availableCount} available</Badge>
+        ) : (
+          <ChevronDown size={14} style={{ color: 'var(--color-text-secondary)' }} className={expanded ? 'rotate-180' : ''} />
+        )}
+      </button>
+      {expanded && (
+        <div className="p-3" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+          <OpportunityListBrowse
+            list={list}
+            items={items}
+            memberId={memberId}
+            familyId={familyId}
+            createdBy={createdBy}
+            compact
+          />
+        </div>
       )}
     </div>
   )

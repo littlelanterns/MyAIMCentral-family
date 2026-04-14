@@ -12,7 +12,7 @@ import {
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, ArchiveRestore, Trash2, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
-  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2, Trophy,
+  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2, Trophy, Star,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -43,6 +43,8 @@ import { useRandomizerPendingMastery } from '@/hooks/useRandomizerDraws'
 import { useApproveMasterySubmission, useRejectMasterySubmission } from '@/hooks/usePractice'
 import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 import { ReferenceListView } from '@/components/lists/ReferenceListView'
+import { OpportunitySettingsPanel } from '@/components/lists/OpportunitySettingsPanel'
+import { SmartImportModal } from '@/components/lists/SmartImportModal'
 import {
   SequentialCollectionCard,
 } from '@/components/tasks/sequential/SequentialCollectionView'
@@ -171,6 +173,8 @@ export function ListsPage() {
   const [createTitle, setCreateTitle] = useState('')
   // Sequential creation modal (replaces the broken TaskCreationModal sequential path)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
+  // Smart Import modal — AI sorts pasted items into correct lists
+  const [smartImportOpen, setSmartImportOpen] = useState(false)
 
   // Handle ?create=<type> URL param from Studio navigation
   useEffect(() => {
@@ -315,6 +319,16 @@ export function ListsPage() {
             </button>
             </Tooltip>
           </div>
+          <Tooltip content="AI sorts pasted items into your lists">
+            <button
+              onClick={() => setSmartImportOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-btn-primary-bg)' }}
+            >
+              <Wand2 size={14} />
+              Smart Import
+            </button>
+          </Tooltip>
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
@@ -706,6 +720,17 @@ export function ListsPage() {
           createdBy={member.id}
         />
       )}
+
+      {/* Smart Import Modal — AI sorts pasted items into correct lists */}
+      {smartImportOpen && family?.id && member?.id && (
+        <SmartImportModal
+          isOpen={smartImportOpen}
+          onClose={() => setSmartImportOpen(false)}
+          familyId={family.id}
+          memberId={member.id}
+          existingLists={activeLists}
+        />
+      )}
     </div>
   )
 }
@@ -935,6 +960,50 @@ function RandomizerDetailView({
             onMaxActiveDrawsChange={(n) => updateList.mutate({ id: list.id, max_active_draws: n })}
           />
 
+          {/* Opportunity toggle */}
+          <label className="flex items-center gap-2 px-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={list.is_opportunity ?? false}
+              onChange={async (e) => {
+                await updateList.mutateAsync({
+                  id: list.id,
+                  is_opportunity: e.target.checked,
+                  ...(!e.target.checked ? {
+                    default_opportunity_subtype: null,
+                    default_reward_type: null,
+                    default_reward_amount: null,
+                  } : {
+                    default_opportunity_subtype: 'repeatable' as const,
+                  }),
+                })
+              }}
+              style={{ accentColor: 'var(--color-warning)' }}
+            />
+            <Star size={14} style={{ color: list.is_opportunity ? 'var(--color-warning)' : 'var(--color-text-secondary)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              Optional (opportunity)
+            </span>
+            <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+              — kids choose to claim, not assigned
+            </span>
+          </label>
+
+          {list.is_opportunity && (
+            <OpportunitySettingsPanel
+              defaultSubtype={list.default_opportunity_subtype ?? 'repeatable'}
+              defaultRewardType={list.default_reward_type ?? null}
+              defaultRewardAmount={list.default_reward_amount ?? null}
+              defaultClaimLockDuration={list.default_claim_lock_duration ?? null}
+              defaultClaimLockUnit={list.default_claim_lock_unit ?? null}
+              onDefaultSubtypeChange={(v) => updateList.mutate({ id: list.id, default_opportunity_subtype: v })}
+              onDefaultRewardTypeChange={(v) => updateList.mutate({ id: list.id, default_reward_type: v })}
+              onDefaultRewardAmountChange={(v) => updateList.mutate({ id: list.id, default_reward_amount: v })}
+              onDefaultClaimLockDurationChange={(v) => updateList.mutate({ id: list.id, default_claim_lock_duration: v })}
+              onDefaultClaimLockUnitChange={(v) => updateList.mutate({ id: list.id, default_claim_lock_unit: v })}
+            />
+          )}
+
           {/* Per-item frequency rules */}
           <div
             className="rounded-lg p-3 space-y-2"
@@ -1001,6 +1070,7 @@ function RandomizerDetailView({
         poolMode={poolMode}
         drawMode={list.draw_mode}
         maxActiveDraws={list.max_active_draws}
+        isOpportunity={list.is_opportunity ?? false}
       />
 
       {/* Add item */}
@@ -2118,6 +2188,52 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           mode={list.victory_mode ?? 'none'}
           onChange={handleVictoryModeChange}
         />
+      )}
+
+      {/* Opportunity toggle + settings */}
+      {isOwnerOrParent && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 px-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={list.is_opportunity ?? false}
+              onChange={async (e) => {
+                await updateList.mutateAsync({
+                  id: listId,
+                  is_opportunity: e.target.checked,
+                  ...(!e.target.checked ? {
+                    default_opportunity_subtype: null,
+                    default_reward_type: null,
+                    default_reward_amount: null,
+                    default_claim_lock_duration: null,
+                    default_claim_lock_unit: null,
+                  } : {
+                    default_opportunity_subtype: 'claimable' as const,
+                  }),
+                })
+              }}
+              style={{ accentColor: 'var(--color-warning)' }}
+            />
+            <Star size={14} style={{ color: list.is_opportunity ? 'var(--color-warning)' : 'var(--color-text-secondary)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              This is an opportunity list
+            </span>
+          </label>
+          {list.is_opportunity && (
+            <OpportunitySettingsPanel
+              defaultSubtype={list.default_opportunity_subtype ?? 'claimable'}
+              defaultRewardType={list.default_reward_type ?? null}
+              defaultRewardAmount={list.default_reward_amount ?? null}
+              defaultClaimLockDuration={list.default_claim_lock_duration ?? null}
+              defaultClaimLockUnit={list.default_claim_lock_unit ?? null}
+              onDefaultSubtypeChange={(v) => updateList.mutate({ id: listId, default_opportunity_subtype: v })}
+              onDefaultRewardTypeChange={(v) => updateList.mutate({ id: listId, default_reward_type: v })}
+              onDefaultRewardAmountChange={(v) => updateList.mutate({ id: listId, default_reward_amount: v })}
+              onDefaultClaimLockDurationChange={(v) => updateList.mutate({ id: listId, default_claim_lock_duration: v })}
+              onDefaultClaimLockUnitChange={(v) => updateList.mutate({ id: listId, default_claim_lock_unit: v })}
+            />
+          )}
+        </div>
       )}
 
       {/* Progress */}

@@ -36,6 +36,10 @@ interface RandomizerResultCardProps {
   onAssign: (item: RandomizerItem, memberId: string) => Promise<void>
   onRedraw: () => void
   assigning: boolean
+  /** When true, show "I'll do this!" opt-in instead of member picker (opportunity mode) */
+  isOpportunity?: boolean
+  /** Called when kid opts in during opportunity mode */
+  onOptIn?: (item: RandomizerItem) => Promise<void>
 }
 
 // ─── Component ───────────────────────────────────────────────────
@@ -46,15 +50,46 @@ export function RandomizerResultCard({
   onAssign,
   onRedraw,
   assigning,
+  isOpportunity,
+  onOptIn,
 }: RandomizerResultCardProps) {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [assigned, setAssigned] = useState(false)
+  const [optedIn, setOptedIn] = useState(false)
 
   async function handleAssignConfirm() {
     if (!selectedMemberId) return
     await onAssign(item, selectedMemberId)
     setAssigned(true)
+  }
+
+  async function handleOptIn() {
+    if (!onOptIn) return
+    await onOptIn(item)
+    setOptedIn(true)
+  }
+
+  // Opportunity opt-in success state
+  if (optedIn) {
+    return (
+      <div
+        className="flex flex-col items-center gap-3 p-5 rounded-2xl"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+          border: '1px solid var(--color-btn-primary-bg)',
+        }}
+      >
+        <Check size={32} aria-hidden style={{ color: 'var(--color-btn-primary-bg)' }} />
+        <p className="text-sm font-semibold text-center" style={{ color: 'var(--color-text-heading)' }}>
+          "{item.item_name}" added to your tasks!
+        </p>
+        <Button variant="secondary" size="sm" onClick={onRedraw}>
+          <RotateCcw size={14} aria-hidden />
+          Draw again
+        </Button>
+      </div>
+    )
   }
 
   if (assigned) {
@@ -196,6 +231,26 @@ export function RandomizerResultCard({
               Confirm
             </Button>
           </div>
+        </div>
+      ) : isOpportunity ? (
+        /* Opportunity mode: "I'll do this!" opt-in or skip */
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onRedraw}
+          >
+            Skip
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleOptIn}
+            loading={assigning}
+            className="flex-1"
+          >
+            I'll do this!
+          </Button>
         </div>
       ) : (
         <div className="flex gap-2">

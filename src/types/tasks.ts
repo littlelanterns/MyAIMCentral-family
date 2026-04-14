@@ -47,6 +47,13 @@ export type TaskSource =
   | 'member_request'
   | 'sequential_promoted'
   | 'recurring_generated'
+  | 'guided_form_assignment'
+  | 'list_batch'
+  | 'rhythm_priority'
+  | 'rhythm_mindsweep_lite'
+  | 'randomizer_reveal'
+  | 'allowance_makeup'
+  | 'opportunity_list_claim'
 
 export type SequentialPromotion = 'immediate' | 'next_day' | 'manual'
 

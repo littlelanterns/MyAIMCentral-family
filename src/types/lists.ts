@@ -29,6 +29,11 @@ export type AdvancementMode = 'complete' | 'practice_count' | 'mastery'
 export type MasteryStatus = 'practicing' | 'submitted' | 'approved' | 'rejected'
 export type DrawMode = 'focused' | 'buffet' | 'surprise'
 
+// ─── Opportunity-List Unification ─── any list can be an opportunity board
+export type OpportunitySubtype = 'one_time' | 'claimable' | 'repeatable'
+export type OpportunityRewardType = 'points' | 'money' | 'privilege' | 'custom'
+export type ClaimLockUnit = 'minutes' | 'hours' | 'days'
+
 export interface List {
   id: string
   family_id: string
@@ -58,6 +63,13 @@ export interface List {
   default_require_approval: boolean | null
   default_require_evidence: boolean | null
   default_track_duration: boolean | null
+  // Opportunity-List Unification — any list can be an opportunity board
+  is_opportunity: boolean
+  default_opportunity_subtype: OpportunitySubtype | null
+  default_reward_type: OpportunityRewardType | null
+  default_reward_amount: number | null
+  default_claim_lock_duration: number | null
+  default_claim_lock_unit: ClaimLockUnit | null
   created_at: string
   updated_at: string
 }
@@ -111,6 +123,11 @@ export interface ListItem {
   require_mastery_approval: boolean
   require_mastery_evidence: boolean
   track_duration: boolean
+  // Opportunity-List Unification
+  opportunity_subtype: OpportunitySubtype | null
+  reward_type: OpportunityRewardType | null
+  claim_lock_duration: number | null
+  claim_lock_unit: ClaimLockUnit | null
   created_at: string
   updated_at: string
 }

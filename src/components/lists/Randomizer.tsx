@@ -45,6 +45,8 @@ interface RandomizerProps {
   drawMode?: DrawMode | null
   /** Build J: max active draws for buffet mode */
   maxActiveDraws?: number | null
+  /** Opportunity-List Unification: when true, drawn items show "I'll do this!" opt-in instead of auto-assigning */
+  isOpportunity?: boolean
   onItemAssigned?: (itemId: string, taskId: string) => void
 }
 
@@ -86,6 +88,7 @@ export function Randomizer({
   poolMode = 'individual',
   drawMode = 'focused',
   maxActiveDraws = 1,
+  isOpportunity = false,
   onItemAssigned,
 }: RandomizerProps) {
   const [selectedCategory, setSelectedCategory] = useState<RandomizerCategory>('all')
@@ -328,6 +331,11 @@ export function Randomizer({
               onAssign={handleAssign}
               onRedraw={handleRedraw}
               assigning={assigning}
+              isOpportunity={isOpportunity}
+              onOptIn={isOpportunity ? async (item) => {
+                // Opportunity mode: claim the drawn item for the current member
+                await handleAssign(item, assigningMemberId)
+              } : undefined}
             />
           )}
         </div>
