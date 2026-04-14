@@ -11,6 +11,7 @@ import { ShellQuickCreateFAB } from './ShellQuickCreateFAB'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { useSettings } from '@/components/settings'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -30,6 +31,7 @@ interface AdultShellProps {
  */
 export function AdultShell({ children }: AdultShellProps) {
   const { openSettings } = useSettings()
+  const { isViewingAs } = useViewAs()
   const { data: currentMember } = useFamilyMember()
   const { data: currentFamily } = useFamily()
   const { data: familyMembers } = useFamilyMembers(currentFamily?.id)
@@ -54,7 +56,7 @@ export function AdultShell({ children }: AdultShellProps) {
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="fixed top-3 right-3 z-30 flex items-center gap-2">
+        <div className={`fixed ${isViewingAs ? 'top-12' : 'top-3'} right-3 z-30 flex items-center gap-2 transition-[top] duration-200`}>
           <NotificationBell />
           <ThemeSelector />
           <Tooltip content="Settings">

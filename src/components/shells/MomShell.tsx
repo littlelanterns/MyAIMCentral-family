@@ -17,6 +17,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { TimerProvider } from '@/features/timer'
 import { RoutingToastProvider } from '@/components/shared'
 import { ViewAsShellWrapper } from '@/features/permissions'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from '@/lib/theme'
 import { useSettings } from '@/components/settings'
 import type { LilaConversation } from '@/hooks/useLila'
@@ -44,6 +45,7 @@ export function MomShell({ children }: MomShellProps) {
   const { gradientEnabled } = useTheme()
   const { openSettings } = useSettings()
   const { mainRef, quickTasksAutoCollapsed } = useAutoCollapse()
+  const { isViewingAs } = useViewAs()
   const { data: currentMember } = useFamilyMember()
   const { data: currentFamily } = useFamily()
   const { data: familyMembers } = useFamilyMembers(currentFamily?.id)
@@ -121,7 +123,7 @@ export function MomShell({ children }: MomShellProps) {
       <ViewAsShellWrapper>
       <div ref={mainRef} className="flex-1 flex flex-col min-w-0">
         {/* Floating buttons (top-right) — desktop: full row, mobile: icons only */}
-        <div className="fixed top-3 right-3 md:right-12 z-30 flex items-center gap-1.5 md:gap-2">
+        <div className={`fixed ${isViewingAs ? 'top-12' : 'top-3'} right-3 md:right-12 z-30 flex items-center gap-1.5 md:gap-2 transition-[top] duration-200`}>
           {/* LiLa mode buttons — icon-only circles, always visible */}
           <div className="flex items-center gap-1.5">
             <FloatingLilaButton avatarKey="happy_to_help" label="Help" tooltip="Customer support & troubleshooting" onClick={() => handleFloatingButton('help')} />
