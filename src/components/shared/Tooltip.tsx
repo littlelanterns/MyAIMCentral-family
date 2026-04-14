@@ -419,11 +419,29 @@ export function Tooltip({
   const handleTouchCancel = handleTouchEnd
 
   // ---------------------------------------------------------------------------
-  // Clone child with injected props
+  // Compose child's onClick with tooltip dismiss so mobile taps fire the
+  // action on the FIRST tap instead of showing the tooltip and swallowing
+  // the click.  Mobile browsers synthesise mouseenter from touch — without
+  // this, the first tap only triggers hover/tooltip and a second tap is
+  // needed to actually click.
   // ---------------------------------------------------------------------------
+  const childProps = children.props as Record<string, unknown>
+  const originalOnClick = typeof childProps.onClick === 'function'
+    ? (childProps.onClick as (e: React.MouseEvent) => void)
+    : undefined
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      hide()
+      originalOnClick?.(e)
+    },
+    [hide, originalOnClick],
+  )
+
   const child = cloneElement(children, {
     ref: triggerRef,
     'aria-describedby': visible ? tooltipId : undefined,
+    onClick: handleClick,
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,
     onFocus: handleFocus,

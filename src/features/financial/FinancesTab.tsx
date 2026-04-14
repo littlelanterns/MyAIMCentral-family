@@ -1,7 +1,8 @@
 // PRD-28 Screen 4: Tasks Page → Finances Tab (Mom only)
 // Shows: What I Owe summary, per-child WeeklyProgressCard, recent transactions
 
-import { DollarSign, Calendar, Plus, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { DollarSign, Calendar, Plus, ChevronRight, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import {
@@ -174,6 +175,7 @@ function WeeklyProgressCard({
 }) {
   const { data: period } = useActivePeriod(summary.memberId)
   const addGraceDay = useAddGraceDay()
+  const [showGracePicker, setShowGracePicker] = useState(false)
 
   const pct = period?.completion_percentage ?? 0
   const assigned = period?.effective_tasks_assigned ?? 0
@@ -228,37 +230,75 @@ function WeeklyProgressCard({
 
       {/* Grace days */}
       {graceDays.length > 0 && (
-        <div className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-          Grace days: {graceDays.join(', ')}
+        <div className="flex flex-wrap gap-1 mt-2">
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Grace days:</span>
+          {graceDays.map(day => (
+            <span
+              key={day}
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+                color: 'var(--color-btn-primary-bg)',
+              }}
+            >
+              {new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+          ))}
         </div>
       )}
 
       {/* Action buttons — Mom only */}
-      <div className="flex gap-2 mt-3">
+      <div className="flex flex-wrap gap-2 mt-3">
         {/* Mark Grace Day */}
         {period && (
-          <button
-            onClick={() => {
-              const today = todayLocalIso()
-              if (!graceDays.includes(today)) {
-                addGraceDay.mutate({ periodId: period.id, date: today })
-              }
-            }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
-              color: 'var(--color-btn-primary-bg)',
-            }}
-          >
-            <Calendar size={12} />
-            Mark Grace Day
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowGracePicker(v => !v)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+                color: 'var(--color-btn-primary-bg)',
+              }}
+            >
+              <Calendar size={12} />
+              Mark Grace Day
+            </button>
+
+            {/* Grace day date picker */}
+            {showGracePicker && (
+              <div
+                className="absolute left-0 top-full mt-1 z-20 rounded-lg p-3 shadow-lg"
+                style={{
+                  backgroundColor: 'var(--color-bg-card)',
+                  border: '1px solid var(--color-border-default, var(--color-border))',
+                  minWidth: '220px',
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                    Pick a day ({period.period_start} to {period.period_end})
+                  </span>
+                  <button onClick={() => setShowGracePicker(false)} className="p-0.5 rounded" style={{ color: 'var(--color-text-secondary)' }}>
+                    <X size={14} />
+                  </button>
+                </div>
+                <GraceDayGrid
+                  periodStart={period.period_start as string}
+                  periodEnd={period.period_end as string}
+                  existingGraceDays={graceDays}
+                  onSelect={(date) => {
+                    addGraceDay.mutate({ periodId: period.id, date })
+                    setShowGracePicker(false)
+                  }}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Assign Makeup Work */}
         <button
           onClick={() => {
-            // Navigate to tasks with pre-configured makeup modal
             navigate(`/tasks?new=1&type=makeup&assignee=${summary.memberId}`)
           }}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
@@ -271,6 +311,68 @@ function WeeklyProgressCard({
           Assign Makeup Work
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Grace Day Grid ─────────────────────────────────────────
+// Shows each day in the period as a tappable button so mom can mark any day, not just today.
+
+function GraceDayGrid({
+  periodStart,
+  periodEnd,
+  existingGraceDays,
+  onSelect,
+}: {
+  periodStart: string
+  periodEnd: string
+  existingGraceDays: string[]
+  onSelect: (date: string) => void
+}) {
+  const days: { iso: string; label: string; isToday: boolean; isGrace: boolean }[] = []
+  const today = todayLocalIso()
+  const start = new Date(periodStart + 'T12:00:00')
+  const end = new Date(periodEnd + 'T12:00:00')
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const iso = d.toISOString().split('T')[0]
+    days.push({
+      iso,
+      label: d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }),
+      isToday: iso === today,
+      isGrace: existingGraceDays.includes(iso),
+    })
+  }
+
+  return (
+    <div className="grid grid-cols-4 gap-1">
+      {days.map(day => (
+        <button
+          key={day.iso}
+          disabled={day.isGrace}
+          onClick={() => onSelect(day.iso)}
+          className="px-1.5 py-1.5 rounded text-xs text-center transition-colors"
+          style={{
+            backgroundColor: day.isGrace
+              ? 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)'
+              : day.isToday
+                ? 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, transparent)'
+                : 'transparent',
+            color: day.isGrace
+              ? 'var(--color-btn-primary-bg)'
+              : 'var(--color-text-primary)',
+            border: day.isToday
+              ? '1px solid var(--color-btn-primary-bg)'
+              : '1px solid var(--color-border-default, var(--color-border))',
+            opacity: day.isGrace ? 0.6 : 1,
+            cursor: day.isGrace ? 'default' : 'pointer',
+            fontWeight: day.isGrace ? 600 : 400,
+          }}
+          title={day.isGrace ? 'Already a grace day' : `Mark ${day.iso} as grace day`}
+        >
+          {day.label}
+        </button>
+      ))}
     </div>
   )
 }

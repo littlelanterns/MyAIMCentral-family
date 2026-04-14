@@ -515,12 +515,16 @@ function ToggleSwitch({ value, onChange }: { value: boolean; onChange: (v: boole
     <button
       onClick={() => onChange(!value)}
       className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-      style={{ backgroundColor: value ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-tertiary)' }}
+      style={{
+        backgroundColor: value ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-tertiary)',
+        border: value ? 'none' : '1px solid var(--color-border-default, var(--color-border))',
+      }}
     >
       <span
         className="inline-block h-4 w-4 transform rounded-full transition-transform"
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--color-bg-card, #ffffff)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
           transform: value ? 'translateX(1.375rem)' : 'translateX(0.25rem)',
         }}
       />
