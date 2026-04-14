@@ -22,6 +22,8 @@ import { usePlayTaskIcons } from '@/hooks/usePlayTaskIcons'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
+import { RoutineStepChecklist } from '@/components/tasks/RoutineStepChecklist'
+import { todayLocalIso } from '@/utils/dates'
 import type { Task } from '@/types/tasks'
 import type { TaskSegment } from '@/types/play-dashboard'
 
@@ -272,7 +274,16 @@ function SegmentSection({
   const Icon = segment.icon_key ? getLucideIcon(segment.icon_key) : null
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
   const [collapsed, setCollapsed] = useState(() => shouldStartCollapsed(segment))
+  const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>(null)
   const isEmpty = tasks.length === 0
+
+  const handleSegmentTileTap = (task: Task) => {
+    if (task.task_type === 'routine' && task.template_id) {
+      setExpandedRoutineId(prev => prev === task.id ? null : task.id)
+      return
+    }
+    onTapTask(task)
+  }
 
   return (
     <section>
@@ -428,15 +439,33 @@ function SegmentSection({
                 }
 
                 // Show upfront: normal tile with drawn item name as subtitle
+                const isRoutineExpanded = task.task_type === 'routine' && expandedRoutineId === task.id
                 return (
-                  <div key={task.id} className="flex flex-col gap-1">
+                  <div key={task.id} className="flex flex-col gap-1" style={isRoutineExpanded ? { gridColumn: '1 / -1' } : undefined}>
                     <PlayTaskTile
                       task={task}
                       iconUrl={iconUrls[task.id] ?? null}
                       isCompleting={completingTaskIds.has(task.id)}
-                      onTap={onTapTask}
+                      onTap={handleSegmentTileTap}
                       subtitle={isRandomizerLinked ? draw.itemName : undefined}
                     />
+                    {isRoutineExpanded && task.template_id && memberId && (
+                      <div
+                        style={{
+                          padding: '0.75rem',
+                          borderRadius: 'var(--vibe-radius-card, 0.75rem)',
+                          backgroundColor: 'color-mix(in srgb, var(--color-bg-card) 95%, transparent)',
+                          border: '1px solid var(--color-border)',
+                        }}
+                      >
+                        <RoutineStepChecklist
+                          taskId={task.id}
+                          templateId={task.template_id}
+                          memberId={memberId}
+                          compact
+                        />
+                      </div>
+                    )}
                     {showRedraw && !isCompleted && (
                       <div className="flex justify-center">
                         <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId!} />
@@ -472,8 +501,24 @@ function FlatGrid({
   isAdultViewing?: boolean
   memberId?: string
 }) {
+  const today = todayLocalIso()
+  const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>(null)
   const pending = tasks.filter(t => t.status !== 'completed' && t.status !== 'pending_approval')
-  const completed = tasks.filter(t => t.status === 'completed' || t.status === 'pending_approval')
+  const completedToday = tasks.filter(t => {
+    if (t.status !== 'completed' || !t.completed_at) return false
+    const completedDate = new Date(t.completed_at)
+    const completedLocal = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`
+    return completedLocal === today
+  })
+
+  const handleTileTap = (task: Task) => {
+    // Routines expand to show steps instead of immediately completing
+    if (task.task_type === 'routine' && task.template_id) {
+      setExpandedRoutineId(prev => prev === task.id ? null : task.id)
+      return
+    }
+    onTapTask(task)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -492,15 +537,33 @@ function FlatGrid({
           <div className="play-tile-grid">
             {pending.map(task => {
               const draw = taskDrawMap[task.id]
+              const isRoutineExpanded = task.task_type === 'routine' && expandedRoutineId === task.id
               return (
-                <div key={task.id} className="flex flex-col gap-1">
+                <div key={task.id} className="flex flex-col gap-1" style={isRoutineExpanded ? { gridColumn: '1 / -1' } : undefined}>
                   <PlayTaskTile
                     task={task}
                     iconUrl={iconUrls[task.id] ?? null}
                     isCompleting={completingTaskIds.has(task.id)}
-                    onTap={onTapTask}
+                    onTap={handleTileTap}
                     subtitle={draw ? draw.itemName : undefined}
                   />
+                  {isRoutineExpanded && task.template_id && memberId && (
+                    <div
+                      style={{
+                        padding: '0.75rem',
+                        borderRadius: 'var(--vibe-radius-card, 0.75rem)',
+                        backgroundColor: 'var(--color-bg-card)',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      <RoutineStepChecklist
+                        taskId={task.id}
+                        templateId={task.template_id}
+                        memberId={memberId}
+                        compact
+                      />
+                    </div>
+                  )}
                   {draw && isAdultViewing && memberId && (
                     <div className="flex justify-center">
                       <RedrawButton drawId={draw.drawId} listId={draw.listId} memberId={memberId} />
@@ -513,7 +576,7 @@ function FlatGrid({
         </section>
       )}
 
-      {completed.length > 0 && (
+      {completedToday.length > 0 && (
         <section>
           <h2
             style={{
@@ -526,7 +589,7 @@ function FlatGrid({
             Done today
           </h2>
           <div className="play-tile-grid">
-            {completed.map(task => {
+            {completedToday.map(task => {
               const draw = taskDrawMap[task.id]
               return (
                 <PlayTaskTile

@@ -25,6 +25,7 @@ import { TaskCardGuided } from './TaskCard'
 import { TaskCardPlay } from './TaskCardPlay'
 import { useTaskCompletion } from './useTaskCompletion'
 import { useShell } from '@/components/shells/ShellProvider'
+import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import type { Task } from '@/hooks/useTasks'
 
 // Default view per shell
@@ -73,6 +74,9 @@ export function DashboardTasksSection({
       setTimeout(() => setSparkleOrigin(null), 1000)
     },
   })
+
+  // Fetch today's randomizer draws for tasks with linked_list_id
+  const { taskDrawMap } = useTaskRandomizerDraws(tasks, memberId)
 
   const queryClient = useQueryClient()
 
@@ -228,6 +232,7 @@ export function DashboardTasksSection({
             onEdit={setEditingTask}
             shell={shell}
             isPlanned={PLANNED_VIEWS.has(activeView)}
+            taskDrawMap={taskDrawMap}
           />
         </div>
       )}
@@ -286,6 +291,7 @@ interface ViewRendererProps {
   onEdit?: (task: Task) => void
   shell: string
   isPlanned?: boolean
+  taskDrawMap?: Record<string, import('@/hooks/useTaskRandomizerDraws').TaskRandomizerDraw>
 }
 
 function ViewRenderer({
@@ -297,6 +303,7 @@ function ViewRenderer({
   onEdit,
   shell,
   isPlanned,
+  taskDrawMap,
 }: ViewRendererProps) {
   if (isPlanned) {
     return <PlannedViewStub viewKey={viewKey} />
@@ -308,6 +315,7 @@ function ViewRenderer({
     isCompleting,
     onUpdateTask,
     onEdit,
+    taskDrawMap,
   }
 
   switch (viewKey) {

@@ -21,6 +21,7 @@ import { speak } from '@/utils/speak'
 import { RoutineStepChecklist, isSectionActiveToday } from '@/components/tasks/RoutineStepChecklist'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions } from '@/hooks/useTaskCompletions'
+import { todayLocalIso } from '@/utils/dates'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
 interface GuidedActiveTasksSectionProps {
@@ -36,11 +37,26 @@ export function GuidedActiveTasksSection({
   preferences,
   readingSupport,
 }: GuidedActiveTasksSectionProps) {
-  const { data: tasks = [] } = useTasks(familyId, {
+  const { data: allTasks = [] } = useTasks(familyId, {
     assigneeId: memberId,
-    status: ['pending', 'in_progress'],
-    archived: false,
   })
+
+  // Active tasks = pending + in_progress (what's left to do)
+  const today = todayLocalIso()
+  const tasks = useMemo(
+    () => allTasks.filter(t => t.status === 'pending' || t.status === 'in_progress'),
+    [allTasks],
+  )
+  // Completed today = tasks completed today, shown as a "done" section
+  const completedToday = useMemo(
+    () => allTasks.filter(t => {
+      if (t.status !== 'completed' || !t.completed_at) return false
+      const d = new Date(t.completed_at)
+      const completedLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return completedLocal === today
+    }),
+    [allTasks, today],
+  )
   const completeTask = useCompleteTask()
   const { data: allSegments } = useTaskSegments(memberId)
 
@@ -95,7 +111,7 @@ export function GuidedActiveTasksSection({
     t => t.task_type?.startsWith('opportunity')
   )
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && completedToday.length === 0) {
     return (
       <div
         className="p-4 rounded-xl text-center"
@@ -285,6 +301,33 @@ export function GuidedActiveTasksSection({
             {unsegOpps.map(renderTask)}
           </div>
         )}
+
+        {/* Done today */}
+        {completedToday.length > 0 && (
+          <div className="space-y-0.5">
+            <div
+              className="text-xs font-medium uppercase tracking-wider py-2 px-3"
+              style={{ color: 'var(--color-success, #22c55e)' }}
+            >
+              Done today ({completedToday.length})
+            </div>
+            {completedToday.map(task => (
+              <div
+                key={task.id}
+                className="flex items-center gap-3 py-2.5 px-3 rounded-lg"
+                style={{ opacity: 0.6 }}
+              >
+                <CheckCircle2 size={22} style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }} />
+                <span
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)', textDecoration: 'line-through' }}
+                >
+                  {task.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -380,6 +423,33 @@ export function GuidedActiveTasksSection({
               {opportunities.map(renderTask)}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Done today */}
+      {completedToday.length > 0 && (
+        <div className="space-y-0.5">
+          <div
+            className="text-xs font-medium uppercase tracking-wider py-2 px-3"
+            style={{ color: 'var(--color-success, #22c55e)' }}
+          >
+            Done today ({completedToday.length})
+          </div>
+          {completedToday.map(task => (
+            <div
+              key={task.id}
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg"
+              style={{ opacity: 0.6 }}
+            >
+              <CheckCircle2 size={22} style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }} />
+              <span
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)', textDecoration: 'line-through' }}
+              >
+                {task.title}
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>

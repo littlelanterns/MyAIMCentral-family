@@ -2058,7 +2058,7 @@ export function TaskCreationModal({
         variant="primary"
         onClick={handleSave}
         loading={loading}
-        disabled={!data.title.trim() || (hasRoutineSections && !hasAssignees)}
+        disabled={!data.title.trim() || (!editMode && hasRoutineSections && !hasAssignees)}
       >
         {editMode
           ? 'Save Changes'

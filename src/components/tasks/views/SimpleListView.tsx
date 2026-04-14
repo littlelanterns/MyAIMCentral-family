@@ -36,6 +36,7 @@ interface SimpleListViewProps {
   onAssign?: (task: Task) => void
   onDelete?: (task: Task) => void
   isCompleting?: (taskId: string) => boolean
+  taskDrawMap?: Record<string, { itemName: string }>
 }
 
 export function SimpleListView({
@@ -47,6 +48,7 @@ export function SimpleListView({
   onAssign,
   onDelete,
   isCompleting,
+  taskDrawMap,
 }: SimpleListViewProps) {
   const updateViewMetadata = useUpdateTaskViewMetadata()
 
@@ -171,6 +173,7 @@ export function SimpleListView({
                 onBreakItDown={onBreakItDown}
                 onAssign={onAssign}
                 onDelete={onDelete}
+                drawSubtitle={taskDrawMap?.[task.id]?.itemName ?? null}
               />
             ))}
           </div>
@@ -215,6 +218,7 @@ interface SortableTaskItemProps {
   onBreakItDown?: (task: Task) => void
   onAssign?: (task: Task) => void
   onDelete?: (task: Task) => void
+  drawSubtitle?: string | null
 }
 
 function SortableTaskItem({
@@ -226,6 +230,7 @@ function SortableTaskItem({
   onBreakItDown,
   onAssign,
   onDelete,
+  drawSubtitle,
 }: SortableTaskItemProps) {
   const {
     attributes,
@@ -259,6 +264,7 @@ function SortableTaskItem({
         onAssign={onAssign}
         onDelete={onDelete}
         dragHandleProps={dragHandleProps}
+        drawSubtitle={drawSubtitle}
       />
     </div>
   )

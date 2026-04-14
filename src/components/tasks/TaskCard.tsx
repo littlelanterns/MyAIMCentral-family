@@ -101,6 +101,12 @@ export interface TaskCardProps {
   onLogPractice?: (task: Task) => void
   /** Build J: open the mastery submission modal */
   onSubmitMastery?: (task: Task) => void
+  /** Today's randomizer draw subtitle (e.g. drawn activity name) */
+  drawSubtitle?: string | null
+  /** Assignee display name — shown as small colored pill on task card */
+  assigneeName?: string | null
+  /** Assignee resolved color (hex) */
+  assigneeColor?: string | null
 }
 
 const TASK_TYPE_ICONS: Record<string, typeof Circle> = {
@@ -155,6 +161,9 @@ export function TaskCard({
   dragHandleProps,
   onLogPractice: _onLogPractice,
   onSubmitMastery,
+  drawSubtitle,
+  assigneeName,
+  assigneeColor,
 }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [isPressed, _setIsPressed] = useState(false)
@@ -469,6 +478,16 @@ export function TaskCard({
             </div>
           )}
 
+          {/* Randomizer draw subtitle — today's drawn activity */}
+          {drawSubtitle && !isCompleted && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] mt-0.5 font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Today: {drawSubtitle}
+            </span>
+          )}
+
           {/* Build J: Sequential advancement progress subtitle */}
           {advancementSubtitle && (
             <span
@@ -542,6 +561,20 @@ export function TaskCard({
               <Badge variant="default" size="sm">
                 {TASK_TYPE_LABELS[task.task_type] ?? task.task_type}
               </Badge>
+            )}
+
+            {/* Assignee pill — small colored indicator */}
+            {assigneeName && assigneeColor && (
+              <span
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${assigneeColor} 20%, transparent)`,
+                  color: assigneeColor,
+                  border: `1px solid ${assigneeColor}`,
+                }}
+              >
+                {assigneeName}
+              </span>
             )}
 
             {/* Due date */}

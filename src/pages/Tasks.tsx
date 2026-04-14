@@ -57,6 +57,7 @@ import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
+import { getMemberColor } from '@/lib/memberColors'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
@@ -126,7 +127,7 @@ export function TasksPage() {
   const [activeTab, setActiveTab] = useState<TaskTab>('my_tasks')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recently_created')
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('active')
-  const [filterMemberId, _setFilterMemberId] = useState<string | null>(null)
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(activeMember?.id ?? null)
   const [showFilters, setShowFilters] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -174,8 +175,9 @@ export function TasksPage() {
 
   const queryClient = useQueryClient()
 
-  // Guided member detection — simplified UI
+  // Role detection for UI filtering
   const isGuidedMember = activeMember?.dashboard_mode === 'guided'
+  const isMomOrDad = activeMember?.role === 'primary_parent' || activeMember?.role === 'additional_adult'
 
   // Guided quick-create: simple title-only task, assigned to self
   const handleGuidedCreate = useCallback(async () => {
@@ -427,19 +429,27 @@ export function TasksPage() {
     let filtered = allTasks
 
     const myId = activeMember?.id
-    if (myId && activeTab !== 'queue') {
-      // On the routines tab, mom sees ALL routines she created (including those
-      // assigned to kids). On other tabs, the standard "my tasks" filter applies.
-      const isMomOnRoutines = activeTab === 'routines' &&
-        (activeMember?.role === 'primary_parent' || activeMember?.role === 'additional_adult')
 
-      filtered = filtered.filter(
-        (t) =>
-          t.assignee_id === myId ||
-          (!t.assignee_id && t.created_by === myId) ||
-          myAssignedTaskIds.has(t.id) ||
-          (isMomOnRoutines && t.created_by === myId)
-      )
+    if (myId && activeTab !== 'queue') {
+      if (filterMemberId) {
+        // Specific member selected: show their tasks + tasks created by mom for them
+        filtered = filtered.filter(
+          (t) =>
+            t.assignee_id === filterMemberId ||
+            (!t.assignee_id && t.created_by === filterMemberId) ||
+            (isMomOrDad && t.created_by === myId && t.assignee_id === filterMemberId)
+        )
+      } else if (isMomOrDad) {
+        // "All" selected by mom/dad: show everything in the family (no filter)
+      } else {
+        // Non-parent with "All": show own tasks + shared tasks
+        filtered = filtered.filter(
+          (t) =>
+            t.assignee_id === myId ||
+            (!t.assignee_id && t.created_by === myId) ||
+            myAssignedTaskIds.has(t.id)
+        )
+      }
     }
 
     switch (activeTab) {
@@ -484,10 +494,6 @@ export function TasksPage() {
         break
     }
 
-    if (filterMemberId) {
-      filtered = filtered.filter((t) => t.assignee_id === filterMemberId)
-    }
-
     switch (sortOrder) {
       case 'name':
         filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title))
@@ -500,7 +506,7 @@ export function TasksPage() {
     }
 
     return filtered
-  }, [allTasks, activeMember?.id, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds])
+  }, [allTasks, activeMember?.id, activeMember?.role, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds])
 
   return (
     <div className="max-w-3xl mx-auto space-y-0">
@@ -613,6 +619,46 @@ export function TasksPage() {
             {guidedCreating ? 'Adding...' : 'Save'}
           </Button>
         </form>
+      )}
+
+      {/* ── Member pill filter (below tabs) — adults only ── */}
+      {activeTab !== 'queue' && activeTab !== 'finances' && !isGuidedMember && isMomOrDad && familyMembers && familyMembers.length > 1 && (
+        <div className="flex items-center gap-1.5 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {/* "All" pill */}
+          <button
+            onClick={() => setFilterMemberId(null)}
+            className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
+            style={{
+              backgroundColor: filterMemberId === null ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
+              color: filterMemberId === null ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            All
+          </button>
+          {/* Per-member pills */}
+          {familyMembers
+            .filter(m => m.is_active !== false && !(m as unknown as Record<string, unknown>).out_of_nest)
+            .map(m => {
+              const color = getMemberColor(m as { assigned_color?: string | null; member_color?: string | null })
+              const isSelected = filterMemberId === m.id
+              const isMe = m.id === activeMember?.id
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setFilterMemberId(m.id)}
+                  className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
+                  style={{
+                    backgroundColor: isSelected ? color : 'transparent',
+                    color: isSelected ? '#fff' : 'var(--color-text-secondary)',
+                    border: `2px solid ${color}`,
+                  }}
+                >
+                  {m.display_name}{isMe ? ' (me)' : ''}
+                </button>
+              )
+            })}
+        </div>
       )}
 
       {/* ── Filter bar (below tabs) — hidden for Guided members ── */}
@@ -944,7 +990,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
       if (!ffamily?.id) return []
       const { data } = await supabase
         .from('family_members')
-        .select('id, display_name, role')
+        .select('id, display_name, role, assigned_color, member_color')
         .eq('family_id', ffamily.id)
         .eq('is_active', true)
         .order('display_name')
@@ -981,8 +1027,22 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
     if (deployingTaskId) setDeployingTaskId(null)
   }
 
+  // Build member lookup for assignee pills
+  const memberLookup = useMemo(() => {
+    const map: Record<string, { name: string; color: string }> = {}
+    for (const m of familyMembers) {
+      const mRec = m as Record<string, unknown>
+      map[m.id] = {
+        name: m.display_name?.split(' ')[0] ?? m.display_name ?? '',
+        color: (mRec.assigned_color as string) || (mRec.member_color as string) || '#6B7280',
+      }
+    }
+    return map
+  }, [familyMembers])
+
   const renderTaskRow = (task: Task) => {
     const draw = taskDrawMap[task.id]
+    const assignee = task.assignee_id ? memberLookup[task.assignee_id] : null
     return (
     <div
       key={task.id}
@@ -999,15 +1059,10 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
         onDelete={onDelete}
         onSubmitMastery={onSubmitMastery}
+        drawSubtitle={draw?.itemName ?? null}
+        assigneeName={assignee?.name ?? null}
+        assigneeColor={assignee?.color ?? null}
       />
-      {draw && (
-        <div
-          className="px-3 pb-1 -mt-1 text-xs"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          Today: {draw.itemName}
-        </div>
-      )}
 
       {/* Deploy/Reassign button — adults only (kids must not reassign their own chores) */}
       {(fmember?.role === 'primary_parent' || fmember?.role === 'additional_adult') && (
