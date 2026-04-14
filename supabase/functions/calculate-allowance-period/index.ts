@@ -168,6 +168,57 @@ Deno.serve(async (req) => {
           let totalPoints = 0
           let completedPoints = 0
 
+          // For routine tasks, pre-fetch step completion data for partial credit
+          const routineTaskIds = tasks.filter(t => t.task_type === 'routine').map(t => t.id)
+          const routineStepData = new Map<string, { completed: number; total: number }>()
+
+          if (routineTaskIds.length > 0) {
+            // Get template step counts and step completions for each routine
+            for (const routineId of routineTaskIds) {
+              // Get the task's template_id
+              const { data: routineTask } = await supabase
+                .from('tasks')
+                .select('template_id')
+                .eq('id', routineId)
+                .single()
+
+              if (!routineTask?.template_id) continue
+
+              // Count total steps in the template
+              const { count: totalSteps } = await supabase
+                .from('task_template_steps')
+                .select('id', { count: 'exact', head: true })
+                .in('section_id', (
+                  await supabase
+                    .from('task_template_sections')
+                    .select('id')
+                    .eq('template_id', routineTask.template_id)
+                ).data?.map((s: { id: string }) => s.id) ?? [])
+
+              // Count step completions during this period
+              const { count: completedSteps } = await supabase
+                .from('routine_step_completions')
+                .select('id', { count: 'exact', head: true })
+                .eq('task_id', routineId)
+                .eq('member_id', period.family_member_id)
+                .gte('period_date', period.period_start)
+                .lte('period_date', period.period_end)
+
+              // Average daily completion: completedSteps / (totalSteps * days_in_period)
+              // But simpler: just ratio of completed vs total per-day average
+              const periodDays = Math.max(1,
+                Math.ceil((new Date(period.period_end).getTime() - new Date(period.period_start).getTime()) / (1000 * 60 * 60 * 24)) + 1
+              )
+              const totalPossible = (totalSteps ?? 0) * periodDays
+              const actualCompleted = completedSteps ?? 0
+
+              routineStepData.set(routineId, {
+                completed: actualCompleted,
+                total: totalPossible,
+              })
+            }
+          }
+
           for (const task of tasks) {
             const isGraceDay = task.due_date && graceDaySet.has(task.due_date)
 
@@ -180,7 +231,17 @@ Deno.serve(async (req) => {
             totalAssigned++
             totalPoints += weight
 
-            if (task.status === 'completed') {
+            if (task.task_type === 'routine') {
+              // Routine: partial credit based on step completions
+              const stepData = routineStepData.get(task.id)
+              if (stepData && stepData.total > 0) {
+                const fraction = Math.min(stepData.completed / stepData.total, 1)
+                completedPoints += weight * fraction
+                if (fraction >= 1) completed++
+                else if (fraction > 0) completed += fraction // fractional "completed" count
+              }
+              // If no step data, routine contributes 0
+            } else if (task.status === 'completed') {
               completed++
               completedPoints += weight
 

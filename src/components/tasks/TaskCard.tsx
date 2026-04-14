@@ -43,9 +43,44 @@ import { useTimerContext } from '@/features/timer'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { supabase } from '@/lib/supabase/client'
 import { TaskCompletionExpander } from './TaskCompletionExpander'
-import { RoutineStepChecklist } from './RoutineStepChecklist'
+import { RoutineStepChecklist, isSectionActiveToday } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
+import { useRoutineStepCompletions } from '@/hooks/useTaskCompletions'
 import type { Task } from '@/hooks/useTasks'
+
+/** Tiny SVG progress ring for routine cards — replaces the completion checkbox */
+function RoutineProgressRing({ completed, total }: { completed: number; total: number }) {
+  const pct = total > 0 ? completed / total : 0
+  const r = 8
+  const circumference = 2 * Math.PI * r
+  const offset = circumference * (1 - pct)
+  const color = pct >= 1
+    ? 'var(--color-success, #22c55e)'
+    : pct > 0
+    ? 'var(--color-btn-primary-bg)'
+    : 'var(--color-text-secondary)'
+
+  return (
+    <div className="shrink-0 mt-0.5 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+      <svg width="20" height="20" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r={r} fill="none" stroke="var(--color-border)" strokeWidth="2" />
+        <circle
+          cx="10" cy="10" r={r} fill="none"
+          stroke={color} strokeWidth="2"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform="rotate(-90 10 10)"
+          style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+        />
+        {pct >= 1 && (
+          <polyline points="6,10.5 9,13.5 14,7.5" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+      </svg>
+    </div>
+  )
+}
 
 export interface TaskCardProps {
   task: Task
@@ -126,6 +161,23 @@ export function TaskCard({
   const [showExpander, setShowExpander] = useState(false)
   const [routineExpanded, setRoutineExpanded] = useState(task.task_type === 'routine')
   const { data: currentMember } = useFamilyMember()
+
+  // Routine progress — compute today's step completion % for the progress ring
+  const isRoutine = task.task_type === 'routine'
+  const { data: routineSections } = useRoutineTemplateSteps(isRoutine ? task.template_id ?? undefined : undefined)
+  const { data: routineCompletions } = useRoutineStepCompletions(
+    isRoutine ? task.id : undefined,
+    isRoutine ? (task.assignee_id ?? currentMember?.id) : undefined,
+  )
+  const routineProgress = (() => {
+    if (!isRoutine || !routineSections?.length) return { completed: 0, total: 0 }
+    const completedIds = new Set((routineCompletions ?? []).map(c => c.step_id))
+    const activeSections = routineSections.filter(s => isSectionActiveToday(s, completedIds))
+    const todaySteps = activeSections.flatMap(s => s.steps)
+    const done = todaySteps.filter(s => completedIds.has(s.id)).length
+    return { completed: done, total: todaySteps.length }
+  })()
+
   const [pendingOrigin, setPendingOrigin] = useState<{ x: number; y: number } | undefined>()
   const [showNoteInput, setShowNoteInput] = useState(false)
   const [pendingNote, setPendingNote] = useState('')
@@ -324,37 +376,44 @@ export function TaskCard({
           </button>
         )}
 
-        {/* Checkbox */}
-        <button
-          ref={checkboxRef}
-          onClick={handleCheckboxClick}
-          disabled={isCompleting}
-          className="shrink-0 mt-0.5 transition-all"
-          style={{
-            width: 20,
-            height: 20,
-            color: isCompleted
-              ? 'var(--color-success, #22c55e)'
-              : isInProgress
-              ? 'var(--color-info, #3b82f6)'
-              : isPendingApproval
-              ? 'var(--color-warning, #f59e0b)'
-              : 'var(--color-text-secondary)',
-            opacity: isCompleting ? 0.5 : 1,
-            cursor: isCompleting ? 'wait' : 'pointer',
-          }}
-          aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
-        >
-          {isCompleted ? (
-            <CheckCircle2 size={20} />
-          ) : isInProgress ? (
-            <Clock size={20} />
-          ) : isPendingApproval ? (
-            <Pause size={20} />
-          ) : (
-            <Circle size={20} />
-          )}
-        </button>
+        {/* Routines get a progress ring instead of a completion checkbox */}
+        {isRoutine && task.template_id && (
+          <RoutineProgressRing completed={routineProgress.completed} total={routineProgress.total} />
+        )}
+
+        {/* Checkbox — hidden for routines (routines auto-complete via step progress) */}
+        {!isRoutine && (
+          <button
+            ref={checkboxRef}
+            onClick={handleCheckboxClick}
+            disabled={isCompleting}
+            className="shrink-0 mt-0.5 transition-all"
+            style={{
+              width: 20,
+              height: 20,
+              color: isCompleted
+                ? 'var(--color-success, #22c55e)'
+                : isInProgress
+                ? 'var(--color-info, #3b82f6)'
+                : isPendingApproval
+                ? 'var(--color-warning, #f59e0b)'
+                : 'var(--color-text-secondary)',
+              opacity: isCompleting ? 0.5 : 1,
+              cursor: isCompleting ? 'wait' : 'pointer',
+            }}
+            aria-label={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+          >
+            {isCompleted ? (
+              <CheckCircle2 size={20} />
+            ) : isInProgress ? (
+              <Clock size={20} />
+            ) : isPendingApproval ? (
+              <Pause size={20} />
+            ) : (
+              <Circle size={20} />
+            )}
+          </button>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -379,15 +438,16 @@ export function TaskCard({
           </div>
 
           {/* Routine step indicator — clickable to expand checklist */}
-          {task.task_type === 'routine' && !isCompleted && (
+          {isRoutine && !isCompleted && (
             <button
               onClick={(e) => { e.stopPropagation(); setRoutineExpanded(!routineExpanded) }}
               className="inline-flex items-center gap-1 text-[11px] mt-0.5 font-medium"
               style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', padding: 0, minHeight: 'unset', cursor: 'pointer' }}
             >
               <Repeat size={10} />
-              Routine
-              {task.template_id && (routineExpanded ? ' — hide steps' : ' — show steps')}
+              {routineProgress.total > 0
+                ? `${routineProgress.completed}/${routineProgress.total} today`
+                : 'Routine'}
               {task.template_id && (routineExpanded
                 ? <ChevronRight size={10} style={{ transform: 'rotate(90deg)', transition: 'transform 0.15s' }} />
                 : <ChevronRight size={10} style={{ transition: 'transform 0.15s' }} />

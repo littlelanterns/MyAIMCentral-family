@@ -18,7 +18,9 @@ import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import { speak } from '@/utils/speak'
-import { RoutineStepChecklist } from '@/components/tasks/RoutineStepChecklist'
+import { RoutineStepChecklist, isSectionActiveToday } from '@/components/tasks/RoutineStepChecklist'
+import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
+import { useRoutineStepCompletions } from '@/hooks/useTaskCompletions'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
 interface GuidedActiveTasksSectionProps {
@@ -46,7 +48,12 @@ export function GuidedActiveTasksSection({
     preferences.guided_task_view_default
   )
   const [celebratingId, setCelebratingId] = useState<string | null>(null)
-  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(new Set())
+  // Auto-expand all routines by default
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(() => {
+    const initial = new Set<string>()
+    tasks.filter(t => t.task_type === 'routine').forEach(t => initial.add(t.id))
+    return initial
+  })
 
   const handleComplete = useCallback((taskId: string) => {
     setCelebratingId(taskId)
@@ -112,7 +119,7 @@ export function GuidedActiveTasksSection({
   const renderTask = (task: (typeof tasks)[0]) => {
     const isCelebrating = celebratingId === task.id
     const isRoutine = task.task_type === 'routine'
-    const isExpanded = expandedRoutines.has(task.id)
+    const isExpanded = expandedRoutines.has(task.id) || isRoutine // auto-expand routines
     const requiresApproval = task.require_approval
     const draw = taskDrawMap[task.id]
 
@@ -127,25 +134,30 @@ export function GuidedActiveTasksSection({
             transform: isCelebrating ? 'scale(1.02)' : 'scale(1)',
           }}
         >
-          <button
-            onClick={() => handleComplete(task.id)}
-            className="shrink-0"
-            style={{
-              color: isCelebrating
-                ? 'var(--color-accent-warm, #22c55e)'
-                : 'var(--color-text-tertiary)',
-              background: 'transparent',
-              padding: 0,
-              minHeight: 'unset',
-              minWidth: 'unset',
-            }}
-          >
-            {isCelebrating ? (
-              <CheckCircle2 size={22} style={{ color: 'var(--color-accent-warm, #22c55e)' }} />
-            ) : (
-              <Circle size={22} />
-            )}
-          </button>
+          {/* Routines get a progress ring, non-routines get a completion circle */}
+          {isRoutine ? (
+            <GuidedRoutineProgressRing taskId={task.id} templateId={task.template_id} memberId={memberId} />
+          ) : (
+            <button
+              onClick={() => handleComplete(task.id)}
+              className="shrink-0"
+              style={{
+                color: isCelebrating
+                  ? 'var(--color-accent-warm, #22c55e)'
+                  : 'var(--color-text-tertiary)',
+                background: 'transparent',
+                padding: 0,
+                minHeight: 'unset',
+                minWidth: 'unset',
+              }}
+            >
+              {isCelebrating ? (
+                <CheckCircle2 size={22} style={{ color: 'var(--color-accent-warm, #22c55e)' }} />
+              ) : (
+                <Circle size={22} />
+              )}
+            </button>
+          )}
 
           <div
             className="flex-1 min-w-0 cursor-pointer"
@@ -370,6 +382,53 @@ export function GuidedActiveTasksSection({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Small progress ring for routine tasks in the Guided dashboard */
+function GuidedRoutineProgressRing({
+  taskId,
+  templateId,
+  memberId,
+}: {
+  taskId: string
+  templateId: string | null
+  memberId: string
+}) {
+  const { data: sections } = useRoutineTemplateSteps(templateId ?? undefined)
+  const { data: completions } = useRoutineStepCompletions(taskId, memberId)
+
+  const completedIds = new Set((completions ?? []).map(c => c.step_id))
+  const activeSections = (sections ?? []).filter(s => isSectionActiveToday(s, completedIds))
+  const todaySteps = activeSections.flatMap(s => s.steps)
+  const done = todaySteps.filter(s => completedIds.has(s.id)).length
+  const total = todaySteps.length
+
+  const pct = total > 0 ? done / total : 0
+  const r = 9
+  const circumference = 2 * Math.PI * r
+  const offset = circumference * (1 - pct)
+  const color = pct >= 1
+    ? 'var(--color-success, #22c55e)'
+    : pct > 0
+    ? 'var(--color-btn-primary-bg)'
+    : 'var(--color-text-tertiary)'
+
+  return (
+    <div className="shrink-0 flex items-center justify-center" style={{ width: 22, height: 22 }}>
+      <svg width="22" height="22" viewBox="0 0 22 22">
+        <circle cx="11" cy="11" r={r} fill="none" stroke="var(--color-border)" strokeWidth="2" />
+        <circle
+          cx="11" cy="11" r={r} fill="none"
+          stroke={color} strokeWidth="2"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform="rotate(-90 11 11)"
+          style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+        />
+      </svg>
     </div>
   )
 }

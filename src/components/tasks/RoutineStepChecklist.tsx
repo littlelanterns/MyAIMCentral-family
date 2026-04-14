@@ -446,7 +446,7 @@ function SectionGroup({
 }
 
 /** Check if a routine section should display today based on its frequency rule */
-function isSectionActiveToday(section: RoutineSection, completedStepIds: Set<string>): boolean {
+export function isSectionActiveToday(section: RoutineSection, completedStepIds: Set<string>): boolean {
   if (!section.frequency_rule || section.frequency_rule === 'daily') return true
 
   const today = new Date().getDay() // 0=Sun, 6=Sat
