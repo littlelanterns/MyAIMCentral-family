@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import MemberSortToggle from '@/components/shared/MemberSortToggle'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
@@ -238,7 +239,12 @@ export function ViewAsMemberPicker({ open, onClose }: ViewAsMemberPickerProps) {
           </button>
         </div>
 
-        {/* Member grid */}
+        {/* Sort toggle + Member grid */}
+        {pickableMembers.length > 2 && (
+          <div className="flex justify-end mb-2">
+            <MemberSortToggle />
+          </div>
+        )}
         {pickableMembers.length === 0 ? (
           <p
             className="text-sm text-center py-6"

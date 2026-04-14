@@ -4,6 +4,7 @@
 // Reusable by Family Overview member selection and Calendar Pick Members filter.
 
 import { getMemberColor } from '@/lib/memberColors'
+import MemberSortToggle from './MemberSortToggle'
 
 export interface MemberPillItem {
   id: string
@@ -20,6 +21,8 @@ interface MemberPillSelectorProps {
   className?: string
   showEveryone?: boolean
   onToggleAll?: () => void
+  /** Show the Age/A-Z sort toggle. Default true. */
+  showSortToggle?: boolean
 }
 
 function getColor(m: MemberPillItem): string {
@@ -33,12 +36,17 @@ export default function MemberPillSelector({
   className = '',
   showEveryone,
   onToggleAll,
+  showSortToggle = true,
 }: MemberPillSelectorProps) {
   const allSelected = members.length > 0 && selectedIds.length === members.length
 
   return (
+    <div className={`flex items-center gap-2 ${className}`}>
+    {showSortToggle && members.length > 2 && (
+      <MemberSortToggle className="shrink-0" />
+    )}
     <div
-      className={`flex gap-2 overflow-x-auto pb-1 ${className}`}
+      className="flex gap-2 overflow-x-auto pb-1 flex-1"
       style={{ scrollbarWidth: 'thin' }}
     >
       {showEveryone && onToggleAll && (
@@ -92,6 +100,7 @@ export default function MemberPillSelector({
           </button>
         )
       })}
+    </div>
     </div>
   )
 }

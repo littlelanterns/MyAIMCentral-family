@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
+import { sortFamilyMembers, getMemberSortPreference } from '@/utils/sortFamilyMembers'
 
 export interface FamilyMember {
   id: string
@@ -87,7 +88,8 @@ export function useFamilyMembers(familyId: string | undefined) {
         .order('created_at')
 
       if (error) throw error
-      return data as FamilyMember[]
+      // Apply user's preferred sort (default: by age — parents first, then kids oldest→youngest)
+      return sortFamilyMembers(data as FamilyMember[], getMemberSortPreference())
     },
     enabled: !!familyId,
   })

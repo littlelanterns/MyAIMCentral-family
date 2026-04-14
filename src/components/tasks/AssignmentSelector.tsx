@@ -8,6 +8,7 @@
 
 import { Users } from 'lucide-react'
 import { Avatar, Toggle } from '@/components/shared'
+import MemberSortToggle from '@/components/shared/MemberSortToggle'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
 export interface MemberAssignment {
@@ -97,6 +98,11 @@ export function AssignmentSelector({
       {/* Individual member list */}
       {!wholeFamily && (
         <div className="space-y-2">
+          {activeMembers.length > 2 && (
+            <div className="flex justify-end">
+              <MemberSortToggle />
+            </div>
+          )}
           {activeMembers.map((member) => {
             const isSelected = assignedIds.has(member.id)
             const assignment = assignments.find((a) => a.memberId === member.id)
