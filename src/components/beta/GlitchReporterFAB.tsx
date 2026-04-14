@@ -36,7 +36,7 @@ function clampPosition(x: number, y: number): FabPosition {
 }
 
 function defaultPosition(): FabPosition {
-  return { x: EDGE_MARGIN, y: window.innerHeight - FAB_SIZE - 80 }
+  return { x: EDGE_MARGIN, y: 150 }
 }
 
 export function GlitchReporterFAB() {
