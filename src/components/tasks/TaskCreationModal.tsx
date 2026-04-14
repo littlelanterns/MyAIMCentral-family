@@ -962,126 +962,7 @@ export function TaskCreationModal({
         }}
       />
 
-      {/* 2. Task Basics */}
-      <SectionCard>
-        <SectionHeading icon={FileText}>Task Basics</SectionHeading>
-
-        {/* Description */}
-        <div style={{ marginBottom: '0.75rem' }}>
-          <label
-            style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}
-          >
-            Description & Instructions
-          </label>
-          <textarea
-            value={data.description}
-            onChange={(e) => {
-              update('description', e.target.value)
-              if (e.target.value.length >= 30 && !showTaskBreaker) setShowTaskBreaker(true)
-            }}
-            placeholder="Describe what needs to be done..."
-            rows={3}
-            style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }}
-          />
-          <HelperText>Describe what needs to be done. TaskBreaker can turn this into step-by-step subtasks.</HelperText>
-        </div>
-
-        {/* TaskBreaker AI Preview */}
-        {showTaskBreaker && (
-          <div
-            style={{
-              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
-              borderRadius: 'var(--vibe-radius-input, 8px)',
-              padding: '1rem',
-              marginBottom: '0.75rem',
-            }}
-          >
-            {showTaskBreakerPanel ? (
-              <TaskBreaker
-                taskTitle={data.title}
-                taskDescription={data.description}
-                lifeAreaTag={data.lifeAreaTag}
-                onApply={(subtasks) => {
-                  setData(d => ({ ...d, taskBreakerSubtasks: subtasks }))
-                  setShowTaskBreakerPanel(false)
-                }}
-                onCancel={() => setShowTaskBreakerPanel(false)}
-              />
-            ) : data.taskBreakerSubtasks && data.taskBreakerSubtasks.length > 0 ? (
-              <>
-                <div style={{ color: 'var(--color-btn-primary-bg)', fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.375rem' }}>
-                  TaskBreaker AI
-                </div>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', margin: '0 0 0.5rem' }}>
-                  {data.taskBreakerSubtasks.length} subtasks will be created when you save.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
-                  {data.taskBreakerSubtasks.map((st, i) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: '0.5rem',
-                      padding: '0.375rem 0.5rem', borderRadius: '6px',
-                      background: 'var(--color-bg-card)', border: '1px solid var(--color-border)',
-                      fontSize: 'var(--font-size-xs)', color: 'var(--color-text-primary)',
-                    }}>
-                      <span style={{ color: 'var(--color-text-secondary)', width: '1.25rem', textAlign: 'center' }}>{i + 1}</span>
-                      <span style={{ flex: 1 }}>{st.title}</span>
-                      {st.suggestedAssigneeName && (
-                        <span style={{ color: 'var(--color-text-secondary)', fontSize: '10px' }}>{st.suggestedAssigneeName}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Button variant="secondary" size="sm" onClick={() => setShowTaskBreakerPanel(true)}>
-                    Redo
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setData(d => ({ ...d, taskBreakerSubtasks: undefined }))}>
-                    Clear Subtasks
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ color: 'var(--color-btn-primary-bg)', fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.375rem' }}>
-                  TaskBreaker AI
-                </div>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', margin: '0 0 0.625rem' }}>
-                  Based on your description, TaskBreaker can create smart subtasks...
-                </p>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Button variant="primary" size="sm" onClick={() => setShowTaskBreakerPanel(true)}>
-                    Generate Subtasks
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Duration */}
-        <div style={{ marginBottom: '0.75rem' }}>
-          <DurationPicker
-            value={data.durationEstimate}
-            onChange={(v) => update('durationEstimate', v)}
-            customValue={data.customDuration}
-            onCustomChange={(v) => update('customDuration', v)}
-          />
-          <HelperText>Set a time limit only if needed (like 30 minutes of reading practice)</HelperText>
-        </div>
-
-        {/* Life Area */}
-        <div>
-          <LifeAreaTagPicker
-            value={data.lifeAreaTag}
-            onChange={(v) => update('lifeAreaTag', v)}
-            customValue={data.customLifeArea}
-            onCustomChange={(v) => update('customLifeArea', v)}
-          />
-          <HelperText>Optional — helps organize tasks by area of life</HelperText>
-        </div>
-      </SectionCard>
-
-      {/* 3. Task Type */}
+      {/* 2. Task Type */}
       <SectionCard>
         <SectionHeading icon={Layers}>Task Type</SectionHeading>
 
@@ -1628,6 +1509,127 @@ export function TaskCreationModal({
           </div>
         )}
       </SectionCard>
+
+      {/* 3. Task Basics — hidden for routines and lists (they have their own content sections) */}
+      {data.taskType !== 'routine' && data.taskType !== 'list' && (
+      <SectionCard>
+        <SectionHeading icon={FileText}>Task Basics</SectionHeading>
+
+        {/* Description */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label
+            style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}
+          >
+            Description & Instructions
+          </label>
+          <textarea
+            value={data.description}
+            onChange={(e) => {
+              update('description', e.target.value)
+              if (e.target.value.length >= 30 && !showTaskBreaker) setShowTaskBreaker(true)
+            }}
+            placeholder="Describe what needs to be done..."
+            rows={3}
+            style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }}
+          />
+          <HelperText>Describe what needs to be done. TaskBreaker can turn this into step-by-step subtasks.</HelperText>
+        </div>
+
+        {/* TaskBreaker AI Preview */}
+        {showTaskBreaker && (
+          <div
+            style={{
+              background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              padding: '1rem',
+              marginBottom: '0.75rem',
+            }}
+          >
+            {showTaskBreakerPanel ? (
+              <TaskBreaker
+                taskTitle={data.title}
+                taskDescription={data.description}
+                lifeAreaTag={data.lifeAreaTag}
+                onApply={(subtasks) => {
+                  setData(d => ({ ...d, taskBreakerSubtasks: subtasks }))
+                  setShowTaskBreakerPanel(false)
+                }}
+                onCancel={() => setShowTaskBreakerPanel(false)}
+              />
+            ) : data.taskBreakerSubtasks && data.taskBreakerSubtasks.length > 0 ? (
+              <>
+                <div style={{ color: 'var(--color-btn-primary-bg)', fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+                  TaskBreaker AI
+                </div>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', margin: '0 0 0.5rem' }}>
+                  {data.taskBreakerSubtasks.length} subtasks will be created when you save.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                  {data.taskBreakerSubtasks.map((st, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.375rem 0.5rem', borderRadius: '6px',
+                      background: 'var(--color-bg-card)', border: '1px solid var(--color-border)',
+                      fontSize: 'var(--font-size-xs)', color: 'var(--color-text-primary)',
+                    }}>
+                      <span style={{ color: 'var(--color-text-secondary)', width: '1.25rem', textAlign: 'center' }}>{i + 1}</span>
+                      <span style={{ flex: 1 }}>{st.title}</span>
+                      {st.suggestedAssigneeName && (
+                        <span style={{ color: 'var(--color-text-secondary)', fontSize: '10px' }}>{st.suggestedAssigneeName}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <Button variant="secondary" size="sm" onClick={() => setShowTaskBreakerPanel(true)}>
+                    Redo
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setData(d => ({ ...d, taskBreakerSubtasks: undefined }))}>
+                    Clear Subtasks
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ color: 'var(--color-btn-primary-bg)', fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.375rem' }}>
+                  TaskBreaker AI
+                </div>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)', margin: '0 0 0.625rem' }}>
+                  Based on your description, TaskBreaker can create smart subtasks...
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <Button variant="primary" size="sm" onClick={() => setShowTaskBreakerPanel(true)}>
+                    Generate Subtasks
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Duration */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <DurationPicker
+            value={data.durationEstimate}
+            onChange={(v) => update('durationEstimate', v)}
+            customValue={data.customDuration}
+            onCustomChange={(v) => update('customDuration', v)}
+          />
+          <HelperText>Set a time limit only if needed (like 30 minutes of reading practice)</HelperText>
+        </div>
+
+        {/* Life Area */}
+        <div>
+          <LifeAreaTagPicker
+            value={data.lifeAreaTag}
+            onChange={(v) => update('lifeAreaTag', v)}
+            customValue={data.customLifeArea}
+            onCustomChange={(v) => update('customLifeArea', v)}
+          />
+          <HelperText>Optional — helps organize tasks by area of life</HelperText>
+        </div>
+      </SectionCard>
+      )}
 
       {/* 4. Who's Responsible */}
       <SectionCard>
