@@ -218,8 +218,11 @@ export async function createTaskFromData(
         }
       }
     }
-  } else if (data.taskType === 'routine') {
-    console.warn('[createTaskFromData] Routine has no sections — skipping template creation.')
+  } else if (data.taskType === 'routine' && !data.templateOnly) {
+    // Routines without sections are broken — they render as empty cards with no checklist.
+    // Refuse to create them. The only exception is templateOnly (Studio save with 0 sections is a user error, but harmless).
+    console.error('[createTaskFromData] Routine has no sections — aborting. Sections must be configured before saving.')
+    return result
   }
 
   // ── Step 2: Create task row(s) with template_id (skip if templateOnly) ──

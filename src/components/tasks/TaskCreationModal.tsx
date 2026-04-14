@@ -1747,24 +1747,26 @@ export function TaskCreationModal({
         </SectionCard>
       )}
 
-      {/* 6. If Not Completed */}
-      <SectionCard>
-        <SectionHeading icon={AlertCircle}>What happens if not completed?</SectionHeading>
-        <HelperText>What should happen when the scheduled time passes and the task isn't done?</HelperText>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem', marginTop: '0.5rem' }}>
-          {INCOMPLETE_OPTIONS.map((opt) => (
-            <RadioOption
-              key={opt.key}
-              name="incomplete"
-              value={opt.key}
-              checked={data.incompleteAction === opt.key}
-              onChange={(v) => update('incompleteAction', v)}
-              label={opt.label}
-              description={opt.description}
-            />
-          ))}
-        </div>
-      </SectionCard>
+      {/* 6. If Not Completed — hidden for routines (routines handle this per-section via frequency rules + show_until_complete) */}
+      {data.taskType !== 'routine' && (
+        <SectionCard>
+          <SectionHeading icon={AlertCircle}>What happens if not completed?</SectionHeading>
+          <HelperText>What should happen when the scheduled time passes and the task isn't done?</HelperText>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem', marginTop: '0.5rem' }}>
+            {INCOMPLETE_OPTIONS.map((opt) => (
+              <RadioOption
+                key={opt.key}
+                name="incomplete"
+                value={opt.key}
+                checked={data.incompleteAction === opt.key}
+                onChange={(v) => update('incompleteAction', v)}
+                label={opt.label}
+                description={opt.description}
+              />
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       {/* 7. Rewards & Tracking */}
       <SectionCard>
