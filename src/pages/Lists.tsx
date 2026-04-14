@@ -182,10 +182,15 @@ export function ListsPage() {
     }
   }, [])
 
-  // When viewing as another member, show only their owned + shared-with lists
+  // When viewing as another member, show only their owned + shared-with lists.
+  // In mom's normal view, hide other members' auto-provisioned system lists
+  // (Ideas, Backburner) — each member gets their own via auto_provision_member_resources.
+  const SYSTEM_LIST_TYPES = new Set(['ideas', 'backburner'])
   const lists = isViewingAs && activeMember
     ? allLists.filter(l => l.owner_id === activeMember.id || sharedListIds.includes(l.id))
-    : allLists
+    : allLists.filter(l =>
+        !SYSTEM_LIST_TYPES.has(l.list_type) || l.owner_id === member?.id
+      )
 
   // Filter lists
   const activeLists = lists.filter(l => !l.archived_at)

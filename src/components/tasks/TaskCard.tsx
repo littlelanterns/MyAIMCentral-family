@@ -159,7 +159,7 @@ export function TaskCard({
   const [showMenu, setShowMenu] = useState(false)
   const [isPressed, _setIsPressed] = useState(false)
   const [showExpander, setShowExpander] = useState(false)
-  const [routineExpanded, setRoutineExpanded] = useState(task.task_type === 'routine')
+  const [routineExpanded, setRoutineExpanded] = useState(false)
   const { data: currentMember } = useFamilyMember()
 
   // Routine progress — compute today's step completion % for the progress ring
