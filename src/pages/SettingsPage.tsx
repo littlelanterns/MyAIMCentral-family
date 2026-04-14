@@ -155,6 +155,18 @@ export function SettingsPage() {
         </SettingsSection>
       )}
 
+      {/* Gamification (Mom only) — PRD-24/PRD-26 */}
+      {shell === 'mom' && (
+        <SettingsSection title="Gamification" icon={Sparkles}>
+          <SettingsNavRow
+            icon={Sparkles}
+            label="Gamification"
+            description="Points, creatures, sticker books, and rewards for each member"
+            to="/settings/gamification"
+          />
+        </SettingsSection>
+      )}
+
       {/* Access & Security (Mom only) */}
       {shell === 'mom' && (
         <SettingsSection title="Access & Security" icon={Shield}>

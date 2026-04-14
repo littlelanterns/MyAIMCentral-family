@@ -95,6 +95,8 @@ export interface CreateTaskData {
   templateOnly?: boolean
   /** When editing an existing template, this ID triggers UPDATE instead of INSERT */
   editingTemplateId?: string | null
+  /** When deploying from Studio, link to existing template without creating/modifying it */
+  deployFromTemplateId?: string | null
   sourceQueueItemId?: string
   sourceBatchIds?: string[]
   /** Source feature that created this task (e.g. 'bookshelf', 'notepad_routed') */
@@ -146,6 +148,22 @@ interface TaskCreationModalProps {
   initialRoutineSections?: RoutineSection[]
   /** When editing an existing routine template, pass its ID to UPDATE instead of INSERT */
   editingTemplateId?: string | null
+  /** Existing task field values to hydrate on edit — prevents resetting to defaults */
+  editTaskValues?: {
+    incompleteAction?: string
+    lifeAreaTag?: string
+    durationEstimate?: string
+    dueDate?: string
+    requireApproval?: boolean
+    victoryFlagged?: boolean
+    countsForAllowance?: boolean
+    countsForHomework?: boolean
+    countsForGamification?: boolean
+    recurrenceRule?: string
+    recurrenceDetails?: Record<string, unknown> | null
+  } | null
+  /** When deploying from Studio, pass the source template ID to link (not duplicate) */
+  deployFromTemplateId?: string | null
 }
 
 // ─── Defaults ────────────────────────────────────────────────
@@ -444,6 +462,8 @@ export function TaskCreationModal({
   makeupConfig,
   initialRoutineSections,
   editingTemplateId,
+  editTaskValues,
+  deployFromTemplateId,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
@@ -467,6 +487,20 @@ export function TaskCreationModal({
     if (defaultDescription) d.description = defaultDescription
     if (sourceReferenceId) d.sourceReferenceId = sourceReferenceId
     if (initialRoutineSections?.length) d.routineSections = initialRoutineSections
+    // Hydrate existing task values on edit so we don't reset them to defaults
+    if (editTaskValues) {
+      if (editTaskValues.incompleteAction) d.incompleteAction = editTaskValues.incompleteAction as typeof d.incompleteAction
+      if (editTaskValues.lifeAreaTag) d.lifeAreaTag = editTaskValues.lifeAreaTag
+      if (editTaskValues.durationEstimate) d.durationEstimate = editTaskValues.durationEstimate
+      if (editTaskValues.dueDate) d.dueDate = editTaskValues.dueDate
+      if (editTaskValues.requireApproval !== undefined) d.reward.requireApproval = editTaskValues.requireApproval
+      if (editTaskValues.victoryFlagged !== undefined) d.reward.flagAsVictory = editTaskValues.victoryFlagged
+      if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
+      if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
+      if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
+    }
+    // When deploying from an existing template, link (don't duplicate)
+    if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
     return d
   })
   // PRD-28: Apply makeup work pre-configuration
@@ -503,7 +537,7 @@ export function TaskCreationModal({
   const activeBatchItem = batchMode === 'sequential' && batchItems ? batchItems[batchIndex] : undefined
   const batchTotal = batchItems?.length ?? 0
 
-  // Re-init on queue item change
+  // Re-init on queue item change (NOT on routine section load — that's handled separately)
   useEffect(() => {
     const d = defaultTaskData(queueItem ?? activeBatchItem)
     // Phase 1 guard: same sequential skip as the initial useState, applied here
@@ -512,7 +546,20 @@ export function TaskCreationModal({
       d.taskType = initialTaskType as TaskType
     }
     if (defaultTitle) d.title = defaultTitle
-    if (initialRoutineSections?.length) d.routineSections = initialRoutineSections
+    if (defaultDescription) d.description = defaultDescription
+    // Hydrate existing task values on edit
+    if (editTaskValues) {
+      if (editTaskValues.incompleteAction) d.incompleteAction = editTaskValues.incompleteAction as typeof d.incompleteAction
+      if (editTaskValues.lifeAreaTag) d.lifeAreaTag = editTaskValues.lifeAreaTag
+      if (editTaskValues.durationEstimate) d.durationEstimate = editTaskValues.durationEstimate
+      if (editTaskValues.dueDate) d.dueDate = editTaskValues.dueDate
+      if (editTaskValues.requireApproval !== undefined) d.reward.requireApproval = editTaskValues.requireApproval
+      if (editTaskValues.victoryFlagged !== undefined) d.reward.flagAsVictory = editTaskValues.victoryFlagged
+      if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
+      if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
+      if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
+    }
+    if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
     setData(d)
     setScheduleMode('one_time')
     setQuickDays([])
@@ -522,7 +569,14 @@ export function TaskCreationModal({
     setShowTaskBreaker(false)
     setShowTaskBreakerPanel(false)
     setSelectedIcon(null)
-  }, [queueItem?.id, activeBatchItem?.id, initialTaskType, defaultTitle, initialRoutineSections])
+  }, [queueItem?.id, activeBatchItem?.id, initialTaskType, defaultTitle, defaultDescription, editTaskValues, deployFromTemplateId])
+
+  // Merge routine sections when they arrive (async load) without resetting the rest of the form
+  useEffect(() => {
+    if (initialRoutineSections?.length) {
+      setData(prev => ({ ...prev, routineSections: initialRoutineSections }))
+    }
+  }, [initialRoutineSections])
 
   // Build M Sub-phase B: detect whether any selected assignee is a Play
   // member. Drives the conditional rendering of TaskIconPicker. If

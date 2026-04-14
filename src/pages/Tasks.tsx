@@ -796,6 +796,17 @@ export function TasksPage() {
           defaultDescription={editingTask.description ?? ''}
           initialRoutineSections={editRoutineSections}
           editingTemplateId={editingTask.template_id ?? undefined}
+          editTaskValues={{
+            incompleteAction: editingTask.incomplete_action ?? undefined,
+            lifeAreaTag: editingTask.life_area_tag ?? undefined,
+            durationEstimate: editingTask.duration_estimate ?? undefined,
+            dueDate: editingTask.due_date ?? undefined,
+            requireApproval: editingTask.require_approval ?? undefined,
+            victoryFlagged: editingTask.victory_flagged ?? undefined,
+            countsForAllowance: editingTask.counts_for_allowance ?? undefined,
+            countsForHomework: editingTask.counts_for_homework ?? undefined,
+            countsForGamification: editingTask.counts_for_gamification ?? undefined,
+          }}
         />
       )}
 

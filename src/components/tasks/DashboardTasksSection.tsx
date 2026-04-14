@@ -248,14 +248,29 @@ export function DashboardTasksSection({
                 incomplete_action: data.incompleteAction,
                 require_approval: data.reward?.requireApproval ?? false,
                 victory_flagged: data.reward?.flagAsVictory ?? false,
+                counts_for_allowance: data.countsForAllowance ?? false,
+                counts_for_homework: data.countsForHomework ?? false,
+                counts_for_gamification: data.countsForGamification ?? true,
               })
               .eq('id', editingTask.id)
             queryClient.invalidateQueries({ queryKey: ['tasks'] })
             setEditingTask(null)
           }}
+          initialTaskType={editingTask.task_type}
           defaultTitle={editingTask.title}
           defaultDescription={editingTask.description ?? ''}
           editMode
+          editTaskValues={{
+            incompleteAction: editingTask.incomplete_action ?? undefined,
+            lifeAreaTag: editingTask.life_area_tag ?? undefined,
+            durationEstimate: editingTask.duration_estimate ?? undefined,
+            dueDate: editingTask.due_date ?? undefined,
+            requireApproval: editingTask.require_approval ?? undefined,
+            victoryFlagged: editingTask.victory_flagged ?? undefined,
+            countsForAllowance: editingTask.counts_for_allowance ?? undefined,
+            countsForHomework: editingTask.counts_for_homework ?? undefined,
+            countsForGamification: editingTask.counts_for_gamification ?? undefined,
+          }}
         />
       )}
     </div>

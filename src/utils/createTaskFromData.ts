@@ -109,7 +109,12 @@ export async function createTaskFromData(
   const hasSections = data.taskType === 'routine' && data.routineSections && data.routineSections.length > 0
   let routineTemplateId: string | null = null
 
-  if (hasSections) {
+  // Deploy from Studio: reuse existing template without creating or modifying it
+  if (data.deployFromTemplateId) {
+    routineTemplateId = data.deployFromTemplateId
+    result.routineTemplateCreated = false
+    result.templateId = data.deployFromTemplateId
+  } else if (hasSections) {
     // Editing existing template: delete old sections/steps, then rewrite
     if (data.editingTemplateId) {
       routineTemplateId = data.editingTemplateId

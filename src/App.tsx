@@ -41,6 +41,7 @@ import { AllowanceSettingsPage } from '@/features/financial/AllowanceSettingsPag
 import { ChildAllowanceConfigPage } from '@/features/financial/ChildAllowanceConfig'
 import { TransactionHistoryPage } from '@/features/financial/TransactionHistory'
 import { HomeworkSettingsPage } from '@/features/financial/HomeworkSettingsPage'
+import { GamificationSettingsPage } from '@/pages/GamificationSettingsPage'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
@@ -153,6 +154,8 @@ function App() {
               <Route path="/settings/allowance/:memberId" element={<ProtectedRoute><ChildAllowanceConfigPage /></ProtectedRoute>} />
               {/* PRD-28: Homework tracking route */}
               <Route path="/settings/homework" element={<ProtectedRoute><HomeworkSettingsPage /></ProtectedRoute>} />
+              {/* PRD-24/PRD-26: Gamification settings */}
+              <Route path="/settings/gamification" element={<ProtectedRoute><GamificationSettingsPage /></ProtectedRoute>} />
               <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />

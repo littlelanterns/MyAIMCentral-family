@@ -73,6 +73,7 @@ function useCustomizedTemplates(familyId: string | undefined) {
         .select('id, title, task_type, config, created_at')
         .eq('family_id', familyId)
         .eq('is_system', false)
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -168,6 +169,8 @@ export function StudioPage() {
   const [modalPreloadedSections, setModalPreloadedSections] = useState<RoutineSection[] | undefined>(undefined)
   /** When editing an existing routine template, this holds the template ID for UPDATE instead of INSERT */
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  /** When deploying from an existing template, link new task to this template instead of creating a duplicate */
+  const [deployFromTemplateId, setDeployFromTemplateId] = useState<string | null>(null)
 
   // SequentialCreatorModal state (Phase 1: replaces sequential route through TaskCreationModal)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
@@ -599,7 +602,8 @@ export function StudioPage() {
                   key={tpl.id}
                   template={tpl}
                   onDeploy={(t) => {
-                    setEditingTemplateId(null) // Deploy = create new task from template
+                    setEditingTemplateId(null) // Deploy = create new task from template, don't edit the template
+                    setDeployFromTemplateId(t.id) // Link new task to existing template — no duplicate
                     if (t.templateType === 'routine') {
                       loadRoutineTemplate(t.id, t.name)
                     } else {
@@ -677,6 +681,7 @@ export function StudioPage() {
             setModalDefaultTitle('')
             setModalPreloadedSections(undefined)
             setEditingTemplateId(null)
+            setDeployFromTemplateId(null)
           }}
           onSave={handleTaskSaved}
           initialTaskType={modalInitialType}
@@ -684,6 +689,7 @@ export function StudioPage() {
           initialRoutineSections={modalPreloadedSections}
           editMode={!!editingTemplateId}
           editingTemplateId={editingTemplateId}
+          deployFromTemplateId={deployFromTemplateId}
         />
       )}
 
