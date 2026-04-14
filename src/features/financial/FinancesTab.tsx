@@ -13,7 +13,7 @@ import {
   useCreatePayment,
 } from '@/hooks/useFinancial'
 // getMemberColor used in TransactionRow via members prop
-import { todayLocalIso } from '@/utils/dates'
+import { todayLocalIso, localIso } from '@/utils/dates'
 import type { ChildFinancialSummary, FinancialTransaction } from '@/types/financial'
 
 export function FinancesTab({ familyId }: { familyId: string }) {
@@ -335,7 +335,7 @@ function GraceDayGrid({
   const end = new Date(periodEnd + 'T12:00:00')
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const iso = d.toISOString().split('T')[0]
+    const iso = localIso(d)
     days.push({
       iso,
       label: d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }),
