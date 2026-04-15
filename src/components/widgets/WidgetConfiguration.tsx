@@ -11,6 +11,7 @@ import type { WidgetStarterConfig, WidgetSize, CreateWidget, TrackerType, Multip
 import { getTrackerMeta, MULTIPLAYER_TRACKER_TYPES } from '@/types/widgets'
 import { SYSTEM_RHYTHM_KEYS_FOR_WIDGETS } from '@/types/rhythms'
 import { getMemberColor } from '@/lib/memberColors'
+import { STICKER_ICONS, STICKER_COLOR_PRESETS } from './trackers/TallyTracker'
 
 interface WidgetConfigurationProps {
   isOpen: boolean
@@ -248,7 +249,7 @@ export function WidgetConfiguration({
           </div>
 
           {/* Template-specific fields */}
-          <TemplateSpecificFields trackerType={trackerType} config={configFields} onChange={updateField} />
+          <TemplateSpecificFields trackerType={trackerType} visualVariant={visualVariant} config={configFields} onChange={updateField} />
         </div>
 
         {/* Multiplayer Configuration */}
@@ -508,19 +509,113 @@ export function WidgetConfiguration({
 
 function TemplateSpecificFields({
   trackerType,
+  visualVariant,
   config,
   onChange,
 }: {
   trackerType: string
+  visualVariant?: string
   config: Record<string, unknown>
   onChange: (key: string, value: unknown) => void
 }) {
+  const isStickerGrid = visualVariant === 'animated_sticker_grid' || visualVariant === 'sticker_board'
+
   switch (trackerType) {
     case 'tally':
       return (
         <div className="space-y-3">
           <NumberField label="Target Goal" field="target_number" config={config} onChange={onChange} />
           <TextField label="Unit" field="measurement_unit" config={config} onChange={onChange} placeholder="books, glasses, sessions..." />
+
+          {isStickerGrid && (
+            <>
+              {/* Sticker Icon Picker */}
+              <div>
+                <span className="text-sm font-medium block mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                  Sticker Shape
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {STICKER_ICONS.map(si => {
+                    const selected = (config.sticker_icon as string ?? 'star') === si.key
+                    const Icon = si.icon
+                    return (
+                      <button
+                        key={si.key}
+                        onClick={() => onChange('sticker_icon', si.key)}
+                        title={si.label}
+                        className="flex items-center justify-center rounded-lg transition-all"
+                        style={{
+                          width: 38,
+                          height: 38,
+                          backgroundColor: selected
+                            ? 'color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-card))'
+                            : 'var(--color-bg-secondary)',
+                          border: selected
+                            ? '2px solid var(--color-accent)'
+                            : '1px solid var(--color-border)',
+                        }}
+                      >
+                        <Icon
+                          size={18}
+                          fill={selected ? 'var(--color-accent)' : 'none'}
+                          stroke={selected ? 'var(--color-accent)' : 'var(--color-text-secondary)'}
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Sticker Color Preset Picker */}
+              <div>
+                <span className="text-sm font-medium block mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                  Color Palette
+                </span>
+                <div className="space-y-1.5">
+                  {STICKER_COLOR_PRESETS.map(preset => {
+                    const selected = (config.sticker_color_preset as string ?? 'rainbow') === preset.key
+                    return (
+                      <button
+                        key={preset.key}
+                        onClick={() => onChange('sticker_color_preset', preset.key)}
+                        className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 transition-all text-left"
+                        style={{
+                          backgroundColor: selected
+                            ? 'color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-card))'
+                            : 'var(--color-bg-secondary)',
+                          border: selected
+                            ? '2px solid var(--color-accent)'
+                            : '1px solid var(--color-border)',
+                        }}
+                      >
+                        {/* Color swatch row */}
+                        <div className="flex gap-0.5 shrink-0">
+                          {preset.colors.slice(0, 7).map((c, i) => (
+                            <div
+                              key={i}
+                              className="rounded-full"
+                              style={{
+                                width: 14,
+                                height: 14,
+                                backgroundColor: c,
+                                border: '1px solid color-mix(in srgb, var(--color-text-primary) 15%, transparent)',
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <span
+                          className="text-xs font-medium"
+                          style={{ color: selected ? 'var(--color-accent)' : 'var(--color-text-secondary)' }}
+                        >
+                          {preset.label}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )
     case 'streak':

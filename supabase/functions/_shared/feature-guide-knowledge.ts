@@ -45,9 +45,19 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   [+ Create Opportunity] button for standalone opportunities.
   Filter bar: member pill buttons filter across all tabs.`,
 
-  '/studio': `STUDIO PAGE — Template workshop. Browse blank formats, customize for your family, deploy to members.
-  Categories: Tasks, Routines, Opportunity Boards, Sequential Collections, Guided Forms, Lists, Trackers.
-  [Customize] on any template → opens creation modal pre-configured for that type.
+  '/studio': `STUDIO PAGE — Template workshop with 7 sections. Browse formats, customize, deploy.
+  Sections:
+  1. Task & Chore Templates — Simple Task, Routine Checklist, Opportunity Board, Sequential Collection
+  2. Guided Forms — SODAS, What-If Game, Apology Reflection, Custom
+  3. List Templates — Shopping, Wishlist, Packing, Expenses, To-Do, Randomizer, Custom
+  4. Trackers & Widgets — 35+ starter configs (star charts, streak counters, mood check-ins, etc.)
+  5. Gamification & Rewards — Gamification Setup, Day Segments, Coloring Reveals, Reward Reveals, Star Chart, Reward Spinner
+  6. Growth & Self-Knowledge — "Get to Know Your Family" wizard, Best Intentions Starter
+  7. Setup Wizards — "Routine Builder (AI)" guided brain-dump-to-routine wizard
+  Setup Wizards use step-by-step flows. Star Chart wizard: name → assign → visual → goal → reward reveal → deploy.
+  Get to Know wizard: pick member → 6 connection categories → save to InnerWorkings.
+  Routine Builder: describe in natural language → AI organizes → review → opens Routine Creator for assignment.
+  [Customize] on any template → opens creation modal or wizard.
   My Customized tab → your saved templates. Deploy, edit, duplicate, archive.`,
 
   '/calendar': `CALENDAR PAGE — Month/Week/Day views. Click any date → DateDetailModal.
@@ -61,6 +71,20 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   '/sweep': `MINDSWEEP — Quick-capture brain dump. Text, voice, scan (OCR), link import.
   AI classifies each item → routes to the right destination (task, calendar, journal, list, etc.)
   Aggressiveness modes: Always Ask, Trust Obvious, Full Autopilot.`,
+
+  '/meetings': `MEETINGS PAGE — Structured family conversations with AI facilitation.
+  4 built-in meeting types: Couple, Parent-Child, Mentor, Family Council. Custom templates supported.
+  UPCOMING section: Shows meetings due within 7 days with Live Mode and Record After buttons.
+  MEETING TYPES section: Expandable rows per type. Parent-Child and Mentor expand per child.
+  Each row has: agenda item quick-add, schedule icon (calendar), sections icon (gear), Start Meeting button.
+  AGENDA ITEMS: Add between meetings — items queue up and surface during the next meeting.
+  Add from: Meetings page quick-add, Notepad > Send to > Agenda (picks meeting type), Review & Route.
+  LIVE MODE: LiLa facilitates in real time, guiding through agenda sections. Pause/Resume/End controls.
+  RECORD AFTER: Capture meeting retrospectively — tell LiLa what was discussed, get structured summary.
+  POST-MEETING REVIEW: After ending, LiLa generates summary + extracts action items.
+  Route each action item to Tasks, Calendar, Best Intentions, Guiding Stars, or Backburner.
+  Summary auto-saves to Journal as meeting notes. Personal impressions are private.
+  HISTORY: View All History shows completed meetings with type filter and read-only detail.`,
 
   '/settings/reward-reveals': `REWARD REVEALS LIBRARY — Mom's named celebration combos.
   Each combo = a reveal animation + prize content. [+ New Reveal] creates one.
@@ -272,6 +296,140 @@ Pick the animation(s) and prize content.
 Save it to your library.
 Then on any task, widget, or list — open the Reward Reveal section and pick it from the "Pick from library" dropdown.
 Change the trigger mode per attachment (every time on one task, every 5 on another).`,
+      },
+    ],
+  },
+
+  // ── Setup Wizard Recipes ──────────────────────────────────
+  {
+    triggers: ['potty chart', 'potty training', 'toilet training', 'potty sticker chart', 'star chart for potty'],
+    clarifyingQuestion: "A potty chart is a great idea! Do you want a simple star chart where you tap to add a star each time, or do you also want a reward celebration when they reach a goal (like 10 stars = ice cream)?",
+    variants: [
+      {
+        name: 'Simple Potty Star Chart',
+        description: 'Tap to add a star each time. No reward — the chart itself is the celebration.',
+        howToSetUp: `Go to Studio → Gamification & Rewards → Star / Sticker Chart → Customize.
+The wizard walks you through: name it "Potty Stars", pick your child, choose the star chart visual, set a goal count (try 10), skip the reward. Deploy to their dashboard.
+Each success → tap the chart to add a star.`,
+      },
+      {
+        name: 'Potty Chart with Reward',
+        description: 'Stars + a celebration reveal when they reach the goal.',
+        howToSetUp: `Same wizard as above, but on the "Add Reward" step, tap "Create new" and pick an animation (card flip is fun for little ones).
+Set the prize: a text message like "ICE CREAM TIME!" or upload a photo of the actual reward.
+When they reach the star goal, the reveal animation plays automatically.`,
+      },
+    ],
+  },
+  {
+    triggers: ['get to know', 'learn about my kids', 'what my child likes', 'gift ideas for my kid', 'connection preferences', 'love language kid'],
+    clarifyingQuestion: "That's wonderful! Do you want to do a guided walkthrough for one family member at a time, or are you looking to understand a specific area (like gift ideas, comfort needs, or communication style)?",
+    variants: [
+      {
+        name: 'Full Get to Know Walkthrough',
+        description: 'Walk through all 6 connection categories for one person.',
+        howToSetUp: `Go to Studio → Growth & Self-Knowledge → Get to Know Your Family → Customize.
+Pick the family member. The wizard guides you through 6 categories:
+1. Things I'd Love (gift ideas)
+2. Words That Mean Something (meaningful words)
+3. What Really Helps (helpful actions)
+4. Ways to Spend Time Together (quality time)
+5. Good to Know (sensitivities)
+6. What Makes a Bad Day Better (comfort needs)
+Add as many entries as you want per category. Everything saves to InnerWorkings and LiLa uses it to personalize suggestions.`,
+      },
+      {
+        name: 'Quick Category Add',
+        description: 'Add entries for a specific category from InnerWorkings directly.',
+        howToSetUp: `Go to InnerWorkings (sidebar → Grow → InnerWorkings).
+Pick the family member, then scroll to the Connection Preferences section.
+Each category has starter prompts and an add button. Same data, just a different entry point.`,
+      },
+    ],
+  },
+  {
+    triggers: ['morning routine', 'bedtime routine', 'after school routine', 'chore checklist', 'routine from scratch', 'set up a routine'],
+    clarifyingQuestion: "Great idea! Would you like to describe the routine in your own words and have AI organize it into sections (the quick way), or build it manually step by step (the precise way)?",
+    variants: [
+      {
+        name: 'AI Routine Builder (recommended)',
+        description: 'Describe the routine naturally. AI organizes it into frequency-based sections.',
+        howToSetUp: `Go to Studio → Setup Wizards → Routine Builder (AI) → Customize.
+Name the routine, then describe it the way you'd tell your kids:
+"Every morning make bed, brush teeth, get dressed, eat breakfast. On school days also pack lunch, check homework folder."
+Tap Next → AI organizes it into sections (Daily, Weekdays, etc.) with steps.
+Review and tweak, then tap "Use This Routine" → the full Routine Creator opens for assignment and deployment.`,
+      },
+      {
+        name: 'Manual Routine Builder',
+        description: 'Build sections and steps by hand for full control.',
+        howToSetUp: `Go to Studio → Task & Chore Templates → Routine Checklist → Customize.
+This opens the full Routine Creator. Add sections (+ Add Section), set each section's frequency (Daily, MWF, Weekly, etc.), then add steps within each section.
+Assign to family members and deploy.`,
+      },
+    ],
+  },
+  {
+    triggers: ['chore system', 'chore chart', 'chore rotation', 'set up chores', 'chore with rewards', 'earn allowance from chores'],
+    clarifyingQuestion: "A chore system can include several pieces — which of these matter to you?\n- Daily chore checklist (routine)\n- Rotating chores between kids\n- Points or allowance for completion\n- Visual reward celebrations\n- Extra optional jobs kids can claim\n\nTell me what you're picturing and I'll walk you through the best setup!",
+    variants: [
+      {
+        name: 'Basic Chore Routine',
+        description: 'Daily checklist that resets fresh each day. No rewards.',
+        howToSetUp: `Use the Routine Builder wizard in Studio (Setup Wizards → Routine Builder AI) or create a Routine manually.
+Assign to kids. They see a checklist on their dashboard that resets each day.`,
+      },
+      {
+        name: 'Chores + Gamification + Rewards',
+        description: 'Full system: routine + points + celebrations + optional allowance.',
+        howToSetUp: `1. Create routine (Studio → Routine Builder or manual)
+2. Enable gamification (Settings → Gamification → [child]) — points per task, earning mode, sticker book
+3. Set up day segments (Morning, School, Jobs, Evening) to organize their dashboard
+4. Add reward reveals on individual tasks (scroll to Reward Reveal section when editing a task)
+5. Optional: enable allowance (Settings → Allowance → [child]) and flag tasks with "counts for allowance"
+6. Optional: add an Opportunity Board for bonus jobs (Studio → Opportunity Board)`,
+      },
+      {
+        name: 'Rotating Chores',
+        description: 'Chores rotate between kids weekly/biweekly/monthly.',
+        howToSetUp: `Create a task, assign 2+ kids, and toggle on Rotation in the Assignment section.
+Pick the frequency (weekly, biweekly, monthly). The system auto-rotates who's responsible.
+Each kid sees only their current assignment on their dashboard.`,
+      },
+    ],
+  },
+
+  // ── Meetings (PRD-16) ──────────────────────────────────────
+  {
+    triggers: ['family meeting', 'couple meeting', 'want to meet regularly', 'talk with my husband', 'check in with my kid', 'mentor meeting', 'family council'],
+    clarifyingQuestion: "What kind of meeting are you thinking about? A one-on-one with your spouse, a check-in with a specific child, or a whole-family council?",
+    variants: [
+      {
+        name: 'Couple Meeting',
+        description: 'Regular check-in with your spouse. Covers relationship temperature, parenting alignment, calendar coordination, and appreciation.',
+        howToSetUp: `1. Go to Meetings in the sidebar
+2. Under "Couple Meeting" tap the calendar icon to set a recurring schedule (weekly works well)
+3. Tap the gear icon to customize the agenda sections — the defaults cover Check-In, Relationship, Parenting, Calendar, Dreams, and Appreciation
+4. Between meetings, add agenda items from the Meetings page or from Notepad > Send to > Agenda
+5. When it's time, tap "Live Mode" — LiLa guides you through each section`,
+      },
+      {
+        name: 'Parent-Child Meeting',
+        description: 'Regular one-on-one with a child. Celebrate wins, discuss challenges, make commitments together.',
+        howToSetUp: `1. Go to Meetings — you'll see Parent-Child Meeting expand per child
+2. Set a schedule for each child you want to meet with
+3. Customize sections — defaults: How Are You, Wins & Growth, Discussion, Problem-Solving, Commitments
+4. Kids can add agenda items from the Guided dashboard in a future update
+5. During the meeting LiLa helps facilitate — guiding without lecturing`,
+      },
+      {
+        name: 'Family Council',
+        description: 'Whole-family meeting. Old business, new business, calendar review, appreciation circle.',
+        howToSetUp: `1. Go to Meetings > Family Council
+2. Set a recurring schedule (weekly or biweekly is typical)
+3. Any family member with meeting access can add agenda items between meetings
+4. When you start, pick "Live Mode" and select all participants
+5. LiLa opens with a warm welcome and guides through each section in order`,
       },
     ],
   },

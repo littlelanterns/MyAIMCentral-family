@@ -58,11 +58,18 @@ function applyTokens(
   // Color tokens
   root.style.setProperty('--color-bg-primary', colors.bgPrimary)
   root.style.setProperty('--color-bg-secondary', colors.bgSecondary)
+  // Tertiary background — used for toggle tracks, badge backgrounds, subtle containers.
+  // Derived as a midpoint between secondary and the border color for subtle depth.
+  root.style.setProperty('--color-bg-tertiary', `color-mix(in srgb, ${colors.bgSecondary} 50%, ${colors.border})`)
   root.style.setProperty('--color-bg-card', colors.bgCard)
   root.style.setProperty('--color-bg-nav', colors.bgNav)
   root.style.setProperty('--color-bg-input', colors.bgInput)
   root.style.setProperty('--color-text-primary', colors.textPrimary)
   root.style.setProperty('--color-text-secondary', colors.textSecondary)
+  // Tertiary text — used for hints, timestamps, subtle labels. Slightly lighter than secondary.
+  root.style.setProperty('--color-text-tertiary', `color-mix(in srgb, ${colors.textSecondary} 65%, transparent)`)
+  // Muted text — used for disabled text, placeholders, low-emphasis labels.
+  root.style.setProperty('--color-text-muted', `color-mix(in srgb, ${colors.textSecondary} 50%, transparent)`)
   root.style.setProperty('--color-text-heading', colors.textHeading)
   root.style.setProperty('--color-btn-primary-bg', colors.btnPrimaryBg)
   root.style.setProperty('--color-btn-primary-text', colors.btnPrimaryText)

@@ -207,6 +207,56 @@ const HELP_PATTERNS: HelpPattern[] = [
     keywords: ['timer', 'pomodoro', 'stopwatch', 'countdown timer', 'focus timer', 'time tracking'],
     response: "The Universal Timer supports multiple modes:\n\n- **Clock**: simple elapsed time tracker\n- **Pomodoro**: focus intervals with break reminders\n- **Stopwatch**: count up freely\n- **Countdown**: set a target time\n\nStart a timer from any task (tap the timer icon), or start a standalone timer from the floating bubble. Multiple concurrent timers are supported. Timer persists across page navigation and even device switches (it's timestamp-based, not client-side).\n\nConfigure defaults in **Settings > Timer** — idle reminders, auto-pause, visual style (5 options), Pomodoro intervals.",
   },
+
+  // ── Setup Wizards & Use-Case Patterns ────────────────────────
+
+  {
+    category: 'potty_chart',
+    keywords: ['potty chart', 'potty', 'potty training', 'potty sticker', 'toilet training', 'star chart potty'],
+    response: "To set up a potty chart:\n\n1. Go to **Studio** > scroll to **Gamification & Rewards**\n2. Tap **Star / Sticker Chart** > **Customize**\n3. The wizard walks you through 5 steps:\n   - **Name it**: \"Potty Stars\" or whatever your child knows\n   - **Who**: pick the child\n   - **Pick a Look**: star chart, sticker grid, coin jar, or garden\n   - **Set Goal**: how many stars to earn a reward (try 10 or 15)\n   - **Add Reward**: attach a celebration when they reach the goal — card flip, door reveal, or spinner!\n4. **Deploy to Dashboard** — the chart appears on their dashboard\n\nEach time your child uses the potty, tap their chart to add a star. When they hit the goal, the reward reveal plays!",
+  },
+  {
+    category: 'star_chart',
+    keywords: ['star chart', 'sticker chart', 'sticker board', 'stars', 'earn stars', 'gold stars', 'reward chart'],
+    response: "To create a star/sticker chart:\n\n1. Go to **Studio** > **Gamification & Rewards** > **Star / Sticker Chart** > **Customize**\n2. The wizard guides you through:\n   - **Name**: what you're tracking (\"Reading Stars\", \"Good Manners Chart\")\n   - **Assign**: which child (or multiple kids — each gets their own)\n   - **Visual**: pick star chart, animated stars, sticker grid, coin jar, garden, thermometer, or more\n   - **Target**: how many to earn a reward (5, 10, 15, 20, 30, or 50)\n   - **Reward**: optional celebration animation when they reach the goal\n3. Deploy — it's on their dashboard immediately\n\nYou'll find this same widget setup if you browse **Trackers & Widgets** directly. The wizard just walks you through it step by step.",
+  },
+  {
+    category: 'get_to_know',
+    keywords: ['get to know', 'connection', 'love language', 'gift ideas', 'comfort needs', 'what helps', 'what they like', 'learn about my kid', 'understand my child'],
+    response: "The **Get to Know Your Family** wizard walks you through 6 connection categories for any family member:\n\n1. Go to **Studio** > **Growth & Self-Knowledge** > **Get to Know Your Family** > **Customize**\n2. Pick the person you want to learn about\n3. Walk through each category — answer the prompt or skip:\n   - **Things I'd Love** (gift ideas)\n   - **Words That Mean Something** (meaningful words)\n   - **What Really Helps** (helpful actions)\n   - **Ways to Spend Time Together** (quality time)\n   - **Good to Know** (sensitivities)\n   - **What Makes a Bad Day Better** (comfort needs)\n4. Add as many entries as you want per category\n5. Save — everything goes into **InnerWorkings** and LiLa uses it to personalize suggestions\n\nYou can also add entries anytime from the InnerWorkings page directly.",
+  },
+  {
+    category: 'routine_builder_ai',
+    keywords: ['routine builder', 'brain dump routine', 'ai routine', 'describe routine', 'organize routine', 'parse routine'],
+    response: "The **Routine Builder (AI)** wizard turns your description into a structured routine:\n\n1. Go to **Studio** > **Setup Wizards** > **Routine Builder (AI)** > **Customize**\n2. Name the routine and **describe it in your own words** — just the way you'd tell your kids\n   - \"Every morning make bed, brush teeth, get dressed. On school days also pack lunch.\"\n3. Tap **Next** — AI organizes it into sections with the right schedule for each part\n4. **Review**: remove or edit anything that doesn't look right\n5. Tap **Use This Routine** — it opens the full **Routine Creator** where you can:\n   - Fine-tune sections and frequencies\n   - Assign to kids\n   - Add linked content (sequential lists, randomizers)\n   - Deploy\n\nThis is the same AI brain dump tool you'll find inside the routine editor. The wizard just gives you a friendlier entry point.",
+  },
+  {
+    category: 'reward_spinner',
+    keywords: ['spinner', 'spin wheel', 'reward wheel', 'activity wheel', 'surprise wheel', 'spin for reward', 'random reward'],
+    response: "To create a reward/activity spinner:\n\n1. Go to **Studio** > **Gamification & Rewards** > **Reward Spinner** > **Customize**\n2. This opens the tracker widget configurator with the spinner preset\n3. Name it, set the segments (prizes/activities), assign to a child, and deploy\n\nAlternatively, create a **Randomizer list** first (Lists > + New List > Randomizer), add your rewards, then create a Randomizer Spinner widget that draws from it.\n\nSpinner results can be one-time (removed after drawn) or repeatable (goes back in the pool).",
+  },
+  {
+    category: 'chore_system',
+    keywords: ['chore system', 'chore chart', 'chore rotation', 'rotating chores', 'chore with allowance', 'allowance', 'chore with reward', 'set up chores'],
+    response: "To set up a full chore system with rewards:\n\n1. **Create tasks/routines**: Go to **Tasks** > **+ Create**. Use a **Routine** for daily checklists or individual **Tasks** for one-off chores\n2. **Assign to kids**: Pick family members in the Assignment section. For rotating chores, toggle **Rotation** to cycle between kids weekly/biweekly/monthly\n3. **Set up rewards** (optional):\n   - **Gamification points**: Settings > Gamification > [child] — tasks earn points automatically\n   - **Allowance**: Settings > Allowance > [child] — tasks flagged with \"counts for allowance\" affect their weekly calculation\n   - **Reward Reveals**: On any task, scroll to Reward Reveal section to attach a celebration animation\n4. **Organize the day**: Set up **Day Segments** (Morning, School, Jobs, Evening) in Settings > Gamification\n5. **Optional extras**:\n   - **Opportunity Board** for bonus jobs kids can claim\n   - **Coloring Reveals** — link a coloring page to a specific chore\n   - **Star Chart** to visualize progress\n\nAll of these pieces are in **Studio** if you want guided setup wizards.",
+  },
+
+  // ── Meetings (PRD-16) ──────────────────────────────────────
+  {
+    category: 'meetings',
+    keywords: ['meeting', 'couple meeting', 'family meeting', 'family council', 'parent child meeting', 'mentor meeting', 'schedule meeting', 'start meeting'],
+    response: "Go to **Meetings** in the sidebar (under Plan & Do).\n\n**Getting started:**\n1. Pick a meeting type: Couple, Parent-Child, Mentor, or Family Council\n2. Set a schedule: Tap the calendar icon next to the type to set recurrence\n3. Customize the agenda: Tap the gear icon to edit, reorder, or add your own agenda sections\n4. Start a meeting: Hit **Live Mode** for real-time LiLa-facilitated conversation, or **Record After** to capture a meeting retrospectively\n\n**During the meeting**, LiLa guides you through each agenda section. Mark items as discussed in the sidebar.\n\n**After the meeting**, LiLa generates a summary and extracts action items. You route each action item to Tasks, Calendar, Best Intentions, or Backburner.\n\n**Between meetings**, add agenda items any time from the Meetings page or use Notepad > Send to > Agenda.",
+  },
+  {
+    category: 'meetings',
+    keywords: ['agenda item', 'add agenda', 'meeting agenda', 'things to discuss', 'between meetings'],
+    response: "You can add agenda items for any meeting type at any time:\n\n1. **From the Meetings page**: Expand a meeting type and type in the \"+ Add agenda item\" field\n2. **From Smart Notepad**: Write your thought, then tap **Send to** > **Agenda** — pick which meeting type it belongs to\n3. **From Review & Route**: When reviewing notepad content, route items to Agenda\n\nAgenda items queue up between meetings and surface in the agenda sidebar during your next meeting. Items are marked as discussed when you tap them during the meeting.",
+  },
+  {
+    category: 'meetings',
+    keywords: ['meeting history', 'past meetings', 'old meetings', 'meeting summary', 'meeting notes'],
+    response: "To see your meeting history, go to **Meetings** and scroll to **Recent History**. Tap **View All History** to see all completed meetings with type filtering.\n\nEach meeting saves:\n- A summary (generated by LiLa, editable by you)\n- Action items that were routed to Tasks, Calendar, etc.\n- Your personal impressions (private — only you see these)\n\nMeeting summaries are also auto-saved to your **Journal** as meeting notes.",
+  },
 ]
 
 /**

@@ -1,6 +1,6 @@
 # Studio Setup Wizards — Feature Decision File
 
-> **Status:** Phase 1 complete (2026-04-14). Phase 2+ planned.
+> **Status:** Phase 3 complete (2026-04-15). Phase 4 (conversational setup) planned.
 > **Triggered by:** Bug report audit — founder observed Studio templates not wired correctly, LiLa giving inaccurate guidance, and gamification section showing "Coming Soon" despite being fully built.
 
 ---
@@ -58,7 +58,7 @@ LiLa Assist fabricates setup steps (e.g., "create a Practice task type" which do
 - [x] Make all Studio sections searchable
 - [x] Fix rotation bug (createTaskFromData + TaskCreationModal)
 
-### Phase 2 — Use-Case Setup Wizards (PLANNED)
+### Phase 2 — Use-Case Setup Wizards (COMPLETE 2026-04-14)
 
 Create guided multi-step flows that chain existing modals/components. Each wizard replaces the current "open a blank modal" experience with a step-by-step walkthrough.
 
@@ -76,7 +76,25 @@ Create guided multi-step flows that chain existing modals/components. Each wizar
 
 **Architecture approach:** Each wizard is a new component wrapping existing hooks/modals in a step-by-step flow. No new database tables needed. Use Haiku for bulk-add parsing (already proven in RoutineBrainDump and BulkAddWithAI).
 
-### Phase 3 — LiLa Knowledge Update
+**Built in Phase 2:**
+- [x] `SetupWizard.tsx` — reusable multi-step shell (step indicator, back/next nav, ModalV2 wrapper)
+- [x] `StarChartWizard.tsx` — 5-step wizard: Name → Assign → Visual → Target → Reward Reveal
+- [x] `GetToKnowWizard.tsx` — 8-step wizard: Pick Member → 6 categories → Summary (saves to self_knowledge via useCreateSelfKnowledge)
+- [x] `RoutineBuilderWizard.tsx` — 2-step wizard: Describe → AI Parse, then hands off to TaskCreationModal with pre-loaded sections
+- [x] `StudioTemplateType` union extended with 11 new types (gamification, growth, wizard types)
+- [x] `CustomizedTemplateCard` TYPE_LABELS extended for all new types
+- [x] `StudioTemplateCard` TemplateIcon mapping extended with new icons
+- [x] `WIZARD_TEMPLATES` array added to studio-seed-data.ts (Routine Builder AI template)
+- [x] Studio.tsx routing: wizard IDs route to wizard modals instead of raw forms
+- [x] Each wizard step includes contextual notes that reference where mom can find the same feature independently ("same visual styles you'll see in Trackers & Widgets")
+
+**Not built (deferred to Phase 3-4):**
+- Coloring Page Reward wizard (ColoringImagePickerModal already IS a wizard-like flow)
+- Reward Spinner wizard
+- Chore System with Rewards wizard (most complex — chains tasks + gamification + rewards)
+- Gamification Quick Setup wizard (restructures 6 GamificationSettingsModal sections)
+
+### Phase 3 — LiLa Knowledge Update (COMPLETE 2026-04-15)
 
 After Studio has proper wizard templates:
 
@@ -150,3 +168,16 @@ The founder's full vision: a conversational AI wizard (Haiku-class, cheap) that 
 | `src/components/tasks/TaskCreationModal.tsx` | Force `assignMode='any'` when rotation toggled on |
 | `src/components/studio/studio-seed-data.ts` | Added `GAMIFICATION_TEMPLATES` (6 entries) + `GROWTH_TEMPLATES` (2 entries) |
 | `src/pages/Studio.tsx` | Replaced PlannedExpansionCard with real sections, added member picker, added GamificationSettingsModal, made all sections searchable |
+
+## Files Changed (Phase 2)
+
+| File | Change |
+|---|---|
+| `src/components/studio/wizards/SetupWizard.tsx` | **NEW** — reusable multi-step wizard shell with step indicator + nav |
+| `src/components/studio/wizards/StarChartWizard.tsx` | **NEW** — 5-step star/potty chart creation wizard |
+| `src/components/studio/wizards/GetToKnowWizard.tsx` | **NEW** — 8-step family connection wizard using CONNECTION_STARTER_PROMPTS |
+| `src/components/studio/wizards/RoutineBuilderWizard.tsx` | **NEW** — AI brain dump → parse → hand off to TaskCreationModal |
+| `src/components/studio/studio-seed-data.ts` | Added `WIZARD_TEMPLATES` (Routine Builder AI entry) |
+| `src/components/studio/StudioTemplateCard.tsx` | Extended `StudioTemplateType` union with 11 new types + icon mappings |
+| `src/components/studio/CustomizedTemplateCard.tsx` | Extended `TYPE_LABELS` record for all new template types |
+| `src/pages/Studio.tsx` | Wizard state + routing (3 wizards), wizard modals, Setup Wizards section, search filtering |

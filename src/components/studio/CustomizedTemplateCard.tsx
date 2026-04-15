@@ -50,6 +50,19 @@ const TYPE_LABELS: Record<StudioTemplateType, string> = {
   list_expenses: 'Expense Tracker',
   list_todo: 'To-Do List',
   list_custom: 'Custom List',
+  // Gamification & Rewards
+  gamification_setup: 'Gamification',
+  gamification_creatures: 'Gamification',
+  gamification_pages: 'Gamification',
+  gamification_segments: 'Segments',
+  gamification_coloring: 'Coloring Reveal',
+  reward_reveal: 'Reward Reveal',
+  widget_tally: 'Star Chart',
+  widget_randomizer_spinner: 'Reward Spinner',
+  // Growth & Wizards
+  self_knowledge_wizard: 'Self Knowledge',
+  best_intentions_wizard: 'Best Intentions',
+  routine_builder_wizard: 'Routine Builder',
 }
 
 function formatDate(iso: string | null): string {

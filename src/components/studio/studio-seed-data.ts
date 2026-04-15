@@ -688,6 +688,28 @@ export const GAMIFICATION_TEMPLATES: StudioTemplate[] = [
 
 // ─── Growth & Self-Knowledge Templates ──────────────────────
 
+export const WIZARD_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'studio_routine_builder',
+    templateType: 'routine_builder_wizard',
+    name: 'Routine Builder (AI)',
+    tagline: 'Describe a routine in your own words — AI organizes it into sections and steps.',
+    description:
+      'Just describe the routine the way you\'d explain it to your kids. "Every morning make the bed, brush teeth, get dressed. On school days also pack lunch." AI parses it into structured sections with the right schedule for each part. Review, tweak, assign, and deploy.',
+    exampleUseCases: [
+      'Morning routine from scratch',
+      'Chore chart with different daily tasks',
+      'After-school checklist',
+      'Bedtime routine with weekday/weekend split',
+    ],
+    capability_tags: [
+      'ai_powered', 'routine', 'brain_dump', 'natural_language',
+      'auto_organize', 'sections', 'frequency', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+]
+
 export const GROWTH_TEMPLATES: StudioTemplate[] = [
   {
     id: 'studio_get_to_know',

@@ -22,7 +22,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Palette, Filter, ArrowUpDown } from 'lucide-react'
-import { Tabs, PlannedExpansionCard, FeatureGuide, FeatureIcon, EmptyState, LoadingSpinner } from '@/components/shared'
+import { Tabs, FeatureGuide, FeatureIcon, EmptyState, LoadingSpinner } from '@/components/shared'
 import { StudioCategorySection } from '@/components/studio/StudioCategorySection'
 import { StudioSearch } from '@/components/studio/StudioSearch'
 import { CustomizedTemplateCard } from '@/components/studio/CustomizedTemplateCard'
@@ -40,6 +40,7 @@ import {
   RANDOMIZER_TEMPLATE_BLANK,
   GAMIFICATION_TEMPLATES,
   GROWTH_TEMPLATES,
+  WIZARD_TEMPLATES,
 } from '@/components/studio/studio-seed-data'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
@@ -60,6 +61,9 @@ import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
 import { useCreateWidget } from '@/hooks/useWidgets'
 import type { WidgetStarterConfig, CreateWidget } from '@/types/widgets'
 import { GamificationSettingsModal } from '@/components/gamification/settings'
+import { StarChartWizard } from '@/components/studio/wizards/StarChartWizard'
+import { GetToKnowWizard } from '@/components/studio/wizards/GetToKnowWizard'
+import { RoutineBuilderWizard } from '@/components/studio/wizards/RoutineBuilderWizard'
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -113,6 +117,20 @@ function mapDbTypeToStudioType(dbType: string): StudioTemplate['templateType'] {
   }
   return map[dbType] ?? 'task'
 }
+
+// ─────────────────────────────────────────────
+// Tracker types that have real renderers in WidgetRenderer.tsx
+// Anything NOT in this set renders as PlannedTrackerStub ("Coming soon")
+// and should be hidden from Studio until its renderer is built.
+// ─────────────────────────────────────────────
+
+const FUNCTIONAL_TRACKER_TYPES = new Set([
+  'tally', 'streak', 'percentage', 'checklist', 'multi_habit_grid',
+  'boolean_checkin', 'sequential_path', 'achievement_badge', 'xp_level',
+  'timer_duration', 'allowance_calculator', 'leaderboard', 'mood_rating',
+  'countdown', 'snapshot_comparison', 'best_intention', 'randomizer_spinner',
+  'privilege_status', 'log_learning',
+])
 
 // ─────────────────────────────────────────────
 // Template → task type mapping for TaskCreationModal
@@ -194,6 +212,11 @@ export function StudioPage() {
   // Member picker for gamification (picks child, then opens the settings modal)
   const [gamificationPickerOpen, setGamificationPickerOpen] = useState(false)
   const [gamificationPickerAction, setGamificationPickerAction] = useState<string>('')
+
+  // Setup Wizard state
+  const [starChartWizardOpen, setStarChartWizardOpen] = useState(false)
+  const [getToKnowWizardOpen, setGetToKnowWizardOpen] = useState(false)
+  const [routineBuilderWizardOpen, setRoutineBuilderWizardOpen] = useState(false)
 
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -290,7 +313,7 @@ export function StudioPage() {
   // ── Customize handler ────────────────────────────────────────
 
   // ── Gamification member picker handler ──────────────────────
-  const openGamificationForMember = useCallback((memberId: string, action: string) => {
+  const openGamificationForMember = useCallback((memberId: string, _action: string) => {
     const m = familyMembers.find(fm => fm.id === memberId)
     if (!m || !family?.id) return
     setGamificationMemberId(memberId)
@@ -300,6 +323,20 @@ export function StudioPage() {
   }, [familyMembers, family?.id])
 
   const handleCustomize = useCallback((template: StudioTemplate) => {
+    // ── Setup Wizard routing (by template ID, takes priority) ──
+    if (template.id === 'studio_star_chart') {
+      setStarChartWizardOpen(true)
+      return
+    }
+    if (template.id === 'studio_get_to_know') {
+      setGetToKnowWizardOpen(true)
+      return
+    }
+    if (template.templateType === 'routine_builder_wizard') {
+      setRoutineBuilderWizardOpen(true)
+      return
+    }
+
     // Gamification templates → open member picker then GamificationSettingsModal
     if (template.templateType.startsWith('gamification_') || template.templateType === 'reward_reveal') {
       if (template.templateType === 'reward_reveal') {
@@ -312,9 +349,10 @@ export function StudioPage() {
       return
     }
 
-    // Growth templates → navigate to the feature
+    // Growth templates → navigate to the feature (best_intentions still navigates away)
     if (template.templateType === 'self_knowledge_wizard') {
-      navigate('/inner-workings')
+      // Handled by ID check above for studio_get_to_know; fallback for future templates
+      setGetToKnowWizardOpen(true)
       return
     }
     if (template.templateType === 'best_intentions_wizard') {
@@ -376,10 +414,36 @@ export function StudioPage() {
     // Other task types → open TaskCreationModal
     const taskType = studioTypeToTaskType(template.templateType)
     if (taskType) {
+      // For example templates, pre-fill the title so the modal isn't blank
+      if (template.isExample) {
+        setModalDefaultTitle(template.name)
+      }
+      // For routine examples that have sections in the DB, load them
+      if (taskType === 'routine' && template.isExample) {
+        // Look up the DB template by matching the seed template name
+        const dbLookup = async () => {
+          const { data } = await supabase
+            .from('task_templates')
+            .select('id')
+            .eq('title', template.name)
+            .eq('is_example', true)
+            .limit(1)
+            .single()
+          if (data?.id) {
+            loadRoutineTemplate(data.id, template.name)
+            return
+          }
+          // Fallback: open modal without pre-loaded sections
+          setModalInitialType(taskType)
+          setModalOpen(true)
+        }
+        dbLookup()
+        return
+      }
       setModalInitialType(taskType)
       setModalOpen(true)
     }
-  }, [navigate])
+  }, [navigate, loadRoutineTemplate])
 
   const handleUseAsIs = useCallback((template: StudioTemplate) => {
     handleCustomize(template)
@@ -428,6 +492,10 @@ export function StudioPage() {
     () => GROWTH_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
     [searchQuery],
   )
+  const wizardFiltered = useMemo(
+    () => WIZARD_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
+    [searchQuery],
+  )
 
   const noSearchResults =
     searchQuery.trim() &&
@@ -438,7 +506,8 @@ export function StudioPage() {
     listBlanksFiltered.length === 0 &&
     listExamplesFiltered.length === 0 &&
     gamificationFiltered.length === 0 &&
-    growthFiltered.length === 0
+    growthFiltered.length === 0 &&
+    wizardFiltered.length === 0
 
   // ── Customized tab: sort + filter ────────────────────────────
 
@@ -567,10 +636,11 @@ export function StudioPage() {
               )}
 
               {/* 4. Trackers & Widgets — PRD-10 real starter configs */}
+              {/* Filter to only show tracker types that have real renderers (not PlannedTrackerStub) */}
               {(
                 <StudioCategorySection
                   title="Trackers & Widgets"
-                  templates={starterConfigs.map(sc => ({
+                  templates={starterConfigs.filter(sc => FUNCTIONAL_TRACKER_TYPES.has(sc.tracker_type)).map(sc => ({
                     id: sc.id,
                     name: sc.config_name,
                     tagline: sc.description?.slice(0, 80) ?? '',
@@ -610,6 +680,16 @@ export function StudioPage() {
                 <StudioCategorySection
                   title="Growth & Self-Knowledge"
                   templates={growthFiltered}
+                  onCustomize={handleCustomize}
+                  defaultCollapsed={false}
+                />
+              )}
+
+              {/* 7. Setup Wizards — guided multi-step flows */}
+              {wizardFiltered.length > 0 && (
+                <StudioCategorySection
+                  title="Setup Wizards"
+                  templates={wizardFiltered}
                   onCustomize={handleCustomize}
                   defaultCollapsed={false}
                 />
@@ -882,7 +962,7 @@ export function StudioPage() {
                     onClick={() => openGamificationForMember(m.id, gamificationPickerAction)}
                     className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
                     style={{
-                      backgroundColor: `var(--member-color-${m.assigned_color_token ?? ''}, var(--color-bg-secondary))`,
+                      backgroundColor: `var(--member-color-${(m as unknown as Record<string, unknown>).assigned_color_token ?? ''}, var(--color-bg-secondary))`,
                       color: 'var(--color-text-primary)',
                       border: '2px solid var(--color-border)',
                     }}
@@ -924,6 +1004,41 @@ export function StudioPage() {
           memberId={gamificationMemberId}
           memberName={gamificationMemberName}
           familyId={family.id}
+        />
+      )}
+
+      {/* ── Setup Wizards ───────────────────────────────────────── */}
+      {starChartWizardOpen && family?.id && member?.id && (
+        <StarChartWizard
+          isOpen={starChartWizardOpen}
+          onClose={() => setStarChartWizardOpen(false)}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
+        />
+      )}
+
+      {getToKnowWizardOpen && family?.id && member?.id && (
+        <GetToKnowWizard
+          isOpen={getToKnowWizardOpen}
+          onClose={() => setGetToKnowWizardOpen(false)}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
+        />
+      )}
+
+      {routineBuilderWizardOpen && (
+        <RoutineBuilderWizard
+          isOpen={routineBuilderWizardOpen}
+          onClose={() => setRoutineBuilderWizardOpen(false)}
+          onAccept={(routineName, sections) => {
+            setRoutineBuilderWizardOpen(false)
+            setModalDefaultTitle(routineName)
+            setModalPreloadedSections(sections)
+            setModalInitialType('routine')
+            setModalOpen(true)
+          }}
         />
       )}
     </div>

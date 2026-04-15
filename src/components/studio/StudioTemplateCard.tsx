@@ -17,7 +17,7 @@ import {
   CheckSquare, RefreshCw, Star, Layers, Shuffle,
   FileText, HelpCircle, AlertTriangle, Heart,
   ShoppingCart, Gift, Luggage, DollarSign, ListTodo, List,
-  ChevronRight,
+  ChevronRight, Users, Palette, Trophy, Wand2,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -40,6 +40,20 @@ export type StudioTemplateType =
   | 'list_expenses'
   | 'list_todo'
   | 'list_custom'
+  // Gamification & Rewards (Phase 1)
+  | 'gamification_setup'
+  | 'gamification_creatures'
+  | 'gamification_pages'
+  | 'gamification_segments'
+  | 'gamification_coloring'
+  | 'reward_reveal'
+  | 'widget_tally'
+  | 'widget_randomizer_spinner'
+  // Growth & Self-Knowledge
+  | 'self_knowledge_wizard'
+  | 'best_intentions_wizard'
+  // Setup Wizards
+  | 'routine_builder_wizard'
 
 export interface StudioTemplate {
   id: string
@@ -91,6 +105,20 @@ function TemplateIcon({ type, size = 22 }: { type: StudioTemplateType; size?: nu
     case 'list_expenses':      return <DollarSign size={size} style={style} />
     case 'list_todo':          return <ListTodo size={size} style={style} />
     case 'list_custom':        return <List size={size} style={style} />
+    // Gamification & Rewards
+    case 'gamification_setup':
+    case 'gamification_creatures':
+    case 'gamification_pages':
+    case 'gamification_segments': return <Trophy size={size} style={style} />
+    case 'gamification_coloring': return <Palette size={size} style={style} />
+    case 'reward_reveal':      return <Gift size={size} style={style} />
+    case 'widget_tally':       return <Star size={size} style={style} />
+    case 'widget_randomizer_spinner': return <Shuffle size={size} style={style} />
+    // Growth & Self-Knowledge
+    case 'self_knowledge_wizard': return <Users size={size} style={style} />
+    case 'best_intentions_wizard': return <Heart size={size} style={style} />
+    // Setup Wizards
+    case 'routine_builder_wizard': return <Wand2 size={size} style={style} />
     default:                   return <FileText size={size} style={style} />
   }
 }
