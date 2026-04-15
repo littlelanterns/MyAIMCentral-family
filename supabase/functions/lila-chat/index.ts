@@ -242,13 +242,14 @@ Deno.serve(async (req) => {
       conversation.page_context,
     )
 
+    // History already includes the user message we just saved (line 212).
+    // Do NOT append it again — duplicate messages confuse the model.
     const messages = [
       { role: 'system', content: systemPrompt },
       ...(history || []).map(m => ({
         role: m.role === 'system' ? 'assistant' : m.role,
         content: m.content,
       })),
-      { role: 'user', content },
     ]
 
     // Call OpenRouter

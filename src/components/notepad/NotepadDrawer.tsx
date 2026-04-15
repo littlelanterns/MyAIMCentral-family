@@ -160,6 +160,17 @@ export function NotepadDrawer() {
     }
   }
 
+  function handleDiscardTab(tabId: string) {
+    if (!memberId) return
+    deleteTab.mutate({ id: tabId, memberId })
+    const remaining = tabs.filter(t => t.id !== tabId)
+    if (remaining.length > 0) {
+      setActiveTabId(remaining[0].id)
+    } else {
+      closeNotepad()
+    }
+  }
+
   function handleRenameTab(tabId: string, title: string) {
     if (!memberId) return
     const trimmed = title.trim()
@@ -488,6 +499,7 @@ export function NotepadDrawer() {
               onSelectTab={setActiveTabId}
               onAddTab={handleAddTab}
               onCloseTab={handleCloseTab}
+              onDiscardTab={handleDiscardTab}
               onRenameTab={handleRenameTab}
               onStartRename={setEditingTitle}
               onSendTo={() => setView('send-to')}
@@ -555,7 +567,7 @@ export function NotepadDrawer() {
 
 function EditorView({
   tabs, activeTabId, localContent, editingTitle, wordCount, charCount,
-  onContentChange, onSelectTab, onAddTab, onCloseTab, onRenameTab, onStartRename,
+  onContentChange, onSelectTab, onAddTab, onCloseTab, onDiscardTab, onRenameTab, onStartRename,
   onSendTo, onReviewRoute,
 }: {
   tabs: NotepadTab[]
@@ -568,6 +580,7 @@ function EditorView({
   onSelectTab: (id: string) => void
   onAddTab: () => void
   onCloseTab: (id: string) => void
+  onDiscardTab: (id: string) => void
   onRenameTab: (id: string, title: string) => void
   onStartRename: (id: string | null) => void
   onSendTo: () => void
@@ -666,7 +679,7 @@ function EditorView({
                 <Tooltip content="Close tab (archives to history)">
                 <button
                   onClick={() => onCloseTab(tab.id)}
-                  className="p-0.5 ml-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="p-0.5 ml-0.5 rounded md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                   style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
                 >
                   <X size={10} />
@@ -783,6 +796,20 @@ function EditorView({
         </div>
 
         <div className="flex items-center gap-1.5">
+          <Tooltip content="Discard this tab">
+            <button
+              onClick={() => {
+                if (!activeTabId) return
+                if (hasContent && !window.confirm('Discard this note? This cannot be undone.')) return
+                onDiscardTab(activeTabId)
+              }}
+              className="p-1.5 rounded transition-colors"
+              style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+            >
+              <Trash2 size={14} />
+            </button>
+          </Tooltip>
+
           <button
             onClick={onSendTo}
             disabled={!hasContent}

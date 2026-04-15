@@ -20,6 +20,9 @@ interface LilaMessageBubbleProps {
   avatarKey?: string
   isLatestAssistant?: boolean
   isStreaming?: boolean
+  /** When true, hide HumanInTheMix (Edit/Approve/Regenerate/Reject) — used for
+   *  conversational modes (help/assist/general) where HITM is confusing. */
+  hideHumanInTheMix?: boolean
   onRegenerate?: () => void
   onReject?: () => void
 }
@@ -29,6 +32,7 @@ export function LilaMessageBubble({
   avatarKey = 'sitting',
   isLatestAssistant = false,
   isStreaming = false,
+  hideHumanInTheMix = false,
   onRegenerate,
   onReject,
 }: LilaMessageBubbleProps) {
@@ -139,8 +143,8 @@ export function LilaMessageBubble({
           </div>
         )}
 
-        {/* Human-in-the-Mix on latest assistant message */}
-        {isLatestAssistant && !isStreaming && (
+        {/* Human-in-the-Mix on latest assistant message — hidden in conversational modes */}
+        {isLatestAssistant && !isStreaming && !hideHumanInTheMix && (
           <HumanInTheMix
             onEdit={() => {
               notepad?.openNotepad({

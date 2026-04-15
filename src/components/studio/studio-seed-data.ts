@@ -566,3 +566,165 @@ export const RANDOMIZER_TEMPLATE_BLANK: StudioTemplate = {
   ],
   isExample: false,
 }
+
+// ─── Gamification & Rewards (real features, not stubs) ──────
+
+export const GAMIFICATION_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'studio_gamification_setup',
+    templateType: 'gamification_setup',
+    name: 'Gamification Setup',
+    tagline: 'Enable points, streaks, and sticker book creature collecting for a child.',
+    description:
+      'Turn on the gamification system for a child. Choose how they earn creatures (every task, every N tasks, segment complete, or perfect day). Configure the sticker book, set points per task, and pick earning modes. The foundation for all reward and motivation features.',
+    exampleUseCases: [
+      'Set up sticker book for youngest',
+      'Enable point tracking for chores',
+      'Configure creature earning',
+      'Set up streaks and rewards',
+    ],
+    capability_tags: [
+      'gamification', 'sticker_book', 'creatures', 'points',
+      'streaks', 'earning_modes', 'motivation', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'studio_day_segments',
+    templateType: 'gamification_segments',
+    name: 'Day Segments',
+    tagline: 'Organize tasks into Morning, School, Jobs, Evening sections on the dashboard.',
+    description:
+      'Break the day into named segments (Morning, School Time, Afternoon Jobs, Evening). Each segment groups tasks on the child\'s dashboard with progress bars. Optionally trigger creature earning when a whole segment is completed. Day-of-week filters let you have different segments on weekdays vs weekends.',
+    exampleUseCases: [
+      'Morning / Afternoon / Evening split',
+      'School days vs weekend chores',
+      'Sunday special tasks',
+      'Segment-based creature rewards',
+    ],
+    capability_tags: [
+      'gamification', 'day_organization', 'segments', 'progress_bars',
+      'dashboard_layout', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'studio_coloring_reveal',
+    templateType: 'gamification_coloring',
+    name: 'Coloring Page Reveal',
+    tagline: 'Link a task to a coloring page. Each completion reveals more color.',
+    description:
+      'Pick from 32 beautiful Woodland Felt coloring pages (20 animals + 12 scenes). Link it to any repeating task — each time the child completes that task, one zone of the image transitions from grayscale to full color. Choose 5, 10, 15, 20, 30, or 50 steps to full reveal. Print the finished image as a reward.',
+    exampleUseCases: [
+      'Potty chart with picture reveal',
+      'Piano practice progress',
+      'Reading milestones',
+      'Chore completion art',
+    ],
+    capability_tags: [
+      'gamification', 'coloring', 'visual_progress', 'art',
+      'task_linked', 'printable', 'motivation', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'studio_reward_reveal',
+    templateType: 'reward_reveal',
+    name: 'Reward Reveal',
+    tagline: 'Celebrate completions with card flips, door reveals, spinners, or scratch-offs.',
+    description:
+      'Create a celebration that plays when a child completes a task, reaches a widget milestone, or finishes a list. Choose from 4 reveal animations (card flip, three doors, spinner wheel, scratch-off), set the prize (text message, surprise image, random draw from a list, or celebration-only), and attach it to anything completable.',
+    exampleUseCases: [
+      'Treasure box every 5th chore',
+      'Mystery door after routine completion',
+      'Spin the reward wheel on Fridays',
+      'Scratch-off prize for homework streak',
+    ],
+    capability_tags: [
+      'rewards', 'celebration', 'reveal_animation', 'surprise',
+      'card_flip', 'doors', 'spinner', 'scratch_off', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'studio_star_chart',
+    templateType: 'widget_tally',
+    name: 'Star / Sticker Chart',
+    tagline: 'Classic star chart. Earn a star for each completion. Celebrate milestones.',
+    description:
+      'The classic star chart, digitized. Add a star (or any icon) each time a child does the target behavior. Set milestone thresholds that trigger celebrations. Attach a Reward Reveal for every Nth star to keep things exciting. Works for potty training, homework, chores, or any repeating behavior.',
+    exampleUseCases: [
+      'Potty training chart',
+      'Homework completion stars',
+      'Good behavior stickers',
+      'Chore tracking with rewards',
+    ],
+    capability_tags: [
+      'tracking', 'stars', 'stickers', 'milestones',
+      'potty_training', 'rewards', 'visual_progress', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'studio_reward_spinner',
+    templateType: 'widget_randomizer_spinner',
+    name: 'Reward Spinner',
+    tagline: 'Spin the wheel to pick a random reward, activity, or consequence.',
+    description:
+      'A colorful spinner wheel linked to a randomizer list. Tap to spin — the wheel decelerates and lands on a random item. Use it as a reward wheel (spin after completing chores), activity picker (what should we do this afternoon?), or consequence spinner (what\'s the logical consequence?). Create the list of options first, then connect it.',
+    exampleUseCases: [
+      'Weekend reward wheel',
+      'Activity picker for free time',
+      'Consequence spinner',
+      'Family game night picker',
+    ],
+    capability_tags: [
+      'randomizer', 'spinner', 'rewards', 'fun', 'surprise',
+      'decision_making', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+]
+
+// ─── Growth & Self-Knowledge Templates ──────────────────────
+
+export const GROWTH_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'studio_get_to_know',
+    templateType: 'self_knowledge_wizard',
+    name: 'Get to Know Your Family',
+    tagline: 'Walk through gift ideas, love languages, comfort needs, and more for each person.',
+    description:
+      'A guided walkthrough of 6 connection categories for any family member: Gift Ideas, Meaningful Words, Helpful Actions, Quality Time Ideas, Sensitivities, and Comfort Needs. Answer a few prompts per category and LiLa learns what matters to each person. Makes every AI suggestion more personal.',
+    exampleUseCases: [
+      'New family member onboarding',
+      'Deepen connection with spouse',
+      'Help LiLa understand your kids',
+      'Update preferences as kids grow',
+    ],
+    capability_tags: [
+      'self_knowledge', 'connection', 'family', 'onboarding',
+      'personalization', 'ai_context', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'studio_best_intentions',
+    templateType: 'best_intentions_wizard',
+    name: 'Best Intentions Starter',
+    tagline: 'Set up 3-5 daily intentions you want to practice — track without pressure.',
+    description:
+      'Best Intentions are things you want to practice being, not tasks to check off. "Be patient when the kids are loud." "Put my phone down during dinner." This wizard helps you create 3-5 starter intentions across family, personal growth, health, and relationships. Tap to celebrate each time you practice one — no guilt when you don\'t.',
+    exampleUseCases: [
+      'Start a daily intention practice',
+      'Create family-wide intentions',
+      'Set growth goals for the quarter',
+      'Track relationship intentions',
+    ],
+    capability_tags: [
+      'intentions', 'daily_practice', 'growth', 'reflection',
+      'celebration', 'no_guilt', 'setup_wizard',
+    ],
+    isExample: false,
+  },
+]

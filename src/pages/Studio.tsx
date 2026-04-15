@@ -8,9 +8,9 @@
  * 1. Task & Chore Templates — Simple Task, Routine, Opportunity Board, Sequential Collection
  * 2. Guided Forms & Worksheets — Guided Form, SODAS, What-If, Apology Reflection
  * 3. List Templates — Shopping, Wishlist, Packing, Expense Tracker, To-Do, Custom, Randomizer
- * 4. Trackers & Widgets — PlannedExpansionCard (PRD-10)
- * 5. Tools — PlannedExpansionCard (future PRDs)
- * 6. Gamification Systems — PlannedExpansionCard (PRD-24)
+ * 4. Trackers & Widgets — PRD-10 real starter configs (35+ tracker types)
+ * 5. Gamification & Rewards — Setup, Segments, Coloring Reveals, Reward Reveals, Star Chart, Spinner
+ * 6. Growth & Self-Knowledge — Get to Know Your Family, Best Intentions Starter
  *
  * System templates have is_system_template=true, family_id=NULL in the DB.
  * Example templates have is_example=true and are labeled with a badge.
@@ -38,6 +38,8 @@ import {
   LIST_TEMPLATES_BLANK,
   LIST_TEMPLATES_EXAMPLES,
   RANDOMIZER_TEMPLATE_BLANK,
+  GAMIFICATION_TEMPLATES,
+  GROWTH_TEMPLATES,
 } from '@/components/studio/studio-seed-data'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
@@ -57,6 +59,7 @@ import { WidgetPicker } from '@/components/widgets/WidgetPicker'
 import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
 import { useCreateWidget } from '@/hooks/useWidgets'
 import type { WidgetStarterConfig, CreateWidget } from '@/types/widgets'
+import { GamificationSettingsModal } from '@/components/gamification/settings'
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -184,6 +187,14 @@ export function StudioPage() {
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
   const [guidedFormSubtype, setGuidedFormSubtype] = useState<string>('custom')
 
+  // Gamification modal state
+  const [gamificationModalOpen, setGamificationModalOpen] = useState(false)
+  const [gamificationMemberId, setGamificationMemberId] = useState<string | null>(null)
+  const [gamificationMemberName, setGamificationMemberName] = useState('')
+  // Member picker for gamification (picks child, then opens the settings modal)
+  const [gamificationPickerOpen, setGamificationPickerOpen] = useState(false)
+  const [gamificationPickerAction, setGamificationPickerAction] = useState<string>('')
+
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
   const [widgetConfigOpen, setWidgetConfigOpen] = useState(false)
@@ -278,7 +289,52 @@ export function StudioPage() {
 
   // ── Customize handler ────────────────────────────────────────
 
+  // ── Gamification member picker handler ──────────────────────
+  const openGamificationForMember = useCallback((memberId: string, action: string) => {
+    const m = familyMembers.find(fm => fm.id === memberId)
+    if (!m || !family?.id) return
+    setGamificationMemberId(memberId)
+    setGamificationMemberName(m.display_name)
+    setGamificationPickerOpen(false)
+    setGamificationModalOpen(true)
+  }, [familyMembers, family?.id])
+
   const handleCustomize = useCallback((template: StudioTemplate) => {
+    // Gamification templates → open member picker then GamificationSettingsModal
+    if (template.templateType.startsWith('gamification_') || template.templateType === 'reward_reveal') {
+      if (template.templateType === 'reward_reveal') {
+        navigate('/settings/reward-reveals')
+        return
+      }
+      // Open member picker for gamification setup
+      setGamificationPickerAction(template.templateType)
+      setGamificationPickerOpen(true)
+      return
+    }
+
+    // Growth templates → navigate to the feature
+    if (template.templateType === 'self_knowledge_wizard') {
+      navigate('/inner-workings')
+      return
+    }
+    if (template.templateType === 'best_intentions_wizard') {
+      navigate('/guiding-stars?tab=intentions')
+      return
+    }
+
+    // Widget types from Gamification section (star chart, spinner) → widget config flow
+    if (template.templateType.startsWith('widget_')) {
+      const trackerType = template.templateType.replace('widget_', '')
+      const config = starterConfigs.find(sc => sc.tracker_type === trackerType)
+      if (config) {
+        handleSelectStarterConfig(config)
+      } else {
+        // No starter config exists — open the widget picker filtered
+        setWidgetPickerOpen(true)
+      }
+      return
+    }
+
     // Guided Forms → open GuidedFormAssignModal
     if (template.templateType.startsWith('guided_form')) {
       const subtypeMap: Record<string, string> = {
@@ -364,6 +420,14 @@ export function StudioPage() {
     () => LIST_TEMPLATES_EXAMPLES.filter(t => matchesSearch(t, searchQuery)),
     [searchQuery],
   )
+  const gamificationFiltered = useMemo(
+    () => GAMIFICATION_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
+    [searchQuery],
+  )
+  const growthFiltered = useMemo(
+    () => GROWTH_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
+    [searchQuery],
+  )
 
   const noSearchResults =
     searchQuery.trim() &&
@@ -372,7 +436,9 @@ export function StudioPage() {
     guidedBlanksFiltered.length === 0 &&
     guidedExamplesFiltered.length === 0 &&
     listBlanksFiltered.length === 0 &&
-    listExamplesFiltered.length === 0
+    listExamplesFiltered.length === 0 &&
+    gamificationFiltered.length === 0 &&
+    growthFiltered.length === 0
 
   // ── Customized tab: sort + filter ────────────────────────────
 
@@ -501,7 +567,7 @@ export function StudioPage() {
               )}
 
               {/* 4. Trackers & Widgets — PRD-10 real starter configs */}
-              {!searchQuery && (
+              {(
                 <StudioCategorySection
                   title="Trackers & Widgets"
                   templates={starterConfigs.map(sc => ({
@@ -529,14 +595,23 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 5. Gamification Systems — PlannedExpansionCard */}
-              {!searchQuery && (
+              {/* 5. Gamification & Rewards — real setup templates */}
+              {gamificationFiltered.length > 0 && (
                 <StudioCategorySection
-                  title="Gamification Systems"
-                  templates={[]}
-                  plannedContent={<PlannedExpansionCard featureKey="studio_gamification" />}
+                  title="Gamification & Rewards"
+                  templates={gamificationFiltered}
                   onCustomize={handleCustomize}
-                  defaultCollapsed={true}
+                  defaultCollapsed={false}
+                />
+              )}
+
+              {/* 6. Growth & Self-Knowledge */}
+              {growthFiltered.length > 0 && (
+                <StudioCategorySection
+                  title="Growth & Self-Knowledge"
+                  templates={growthFiltered}
+                  onCustomize={handleCustomize}
+                  defaultCollapsed={false}
                 />
               )}
             </>
@@ -776,6 +851,81 @@ export function StudioPage() {
         familyMembers={familyMembers.map(m => ({ id: m.id, display_name: m.display_name }))}
         onDeploy={handleDeployWidget}
       />
+
+      {/* ── Gamification Member Picker ─────────────────────────── */}
+      {gamificationPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-primary) 60%, transparent)' }}
+          onClick={() => setGamificationPickerOpen(false)}
+        >
+          <div
+            className="rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl"
+            style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3
+              className="text-base font-semibold mb-1"
+              style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
+            >
+              Choose a family member
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+              Who are you setting this up for?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {familyMembers
+                .filter(m => m.is_active && m.id !== member?.id)
+                .map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => openGamificationForMember(m.id, gamificationPickerAction)}
+                    className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
+                    style={{
+                      backgroundColor: `var(--member-color-${m.assigned_color_token ?? ''}, var(--color-bg-secondary))`,
+                      color: 'var(--color-text-primary)',
+                      border: '2px solid var(--color-border)',
+                    }}
+                  >
+                    {m.display_name}
+                  </button>
+                ))}
+              {/* Mom can also set up gamification for herself */}
+              {member && (
+                <button
+                  onClick={() => openGamificationForMember(member.id, gamificationPickerAction)}
+                  className="rounded-full px-4 py-2 text-sm font-medium transition-all hover:scale-105"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    border: '2px solid var(--color-border)',
+                  }}
+                >
+                  {member.display_name} (me)
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setGamificationPickerOpen(false)}
+              className="mt-4 w-full text-sm py-2 rounded-lg"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Gamification Settings Modal ─────────────────────────── */}
+      {gamificationMemberId && family?.id && (
+        <GamificationSettingsModal
+          isOpen={gamificationModalOpen}
+          onClose={() => { setGamificationModalOpen(false); setGamificationMemberId(null) }}
+          memberId={gamificationMemberId}
+          memberName={gamificationMemberName}
+          familyId={family.id}
+        />
+      )}
     </div>
   )
 }

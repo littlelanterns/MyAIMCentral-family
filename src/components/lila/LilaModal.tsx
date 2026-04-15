@@ -125,8 +125,9 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
       setConversation(conv)
     }
 
-    // Help/Assist pattern matching — check canned responses BEFORE calling AI (PRD-32)
-    if (modeKey === 'help' || modeKey === 'assist') {
+    // Help-only pattern matching — check canned responses BEFORE calling AI (PRD-32)
+    // Only fires in Help mode. Assist mode is conversational and should always call AI.
+    if (modeKey === 'help') {
       const cannedResponse = matchHelpPattern(messageText)
       if (cannedResponse) {
         await supabase.from('lila_messages').insert([
@@ -297,16 +298,20 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
             </div>
           )}
 
-          {messages.map((msg, i) => (
-            <LilaMessageBubble
-              key={msg.id}
-              message={msg}
-              avatarKey={avatarKey}
-              isLatestAssistant={msg.role === 'assistant' && i === messages.length - 1 && !isStreaming}
-              onRegenerate={() => handleRegenerate(msg.id)}
-              onReject={() => handleReject(msg.id)}
-            />
-          ))}
+          {messages.map((msg, i) => {
+            const isConversationalMode = ['help', 'assist', 'general', 'optimizer'].includes(modeKey)
+            return (
+              <LilaMessageBubble
+                key={msg.id}
+                message={msg}
+                avatarKey={avatarKey}
+                isLatestAssistant={msg.role === 'assistant' && i === messages.length - 1 && !isStreaming}
+                hideHumanInTheMix={isConversationalMode}
+                onRegenerate={() => handleRegenerate(msg.id)}
+                onReject={() => handleReject(msg.id)}
+              />
+            )
+          })}
 
           {isStreaming && streamingContent && (
             <LilaMessageBubble

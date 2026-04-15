@@ -227,8 +227,9 @@ export function LilaDrawer({
       onConversationCreated(conv)
     }
 
-    // Help/Assist pattern matching — check canned responses BEFORE calling AI (PRD-32)
-    if (currentMode === 'help' || currentMode === 'assist') {
+    // Help-only pattern matching — check canned responses BEFORE calling AI (PRD-32)
+    // Only fires in Help mode. Assist mode is conversational and should always call AI.
+    if (currentMode === 'help') {
       const cannedResponse = matchHelpPattern(messageText)
       if (cannedResponse) {
         // Insert user message first, then the canned assistant response — no AI call
@@ -583,12 +584,14 @@ export function LilaDrawer({
 
           {messages.map((msg, i) => {
             const isLatestAssistant = msg.role === 'assistant' && i === messages.length - 1 && !isStreaming
+            const isConversationalMode = ['help', 'assist', 'general', 'optimizer'].includes(currentMode)
             return (
               <LilaMessageBubble
                 key={msg.id}
                 message={msg}
                 avatarKey={avatarKey}
                 isLatestAssistant={isLatestAssistant}
+                hideHumanInTheMix={isConversationalMode}
                 onRegenerate={() => handleRegenerate(msg.id)}
                 onReject={() => handleReject(msg.id)}
               />

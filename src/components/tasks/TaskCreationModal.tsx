@@ -908,14 +908,14 @@ export function TaskCreationModal({
                   opacity: selectedCount >= 2 ? 1 : 0.5,
                   cursor: selectedCount >= 2 ? 'pointer' : 'default',
                 }}
-                onClick={selectedCount >= 2 ? () => setData(d => ({ ...d, rotationEnabled: !d.rotationEnabled })) : undefined}
+                onClick={selectedCount >= 2 ? () => setData(d => ({ ...d, rotationEnabled: !d.rotationEnabled, ...(!d.rotationEnabled ? { assignMode: 'any' as const } : {}) })) : undefined}
               >
                 <RefreshCw size={14} style={{ color: data.rotationEnabled && selectedCount >= 2 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }} />
                 <input
                   type="checkbox"
                   checked={data.rotationEnabled && selectedCount >= 2}
                   disabled={selectedCount < 2}
-                  onChange={(e) => setData(d => ({ ...d, rotationEnabled: e.target.checked }))}
+                  onChange={(e) => setData(d => ({ ...d, rotationEnabled: e.target.checked, ...(e.target.checked ? { assignMode: 'any' as const } : {}) }))}
                   style={{ accentColor: 'var(--color-btn-primary-bg)' }}
                 />
                 <span style={{

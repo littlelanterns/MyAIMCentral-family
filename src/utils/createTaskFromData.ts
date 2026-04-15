@@ -241,7 +241,8 @@ export async function createTaskFromData(
     const assignees: AssigneeLike[] = data.wholeFamily
       ? familyMembers.filter(m => m.is_active)
       : data.assignments ?? []
-    const mode = data.assignMode ?? 'each'
+    // Rotation implies shared/any — one task rotates between assignees
+    const mode = data.rotationEnabled ? 'any' : (data.assignMode ?? 'each')
 
     if (assignees.length >= 2 && mode === 'each') {
       const inserts = assignees.map(a => ({

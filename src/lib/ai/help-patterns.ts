@@ -213,16 +213,23 @@ const HELP_PATTERNS: HelpPattern[] = [
  * Match a user query against the help pattern library.
  * Returns the canned response string if a match is found, or null if no match.
  * Uses keyword count — the pattern with the most keyword matches wins if multiple match.
+ * Requires at least 2 keyword matches to avoid false positives on single common words
+ * like "task", "list", "calendar", etc.
  */
 export function matchHelpPattern(query: string): string | null {
   const lower = query.toLowerCase()
+
+  // Short messages (under 4 words) are more likely to be exact-intent queries,
+  // so allow 1-keyword match. Longer messages need 2+ to avoid false positives.
+  const wordCount = query.trim().split(/\s+/).length
+  const minMatches = wordCount <= 4 ? 1 : 2
 
   let bestMatch: HelpPattern | null = null
   let bestCount = 0
 
   for (const pattern of HELP_PATTERNS) {
     const matchCount = pattern.keywords.filter(kw => lower.includes(kw.toLowerCase())).length
-    if (matchCount > bestCount) {
+    if (matchCount >= minMatches && matchCount > bestCount) {
       bestCount = matchCount
       bestMatch = pattern
     }
