@@ -57,6 +57,7 @@ import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
+import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import { getMemberColor } from '@/lib/memberColors'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
@@ -480,6 +481,8 @@ export function TasksPage() {
     switch (filterStatus) {
       case 'active':
         filtered = filtered.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && !t.archived_at)
+        // Hide recurring tasks not scheduled for today (RRULE day-of-week filter)
+        filtered = filterTasksForToday(filtered)
         break
       case 'completed':
         filtered = filtered.filter((t) => t.status === 'completed')

@@ -22,6 +22,7 @@ import { RoutineStepChecklist, isSectionActiveToday } from '@/components/tasks/R
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import { todayLocalIso } from '@/utils/dates'
+import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
 interface GuidedActiveTasksSectionProps {
@@ -41,21 +42,23 @@ export function GuidedActiveTasksSection({
     assigneeId: memberId,
   })
 
+  // Filter recurring tasks to only those scheduled for today
+  const todaysTasks = useMemo(() => filterTasksForToday(allTasks), [allTasks])
   // Active tasks = pending + in_progress (what's left to do)
   const today = todayLocalIso()
   const tasks = useMemo(
-    () => allTasks.filter(t => t.status === 'pending' || t.status === 'in_progress'),
-    [allTasks],
+    () => todaysTasks.filter(t => t.status === 'pending' || t.status === 'in_progress'),
+    [todaysTasks],
   )
   // Completed today = tasks completed today, shown as a "done" section
   const completedToday = useMemo(
-    () => allTasks.filter(t => {
+    () => todaysTasks.filter(t => {
       if (t.status !== 'completed' || !t.completed_at) return false
       const d = new Date(t.completed_at)
       const completedLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       return completedLocal === today
     }),
-    [allTasks, today],
+    [todaysTasks, today],
   )
   const completeTask = useCompleteTask()
   const { data: allSegments } = useTaskSegments(memberId)

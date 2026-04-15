@@ -6,7 +6,7 @@
  * Supports all shells with appropriate view filtering.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ChevronDown, ChevronRight, CheckSquare } from 'lucide-react'
 import { SparkleOverlay } from '@/components/shared'
 import { TaskCreationModal } from './TaskCreationModal'
@@ -26,6 +26,7 @@ import { TaskCardPlay } from './TaskCardPlay'
 import { useTaskCompletion } from './useTaskCompletion'
 import { useShell } from '@/components/shells/ShellProvider'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
+import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import type { Task } from '@/hooks/useTasks'
 
 // Default view per shell
@@ -59,8 +60,9 @@ export function DashboardTasksSection({
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
 
-  const activeTasks = tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
-  const completedToday = tasks.filter((t) => {
+  const todaysTasks = useMemo(() => filterTasksForToday(tasks), [tasks])
+  const activeTasks = todaysTasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
+  const completedToday = todaysTasks.filter((t) => {
     if (t.status !== 'completed' || !t.completed_at) return false
     const completedDate = new Date(t.completed_at).toDateString()
     return completedDate === new Date().toDateString()

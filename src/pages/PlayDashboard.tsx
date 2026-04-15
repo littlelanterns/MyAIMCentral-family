@@ -48,6 +48,7 @@ import { CreatureRevealModal } from '@/components/play-dashboard/CreatureRevealM
 import { PageUnlockRevealModal } from '@/components/play-dashboard/PageUnlockRevealModal'
 import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
+import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import type { Task } from '@/types/tasks'
 import type { PlayDashboardProps, RevealEvent, MemberColoringReveal } from '@/types/play-dashboard'
 import {
@@ -72,10 +73,10 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     assigneeId: memberId,
   })
 
-  // Filter to active task types Play kids actually see
+  // Filter recurring tasks to only those scheduled for today, then to Play types
   const playTasks = useMemo(
     () =>
-      allTasks.filter(
+      filterTasksForToday(allTasks).filter(
         t =>
           t.task_type === 'task' ||
           t.task_type === 'routine' ||
