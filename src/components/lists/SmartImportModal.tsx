@@ -51,6 +51,10 @@ interface SmartImportModalProps {
   familyId: string
   memberId: string
   existingLists: List[]
+  /** Pre-loaded text (e.g., from image OCR) — skips typing step */
+  initialText?: string
+  /** Pre-loaded source context (e.g., "Photo import") */
+  initialSource?: string
 }
 
 // ── Component ────────────────────────────────────────────
@@ -61,13 +65,15 @@ export function SmartImportModal({
   familyId,
   memberId,
   existingLists,
+  initialText = '',
+  initialSource = '',
 }: SmartImportModalProps) {
   const queryClient = useQueryClient()
 
   // Phase: 'input' | 'classifying' | 'review' | 'committing' | 'done'
   const [phase, setPhase] = useState<'input' | 'classifying' | 'review' | 'committing' | 'done'>('input')
-  const [rawText, setRawText] = useState('')
-  const [sourceContext, setSourceContext] = useState('')
+  const [rawText, setRawText] = useState(initialText)
+  const [sourceContext, setSourceContext] = useState(initialSource)
   const [items, setItems] = useState<ClassifiedItem[]>([])
   const [suggestedLists, setSuggestedLists] = useState<SuggestedNewList[]>([])
   const [error, setError] = useState<string | null>(null)

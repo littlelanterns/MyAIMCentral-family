@@ -12,7 +12,7 @@ import {
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, ArchiveRestore, Trash2, Loader2, Save,
   Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
-  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2, Trophy, Star,
+  Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2, Trophy, Star, Camera,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -45,6 +45,7 @@ import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 import { ReferenceListView } from '@/components/lists/ReferenceListView'
 import { OpportunitySettingsPanel } from '@/components/lists/OpportunitySettingsPanel'
 import { SmartImportModal } from '@/components/lists/SmartImportModal'
+import { ListImageImportModal } from '@/components/lists/ListImageImportModal'
 import {
   SequentialCollectionCard,
 } from '@/components/tasks/sequential/SequentialCollectionView'
@@ -175,6 +176,10 @@ export function ListsPage() {
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   // Smart Import modal — AI sorts pasted items into correct lists
   const [smartImportOpen, setSmartImportOpen] = useState(false)
+  const [smartImportPreloadText, setSmartImportPreloadText] = useState('')
+  const [smartImportPreloadSource, setSmartImportPreloadSource] = useState('')
+  // Image Import modal — OCR → items
+  const [imageImportOpen, setImageImportOpen] = useState(false)
 
   // Handle ?create=<type> URL param from Studio navigation
   useEffect(() => {
@@ -319,9 +324,18 @@ export function ListsPage() {
             </button>
             </Tooltip>
           </div>
+          <Tooltip content="Import from photo — OCR reads text from images">
+            <button
+              onClick={() => setImageImportOpen(true)}
+              className="p-2 rounded-lg"
+              style={{ color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-btn-primary-bg)' }}
+            >
+              <Camera size={16} />
+            </button>
+          </Tooltip>
           <Tooltip content="AI sorts pasted items into your lists">
             <button
-              onClick={() => setSmartImportOpen(true)}
+              onClick={() => { setSmartImportPreloadText(''); setSmartImportPreloadSource(''); setSmartImportOpen(true) }}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-btn-primary-bg)' }}
             >
@@ -725,10 +739,28 @@ export function ListsPage() {
       {smartImportOpen && family?.id && member?.id && (
         <SmartImportModal
           isOpen={smartImportOpen}
-          onClose={() => setSmartImportOpen(false)}
+          onClose={() => { setSmartImportOpen(false); setSmartImportPreloadText(''); setSmartImportPreloadSource('') }}
           familyId={family.id}
           memberId={member.id}
           existingLists={activeLists}
+          initialText={smartImportPreloadText}
+          initialSource={smartImportPreloadSource}
+        />
+      )}
+
+      {/* Image Import Modal — OCR photo → items */}
+      {imageImportOpen && family?.id && member?.id && (
+        <ListImageImportModal
+          isOpen={imageImportOpen}
+          onClose={() => setImageImportOpen(false)}
+          familyId={family.id}
+          memberId={member.id}
+          onTextExtracted={(text, source) => {
+            setImageImportOpen(false)
+            setSmartImportPreloadText(text)
+            setSmartImportPreloadSource(source)
+            setSmartImportOpen(true)
+          }}
         />
       )}
     </div>
@@ -1001,6 +1033,12 @@ function RandomizerDetailView({
               onDefaultRewardAmountChange={(v) => updateList.mutate({ id: list.id, default_reward_amount: v })}
               onDefaultClaimLockDurationChange={(v) => updateList.mutate({ id: list.id, default_claim_lock_duration: v })}
               onDefaultClaimLockUnitChange={(v) => updateList.mutate({ id: list.id, default_claim_lock_unit: v })}
+              defaultAdvancementMode={list.default_advancement_mode}
+              defaultPracticeTarget={list.default_practice_target}
+              defaultRequireApproval={list.default_require_approval}
+              onDefaultAdvancementModeChange={(v) => updateList.mutate({ id: list.id, default_advancement_mode: v })}
+              onDefaultPracticeTargetChange={(v) => updateList.mutate({ id: list.id, default_practice_target: v })}
+              onDefaultRequireApprovalChange={(v) => updateList.mutate({ id: list.id, default_require_approval: v })}
             />
           )}
 
@@ -2231,6 +2269,12 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               onDefaultRewardAmountChange={(v) => updateList.mutate({ id: listId, default_reward_amount: v })}
               onDefaultClaimLockDurationChange={(v) => updateList.mutate({ id: listId, default_claim_lock_duration: v })}
               onDefaultClaimLockUnitChange={(v) => updateList.mutate({ id: listId, default_claim_lock_unit: v })}
+              defaultAdvancementMode={list.default_advancement_mode}
+              defaultPracticeTarget={list.default_practice_target}
+              defaultRequireApproval={list.default_require_approval}
+              onDefaultAdvancementModeChange={(v) => updateList.mutate({ id: listId, default_advancement_mode: v })}
+              onDefaultPracticeTargetChange={(v) => updateList.mutate({ id: listId, default_practice_target: v })}
+              onDefaultRequireApprovalChange={(v) => updateList.mutate({ id: listId, default_require_approval: v })}
             />
           )}
         </div>
