@@ -4,15 +4,208 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: IDLE
-
-> **PRD-28 completed 2026-04-13.** Sub-phase A (allowance system + financial ledger + Privilege Status Widget) + Sub-phase B (homework subjects + time logging + Log Learning widget). 55 requirements wired, 8 stubbed (all post-MVP/deferred), 0 missing. 35 Playwright E2E tests passing. Migrations: 100134 + 100135 + 100136 + 100137.
+## Status: PRE-BUILD — PRD-16 Meetings
 
 > **Previous builds signed off:**
 > PRD-28 (Tracking, Allowance & Financial) — 2026-04-13. Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build M (PRD-24+PRD-26 Play Dashboard + Sticker Book) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
 
-> **Previous builds signed off:**
-> Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build M (PRD-24+PRD-26 Play Dashboard + Sticker Book) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
+---
+
+# Build P: PRD-16 — Meetings
+
+### PRD Files
+- `prds/communication/PRD-16-Meetings.md` (full PRD — 999 lines, read every word)
+
+### Addenda Read
+- `prds/addenda/PRD-16-Cross-PRD-Impact-Addendum.md` (174 lines — cross-PRD impacts on PRD-05, PRD-08, PRD-09A, PRD-14B, PRD-15, PRD-02, PRD-04, PRD-06, PRD-11, PRD-12B)
+- `prds/addenda/PRD-35-Cross-PRD-Impact-Addendum.md` (Universal Scheduler replaces Screen 6 custom schedule form)
+- `prds/addenda/PRD-31-Permission-Matrix-Addendum.md` (meetings row in permission matrix)
+- `prds/addenda/PRD-Audit-Readiness-Addendum.md` (no PRD-16-specific rulings)
+- `prds/addenda/PRD-Template-and-Audit-Updates.md` (no PRD-16-specific rulings)
+
+### Feature Decision File
+`claude/feature-decisions/PRD-16-Meetings.md`
+
+---
+
+### Pre-Build Summary
+
+#### Context
+
+PRD-16 is the structured conversation system for families. It covers 9 meeting types (couple, parent_child, family_council, mentor, weekly_review, monthly_review, quarterly_inventory, business, custom), between-meeting agenda capture, LiLa-guided facilitation, and post-meeting action item routing. The system teaches families to defer spontaneous requests to structured meeting times.
+
+The core facilitation experience is proven from StewardShip v1 (5 tables, 9 meeting types, dynamic AI prompt assembly). What changes for v2 is the multi-participant dimension: shared meetings between real accounts, participant-scoped context loading, shared agendas visible to all participants, and post-meeting routing through the universal Studio Queue.
+
+PRD-16 depends on PRD-05 (LiLa), PRD-08 (Notepad), PRD-14B (Calendar), PRD-15 (Messages/Notifications), and PRD-09A (Tasks). All are built. The `meeting` guided mode is already seeded in `lila_guided_modes` (migration 000007, row with `mode_key='meeting'`). The `meeting_action` source value already exists in `studio_queue.source` (migration 100023). The `meeting_notes` entry type already exists in `journal_entries.entry_type` (migration 100031). The `agenda` routing destination already exists in RoutingStrip (line 104). The Universal Scheduler component (PRD-35) is fully built at `src/components/scheduling/UniversalScheduler.tsx`.
+
+**No meetings tables currently exist in the database.** The `/meetings` route exists but renders a placeholder page. Sidebar has no meetings entry.
+
+#### Dependency Status (Verified 2026-04-14)
+
+| Dependency | Status | Details |
+|---|---|---|
+| **PRD-05 LiLa** (`lila_conversations`, `lila_messages`, `lila_guided_modes`) | **WIRED** | 62 conversations, 124 messages, 43 guided modes. `meeting` mode_key seeded in migration 000007. |
+| **PRD-08 Notepad** (`notepad_tabs`, RoutingStrip) | **WIRED** | 19 tabs. RoutingStrip has `agenda` destination (line 104) + `meeting_action` context filter (line 132). NotepadDrawer routes to `studio_queue` with `destination='agenda'`. |
+| **PRD-14B Calendar** (`calendar_events`, `event_attendees`) | **WIRED** | 19 events, 29 attendees. Calendar creation, editing, approval all functional. |
+| **PRD-15 Messages** (`conversation_spaces`, `notifications`, `conversation_threads`) | **WIRED** | Tables exist with RLS. 0 rows (no active messaging yet). Notification infrastructure ready. |
+| **PRD-09A Tasks** (`studio_queue`) | **WIRED** | 17 queue items. `source='meeting_action'` already in CHECK constraint. |
+| **PRD-35 Universal Scheduler** | **WIRED** | Full component at `src/components/scheduling/UniversalScheduler.tsx` (47KB). |
+| **PRD-06 Guiding Stars + Best Intentions** | **WIRED** | 34 stars, 20 intentions. Context assembly hooks ready. |
+| **PRD-11 Victories** | **WIRED** | 20 victories. Query hooks ready for meeting context loading. |
+| **PRD-18 Rhythms** (`CompletedMeetingsSection` stub) | **STUB** | Returns null. Will wire after meetings ships. |
+| **PRD-16 tables** | **ALL MISSING** | None of the 6 required tables exist |
+| **PRD-16 code** | **PLACEHOLDER ONLY** | MeetingsPage is a placeholder in `src/pages/placeholder/index.tsx:56` |
+
+**No blockers.** All dependencies are built. The only work is creating the meetings tables and building the feature.
+
+#### Dependencies Already Built (reuse wholesale)
+
+- **`lila_guided_modes.meeting` row** — already seeded with `mode_key='meeting'`, `model_tier='sonnet'`, `context_sources='{"meetings","guiding_stars","family_vision_statements"}'`, `available_to_roles='{"mom","dad_adults"}'`. Phase C enhances this row with full context sources and opening messages.
+- **RoutingStrip** — `agenda` destination defined (line 104), `meeting_action` context filter defined (line 132: tasks, best_intentions, calendar, list, backburner, skip). Both already wired — Phase D uses the meeting_action context for post-meeting routing.
+- **Notepad → Agenda routing** — NotepadDrawer already handles `destination='agenda'` by depositing to `studio_queue`. Phase D replaces this with a proper MeetingPickerOverlay that creates `meeting_agenda_items` directly.
+- **Universal Scheduler** — fully built. Phase B embeds it with `showTimeDefault={true}` in the Schedule Editor.
+- **`journal_entries.entry_type = 'meeting_notes'`** — already in CHECK constraint (migration 100031). Phase D's auto-save just inserts a row.
+- **`studio_queue.source = 'meeting_action'`** — already in CHECK constraint (migration 100023). Phase D routes action items using this value.
+- **ModalV2** — used for Section Editor, Schedule Editor, Template Creator, Post-Meeting Review.
+- **MemberPillSelector** — used for participant selection on family council meetings.
+- **DnD kit** — used for agenda section drag-to-reorder.
+- **`useFamilyMembers`**, **`useFamily`**, **`useFamilyMember`** — member data for participant lists.
+- **`useCanAccess`**, **`<PermissionGate>`** — tier gating on all meeting surfaces.
+- **`useCalendarEvents`** — for reading calendar events linked to meetings.
+- **Notification creation** — `createNotification` utility from PRD-15 build.
+- **Messages API** — `useConversationSpaces`, `useConversationThreads` for "Share to Messages" flow.
+
+#### Dependencies NOT Yet Built
+
+- **PRD-29 (BigPlans)** — Goals routing destination from post-meeting action items. Show disabled in routing strip.
+- **PRD-12A (LifeLantern)** — Quarterly Inventory sections stub. Life area staleness data not available.
+- **PRD-12B (Family Vision Quest)** — Family vision statement loaded as context for family council. Tables don't exist yet. Context loader returns empty array.
+- **PRD-25 Guided "Things to Talk About" widget** — Guided Dashboard exists but no dedicated meeting agenda capture widget. Can be a simple text input on the Guided Dashboard that creates `meeting_agenda_items`.
+
+#### Sub-Phase Plan (5 phases, founder approval requested)
+
+| Phase | Scope | Key Deliverables |
+|---|---|---|
+| **A — Schema + Core Page** | Migration with 6 tables + RLS + indexes + triggers + feature keys + seed data. TypeScript types. Hooks. MeetingsPage replaces placeholder. Sidebar entry. | Migration `00000000100146_meetings.sql`, `src/pages/MeetingsPage.tsx`, `src/hooks/useMeetings.ts`, sidebar update |
+| **B — Schedule + Agenda Editor** | Schedule Editor with Universal Scheduler. Agenda Section Editor modal (drag-to-reorder, edit, archive, add custom). Built-in agenda section constants. Custom Template Creator. | 3 modals, seed constants for 7 meeting types |
+| **C — Live Mode + Record After** | Meeting creation flow. Context assembly for meetings. Live facilitation via `lila-chat` + meeting-specific system prompts. Record After retrospective capture. | Context assembly additions, meeting system prompts, facilitator-aware behavior |
+| **D — Post-Meeting + Routing + History** | Post-meeting review screen. Action item extraction. Compact routing strip + member selector. Journal auto-save. Share to Messages. Notifications. History page. MeetingPickerOverlay for Notepad. | PostMeetingReview, ActionItemCard, MeetingHistory, MeetingPickerOverlay |
+| **E — Polish + Verification** | Wire CompletedMeetingsSection stub. FeatureGuide cards. Help patterns. tsc check. Verification. CLAUDE.md additions. | Documentation + verification |
+
+#### Built-In Agenda Section Defaults (4 types — Founder Approved 2026-04-14)
+
+> Weekly/Monthly/Quarterly Review → belong to Rhythms (PRD-18), removed from Meetings.
+> Business → custom template, not built-in. Mom creates via Custom Template Creator.
+
+**Couple Meeting (6 sections):**
+1. Check-In — "How are we each doing?"
+2. Relationship Temperature — "How are we feeling about us?"
+3. Parenting Alignment — "Are we on the same page with the kids?"
+4. Calendar & Logistics — "What's coming up this week?"
+5. Dreams & Goals — "What are we working toward?"
+6. Appreciation — "What do I appreciate about you?"
+
+**Mentor Meeting (5 sections):**
+1. Celebration — "What's going well for you?"
+2. Challenges — "What's been hard?"
+3. Goals Check-In — "How are your goals coming along?"
+4. Agenda Items — "Things we wanted to talk about"
+5. Next Steps — "What are we both going to work on?"
+
+**Parent-Child Meeting (5 sections):**
+1. How Are You? — "Check in on how your child is doing"
+2. Wins & Growth — "Celebrate recent accomplishments"
+3. Discussion Items — "Topics from the agenda"
+4. Problem-Solving — "Work through challenges together"
+5. Commitments — "What we're each going to do"
+
+**Family Council (6 sections):**
+1. Opening — "Welcome everyone and set the tone"
+2. Old Business — "Follow up on last meeting's action items"
+3. New Business — "Topics from the agenda"
+4. Family Calendar — "Upcoming events and logistics"
+5. Appreciation Circle — "Each person appreciates another"
+6. Closing — "Summarize decisions and action items"
+
+#### Stubs (NOT Building)
+
+- PRD-29 Goals routing destination (disabled in strip)
+- PRD-24 gamification connections (attendance streaks, facilitator badges)
+- PRD-12A LifeLantern area staleness for Quarterly Inventory
+- PRD-14C Family Overview meeting summary aggregation
+- Voice input/recording for Record After
+- Meeting transcription + Review & Route from voice
+- AI Vault meeting templates for community sharing
+- Family council voting system
+- "Refer back to decisions" cross-conversation intelligence
+- Custom template deployment across participant pairs (schema supports, UI deferred)
+- LiLa section suggestions for custom templates (Full Magic, simple implementation OK)
+- Facilitator rotation management UI (Full Magic, schema supports it)
+
+#### Founder Decisions (Q&A Round 1 — 2026-04-14)
+
+**Meeting types reduced to 4 built-in + custom:**
+- `weekly_review`, `monthly_review`, `quarterly_inventory` → belong to Rhythms (PRD-18), removed entirely
+- `business` → custom template, not built-in. Mom creates via Custom Template Creator.
+- **Final `meetings.meeting_type` CHECK:** `'couple', 'parent_child', 'mentor', 'family_council', 'custom'`
+
+**Calendar cancellation — three scenarios:**
+1. Mom cancels one-off → remove calendar event → prompt "Reschedule or come back later?" with [Reschedule] / [Dismiss]
+2. Mom cancels recurring instance → ask "Just this one, or all future?" Standard recurring pattern.
+3. System auto-cancel (7-day stale) → leave calendar event untouched.
+
+**All other questions confirmed as recommended:**
+- Q1: 5 phases A-E confirmed
+- Q2: Use existing `lila-chat` (additive context assembly)
+- Q4: Client-side stale check, not cron
+- Q5: 4 built-in section sets (couple, mentor, parent_child, family_council)
+- Q6: Sidebar in "Plan & Do", after Calendar
+- Q7: Per-kid `member_permissions` for parent-child/mentor
+- Q8: End-of-meeting action item extraction only
+- Q9: Just `'live'` and `'record_after'`
+
+#### Key Decisions
+
+1. **One migration file (`00000000100146_meetings.sql`).** All 6 tables + RLS + indexes + triggers + feature keys + built-in section seeds. Highest existing is 100145.
+2. **Meeting types: 4 built-in + custom.** `'couple', 'parent_child', 'mentor', 'family_council', 'custom'`. Weekly/monthly/quarterly belong to Rhythms (PRD-18). Business is a custom template.
+3. **Use existing `lila-chat` for meeting facilitation, NOT a new Edge Function.** Meeting-specific context assembly additions go in `_shared/context-assembler.ts`. The `meeting` mode_key is already seeded.
+4. **Universal Scheduler replaces the custom schedule form** per PRD-35 addendum. No custom recurrence UI.
+5. **RoutingStrip `meeting_action` context already configured** (line 132). Post-meeting routing uses this existing context filter.
+6. **Calendar integration is opt-in per schedule.** Checkbox creates recurring `calendar_events` with `source_type='meeting_schedule'`.
+7. **Calendar cancellation: 3 scenarios.** Mom cancel → remove event + reschedule prompt. Recurring → ask scope. Auto-cancel → leave event.
+8. **Stale meeting auto-cancel is client-side check** on MeetingsPage load. No dedicated cron job. 24h prompt → 7 day auto-cancel.
+9. **Built-in sections seed on first editor access per meeting type per family** (lazy seed). Only 4 sets: couple (6), mentor (5), parent_child (5), family_council (6).
+10. **Notepad → Agenda path upgrade:** Current path deposits to `studio_queue`. Phase D replaces with MeetingPickerOverlay that creates `meeting_agenda_items` directly.
+11. **Dad's couple meeting permission is implicit.** Parent-child/mentor requires per-kid `member_permissions` grants.
+12. **Action item extraction happens end-of-meeting** from the full conversation, not continuously.
+
+#### Pre-Phase-A Verification Queries
+
+Run these before writing Phase A migration:
+```sql
+-- 1. lila_guided_modes meeting row
+SELECT mode_key, model_tier, context_sources, available_to_roles, container_preference
+FROM lila_guided_modes WHERE mode_key = 'meeting';
+
+-- 2. studio_queue source constraint
+SELECT pg_get_constraintdef(oid) FROM pg_constraint
+WHERE conname = 'studio_queue_source_check';
+
+-- 3. journal_entries entry_type constraint
+SELECT pg_get_constraintdef(oid) FROM pg_constraint
+WHERE conname LIKE '%entry_type%' AND conrelid = 'journal_entries'::regclass;
+
+-- 4. Highest migration number
+SELECT MAX(version) FROM supabase_migrations.schema_migrations;
+
+-- 5. calendar_events source_type (CHECK constraint or free text?)
+SELECT pg_get_constraintdef(oid) FROM pg_constraint
+WHERE conrelid = 'calendar_events'::regclass AND contype = 'c';
+```
+
+Plus file checks:
+- `src/components/scheduling/UniversalScheduler.tsx` — confirm `showTimeDefault` prop
+- `src/components/shared/RoutingStrip.tsx` — confirm `agenda` destination + `meeting_action` context
 
 ---
 

@@ -23,11 +23,12 @@ import { GamificationShowcase } from '@/components/gamification/demo/Gamificatio
 import {
   VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage,
-  SafeHarborPage, MeetingsPage, BigPlansPage,
+  SafeHarborPage, BigPlansPage,
   ThoughtSiftPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
 import { RhythmsSettingsPage } from '@/pages/RhythmsSettingsPage'
 import { MessagesPage } from '@/pages/MessagesPage'
+import { MeetingsPage } from '@/pages/MeetingsPage'
 import { MessagesSpacePage } from '@/pages/MessagesSpacePage'
 import { MessagesThreadPage } from '@/pages/MessagesThreadPage'
 import { CalendarPage } from '@/components/calendar'
@@ -169,9 +170,10 @@ function App() {
               <Route path="/messages/space/:spaceId" element={<ProtectedRoute><MessagesSpacePage /></ProtectedRoute>} />
               <Route path="/messages/thread/:threadId" element={<ProtectedRoute><MessagesThreadPage /></ProtectedRoute>} />
 
+              <Route path="/meetings" element={<ProtectedRoute><MeetingsPage /></ProtectedRoute>} />
+
               {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
               <Route path="/safe-harbor" element={<ProtectedRoute><SafeHarborPage /></ProtectedRoute>} />
-              <Route path="/meetings" element={<ProtectedRoute><MeetingsPage /></ProtectedRoute>} />
               <Route path="/bigplans" element={<ProtectedRoute><BigPlansPage /></ProtectedRoute>} />
               <Route path="/thoughtsift" element={<ProtectedRoute><ThoughtSiftPage /></ProtectedRoute>} />
               <Route path="/family-feed" element={<ProtectedRoute><FamilyFeedPage /></ProtectedRoute>} />

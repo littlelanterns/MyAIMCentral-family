@@ -1,4 +1,4 @@
-import { Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings, Shield, Video, Map, Brain, Rss, StickyNote } from 'lucide-react'
+import { Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings, Shield, Map, Brain, Rss, StickyNote } from 'lucide-react'
 import { PlaceholderPage } from './PlaceholderPage'
 import { GuidedVictories } from '@/pages/GuidedVictories'
 import { GuidedProgress } from '@/pages/GuidedProgress'
@@ -53,9 +53,7 @@ export function SafeHarborPage() {
   return <PlaceholderPage title="Safe Harbor" description="A private, protected space for emotional processing. LiLa helps you work through hard things with care and safety." icon={Shield} prd="PRD-20" featureKey="safe_harbor" />
 }
 
-export function MeetingsPage() {
-  return <PlaceholderPage title="Meetings" description="Structured family meetings — couple check-ins, family councils, weekly reviews. Templates, agenda items, and LiLa facilitation." icon={Video} prd="PRD-16" featureKey="meetings_basic" />
-}
+// MeetingsPage moved to src/pages/MeetingsPage.tsx (PRD-16 Build P)
 
 export function BigPlansPage() {
   return <PlaceholderPage title="BigPlans" description="Project planning with milestones, friction detection, and LiLa-powered check-ins. Break big goals into manageable steps." icon={Map} prd="PRD-29" featureKey="bigplans_create" />

@@ -7,7 +7,7 @@ import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import {
   LayoutDashboard, BookOpen, BookHeart, Sun, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
-  Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle,
+  Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle, UsersRound,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
@@ -59,6 +59,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     items: [
       { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
       { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
+      { label: 'Meetings', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Structured family meetings with agendas' },
       { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
       { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
       { label: 'Studio', path: '/studio', featureKey: 'studio', icon: <Palette size={20} />, tooltip: 'Template workshop' },

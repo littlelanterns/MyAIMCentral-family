@@ -32,9 +32,10 @@ import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import {
   VictoriesPage, TrackersPage, MorningRhythmPage, EveningReviewPage,
   LifeLanternPage, FamilyContextPage, SafeHarborPage,
-  MeetingsPage, BigPlansPage, FamilyFeedPage, NotepadPage,
+  BigPlansPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
 import { MessagesPage } from '@/pages/MessagesPage'
+import { MeetingsPage } from '@/pages/MeetingsPage'
 
 // ─── Simple state-based navigation for the modal ─────────────
 // Avoids nested Router issues entirely. Sidebar/nav links call
