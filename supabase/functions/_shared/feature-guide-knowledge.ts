@@ -8,6 +8,23 @@
  *
  * Loaded into the system prompt for assist and help modes.
  * Keep entries concise — each one costs tokens on every conversation turn.
+ *
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ POST-BUILD REQUIREMENT (applies to EVERY build session):       │
+ * │                                                                │
+ * │ When a build adds or changes a feature, update this file:      │
+ * │                                                                │
+ * │ 1. Add/update PAGE_KNOWLEDGE for any new or changed pages      │
+ * │ 2. Add USE_CASE_RECIPES for goal-based questions the new       │
+ * │    feature answers ("I want my kids to..." → this feature)     │
+ * │ 3. Include warm clarifying questions that help LiLa discern    │
+ * │    WHAT the user needs and HOW to set it up                    │
+ * │                                                                │
+ * │ Also update help-patterns.ts (src/lib/ai/help-patterns.ts)     │
+ * │ with keyword patterns for $0 instant answers.                  │
+ * │                                                                │
+ * │ If it was built, LiLa should know how to walk mom through it.  │
+ * └─────────────────────────────────────────────────────────────────┘
  */
 
 // ── Page Knowledge ────────────────────────────────────────
