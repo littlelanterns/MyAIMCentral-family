@@ -6,6 +6,25 @@
  * the canned response is inserted directly as an assistant message — no AI call.
  *
  * Per PRD-32: LiLa Help checks known issues (keyword matching) BEFORE calling AI.
+ *
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ POST-BUILD REQUIREMENT (applies to EVERY build session):       │
+ * │                                                                │
+ * │ After completing any build that adds or changes a feature,     │
+ * │ update THIS file and feature-guide-knowledge.ts with:          │
+ * │                                                                │
+ * │ 1. New patterns here for "how do I use [feature]?" queries     │
+ * │    — include step-by-step instructions with exact page names   │
+ * │    and button labels so the answer costs $0 in AI calls.       │
+ * │                                                                │
+ * │ 2. Use case recipes in feature-guide-knowledge.ts for goal-    │
+ * │    based questions ("I want my kids to...") — include warm     │
+ * │    clarifying questions and implementation walkthrough.         │
+ * │                                                                │
+ * │ LiLa should be able to walk a mom through using or setting up  │
+ * │ any feature that exists in the app. If it was built, LiLa      │
+ * │ should know how to explain it.                                 │
+ * └─────────────────────────────────────────────────────────────────┘
  */
 
 interface HelpPattern {
@@ -94,6 +113,94 @@ const HELP_PATTERNS: HelpPattern[] = [
     category: 'randomizer_opportunity',
     keywords: ['randomizer', 'mystery draw', 'activity spinner', 'surprise activity', 'random draw'],
     response: "Create a Randomizer list for mystery draws — spin and get a surprise activity. To make it optional (not forced), open the randomizer settings (gear icon) and check \"Optional (opportunity).\" Now when kids draw, they see \"I'll do this!\" or \"Skip\" instead of being auto-assigned. Great for activity spinners, reward wheels, or \"what should we do today?\" boards.",
+  },
+
+  // ── Setup & Configuration Walkthroughs ────────────────────────
+
+  {
+    category: 'guided_dashboard_setup',
+    keywords: ['guided dashboard', 'set up guided', 'guided mode', 'set up child dashboard', "kid's dashboard", "child's dashboard", '8 year old', '10 year old', '12 year old', 'guided shell'],
+    response: "To set up a Guided Dashboard for a child (ages 8-12):\n\n1. **Settings > Family Management** > find the child > Edit\n2. Set **Dashboard Style** to \"Guided Mode\"\n3. Save — this auto-creates their dashboard config and morning rhythm\n4. Tap **\"Manage Dashboard\"** to configure:\n   - Reorder or hide sections (Greeting, Next Best Thing, and Best Intentions can't be hidden)\n   - Toggle **Reading Support** for larger text + read-aloud icons\n   - Add **Best Intentions** for your child\n5. Create **tasks and routines** for them from the Tasks page (assign to them)\n6. Optionally set up **Day Segments** (Morning, School, Evening) in Settings > Gamification > [child]\n7. Use **View As** to preview their experience\n\nWant me to walk you through any of these steps?",
+  },
+  {
+    category: 'play_dashboard_setup',
+    keywords: ['play dashboard', 'set up play', 'play mode', 'youngest', 'little kid', '3 year old', '4 year old', '5 year old', '6 year old', '7 year old', 'play shell', 'sticker book'],
+    response: "To set up a Play Dashboard for your youngest (ages 3-7):\n\n1. **Settings > Family Management** > find the child > Edit\n2. Set **Dashboard Style** to \"Play Mode\"\n3. Save — this auto-creates their dashboard config\n4. Create **tasks** for them from the Tasks page — assign to them and pick **paper-craft icons** using the icon picker so they see pictures instead of text\n5. Set up **Day Segments** in Settings > Gamification > [child] — organize into Morning, School, Evening\n6. Enable the **Sticker Book** in gamification settings — they'll earn creatures when completing tasks!\n7. Assign tasks to segments so their day is organized with big visual tiles\n8. Use **View As** to see exactly what they see\n\nWant help with any of these steps?",
+  },
+  {
+    category: 'create_routine',
+    keywords: ['create routine', 'make routine', 'set up routine', 'morning routine', 'evening routine', 'bedtime routine', 'chore routine', 'daily checklist', 'how do i make a routine', 'routine checklist'],
+    response: "To create a routine:\n\n1. Go to **Tasks** > tap **+ Create**\n2. Choose **Routine** as the Task Type\n3. Name it (e.g., \"Morning Routine\")\n4. Tap **+ Add Section** to create sections like \"Every Day\" or \"Weekdays Only\"\n5. For each section, set the **frequency** (Daily, MWF, T/Th, Weekly, Custom)\n6. Add **steps** within each section (e.g., \"Brush teeth\", \"Make bed\", \"Pack lunch\")\n7. In the **Assignment** section, pick which family members get this routine\n8. Save!\n\nThe routine will show up on their dashboard with a progress ring. They can expand it and check off each step. Steps reset fresh each day — no guilt carry-forward.\n\nWant to try creating one now?",
+  },
+  {
+    category: 'task_segments',
+    keywords: ['segment', 'day segment', 'morning segment', 'evening segment', 'organize day', 'group tasks', 'task group', 'set up segments'],
+    response: "Day Segments organize a child's tasks into sections like Morning, School, Jobs, and Evening:\n\n1. Go to **Settings > Gamification** > select the child\n2. Open the **Day Segments** section\n3. Tap **+ Add Segment** — pick from suggestions (Morning, School, Evening, etc.) or type your own\n4. Optional: set a **day filter** so the segment only shows on certain days (e.g., School = Mon-Fri)\n5. Tap **Manage Tasks** on each segment to assign tasks to it\n6. Drag segments to reorder them\n\nSegments show as collapsible sections on the child's dashboard with progress bars. Play kids get big banner headers; Guided kids get compact headers.",
+  },
+  {
+    category: 'gamification_setup',
+    keywords: ['gamification', 'sticker book', 'creatures', 'points', 'rewards', 'earning', 'set up gamification', 'game', 'creature earning'],
+    response: "To set up gamification for a child:\n\n1. Go to **Settings > Gamification** > select the child\n2. Toggle **Gamification enabled** and **Sticker Book enabled**\n3. Set **Points per task** (default: 10)\n4. Choose a **Creature Earning Mode** — how they earn collectible creatures:\n   - Random per task (default): d100 roll on each completion\n   - Every N completions: earn after 3, 5, etc. tasks done\n   - Segment complete: earn when all tasks in a segment are done\n   - Complete the day: earn when ALL today's tasks are done\n5. Set up **Day Segments** to organize their tasks (see the Day Segments section)\n6. Optionally add **Coloring Reveals** — link a coloring page to a specific task, each completion reveals a zone\n\nCreatures are never taken away — celebration only, never punishment!",
+  },
+  {
+    category: 'view_as',
+    keywords: ['view as', 'see what they see', 'preview dashboard', 'child view', 'what does it look like', 'test their view', "see my child's"],
+    response: "View As lets you see exactly what any family member sees:\n\n1. From your dashboard, look for the **View As** option (in the perspective switcher or top-right menu)\n2. Select the family member you want to view as\n3. You'll see their complete experience — their dashboard, theme, tasks, everything\n4. Navigate their pages to verify everything looks right\n5. Click **Exit** to return to your own view\n\nPrivacy rules apply: Safe Harbor conversations are always excluded. You can interact with their dashboard (complete tasks, log intentions) and those actions are attributed to you via the \"acted by\" system.",
+  },
+  {
+    category: 'assign_tasks',
+    keywords: ['assign', 'assign to kid', 'give task', 'assign chore', 'assign to child', 'who does this', 'multiple kids'],
+    response: "To assign a task to family members:\n\n1. Create or edit a task from the **Tasks** page\n2. In the **Assignment** section, you'll see colored pill buttons for each family member\n3. Tap one or more names to assign\n4. When you select **2+ people**, the **Any/Each** toggle appears:\n   - **Each of them**: everyone gets their own independent copy\n   - **Any of them**: shared task, whoever does it first gets credit\n5. Save the task\n\nYou can also assign from the Tasks page by hovering a task and clicking the deploy button to reassign it to a different member.",
+  },
+  {
+    category: 'sequential_collection',
+    keywords: ['sequential', 'curriculum', 'textbook', 'chapter by chapter', 'one at a time', 'reading list', 'sequential collection', 'ordered list'],
+    response: "Sequential Collections feed items one at a time — perfect for textbook chapters, curricula, or reading lists:\n\n1. Go to **Studio** > find \"Sequential Collection\" > tap **Customize**\n   (Or: Tasks > Sequential tab > + Create, or Lists > + New List > Sequential Collection)\n2. Name it and add items (type them, paste a list, or use **Paste Curriculum** for AI-assisted import)\n3. Set **advancement defaults**: how many practices before moving to the next item, whether mastery approval is needed\n4. Set **active count** (how many items are visible at once — usually 1)\n5. Assign to a family member\n\nItems unlock one at a time. Progress tracks across the whole collection. You can redeploy the same collection to another child for a fresh start.",
+  },
+  {
+    category: 'best_intentions',
+    keywords: ['best intention', 'intention', 'goal', 'guiding star', 'values', 'set intention', 'family intention'],
+    response: "Best Intentions are things you're actively working on — personal commitments you want to celebrate:\n\n1. Go to **Guiding Stars** from the sidebar\n2. Scroll to the **Best Intentions** section\n3. Tap **+ Add Intention** and write what you're working on (e.g., \"Respond with patience instead of reacting\")\n4. Each day, tap the ❤️ to log an iteration when you lived that intention\n5. Track your streak and celebration count\n\nFor **Guided children**: go to Family Management > [child] > Manage Dashboard > Best Intentions section. You can add intentions for them, and optionally let them add their own.\n\nFor **family-wide intentions**: go to Family Hub > Family Best Intentions to set intentions the whole family works on together.",
+  },
+  {
+    category: 'lists_overview',
+    keywords: ['list', 'shopping list', 'packing list', 'wishlist', 'expense', 'create list', 'new list', 'types of lists'],
+    response: "MyAIM has several list types — go to **Lists** from the sidebar and tap **+ New List**:\n\n- **Shopping**: quantities, units, store sections, shareable\n- **Wishlist**: URLs, prices, sizes — great for gift-givers\n- **Packing**: categorized sections with progress bar\n- **Expenses**: amounts + running total\n- **To-Do**: simple checklist with \"promote to task\" button\n- **Prayer**: simple items for prayer lists\n- **Randomizer**: spin for a surprise draw — great for activity boards\n- **Sequential Collection**: ordered items that feed one at a time\n- **Custom**: flexible — anything you want\n\nAny list can also be flagged as an **opportunity list** so kids can browse and claim items.",
+  },
+  {
+    category: 'bookshelf',
+    keywords: ['book', 'bookshelf', 'upload book', 'reading', 'extract', 'pdf', 'epub', 'book club', 'book discussion'],
+    response: "BookShelf lets you upload books and extract wisdom:\n\n1. Go to **BookShelf** from the sidebar (under AI & Tools)\n2. Tap **Upload** and add a PDF, EPUB, or text file\n3. The system processes it automatically — extracting summaries, insights, declarations, action steps, and discussion questions\n4. Browse extractions by chapter or by type\n5. **Heart** items to include them in LiLa's context (she'll reference your books in conversations)\n6. Send items to Guiding Stars, Tasks, or Journal Prompts\n7. Start a **Book Discussion** with LiLa about any book in your library\n\nBooks are processed at the platform level — if another family uploads the same book, they benefit from the existing extractions instantly.",
+  },
+  {
+    category: 'mindsweep',
+    keywords: ['mindsweep', 'mind sweep', 'brain dump', 'sweep', 'capture', 'clear my head', 'dump everything'],
+    response: "MindSweep is your brain dump tool — get everything out of your head and let AI sort it:\n\n1. Tap **MindSweep** in the QuickTasks bar, or go to **/sweep**\n2. Choose your input: **Type** it, **speak** it, **scan** a photo, or **paste a link**\n3. Tap **Sweep Now** — AI classifies each item (task, calendar event, journal entry, list item, etc.)\n4. Review the suggestions — change any destination by tapping the tag\n5. Accept to route everything to the right places\n\nYou can also access MindSweep-Lite during your **Evening Rhythm** — a quick brain dump before bed that commits on Close My Day.",
+  },
+  {
+    category: 'studio',
+    keywords: ['studio', 'template', 'browse templates', 'blank template', 'customize template'],
+    response: "Studio is your template workshop — browse ready-made formats and customize them for your family:\n\n1. Go to **Studio** from the sidebar\n2. Browse templates by category: Tasks, Routines, Opportunities, Sequential Collections, Guided Forms, Lists, Randomizers, Widgets\n3. Tap **Customize** on any template to make it your own\n4. Your customized templates appear in the **My Customized** tab\n5. **Deploy** templates to family members — each gets their own independent copy\n\nStudio also has example templates (marked with \"Example\" badge) showing real-world setups like Morning Routines, Extra Jobs boards, and curriculum sequences.",
+  },
+  {
+    category: 'family_hub',
+    keywords: ['family hub', 'hub', 'tv mode', 'family board', 'countdown', 'family intention'],
+    response: "The Family Hub is your shared family surface — visible to everyone:\n\n1. Go to **Family Hub** from the sidebar\n2. It shows: Family Best Intentions, Countdowns, Calendar, and more\n3. Set it up in **Settings > Family Hub Settings**:\n   - Add **Family Best Intentions** the whole family works on together\n   - Add **Countdowns** for upcoming events (vacations, birthdays)\n   - Reorder sections\n   - Set a **Hub PIN** for kiosk/tablet mode\n4. **TV Mode** is a landscape-optimized version for a family display\n\nFamily members can access via **Quick Access** — PIN auth with privacy exclusions automatically applied.",
+  },
+  {
+    category: 'coloring_reveal',
+    keywords: ['coloring', 'coloring reveal', 'reveal', 'coloring page', 'color in', 'reveal image'],
+    response: "Coloring Reveals are visual tally counters linked to a specific task:\n\n1. Go to **Settings > Gamification > [child]**\n2. Open the **Coloring Reveals** section\n3. Tap **+ Add Reveal** and pick an image from the library (20 animals + 12 scenes)\n4. Choose the **linked task** — each completion of that task reveals one zone of the image\n5. Pick the **step count** (5, 10, 15, 20, 30, or 50 completions to finish)\n6. When complete, a \"Print it!\" button appears for the finished coloring page\n\nThe reveal shows as a widget on the child's dashboard — grayscale zones progressively fill with color as they complete the linked task.",
+  },
+  {
+    category: 'rhythms',
+    keywords: ['rhythm', 'morning rhythm', 'evening rhythm', 'close my day', 'morning routine rhythm', 'evening review', 'daily rhythm'],
+    response: "Rhythms are your daily check-in flows — Morning and Evening:\n\n**Morning Rhythm** opens automatically when you first visit your dashboard each morning. It shows:\n- Guiding Star rotation, Best Intentions focus, calendar preview, upcoming tasks, and more\n- Tap \"Start My Day\" when ready, or snooze for later\n\n**Evening Rhythm** opens in the evening. It walks you through:\n- Celebrating what went right today\n- Tomorrow Capture (plan for tomorrow with fuzzy task matching)\n- MindSweep-Lite (quick brain dump before bed)\n- Reflections\n- Close My Day\n\nConfigure rhythms in **Settings > Rhythms** — toggle sections on/off, adjust timing.\n\nGuided kids get a simplified evening check-in with reflections. Play kids get DailyCelebration instead.",
+  },
+  {
+    category: 'timer',
+    keywords: ['timer', 'pomodoro', 'stopwatch', 'countdown timer', 'focus timer', 'time tracking'],
+    response: "The Universal Timer supports multiple modes:\n\n- **Clock**: simple elapsed time tracker\n- **Pomodoro**: focus intervals with break reminders\n- **Stopwatch**: count up freely\n- **Countdown**: set a target time\n\nStart a timer from any task (tap the timer icon), or start a standalone timer from the floating bubble. Multiple concurrent timers are supported. Timer persists across page navigation and even device switches (it's timestamp-based, not client-side).\n\nConfigure defaults in **Settings > Timer** — idle reminders, auto-pause, visual style (5 options), Pomodoro intervals.",
   },
 ]
 

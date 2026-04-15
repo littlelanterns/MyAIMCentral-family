@@ -130,6 +130,10 @@ This process exists because weeks of careful planning went into every PRD and ad
     - `STUB_REGISTRY.md` — add new stubs created, update wired status of existing stubs
     - `CLAUDE.md` — add any new conventions introduced by the phase
     - Add `<FeatureGuide featureKey="xxx" />` to every new page/feature
+    - **Update LiLa's knowledge** — if the build added or changed any user-facing feature:
+      (a) `src/lib/ai/help-patterns.ts` — add keyword patterns for "how do I use [feature]?" queries (each pattern = $0 AI cost)
+      (b) `supabase/functions/_shared/feature-guide-knowledge.ts` — add page knowledge + use case recipes with warm clarifying questions so LiLa can walk mom through setup
+      (c) If it was built, LiLa must know how to explain it and guide a mom through using it
     - Copy verification table into `claude/feature-decisions/PRD-XX.md`, get founder post-build sign-off
     - `CURRENT_BUILD.md` — reset Status to IDLE, clear all sections
     - `claude/feature-decisions/README.md` — add the new file to the index table
