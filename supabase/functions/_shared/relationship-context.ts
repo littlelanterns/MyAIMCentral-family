@@ -28,6 +28,10 @@ export interface PersonContext {
   archiveItems: string[]
   negativePreferences: string[]
   selfKnowledge: Array<{ content: string; category: string }>
+  /** Wishlist items (unchecked) from AI-included wishlists */
+  wishlistItems: string[]
+  /** Connection preferences extracted from self_knowledge for easy tool access */
+  connectionPreferences: Record<string, string[]>
 }
 
 export interface RelationshipContext {
@@ -206,6 +210,16 @@ export async function loadRelationshipContext(
   const userMember = members.find(m => m.id === memberId)
   const userSk = (userSelfKnowledgeRes.data || []) as Array<{ content: string; category: string }>
 
+  // Extract user's connection preferences
+  const userConnectionCategories = ['gift_ideas', 'meaningful_words', 'helpful_actions', 'quality_time_ideas', 'sensitivities', 'comfort_needs']
+  const userConnectionPrefs: Record<string, string[]> = {}
+  for (const sk of userSk) {
+    if (userConnectionCategories.includes(sk.category)) {
+      if (!userConnectionPrefs[sk.category]) userConnectionPrefs[sk.category] = []
+      userConnectionPrefs[sk.category].push(sk.content)
+    }
+  }
+
   const userContext: PersonContext = {
     memberId,
     displayName: userMember?.display_name || 'User',
@@ -216,6 +230,8 @@ export async function loadRelationshipContext(
     selfKnowledge: userSk,
     archiveItems: [],
     negativePreferences: [],
+    wishlistItems: [],
+    connectionPreferences: userConnectionPrefs,
   }
 
   // Extract love language from self-knowledge for user
@@ -250,7 +266,7 @@ async function loadPersonContext(
   const member = allMembers.find(m => m.id === personId)
 
   // Parallel load person-specific context
-  const [skRes, archiveRes, negPrefRes] = await Promise.all([
+  const [skRes, archiveRes, negPrefRes, wishlistRes] = await Promise.all([
     // Person's self-knowledge (always load — defines who they are for relationship tools)
     supabase.from('self_knowledge')
       .select('content, category')
@@ -258,7 +274,7 @@ async function loadPersonContext(
       .eq('member_id', personId)
       .eq('is_included_in_ai', true)
       .is('archived_at', null)
-      .limit(15),
+      .limit(25), // Raised from 15 to accommodate connection preference categories
     // Person's archive items (3-tier filtered, topic-scoped when available)
     loadPersonArchiveItems(familyId, personId, detectedTopics),
     // Negative preferences (veto items)
@@ -269,6 +285,8 @@ async function loadPersonContext(
       .eq('is_negative_preference', true)
       .eq('is_included_in_ai', true)
       .is('archived_at', null),
+    // Person's wishlist items (from AI-included wishlists)
+    loadPersonWishlistItems(familyId, personId),
   ])
 
   const selfKnowledge = (skRes.data || []) as Array<{ content: string; category: string }>
@@ -294,6 +312,16 @@ async function loadPersonContext(
     archiveItems.splice(htrmIndex, 1) // Don't duplicate in general items
   }
 
+  // Extract connection preferences from self_knowledge for easy tool access
+  const connectionCategories = ['gift_ideas', 'meaningful_words', 'helpful_actions', 'quality_time_ideas', 'sensitivities', 'comfort_needs']
+  const connectionPreferences: Record<string, string[]> = {}
+  for (const sk of selfKnowledge) {
+    if (connectionCategories.includes(sk.category)) {
+      if (!connectionPreferences[sk.category]) connectionPreferences[sk.category] = []
+      connectionPreferences[sk.category].push(sk.content)
+    }
+  }
+
   return {
     memberId: personId,
     displayName: member?.display_name || 'Unknown',
@@ -307,6 +335,8 @@ async function loadPersonContext(
     archiveItems: archiveItems.map(a => a.content),
     negativePreferences: ((negPrefRes.data || []) as Array<{ context_value: string }>).map(n => n.context_value),
     selfKnowledge,
+    wishlistItems: wishlistRes,
+    connectionPreferences,
   }
 }
 
@@ -380,6 +410,52 @@ async function loadPersonArchiveItems(
 }
 
 // ────────────────────────────────────────────────────────────────
+// Wishlist loader for person context
+// ────────────────────────────────────────────────────────────────
+
+async function loadPersonWishlistItems(
+  familyId: string,
+  personId: string,
+): Promise<string[]> {
+  try {
+    const { data: wishlists } = await supabase
+      .from('lists')
+      .select('id')
+      .eq('family_id', familyId)
+      .eq('owner_id', personId)
+      .eq('list_type', 'wishlist')
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null)
+
+    if (!wishlists || wishlists.length === 0) return []
+
+    const listIds = wishlists.map((l: { id: string }) => l.id)
+
+    const { data: items } = await supabase
+      .from('list_items')
+      .select('content, item_name, section_name, price, notes')
+      .in('list_id', listIds)
+      .eq('checked', false)
+      .order('sort_order', { ascending: true })
+      .limit(20)
+
+    if (!items || items.length === 0) return []
+
+    type WItem = { content: string; item_name: string | null; section_name: string | null; price: number | null; notes: string | null }
+    return (items as WItem[]).map(item => {
+      const name = item.item_name || item.content
+      const parts = [name]
+      if (item.section_name) parts.push(`(${item.section_name})`)
+      if (item.price) parts.push(`~$${item.price}`)
+      if (item.notes) parts.push(`— ${item.notes.substring(0, 60)}`)
+      return parts.join(' ')
+    })
+  } catch {
+    return []
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
 // Formatting helpers
 // ────────────────────────────────────────────────────────────────
 
@@ -411,6 +487,35 @@ export function formatPersonContextBlock(person: PersonContext): string {
   if (person.archiveItems.length > 0) {
     lines.push(`\n### Context Items`)
     for (const item of person.archiveItems.slice(0, 20)) {
+      lines.push(`- ${item}`)
+    }
+  }
+
+  // Connection preferences — organized by category for easy tool consumption
+  const connCatLabels: Record<string, string> = {
+    gift_ideas: 'Things They\'d Love (Gifts)',
+    meaningful_words: 'Words That Mean Something',
+    helpful_actions: 'What Really Helps',
+    quality_time_ideas: 'Ways to Spend Time Together',
+    sensitivities: 'Good to Know (Handle Thoughtfully)',
+    comfort_needs: 'What Makes a Bad Day Better',
+  }
+  const hasConnectionPrefs = person.connectionPreferences && Object.keys(person.connectionPreferences).length > 0
+  if (hasConnectionPrefs) {
+    lines.push(`\n### Connection Preferences for ${person.displayName}`)
+    for (const [cat, items] of Object.entries(person.connectionPreferences)) {
+      const label = connCatLabels[cat] || cat
+      lines.push(`\n**${label}:**`)
+      for (const item of items) {
+        lines.push(`- ${item}`)
+      }
+    }
+  }
+
+  // Wishlist items
+  if (person.wishlistItems && person.wishlistItems.length > 0) {
+    lines.push(`\n### ${person.displayName}'s Wishlist`)
+    for (const item of person.wishlistItems.slice(0, 15)) {
       lines.push(`- ${item}`)
     }
   }

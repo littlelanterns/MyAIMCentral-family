@@ -115,6 +115,10 @@ export const TOPIC_PATTERNS: Array<{ pattern: RegExp; categories: string[] }> = 
     categories: ['Interests & Hobbies'],
   },
   {
+    pattern: /\b(gift|present|wish|birthday|christmas|want|surprise)\b/i,
+    categories: ['Preferences', 'wishlist'],
+  },
+  {
     pattern: /\b(love|marriage|husband|wife|spouse|partner|relationship|romantic|date night)\b/i,
     categories: ['Relationships'],
   },
@@ -398,6 +402,33 @@ export async function assembleContext(
     }
   }
 
+  // 2f. Wishlist context — load mentioned members' wishlists that have is_included_in_ai=true
+  // Useful for gift suggestions, understanding wants/needs, and general family awareness
+  const membersForWishlist = [...mentionedIds].filter(id => id !== memberId)
+  const wishlistTopicMatch = detectedTopics.has('Preferences') || detectedTopics.has('wishlist')
+  if (membersForWishlist.length > 0 || wishlistTopicMatch) {
+    const wishlistMembers = wishlistTopicMatch
+      ? [...mentionedIds]
+      : membersForWishlist
+
+    for (const wMemberId of wishlistMembers) {
+      const wCtx = await loadWishlistContext(familyId, wMemberId)
+      if (wCtx.items.length > 0) {
+        const wName = nameMap.get(wMemberId) || 'Family member'
+        contextParts.push(`\n${wName}'s Wishlist:`)
+        for (const item of wCtx.items) {
+          contextParts.push(`- ${item}`)
+        }
+        loadedSources.push({
+          source: 'wishlist',
+          memberName: wName,
+          reason: 'mentioned member has AI-included wishlist',
+          itemCount: wCtx.items.length,
+        })
+      }
+    }
+  }
+
   return {
     familyRoster: rosterLines.join('\n'),
     featureContext,
@@ -599,5 +630,62 @@ async function loadFilteredArchive(
   } catch (err) {
     console.error('Filtered archive loading failed:', err)
     return empty
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Wishlist Context Loading
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Load wishlist items for a family member who has wishlists with is_included_in_ai=true.
+ * Returns formatted item strings including section, name, price, and URL.
+ */
+async function loadWishlistContext(
+  familyId: string,
+  memberId: string,
+): Promise<{ items: string[] }> {
+  try {
+    // Find wishlists owned by this member that are AI-included
+    const { data: wishlists } = await supabase
+      .from('lists')
+      .select('id, title')
+      .eq('family_id', familyId)
+      .eq('owner_id', memberId)
+      .eq('list_type', 'wishlist')
+      .eq('is_included_in_ai', true)
+      .is('archived_at', null)
+
+    if (!wishlists || wishlists.length === 0) return { items: [] }
+
+    const listIds = wishlists.map((l: { id: string }) => l.id)
+
+    // Load items from those wishlists
+    const { data: listItems } = await supabase
+      .from('list_items')
+      .select('content, item_name, section_name, price, url, notes')
+      .in('list_id', listIds)
+      .eq('checked', false) // Only unchecked (unfulfilled) items
+      .order('sort_order', { ascending: true })
+      .limit(30)
+
+    if (!listItems || listItems.length === 0) return { items: [] }
+
+    type WishlistItem = { content: string; item_name: string | null; section_name: string | null; price: number | null; url: string | null; notes: string | null }
+
+    const formatted: string[] = []
+    for (const item of listItems as WishlistItem[]) {
+      const name = item.item_name || item.content
+      const parts = [name]
+      if (item.section_name) parts.push(`(${item.section_name})`)
+      if (item.price) parts.push(`~$${item.price}`)
+      if (item.notes) parts.push(`— ${item.notes.substring(0, 80)}`)
+      formatted.push(parts.join(' '))
+    }
+
+    return { items: formatted }
+  } catch (err) {
+    console.error('Wishlist context loading failed:', err)
+    return { items: [] }
   }
 }

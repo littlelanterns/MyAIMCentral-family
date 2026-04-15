@@ -11,7 +11,7 @@ import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
   ArrowRight, ArrowUpRight, RotateCcw, Archive, ArchiveRestore, Trash2, Loader2, Save,
-  Clock, Lightbulb, Heart, GripVertical, LayoutGrid, List,
+  Clock, Lightbulb, Heart, HeartOff, GripVertical, LayoutGrid, List,
   Share2, UserCheck, Check, Wand2, BookOpen, Tag, UserMinus, Undo2, Trophy, Star, Camera,
 } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -1990,17 +1990,22 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                 className="flex-1 px-3 py-2 rounded-lg text-sm"
                 style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
               />
-              {sections.size > 0 && (
-                <select
-                  value={newItemSection}
-                  onChange={e => setNewItemSection(e.target.value)}
-                  className="px-2 py-2 rounded-lg text-xs max-w-30"
-                  style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-                >
-                  <option value="">No section</option>
-                  {Array.from(sections.keys()).map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              )}
+              {(() => {
+                // For wishlists, always show section selector with suggested sections
+                const wishlistSuggestions = list.list_type === 'wishlist' ? ['Want', 'Need', 'Saving For'] : []
+                const allSections = new Set([...Array.from(sections.keys()), ...wishlistSuggestions])
+                return allSections.size > 0 ? (
+                  <select
+                    value={newItemSection}
+                    onChange={e => setNewItemSection(e.target.value)}
+                    className="px-2 py-2 rounded-lg text-xs max-w-30"
+                    style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  >
+                    <option value="">No section</option>
+                    {Array.from(allSections).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                ) : null
+              })()}
             </div>
             <button
               onClick={addItem}
@@ -2109,6 +2114,16 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         <div className="flex items-center gap-1.5">
           {isOwnerOrParent && (
             <>
+              <Tooltip content={list.is_included_in_ai ? 'LiLa uses this list as context' : 'Include in LiLa context'}>
+                <button
+                  onClick={() => updateList.mutate({ id: listId, is_included_in_ai: !list.is_included_in_ai })}
+                  className="p-1.5 rounded-lg"
+                >
+                  {list.is_included_in_ai
+                    ? <Heart size={16} fill="var(--color-accent)" style={{ color: 'var(--color-accent)' }} />
+                    : <HeartOff size={16} style={{ color: 'var(--color-text-secondary)' }} />}
+                </button>
+              </Tooltip>
               <Tooltip content="Share with family">
                 <button onClick={() => setShowShareModal(true)} className="p-1.5 rounded-lg relative" style={{ color: shares.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}>
                   <Share2 size={16} />

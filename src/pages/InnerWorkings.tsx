@@ -5,9 +5,11 @@
  */
 
 import { useState, useMemo, useRef, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Heart, HeartOff, Plus, Pencil, Archive, Upload, Loader2,
   ChevronDown, Check, Sparkles, GripVertical, Brain, MessageCircle, Users, RotateCcw,
+  Handshake, Lightbulb,
 } from 'lucide-react'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, CollapsibleGroup, Tooltip } from '@/components/shared'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
@@ -28,8 +30,10 @@ import {
   useRestoreSelfKnowledge,
   useReorderSelfKnowledge,
   SELF_KNOWLEDGE_CATEGORIES,
+  GUIDED_CONNECTION_LABELS,
+  CONNECTION_STARTER_PROMPTS,
 } from '@/hooks/useSelfKnowledge'
-import type { SelfKnowledgeEntry, SelfKnowledgeCategory } from '@/hooks/useSelfKnowledge'
+import type { SelfKnowledgeEntry, SelfKnowledgeCategory, SelfKnowledgeCategoryGroup } from '@/hooks/useSelfKnowledge'
 
 // ── Types for extraction pipeline ──────────────────────────
 
@@ -67,6 +71,7 @@ export function InnerWorkingsPage() {
   const [formShareMom, setFormShareMom] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<SelfKnowledgeCategoryGroup>('self_knowledge')
 
   // Upload state
   const [uploading, setUploading] = useState(false)
@@ -90,6 +95,10 @@ export function InnerWorkingsPage() {
   }, [entries])
 
   const totalIncluded = entries.filter(e => e.is_included_in_ai).length
+  const isGuidedMember = activeMember?.dashboard_mode === 'guided'
+  const selfKnowledgeCats = SELF_KNOWLEDGE_CATEGORIES.filter(c => c.group === 'self_knowledge')
+  const connectionCats = SELF_KNOWLEDGE_CATEGORIES.filter(c => c.group === 'connection')
+  const activeGroupCats = activeTab === 'self_knowledge' ? selfKnowledgeCats : connectionCats
 
   function showToast(msg: string) {
     setToast(msg)
@@ -305,8 +314,10 @@ export function InnerWorkingsPage() {
   const highConfidence = extractedInsights.filter(i => i.confidence >= 0.5)
   const lowConfidence = extractedInsights.filter(i => i.confidence < 0.5)
 
-  // ── Empty state (zero entries) ──
-  if (!isLoading && entries.length === 0 && mode === 'list') {
+  // ── Empty state (zero entries AND on self-knowledge tab) ──
+  // Connection Preferences tab should always render even when no entries exist
+  // (it has starter prompts that are the whole point)
+  if (!isLoading && entries.length === 0 && mode === 'list' && activeTab === 'self_knowledge') {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <FeatureGuide featureKey="inner_workings" />
@@ -321,6 +332,30 @@ export function InnerWorkingsPage() {
               Who you are right now.
             </p>
           </div>
+        </div>
+
+        {/* Tab switcher — always visible even in empty state */}
+        <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+          <button
+            onClick={() => setActiveTab('self_knowledge')}
+            className="flex items-center gap-2 flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              color: 'var(--color-text-primary)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            }}
+          >
+            <Brain size={16} />
+            Self-Knowledge
+          </button>
+          <button
+            onClick={() => setActiveTab('connection')}
+            className="flex items-center gap-2 flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            <Handshake size={16} />
+            Connection Preferences
+          </button>
         </div>
 
         <div className="p-8 rounded-xl text-center space-y-4" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
@@ -456,7 +491,7 @@ export function InnerWorkingsPage() {
           placeholder={'Paste or type multiple entries, one per line. E.g.:\nI am an ENFP\nI recharge by being around people\nI struggle with follow-through on long projects'}
           hint="AI will parse and categorize each entry into the right InnerWorkings category."
           categories={SELF_KNOWLEDGE_CATEGORIES.map(c => ({ value: c.value, label: c.label }))}
-          parsePrompt="Parse the following text into individual self-knowledge entries. Categorize each with one of: personality_type, trait_tendency, strength, growth_area, general. Return JSON array."
+          parsePrompt="Parse the following text into individual self-knowledge entries. Categorize each with one of: personality_type, trait_tendency, strength, growth_area, general, gift_ideas, meaningful_words, helpful_actions, quality_time_ideas, sensitivities, comfort_needs. The last 6 are connection preferences about how to relate to this person. Return JSON array."
           onSave={async (parsed: any[]) => {
             for (const item of parsed.filter((i: any) => i.selected)) {
               await createEntry.mutateAsync({
@@ -496,9 +531,16 @@ export function InnerWorkingsPage() {
                 className="w-full px-3 py-2 rounded-lg text-sm"
                 style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', minHeight: '44px' }}
               >
-                {SELF_KNOWLEDGE_CATEGORIES.map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
+                <optgroup label="Self-Knowledge">
+                  {selfKnowledgeCats.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Connection Preferences">
+                  {connectionCats.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             <div className="flex-1">
@@ -611,29 +653,116 @@ export function InnerWorkingsPage() {
         </div>
       )}
 
-      {/* ── Category Groups ── */}
+      {/* ── Tab Switcher ── */}
       {mode === 'list' && (
         <>
+          <div className="flex gap-1 p-1 rounded-lg mb-4" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+            <button
+              onClick={() => setActiveTab('self_knowledge')}
+              className="flex items-center gap-2 flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              style={activeTab === 'self_knowledge' ? {
+                backgroundColor: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              } : {
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              <Brain size={16} />
+              Self-Knowledge
+            </button>
+            <button
+              onClick={() => setActiveTab('connection')}
+              className="flex items-center gap-2 flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              style={activeTab === 'connection' ? {
+                backgroundColor: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              } : {
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              <Handshake size={16} />
+              Connection Preferences
+            </button>
+          </div>
+
+          {/* ── Connection tab intro ── */}
+          {activeTab === 'connection' && (
+            <div
+              className="p-4 rounded-lg mb-4 text-sm"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-primary))', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <p className="font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                Help your family know how to connect with you.
+              </p>
+              <p>
+                These entries feed into LiLa&apos;s context — when someone uses a relationship tool with you selected,
+                LiLa will know what matters to you. Everyone in the family can fill out their own.
+              </p>
+            </div>
+          )}
+
+          {/* ── Category Groups ── */}
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 size={24} className="animate-spin" style={{ color: 'var(--color-btn-primary-bg)' }} />
             </div>
           ) : (
             <div className="space-y-3">
-              {SELF_KNOWLEDGE_CATEGORIES.map(cat => {
+              {activeGroupCats.map(cat => {
                 const catEntries = byCategory[cat.value] ?? []
                 const heartedCount = catEntries.filter(e => e.is_included_in_ai).length
+                const displayLabel = isGuidedMember && GUIDED_CONNECTION_LABELS[cat.value]
+                  ? GUIDED_CONNECTION_LABELS[cat.value]!
+                  : cat.label
+                const starterPrompts = activeTab === 'connection'
+                  ? CONNECTION_STARTER_PROMPTS[cat.value]
+                  : undefined
+                const promptList = starterPrompts
+                  ? (isGuidedMember ? starterPrompts.guided : starterPrompts.adult)
+                  : undefined
+
+                // Use prompt count as fallback to prevent CollapsibleGroup's "No X yet" empty state
+                // when starter prompts exist (they ARE the content for empty connection categories)
+                const effectiveCount = catEntries.length > 0 ? catEntries.length : (promptList?.length ?? 0)
 
                 return (
                   <CollapsibleGroup
                     key={cat.value}
-                    label={cat.label}
-                    count={catEntries.length}
+                    label={displayLabel}
+                    count={effectiveCount}
                     heartedCount={heartedCount}
                     description={cat.description}
-                    defaultOpen={catEntries.length > 0}
+                    defaultOpen={catEntries.length > 0 || activeTab === 'connection'}
                     onToggleAll={(included) => handleBatchToggleAI(cat.value, included)}
                   >
+                    {/* Starter prompt cards when no entries exist */}
+                    {catEntries.length === 0 && promptList && promptList.length > 0 && (
+                      <div className="space-y-2 mb-3">
+                        {promptList.map((prompt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setFormContent('')
+                              setFormCategory(cat.value)
+                              setFormSource('')
+                              setMode('create')
+                            }}
+                            className="w-full text-left flex items-start gap-2.5 p-3 rounded-lg transition-colors"
+                            style={{
+                              backgroundColor: 'color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-secondary))',
+                              border: '1px dashed var(--color-border)',
+                              color: 'var(--color-text-secondary)',
+                            }}
+                          >
+                            <Lightbulb size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--color-accent)' }} />
+                            <span className="text-sm">{prompt}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -657,6 +786,16 @@ export function InnerWorkingsPage() {
                 )
               })}
             </div>
+          )}
+
+          {/* ── Mom's Observations (only when mom views another member on Connection tab) ── */}
+          {activeTab === 'connection' && isViewingAs && member?.role === 'primary_parent' && activeMember && (
+            <MomObservationsSection
+              familyId={family?.id ?? ''}
+              aboutMemberId={activeMember.id}
+              momMemberId={member.id}
+              memberName={activeMember.display_name}
+            />
           )}
 
           {/* ── Archived Section ── */}
@@ -877,9 +1016,16 @@ function InsightCard({
             className="text-xs px-2 py-1 rounded border outline-none"
             style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)', minHeight: '32px' }}
           >
-            {SELF_KNOWLEDGE_CATEGORIES.map(c => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
+            <optgroup label="Self-Knowledge">
+              {SELF_KNOWLEDGE_CATEGORIES.filter(c => c.group === 'self_knowledge').map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Connection Preferences">
+              {SELF_KNOWLEDGE_CATEGORIES.filter(c => c.group === 'connection').map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </optgroup>
           </select>
           {insight.source_label && (
             <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
@@ -891,6 +1037,175 @@ function InsightCard({
           </span>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// Mom's Observations — private connection insights stored in archive_context_items
+// with is_privacy_filtered=true (invisible to the subject, visible to LiLa for mom)
+// ════════════════════════════════════════════════════════════
+
+function MomObservationsSection({ familyId, aboutMemberId, momMemberId, memberName }: {
+  familyId: string
+  aboutMemberId: string
+  momMemberId: string
+  memberName: string
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [newNote, setNewNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const queryClient = useQueryClient()
+
+  const { data: observations = [] } = useQuery({
+    queryKey: ['mom-observations', familyId, aboutMemberId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('archive_context_items')
+        .select('*')
+        .eq('family_id', familyId)
+        .eq('member_id', aboutMemberId)
+        .eq('context_type', 'mom_connection_insight')
+        .eq('added_by', momMemberId)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as Array<{
+        id: string
+        context_value: string
+        is_included_in_ai: boolean
+        created_at: string
+      }>
+    },
+  })
+
+  const { data: prefsFolder } = useQuery({
+    queryKey: ['prefs-folder', familyId, aboutMemberId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('archive_folders')
+        .select('id')
+        .eq('family_id', familyId)
+        .eq('member_id', aboutMemberId)
+        .eq('folder_name', 'Preferences')
+        .eq('folder_type', 'system_category')
+        .maybeSingle()
+      if (error) throw error
+      return data as { id: string } | null
+    },
+  })
+
+  async function handleSave() {
+    if (!newNote.trim() || !prefsFolder) return
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('archive_context_items')
+        .insert({
+          family_id: familyId,
+          folder_id: prefsFolder.id,
+          member_id: aboutMemberId,
+          context_field: 'Mom\'s observation',
+          context_value: newNote.trim(),
+          context_type: 'mom_connection_insight',
+          is_included_in_ai: true,
+          is_privacy_filtered: true,
+          source: 'manual',
+          added_by: momMemberId,
+        })
+      if (error) throw error
+      setNewNote('')
+      queryClient.invalidateQueries({ queryKey: ['mom-observations', familyId, aboutMemberId] })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    await supabase
+      .from('archive_context_items')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', id)
+    queryClient.invalidateQueries({ queryKey: ['mom-observations', familyId, aboutMemberId] })
+  }
+
+  async function handleToggleAI(id: string, current: boolean) {
+    await supabase
+      .from('archive_context_items')
+      .update({ is_included_in_ai: !current })
+      .eq('id', id)
+    queryClient.invalidateQueries({ queryKey: ['mom-observations', familyId, aboutMemberId] })
+  }
+
+  return (
+    <div
+      className="mt-4 rounded-lg overflow-hidden"
+      style={{ border: '1px solid var(--color-border)', backgroundColor: 'color-mix(in srgb, var(--color-accent) 4%, var(--color-bg-primary))' }}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left text-sm font-medium"
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        <ChevronDown size={14} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        My Observations about {memberName}
+        {observations.length > 0 && (
+          <span className="text-xs font-normal ml-auto" style={{ color: 'var(--color-text-secondary)' }}>
+            {observations.length} note{observations.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            Private to you. {memberName} will never see these. LiLa uses them when you ask about {memberName}.
+          </p>
+
+          {observations.map(obs => (
+            <div
+              key={obs.id}
+              className="flex items-start gap-2 p-3 rounded-lg text-sm"
+              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+            >
+              <div className="flex-1 min-w-0">
+                <p style={{ color: 'var(--color-text-primary)' }}>{obs.context_value}</p>
+              </div>
+              <Tooltip content={obs.is_included_in_ai ? 'LiLa can see this' : 'Hidden from LiLa'}>
+                <button onClick={() => handleToggleAI(obs.id, obs.is_included_in_ai)}>
+                  {obs.is_included_in_ai
+                    ? <Heart size={14} fill="var(--color-accent)" style={{ color: 'var(--color-accent)' }} />
+                    : <HeartOff size={14} style={{ color: 'var(--color-text-secondary)' }} />}
+                </button>
+              </Tooltip>
+              <Tooltip content="Remove">
+                <button onClick={() => handleDelete(obs.id)}>
+                  <Archive size={14} style={{ color: 'var(--color-text-secondary)' }} />
+                </button>
+              </Tooltip>
+            </div>
+          ))}
+
+          <div className="flex gap-2">
+            <textarea
+              value={newNote}
+              onChange={e => setNewNote(e.target.value)}
+              placeholder={`What have you noticed about what works for ${memberName}?`}
+              rows={2}
+              className="flex-1 px-3 py-2 rounded-lg text-sm resize-none"
+              style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            />
+            <button
+              onClick={handleSave}
+              disabled={!newNote.trim() || saving || !prefsFolder}
+              className="self-end px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)', minHeight: '44px' }}
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
