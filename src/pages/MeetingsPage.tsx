@@ -5,6 +5,9 @@ import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/us
 import { useMeetingSchedules, useRecentMeetings, usePendingAgendaCounts, useAddAgendaItem, useMeetingTemplates, useActiveMeetings } from '@/hooks/useMeetings'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
+import { ScheduleEditorModal } from '@/components/meetings/ScheduleEditorModal'
+import { AgendaSectionEditorModal } from '@/components/meetings/AgendaSectionEditorModal'
+import { CustomTemplateCreatorModal } from '@/components/meetings/CustomTemplateCreatorModal'
 import type { MeetingType, MeetingSchedule } from '@/types/meetings'
 import { MEETING_TYPE_LABELS, getMeetingUrgency } from '@/types/meetings'
 
@@ -51,7 +54,7 @@ function MeetingUpcomingCard({ schedule, agendaCount, childName }: {
   )
 }
 
-function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, memberId, childName }: {
+function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, memberId, childName, relatedMemberId, onOpenSchedule, onOpenSections }: {
   meetingType: MeetingType
   label: string
   agendaCount: number
@@ -59,6 +62,9 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
   familyId: string
   memberId: string
   childName?: string
+  relatedMemberId?: string
+  onOpenSchedule: (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string, childName?: string) => void
+  onOpenSections: (meetingType: MeetingType, childName?: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [newItem, setNewItem] = useState('')
@@ -73,7 +79,7 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
       meeting_type: meetingType,
       content: newItem.trim(),
       added_by: memberId,
-      related_member_id: schedule?.related_member_id ?? undefined,
+      related_member_id: relatedMemberId ?? schedule?.related_member_id ?? undefined,
     })
     setNewItem('')
   }
@@ -95,10 +101,26 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button className="p-1 rounded" style={{ color: 'var(--color-text-tertiary)' }} onClick={e => { e.stopPropagation() }} title="Schedule" disabled>
+          <button
+            className="p-1 rounded hover:opacity-80"
+            style={{ color: 'var(--color-text-secondary)' }}
+            onClick={e => {
+              e.stopPropagation()
+              onOpenSchedule(meetingType, schedule, relatedMemberId, childName)
+            }}
+            title="Schedule"
+          >
             <CalendarDays size={16} />
           </button>
-          <button className="p-1 rounded" style={{ color: 'var(--color-text-tertiary)' }} onClick={e => { e.stopPropagation() }} title="Agenda sections" disabled>
+          <button
+            className="p-1 rounded hover:opacity-80"
+            style={{ color: 'var(--color-text-secondary)' }}
+            onClick={e => {
+              e.stopPropagation()
+              onOpenSections(meetingType, childName)
+            }}
+            title="Agenda sections"
+          >
             <Settings size={16} />
           </button>
         </div>
@@ -112,7 +134,7 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
           )}
           {!schedule && (
             <p className="text-xs mb-2 italic" style={{ color: 'var(--color-text-tertiary)' }}>
-              No schedule set — configure via the calendar icon (Phase B)
+              No schedule set — tap the calendar icon to configure
             </p>
           )}
           <AgendaQuickAdd
@@ -167,7 +189,32 @@ export function MeetingsPage() {
   const { data: templates = [] } = useMeetingTemplates(familyId)
   const { data: activeMeetings = [] } = useActiveMeetings(familyId)
 
+  // Modal state
+  const [scheduleModal, setScheduleModal] = useState<{
+    open: boolean
+    meetingType: MeetingType
+    schedule?: MeetingSchedule
+    relatedMemberId?: string
+    childName?: string
+  }>({ open: false, meetingType: 'couple' })
+
+  const [sectionsModal, setSectionsModal] = useState<{
+    open: boolean
+    meetingType: MeetingType
+    childName?: string
+  }>({ open: false, meetingType: 'couple' })
+
+  const [customTemplateOpen, setCustomTemplateOpen] = useState(false)
+
   const getMemberName = (id: string) => members?.find((m: FamilyMember) => m.id === id)?.display_name ?? ''
+
+  const handleOpenSchedule = (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string, childName?: string) => {
+    setScheduleModal({ open: true, meetingType, schedule, relatedMemberId, childName })
+  }
+
+  const handleOpenSections = (meetingType: MeetingType, childName?: string) => {
+    setSectionsModal({ open: true, meetingType, childName })
+  }
 
   // Group upcoming schedules (within 7 days or overdue)
   const upcomingSchedules = schedules
@@ -267,6 +314,8 @@ export function MeetingsPage() {
                     schedule={schedules.find(s => s.meeting_type === type)}
                     familyId={familyId!}
                     memberId={memberId!}
+                    onOpenSchedule={handleOpenSchedule}
+                    onOpenSections={handleOpenSections}
                   />
                 )
               }
@@ -283,6 +332,9 @@ export function MeetingsPage() {
                     familyId={familyId!}
                     memberId={memberId!}
                     childName={child.display_name}
+                    relatedMemberId={child.id}
+                    onOpenSchedule={handleOpenSchedule}
+                    onOpenSections={handleOpenSections}
                   />
                 )
               })
@@ -296,6 +348,8 @@ export function MeetingsPage() {
                 schedule={schedules.find(s => s.meeting_type === type)}
                 familyId={familyId!}
                 memberId={memberId!}
+                onOpenSchedule={handleOpenSchedule}
+                onOpenSections={handleOpenSections}
               />
             )
           })}
@@ -308,20 +362,18 @@ export function MeetingsPage() {
               agendaCount={agendaCounts[`custom:${t.id}`] ?? 0}
               familyId={familyId!}
               memberId={memberId!}
+              onOpenSchedule={handleOpenSchedule}
+              onOpenSections={handleOpenSections}
             />
           ))}
         </div>
         <button
-          className="mt-3 flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-md w-full justify-center"
+          className="mt-3 flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-md w-full justify-center hover:opacity-80"
           style={{ border: '1px dashed var(--color-border-default)', color: 'var(--color-text-secondary)' }}
-          disabled
-          title="Custom Template Creator — Phase B"
+          onClick={() => setCustomTemplateOpen(true)}
         >
           <Plus size={16} /> Create Custom Meeting Type
         </button>
-        <p className="text-xs mt-1 text-center italic" style={{ color: 'var(--color-text-tertiary)' }}>
-          Custom templates activate in Phase B
-        </p>
       </section>
 
       {/* Recent History */}
@@ -353,6 +405,36 @@ export function MeetingsPage() {
           </div>
         )}
       </section>
+
+      {/* ── Modals ─────────────────────────────────────────── */}
+
+      {familyId && (
+        <>
+          <ScheduleEditorModal
+            isOpen={scheduleModal.open}
+            onClose={() => setScheduleModal(s => ({ ...s, open: false }))}
+            meetingType={scheduleModal.meetingType}
+            relatedMemberId={scheduleModal.relatedMemberId}
+            childName={scheduleModal.childName}
+            existingSchedule={scheduleModal.schedule}
+            familyId={familyId}
+          />
+
+          <AgendaSectionEditorModal
+            isOpen={sectionsModal.open}
+            onClose={() => setSectionsModal(s => ({ ...s, open: false }))}
+            meetingType={sectionsModal.meetingType}
+            childName={sectionsModal.childName}
+            familyId={familyId}
+          />
+
+          <CustomTemplateCreatorModal
+            isOpen={customTemplateOpen}
+            onClose={() => setCustomTemplateOpen(false)}
+            familyId={familyId}
+          />
+        </>
+      )}
     </div>
   )
 }
