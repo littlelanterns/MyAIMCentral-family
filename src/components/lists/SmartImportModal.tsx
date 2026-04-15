@@ -327,7 +327,7 @@ export function SmartImportModal({
       {phase === 'input' && (
         <div className="space-y-3">
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Paste a list of activities, chores, or items. AI will sort them into your existing lists — or suggest new ones.
+            Paste a list, a brain dump, a copy from a book or website — anything with items in it. AI will sort them into your existing lists or suggest new ones.
           </p>
 
           <div>

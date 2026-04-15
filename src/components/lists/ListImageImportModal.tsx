@@ -204,11 +204,11 @@ export function ListImageImportModal({
       ) : undefined}
     >
       {/* Hidden file input */}
+      {/* No capture attribute — lets user pick from camera roll, screenshots, files, OR take a new photo */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelected}
         className="hidden"
       />
@@ -229,7 +229,7 @@ export function ListImageImportModal({
       {phase === 'capture' && (
         <div className="space-y-4">
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Take a photo of a book page, activity list, or any printed list. AI will read the text and extract the items.
+            Choose a screenshot, photo, or any image with text. AI will read it and extract the items.
           </p>
 
           <div>
@@ -260,10 +260,10 @@ export function ListImageImportModal({
           >
             <Camera size={32} style={{ color: 'var(--color-btn-primary-bg)' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
-              Take a photo or choose an image
+              Choose an image or take a photo
             </span>
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              Works with book pages, printed lists, whiteboards, screenshots
+            <span className="text-xs text-center" style={{ color: 'var(--color-text-secondary)' }}>
+              A book page, a printed list, a screenshot, a whiteboard — anything with text on it
             </span>
           </button>
         </div>
