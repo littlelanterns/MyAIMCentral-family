@@ -42,6 +42,7 @@ import { ChildAllowanceConfigPage } from '@/features/financial/ChildAllowanceCon
 import { TransactionHistoryPage } from '@/features/financial/TransactionHistory'
 import { HomeworkSettingsPage } from '@/features/financial/HomeworkSettingsPage'
 import { GamificationSettingsPage } from '@/pages/GamificationSettingsPage'
+import { RewardRevealLibrary } from '@/components/reward-reveals/RewardRevealLibrary'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
@@ -156,6 +157,8 @@ function App() {
               <Route path="/settings/homework" element={<ProtectedRoute><HomeworkSettingsPage /></ProtectedRoute>} />
               {/* PRD-24/PRD-26: Gamification settings */}
               <Route path="/settings/gamification" element={<ProtectedRoute><GamificationSettingsPage /></ProtectedRoute>} />
+              {/* Reward Reveals library */}
+              <Route path="/settings/reward-reveals" element={<ProtectedRoute><RewardRevealLibrary /></ProtectedRoute>} />
               <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />

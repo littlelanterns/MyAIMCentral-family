@@ -30,6 +30,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
+import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 
 interface MomShellProps {
   children: ReactNode
@@ -107,6 +108,7 @@ export function MomShell({ children }: MomShellProps) {
 
   return (
     <TimerProvider>
+    <RewardRevealProvider>
     <RoutingToastProvider>
     <NotepadProvider>
     <ToolLauncherProvider>
@@ -237,6 +239,7 @@ export function MomShell({ children }: MomShellProps) {
     </ToolLauncherProvider>
     </NotepadProvider>
     </RoutingToastProvider>
+    </RewardRevealProvider>
     </TimerProvider>
   )
 }

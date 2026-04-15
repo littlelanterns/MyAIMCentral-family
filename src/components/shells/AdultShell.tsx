@@ -4,6 +4,7 @@ import { BottomNav } from './BottomNav'
 import { Settings } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
+import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
@@ -51,6 +52,7 @@ export function AdultShell({ children }: AdultShellProps) {
   return (
     <ToolLauncherProvider>
     <TimerProvider>
+    <RewardRevealProvider>
     <NotepadProvider>
     <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <Sidebar />
@@ -92,6 +94,7 @@ export function AdultShell({ children }: AdultShellProps) {
       />
     </div>
     </NotepadProvider>
+    </RewardRevealProvider>
     </TimerProvider>
     </ToolLauncherProvider>
   )

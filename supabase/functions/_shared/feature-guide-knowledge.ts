@@ -61,6 +61,13 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   '/sweep': `MINDSWEEP — Quick-capture brain dump. Text, voice, scan (OCR), link import.
   AI classifies each item → routes to the right destination (task, calendar, journal, list, etc.)
   Aggressiveness modes: Always Ask, Trust Obvious, Full Autopilot.`,
+
+  '/settings/reward-reveals': `REWARD REVEALS LIBRARY — Mom's named celebration combos.
+  Each combo = a reveal animation + prize content. [+ New Reveal] creates one.
+  Pick one or more animations (they rotate if multiple), configure the prize (text, photo, platform image, or celebration-only).
+  Named combos can be attached to any task, widget, list, or intention via the "Reward Reveal" section in their editor.
+  Rotating prize pools: set mode to Sequential or Random — different prize each time!
+  Prize Box: earned prizes show up for kids until mom marks them as redeemed.`,
 }
 
 // ── Use Case Recipes ──────────────────────────────────────
@@ -227,6 +234,44 @@ Go to Tasks → create a Routine called "Piano Practice."
 Add sections: Warm-up, Technique, Repertoire.
 For the Repertoire section, link a Randomizer list of pieces — each practice session draws a different piece to focus on.
 This keeps practice fresh while ensuring fundamentals get done every time.`,
+      },
+    ],
+  },
+
+  // ── Reward Reveals ──
+  {
+    triggers: ['reward reveal', 'surprise reward', 'unlock reward', 'hidden reward', 'prize', 'treasure chest', 'celebration animation', 'potty chart reward', 'ice cream reward'],
+    clarifyingQuestion: "I love that idea! Tell me more — is this a reward they'll see every time they finish something (like a daily routine), or more of a milestone surprise after reaching a goal (like every 5 stars on a chart)? And what's the actual reward — something specific like ice cream, or more of an encouraging message?",
+    variants: [
+      {
+        name: 'Every-Completion Celebration',
+        description: 'A reveal plays every time the task/routine is completed. Great for daily motivation.',
+        howToSetUp: `When creating or editing the task, scroll down to the "Reward Reveal" section.
+Pick a reveal animation (treasure chest, gift box, envelope — 30+ styles in 12 categories).
+Set prize type: upload a photo of the actual reward, pick from the image library, or write a text message.
+Set trigger to "Every time" and repeating to Yes.
+Save — now every completion plays the reveal!`,
+      },
+      {
+        name: 'Milestone Reward (Every N)',
+        description: 'Reveal fires every N completions — perfect for star charts, practice goals, habit streaks.',
+        howToSetUp: `Set up the tracker widget first (like a star chart or tally counter).
+In the widget configuration, open the "Reward Reveal" section.
+Pick your animation(s) — you can pick multiple and they'll rotate!
+Set trigger to "Every N" and enter the number (e.g., every 5 stars).
+Set the prize: text message, your own photo, or pick from the platform library.
+For variety, set prize mode to "Random surprise" and add multiple prizes to the pool.
+Each milestone gets a different surprise!`,
+      },
+      {
+        name: 'Reusable Named Combo',
+        description: 'Create a named reveal once, attach it to many things.',
+        howToSetUp: `Go to Settings > Reward Reveals and tap [+ New Reveal].
+Give it a name like "Ice Cream Reward" or "Movie Night Prize."
+Pick the animation(s) and prize content.
+Save it to your library.
+Then on any task, widget, or list — open the Reward Reveal section and pick it from the "Pick from library" dropdown.
+Change the trigger mode per attachment (every time on one task, every 5 on another).`,
       },
     ],
   },

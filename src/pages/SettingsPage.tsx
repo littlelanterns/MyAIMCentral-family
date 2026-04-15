@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
-  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen,
+  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import {
@@ -163,6 +163,18 @@ export function SettingsPage() {
             label="Gamification"
             description="Points, creatures, sticker books, and rewards for each member"
             to="/settings/gamification"
+          />
+        </SettingsSection>
+      )}
+
+      {/* Reward Reveals (Mom only) */}
+      {shell === 'mom' && (
+        <SettingsSection title="Reward Reveals" icon={Gift}>
+          <SettingsNavRow
+            icon={Gift}
+            label="Reward Reveals"
+            description="Create and manage celebration animations with prizes"
+            to="/settings/reward-reveals"
           />
         </SettingsSection>
       )}

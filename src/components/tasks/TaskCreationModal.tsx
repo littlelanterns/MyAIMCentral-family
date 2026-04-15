@@ -34,6 +34,7 @@ import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { useHomeschoolSubjects } from '@/hooks/useHomeschool'
 import { TaskIconPicker } from './TaskIconPicker'
+import { AttachRevealSection } from '@/components/reward-reveals/AttachRevealSection'
 import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
 
@@ -123,6 +124,8 @@ export interface CreateTaskData {
   allowancePoints?: number | null
   // PRD-28: Per-task subject assignment for auto time logging on completion
   homeworkSubjectIds?: string[]
+  // Reward Reveals: attached celebration config
+  rewardRevealConfig?: import('@/components/reward-reveals/AttachRevealSection').RevealAttachmentConfig | null
 }
 
 interface TaskCreationModalProps {
@@ -2004,7 +2007,20 @@ export function TaskCreationModal({
         )}
       </SectionCard>
 
-      {/* 8. Studio library info */}
+      {/* 8. Reward Reveal */}
+      {currentMember?.family_id && (
+        <SectionCard>
+          <AttachRevealSection
+            value={data.rewardRevealConfig ?? null}
+            onChange={(config) => update('rewardRevealConfig', config)}
+            familyId={currentMember.family_id}
+            showTriggerConfig={data.taskType !== 'task'}
+            variant="section-card"
+          />
+        </SectionCard>
+      )}
+
+      {/* 9. Studio library info */}
       {data.taskType === 'routine' && (
         <div style={{
           padding: '0.625rem 0.75rem',

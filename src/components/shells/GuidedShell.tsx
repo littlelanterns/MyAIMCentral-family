@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, ChevronDown, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye, LogOut, GraduationCap, MessagesSquare } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
+import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
@@ -35,7 +36,9 @@ export function GuidedShell({ children }: GuidedShellProps) {
     <ToolLauncherProvider>
       <WriteDrawerProvider>
         <TimerProvider>
+        <RewardRevealProvider>
           <GuidedShellInner>{children}</GuidedShellInner>
+        </RewardRevealProvider>
         </TimerProvider>
       </WriteDrawerProvider>
     </ToolLauncherProvider>

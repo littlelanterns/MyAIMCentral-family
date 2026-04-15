@@ -252,4 +252,17 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
       'Tap "Write" at the bottom to jot something down',
     ],
   },
+
+  // ── Reward Reveals ─────────────────────────────────────────────
+  reward_reveals: {
+    title: 'Reward Reveals — Surprise Celebrations',
+    description:
+      'Create celebration moments that play when your kids complete tasks, hit tracker goals, check off lists, or reach milestones. Pick an animation, set the prize, and attach it to anything completable.',
+    bullets: [
+      '30+ reveal animations across 12 styles — treasure chests, gift boxes, envelopes, and more',
+      'Prize options: your own photo, platform images, text messages, or celebration-only confetti',
+      'Rotating animations and prize pools — different surprise each time',
+      'Earned prizes go to the Prize Box until redeemed',
+    ],
+  },
 };

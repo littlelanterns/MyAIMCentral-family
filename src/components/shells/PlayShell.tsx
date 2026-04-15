@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom'
 import { Settings, PartyPopper } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
+import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { useSettings } from '@/components/settings'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -31,6 +32,7 @@ export function PlayShell({ children }: PlayShellProps) {
 
   return (
     <TimerProvider>
+    <RewardRevealProvider>
     <div
       className="flex flex-col min-h-svh"
       style={{ backgroundColor: 'var(--color-bg-primary)' }}
@@ -120,6 +122,7 @@ export function PlayShell({ children }: PlayShellProps) {
         ))}
       </nav>
     </div>
+    </RewardRevealProvider>
     </TimerProvider>
   )
 }

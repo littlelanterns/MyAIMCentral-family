@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from 'react'
 import { LayoutDashboard, Save, Settings, Users, ChevronDown, ChevronRight, Clock } from 'lucide-react'
+import { AttachRevealSection, type RevealAttachmentConfig } from '@/components/reward-reveals/AttachRevealSection'
 import { ModalV2 } from '@/components/shared'
 import type { WidgetStarterConfig, WidgetSize, CreateWidget, TrackerType, MultiplayerMode, MultiplayerVisualStyle } from '@/types/widgets'
 import { getTrackerMeta, MULTIPLAYER_TRACKER_TYPES } from '@/types/widgets'
@@ -74,6 +75,9 @@ export function WidgetConfiguration({
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
     )
   }
+
+  // Reward Reveal config
+  const [revealConfig, setRevealConfig] = useState<RevealAttachmentConfig | null>(null)
 
   const updateField = useCallback((key: string, value: unknown) => {
     setConfigFields(prev => ({ ...prev, [key]: value }))
@@ -486,6 +490,15 @@ export function WidgetConfiguration({
             </div>
           )}
         </div>
+
+        {/* Reward Reveal — celebrate every N data points */}
+        <AttachRevealSection
+          value={revealConfig}
+          onChange={setRevealConfig}
+          familyId={familyId}
+          showTriggerConfig
+          variant="collapsible"
+        />
       </div>
     </ModalV2>
   )
