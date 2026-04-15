@@ -18,6 +18,7 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useMindSweepSettings, useRunSweep } from '@/hooks/useMindSweep'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
 import { ComposeFlow } from '@/components/messaging/ComposeFlow'
+import { MeetingPickerOverlay } from '@/components/meetings/MeetingPickerOverlay'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
 import {
   useCreateNotepadTab,
@@ -96,6 +97,8 @@ export function NotepadDrawer() {
   const [requestPrefill, setRequestPrefill] = useState<{ title: string; details: string; tabId: string }>({ title: '', details: '', tabId: '' })
   const [composeFlowOpen, setComposeFlowOpen] = useState(false)
   const [composeFlowContent, setComposeFlowContent] = useState('')
+  const [agendaPickerOpen, setAgendaPickerOpen] = useState(false)
+  const [agendaPickerContent, setAgendaPickerContent] = useState('')
 
   const saveIndicatorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -256,6 +259,13 @@ export function NotepadDrawer() {
       const content = activeTab.content || ''
       setComposeFlowContent(content)
       setComposeFlowOpen(true)
+      return
+    }
+
+    // Intercept Agenda — open MeetingPickerOverlay to create meeting_agenda_items directly
+    if (destination === 'agenda') {
+      setAgendaPickerContent(activeTab.content || '')
+      setAgendaPickerOpen(true)
       return
     }
 
@@ -559,6 +569,22 @@ export function NotepadDrawer() {
         onClose={() => setComposeFlowOpen(false)}
         prefillContent={composeFlowContent}
       />
+
+      {/* MeetingPickerOverlay — opened when user picks "Agenda" in routing strip */}
+      {familyId && memberId && (
+        <MeetingPickerOverlay
+          isOpen={agendaPickerOpen}
+          onClose={() => setAgendaPickerOpen(false)}
+          familyId={familyId}
+          memberId={memberId}
+          content={agendaPickerContent}
+          onComplete={() => {
+            setAgendaPickerOpen(false)
+            setView('editor')
+            routingToast.show({ message: 'Added to meeting agenda' })
+          }}
+        />
+      )}
     </>
   )
 }

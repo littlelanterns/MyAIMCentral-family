@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { UsersRound, Plus, Clock, ChevronRight, CalendarDays, Settings, MessageSquarePlus } from 'lucide-react'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
@@ -10,6 +11,8 @@ import { AgendaSectionEditorModal } from '@/components/meetings/AgendaSectionEdi
 import { CustomTemplateCreatorModal } from '@/components/meetings/CustomTemplateCreatorModal'
 import { StartMeetingModal } from '@/components/meetings/StartMeetingModal'
 import { MeetingConversationView } from '@/components/meetings/MeetingConversationView'
+import { PostMeetingReview } from '@/components/meetings/PostMeetingReview'
+import { MeetingHistoryView } from '@/components/meetings/MeetingHistoryView'
 import type { MeetingType, MeetingMode, MeetingSchedule, Meeting } from '@/types/meetings'
 import { MEETING_TYPE_LABELS, getMeetingUrgency } from '@/types/meetings'
 
@@ -230,6 +233,8 @@ export function MeetingsPage() {
   }>({ open: false, meetingType: 'couple' })
 
   const [activeMeetingView, setActiveMeetingView] = useState<Meeting | null>(null)
+  const [reviewMeeting, setReviewMeeting] = useState<Meeting | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   const getMemberName = (id: string) => members?.find((m: FamilyMember) => m.id === id)?.display_name ?? ''
 
@@ -258,8 +263,20 @@ export function MeetingsPage() {
   }
 
   const handleMeetingEnded = (_meetingId: string) => {
+    // Keep the meeting reference for review before clearing the conversation view
+    const endedMeeting = activeMeetingView
     setActiveMeetingView(null)
-    // Phase D will open PostMeetingReview here
+    if (endedMeeting) {
+      setReviewMeeting(endedMeeting)
+    }
+  }
+
+  const queryClient = useQueryClient()
+  const handleReviewComplete = () => {
+    setReviewMeeting(null)
+    queryClient.invalidateQueries({ queryKey: ['meetings', familyId] })
+    queryClient.invalidateQueries({ queryKey: ['meeting-schedules', familyId] })
+    queryClient.invalidateQueries({ queryKey: ['studio-queue', familyId] })
   }
 
   // Group upcoming schedules (within 7 days or overdue)
@@ -429,7 +446,18 @@ export function MeetingsPage() {
 
       {/* Recent History */}
       <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-text-tertiary)' }}>Recent History</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Recent History</h2>
+          {recentMeetings.length > 0 && (
+            <button
+              onClick={() => setShowHistory(true)}
+              className="text-xs font-medium hover:opacity-80"
+              style={{ color: 'var(--color-btn-primary-bg)' }}
+            >
+              View All History
+            </button>
+          )}
+        </div>
         {recentMeetings.length === 0 ? (
           <p className="text-sm py-4 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
             Your meeting history will appear here after your first completed meeting.
@@ -507,6 +535,26 @@ export function MeetingsPage() {
           meeting={activeMeetingView}
           onEnd={handleMeetingEnded}
           onClose={() => setActiveMeetingView(null)}
+        />
+      )}
+
+      {/* Post-meeting review modal (Phase D) */}
+      {reviewMeeting && (
+        <PostMeetingReview
+          isOpen={!!reviewMeeting}
+          onClose={() => setReviewMeeting(null)}
+          meeting={reviewMeeting}
+          onSaveComplete={handleReviewComplete}
+        />
+      )}
+
+      {/* Meeting History view (Phase D) */}
+      {showHistory && familyId && (
+        <MeetingHistoryView
+          isOpen={showHistory}
+          onClose={() => setShowHistory(false)}
+          familyId={familyId}
+          members={members as FamilyMember[]}
         />
       )}
     </div>
