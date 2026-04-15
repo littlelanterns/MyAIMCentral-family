@@ -70,6 +70,20 @@ When mom describes a goal, ask a warm clarifying question first — not a roboti
 You also handle troubleshooting seamlessly — if something isn't working, help fix it directly. Don't tell her to switch modes.
 Be enthusiastic, curious, and discovery-oriented. Name exact pages, buttons, and settings. Walk through steps one at a time. Ask "are you there?" or "ready for the next step?" before continuing.`,
   optimizer: `Mode: LiLa Optimizer. Help optimize prompts for AI tools. Weave in family context to make prompts more specific and effective.`,
+  meeting: `Mode: Meeting Facilitation — guiding a family meeting.
+You are facilitating a structured family conversation. Your role is to guide participants through the agenda sections provided in the MEETING CONTEXT below, weaving in any pending agenda items naturally.
+
+FACILITATION RULES:
+- Walk through agenda sections in order. Introduce each section with its prompt text, then let the conversation flow.
+- Weave in PENDING AGENDA ITEMS at the right moments — don't dump them all at once. When a section covers a relevant topic, surface the queued item: "I see [name] added '[item]' to discuss."
+- Keep the tone warm and constructive. You are a thoughtful facilitator, not a timekeeper.
+- When participants go off-topic, gently redirect: "That's a great point — want to add it to the agenda for next time, or should we explore it now?"
+- Ask follow-up questions to deepen the conversation, especially on emotional topics (check-ins, relationship temperature).
+- For Record After mode: ask retrospective questions about each section. "Did you cover [section]? What came up?" Compile into a structured summary.
+- At the end, briefly summarize key decisions and note any action items that emerged.
+- If a child is designated as facilitator, provide more structured guidance — prompt them with "Great job! The next topic is..." and simpler language.
+- Never take sides in disagreements. Reflect both perspectives. Bridge toward shared understanding.
+- End warmly: acknowledge the effort of meeting together and highlight any positive moments.`,
 }
 
 const VOICE_ADJUSTMENTS: Record<string, string> = {
@@ -99,6 +113,11 @@ function buildSystemPrompt(
   const voice = VOICE_ADJUSTMENTS[memberRole]
   if (voice) parts.push(voice)
 
+  // Feature context (meeting agenda, tool context, etc.)
+  if (ctx.featureContext) {
+    parts.push(ctx.featureContext)
+  }
+
   // Family roster (Layer 1 — always present)
   if (ctx.familyRoster) parts.push(ctx.familyRoster)
 
@@ -120,6 +139,133 @@ function buildSystemPrompt(
   }
 
   return parts.join('\n\n')
+}
+
+// ============================================================
+// Meeting Context Loading (PRD-16 Phase C)
+// ============================================================
+
+/**
+ * Load meeting-specific context for the system prompt.
+ * Includes: meeting details, agenda sections, pending agenda items, recent summaries.
+ */
+async function loadMeetingFeatureContext(
+  familyId: string,
+  meetingId: string,
+): Promise<string> {
+  try {
+    // Load the meeting record
+    const { data: meeting } = await supabase
+      .from('meetings')
+      .select('meeting_type, mode, custom_title, related_member_id, facilitator_member_id')
+      .eq('id', meetingId)
+      .single()
+
+    if (!meeting) return ''
+
+    const parts: string[] = ['## MEETING CONTEXT']
+    const meetingType = meeting.meeting_type as string
+    const isRecordAfter = meeting.mode === 'record_after'
+
+    parts.push(`Meeting type: ${meeting.custom_title || meetingType}`)
+    parts.push(`Mode: ${isRecordAfter ? 'Record After (retrospective capture — ask about what was already discussed)' : 'Live (guide the conversation in real-time)'}`)
+
+    // Load facilitator info for family council
+    if (meeting.facilitator_member_id) {
+      const { data: facilitator } = await supabase
+        .from('family_members')
+        .select('display_name, age')
+        .eq('id', meeting.facilitator_member_id)
+        .single()
+      if (facilitator) {
+        const ageNote = facilitator.age && facilitator.age < 10
+          ? ' (young facilitator — provide more structured guidance, simpler language)'
+          : facilitator.age && facilitator.age < 18
+            ? ' (teen facilitator — stay quieter, offer prompts only when conversation stalls)'
+            : ''
+        parts.push(`Facilitator: ${facilitator.display_name}${ageNote}`)
+      }
+    }
+
+    // Load agenda sections (customized or built-in)
+    const { data: sections } = await supabase
+      .from('meeting_template_sections')
+      .select('section_name, prompt_text, sort_order')
+      .eq('family_id', familyId)
+      .eq('meeting_type', meetingType)
+      .is('template_id', null)
+      .eq('is_archived', false)
+      .order('sort_order', { ascending: true })
+
+    if (sections && sections.length > 0) {
+      parts.push('\nAGENDA SECTIONS (guide the conversation through these in order):')
+      for (const s of sections) {
+        parts.push(`${s.sort_order + 1}. ${s.section_name}${s.prompt_text ? ` — ${s.prompt_text}` : ''}`)
+      }
+    }
+
+    // Load pending agenda items
+    let agendaQuery = supabase
+      .from('meeting_agenda_items')
+      .select('content, added_by, created_at')
+      .eq('family_id', familyId)
+      .eq('meeting_type', meetingType)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+
+    if (meeting.related_member_id) {
+      agendaQuery = agendaQuery.eq('related_member_id', meeting.related_member_id)
+    }
+
+    const { data: agendaItems } = await agendaQuery
+
+    if (agendaItems && agendaItems.length > 0) {
+      // Resolve contributor names
+      const memberIds = [...new Set(agendaItems.map(i => i.added_by))]
+      const { data: contributors } = await supabase
+        .from('family_members')
+        .select('id, display_name')
+        .in('id', memberIds)
+      const nameMap = new Map((contributors ?? []).map(c => [c.id, c.display_name]))
+
+      parts.push('\nPENDING AGENDA ITEMS (weave these in at appropriate moments):')
+      for (const item of agendaItems) {
+        const contributor = nameMap.get(item.added_by) || 'Someone'
+        parts.push(`- "${item.content}" (added by ${contributor})`)
+      }
+    }
+
+    // Load last 2 completed meetings of same type for continuity
+    let historyQuery = supabase
+      .from('meetings')
+      .select('summary, completed_at')
+      .eq('family_id', familyId)
+      .eq('meeting_type', meetingType)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(2)
+
+    if (meeting.related_member_id) {
+      historyQuery = historyQuery.eq('related_member_id', meeting.related_member_id)
+    }
+
+    const { data: recentMeetings } = await historyQuery
+
+    if (recentMeetings && recentMeetings.length > 0) {
+      parts.push('\nRECENT MEETING SUMMARIES (for continuity — reference if relevant):')
+      for (const m of recentMeetings) {
+        if (m.summary) {
+          const dateStr = m.completed_at ? new Date(m.completed_at).toLocaleDateString() : 'unknown date'
+          parts.push(`[${dateStr}] ${m.summary.substring(0, 300)}`)
+        }
+      }
+    }
+
+    return parts.join('\n')
+  } catch (err) {
+    console.error('Meeting context loading failed:', err)
+    return ''
+  }
 }
 
 // ============================================================
@@ -226,12 +372,22 @@ Deno.serve(async (req) => {
 
     // Assemble context using layered approach (name detection + topic matching)
     const recentMessages = ((history || []) as Array<{ role: string; content: string }>).slice(-4)
+
+    // Load meeting-specific feature context when in meeting mode
+    let featureContext = ''
+    if (modeKey === 'meeting' && conversation.guided_mode_reference_id) {
+      featureContext = await loadMeetingFeatureContext(
+        conversation.family_id,
+        conversation.guided_mode_reference_id,
+      )
+    }
+
     const ctx = await assembleContext({
       familyId: conversation.family_id,
       memberId: conversation.member_id,
       userMessage: content,
       recentMessages,
-      featureContext: '',
+      featureContext,
     })
 
     // Build system prompt

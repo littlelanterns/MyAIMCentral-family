@@ -403,3 +403,21 @@ export function useRemoveAgendaItem() {
     },
   })
 }
+
+/** Mark agenda items as discussed during a live meeting */
+export function useMarkAgendaDiscussed() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { id: string; family_id: string; meeting_id: string }) => {
+      const { error } = await supabase
+        .from('meeting_agenda_items')
+        .update({ status: 'discussed', discussed_in_meeting_id: input.meeting_id })
+        .eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['meeting-agenda-items', vars.family_id] })
+      qc.invalidateQueries({ queryKey: ['meeting-agenda-counts', vars.family_id] })
+    },
+  })
+}

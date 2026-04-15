@@ -8,13 +8,16 @@ import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { ScheduleEditorModal } from '@/components/meetings/ScheduleEditorModal'
 import { AgendaSectionEditorModal } from '@/components/meetings/AgendaSectionEditorModal'
 import { CustomTemplateCreatorModal } from '@/components/meetings/CustomTemplateCreatorModal'
-import type { MeetingType, MeetingSchedule } from '@/types/meetings'
+import { StartMeetingModal } from '@/components/meetings/StartMeetingModal'
+import { MeetingConversationView } from '@/components/meetings/MeetingConversationView'
+import type { MeetingType, MeetingMode, MeetingSchedule, Meeting } from '@/types/meetings'
 import { MEETING_TYPE_LABELS, getMeetingUrgency } from '@/types/meetings'
 
-function MeetingUpcomingCard({ schedule, agendaCount, childName }: {
+function MeetingUpcomingCard({ schedule, agendaCount, childName, onStartMeeting }: {
   schedule: MeetingSchedule
   agendaCount: number
   childName?: string
+  onStartMeeting: (meetingType: MeetingType, relatedMemberId?: string, childName?: string, schedule?: MeetingSchedule) => void
 }) {
   const urgency = getMeetingUrgency(schedule.next_due_date)
   const urgencyColor = urgency === 'overdue' ? 'var(--color-error)' : urgency === 'due_today' ? 'var(--color-warning)' : 'var(--color-text-tertiary)'
@@ -40,21 +43,25 @@ function MeetingUpcomingCard({ schedule, agendaCount, childName }: {
         </p>
       )}
       <div className="flex gap-2">
-        <button className="btn-primary text-sm px-3 py-1.5 rounded-md flex items-center gap-1" disabled>
+        <button
+          className="btn-primary text-sm px-3 py-1.5 rounded-md flex items-center gap-1"
+          onClick={() => onStartMeeting(schedule.meeting_type as MeetingType, schedule.related_member_id ?? undefined, childName, schedule)}
+        >
           <UsersRound size={14} /> Live Mode
         </button>
-        <button className="text-sm px-3 py-1.5 rounded-md flex items-center gap-1" style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }} disabled>
+        <button
+          className="text-sm px-3 py-1.5 rounded-md flex items-center gap-1"
+          style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
+          onClick={() => onStartMeeting(schedule.meeting_type as MeetingType, schedule.related_member_id ?? undefined, childName, schedule)}
+        >
           <Clock size={14} /> Record After
         </button>
       </div>
-      <p className="text-xs mt-2 italic" style={{ color: 'var(--color-text-tertiary)' }}>
-        Live Mode and Record After activate in Phase C (AI integration)
-      </p>
     </div>
   )
 }
 
-function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, memberId, childName, relatedMemberId, onOpenSchedule, onOpenSections }: {
+function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, memberId, childName, relatedMemberId, onOpenSchedule, onOpenSections, onStartMeeting }: {
   meetingType: MeetingType
   label: string
   agendaCount: number
@@ -65,6 +72,7 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
   relatedMemberId?: string
   onOpenSchedule: (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string, childName?: string) => void
   onOpenSections: (meetingType: MeetingType, childName?: string) => void
+  onStartMeeting: (meetingType: MeetingType, relatedMemberId?: string, childName?: string, schedule?: MeetingSchedule) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [newItem, setNewItem] = useState('')
@@ -143,6 +151,12 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
             onSubmit={handleAddItem}
             loading={addItem.isPending}
           />
+          <button
+            className="mt-2 w-full btn-primary text-sm py-2 rounded-md flex items-center justify-center gap-1.5"
+            onClick={() => onStartMeeting(meetingType, relatedMemberId, childName, schedule)}
+          >
+            <UsersRound size={14} /> Start Meeting
+          </button>
         </div>
       )}
     </div>
@@ -206,6 +220,17 @@ export function MeetingsPage() {
 
   const [customTemplateOpen, setCustomTemplateOpen] = useState(false)
 
+  // Meeting start + conversation state (Phase C)
+  const [startMeetingModal, setStartMeetingModal] = useState<{
+    open: boolean
+    meetingType: MeetingType
+    relatedMemberId?: string
+    childName?: string
+    schedule?: MeetingSchedule
+  }>({ open: false, meetingType: 'couple' })
+
+  const [activeMeetingView, setActiveMeetingView] = useState<Meeting | null>(null)
+
   const getMemberName = (id: string) => members?.find((m: FamilyMember) => m.id === id)?.display_name ?? ''
 
   const handleOpenSchedule = (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string, childName?: string) => {
@@ -214,6 +239,27 @@ export function MeetingsPage() {
 
   const handleOpenSections = (meetingType: MeetingType, childName?: string) => {
     setSectionsModal({ open: true, meetingType, childName })
+  }
+
+  const handleStartMeeting = (meetingType: MeetingType, relatedMemberId?: string, childName?: string, schedule?: MeetingSchedule) => {
+    setStartMeetingModal({ open: true, meetingType, relatedMemberId, childName, schedule })
+  }
+
+  const handleMeetingStarted = async (meetingId: string, _mode: MeetingMode) => {
+    // Fetch the created meeting to pass to the conversation view
+    const { data } = await (await import('@/lib/supabase/client')).supabase
+      .from('meetings')
+      .select('*')
+      .eq('id', meetingId)
+      .single()
+    if (data) {
+      setActiveMeetingView(data as Meeting)
+    }
+  }
+
+  const handleMeetingEnded = (_meetingId: string) => {
+    setActiveMeetingView(null)
+    // Phase D will open PostMeetingReview here
   }
 
   // Group upcoming schedules (within 7 days or overdue)
@@ -288,6 +334,7 @@ export function MeetingsPage() {
                     schedule={s}
                     agendaCount={agendaCounts[key] ?? 0}
                     childName={s.related_member_id ? getMemberName(s.related_member_id) : undefined}
+                    onStartMeeting={handleStartMeeting}
                   />
                 )
               })}
@@ -316,6 +363,7 @@ export function MeetingsPage() {
                     memberId={memberId!}
                     onOpenSchedule={handleOpenSchedule}
                     onOpenSections={handleOpenSections}
+                    onStartMeeting={handleStartMeeting}
                   />
                 )
               }
@@ -335,6 +383,7 @@ export function MeetingsPage() {
                     relatedMemberId={child.id}
                     onOpenSchedule={handleOpenSchedule}
                     onOpenSections={handleOpenSections}
+                    onStartMeeting={handleStartMeeting}
                   />
                 )
               })
@@ -350,6 +399,7 @@ export function MeetingsPage() {
                 memberId={memberId!}
                 onOpenSchedule={handleOpenSchedule}
                 onOpenSections={handleOpenSections}
+                onStartMeeting={handleStartMeeting}
               />
             )
           })}
@@ -364,6 +414,7 @@ export function MeetingsPage() {
               memberId={memberId!}
               onOpenSchedule={handleOpenSchedule}
               onOpenSections={handleOpenSections}
+              onStartMeeting={handleStartMeeting}
             />
           ))}
         </div>
@@ -433,7 +484,30 @@ export function MeetingsPage() {
             onClose={() => setCustomTemplateOpen(false)}
             familyId={familyId}
           />
+
+          {memberId && (
+            <StartMeetingModal
+              isOpen={startMeetingModal.open}
+              onClose={() => setStartMeetingModal(s => ({ ...s, open: false }))}
+              meetingType={startMeetingModal.meetingType}
+              familyId={familyId}
+              memberId={memberId}
+              relatedMemberId={startMeetingModal.relatedMemberId}
+              childName={startMeetingModal.childName}
+              schedule={startMeetingModal.schedule}
+              onMeetingStarted={handleMeetingStarted}
+            />
+          )}
         </>
+      )}
+
+      {/* Full-screen meeting conversation view */}
+      {activeMeetingView && (
+        <MeetingConversationView
+          meeting={activeMeetingView}
+          onEnd={handleMeetingEnded}
+          onClose={() => setActiveMeetingView(null)}
+        />
       )}
     </div>
   )

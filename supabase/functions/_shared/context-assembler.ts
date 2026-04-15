@@ -130,6 +130,10 @@ export const TOPIC_PATTERNS: Array<{ pattern: RegExp; categories: string[] }> = 
     pattern: /\b(book|read|wisdom|principle|framework|lesson|insight|declaration|author)\b/i,
     categories: ['bookshelf'],
   },
+  {
+    pattern: /\b(meeting|agenda|couple meeting|mentor meeting|family council|parent.child meeting)\b/i,
+    categories: ['guiding_stars', 'best_intentions', 'Schedule & Activities'],
+  },
 ]
 
 // ════════════════════════════════════════════════════════════
