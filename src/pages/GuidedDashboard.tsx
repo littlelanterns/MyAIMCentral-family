@@ -20,6 +20,7 @@ import {
   GuidedWidgetGrid,
   CelebrateSection,
 } from '@/components/guided'
+import { GuidedThingsToTalkAboutSection } from '@/components/guided/GuidedThingsToTalkAboutSection'
 import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
@@ -151,6 +152,15 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
       // loop at position 0. See the JSX below. Auto-managed — never in the
       // saved layout, never reorderable, never hideable.
 
+      case 'things_to_talk_about':
+        return displayFamilyId && displayMemberId ? (
+          <GuidedThingsToTalkAboutSection
+            familyId={displayFamilyId}
+            memberId={displayMemberId}
+            readingSupport={readingSupport}
+          />
+        ) : null
+
       case 'celebrate':
         return <CelebrateSection />
 
@@ -203,8 +213,9 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
       {visibleSections.map(section => {
         const key = section.key as GuidedSectionKey
 
-        // Greeting and NBT render without section wrapper
-        if (key === 'greeting' || key === 'next_best_thing') {
+        // Greeting, NBT, and Things to Talk About render without section wrapper
+        // (they don't need collapse/drag and aren't in the adult SECTION_META registry)
+        if (key === 'greeting' || key === 'next_best_thing' || key === 'things_to_talk_about') {
           return (
             <div key={key}>
               {renderSection(key)}

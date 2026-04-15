@@ -9,7 +9,7 @@
  */
 
 import type { LucideIcon } from 'lucide-react'
-import { Layers, Hash, CalendarCheck, Sparkles, BookOpen, CheckSquare, Target } from 'lucide-react'
+import { Layers, Hash, CalendarCheck, Sparkles, BookOpen, CheckSquare, Target, Calendar } from 'lucide-react'
 import { Check } from 'lucide-react'
 import type { CreatureEarningMode, PageEarningMode } from '@/types/play-dashboard'
 
@@ -82,6 +82,14 @@ export const PAGE_EARNING_MODES: EarningModeOption[] = [
     description:
       'Tie a new background to a specific tracker goal.',
     goodFor: 'When you want backgrounds to celebrate a specific milestone.',
+  },
+  {
+    key: 'every_n_days',
+    icon: Calendar,
+    title: 'Time-Based',
+    description:
+      'A new background unlocks automatically every N days.',
+    goodFor: 'When you want steady progress on a schedule, regardless of task completion.',
   },
 ]
 
@@ -207,5 +215,5 @@ export function isCreatureEarningMode(key: string): key is CreatureEarningMode {
 }
 
 export function isPageEarningMode(key: string): key is PageEarningMode {
-  return ['tracker_goal', 'every_n_creatures', 'every_n_completions'].includes(key)
+  return ['tracker_goal', 'every_n_creatures', 'every_n_completions', 'every_n_days'].includes(key)
 }

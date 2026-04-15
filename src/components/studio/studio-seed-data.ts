@@ -690,6 +690,25 @@ export const GAMIFICATION_TEMPLATES: StudioTemplate[] = [
 
 export const WIZARD_TEMPLATES: StudioTemplate[] = [
   {
+    id: 'studio_meeting_setup',
+    templateType: 'meeting_setup_wizard',
+    name: 'Family Meeting Setup',
+    tagline: 'Schedule family council, 1:1 time with each kid, and couple check-ins in minutes.',
+    description:
+      'A guided walkthrough that sets up your entire family meeting calendar. We\'ll suggest smart scheduling based on your kids\' birthdays, let you pick who has 1:1 time (just you, alternate with your partner, or both), and create everything on your calendar in one tap. Family council, parent-child dates, couple check-ins — all in a few minutes.',
+    exampleUseCases: [
+      'Monthly 1:1 dates with each child',
+      'Weekly family council on Sundays',
+      'Couple check-in every Saturday',
+      'Alternate parent dates (mom one month, dad the next)',
+    ],
+    capability_tags: [
+      'meetings', 'scheduling', 'family', 'connection', 'recurring',
+      'calendar', 'onboarding', 'setup_wizard', 'bulk_create',
+    ],
+    isExample: false,
+  },
+  {
     id: 'studio_routine_builder',
     templateType: 'routine_builder_wizard',
     name: 'Routine Builder (AI)',

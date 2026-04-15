@@ -13,13 +13,15 @@ import { ModalV2 } from '@/components/shared/ModalV2'
 import { useColoringRevealLibrary, useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useCreateColoringReveal } from '@/hooks/useGamificationSettings'
 import { useTasks } from '@/hooks/useTasks'
+import { useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase/client'
 import { coloringImageUrl } from '@/lib/coloringImageUrl'
 import type {
   ColoringRevealImage,
   RevealStepCount,
   LineartPreference,
 } from '@/types/play-dashboard'
-import { Check, ImageIcon, Search } from 'lucide-react'
+import { Check, ImageIcon, Search, Plus } from 'lucide-react'
 
 const STEP_COUNT_OPTIONS: RevealStepCount[] = [5, 10, 15, 20, 30, 50]
 const LINEART_OPTIONS: { value: LineartPreference; label: string }[] = [
@@ -54,12 +56,43 @@ export function ColoringImagePickerModal({
   const [lineart, setLineart] = useState<LineartPreference>('medium')
   const [taskSearch, setTaskSearch] = useState('')
   const [saving, setSaving] = useState(false)
+  const [creatingTask, setCreatingTask] = useState(false)
+  const [newTaskTitle, setNewTaskTitle] = useState('')
 
   const { data: library = [] } = useColoringRevealLibrary(themeId)
   const { data: memberReveals = [] } = useMemberColoringReveals(familyMemberId)
   const { data: tasks = [] } = useTasks(familyId, { assigneeId: familyMemberId })
 
   const createReveal = useCreateColoringReveal()
+  const queryClient = useQueryClient()
+
+  async function handleCreateTask() {
+    const title = newTaskTitle.trim()
+    if (!title) return
+    setCreatingTask(true)
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          family_id: familyId,
+          created_by: familyMemberId,
+          assignee_id: familyMemberId,
+          title,
+          task_type: 'task',
+          status: 'pending',
+          source: 'manual',
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      setSelectedTaskId(data.id)
+      setNewTaskTitle('')
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    } catch {
+      // error handled by mutation logging
+    }
+    setCreatingTask(false)
+  }
 
   const assignedImageIds = useMemo(
     () => new Set(memberReveals.map((r) => r.coloring_image_id)),
@@ -196,7 +229,7 @@ export function ColoringImagePickerModal({
                       color: 'var(--color-text-secondary)',
                     }}
                   >
-                    {img.zone_count} zones
+                    Up to {img.zone_count} segments
                   </div>
                 </button>
               )
@@ -225,8 +258,51 @@ export function ColoringImagePickerModal({
                   {selectedImage.display_name}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  {selectedImage.zone_count} zones
+                  Customizable - Up to {selectedImage.zone_count} segments
                 </p>
+              </div>
+            </div>
+
+            {/* Lineart previews */}
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+                Lineart preview
+              </label>
+              <div className="flex gap-3">
+                {LINEART_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setLineart(opt.value)}
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <div
+                      className="w-16 h-16 rounded-lg overflow-hidden transition-all"
+                      style={{
+                        border: lineart === opt.value
+                          ? '2px solid var(--color-btn-primary-bg)'
+                          : '2px solid var(--color-border)',
+                      }}
+                    >
+                      <img
+                        src={coloringImageUrl(selectedImage.slug, `lineart_${opt.value}` as 'lineart_simple' | 'lineart_medium' | 'lineart_complex')}
+                        alt={`${opt.label} lineart`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <span
+                      className="text-[10px] font-medium"
+                      style={{
+                        color: lineart === opt.value
+                          ? 'var(--color-btn-primary-bg)'
+                          : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {opt.label}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -255,33 +331,69 @@ export function ColoringImagePickerModal({
                 />
               </div>
               <div className="max-h-36 overflow-y-auto space-y-1 rounded-lg p-1" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
-                {filteredTasks.length === 0 ? (
+                {filteredTasks.length === 0 && !taskSearch && (
                   <p className="text-center py-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {taskSearch ? 'No tasks match.' : 'No active tasks for this member.'}
+                    No active tasks for this member.
                   </p>
-                ) : (
-                  filteredTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => setSelectedTaskId(task.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors"
-                      style={{
-                        backgroundColor:
-                          selectedTaskId === task.id
-                            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))'
-                            : 'transparent',
-                        color:
-                          selectedTaskId === task.id
-                            ? 'var(--color-btn-primary-bg)'
-                            : 'var(--color-text-primary)',
-                      }}
-                    >
-                      {selectedTaskId === task.id && <Check size={14} style={{ flexShrink: 0 }} />}
-                      <span className="truncate">{task.title}</span>
-                    </button>
-                  ))
                 )}
+                {filteredTasks.length === 0 && taskSearch && (
+                  <p className="text-center py-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                    No tasks match.
+                  </p>
+                )}
+                {filteredTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => setSelectedTaskId(task.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors"
+                    style={{
+                      backgroundColor:
+                        selectedTaskId === task.id
+                          ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))'
+                          : 'transparent',
+                      color:
+                        selectedTaskId === task.id
+                          ? 'var(--color-btn-primary-bg)'
+                          : 'var(--color-text-primary)',
+                    }}
+                  >
+                    {selectedTaskId === task.id && <Check size={14} style={{ flexShrink: 0 }} />}
+                    <span className="truncate">{task.title}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Inline task creation */}
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="text"
+                  placeholder="Or create a new task..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleCreateTask() }
+                  }}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{
+                    backgroundColor: 'var(--color-bg-primary)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateTask}
+                  disabled={!newTaskTitle.trim() || creatingTask}
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+                    color: 'var(--color-btn-primary-bg)',
+                  }}
+                >
+                  <Plus size={14} />
+                  {creatingTask ? 'Creating...' : 'Create'}
+                </button>
               </div>
             </div>
 
@@ -318,38 +430,7 @@ export function ColoringImagePickerModal({
               </div>
             </div>
 
-            {/* Lineart preference */}
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                Print complexity (when the picture is complete)
-              </label>
-              <div className="flex gap-2">
-                {LINEART_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setLineart(opt.value)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
-                    style={{
-                      backgroundColor:
-                        lineart === opt.value
-                          ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))'
-                          : 'var(--color-bg-secondary)',
-                      color:
-                        lineart === opt.value
-                          ? 'var(--color-btn-primary-bg)'
-                          : 'var(--color-text-secondary)',
-                      border:
-                        lineart === opt.value
-                          ? '1.5px solid var(--color-btn-primary-bg)'
-                          : '1.5px solid var(--color-border)',
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Lineart preference — selection is done via the visual previews above */}
 
             {/* Actions */}
             <div className="flex gap-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>

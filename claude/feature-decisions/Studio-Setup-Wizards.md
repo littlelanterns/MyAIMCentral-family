@@ -120,6 +120,67 @@ The founder's full vision: a conversational AI wizard (Haiku-class, cheap) that 
 - Sequential collection → linked routine step
 - Day segments → task grouping on dashboard
 
+### Phase 5 — Meeting Setup Wizard (APPROVED 2026-04-15)
+
+A guided multi-step flow that helps mom bootstrap her entire family meeting calendar in one sitting. The system already knows the roster and birthdays, so it makes smart suggestions instead of leaving mom to configure 14 separate settings.
+
+**Founder design decisions:**
+- Birthday-date scheduling is a *suggestion*, not the default — one of three timing options
+- Bulk selection is essential (founder has 7+ kids — [Select All] or checkboxes, not per-child forms)
+- Mom/Dad alternation: "Alternate months with [Dad]" creates two bimonthly RRULE schedules per child, offset by one month
+- Warm framing per child — label choices: "Date," "Check-in," "1:1 Time," "Mentor Meeting," or custom text. The data is `meeting_type='parent_child'` regardless.
+- "You can always change this later" reassurance on every step
+
+**Wizard steps:**
+
+**Section 1: Family Council** (if desired)
+- "Would you like a regular family meeting where everyone has a voice?"
+- Day picker (suggests Sunday)
+- Toggle: "Let kids add to the agenda" (default on for Guided+)
+- Creates one `meeting_schedules` record + calendar event
+
+**Section 2: 1:1 Time with Kids** (bulk flow)
+1. **Pick your kids** — [Select All] / [Select ages 8+] / individual checkboxes. Avatar + name + birthday per child.
+2. **Pick the timing** — radio options:
+   - "Their birthday date each month" (auto-fills: Helam → 7th, Gideon → 1st, etc.)
+   - "Same day for everyone" → day-of-month picker (1-31)
+   - "A specific weekday" → ordinal + weekday dropdowns (e.g., "3rd Friday")
+3. **Who's having this time?** — (only if additional_adult exists)
+   - "Just me"
+   - "Alternate months with [Dad]" (creates 2 bimonthly schedules per child, offset)
+   - "Both of us together" (same schedule, both attend)
+4. **Pick a label** — what do you call it? Dropdown: Date, Check-in, 1:1 Time, Mentor Meeting, custom text. Applied to all, or per-child override.
+5. **Review matrix** — one row per child: name, date, parent, label. Inline edit per row.
+6. **Confirm** — batch creates all `meeting_schedules` + `calendar_events`.
+
+**Section 3: Couple Meeting** (only if additional_adult exists)
+- "When would you like your couple check-in with [Dad's name]?"
+- Weekly/biweekly toggle, day picker
+- Creates one schedule + calendar event
+
+**Architecture:**
+- New `MeetingSetupWizard.tsx` extending the existing `SetupWizard.tsx` shell
+- No new database tables — reuses `meeting_schedules`, `meeting_participants`, `calendar_events`
+- Reads `family_members.date_of_birth` for birthday-date suggestions
+- The mom/dad alternation creates two `meeting_schedules` per child with `recurrence_rule='monthly'` and RRULE DTSTART offset by one month
+- Entry points: Studio (wizard template card) + Meetings page (first-visit nudge when no schedules exist)
+- Each child's schedule uses `related_member_id` to link to the child
+
+**Agenda access for Guided children:**
+- When "Let kids add to the agenda" is toggled on for Family Council, wire the existing PRD-25 "Things to Talk About" stub — simple text input on GuidedDashboard that creates `meeting_agenda_items` with `suggested_by_guided=true`
+- Independent teens can already add agenda items directly
+
+**What the review matrix looks like (example for 7 kids, birthday-date, alternating):**
+
+| Child | Birthday | Date | Parent | Label |
+|-------|----------|------|--------|-------|
+| Helam | Oct 7 | 7th of each month | Mom (odd) / Dad (even) | Date with Helam |
+| Gideon | Apr 1 | 1st of each month | Mom (even) / Dad (odd) | Check-in with Gideon |
+| Mosiah | Dec 15 | 15th of each month | Mom (odd) / Dad (even) | 1:1 Time with Mosiah |
+| ... | | | | |
+
+Mom can tap any cell to override. The defaults are the entire point — she can confirm the whole matrix without typing.
+
 ---
 
 ## Asset Inventory (from audit)

@@ -51,6 +51,7 @@ import {
 import { useMemberColoringReveals, useUpdateColoringReveal } from '@/hooks/useColoringReveals'
 import { useWidgets } from '@/hooks/useWidgets'
 import { useTasks } from '@/hooks/useTasks'
+import { useGamificationTheme } from '@/hooks/useGamificationTheme'
 import {
   EarningModePickerCards,
   CREATURE_EARNING_MODES,
@@ -108,6 +109,7 @@ export function GamificationSettingsModal({
   const { data: coloringReveals = [] } = useMemberColoringReveals(memberId)
   const { data: widgets = [] } = useWidgets(familyId, memberId)
   const { data: memberTasks = [] } = useTasks(familyId, { assigneeId: memberId })
+  const { data: theme } = useGamificationTheme(stickerState?.active_theme_id)
 
   // ── Mutations ──
   const updateConfig = useUpdateGamificationConfig()
@@ -247,6 +249,52 @@ export function GamificationSettingsModal({
                     }}
                   />
                 </div>
+
+                {/* Theme info */}
+                {theme && (
+                  <div
+                    className="p-3 rounded-lg"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+                  >
+                    <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                      Active theme
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {theme.thumbnail_image_url && (
+                        <img
+                          src={theme.thumbnail_image_url}
+                          alt={theme.display_name}
+                          className="w-10 h-10 rounded-lg object-cover"
+                        />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                          {theme.display_name}
+                        </p>
+                        {theme.description && (
+                          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                            {theme.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mt-2">
+                      <ThemeStatBadge
+                        label="Creatures"
+                        value={stickerState?.creatures_earned_total ?? 0}
+                        suffix="earned"
+                      />
+                      <ThemeStatBadge
+                        label="Pages"
+                        value={stickerState?.pages_unlocked_total ?? 0}
+                        suffix="unlocked"
+                      />
+                    </div>
+                    <p className="text-[10px] mt-2 italic" style={{ color: 'var(--color-text-secondary)', opacity: 0.7 }}>
+                      More themes coming soon
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1131,6 +1179,37 @@ function PageEarningConfig({
     )
   }
 
+  if (mode === 'every_n_days') {
+    return (
+      <div
+        className="p-3 rounded-lg"
+        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+      >
+        <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+          Unlock a new background every how many days?
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={365}
+          value={pageUnlockInterval}
+          onChange={(e) =>
+            onUpdate({ page_unlock_interval: Math.max(1, parseInt(e.target.value) || 1) })
+          }
+          className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+          style={{
+            backgroundColor: 'var(--color-bg-primary)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-primary)',
+          }}
+        />
+        <p className="text-xs mt-1.5" style={{ color: 'var(--color-text-secondary)', opacity: 0.8 }}>
+          A new page unlocks automatically on a timer, regardless of task completion.
+        </p>
+      </div>
+    )
+  }
+
   // tracker_goal
   return (
     <div
@@ -1288,6 +1367,18 @@ function StatItem({ label, value }: { label: string; value: number }) {
       <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
         {label}
       </p>
+    </div>
+  )
+}
+
+function ThemeStatBadge({ label, value, suffix }: { label: string; value: number; suffix: string }) {
+  return (
+    <div
+      className="px-2.5 py-1.5 rounded-lg text-xs"
+      style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)' }}
+    >
+      <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>{value}</span>{' '}
+      <span style={{ color: 'var(--color-text-secondary)' }}>{label} {suffix}</span>
     </div>
   )
 }

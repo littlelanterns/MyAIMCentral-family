@@ -65,6 +65,7 @@ const SECTION_LABELS: Record<GuidedSectionKey, string> = {
   next_best_thing: 'Next Best Thing',
   calendar: 'Calendar',
   active_tasks: 'My Tasks',
+  things_to_talk_about: 'Things to Talk About',
   widget_grid: 'Widgets',
   celebrate: 'Celebrate',
 }

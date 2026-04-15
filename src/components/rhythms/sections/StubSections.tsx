@@ -8,7 +8,6 @@
  *   (b) render a small placeholder card noting the upcoming feature
  *
  * Sections still stubbed:
- *   - CompletedMeetingsSection         — auto-hide (PRD-16 dependency)
  *   - MilestoneCelebrationsSection     — auto-hide (gamification dependency)
  *   - CarryForwardSection              — placeholder, off by default
  *   - BeforeCloseTheDaySection         — auto-hide
@@ -30,10 +29,9 @@ import { Lightbulb } from 'lucide-react'
 
 // ─── Auto-hiding sections (return null until wired) ──────────
 
-export function CompletedMeetingsSection(): null {
-  // Phase A: PRD-16 not built. Auto-hide.
-  return null
-}
+// NOTE: CompletedMeetingsSection was a Phase A stub. Phase E (Build P)
+// wired the real component at
+// src/components/rhythms/sections/CompletedMeetingsSection.tsx.
 
 export function MilestoneCelebrationsSection(): null {
   // Phase A: gamification milestones not yet wired. Auto-hide.

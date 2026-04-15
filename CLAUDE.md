@@ -487,6 +487,21 @@ This process exists because weeks of careful planning went into every PRD and ad
 227. **Minutes (INTEGER) as the base unit for all homework time logging.** `homeschool_time_logs.minutes_logged` is always INTEGER minutes. Display converts to hours (`formatMinutes` helper: `2h 15m`). This avoids fractional hour rounding issues critical for compliance reporting. The `default_weekly_hours` field on `homeschool_subjects` is DECIMAL(5,2) because it represents a target, not a logged value.
 228. **Homework hour targets are opt-in, NULL by default.** `homeschool_subjects.default_weekly_hours` is nullable with no preset value. The 7 suggested subjects ship with NULL targets. The Log Learning widget adapts per-subject: no target = count-only display ("2h 15m this week"); target set = progress bar ("2h 15m of 5h target"). Mom opts IN to targets — they are never the default. No pressure, no judgment.
 
+## Meetings (PRD-16)
+
+229. **Meeting types: 4 built-in + custom.** `meetings.meeting_type` CHECK: `'couple', 'parent_child', 'mentor', 'family_council', 'custom'`. Weekly/monthly/quarterly reviews belong to Rhythms (PRD-18), not Meetings. Business meetings are custom templates, not built-in types.
+230. **Meeting facilitation uses existing `lila-chat`, NOT a new Edge Function.** Meeting-specific context assembly additions live in `_shared/context-assembler.ts`. The `meeting` mode_key row in `lila_guided_modes` (seeded in migration 000007) is the entry point for all meeting conversations.
+231. **Action items ALWAYS route through Studio Queue** with `source='meeting_action'`. Never create tasks directly from post-meeting review. This is consistent with every other source (Notepad, Review & Route, Requests, MindSweep).
+232. **Meeting impressions are PERSONAL** — only visible to the person who ended the meeting. Never shared with other participants, never included in "Share to Messages", never in LiLa context.
+233. **Default agenda sections lazy-seed on first editor access** from `BUILT_IN_AGENDAS` constants in `src/types/meetings.ts`, NOT on table creation. 4 sets: couple (6 sections), mentor (5), parent_child (5), family_council (6).
+234. **Pending agenda items carry forward** to the next meeting when unaddressed. They accumulate between meetings and don't disappear — `meeting_agenda_items.status` stays `'pending'` until explicitly discussed or removed.
+235. **Couple meetings: dad has IMPLICIT permission.** No `member_permissions` check needed. Parent-child and mentor meetings require per-kid `member_permissions` grants for non-mom participants.
+236. **Special Adults have NO access** to Meetings. Guided children participate indirectly via "Things to Talk About" capture (`suggested_by_guided=true`). Play children have no Meetings presence.
+237. **Schedule Editor is the Universal Scheduler** (PRD-35 addendum). `showTimeDefault={true}`. Stores RRULE JSONB in `meeting_schedules.recurrence_details`. Calendar integration is opt-in via checkbox.
+238. **Stale meeting auto-cancel is client-side**, checked on MeetingsPage load. 24h prompt → 7-day auto-cancel. No dedicated cron job.
+239. **Meeting summaries auto-save to journal** with `entry_type='meeting_notes'` on Save & Close. Automatic, not user-triggered.
+240. **MeetingPickerOverlay** is the inline overlay for Notepad "Send to → Agenda" — shows upcoming meetings grouped by type, user picks one, creates `meeting_agenda_items` record with `source='notepad_route'`.
+
 ## Build Strictness (Non-Negotiable)
 
 121. **Before completing any build session, run `npx tsc --noEmit` and verify zero errors.** The production build (Vercel) uses strict TypeScript checking with `noUnusedLocals` and `noUnusedParameters` enabled. Vite's dev server does NOT type-check — it uses esbuild which ignores these flags. Code that works in `vite dev` can still fail on deploy. Never commit code that passes `vite dev` but would fail `npx tsc --noEmit`. Run the check before declaring any phase complete.

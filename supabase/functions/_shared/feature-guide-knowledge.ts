@@ -433,6 +433,26 @@ Each kid sees only their current assignment on their dashboard.`,
       },
     ],
   },
+
+  // ── Meeting Setup Wizard (Studio Phase 5) ──────────────────
+  {
+    triggers: ['set up all meetings', 'schedule meetings for everyone', 'bulk schedule meetings', '1:1 time with kids', 'monthly date with kids', 'birthday date meeting', 'alternate parent meetings'],
+    clarifyingQuestion: "Want to set up your entire family meeting calendar in a few minutes? The Meeting Setup Wizard schedules everything at once.",
+    variants: [
+      {
+        name: 'Meeting Setup Wizard',
+        description: 'Guided wizard that creates Family Council + 1:1 time with each child + Couple Check-in schedules in one flow.',
+        howToSetUp: `1. Go to Studio > Setup Wizards > "Family Meeting Setup" (or visit the Meetings page when you have no schedules yet)
+2. Choose whether you want a Family Council (pick a day, like Sunday)
+3. Select which kids you want 1:1 time with — the wizard suggests their birthday date each month
+4. Pick timing: birthday date, a specific day, or an ordinal weekday (3rd Friday, etc.)
+5. Choose who has the time: just you, alternate with your partner, or both together
+6. Pick a label: Date, Check-in, 1:1 Time, Mentor Meeting, or your own custom name
+7. Review everything and confirm — all schedules and calendar events are created at once
+You can change any schedule later from the Meetings page in about 10 seconds.`,
+      },
+    ],
+  },
 ]
 
 /**

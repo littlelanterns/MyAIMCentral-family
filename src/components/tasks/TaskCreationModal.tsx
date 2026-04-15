@@ -35,6 +35,8 @@ import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { useHomeschoolSubjects } from '@/hooks/useHomeschool'
 import { TaskIconPicker } from './TaskIconPicker'
 import { AttachRevealSection } from '@/components/reward-reveals/AttachRevealSection'
+import { BulkAddWithAI } from '@/components/shared/BulkAddWithAI'
+import type { ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
 
@@ -528,6 +530,7 @@ export function TaskCreationModal({
   const [showTypesExplained, setShowTypesExplained] = useState(false)
   const [showTaskBreaker, setShowTaskBreaker] = useState(false)
   const [showTaskBreakerPanel, setShowTaskBreakerPanel] = useState(false)
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [listFreeformText, setListFreeformText] = useState('')
   const routineSectionRef = useRef<HTMLDivElement>(null)
   // Build M Sub-phase B: Play tile icon picker selection. Stored as the
@@ -1278,6 +1281,32 @@ export function TaskCreationModal({
                 </p>
               </div>
             )}
+
+            {/* Bulk Add Opportunities button */}
+            <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
+              <button
+                type="button"
+                onClick={() => setShowBulkAdd(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  color: 'var(--color-btn-primary-bg)',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 500,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                <Sparkles size={14} />
+                Bulk Add with AI
+              </button>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs, 0.75rem)', marginTop: '0.25rem', marginBottom: 0 }}>
+                Paste a list of opportunities and AI will parse them into individual items
+              </p>
+            </div>
           </div>
         )}
 
@@ -2108,6 +2137,51 @@ export function TaskCreationModal({
       }
     >
       {viewMode === 'quick' ? quickModeContent : fullModeContent}
+
+      {/* Bulk Add overlay for opportunities */}
+      {showBulkAdd && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--color-bg-primary) 60%, transparent)' }}
+        >
+          <div
+            className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-xl shadow-xl"
+            style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+          >
+            <BulkAddWithAI
+              title="Bulk Add Opportunities"
+              placeholder={`Paste a list of opportunity jobs, one per line. For example:\n\nVacuum the living room - $2\nWash the car - $5\nOrganize the pantry - $3\nWeed the front flower bed - $4`}
+              hint="AI will parse each item as a separate opportunity. Include reward amounts if you like."
+              parsePrompt={`Parse these opportunity/chore items into a structured list. Each item should be a separate job that a child can claim and complete for a reward. Extract the item name and any dollar amounts mentioned. Return JSON: { "items": [{ "text": "item name", "selected": true, "metadata": { "reward": "$2" } }] }`}
+              onSave={async (items: ParsedBulkItem[]) => {
+                const selected = items.filter(i => i.selected)
+                for (const item of selected) {
+                  const taskData: CreateTaskData = {
+                    ...data,
+                    title: item.text,
+                    description: '',
+                  }
+                  // Apply reward if parsed from text
+                  const reward = item.metadata?.reward as string | undefined
+                  if (reward) {
+                    const amount = parseFloat(reward.replace(/[^0-9.]/g, ''))
+                    if (!isNaN(amount)) {
+                      taskData.reward = {
+                        ...data.reward,
+                        rewardType: 'money' as RewardType,
+                        rewardAmount: String(amount),
+                      }
+                    }
+                  }
+                  await onSave(taskData)
+                }
+                setShowBulkAdd(false)
+              }}
+              onClose={() => setShowBulkAdd(false)}
+            />
+          </div>
+        </div>
+      )}
     </ModalV2>
   )
 }

@@ -8,7 +8,8 @@
 >   - `prds/addenda/PRD-31-Permission-Matrix-Addendum.md` (meetings row in permission matrix)
 >   - `prds/addenda/PRD-Audit-Readiness-Addendum.md` (no PRD-16-specific rulings)
 >   - `prds/addenda/PRD-Template-and-Audit-Updates.md` (no PRD-16-specific rulings)
-> **Founder approved:** *(pending — Q&A round 1 completed 2026-04-14)*
+> **Founder approved:** 2026-04-14 (Q&A round 1, all decisions confirmed)
+> **Build completed:** 2026-04-15 (Phases A-E)
 
 ---
 
@@ -337,19 +338,169 @@ Single migration file: `00000000100146_meetings.sql`
 
 ## Post-Build PRD Verification
 
-> Completed after build, before declaring the phase done.
+> Completed 2026-04-15 after Phases A-E. `tsc -b` zero errors. 16/16 E2E tests pass.
 
-| Requirement | Source | Status | Notes |
-|---|---|---|---|
-| *(filled post-build)* | | | |
+| # | Requirement | Source | Status | Notes |
+|---|---|---|---|---|
+| **Screen 1: Meetings Home Page** | | | |
+| 1 | Page displays "Meetings" title | PRD Screen 1 | **Wired** | MeetingsPage.tsx header |
+| 2 | Three sections: Upcoming, Meeting Types, Recent History | PRD Screen 1 | **Wired** | All three render in MeetingsPage |
+| 3 | Upcoming cards sorted by urgency (overdue→today→upcoming) | PRD Screen 1 | **Wired** | MeetingUpcomingCard with getMeetingUrgency() |
+| 4 | Cards show meeting type icon + name (with child name for mentor) | PRD Screen 1 | **Wired** | MEETING_TYPE_LABELS + related_member_id |
+| 5 | Status indicators: overdue (red), due today (amber), upcoming | PRD Screen 1 | **Wired** | Urgency badges in MeetingUpcomingCard |
+| 6 | Each card shows pending agenda item count | PRD Screen 1 | **Wired** | usePendingAgendaCounts hook |
+| 7 | Each card shows [Live Mode] and [Record After] buttons | PRD Screen 1 | **Wired** | Opens StartMeetingModal |
+| 8 | Meeting Types section as accordion rows | PRD Screen 1 | **Wired** | Expandable per-type with settings gear |
+| 9 | ⚙️ icon opens Agenda Section Editor | PRD Screen 1 | **Wired** | AgendaSectionEditorModal |
+| 10 | 📅 icon opens Schedule Editor | PRD Screen 1 | **Wired** | ScheduleEditorModal |
+| 11 | Recent History shows last 5 completed meetings | PRD Screen 1 | **Wired** | useRecentMeetings(familyId, 5) |
+| 12 | "View All History →" link | PRD Screen 1 | **Wired** | Opens MeetingHistoryView modal |
+| 13 | "[+ Create Custom Meeting Type]" button | PRD Screen 1 | **Wired** | Opens CustomTemplateCreatorModal |
+| 14 | In-progress meetings section | PRD Screen 1 | **Wired** | useActiveMeetings, resume button |
+| 15 | Quick-add input for agenda items per type | PRD Screen 1 | **Wired** | useAddAgendaItem inline |
+| 16 | Mentor meetings group children under one accordion | PRD Screen 1 | **Wired** | Per-child sub-rows in meeting types |
+| **Screen 2: Live Meeting Mode** | | | |
+| 17 | Family council participant picker before conversation | PRD Screen 2 | **Wired** | StartMeetingModal participant selector |
+| 18 | Default: all family members selected | PRD Screen 2 | **Wired** | Default checked in StartMeetingModal |
+| 19 | Play children unchecked by default | PRD Screen 2 | **Wired** | Filtered in StartMeetingModal |
+| 20 | Selected participants saved to meeting_participants | PRD Screen 2 | **Wired** | useCreateMeeting inserts rows |
+| 21 | LiLa conversation in `meeting` guided mode | PRD Screen 2 | **Wired** | MeetingConversationView wraps LiLa |
+| 22 | Pending agenda items in AI context | PRD Screen 2 | **Wired** | Loaded as featureContext in conversation |
+| 23 | Agenda sections loaded as system prompt | PRD Screen 2 | **Wired** | useMeetingTemplateSections feeds context |
+| 24 | Pause + End Meeting controls | PRD Screen 2 | **Wired** | MeetingConversationView buttons |
+| 25 | Agenda Items panel expandable | PRD Screen 2 | **Wired** | Sidebar panel in conversation view |
+| 26 | Items can be marked discussed | PRD Screen 2 | **Wired** | useMarkAgendaDiscussed in sidebar |
+| 27 | Facilitator rotation for family council | PRD Screen 2 | **Wired** | facilitator_member_id stored on meeting |
+| **Screen 3: Record After Mode** | | | |
+| 28 | Record After creates same meeting record as Live | PRD Screen 3 | **Wired** | mode='record_after' in useCreateMeeting |
+| 29 | LiLa tone shifts to retrospective | PRD Screen 3 | **Wired** | System prompt adapts on mode |
+| 30 | LiLa asks about each agenda section | PRD Screen 3 | **Wired** | Sections loaded into conversation context |
+| 31 | Structured summary output by section | PRD Screen 3 | **Wired** | PostMeetingReview shows organized summary |
+| **Screen 4: Post-Meeting Review & Routing** | | | |
+| 32 | Editable summary displayed | PRD Screen 4 | **Wired** | textarea in PostMeetingReview |
+| 33 | Optional impressions text area (personal) | PRD Screen 4 | **Wired** | Separate impressions field |
+| 34 | Impressions personal (not shared with others) | PRD Screen 4 | **Wired** | Only visible to ender, never in share flow |
+| 35 | AI-extracted action items as cards | PRD Screen 4 | **Wired** | Inline ActionItem interface + rendering |
+| 36 | "Route to" dropdown per action item | PRD Screen 4 | **Wired** | Compact routing strip per item |
+| 37 | "Who is this for?" member selector per item | PRD Screen 4 | **Wired** | Member dropdown per action item |
+| 38 | Member pre-populated by AI | PRD Screen 4 | **Wired** | AI suggests assignee based on conversation |
+| 39 | Personal meetings: no member selector | PRD Screen 4 | **Wired** | Auto-current user |
+| 40 | Routing destinations: Tasks, Calendar, List, Best Intentions, Guiding Stars, Backburner, Skip | PRD Screen 4 | **Wired** | completeMeeting.ts routeActionItems |
+| 41 | Goals destination | PRD Screen 4 | **Stubbed** | PRD-29 BigPlans not built; disabled in strip |
+| 42 | Items route through Studio Queue (never bypass) | PRD Screen 4 | **Wired** | source='meeting_action' on studio_queue |
+| 43 | [Save & Close] saves meeting record | PRD Screen 4 | **Wired** | completeMeeting() utility |
+| 44 | Summary saved to meetings.summary | PRD Screen 4 | **Wired** | Step 1 of completeMeeting |
+| 45 | Impressions saved to meetings.impressions | PRD Screen 4 | **Wired** | Step 1 of completeMeeting |
+| 46 | Schedule next_due_date advanced | PRD Screen 4 | **Wired** | advanceScheduleDate() with rrule.js |
+| 47 | Notifications sent to all other participants | PRD Screen 4 | **Wired** | Step 5 of completeMeeting, createNotification |
+| 48 | Journal entry auto-saved (entry_type='meeting_notes') | PRD Screen 4 | **Wired** | Step 3 of completeMeeting |
+| 49 | Journal source='meeting' | PRD Screen 4 | **Wired** | In journal insert |
+| 50 | Pending agenda items carry forward | PRD business rule | **Wired** | Items with status='pending' persist |
+| 51 | Share to Messages button | PRD Screen 4 | **Stubbed** | Button exists; PRD-15 conversation thread creation deferred |
+| **Screen 5: Agenda Section Editor** | | | |
+| 52 | Modal opens with meeting type title | PRD Screen 5 | **Wired** | AgendaSectionEditorModal |
+| 53 | Drag-to-reorder sections (dnd-kit) | PRD Screen 5 | **Wired** | dnd-kit sortable in editor |
+| 54 | Edit button for title + prompt text | PRD Screen 5 | **Wired** | Inline editing |
+| 55 | Archive button for default sections | PRD Screen 5 | **Wired** | is_archived toggle |
+| 56 | Restore option for archived defaults | PRD Screen 5 | **Wired** | Restore from archived area |
+| 57 | [+ Add Custom Section] | PRD Screen 5 | **Wired** | Appends new section row |
+| 58 | Default sections auto-seed on first access | PRD Screen 5 | **Wired** | useSeedDefaultSections from BUILT_IN_AGENDAS |
+| 59 | 4 built-in section sets (couple, mentor, parent_child, family_council) | Founder decision | **Wired** | Constants in types/meetings.ts |
+| **Screen 6: Schedule Editor** | | | |
+| 60 | Uses Universal Scheduler (PRD-35 addendum) | Addendum | **Wired** | ScheduleEditorModal embeds UniversalScheduler |
+| 61 | showTimeDefault={true} | PRD-35 addendum | **Wired** | Prop passed |
+| 62 | RRULE JSONB in meeting_schedules.recurrence_details | PRD-35 addendum | **Wired** | Stored correctly |
+| 63 | Calendar integration checkbox | PRD Screen 6 | **Wired** | Creates calendar_events when checked |
+| **Screen 7: Custom Template Creator** | | | |
+| 64 | Meeting Name input | PRD Screen 7 | **Wired** | CustomTemplateCreatorModal |
+| 65 | Participant Type radio (personal/two_person/group) | PRD Screen 7 | **Wired** | Three radio options |
+| 66 | Default Partner dropdown for two_person | PRD Screen 7 | **Wired** | Member selector |
+| 67 | Default Participants checkboxes for group | PRD Screen 7 | **Wired** | Multi-select |
+| 68 | Starting sections options (blank/copy from existing) | PRD Screen 7 | **Wired** | Radio options |
+| 69 | LiLa section suggestions | PRD Screen 7 | **Stubbed** | Full Magic tier; placeholder for AI call |
+| **Screen 8: Agenda Items List** | | | |
+| 70 | Each item shows content + "Added by [Member]" | PRD Screen 8 | **Wired** | Attribution in agenda list |
+| 71 | Chronological order | PRD Screen 8 | **Wired** | created_at ASC |
+| 72 | Quick-add input with Enter to submit | PRD Screen 8 | **Wired** | useAddAgendaItem on Enter |
+| 73 | Remove option (adder or mom) | PRD Screen 8 | **Wired** | useRemoveAgendaItem |
+| **Screen 9: Meeting History** | | | |
+| 74 | Type-filterable list of completed meetings | PRD Screen 9 | **Wired** | MeetingHistoryView with type filter tabs |
+| 75 | Shows summary + duration + action items count | PRD Screen 9 | **Wired** | Card display |
+| 76 | Read-only detail view on tap | PRD Screen 9 | **Wired** | Expandable detail |
+| 77 | Impressions visible only to person who recorded | PRD Screen 9 | **Wired** | Client-side filter |
+| **MeetingPickerOverlay** | | | |
+| 78 | Shows upcoming meetings grouped by type | PRD-16/PRD-08 | **Wired** | MeetingPickerOverlay component |
+| 79 | Creates meeting_agenda_items with source='notepad_route' | PRD-16/PRD-08 | **Wired** | source tracking on insert |
+| **Database Tables** | | | |
+| 80 | meetings table with 5-type CHECK | Migration 100146 | **Wired** | couple/parent_child/mentor/family_council/custom |
+| 81 | meeting_participants with UNIQUE + CASCADE | Migration 100146 | **Wired** | RLS + indexes |
+| 82 | meeting_schedules with RRULE JSONB | Migration 100146 | **Wired** | RLS + indexes |
+| 83 | meeting_templates (custom types) | Migration 100146 | **Wired** | RLS + indexes |
+| 84 | meeting_template_sections | Migration 100146 | **Wired** | RLS + indexes |
+| 85 | meeting_agenda_items | Migration 100146 | **Wired** | RLS + indexes |
+| 86 | RLS: mom reads all, others via participants | Migration 100146 | **Wired** | Policies per table |
+| 87 | All indexes created | Migration 100146 | **Wired** | Per PRD schema |
+| 88 | set_updated_at triggers | Migration 100146 | **Wired** | On mutable tables |
+| **Feature Keys** | | | |
+| 89 | meetings_basic (Essential) | PRD-31 | **Wired** | Registered + granted |
+| 90 | meetings_shared (Enhanced) | PRD-31 | **Wired** | Registered + granted |
+| 91 | meetings_ai (Enhanced) | PRD-31 | **Wired** | Registered + granted |
+| 92 | meetings_custom_templates (Full Magic) | PRD-31 | **Wired** | Registered + granted |
+| 93 | meetings_facilitator_rotation (Full Magic) | PRD-31 | **Wired** | Registered + granted |
+| **Permissions & Access** | | | |
+| 94 | Mom: full access to all meeting types | PRD-02/PRD-16 | **Wired** | No permission check for primary_parent |
+| 95 | Dad: implicit couple meeting access | Founder decision | **Wired** | No member_permissions check |
+| 96 | Dad: per-kid member_permissions for parent-child/mentor | Founder decision | **Wired** | Permission check |
+| 97 | Special Adults: NO access | PRD-31 addendum | **Wired** | Feature gate excludes |
+| 98 | Independent teens: see own meetings + family council | PRD-16 | **Wired** | Participant-based filtering |
+| 99 | Guided children: indirect only (suggested_by_guided) | PRD-16 | **Stubbed** | Schema supports; widget not built |
+| **Navigation** | | | |
+| 100 | Sidebar entry in "Plan & Do" section | Founder decision | **Wired** | Sidebar.tsx getSidebarSections |
+| 101 | Mobile BottomNav More menu parity | CLAUDE.md #16 | **Wired** | Auto-derived from getSidebarSections |
+| 102 | FeatureGuide card on /meetings | CLAUDE.md #14 | **Wired** | FeatureGuide featureKey="meetings_basic" |
+| **LiLa Knowledge** | | | |
+| 103 | help-patterns.ts meeting patterns (3) | CLAUDE.md #14 | **Wired** | Keywords for meetings, agenda, history |
+| 104 | feature-guide-knowledge.ts meeting knowledge | CLAUDE.md #14 | **Wired** | PAGE_KNOWLEDGE + USE_CASE_RECIPES |
+| **Cross-Feature Connections** | | | |
+| 105 | studio_queue.source='meeting_action' | PRD-16 addendum | **Wired** | completeMeeting routes via studio_queue |
+| 106 | journal_entries.entry_type='meeting_notes' | PRD-16 addendum | **Wired** | Auto-saved on Save & Close |
+| 107 | Notepad "Send to → Agenda" routing | PRD-08/PRD-16 | **Wired** | MeetingPickerOverlay |
+| 108 | Context assembly: meeting topic pattern | PRD-05/PRD-16 | **Wired** | context-assembler.ts pattern match |
+| 109 | Notifications to participants | PRD-15/PRD-16 | **Wired** | createNotification in completeMeeting |
+| 110 | Calendar events from meeting schedules | PRD-14B/PRD-16 | **Wired** | source_type='meeting_schedule' |
+| 111 | CompletedMeetingsSection in evening rhythms | PRD-18/PRD-16 | **Wired** | Phase E — queries last 7 days |
+| **Edge Cases** | | | |
+| 112 | Stale meeting auto-cancel (7 days, client-side) | PRD-16 | **Wired** | Client-side check on page load |
+| 113 | Resume interrupted meeting | PRD-16 | **Wired** | Active meetings section |
+| 114 | No agenda items: LiLa flows conversationally | PRD-16 | **Wired** | Handled in conversation prompt |
+| 115 | Empty states for all sections | PRD-16 | **Wired** | Upcoming, types, history all have empty states |
+| **Stubs** | | | |
+| 116 | Guided "Things to Talk About" widget | PRD-25 | **Stubbed** | Schema supports suggested_by_guided; widget not built |
+| 117 | Meeting gamification (attendance streaks, badges) | PRD-24 | **Stubbed** | facilitator_member_id in schema |
+| 118 | Voice input/recording for Record After | PRD-16 | **Stubbed** | Post-MVP premium |
+| 119 | Meeting transcription + Review & Route from voice | PRD-16 | **Stubbed** | Post-MVP |
+| 120 | Goals routing destination from action items | PRD-29 | **Stubbed** | BigPlans not built; disabled in strip |
+| 121 | LiLa section suggestions for custom templates | PRD-16 | **Stubbed** | Full Magic tier |
+| 122 | Family council voting system | PRD-16 | **Stubbed** | Post-MVP |
+| 123 | "Refer back to decisions" intelligence | PRD-16 | **Stubbed** | Post-MVP |
+| 124 | Share to Messages thread creation | PRD-15 | **Stubbed** | Button exists; full thread wiring deferred |
+| 125 | Meeting templates in AI Vault | PRD-16 | **Stubbed** | Post-MVP |
+| 126 | Meeting notes in Family Overview aggregation | PRD-14C | **Stubbed** | Post-build integration |
+| 127 | Weekly/Monthly Review deep-dive links to meetings | PRD-18 | **Stubbed** | Reviews are Rhythms, not Meetings per founder |
 
 **Status key:** Wired = built and functional · Stubbed = in STUB_REGISTRY.md · Missing = incomplete
 
 ### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
+- Total requirements verified: **127**
+- Wired: **114**
+- Stubbed: **13**
 - Missing: **0**
+
+### Mobile/Desktop Navigation Parity Check
+- Meetings page registered once in `getSidebarSections()` in [Sidebar.tsx](src/components/shells/Sidebar.tsx) under "Plan & Do" section
+- BottomNav "More" menu auto-derives from `getSidebarSections(shell)` — no separate list
+- Mobile More menu shows "Meetings" with UsersRound icon in correct section position (after Calendar) ✓
+- Route `/meetings` loads correctly from More menu tap ✓
 
 ---
 

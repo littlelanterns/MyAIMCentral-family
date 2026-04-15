@@ -13,6 +13,8 @@ import { StartMeetingModal } from '@/components/meetings/StartMeetingModal'
 import { MeetingConversationView } from '@/components/meetings/MeetingConversationView'
 import { PostMeetingReview } from '@/components/meetings/PostMeetingReview'
 import { MeetingHistoryView } from '@/components/meetings/MeetingHistoryView'
+import { MeetingSetupWizard } from '@/components/studio/wizards/MeetingSetupWizard'
+import { useFixMeetingEventAttendees } from '@/hooks/useFixMeetingEventAttendees'
 import type { MeetingType, MeetingMode, MeetingSchedule, Meeting } from '@/types/meetings'
 import { MEETING_TYPE_LABELS, getMeetingUrgency } from '@/types/meetings'
 
@@ -200,6 +202,9 @@ export function MeetingsPage() {
   const familyId = family?.id
   const memberId = member?.id
 
+  // One-time fix: add attendees to meeting calendar events created before the fix
+  useFixMeetingEventAttendees(familyId, memberId, (members ?? []) as FamilyMember[])
+
   const { data: schedules = [] } = useMeetingSchedules(familyId)
   const { data: recentMeetings = [] } = useRecentMeetings(familyId)
   const { data: agendaCounts = {} } = usePendingAgendaCounts(familyId)
@@ -235,6 +240,7 @@ export function MeetingsPage() {
   const [activeMeetingView, setActiveMeetingView] = useState<Meeting | null>(null)
   const [reviewMeeting, setReviewMeeting] = useState<Meeting | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [meetingWizardOpen, setMeetingWizardOpen] = useState(false)
 
   const getMemberName = (id: string) => members?.find((m: FamilyMember) => m.id === id)?.display_name ?? ''
 
@@ -335,11 +341,27 @@ export function MeetingsPage() {
       <PermissionGate featureKey="meetings_shared">
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-text-tertiary)' }}>Upcoming</h2>
-          {upcomingSchedules.length === 0 ? (
+          {upcomingSchedules.length === 0 && schedules.length === 0 ? (
+            <div className="text-center py-8 rounded-lg" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
+              <UsersRound size={32} className="mx-auto mb-2" style={{ color: 'var(--color-accent-deep)' }} />
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Set up your family meetings</p>
+              <p className="text-xs mt-1 max-w-xs mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
+                Schedule family council, 1:1 time with each kid, and couple check-ins in a few minutes.
+              </p>
+              <button
+                onClick={() => setMeetingWizardOpen(true)}
+                className="mt-4 px-5 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-2"
+                style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              >
+                <CalendarDays size={16} />
+                Get Started
+              </button>
+            </div>
+          ) : upcomingSchedules.length === 0 ? (
             <div className="text-center py-8 rounded-lg" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
               <UsersRound size={32} className="mx-auto mb-2" style={{ color: 'var(--color-text-tertiary)' }} />
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No upcoming meetings</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>Set up a meeting schedule to get started</p>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No upcoming meetings this week</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>Your next meeting will appear here when it's due</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -555,6 +577,20 @@ export function MeetingsPage() {
           onClose={() => setShowHistory(false)}
           familyId={familyId}
           members={members as FamilyMember[]}
+        />
+      )}
+
+      {/* Meeting Setup Wizard (Phase 5) */}
+      {meetingWizardOpen && familyId && member?.id && (
+        <MeetingSetupWizard
+          isOpen={meetingWizardOpen}
+          onClose={() => {
+            setMeetingWizardOpen(false)
+            queryClient.invalidateQueries({ queryKey: ['meeting-schedules', familyId] })
+          }}
+          familyId={familyId}
+          memberId={member.id}
+          familyMembers={members as FamilyMember[]}
         />
       )}
     </div>

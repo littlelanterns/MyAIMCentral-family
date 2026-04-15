@@ -25,6 +25,7 @@ export type PageEarningMode =
   | 'tracker_goal'
   | 'every_n_creatures'
   | 'every_n_completions'
+  | 'every_n_days'
 
 export type RevealStepCount = 5 | 10 | 15 | 20 | 30 | 50
 

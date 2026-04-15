@@ -17,7 +17,7 @@ import {
   CheckSquare, RefreshCw, Star, Layers, Shuffle,
   FileText, HelpCircle, AlertTriangle, Heart,
   ShoppingCart, Gift, Luggage, DollarSign, ListTodo, List,
-  ChevronRight, Users, Palette, Trophy, Wand2,
+  ChevronRight, Users, UsersRound, Palette, Trophy, Wand2,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ export type StudioTemplateType =
   | 'best_intentions_wizard'
   // Setup Wizards
   | 'routine_builder_wizard'
+  | 'meeting_setup_wizard'
 
 export interface StudioTemplate {
   id: string
@@ -119,6 +120,7 @@ function TemplateIcon({ type, size = 22 }: { type: StudioTemplateType; size?: nu
     case 'best_intentions_wizard': return <Heart size={size} style={style} />
     // Setup Wizards
     case 'routine_builder_wizard': return <Wand2 size={size} style={style} />
+    case 'meeting_setup_wizard':   return <UsersRound size={size} style={style} />
     default:                   return <FileText size={size} style={style} />
   }
 }

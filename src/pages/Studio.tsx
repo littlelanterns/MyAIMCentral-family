@@ -64,6 +64,7 @@ import { GamificationSettingsModal } from '@/components/gamification/settings'
 import { StarChartWizard } from '@/components/studio/wizards/StarChartWizard'
 import { GetToKnowWizard } from '@/components/studio/wizards/GetToKnowWizard'
 import { RoutineBuilderWizard } from '@/components/studio/wizards/RoutineBuilderWizard'
+import { MeetingSetupWizard } from '@/components/studio/wizards/MeetingSetupWizard'
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -217,6 +218,7 @@ export function StudioPage() {
   const [starChartWizardOpen, setStarChartWizardOpen] = useState(false)
   const [getToKnowWizardOpen, setGetToKnowWizardOpen] = useState(false)
   const [routineBuilderWizardOpen, setRoutineBuilderWizardOpen] = useState(false)
+  const [meetingSetupWizardOpen, setMeetingSetupWizardOpen] = useState(false)
 
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -334,6 +336,10 @@ export function StudioPage() {
     }
     if (template.templateType === 'routine_builder_wizard') {
       setRoutineBuilderWizardOpen(true)
+      return
+    }
+    if (template.templateType === 'meeting_setup_wizard') {
+      setMeetingSetupWizardOpen(true)
       return
     }
 
@@ -1039,6 +1045,19 @@ export function StudioPage() {
             setModalInitialType('routine')
             setModalOpen(true)
           }}
+        />
+      )}
+
+      {meetingSetupWizardOpen && family?.id && member?.id && (
+        <MeetingSetupWizard
+          isOpen={meetingSetupWizardOpen}
+          onClose={() => {
+            setMeetingSetupWizardOpen(false)
+            // Navigate to meetings page after wizard closes (if they completed it)
+          }}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
         />
       )}
     </div>

@@ -105,7 +105,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Review & Route routing UI | PRD-08 | PRD-08 | ✅ Wired | Phase 09 |
 | Send to Person (messaging) | PRD-08 | PRD-15 | ✅ Wired | Phase 16 |
 | Send to Calendar | PRD-08 | PRD-14B | ✅ Wired | Phase 14 |
-| Send to Agenda | PRD-08 | PRD-16 | ✅ Wired | Phase 17 |
+| Send to Agenda | PRD-08 | PRD-16 (Build P) | ✅ Wired | 2026-04-15 — MeetingPickerOverlay wired in Phase D |
 | Reward system integration | PRD-09A | PRD-24 | ✅ Wired | Phase 29 |
 | Allowance pool calculation | PRD-09A | PRD-28 | ✅ Wired | Phase 32 |
 | Widget milestone → victory | PRD-10 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
@@ -121,7 +121,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 |------|-----------|----------|--------|-------------|
 | LifeLantern aggregation in Archives | PRD-13 | PRD-12A | ⏳ Unwired (MVP) | Phase 22 (PRD-12A) |
 | Family Vision Statement in Family Overview | PRD-13 | PRD-12B | ⏳ Unwired (MVP) | Phase 22 (PRD-12B) |
-| Family Meeting Notes structured routing | PRD-13 | PRD-16 | ⏳ Unwired (MVP) | Phase 17 (Meetings) |
+| Family Meeting Notes structured routing | PRD-13 | PRD-16 (Build P) | ✅ Wired | 2026-04-15 — Meeting summaries auto-save to `journal_entries` with `entry_type='meeting_notes'` on Save & Close |
 | Partner Profile aggregation in Archives | PRD-13 | PRD-19 | ⏳ Unwired (MVP) | Phase 20 (PRD-19) |
 | Shared Lists aggregation in Archives | PRD-13 | — | ⏳ Unwired (MVP) | Share with Archive UI |
 | Journal entries aggregation in Archives | PRD-13 | PRD-08 | ⏳ Unwired (MVP) | Verify PRD-08 tables, wire display |
@@ -147,7 +147,15 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Out of Nest SMS notifications | PRD-15 | — | 📌 Post-MVP | — |
 | Out of Nest compose picker | PRD-15 | PRD-15 Phase E | ⏳ Unwired (MVP) | `useMessagingPermissions` only reads `family_members`. Extension point: fetch from `out_of_nest_members` table too and merge results. Per Tenise (2026-04-06), Out of Nest ranks **higher** than Special Adults in picker priority. See TODO comment in `src/hooks/useMessagingPermissions.ts`. |
 | Morning digest/Daily Briefing | PRD-15 | — | 📌 Post-MVP | — |
-| Meeting gamification connection | PRD-16 | PRD-24 | ✅ Wired | Phase 29 |
+| Meeting gamification connection (attendance streaks, facilitator badges) | PRD-16 | PRD-24 | ⏳ Unwired (MVP) | Schema supports facilitator_member_id; gamification pipeline not connected |
+| Guided "Things to Talk About" capture widget | PRD-16 (Build P) | PRD-16 Phase 5 (Build P) | ✅ Wired | 2026-04-15 — `GuidedThingsToTalkAboutSection` on Guided Dashboard, creates `meeting_agenda_items` with `suggested_by_guided=true`, child can see/remove their own items |
+| Meeting voice input/recording (Record After) | PRD-16 (Build P) | — | 📌 Post-MVP | Premium tier, voice recording for meetings |
+| Meeting transcription + Review & Route from voice | PRD-16 (Build P) | — | 📌 Post-MVP | Requires voice recording pipeline |
+| Goals routing destination from meeting action items | PRD-16 (Build P) | PRD-29 (BigPlans) | ⏳ Unwired (MVP) | Goals disabled in compact routing strip until BigPlans built |
+| LiLa section suggestions for custom templates | PRD-16 (Build P) | — | ⏳ Unwired (MVP) | Full Magic tier; simple text generation at launch |
+| Family council voting system | PRD-16 (Build P) | — | 📌 Post-MVP | — |
+| "Refer back to decisions" cross-conversation intelligence | PRD-16 (Build P) | — | 📌 Post-MVP | — |
+| Meeting templates in AI Vault for community sharing | PRD-16 (Build P) | — | 📌 Post-MVP | — |
 | Queue Modal future tabs | PRD-14B | PRD-15 (Requests), PRD-17 (Sort) | ✅ Wired | Phase 18 |
 | MindSweep email forwarding | PRD-08 | PRD-17B | ✅ Wired | Phase 18 |
 | MindSweep approval learning | PRD-17B | PRD-17B | ✅ Wired | Phase 18 |
@@ -173,9 +181,9 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | PRD-18 Phase B: `rhythm_tracker_prompts` auto-hide | PRD-18 Phase B (Build K) | PRD-18 Phase C (Build L) | ✅ Wired | 2026-04-07 (`dashboard_widgets.config.rhythm_keys` multi-select in WidgetConfiguration + link-only section renderer) |
 | PRD-18 Phase C: MindSweep-Lite `delegate` disposition → real `family_request` | PRD-18 Phase C (Build L) | PRD-18 Phase C follow-up (Build L.1) | ✅ Wired | 2026-04-07 (passes real `family_member_names` to `mindsweep-sort`, promotes cross-member `suggest_route` results to `family_request` disposition, inserts into PRD-15 `family_requests` with `source='mindsweep_auto'` via `commitMindSweepLite`) |
 | PRD-18 Phase B: `before_close_the_day` auto-hide | PRD-18 Phase B (Build K) | PRD-18 Phase C | ⏳ Unwired (MVP) | Phase C (cross-feature pending aggregation) |
-| PRD-18 Phase B: `completed_meetings` auto-hide | PRD-18 Phase B (Build K) | PRD-16 (Meetings) | ⏳ Unwired (MVP) | Wire when Meetings ships |
+| PRD-18 Phase B: `completed_meetings` auto-hide | PRD-18 Phase B (Build K) | PRD-16 Phase E (Build P) | ✅ Wired | 2026-04-15 — `CompletedMeetingsSection` queries last 7 days of completed meetings, auto-hides when empty |
 | PRD-18 Phase B: `milestone_celebrations` auto-hide | PRD-18 Phase B (Build K) | PRD-24 (Gamification) | ⏳ Unwired (MVP) | Wire when Gamification ships |
-| PRD-18 Phase B: Weekly/Monthly Review deep dive button | PRD-18 Phase B (Build K) | PRD-16 (Meetings) | ⏳ Unwired (MVP) | "Coming with Meetings" stub |
+| PRD-18 Phase B: Weekly/Monthly Review deep dive button | PRD-18 Phase B (Build K) | PRD-16 (Build P) | ⏳ Unwired (MVP) | Meetings built but deep-dive meeting type requires separate wiring — weekly/monthly reviews are Rhythms (PRD-18), not Meetings. Button remains stub. |
 | PRD-18 Phase B: Quarterly Inventory Stale Areas / LifeLantern launch | PRD-18 Phase B (Build K) | PRD-12A (LifeLantern) | ⏳ Unwired (MVP) | "LifeLantern coming soon" stub |
 | PRD-18 Phase B: On the Horizon "Schedule time for this?" calendar block creation | PRD-18 Phase B (Build K) | PRD-18 polish | ⏳ Unwired (MVP) | Component shows [Break into steps] + [Open task]; calendar block deferred |
 | PRD-18 Phase D: Independent Teen tailored rhythm experience | PRD-18 Phase B (Build K) | PRD-18 Phase D (Build N) | ✅ Wired 2026-04-07 | Teen morning (7 sections) + evening (8 sections, section_order_locked) with "Morning Check-in"/"Evening Check-in" display names, reflection_guideline_count=2, MindSweepLiteTeenSection with 4-option dropdown (Schedule/Journal about it/Talk to someone/Let it go), 15 teen morning insight questions, 3 teen feature discovery entries, talk_to_someone disposition writing private journal reminders (NEVER family_requests). Migration 100114 seeded teen content and forked auto_provision_member_resources. |

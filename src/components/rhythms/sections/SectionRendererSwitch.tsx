@@ -40,8 +40,8 @@ import { GuidedPrideReflectionSection } from './guided/GuidedPrideReflectionSect
 import { GuidedTomorrowLookAheadSection } from './guided/GuidedTomorrowLookAheadSection'
 import { GuidedReflectionsSection } from './guided/GuidedReflectionsSection'
 import { GuidedEncouragingMessageSection } from './guided/GuidedEncouragingMessageSection'
+import { CompletedMeetingsSection } from './CompletedMeetingsSection'
 import {
-  CompletedMeetingsSection,
   MilestoneCelebrationsSection,
   CarryForwardSection,
   BeforeCloseTheDaySection,
@@ -208,7 +208,7 @@ export function SectionRendererSwitch({
       )
     }
     case 'completed_meetings':
-      return <CompletedMeetingsSection />
+      return <CompletedMeetingsSection familyId={familyId} memberId={memberId} />
     case 'milestone_celebrations':
       return <MilestoneCelebrationsSection />
     case 'carry_forward':
