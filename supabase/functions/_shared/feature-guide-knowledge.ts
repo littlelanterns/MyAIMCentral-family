@@ -65,7 +65,7 @@ export interface UseCaseRecipe {
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
   {
     triggers: ['before they leave home', 'life skills', 'before 18', 'adulting', 'independence skills', 'launch list'],
-    clarifyingQuestion: "Oh I love this — getting them ready for the real world! Tell me more about what you're picturing. Is this more like practical skills they need to actually learn and practice — like managing money or cooking — where they'd need to do it multiple times before they've really got it? Or is it more of a collection of experiences and memories you want to make sure happen before they're on their own? Give me a few examples of what's on your mind and I can figure out the best way to set it up for you.",
+    clarifyingQuestion: "I'd love to help you implement this! Tell me more about what you're picturing. Is this more like practical skills they need to actually learn and practice — like managing money or cooking — where they'd need to do it multiple times before they've really got it? Or is it more of a collection of experiences and memories you want to make sure happen before they're on their own? Give me a few examples of what's on your mind and I can figure out the best way to set it up for you.",
     variants: [
       {
         name: 'Skills to Master',
@@ -90,7 +90,7 @@ Kids browse and claim when they're ready. Each completion is a one-and-done vict
   },
   {
     triggers: ['chores', 'earn money', 'extra jobs', 'allowance', 'job board', 'earn rewards'],
-    clarifyingQuestion: "Love that you're building this into the system! So help me understand what you're going for — are these the everyday chores that just need to get done and you want to rotate who does what each week? Or are you thinking more like an open job board where the kids can look through what's available and pick up extra work when they want to earn some money? Or maybe a little of both? What kinds of things are you thinking of putting on there?",
+    clarifyingQuestion: "I can totally help you set that up! So help me understand what you're going for — are these the everyday chores that just need to get done and you want to rotate who does what each week? Or are you thinking more like an open job board where the kids can look through what's available and pick up extra work when they want to earn some money? Or maybe a little of both? What kinds of things are you thinking of putting on there?",
     variants: [
       {
         name: 'Fixed Chore Rotation',
