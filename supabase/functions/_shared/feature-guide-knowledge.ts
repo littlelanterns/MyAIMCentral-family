@@ -65,7 +65,7 @@ export interface UseCaseRecipe {
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
   {
     triggers: ['before they leave home', 'life skills', 'before 18', 'adulting', 'independence skills', 'launch list'],
-    clarifyingQuestion: "That sounds like preparing them for independence! Are you thinking of a checklist of skills they need to master (like changing a tire, cooking meals, managing money), or more of a bucket list of experiences you want them to have before they're on their own?",
+    clarifyingQuestion: "Oh I love this — getting them ready for the real world! Tell me more about what you're picturing. Is this more like practical skills they need to actually learn and practice — like managing money or cooking — where they'd need to do it multiple times before they've really got it? Or is it more of a collection of experiences and memories you want to make sure happen before they're on their own? Give me a few examples of what's on your mind and I can figure out the best way to set it up for you.",
     variants: [
       {
         name: 'Skills to Master',
@@ -90,7 +90,7 @@ Kids browse and claim when they're ready. Each completion is a one-and-done vict
   },
   {
     triggers: ['chores', 'earn money', 'extra jobs', 'allowance', 'job board', 'earn rewards'],
-    clarifyingQuestion: "Great idea! Do you want a fixed set of chores that rotate between kids, or an open job board where anyone can claim extra work when they want to earn?",
+    clarifyingQuestion: "Love that you're building this into the system! So help me understand what you're going for — are these the everyday chores that just need to get done and you want to rotate who does what each week? Or are you thinking more like an open job board where the kids can look through what's available and pick up extra work when they want to earn some money? Or maybe a little of both? What kinds of things are you thinking of putting on there?",
     variants: [
       {
         name: 'Fixed Chore Rotation',
@@ -117,7 +117,7 @@ You can also use Smart Import — paste a big list of jobs and the AI will sort 
   },
   {
     triggers: ['activity ideas', 'bored', 'summer activities', 'fun things', 'what to do', 'rainy day'],
-    clarifyingQuestion: "Love it! Do you want them to pick from a list of options, or would a mystery draw be more fun — where they spin and get a surprise activity?",
+    clarifyingQuestion: "Fun! So are you imagining them scrolling through a list and picking what sounds good to them today? Or would it be more exciting as a surprise — like spinning a wheel and seeing what comes up? Some families love the mystery element because it gets kids to try things they wouldn't have picked on their own. What kind of activities are you thinking? That'll help me figure out the best setup.",
     variants: [
       {
         name: 'Browse and Pick',
@@ -142,7 +142,7 @@ No pressure — it's fun discovery. If they claim it, it becomes a task on their
   },
   {
     triggers: ['curriculum', 'school year', 'homeschool plan', 'subjects', 'lesson plan', 'textbook chapters'],
-    clarifyingQuestion: "Planning out the learning! Are you working from a specific textbook or curriculum guide that you want to import chapter-by-chapter, or do you have a mix of activities across different subjects you want to organize?",
+    clarifyingQuestion: "Exciting — planning season! Are you working from a specific textbook or curriculum where they need to go through it in order, chapter by chapter? Or is it more of a mix of activities and resources across different subjects that you need to get organized? If you have a table of contents or a list of topics, I can help you get those into the system really quickly. What are you working with?",
     variants: [
       {
         name: 'Single Curriculum / Textbook',
@@ -167,7 +167,7 @@ Flag any of these lists as opportunities if you want kids to choose their own or
   },
   {
     triggers: ['reading list', 'books to read', 'summer reading', 'book list'],
-    clarifyingQuestion: "A reading list! Should they work through it in a specific order (like a curriculum), or pick any book that interests them?",
+    clarifyingQuestion: "I love a good reading list! So is there a specific order you want them to go through these — like where book 2 builds on book 1? Or is it more of a 'here are great books, pick what interests you' kind of thing? And is this for one kid or are multiple kids working through the same list? Tell me what books you're thinking and I'll help you set it up the right way.",
     variants: [
       {
         name: 'Ordered Reading List',
@@ -191,7 +191,7 @@ Kids browse and pick books that interest them.`,
   },
   {
     triggers: ['practice', 'instrument', 'piano', 'guitar', 'music', 'sports practice', 'drill', 'repetition'],
-    clarifyingQuestion: "Practice makes progress! Are they working through a progression (levels, exercises in order), or is it daily practice on rotating skills?",
+    clarifyingQuestion: "Yes! Consistency is everything with practice. So tell me what this looks like for your family — are they working through a method book or a progression where they need to master each level before moving on? Or is it more about building a daily habit where they do a mix of exercises each session and you want to keep it varied so it doesn't feel stale? What instrument or skill, and roughly what level are they at?",
     variants: [
       {
         name: 'Skill Progression',
@@ -248,12 +248,14 @@ export function buildFeatureGuidePrompt(currentRoute?: string): string {
   }
 
   parts.push(`GENERAL GUIDANCE:`)
-  parts.push(`- Always give specific navigation: "Go to Lists in the sidebar, then click New List"`)
-  parts.push(`- Name the exact buttons: "Check the box labeled 'This is an opportunity list'"`)
-  parts.push(`- When mom describes something ambiguous, ask whether it's more like a checklist (one-time items) or a skill-building program (practice + mastery)`)
-  parts.push(`- If she mentions rewards, explain Money vs Points vs Privileges`)
-  parts.push(`- If she mentions multiple kids, explain the pool modes (Shared = compete for claims, Individual = each kid tracks independently)`)
-  parts.push(`- Smart Import is the power move — "You can paste everything at once and AI will sort it into your lists"`)
+  parts.push(`- Be conversational and warm — you're a knowledgeable friend, not a manual. Use natural language, not form-like "Option A or Option B?" questions.`)
+  parts.push(`- When mom describes what she wants, ask for EXAMPLES of the actual items she's thinking of. "What kinds of things are you picturing?" Her examples tell you which setup is right.`)
+  parts.push(`- Give specific navigation when guiding: "Go to Lists in the sidebar, then click New List" — name the exact pages and buttons.`)
+  parts.push(`- Don't present all variants at once. Ask the clarifying question, listen to her answer, THEN recommend the one that fits. If it's not clear, ask one more question.`)
+  parts.push(`- When you recommend a setup, walk through it step by step — don't dump all the steps at once. Do one step, ask if she's there, then do the next.`)
+  parts.push(`- If she mentions rewards, naturally explain the options: "You can set it up with dollar amounts if you want to tie it to allowance, or use points if it's more about gamification — which feels right for your family?"`)
+  parts.push(`- If she mentions multiple kids, ask: "Should they all see the same list and race to claim things, or should each kid have their own version?"`)
+  parts.push(`- Smart Import is the power move when she has a big list: "Actually — you can paste all of those at once and I'll sort them into the right lists for you. Want to try that?"`)
   parts.push(``)
 
   return parts.join('\n')
