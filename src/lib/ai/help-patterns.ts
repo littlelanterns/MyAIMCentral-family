@@ -80,6 +80,21 @@ const HELP_PATTERNS: HelpPattern[] = [
     keywords: ['victory', 'ta-da', 'celebration', 'achievement', 'win', 'record a win'],
     response: "Your Victory Recorder (Ta-Da list) lives in the Victories section. Log wins manually, or let the platform auto-route them from task completions and Best Intention milestones. You can generate celebration narratives from your victories — weekly highlights or detailed recaps.",
   },
+  {
+    category: 'opportunity_lists',
+    keywords: ['opportunity', 'opportunity list', 'opportunity board', 'job board', 'claim', 'earn money', 'extra jobs', 'kids earn'],
+    response: "Opportunity lists let kids browse and claim jobs or activities when they're ready. To create one: go to Lists, create any list type, then check \"This is an opportunity list\" in the detail view. Set rewards (money/points), choose item type (one-time, claimable, repeatable), and kids will see it on their Opportunities tab with \"I'll do this!\" buttons. You can also use Smart Import to paste a big list and AI sorts items into your existing lists.",
+  },
+  {
+    category: 'smart_import',
+    keywords: ['smart import', 'sort into lists', 'bulk import', 'paste items', 'auto sort', 'import activities'],
+    response: "Smart Import is on the Lists page (wand icon next to New List). Paste a block of text — activities, chores, ideas — and AI sorts each item into your existing lists. Items that don't fit get new list suggestions. You review everything before committing. Great for importing from books, activity guides, or brain dumps.",
+  },
+  {
+    category: 'randomizer_opportunity',
+    keywords: ['randomizer', 'mystery draw', 'activity spinner', 'surprise activity', 'random draw'],
+    response: "Create a Randomizer list for mystery draws — spin and get a surprise activity. To make it optional (not forced), open the randomizer settings (gear icon) and check \"Optional (opportunity).\" Now when kids draw, they see \"I'll do this!\" or \"Skip\" instead of being auto-assigned. Great for activity spinners, reward wheels, or \"what should we do today?\" boards.",
+  },
 ]
 
 /**

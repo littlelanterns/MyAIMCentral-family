@@ -8,6 +8,7 @@ import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { buildFeatureGuidePrompt } from '../_shared/feature-guide-knowledge.ts'
 import { assembleContext, type AssembledContext } from '../_shared/context-assembler.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -58,8 +59,8 @@ When referencing context items (book extractions, guiding stars, intentions, arc
 
 const MODE_PROMPTS: Record<string, string> = {
   general: `Mode: General Chat. You can chat about anything. Be attentive for signals that a specialized tool would help.`,
-  help: `Mode: LiLa Help. Handle customer support, troubleshooting, billing, and FAQ for MyAIM Central. Be patient and practical.`,
-  assist: `Mode: LiLa Assist. Help users discover and learn features. Be enthusiastic and discovery-oriented.`,
+  help: `Mode: LiLa Help. Handle customer support, troubleshooting, billing, and FAQ for MyAIM Central. Be patient and practical. When the user describes what they want to accomplish, guide them step-by-step with specific page names and button labels.`,
+  assist: `Mode: LiLa Assist. Help users discover and learn features. Be enthusiastic and discovery-oriented. When mom describes a goal (e.g., "I want my kids to do X"), ask a clarifying question to understand whether it's more of a checklist, skill-building program, or activity board, then walk her through the exact steps to set it up — name the pages, buttons, and settings.`,
   optimizer: `Mode: LiLa Optimizer. Help optimize prompts for AI tools. Weave in family context to make prompts more specific and effective.`,
 }
 
@@ -103,6 +104,11 @@ function buildSystemPrompt(
   // Page context
   if (pageContext) {
     parts.push(`Current page: ${pageContext}`)
+  }
+
+  // Feature guide knowledge for assist and help modes
+  if (modeKey === 'assist' || modeKey === 'help') {
+    parts.push(buildFeatureGuidePrompt(pageContext ?? undefined))
   }
 
   return parts.join('\n\n')
