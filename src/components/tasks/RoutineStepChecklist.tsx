@@ -23,6 +23,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useRoutineTemplateSteps, type RoutineSection } from '@/hooks/useRoutineTemplateSteps'
 import {
   useRoutineStepCompletions,
+  useRoutineStepCompletionsThisWeek,
   useCompleteRoutineStep,
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
@@ -445,29 +446,61 @@ function SectionGroup({
   )
 }
 
-/** Check if a routine section should display today based on its frequency rule */
-export function isSectionActiveToday(section: RoutineSection, completedStepIds: Set<string>): boolean {
+/**
+ * Check if a routine section should display today based on its frequency rule.
+ *
+ * @param section          The routine section with frequency config
+ * @param completedStepIds Step IDs completed TODAY (for rendering checkmarks)
+ * @param weekCompletedStepIds Step IDs completed any day THIS WEEK (Mon→today).
+ *   Used by show_until_complete to determine if a carry-forward section is done.
+ *   Falls back to completedStepIds when not provided (backward compat).
+ */
+export function isSectionActiveToday(
+  section: RoutineSection,
+  completedStepIds: Set<string>,
+  weekCompletedStepIds?: Set<string>,
+): boolean {
   if (!section.frequency_rule || section.frequency_rule === 'daily') return true
 
   const today = new Date().getDay() // 0=Sun, 6=Sat
+
+  // Weekdays = Mon-Fri (days 1-5)
+  if (section.frequency_rule === 'weekdays') {
+    const isWeekday = today >= 1 && today <= 5
+    if (isWeekday) return true
+    // Weekend: carry forward if show_until_complete and not all done this week
+    if (section.show_until_complete) {
+      const doneSet = weekCompletedStepIds ?? completedStepIds
+      const allDone = section.steps.every(s => doneSet.has(s.id))
+      return !allDone
+    }
+    return false
+  }
+
   const days = section.frequency_days?.map(Number) ?? []
 
-  // 'custom' frequency — show on listed days, OR carry forward after the scheduled day if show_until_complete
+  // 'custom' frequency — show on listed days, OR carry forward if show_until_complete
   if (section.frequency_rule === 'custom' && days.length) {
     const isScheduledToday = days.includes(today)
     if (isScheduledToday) return true
 
-    // show_until_complete: show AFTER the scheduled day(s) until all steps are done.
-    // Only carry forward if today is past the latest scheduled day this week.
+    // show_until_complete: show AFTER the scheduled day(s) until all steps are done
+    // this week. Uses weekCompletedStepIds so a Monday section completed on Tuesday
+    // stays hidden on Wednesday (the week query sees Tuesday's completion).
     if (section.show_until_complete) {
-      const allDone = section.steps.every(s => completedStepIds.has(s.id))
+      const doneSet = weekCompletedStepIds ?? completedStepIds
+      const allDone = section.steps.every(s => doneSet.has(s.id))
       if (allDone) return false
 
-      // Check if today is AFTER any of the scheduled days this week
-      // e.g., Monday section (day 1) should carry forward to Tue-Sat (days 2-6)
-      // but NOT show on Sunday (day 0) before Monday arrives
-      const earliestDay = Math.min(...days)
-      return today > earliestDay
+      // Check if today is AFTER any of the scheduled days this week.
+      // Handle Sunday (day 0) wrap-around: treat Sunday as day 7 so comparisons
+      // work for Saturday sections carrying to Sunday.
+      const todayNorm = today === 0 ? 7 : today
+      const hasPassedScheduledDay = days.some(d => {
+        const dNorm = d === 0 ? 7 : d
+        return todayNorm > dNorm
+      })
+      return hasPassedScheduledDay
     }
     return false
   }
@@ -477,6 +510,8 @@ export function isSectionActiveToday(section: RoutineSection, completedStepIds: 
     return days.includes(today)
   }
 
+  // 'weekly' and 'monthly' without specific days — show every day (these frequency
+  // rules need a day/date picker in the UI to be meaningful; for now, always show).
   return true
 }
 
@@ -493,6 +528,7 @@ interface RoutineStepChecklistProps {
 export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: RoutineStepChecklistProps) {
   const { data: sections, isLoading } = useRoutineTemplateSteps(templateId)
   const { data: completions } = useRoutineStepCompletions(taskId, memberId)
+  const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
   const [togglingStepId, setTogglingStepId] = useState<string | null>(null)
@@ -519,8 +555,14 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
     )
   }
 
+  // Today's completions — used for rendering checkmarks on steps
   const completedStepIds = new Set(
     (completions ?? []).map(c => c.step_id),
+  )
+  // Week completions — used by isSectionActiveToday to determine if a
+  // show_until_complete section has been finished this week (Mon→today)
+  const weekCompletedStepIds = new Set(
+    (weekCompletions ?? []).map(c => c.step_id),
   )
 
   async function handleToggleStep(stepId: string, isCurrentlyCompleted: boolean) {
@@ -547,8 +589,8 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
     }
   }
 
-  // Filter to sections active today
-  const activeSections = sections.filter(s => isSectionActiveToday(s, completedStepIds))
+  // Filter to sections active today (week completions used for show_until_complete)
+  const activeSections = sections.filter(s => isSectionActiveToday(s, completedStepIds, weekCompletedStepIds))
   const showHeaders = !compact || activeSections.length > 1
 
   if (activeSections.length === 0) {

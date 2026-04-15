@@ -46,7 +46,7 @@ import { TaskCompletionExpander } from './TaskCompletionExpander'
 import { RoutineStepChecklist, isSectionActiveToday } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
-import { useRoutineStepCompletions } from '@/hooks/useTaskCompletions'
+import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import type { Task } from '@/hooks/useTasks'
 
 /** Tiny SVG progress ring for routine cards — replaces the completion checkbox */
@@ -173,15 +173,21 @@ export function TaskCard({
 
   // Routine progress — compute today's step completion % for the progress ring
   const isRoutine = task.task_type === 'routine'
+  const routineMemberId = isRoutine ? (task.assignee_id ?? currentMember?.id) : undefined
   const { data: routineSections } = useRoutineTemplateSteps(isRoutine ? task.template_id ?? undefined : undefined)
   const { data: routineCompletions } = useRoutineStepCompletions(
     isRoutine ? task.id : undefined,
-    isRoutine ? (task.assignee_id ?? currentMember?.id) : undefined,
+    routineMemberId,
+  )
+  const { data: routineWeekCompletions } = useRoutineStepCompletionsThisWeek(
+    isRoutine ? task.id : undefined,
+    routineMemberId,
   )
   const routineProgress = (() => {
     if (!isRoutine || !routineSections?.length) return { completed: 0, total: 0 }
     const completedIds = new Set((routineCompletions ?? []).map(c => c.step_id))
-    const activeSections = routineSections.filter(s => isSectionActiveToday(s, completedIds))
+    const weekIds = new Set((routineWeekCompletions ?? []).map(c => c.step_id))
+    const activeSections = routineSections.filter(s => isSectionActiveToday(s, completedIds, weekIds))
     const todaySteps = activeSections.flatMap(s => s.steps)
     const done = todaySteps.filter(s => completedIds.has(s.id)).length
     return { completed: done, total: todaySteps.length }

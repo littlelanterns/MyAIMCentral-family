@@ -607,7 +607,16 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
             </label>
             <select
               value={section.frequency}
-              onChange={(e) => onChange({ ...section, frequency: e.target.value as SectionFrequency })}
+              onChange={(e) => {
+                const freq = e.target.value as SectionFrequency
+                // Auto-enable showUntilComplete when switching away from daily.
+                // Non-daily sections should carry forward by default — a Monday
+                // section that wasn't completed should persist until it's done.
+                const autoEnable = freq !== 'daily' && section.frequency === 'daily'
+                  ? { showUntilComplete: true }
+                  : {}
+                onChange({ ...section, frequency: freq, ...autoEnable })
+              }}
               style={{
                 width: '100%',
                 padding: '0.5rem 0.75rem',

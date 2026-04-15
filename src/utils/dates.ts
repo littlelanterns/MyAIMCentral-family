@@ -100,7 +100,21 @@ export function localQuarterIso(date: Date = new Date()): string {
   return `${year}-Q${quarter}`
 }
 
-// ─── TIMESTAMPTZ range helpers (for created_at / updated_at queries) ────────
+/**
+ * Start of the current ISO week (Monday) as YYYY-MM-DD in local time.
+ * Used by routine carry-forward logic to query completions since the start
+ * of the week when checking show_until_complete sections.
+ */
+export function startOfLocalWeekIso(date: Date = new Date()): string {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const day = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+  // Shift back to Monday: Sun(0) → -6, Mon(1) → 0, Tue(2) → -1, etc.
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return localIso(d)
+}
+
+// ─── TIMESTAMPTZ range helpers (for created_at / updated_at queries) ─��──────
 //
 // Use these when querying a TIMESTAMPTZ column and you want "items created
 // today in the user's local time". The returned strings are proper UTC ISO

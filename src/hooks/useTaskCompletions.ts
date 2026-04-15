@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
-import { todayLocalIso } from '@/utils/dates'
+import { todayLocalIso, startOfLocalWeekIso } from '@/utils/dates'
 import type {
   TaskCompletion,
   CreateTaskCompletion,
@@ -275,6 +275,40 @@ export function useRoutineStepCompletions(
         .eq('task_id', taskId)
         .eq('member_id', memberId)
         .eq('period_date', date)
+        .order('completed_at')
+
+      if (error) throw error
+      return data as RoutineStepCompletion[]
+    },
+    enabled: !!taskId && !!memberId,
+  })
+}
+
+/**
+ * Fetch routine step completions for the ENTIRE current ISO week (Monday→today).
+ * Used by isSectionActiveToday to determine whether a show_until_complete section
+ * has already been finished this week. Without this, a Monday section completed on
+ * Tuesday would reappear on Wednesday because the per-day query sees nothing.
+ */
+export function useRoutineStepCompletionsThisWeek(
+  taskId: string | undefined,
+  memberId: string | undefined,
+) {
+  const today = todayLocalIso()
+  const weekStart = startOfLocalWeekIso()
+
+  return useQuery({
+    queryKey: ['routine-step-completions-week', taskId, memberId, weekStart],
+    queryFn: async () => {
+      if (!taskId || !memberId) return []
+
+      const { data, error } = await supabase
+        .from('routine_step_completions')
+        .select('*')
+        .eq('task_id', taskId)
+        .eq('member_id', memberId)
+        .gte('period_date', weekStart)
+        .lte('period_date', today)
         .order('completed_at')
 
       if (error) throw error

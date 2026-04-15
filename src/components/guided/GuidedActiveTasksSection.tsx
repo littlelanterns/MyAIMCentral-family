@@ -20,7 +20,7 @@ import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmen
 import { speak } from '@/utils/speak'
 import { RoutineStepChecklist, isSectionActiveToday } from '@/components/tasks/RoutineStepChecklist'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
-import { useRoutineStepCompletions } from '@/hooks/useTaskCompletions'
+import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import { todayLocalIso } from '@/utils/dates'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
@@ -468,9 +468,11 @@ function GuidedRoutineProgressRing({
 }) {
   const { data: sections } = useRoutineTemplateSteps(templateId ?? undefined)
   const { data: completions } = useRoutineStepCompletions(taskId, memberId)
+  const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
 
   const completedIds = new Set((completions ?? []).map(c => c.step_id))
-  const activeSections = (sections ?? []).filter(s => isSectionActiveToday(s, completedIds))
+  const weekIds = new Set((weekCompletions ?? []).map(c => c.step_id))
+  const activeSections = (sections ?? []).filter(s => isSectionActiveToday(s, completedIds, weekIds))
   const todaySteps = activeSections.flatMap(s => s.steps)
   const done = todaySteps.filter(s => completedIds.has(s.id)).length
   const total = todaySteps.length
