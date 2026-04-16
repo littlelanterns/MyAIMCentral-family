@@ -727,6 +727,27 @@ export const WIZARD_TEMPLATES: StudioTemplate[] = [
     ],
     isExample: false,
   },
+  {
+    id: 'studio_universal_list',
+    templateType: 'list_wizard',
+    name: 'Create a List',
+    tagline: 'Shopping, to-do, expenses, wishlists, and more — AI organizes it for you.',
+    description:
+      'Describe what you need or pick from suggested starting points. Brain dump your items and AI sorts them into the right sections. Share with family, add tags, and deploy. Works for shopping lists, to-do lists, expense tracking, wishlists, packing lists, prayer lists, and anything else.',
+    exampleUseCases: [
+      'Weekly grocery list shared with husband',
+      'House to-do list',
+      'School expenses by child',
+      'Family trip packing list',
+      'Birthday wishlist with links and prices',
+    ],
+    capability_tags: [
+      'list', 'ai_powered', 'brain_dump', 'auto_organize', 'shared',
+      'shopping', 'todo', 'expenses', 'wishlist', 'packing', 'prayer',
+      'setup_wizard', 'bulk_create',
+    ],
+    isExample: false,
+  },
 ]
 
 export const GROWTH_TEMPLATES: StudioTemplate[] = [

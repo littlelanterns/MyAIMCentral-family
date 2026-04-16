@@ -65,6 +65,7 @@ import { StarChartWizard } from '@/components/studio/wizards/StarChartWizard'
 import { GetToKnowWizard } from '@/components/studio/wizards/GetToKnowWizard'
 import { RoutineBuilderWizard } from '@/components/studio/wizards/RoutineBuilderWizard'
 import { MeetingSetupWizard } from '@/components/studio/wizards/MeetingSetupWizard'
+import { UniversalListWizard } from '@/components/studio/wizards/UniversalListWizard'
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -219,6 +220,7 @@ export function StudioPage() {
   const [getToKnowWizardOpen, setGetToKnowWizardOpen] = useState(false)
   const [routineBuilderWizardOpen, setRoutineBuilderWizardOpen] = useState(false)
   const [meetingSetupWizardOpen, setMeetingSetupWizardOpen] = useState(false)
+  const [listWizardOpen, setListWizardOpen] = useState(false)
 
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -340,6 +342,10 @@ export function StudioPage() {
     }
     if (template.templateType === 'meeting_setup_wizard') {
       setMeetingSetupWizardOpen(true)
+      return
+    }
+    if (template.templateType === 'list_wizard') {
+      setListWizardOpen(true)
       return
     }
 
@@ -1058,6 +1064,13 @@ export function StudioPage() {
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
+        />
+      )}
+
+      {listWizardOpen && (
+        <UniversalListWizard
+          isOpen={listWizardOpen}
+          onClose={() => setListWizardOpen(false)}
         />
       )}
     </div>

@@ -55,6 +55,7 @@ export type StudioTemplateType =
   // Setup Wizards
   | 'routine_builder_wizard'
   | 'meeting_setup_wizard'
+  | 'list_wizard'
 
 export interface StudioTemplate {
   id: string
@@ -121,6 +122,7 @@ function TemplateIcon({ type, size = 22 }: { type: StudioTemplateType; size?: nu
     // Setup Wizards
     case 'routine_builder_wizard': return <Wand2 size={size} style={style} />
     case 'meeting_setup_wizard':   return <UsersRound size={size} style={style} />
+    case 'list_wizard':            return <List size={size} style={style} />
     default:                   return <FileText size={size} style={style} />
   }
 }

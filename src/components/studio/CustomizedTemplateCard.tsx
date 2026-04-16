@@ -64,6 +64,7 @@ const TYPE_LABELS: Record<StudioTemplateType, string> = {
   best_intentions_wizard: 'Best Intentions',
   routine_builder_wizard: 'Routine Builder',
   meeting_setup_wizard: 'Meeting Setup',
+  list_wizard: 'List',
 }
 
 function formatDate(iso: string | null): string {
