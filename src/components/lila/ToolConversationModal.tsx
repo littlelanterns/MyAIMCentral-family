@@ -12,7 +12,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { X, Send, Mic, Loader, Copy, FileText, ClipboardCopy, MessageSquare, CheckSquare, BookOpen, Trophy, Gift, Heart, Brain, Scale, Compass, RefreshCw } from 'lucide-react'
+import { X, Send, Mic, Loader, Copy, FileText, ClipboardCopy, MessageSquare, CheckSquare, BookOpen, Trophy, Gift, Heart, Brain, Scale, Compass, RefreshCw, History, ArrowLeft, Check } from 'lucide-react'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
@@ -62,6 +62,13 @@ const JOURNAL_TOOLS = new Set(['gratitude', 'higgins_navigate'])
 
 // Tools that show "Record Victory"
 const VICTORY_TOOLS = new Set(['words_affirmation', 'gratitude'])
+
+// Tools that show a "History" toggle to browse past conversations
+const HISTORY_TOOLS = new Set([
+  'cyrano', 'higgins_say', 'higgins_navigate',
+  'quality_time', 'gifts', 'observe_serve', 'words_affirmation', 'gratitude',
+  'decision_guide', 'perspective_shifter', 'mediator', 'board_of_directors',
+])
 
 // Tools that are partner-only (person selector locked to spouse)
 const PARTNER_ONLY_TOOLS = new Set(['cyrano'])
@@ -197,6 +204,17 @@ async function streamToolChat(
   }
 }
 
+// ── History entry type ───────────────────────────────────────────
+
+interface ToolHistoryEntry {
+  conversationId: string
+  createdAt: string
+  firstUserMessage: string
+  lastAssistantMessage: string
+  personName: string | null
+  messageCount: number
+}
+
 // ── Component ───────────────────────────────────────────────────
 
 interface ToolConversationModalProps {
@@ -238,6 +256,13 @@ export function ToolConversationModal({
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // History view state (Cyrano, Higgins Say)
+  const hasHistory = HISTORY_TOOLS.has(modeKey)
+  const [view, setView] = useState<'chat' | 'history'>('chat')
+  const [historyEntries, setHistoryEntries] = useState<ToolHistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [copiedHistoryId, setCopiedHistoryId] = useState<string | null>(null)
 
   // Decision Guide framework state (PRD-34)
   const pendingSuggestRef = useRef(false)
@@ -292,6 +317,93 @@ export function ToolConversationModal({
 
   // Check if current user is primary_parent for Full Picture gating
   const isPrimaryParent = member?.role === 'primary_parent'
+
+  // ── Load history when switching to history tab ────────────────
+  useEffect(() => {
+    if (view !== 'history' || !member?.id || !hasHistory) return
+    let cancelled = false
+    setHistoryLoading(true)
+    ;(async () => {
+      const { data: convs, error: convErr } = await supabase
+        .from('lila_conversations')
+        .select('id, created_at, guided_mode_reference_id, message_count')
+        .eq('member_id', member.id)
+        .eq('guided_mode', modeKey)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (cancelled) return
+      if (convErr || !convs || convs.length === 0) {
+        setHistoryEntries([])
+        setHistoryLoading(false)
+        return
+      }
+      const convIds = convs.map(c => c.id)
+      const { data: msgs } = await supabase
+        .from('lila_messages')
+        .select('conversation_id, role, content, created_at')
+        .in('conversation_id', convIds)
+        .order('created_at', { ascending: true })
+      if (cancelled) return
+
+      // Build a map: first user message + last assistant message per conversation
+      const convData = new Map<string, { firstUser?: string; lastAssistant?: string }>()
+      for (const m of msgs ?? []) {
+        const entry = convData.get(m.conversation_id) ?? {}
+        if (m.role === 'user' && !entry.firstUser) {
+          entry.firstUser = m.content
+        }
+        if (m.role === 'assistant') {
+          entry.lastAssistant = m.content
+        }
+        convData.set(m.conversation_id, entry)
+      }
+
+      // Resolve person names from guided_mode_reference_id
+      const entries: ToolHistoryEntry[] = convs
+        .map(c => {
+          const pair = convData.get(c.id)
+          if (!pair?.firstUser) return null
+          const personId = c.guided_mode_reference_id
+          const person = personId ? familyMembers.find(fm => fm.id === personId) : null
+          return {
+            conversationId: c.id,
+            createdAt: c.created_at,
+            firstUserMessage: pair.firstUser,
+            lastAssistantMessage: pair.lastAssistant || '',
+            personName: person?.display_name || null,
+            messageCount: c.message_count || 0,
+          }
+        })
+        .filter((e): e is ToolHistoryEntry => e !== null)
+
+      setHistoryEntries(entries)
+      setHistoryLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [view, member?.id, hasHistory, modeKey, familyMembers])
+
+  const handleCopyHistoryDraft = useCallback((entry: ToolHistoryEntry) => {
+    navigator.clipboard.writeText(entry.lastAssistantMessage)
+    setCopiedHistoryId(entry.conversationId)
+    setTimeout(() => setCopiedHistoryId(null), 2000)
+  }, [])
+
+  const handleResumeConversation = useCallback(async (entry: ToolHistoryEntry) => {
+    // Load the conversation and switch back to chat view
+    const { data: conv } = await supabase
+      .from('lila_conversations')
+      .select('*')
+      .eq('id', entry.conversationId)
+      .single()
+    if (conv) {
+      setConversation(conv as LilaConversation)
+      if (conv.guided_mode_reference_id) {
+        setSelectedPersonIds([conv.guided_mode_reference_id])
+      }
+      setView('chat')
+    }
+  }, [])
 
   const isPartnerOnly = PARTNER_ONLY_TOOLS.has(modeKey)
   const isMultiSelect = MULTI_SELECT_TOOLS.has(modeKey)
@@ -600,16 +712,38 @@ export function ToolConversationModal({
           className="flex items-center justify-between px-4 py-3 border-b shrink-0"
           style={{ borderColor: 'var(--color-border)' }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {view === 'history' && (
+              <button
+                onClick={() => setView('chat')}
+                className="rounded p-1 hover:opacity-70 shrink-0"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                aria-label="Back to conversation"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
             <LilaAvatar avatarKey={avatarKey} size={20} />
             <ToolIcon size={16} style={{ color: 'var(--color-text-secondary)' }} />
-            <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
-              {toolConfig.label}
+            <span className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
+              {view === 'history' ? `${toolConfig.label} History` : toolConfig.label}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* History button */}
+            {hasHistory && view === 'chat' && !isStreaming && (
+              <button
+                onClick={() => setView('history')}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:opacity-70"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+                aria-label="View history"
+              >
+                <History size={14} />
+                History
+              </button>
+            )}
             {/* Switch Framework button for Decision Guide */}
-            {isDecisionGuide && activeFrameworkKey && !isStreaming && (
+            {isDecisionGuide && activeFrameworkKey && !isStreaming && view === 'chat' && (
               <button
                 onClick={handleSwitchFramework}
                 className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80"
@@ -634,8 +768,114 @@ export function ToolConversationModal({
           </div>
         </div>
 
+        {/* History view */}
+        {view === 'history' && (
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader size={20} className="animate-spin" style={{ color: 'var(--color-text-secondary)' }} />
+              </div>
+            ) : historyEntries.length === 0 ? (
+              <div className="py-10 text-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                <History size={28} className="mx-auto mb-2 opacity-40" />
+                No conversations yet. Your history will show here.
+              </div>
+            ) : (
+              historyEntries.map(entry => (
+                <div
+                  key={entry.conversationId}
+                  className="rounded-lg border p-3"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    borderColor: 'var(--color-border)',
+                  }}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {entry.personName && (
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0"
+                          style={{
+                            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)',
+                            color: 'var(--color-btn-primary-bg)',
+                          }}
+                        >
+                          {entry.personName}
+                        </span>
+                      )}
+                      {entry.messageCount > 0 && (
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                          {entry.messageCount} messages
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+                      {new Date(entry.createdAt).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <div className="mb-2">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                      You said
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap line-clamp-3" style={{ color: 'var(--color-text-secondary)' }}>
+                      {entry.firstUserMessage}
+                    </p>
+                  </div>
+                  {entry.lastAssistantMessage && (
+                    <div className="mb-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                        LiLa&apos;s response
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap line-clamp-4" style={{ color: 'var(--color-text-primary)' }}>
+                        {entry.lastAssistantMessage}
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => handleResumeConversation(entry)}
+                      className="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium hover:opacity-80"
+                      style={{
+                        backgroundColor: 'var(--color-btn-primary-bg)',
+                        color: 'var(--color-btn-primary-text)',
+                      }}
+                    >
+                      <MessageSquare size={12} />
+                      Resume
+                    </button>
+                    {entry.lastAssistantMessage && (
+                      <button
+                        onClick={() => handleCopyHistoryDraft(entry)}
+                        className="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium hover:opacity-70"
+                        style={{ color: 'var(--color-btn-primary-bg)' }}
+                      >
+                        {copiedHistoryId === entry.conversationId ? (
+                          <>
+                            <Check size={12} />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} />
+                            Copy last response
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* Active Framework Header — Decision Guide (PRD-34) */}
-        {isDecisionGuide && activeFrameworkName && (
+        {view === 'chat' && isDecisionGuide && activeFrameworkName && (
           <div
             className="flex items-center gap-2 px-4 py-2 text-xs font-medium border-b"
             style={{
@@ -650,7 +890,7 @@ export function ToolConversationModal({
         )}
 
         {/* Mediator Context Selector — PRD-34 */}
-        {isMediator && (
+        {view === 'chat' && isMediator && (
           <div
             className="flex items-center gap-2 px-4 py-2 border-b"
             style={{ borderColor: 'var(--color-border)' }}
@@ -681,7 +921,7 @@ export function ToolConversationModal({
         )}
 
         {/* Person Pill Selector — show for tools that need it, including Mediator context-dependent */}
-        {(toolConfig.personLabel || (isMediator && MEDIATION_CONTEXTS.find(c => c.key === mediationContext)?.needsPerson)) && (
+        {view === 'chat' && (toolConfig.personLabel || (isMediator && MEDIATION_CONTEXTS.find(c => c.key === mediationContext)?.needsPerson)) && (
           <PersonPillSelector
             members={familyMembers}
             currentMemberId={member?.id || ''}
@@ -697,7 +937,7 @@ export function ToolConversationModal({
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {view === 'chat' && <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 && toolIntro && !isStreaming && (() => {
             // Personalize hint with selected person's name
             const personName = selectedPersonIds.length === 1
@@ -870,10 +1110,10 @@ export function ToolConversationModal({
           )}
 
           <div ref={messagesEndRef} />
-        </div>
+        </div>}
 
         {/* Recording status */}
-        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceState === 'recording' || voiceState === 'transcribing') && (
+        {view === 'chat' && FEATURE_FLAGS.ENABLE_VOICE_INPUT && (voiceState === 'recording' || voiceState === 'transcribing') && (
           <div
             className="mx-4 mb-1 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
             style={{
@@ -897,7 +1137,7 @@ export function ToolConversationModal({
         )}
 
         {/* Framework Picker Overlay — Decision Guide (PRD-34) */}
-        {isDecisionGuide && showFrameworkPicker && (
+        {view === 'chat' && isDecisionGuide && showFrameworkPicker && (
           <div
             className="absolute inset-0 z-10 flex flex-col overflow-hidden rounded-xl"
             style={{ backgroundColor: 'var(--color-bg-card)' }}
@@ -960,7 +1200,7 @@ export function ToolConversationModal({
         )}
 
         {/* Perspective Shifter Lens Chip Row — PRD-34 (above input) */}
-        {isPerspectiveShifter && lenses.length > 0 && (
+        {view === 'chat' && isPerspectiveShifter && lenses.length > 0 && (
           <div
             className="flex items-center gap-1 px-4 py-2 border-t overflow-x-auto shrink-0"
             style={{ borderColor: 'var(--color-border)', scrollbarWidth: 'none' }}
@@ -1026,7 +1266,7 @@ export function ToolConversationModal({
         )}
 
         {/* Perspective Shifter: Active Lens indicator */}
-        {isPerspectiveShifter && activeLensName && (
+        {view === 'chat' && isPerspectiveShifter && activeLensName && (
           <div
             className="flex items-center gap-2 px-4 py-1.5 text-xs border-t"
             style={{
@@ -1041,7 +1281,7 @@ export function ToolConversationModal({
         )}
 
         {/* Perspective Shifter: Full Lens Library Overlay */}
-        {isPerspectiveShifter && showLensLibrary && (
+        {view === 'chat' && isPerspectiveShifter && showLensLibrary && (
           <div
             className="absolute inset-0 z-10 flex flex-col overflow-hidden rounded-xl"
             style={{ backgroundColor: 'var(--color-bg-card)' }}
@@ -1119,7 +1359,7 @@ export function ToolConversationModal({
         )}
 
         {/* Input */}
-        <div
+        {view === 'chat' && <div
           className="flex items-center gap-2 px-4 py-3 border-t shrink-0"
           style={{ borderColor: 'var(--color-border)' }}
         >
@@ -1165,7 +1405,7 @@ export function ToolConversationModal({
           >
             <Send size={16} />
           </button>
-        </div>
+        </div>}
       </div>
     </>
   )

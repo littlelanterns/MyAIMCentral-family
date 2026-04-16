@@ -22,6 +22,7 @@ import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useUpsertMeetingSchedule } from '@/hooks/useMeetings'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { localIso } from '@/utils/dates'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
 import { RRule, type Weekday } from 'rrule'
@@ -287,7 +288,7 @@ export function MeetingSetupWizard({
             family_id: familyId,
             created_by: memberId,
             title: 'Family Council',
-            event_date: dtstart.toISOString().split('T')[0],
+            event_date: localIso(dtstart),
             start_time: '18:00',
             end_time: '19:00',
             is_all_day: false,
@@ -376,7 +377,7 @@ export function MeetingSetupWizard({
                 family_id: familyId,
                 created_by: memberId,
                 title: childLabel,
-                event_date: (dt as Date).toISOString().split('T')[0],
+                event_date: localIso(dt as Date),
                 is_all_day: oneOnOneFrequency === 'monthly',
                 recurrence_rule: recRule,
                 recurrence_details: {
@@ -424,7 +425,7 @@ export function MeetingSetupWizard({
               family_id: familyId,
               created_by: memberId,
               title: childLabel,
-              event_date: dt.toISOString().split('T')[0],
+              event_date: localIso(dt),
               is_all_day: oneOnOneFrequency === 'monthly',
               recurrence_rule: recRule,
               recurrence_details: { rrule, dtstart: dt.toISOString() },
@@ -469,7 +470,7 @@ export function MeetingSetupWizard({
             family_id: familyId,
             created_by: memberId,
             title: 'Couple Check-in',
-            event_date: dt.toISOString().split('T')[0],
+            event_date: localIso(dt),
             start_time: '20:00',
             end_time: '21:00',
             is_all_day: false,
