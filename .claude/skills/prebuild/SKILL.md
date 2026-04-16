@@ -21,15 +21,25 @@ The argument is a PRD number. If no number is provided, ask for one.
 
 ## Step 0: Tool Health Check (MANDATORY — HARD GATE)
 
-**This step runs before anything else.** Do not read the PRD, do not search addenda, do not touch any other step until tool health is confirmed. Silent tool disconnects have historically gone undetected for weeks (AURI scanned nothing while we thought it was protecting auth code — see `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift").
+**This step runs before anything else.** Do not read the PRD, do not search addenda, do not touch any other step until tool health is confirmed.
+
+### The principle: Connected ≠ Functioning
+
+Registration, authentication, and connection handshakes are necessary but NOT sufficient proof that a tool is working. A tool can report `✓ Connected` and still:
+- Return errors on every actual tool call (codegraph with a stale database lock, April 2026)
+- Work against a weeks-stale index that returns confident but wrong results (mgrep between initial sync and first refresh, April 2026)
+- Successfully authenticate but have its quota exhausted, silently ingesting partial data (mgrep free tier, April 2026)
+- Be wrapped by a plugin hook that runs the tool with a failing argument, writes the error to a log nobody reads, and reports success to Claude Code (mgrep watch hook, ongoing)
+
+Step 0 probes each required tool END-TO-END — not just "is it connected" but "does a real call return real data." Connection check is a cheap first filter; the end-to-end probe is the proof.
 
 ### Required tools (hard halt if any are broken)
 
-| Tool | Purpose | Check |
-|---|---|---|
-| codegraph MCP | Code graph queries for cross-file impact analysis | `claude mcp list` → must show `✓ Connected` |
-| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | `claude mcp list` → must show `✓ Connected` |
-| mgrep CLI | Semantic search across PRDs, specs, and source | `mgrep whoami` → must return an authenticated user, not `Failed to refresh token` |
+| Tool | Purpose | Connection Check | End-to-end Probe |
+|---|---|---|---|
+| codegraph MCP | Code graph queries for cross-file impact analysis | `claude mcp list` → `✓ Connected` | Call `mcp__codegraph__codegraph_status` — must return real index stats (files > 0, nodes > 0). NOT "CodeGraph not initialized" or "database is locked" |
+| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | `claude mcp list` → `✓ Connected` | Connection alone is accepted at Step 0 until Endor Labs account is configured. Once configured, extend probe to include a minimal `endorctl` scan that returns findings. Until then, Step 0 output MUST include the caveat "Connected ≠ scanning — full verification pending account setup (followup F1)." |
+| mgrep CLI | Semantic search across PRDs, specs, and source | `mgrep whoami` → authenticated user (not `Failed to refresh token`) | Freshness probe: `mgrep search "<known-recent identifier for this PRD>" .` — must return BOTH source files AND PRD markdown. If only markdown appears, the index is missing code — halt. |
 
 ### Optional tools (surface status, do NOT halt)
 
@@ -40,37 +50,72 @@ The argument is a PRD number. If no number is provided, ask for one.
 
 ### Execution
 
-1. Run `claude mcp list` and parse output for each server's status.
-2. Run `mgrep whoami 2>&1 | head -3` and check for the auth-failed string.
-3. Build the status table. Include the current timestamp in the header so future log reviews know when the check ran:
+1. **Connection checks (in parallel):**
+   - `claude mcp list` → parse each server's status
+   - `mgrep whoami 2>&1 | head -3` → check for auth-failed string
+
+2. **End-to-end probes (for each required tool):**
+   - codegraph: call `mcp__codegraph__codegraph_status` tool. Verify the response includes non-zero file/node counts.
+   - mgrep: pick a freshness probe identifier appropriate to the PRD being built. Examples:
+     - PRD-15 → search for `MessageCoachingSettings` (post-Mar-28 messaging code)
+     - PRD-16 → search for `MeetingSetupWizard`
+     - PRD-24 → search for `roll_creature_for_completion`
+     - PRD-28 → search for (once built) `homeschool_time_logs` or similar
+     - Default if no obvious recent identifier: search for `MeetingSetupWizard` as a known-post-Mar-28 baseline check
+     If the probe returns zero source file results (only markdown), treat the index as stale and halt with a refresh instruction.
+   - endor-cli-tools: connection-only for now (account setup pending). The caveat line MUST appear in the status table.
+
+3. **Freshness heuristic (warn, do NOT halt):**
+   - Compare `.codegraph/codegraph.db` modification time against `git log -1 --format=%ct`
+   - If codegraph.db is older than the latest commit by > 24 hours, emit a yellow warning: "Codegraph index may be stale — last refreshed YYYY-MM-DD, most recent commit YYYY-MM-DD. Consider running `codegraph sync`."
+   - Similarly for mgrep: if the mgrep freshness probe returns results but they feel sparse for the PRD's domain, note the concern — watch might have died or the index might have drifted. Not a halt.
+
+4. **Build the status table.** Include the current timestamp so future log reviews know when the check ran:
 
    ```
    Tool Health Check (before /prebuild PRD-XX) — YYYY-MM-DD HH:MM
    ───────────────────────────────────────────────────────────────
-   ✓ codegraph MCP            — Connected
-   ✓ endor-cli-tools (AURI)   — Connected (scan verification pending account setup)
-   ✓ mgrep CLI                — Authenticated as Tenise
+   ✓ codegraph MCP            — Connected; probe returned 880 files / 10K nodes / 17K edges
+   ✓ endor-cli-tools (AURI)   — Connected (scan verification pending account setup — F1)
+   ✓ mgrep CLI                — Authenticated as Tenise; probe for "MeetingSetupWizard" returned 8 source files
    ! Gmail MCP                — Needs auth (optional, OK)
    ! Google Calendar MCP      — Needs auth (optional, OK)
+
+   Freshness: codegraph index modified 2026-04-16 12:27 (latest commit 2026-04-16 10:15 — fresh ✓)
    ```
 
-   Note: AURI `✓ Connected` confirms MCP reachability only. Full end-to-end scan verification requires Endor Labs account setup, tracked separately as a reconnaissance followup item. This is acknowledged and is not a hard halt — connection alone is sufficient for Step 0 to pass.
+5. **If all required tools are green AND all end-to-end probes pass:** print "Tool health ✓ — proceeding to Step 1" and continue.
 
-4. **If all required tools are green:** print "Tool health ✓ — proceeding to Step 1" and continue.
-
-5. **If ANY required tool is broken: HALT.** Print:
-   - Which tool failed
-   - The exact fix command (see table below)
+6. **If ANY required tool fails (connection OR probe): HALT.** Print:
+   - Which tool failed and WHICH layer (connection vs probe)
+   - The exact fix command (see fix table below)
    - Instructions: "Resolve the broken tool, then re-invoke `/prebuild PRD-XX`"
    - **Do not proceed to Step 1.** Return from the skill.
 
 ### Fix commands (reference — print the relevant one on failure)
 
-| Tool broken | Fix |
-|---|---|
-| `endor-cli-tools: ✗ Failed to connect` | `claude mcp remove "endor-cli-tools" -s local` then `claude mcp add endor-cli-tools "C:/Users/tenis/AppData/Roaming/npm/bin/endorctl.exe" -- ai-tools mcp-server` then `claude mcp list` to verify. Full context: `reference_auri_security.md` |
-| `codegraph: ✗ Failed to connect` | Check `claude mcp get codegraph` for the registered command. Reinstall codegraph CLI if the binary is missing. |
-| `mgrep: Failed to refresh token` | Tenise must run `mgrep login` in her OWN terminal (outside Claude Code — the device-code flow needs interactive stdin). Full context: `reference_mgrep.md` |
+| Tool broken | Layer | Fix |
+|---|---|---|
+| `endor-cli-tools: ✗ Failed to connect` | Connection | `claude mcp remove "endor-cli-tools" -s local` then `claude mcp add endor-cli-tools "C:/Users/tenis/AppData/Roaming/npm/bin/endorctl.exe" -- ai-tools mcp-server` then `claude mcp list` to verify. Full context: `reference_auri_security.md` |
+| `codegraph: ✗ Failed to connect` | Connection | Check `claude mcp get codegraph` for the registered command. Reinstall codegraph CLI if the binary is missing. |
+| `codegraph: probe returned "not initialized" or "database is locked"` | End-to-end | Check for stale lock: `ls .codegraph/codegraph.db.lock` (directory or file). If present and no codegraph process is running (`tasklist \| grep codegraph`), it's stale — `rm -rf .codegraph/codegraph.db.lock`. If the DB itself is corrupted, `rm -rf .codegraph && codegraph init && codegraph index` (takes 1-3 min, rebuilds from current code). |
+| `codegraph: probe succeeded but index stale vs latest commit` | Freshness | `codegraph sync` (fast) or `codegraph index` (full rebuild). Warning only — not a halt unless the sweep specifically needs recent code. |
+| `mgrep: Failed to refresh token` | Connection/Auth | Tenise must run `mgrep login` in her OWN terminal (outside Claude Code — the device-code flow needs interactive stdin). Full context: `reference_mgrep.md` |
+| `mgrep: probe returned only markdown, no source files` | End-to-end | Index is stale or incomplete. Tenise runs `mgrep watch --max-file-count 3000` in her own terminal to refresh. (The plugin hook silently fails on MyAIMCentral because of the 1000-file default — see F13.) Wait for `✔ Initial sync complete` before re-invoking `/prebuild`. |
+| `mgrep: quota exhausted` (on free tier) | Quota | Either wait for monthly quota reset, upgrade to paid tier, or add `.mgrepignore` exclusions to fit under limit. Scale tier ($20/mo) is the current MyAIM recommendation. |
+
+### Interactive auth — NEVER attempt from within the skill
+
+Some tools (mgrep login, gh auth login) require device-code flows that need interactive stdin. **Claude Code cannot complete these flows** — piping stdin breaks the handshake mid-flow (the CLI that initiated the device code must stay alive through browser approval and token save).
+
+If a required tool needs interactive re-auth, the skill HALTS and tells Tenise to run the auth command in her own terminal. Do NOT try to fix it via `printf "y\n" | <command>` or similar — this has been tried, it breaks the flow, and Tenise will have to do it manually anyway.
+
+### mgrep watch-hook silent-failure check (advisory)
+
+After the main Step 0 probes pass, optionally check for the plugin hook failure pattern:
+- Look for the most recent `/tmp/mgrep-watch-command-<session_id>.log` in `/tmp/`
+- If it contains `File count exceeded` or `Quota exceeded` from this session's hook invocation, emit: "Advisory: mgrep plugin watch hook failed silently this session. Set `MGREP_MAX_FILE_COUNT=3000` as a persistent user env var (F13) OR manually run `mgrep watch --max-file-count 3000` in a long-lived terminal."
+- Not a halt. Just visibility into a known issue.
 
 ### Override Acknowledged (escape hatch — use sparingly)
 
@@ -93,7 +138,15 @@ If Tenise explicitly says "override acknowledged" or "proceed with override ackn
 
 ### Why this step exists
 
-See `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift." The short version: tools that silently no-op get forgotten for months while we think we're getting their benefits. AURI was installed specifically to scan auth/permissions code. PRD-01 and PRD-02 shipped without it scanning anything because the MCP was `✗ Failed to connect` and no error ever surfaced. This check closes that gap before every build.
+See `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift" and the Quick Reference patterns (Windows npm PATH, MCP Silent Disconnect, Auth Token Silent Expiry). The short version:
+
+**Registration ≠ authentication ≠ connection ≠ functioning ≠ current.** Any of those layers can fail silently. Step 0's job is to probe every required layer for every required tool and halt the build if any layer fails.
+
+Specific incidents closed by this check:
+- **AURI** was installed, registered, and ignored for weeks while showing `✗ Failed to connect`. PRD-01 and PRD-02 shipped without it scanning anything. (April 2026)
+- **codegraph** showed `✓ Connected` but had a 3-week-stale database lock. Every tool call returned "CodeGraph not initialized." (April 2026)
+- **mgrep** authenticated, served queries, and returned confident results — from an index that hadn't been refreshed in weeks. Searches for recent code came back empty but looked plausible. (April 2026)
+- **mgrep watch hook** (ongoing): runs `mgrep watch` with no flags, hits 1000-file default limit every session, writes error to a log nobody reads, reports success to Claude Code. See followup F13.
 
 ### Reference memory
 
@@ -102,6 +155,10 @@ Full mechanics of why each tool drifts and how to fix:
 - `reference_mgrep.md` — mgrep device-code auth flow, interactive requirement
 - `feedback_windows_npm_path.md` — Windows 3-node-install PATH layering
 - `feedback_mcp_verify_after_register.md` — general auth-backed-tool drift pattern
+
+Full audit trail:
+- `TOOL_HEALTH_REPORT_2026-04-16.md` — first comprehensive tool health sweep (the sweep that informed this Step 0 design)
+- `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift" section + Quick Reference appendix
 
 ---
 
