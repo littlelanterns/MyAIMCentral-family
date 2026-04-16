@@ -505,3 +505,7 @@ This process exists because weeks of careful planning went into every PRD and ad
 ## Build Strictness (Non-Negotiable)
 
 121. **Before completing any build session, run `npx tsc --noEmit` and verify zero errors.** The production build (Vercel) uses strict TypeScript checking with `noUnusedLocals` and `noUnusedParameters` enabled. Vite's dev server does NOT type-check — it uses esbuild which ignores these flags. Code that works in `vite dev` can still fail on deploy. Never commit code that passes `vite dev` but would fail `npx tsc --noEmit`. Run the check before declaring any phase complete.
+
+## Tooling Hygiene (Non-Negotiable)
+
+241. **Tool health check must pass before any build work begins.** See `/prebuild` Step 0 for the current mechanism. Applies to required MCP servers (codegraph, endor-cli-tools) and auth-backed CLIs (mgrep). Silent disconnects and auth expiry have historically gone undetected for weeks — AURI sat disconnected through the PRD-01 and PRD-02 builds without any error surfacing. This check closes that gap. Reference: `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift" and `TOOL_HEALTH_REPORT_2026-04-16.md`. If a tool is disconnected or unauthenticated at session start, resolve it before starting build work or explicitly record an "override acknowledged" audit entry in CURRENT_BUILD.md acknowledging the known gap for that specific build.

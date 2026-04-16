@@ -154,6 +154,68 @@ This is the fundamental insight. AI coding assistants don't express uncertainty 
 
 ---
 
+## The Second Failure Mode: Silent Tool Drift
+
+The pre-build process fixed "building the wrong thing correctly." Months later we discovered a different class of silent failure: **integrated tools that stop working without anyone noticing.**
+
+### The Discovery
+
+On 2026-04-16, the founder asked a casual question: "What was the AURI thing we did for security stuff?" AURI (Endor Labs security scanner) had been set up as an MCP server specifically to scan AI-generated authentication and permissions code in real time. The entire point of installing it was that PRD-01 and PRD-02 were the highest-security-risk features in the codebase.
+
+A quick check revealed:
+- The MCP server was registered in the config exactly as planned.
+- It had been registered with status `✗ Failed to connect` for an unknown period — possibly since initial setup.
+- Claude Code had been happily building auth and permissions code without the scanner active the entire time.
+- Zero error messages. Zero warnings. Zero hints that anything was wrong.
+
+The same check uncovered that `mgrep` (a semantic code search tool that was supposed to replace regex grep for cross-PRD consistency checks) had also silently disconnected — its auth token had expired. Every `mgrep search` call was returning "Failed to refresh token" and Claude Code was quietly falling back to regular Grep, losing the semantic search capability entirely.
+
+### How It Happened
+
+**AURI / endorctl (Endor Labs security scanner):**
+The `endorctl` npm package uses a `go-npm` postinstall script that downloads the Go binary AFTER npm's shim-generation step finishes. On Windows, this means the binary lands at `AppData\Roaming\npm\bin\endorctl.exe` — but the `endorctl.cmd` shim that SHOULD exist at `AppData\Roaming\npm\endorctl.cmd` (which is on PATH) never gets created. So `npx -y endorctl ai-tools mcp-server` in the MCP config silently fails because `endorctl` isn't on PATH. The binary exists. It's just not callable by name.
+
+**mgrep:**
+Authentication token expired. Device-code flow is required to re-authenticate, which is interactive and can't be completed through a piped shell. The tool kept running, accepting commands, and returning "Failed to refresh token" — but Claude Code just fell back to regular grep without surfacing the degradation.
+
+### The Pattern
+
+Both failures share a structure:
+
+1. **Tool is registered correctly.** Config files are clean. Packages are installed. Nothing looks wrong.
+2. **Initial setup works.** There's a moment where the tool functions normally.
+3. **State drifts.** Auth expires. A package update breaks a shim. A machine reboots and a watch process doesn't restart. PATH gets reordered.
+4. **No error surface.** MCP tools that can't connect just don't get called. CLI tools with expired tokens fall back to a graceful error message that doesn't interrupt the flow. Claude Code, built to be helpful, reaches for an alternate tool without mentioning the gap.
+5. **The founder assumes the tool is still working** because it was set up correctly and nothing has broken loudly. Months pass.
+6. **Discovery is accidental** — usually triggered by "hey, why haven't we been using X?" rather than by any warning system.
+
+The failure isn't in the tools. It's in the absence of a verification layer between "we registered it" and "it's actively running every time we think it is."
+
+### The Fix
+
+The same principle that fixed the PRD drift applies to tool drift: **make verification mandatory, not optional.**
+
+1. **Every `/prebuild` invocation now runs a tool health check first.** Three seconds: `claude mcp list` + `mgrep whoami`. If any expected tool is failed or unauthenticated, the skill refuses to proceed with the audit. A silent failure this session is caught within one build cycle, not months later.
+2. **The reconnection procedure for each tool is documented** (in memory and in this lessons file). When something's broken, the fix path is one command, not a debugging session.
+3. **Package quirks are recorded.** For go-npm packages like endorctl, the MCP config uses the full binary path instead of `npx -y <pkg>`. PATH gotchas are documented so they don't have to be re-derived.
+4. **Windows-specific PATH layering is a known gotcha.** Three node installations coexist on this machine (`Program Files\nodejs`, `nvm4w\nodejs`, `AppData\Roaming\npm`). The one that runs isn't always the one where packages land. `where <cmd>` + `npm config get prefix` is always the first debug step.
+
+### The Second Insight
+
+> "Silent tool failures are worse than loud ones. A tool that errors loudly gets fixed immediately. A tool that silently no-ops gets forgotten for months while you think you're getting its benefits."
+
+AURI was installed for the highest-security-risk features in the entire codebase. PRD-01 and PRD-02 shipped without it having scanned a single line. That's not a tooling quirk — that's weeks of security-sensitive code written without the safety net that was supposed to catch problems. The scanner wasn't broken. Our assumption that "it's installed, so it's running" was broken.
+
+### The Rule
+
+If you depend on a tool, verify it's actually running. Before every build session. Not occasionally. Not when you remember. Every time. The cost of the check is seconds. The cost of assuming is weeks of unscanned code or a shipped auth vulnerability.
+
+This applies to MCP servers, auth-backed CLIs (semantic search, cloud DB tools, issue trackers), language servers, linters wired to IDE plugins, deploy webhooks, cron jobs, background workers — anything that's supposed to be happening but you can't see happening.
+
+The check doesn't have to be elaborate. It just has to run.
+
+---
+
 ## The Numbers
 
 | Metric | Before Process | After Process |
@@ -199,6 +261,34 @@ The AI is an incredibly powerful building tool. But it needs guard rails — not
 | 2026-03-23 | Pre-build process designed and documented |
 | 2026-03-23 to 2026-03-25 | 10 remediation phases fix audit failures |
 | 2026-03-25 | Remediation complete. Process proven. New builds begin. |
+| 2026-04-16 | Second failure mode discovered: silent tool drift. AURI disconnected since initial setup, mgrep index 3 weeks stale, codegraph database locked. Full tool sweep conducted (see `TOOL_HEALTH_REPORT_2026-04-16.md`); Step 0 tool health check added to `/prebuild` skill; quick-reference patterns below added for rapid lookup. |
+
+---
+
+## Quick Reference: Silent-Failure Patterns
+
+Named patterns for rapid lookup during troubleshooting. Full context in the narrative sections above.
+
+### Pattern: Windows npm PATH Layering
+**Symptom:** `npm install -g <package>` succeeds. The command is unavailable or runs an old version. `where <command>` shows multiple paths or nothing. A tool you "just installed" behaves as if it wasn't installed.
+**Root cause:** On Tenise's Windows machine, three node/npm installations coexist (`C:\Program Files\nodejs\`, `C:\nvm4w\nodejs\`, `C:\Users\tenis\AppData\Roaming\npm\`). PATH resolution picks the first match; global installs land in the Roaming folder. The folder that runs the command isn't always the folder where packages land.
+**Detection:** `where <command>` shows multiple locations (or none); `npm config get prefix` shows a different folder than what's actually on PATH first.
+**Fix:** Install directly into the folder that wins PATH resolution, OR use full binary paths for anything that needs to be reliably callable by name. For go-npm packages (endorctl, a few others), the postinstall writes the binary to `<prefix>/bin/<name>.exe` — which is NOT on PATH — and no `.cmd` shim gets created. Always use the full binary path for these.
+**Prevention:** Setup-checklist Step 2 documents the full-binary-path approach for AURI/endorctl. `/prebuild` Step 0 catches connection failures that result from this class of issue. Memory: `feedback_windows_npm_path.md`.
+
+### Pattern: MCP Silent Disconnect
+**Symptom:** `claude mcp list` shows a server as `✗ Failed to connect`. Claude Code never calls the MCP's tools because they aren't available. No error surfaces during builds. Time passes; the expected benefit of the tool doesn't happen.
+**Root cause:** MCP registration is non-validating — `claude mcp add` succeeds as long as the config is syntactically valid. It doesn't attempt to start the server. If the command path is wrong, the server silently fails to start on first use, and Claude Code routes around it without mention.
+**Detection:** `claude mcp list` shows `✗ Failed to connect` for the affected server. Alternative signal: the tool hasn't been used for an unexpectedly long time despite being expected to run.
+**Fix:** `claude mcp get <name>` to inspect the registered command. Run the command manually (outside the MCP wrapper) to see the actual error. Re-register with a corrected command; verify with `claude mcp list` shows `✓ Connected`.
+**Prevention:** `/prebuild` Step 0 hard-gates on `✗ Failed to connect` for required MCPs. Documented reconnection commands live in per-tool memory files (e.g. `reference_auri_security.md`). After every `claude mcp add`, immediately run `claude mcp list` before walking away.
+
+### Pattern: Auth Token Silent Expiry
+**Symptom:** A CLI tool that previously worked starts returning "Failed to refresh token" or similar. Tool appears installed. Claude Code silently stops using it and falls back to a less-capable alternative (e.g., mgrep → regular Grep). No error surfaces to the user. Results still come back but from a less capable tool or a stale cached state.
+**Root cause:** Refresh tokens have finite lifetimes. When they expire and the auto-refresh fails, the tool surfaces the error to stdout/stderr but upstream wrappers (Claude Code plugin hooks, agent code) may not propagate it. The tool "runs" but produces no useful work.
+**Detection:** Tool-specific whoami/status commands (`mgrep whoami`, `gh auth status`, `vercel whoami`, `supabase projects list`). If auth is bad, these surface the error cleanly. Alternative signal: a capability that previously worked degrades quietly — e.g., semantic searches returning only markdown because the CLI is failing and a fallback to regex search took over.
+**Fix:** Re-authenticate via the tool's login command. **Interactive device-code flows (mgrep login, gh auth login) require a real terminal** — piped stdin breaks the handshake mid-flow. The user runs these in their own terminal, then Claude Code verifies after.
+**Prevention:** `/prebuild` Step 0 runs `mgrep whoami` as a required check. Per-tool memory files document the re-auth procedure. Generalizes: any auth-backed tool needs an explicit auth check at session start, not just a "does the binary exist" check. Reference: `feedback_mcp_verify_after_register.md` (extends beyond MCPs to any auth-backed CLI).
 
 ---
 

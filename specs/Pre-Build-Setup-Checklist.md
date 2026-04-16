@@ -35,15 +35,27 @@ The audit prompt should instruct Opus to check for:
 
 ## Step 2: Install Developer Tools (AURI + mgrep)
 
+> **Install is step 1 of 2. Verify-firing is step 2.** A tool that's "registered" is not a tool that's "actually firing." Both AURI and mgrep have known silent-failure modes — a tool can appear connected or authenticated and still no-op on every call. The April 2026 tool health sweep (see `TOOL_HEALTH_REPORT_2026-04-16.md`) discovered AURI had been silently disconnected and mgrep had been silently running against a 3-week-stale index. Neither produced error messages. Every verification step below is there to catch a specific failure mode that has actually occurred.
+
 ### AURI Security Scanner
 
 **What it is:** Free MCP-based security scanner by Endor Labs. Runs locally in VS Code alongside Claude Code. Scans AI-generated code in real time for vulnerabilities. Your code never leaves your machine.
 
 **Why now:** PRD-01 (Auth) and PRD-02 (Permissions) are your highest-security-risk features. Having AURI active from the first line of auth code means you never accumulate unscanned security debt.
 
+**Install:**
 - [ ] Install AURI MCP server (no signup, no credit card)
-- [ ] Add to VS Code MCP config alongside other servers
-- [ ] Verify it activates when Claude Code runs
+- [ ] Add to Claude Code MCP config using the FULL binary path, not `npx -y endorctl`. Windows example:
+  ```
+  claude mcp add endor-cli-tools "C:/Users/<user>/AppData/Roaming/npm/bin/endorctl.exe" -- ai-tools mcp-server
+  ```
+  **Why the full path:** endorctl uses a `go-npm` postinstall script that downloads the Go binary AFTER npm's shim-generation step finishes. On Windows, no `endorctl.cmd` shim gets created at `<npm-prefix>/endorctl.cmd`. The binary exists at `<npm-prefix>/bin/endorctl.exe` but isn't on PATH under that name. `npx -y endorctl` silently fails to resolve. Using the full path bypasses the broken shim.
+
+**Verify firing (not just registered):**
+- [ ] `claude mcp list` → `endor-cli-tools: ... ✓ Connected` (NOT `✗ Failed to connect`)
+- [ ] Run a test scan on a small test file (once Endor Labs account is configured): `endorctl scan <file>` should produce structured findings output
+- [ ] Note: "Connected" only confirms the MCP process started. A test scan is the only way to verify the full path works end-to-end. Until an Endor Labs account is set up, scans remain untested — track as a followup, and document the gap.
+- [ ] If disconnected later: reconnection procedure is in `~/.claude/projects/<slug>/memory/reference_auri_security.md`
 
 ### mgrep Semantic Search
 
@@ -55,11 +67,30 @@ The audit prompt should instruct Opus to check for:
 
 **How it helps during build:** Claude Code uses mgrep automatically (after `mgrep install-claude-code`) to find relevant code patterns, check existing implementations, and locate stubs that need wiring — all by meaning, not just text matching.
 
+**Install:**
 - [ ] Install: `npm install -g @mixedbread-ai/mgrep`
-- [ ] Login: `mgrep login` (authenticates via browser — GitHub, Google, or email)
-- [ ] Index project: `cd MyAIM_Family && mgrep watch` (respects .gitignore, indexes in ~2 min for 10k files)
+- [ ] Login: `mgrep login` (authenticates via browser — GitHub, Google, or email). Must be run in a real interactive terminal; piping stdin breaks the device-code flow.
 - [ ] Wire into Claude Code: `mgrep install-claude-code` (Claude automatically uses mgrep for searches)
-- [ ] Verify: `mgrep "how does the permission gate pattern work"` returns relevant PRD sections
+
+**Known operational limits (critical — document these in your project's memory):**
+- [ ] Default `--max-file-count` is **1000**. Repos above that silently fail with `File count exceeded`. Pass `--max-file-count 3000` (or your repo's count with headroom) OR set `MGREP_MAX_FILE_COUNT=3000` as a persistent environment variable.
+- [ ] **Recommended:** Set the env var globally so the flagless `mgrep watch` invoked by the Claude Code plugin hook picks it up automatically:
+  ```powershell
+  setx MGREP_MAX_FILE_COUNT 3000
+  ```
+  (Without this, every Claude Code session start re-launches the plugin hook, which runs `mgrep watch` with no flags, which hits the 1000-file limit, which writes to a log nobody reads, which the hook reports as success. Silent failure, guaranteed.)
+- [ ] **Free tier quota is 2M "store tokens"** total. MyAIM's repo has ~5-6M tokens of indexable content — the free tier will be exhausted during initial sync. Upgrade to Scale tier ($20/month + credits) if semantic search is part of the workflow.
+- [ ] A large repo on free tier will silently ingest up to 2M tokens then stop. Queries return results, but from a partial index. Exact same failure mode as a stale index.
+
+**Index the project:**
+- [ ] Run in a long-lived terminal: `mgrep watch --max-file-count 3000` (respects .gitignore, indexes in ~2 min for typical repos). Keep this terminal open during active development — the watch process is what keeps the index fresh as files change. When the terminal closes, the index goes stale the moment code changes.
+
+**Verify firing (not just authenticated):**
+- [ ] `mgrep whoami` → returns your authenticated user, NOT `Failed to refresh token`. If token expired, re-login.
+- [ ] Run a real semantic search: `mgrep "how does the permission gate pattern work"` → returns ranked results including PRD sections AND source files. If only PRDs come back, the source is missing from the index (file-count limit, quota, or stale index).
+- [ ] **Freshness probe:** After any major feature lands, search for a known-new file (e.g., a component added yesterday). If it appears in results, the index is current. If not, re-run `mgrep watch` to sync OR troubleshoot why that file didn't get indexed.
+- [ ] Watch the Mixedbread dashboard (https://platform.mixedbread.com) periodically for "store tokens" approaching the tier limit. Run `mgrep watch --dry-run` to see what WOULD be synced without using credits.
+- [ ] If mgrep "works" but returns unexpectedly sparse results for recent code, treat it as stale, not broken. Stale indexes return confident-looking results from an older codebase snapshot — worse than a visible error because they mislead silently.
 
 > **How mgrep and Supabase CLI work together during build:**
 > - **mgrep** searches your local repo files by meaning — PRDs, source code, migration SQL, docs, CLAUDE.md. Use it when Claude Code needs to check a convention, find a pattern, verify a schema definition, or locate a stub.
@@ -95,9 +126,13 @@ Using Claude Code with Sonnet (standard context — save Opus for planning):
 All three tools connect during scaffolding so Claude Code can use them from the first build session. No manual SQL copy-pasting — everything runs through Claude Code in VS Code.
 
 - [ ] Supabase CLI: `supabase init` + `supabase link --project-ref <project-id>` — connects local repo to cloud Supabase project. All migrations run via `supabase db push`. Claude Code writes migration files to `supabase/migrations/` and applies them through the CLI.
-- [ ] AURI: Add MCP server config to VS Code (see Step 2) — activates automatically when Claude Code runs
-- [ ] mgrep: `mgrep watch` in project root + `mgrep install-claude-code` — indexes repo and wires into Claude Code searches
-- [ ] Verify all three: run `supabase status` (should show connected project), check AURI activates on a Claude Code session start, run `mgrep "test query"` (should return results from repo files)
+- [ ] AURI: Add MCP server config to Claude Code using FULL binary path (see Step 2) — `claude mcp list` must show `✓ Connected`
+- [ ] mgrep: `mgrep watch --max-file-count 3000` in a long-lived terminal + `mgrep install-claude-code` — indexes repo and wires into Claude Code searches
+
+**Verify all three (end-to-end, not just "installed"):**
+- [ ] **Supabase cloud auth:** `supabase projects list` → must show your project as linked (dot marker). **Do NOT use `supabase status`** — that requires Docker Desktop for local dev mode, which isn't relevant for cloud-only workflows. The April 2026 sweep failed this check for the wrong reason because Docker wasn't running; `supabase projects list` was the correct test for this project.
+- [ ] **AURI:** `claude mcp list` → `endor-cli-tools: ✓ Connected`. If account credentials are configured, also run a test scan on a known file and confirm output.
+- [ ] **mgrep:** `mgrep whoami` returns authenticated user + `mgrep "your test query"` returns ranked results including BOTH source files and PRD sections. If only one type appears, index is incomplete.
 
 ### Semantic Search & Platform Intelligence Infrastructure
 
@@ -505,4 +540,5 @@ Start with Phase 1 (PRD-01: Auth & Family Setup). Follow the 4-step cycle:
 
 *Created: March 12, 2026*
 *Updated: March 15, 2026 — Added mgrep, pgvector infrastructure, platform intelligence schema, embedding conventions, AI optimization conventions, and Platform Intelligence conventions. Updated doc inventory from 8 to 11.*
-*Reference: Execution Plan v2, Build Prompt Template, Planning Decisions, Semantic Context Infrastructure Addendum, AI Cost Optimization Patterns, Platform Intelligence Pipeline v2*
+*Updated: April 16, 2026 — Split Step 2 into explicit Install + Verify-Firing sections for AURI and mgrep. Documented known silent-failure modes: endorctl go-npm shim gotcha (use full binary path, not `npx -y`), mgrep 1000-file limit (pass `--max-file-count` or set `MGREP_MAX_FILE_COUNT` env var), mgrep 2M-token free-tier quota (MyAIM repo exceeds it, Scale tier required), plugin-hook silent failure. Corrected Step 4 supabase verification from `supabase status` (requires Docker, wrong for cloud-only) to `supabase projects list`. Reference: TOOL_HEALTH_REPORT_2026-04-16.md.*
+*Reference: Execution Plan v2, Build Prompt Template, Planning Decisions, Semantic Context Infrastructure Addendum, AI Cost Optimization Patterns, Platform Intelligence Pipeline v2, TOOL_HEALTH_REPORT_2026-04-16.md*
