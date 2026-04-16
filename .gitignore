@@ -25,7 +25,9 @@ tests/e2e/.auth/
 tests/e2e/.screenshots/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

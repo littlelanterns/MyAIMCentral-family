@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "mgrep watch",
+      "type": "shell",
+      "command": "mgrep",
+      "args": ["watch", "--max-file-count", "3000"],
+      "isBackground": true,
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "focus": false,
+        "echo": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

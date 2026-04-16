@@ -82,8 +82,12 @@ The audit prompt should instruct Opus to check for:
 - [ ] **Free tier quota is 2M "store tokens"** total. MyAIM's repo has ~5-6M tokens of indexable content — the free tier will be exhausted during initial sync. Upgrade to Scale tier ($20/month + credits) if semantic search is part of the workflow.
 - [ ] A large repo on free tier will silently ingest up to 2M tokens then stop. Queries return results, but from a partial index. Exact same failure mode as a stale index.
 
-**Index the project:**
-- [ ] Run in a long-lived terminal: `mgrep watch --max-file-count 3000` (respects .gitignore, indexes in ~2 min for typical repos). Keep this terminal open during active development — the watch process is what keeps the index fresh as files change. When the terminal closes, the index goes stale the moment code changes.
+**Index the project (preferred — VS Code workspace task):**
+- [ ] Add `.vscode/tasks.json` to the repo with a `mgrep watch --max-file-count 3000` task set to `runOn: folderOpen`. See MyAIMCentral's `.vscode/tasks.json` for the canonical version. This auto-starts `mgrep watch` every time the project is opened in VS Code.
+- [ ] In VS Code, run "Tasks: Manage Automatic Tasks" → "Allow Automatic Tasks" from the command palette (Ctrl+Shift+P). This is a one-time security prompt — without it, auto-run tasks are disabled by default.
+- [ ] Do NOT rely on the Mixedbread-Grep Claude Code plugin's `mgrep_watch.py` hook to index automatically. As of April 2026, the hook has four independent Windows-incompatibility bugs (uses `python3` which isn't installed on Windows, writes to `/tmp/` which doesn't exist on Windows, uses Unix-only `preexec_fn=os.setsid`, doesn't use `shell=True` so can't resolve `.cmd` shims). On Windows, the hook has never executed a single line of its own Python code. A VS Code task is cross-platform, visible in the UI, and survives plugin updates.
+
+**Alternative — manual terminal:** If not in VS Code, run `mgrep watch` manually in a long-lived terminal. Set `MGREP_MAX_FILE_COUNT=3000` in your environment so you don't need to remember the `--max-file-count` flag. Keep the terminal open while actively developing.
 
 **Verify firing (not just authenticated):**
 - [ ] `mgrep whoami` → returns your authenticated user, NOT `Failed to refresh token`. If token expired, re-login.
@@ -541,4 +545,5 @@ Start with Phase 1 (PRD-01: Auth & Family Setup). Follow the 4-step cycle:
 *Created: March 12, 2026*
 *Updated: March 15, 2026 — Added mgrep, pgvector infrastructure, platform intelligence schema, embedding conventions, AI optimization conventions, and Platform Intelligence conventions. Updated doc inventory from 8 to 11.*
 *Updated: April 16, 2026 — Split Step 2 into explicit Install + Verify-Firing sections for AURI and mgrep. Documented known silent-failure modes: endorctl go-npm shim gotcha (use full binary path, not `npx -y`), mgrep 1000-file limit (pass `--max-file-count` or set `MGREP_MAX_FILE_COUNT` env var), mgrep 2M-token free-tier quota (MyAIM repo exceeds it, Scale tier required), plugin-hook silent failure. Corrected Step 4 supabase verification from `supabase status` (requires Docker, wrong for cloud-only) to `supabase projects list`. Reference: TOOL_HEALTH_REPORT_2026-04-16.md.*
+*Updated: April 16, 2026 (later same day) — Replaced the mgrep plugin hook recommendation with a VS Code workspace task at `.vscode/tasks.json` after discovering the Mixedbread-Grep Claude Code plugin hook has 4 independent Windows-incompatibility bugs and has never run a single line of its Python code on Tenise's machine. The hook is fundamentally broken on Windows; VS Code task is the cross-platform, visible, survives-plugin-updates replacement. Also noted `.vscode/mcp.json` as a workspace-level VS Code MCP config location that must be checked during tool health sweeps.*
 *Reference: Execution Plan v2, Build Prompt Template, Planning Decisions, Semantic Context Infrastructure Addendum, AI Cost Optimization Patterns, Platform Intelligence Pipeline v2, TOOL_HEALTH_REPORT_2026-04-16.md*

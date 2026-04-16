@@ -25,7 +25,7 @@ A tool that passes 1 + 2 but fails 3 is the exact failure mode that prompted thi
 | codegraph MCP | ✓ | n/a | ✓ **after full re-index this session** | Green — verified via real query for post-Mar-28 code |
 | endor-cli-tools MCP (AURI) | ✓ | n/a | ⚠ Partial | MCP reachable; full scan verification requires Endor Labs account setup (F1) |
 | mgrep CLI | ✓ | ✓ | ✓ **Scale tier + full re-index this session** | Green for most surfaces. Yellow: `src/components/studio/wizards/` files not yet appearing in searches — likely async embedding lag on last-48h files (F10). |
-| mgrep watch hook (plugin) | ✓ | n/a | ✗ **Silent failure bug** | Red — hook runs `mgrep watch` with no flags, hits 1000-file limit on every session start, writes error to log nobody reads, reports success to Claude Code. See Finding 2b. |
+| mgrep watch hook (plugin) | ✓ | n/a | ✗ **Fundamentally broken on Windows — has never run** | RED — initial diagnosis was "file-count limit failure"; deeper investigation found 4 independent Windows-incompatibility bugs, starting with `python3` not being installed at all. See Finding 2b. **Resolved by replacing the hook with a VS Code workspace task** at `.vscode/tasks.json` (committed 2026-04-16). Hook itself still broken but now redundant — the task does the real work. |
 | claude.ai Gmail MCP | ✓ | ✗ Needs auth | n/a | Optional — not required for code builds |
 | claude.ai Google Calendar MCP | ✓ | ✗ Needs auth | n/a | Optional — not required for code builds |
 | claude.ai Google Drive MCP | ✓ | ✓ | Not tested | Optional — surface status only |
@@ -109,41 +109,82 @@ Every search I ran for content that should live in this directory returned zero 
 
 ---
 
-### 2b. mgrep watch hook — **silent-failure bug (plugin-level, unpatched)**
+### 2b. mgrep watch hook — **Windows-incompatible, has NEVER run on this machine**
+
+> **Note (2026-04-16 update):** The initial Finding 2b below described a single "silent failure" at the `mgrep watch` file-count step. Deeper investigation in the same session revealed the hook has FOUR independent Windows-incompatibility bugs and has never executed a single line of its Python code on this machine. The updated diagnosis is below. Resolution: replaced the hook mechanism entirely with a VS Code workspace task.
 
 **Location:** `~/.claude/plugins/cache/Mixedbread-Grep/mgrep/0.0.0/hooks/mgrep_watch.py` (also at `~/.claude/plugins/marketplaces/Mixedbread-Grep/plugins/mgrep/hooks/mgrep_watch.py`).
 
-**Trigger:** `hook.json` fires this hook on every Claude Code `SessionStart` event (matcher: `startup|resume`) with a 10-second launcher timeout.
+**Trigger:** `hook.json` fires this hook on every Claude Code `SessionStart` event (matcher: `startup|resume`) with a 10-second launcher timeout. Hook command: `python3 ${CLAUDE_PLUGIN_ROOT}/hooks/mgrep_watch.py`.
 
-**The bug:** The hook runs the subprocess with no flags and dumps both stdout and stderr to a session-specific log file that nobody reads:
+**Initial diagnosis (wrong):** The hook runs `mgrep watch` with no flags, hits the 1000-file default limit, writes to a log nobody reads, reports success. Prescribed fix: `MGREP_MAX_FILE_COUNT=3000` as env var.
 
-```python
-process = subprocess.Popen(
-    ["mgrep", "watch"],
-    preexec_fn=os.setsid,
-    stdout=open(f"/tmp/mgrep-watch-command-{session_id}.log", "w"),
-    stderr=open(f"/tmp/mgrep-watch-command-{session_id}.log", "w"),
-)
+**Actual diagnosis (after running the hook manually):** The hook has FOUR independent Windows-incompatibility bugs, any one of which prevents it from working. The initial env-var fix would not have helped because the hook never reaches the point of reading env vars.
+
+| # | Bug | Effect |
+|---|---|---|
+| 1 | `python3` is not installed on this Windows machine. Running `python3` invokes the Microsoft Store installer stub, which prints an install prompt and exits. | Hook never starts. The `python3` interpreter that `hook.json` specifies simply doesn't exist on this system. |
+| 2 | `C:\tmp\` does not exist on this Windows machine (verified: `[ -d /c/tmp ] → NO`). The hook's Python script does `open("/tmp/mgrep-watch-command-<id>.log", "w")`, which on Windows resolves to `C:\tmp\mgrep-watch-command-<id>.log`. | Even if Python were installed, `open()` would raise `FileNotFoundError` because the parent directory doesn't exist. |
+| 3 | `subprocess.Popen([...], preexec_fn=os.setsid)` on line 42 — `preexec_fn` is Unix-only. On Windows, Python raises `ValueError: preexec_fn is not supported on Windows platforms`. | Even if `C:\tmp\` existed and Python ran, the subprocess call crashes before starting `mgrep`. |
+| 4 | `subprocess.Popen(["mgrep", "watch"])` without `shell=True` — Python's `subprocess` on Windows doesn't find `.cmd` shims unless `shell=True` is passed. It looks for `mgrep.exe`. | Even if bugs 1–3 were fixed, `mgrep` wouldn't resolve because `mgrep.cmd` (the npm shim on PATH) isn't findable without shell=True. |
+
+**Net effect:** The hook has been failing at step 1 from day one. No log files exist in `C:\tmp\` because Python never executed. Claude Code happily reports the hook "succeeded" (it exited within the 10-second timeout, with a non-zero exit code from the MS Store stub that Claude Code doesn't treat as a hard fail). Every session start has been a no-op for mgrep indexing.
+
+**What actually kept mgrep's index fresh during this session:** the sweep-operator (Claude Code, in this session) manually ran `mgrep watch --max-file-count 3000` via the background Bash tool. That's the ONLY way mgrep has ever indexed this repo. The hook contributed nothing.
+
+### The chosen long-term fix: VS Code workspace task (implemented 2026-04-16)
+
+Rather than patch a Python hook that is fundamentally Windows-incompatible AND lives in a plugin cache folder (which gets wiped on plugin updates), we replaced the mechanism entirely with a VS Code workspace task at `.vscode/tasks.json`:
+
+```json
+{
+  "label": "mgrep watch",
+  "type": "shell",
+  "command": "mgrep",
+  "args": ["watch", "--max-file-count", "3000"],
+  "isBackground": true,
+  "runOptions": { "runOn": "folderOpen" },
+  "presentation": { "reveal": "silent", "panel": "dedicated", ... }
+}
 ```
 
-Three consequences:
-1. **File-count failure is silent.** Any repo with >1000 tracked files (MyAIMCentral has 1,346) triggers `❌ Files to sync (1346) exceeds the maximum allowed (1000). No files were synced.` But the hook reports success to Claude Code regardless. No UI signal. No degraded-mode badge.
-2. **Quota failure was silent.** Before Scale upgrade, the free-tier quota exhaustion also surfaced only in that same log file. The hook reported success.
-3. **Still vulnerable after Scale upgrade.** The Scale tier fixed the quota issue but did NOT change the client-side 1000-file limit. Every new session right now: hook fires → `mgrep watch` errors with file-count limit → hook reports green → Tenise believes watch is running.
+**Why this is better than patching the hook:**
+- No dependency on `python3` being installed
+- No dependency on `C:\tmp\` existing
+- No Unix-only Python kwargs
+- Cross-platform (Windows, Mac, Linux with zero changes)
+- Visible in VS Code's Terminal panel — failures aren't silent, the task's output is right there
+- Survives plugin updates (the task lives in this repo, not in `~/.claude/plugins/cache/`)
+- Committed to the repo = documented + reproducible for any future developer
 
-**This is the silent-failure pattern in pure form.** The tool writes the error to a log nobody reads, the wrapper returns success, the system carries on.
+**One-time setup step after this commit:** VS Code disables auto-run tasks by default for security. After pulling this change, run **"Tasks: Manage Automatic Tasks"** → **"Allow Automatic Tasks"** from the command palette (Ctrl+Shift+P). After that, `mgrep watch` starts automatically every time the project folder opens.
 
-**Fix options (not yet applied — Tenise's call):**
+**The broken hook is NOT removed.** It still exists in `~/.claude/plugins/cache/Mixedbread-Grep/mgrep/0.0.0/` and continues to fire on session start and continues to no-op. We don't remove it because we don't own the plugin cache; plugin updates could re-install it anyway. It's just harmlessly ineffective — the VS Code task does the real work. When `mgrep watch` is already running (from the VS Code task), a second invocation from the hook (if it ever starts working) would just detect no-changes-to-sync and exit.
 
-| Option | Description | Pros | Cons |
-|---|---|---|---|
-| A | Set `MGREP_MAX_FILE_COUNT=3000` as a user-level Windows environment variable | Persistent, survives plugin updates, no code modifications, the flagless `mgrep watch` in the hook picks it up automatically | Requires Tenise to set the env var once (via `setx` or Windows settings); value is global to user, not project-specific |
-| B | Patch the plugin hook locally to add `--max-file-count 3000` | Surgical, precise | Plugin cache files get wiped on plugin update; patch must be re-applied |
-| C | File upstream issue with Mixedbread | Right fix, benefits everyone | Long lead time; in the meantime, A or B still needed |
+### What about also fixing the hook?
 
-**Recommendation:** Option A. One-time setup, survives plugin updates, transparent to the hook.
+Technically possible — see the 4-bug table above — but not recommended as a primary mechanism. Options analyzed:
 
-Added to followups as F13 (env var fix) and F14 (upstream issue).
+| Approach | Survives plugin update? | Recommendation |
+|---|---|---|
+| Install Python 3 + `mkdir C:\tmp` (bugs 1 + 2) | Yes | Do if convenient — good hygiene for other Unix-inspired tools. Does NOT make the hook work — bugs 3+4 remain. |
+| Patch plugin Python file for bugs 3 + 4 | **No — wiped on plugin update** | **Do NOT do.** Exactly the silent-failure pattern we're trying to escape — patch works for a while, plugin update silently wipes it, hook goes back to no-op, nobody notices for weeks. |
+| File upstream issue with Mixedbread to fix bugs 3 + 4 in plugin source | Yes (once their fix ships) | **Do.** Right fix, benefits every Windows user of this plugin. Long lead time. |
+
+**Defense in depth strategy:** VS Code task is the primary, always-on mechanism. Upstream fix (F14) is the slow but correct background action. If Mixedbread fixes the hook eventually, it runs as a harmless duplicate of the task.
+
+### Also — missed VS Code-level AURI registration (fixed in same commit)
+
+During this update's investigation, discovered `.vscode/mcp.json` at the workspace level registers AURI with the broken `npx -y endorctl` command — the same broken pattern I fixed earlier at the Claude Code level. Earlier in the sweep I'd grep'd VS Code *user* settings for MCP references and found none — but missed the *workspace* `.vscode/mcp.json`. Fixed in this commit to use the full binary path, matching the Claude Code registration.
+
+Lesson: "VS Code MCP config" lives in multiple places depending on scope (user, workspace, devcontainer). A tool sweep needs to check all of them, not just user settings.
+
+### Followups updated
+
+- **F13 (env var)** — RESCINDED. The initial fix wouldn't have helped because the hook doesn't run at all. Env var can still be set if desired (useful for manual `mgrep watch` invocations to not need the `--max-file-count` flag), but it's now a convenience, not a required fix.
+- **F14 (upstream issue)** — KEPT AND EXPANDED. File GitHub issue on the Mixedbread-Grep plugin describing all 4 Windows-incompatibility bugs. Report the specific behavior: on Windows without Python 3 installed, the hook exits silently with the MS Store stub and reports success.
+- **F16 (new)** — Optional: install Python 3 + `mkdir C:\tmp`. Good hygiene but doesn't fix the hook without upstream changes.
+- **F17 (new)** — Sweep methodology update: tool health sweeps must check `.vscode/mcp.json` (workspace-level), `.vscode/settings.json` (workspace-level), `~/.vscode/argv.json` (if present), AND VS Code user settings — not just one of these. Document in setup checklist.
 
 ---
 
@@ -335,21 +376,37 @@ None block anything. Surface only.
 **Issue:** `public/sittinglila.png` and `public/decorations/sittinglila.png` are byte-for-byte identical (both 1.12 MB). Unrelated to mgrep — just bloat in the repo.
 **Action:** Decide which copy is canonical, delete the other, update references.
 
-### F13 — Fix mgrep watch hook silent failure
-**Priority:** High. This is the active bug from Finding 2b.
-**Recommended action:** Set `MGREP_MAX_FILE_COUNT=3000` as a Windows user-level environment variable:
-```powershell
-setx MGREP_MAX_FILE_COUNT 3000
-```
-Then restart the Claude Code process so the hook inherits the env var. Verify after: in the next new session, check `/tmp/mgrep-watch-command-<session>.log` for `Initial sync complete` rather than `File count exceeded`.
-**Why this not plugin patching:** The plugin cache directory gets wiped on plugin updates. Env var approach is persistent and update-safe.
+### F13 — RESCINDED 2026-04-16
+**Original action:** Set `MGREP_MAX_FILE_COUNT=3000` as a Windows user env var so the mgrep watch hook would pick it up.
+**Rescinded because:** The deeper investigation (same day) found the hook never runs at all on this Windows machine — `python3` isn't installed, `C:\tmp\` doesn't exist, and the Python code itself has Unix-only kwargs. The env var would never be read because the hook never reaches that code path. Replaced with VS Code workspace task approach — see Finding 2b resolution.
+**What is still useful about the env var:** If you manually run `mgrep watch` in a standalone terminal (outside the VS Code task), setting `MGREP_MAX_FILE_COUNT=3000` saves you from needing to remember the `--max-file-count` flag. Purely a convenience.
 
 ### F14 — Upstream issue to Mixedbread on watch hook
+**Priority:** Medium (bumped from Low — now that we know the full scope of Windows incompatibility, reporting upstream is the only path to a clean fix).
+**Action:** File an issue with the Mixedbread-Grep plugin describing all 4 Windows-incompatibility bugs found during the April 2026 sweep:
+1. Hook script uses `python3` but Windows doesn't ship with Python 3 by default (default `python3` on Windows is the Microsoft Store installer stub).
+2. Hook writes log files to `/tmp/` which resolves to `C:\tmp\` on Windows — a directory that doesn't exist in standard Windows installs. `open()` raises `FileNotFoundError`.
+3. Hook uses `preexec_fn=os.setsid` in `subprocess.Popen` — Unix-only, raises `ValueError` on Windows.
+4. Hook calls `subprocess.Popen(["mgrep", "watch"])` without `shell=True` — on Windows this won't find `mgrep.cmd` (the npm shim).
+Also request:
+- Hook surfaces non-success exit codes to Claude Code so silent failures become visible.
+- Cross-platform PID/log file location (use `tempfile.gettempdir()` instead of hardcoded `/tmp/`).
+
+### F16 — Optional Windows hygiene: install Python 3 + create C:\tmp\
 **Priority:** Low.
-**Action:** File an issue with the Mixedbread-Grep plugin asking for:
-1. The watch hook to accept an `MGREP_MAX_FILE_COUNT` default and/or pass `--max-file-count` explicitly with a higher default
-2. The hook to surface non-success exit codes to Claude Code so silent failures become visible
-3. Ideally, a local `.mgrep/config` file that the hook respects
+**Action:** Install Python 3 from python.org (and disable the MS Store `python3` execution alias in Settings → Apps → App execution aliases). Create `C:\tmp\` (`mkdir C:\tmp`).
+**Benefit:** Both benefit other Unix-inspired tools that assume Python 3 + `/tmp/` are available. Does NOT make the mgrep hook work — bugs 3 and 4 remain — but cleans up 2 of the 4 incompatibility layers. Worth doing when convenient.
+
+### F17 — Tool sweep methodology: check all VS Code MCP config locations
+**Priority:** Medium.
+**Issue:** During the initial sweep, I grep'd VS Code user settings for MCP references and reported "no VS Code-level MCP config" — but missed `.vscode/mcp.json` at the workspace level, which existed and registered AURI with the broken `npx -y endorctl` command. Discovered during the Windows hook investigation. Fixed in the same commit as Finding 2b's resolution.
+**Action:** Update the sweep methodology (and Step 0 check) to inspect ALL of:
+- `~/AppData/Roaming/Code/User/settings.json` (user-level)
+- `.vscode/mcp.json` (workspace-level, NEW to check)
+- `.vscode/settings.json` (workspace-level)
+- `~/.vscode/argv.json` if present
+- Any `devcontainer.json` files
+Document in `specs/Pre-Build-Setup-Checklist.md`.
 
 ### F15 — src/ ratchet-watch: the repo grew from assumed ~400K tokens to actual ~1.8M tokens in `src/` alone
 **Priority:** Low. Not a bug — an observation.
