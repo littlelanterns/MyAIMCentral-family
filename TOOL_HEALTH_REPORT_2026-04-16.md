@@ -123,12 +123,12 @@ Every search I ran for content that should live in this directory returned zero 
 
 | # | Bug | Effect |
 |---|---|---|
-| 1 | `python3` is not installed on this Windows machine. Running `python3` invokes the Microsoft Store installer stub, which prints an install prompt and exits. | Hook never starts. The `python3` interpreter that `hook.json` specifies simply doesn't exist on this system. |
+| 1 | `python3` as a command resolves to the Microsoft Store installer stub on Windows, even though real Python 3 IS installed (verified 2026-04-16: `python --version` and `py --version` both return Python 3.10.6). On Windows 10/11, the command name `python3` is registered as an "App execution alias" that intercepts the call BEFORE normal PATH resolution — it opens the Store installer prompt and exits. The real Python installation is callable as `python` or `py`, but anything that specifically invokes `python3` (like this plugin hook's `hook.json`) hits the stub. | Hook never starts. The interpreter name the hook specifies is hijacked by the Store alias before reaching the real Python. |
 | 2 | `C:\tmp\` does not exist on this Windows machine (verified: `[ -d /c/tmp ] → NO`). The hook's Python script does `open("/tmp/mgrep-watch-command-<id>.log", "w")`, which on Windows resolves to `C:\tmp\mgrep-watch-command-<id>.log`. | Even if Python were installed, `open()` would raise `FileNotFoundError` because the parent directory doesn't exist. |
 | 3 | `subprocess.Popen([...], preexec_fn=os.setsid)` on line 42 — `preexec_fn` is Unix-only. On Windows, Python raises `ValueError: preexec_fn is not supported on Windows platforms`. | Even if `C:\tmp\` existed and Python ran, the subprocess call crashes before starting `mgrep`. |
 | 4 | `subprocess.Popen(["mgrep", "watch"])` without `shell=True` — Python's `subprocess` on Windows doesn't find `.cmd` shims unless `shell=True` is passed. It looks for `mgrep.exe`. | Even if bugs 1–3 were fixed, `mgrep` wouldn't resolve because `mgrep.cmd` (the npm shim on PATH) isn't findable without shell=True. |
 
-**Net effect:** The hook has been failing at step 1 from day one. No log files exist in `C:\tmp\` because Python never executed. Claude Code happily reports the hook "succeeded" (it exited within the 10-second timeout, with a non-zero exit code from the MS Store stub that Claude Code doesn't treat as a hard fail). Every session start has been a no-op for mgrep indexing.
+**Net effect:** The hook has been failing at step 1 from day one — `python3` hits the MS Store alias instead of the real Python 3 installation that IS present on the machine. No log files exist in `C:\tmp\` because the hook's Python code never executed. Claude Code happily reports the hook "succeeded" (it exited within the 10-second timeout, with a non-zero exit code from the MS Store stub that Claude Code doesn't treat as a hard fail). Every session start has been a no-op for mgrep indexing.
 
 **What actually kept mgrep's index fresh during this session:** the sweep-operator (Claude Code, in this session) manually ran `mgrep watch --max-file-count 3000` via the background Bash tool. That's the ONLY way mgrep has ever indexed this repo. The hook contributed nothing.
 
@@ -392,10 +392,11 @@ Also request:
 - Hook surfaces non-success exit codes to Claude Code so silent failures become visible.
 - Cross-platform PID/log file location (use `tempfile.gettempdir()` instead of hardcoded `/tmp/`).
 
-### F16 — Optional Windows hygiene: install Python 3 + create C:\tmp\
+### F16 — Optional Windows hygiene: disable `python3` MS Store alias + create C:\tmp\
 **Priority:** Low.
-**Action:** Install Python 3 from python.org (and disable the MS Store `python3` execution alias in Settings → Apps → App execution aliases). Create `C:\tmp\` (`mkdir C:\tmp`).
-**Benefit:** Both benefit other Unix-inspired tools that assume Python 3 + `/tmp/` are available. Does NOT make the mgrep hook work — bugs 3 and 4 remain — but cleans up 2 of the 4 incompatibility layers. Worth doing when convenient.
+**Correction to earlier F16 wording:** Real Python 3 IS installed on this machine (verified 2026-04-16 — `python --version` returns Python 3.10.6). The problem is specifically that the `python3` command name is intercepted by the Microsoft Store installer alias, not that Python itself is missing.
+**Action:** In Windows Settings → Apps → Advanced app settings → App execution aliases, toggle OFF the entries for `python3.exe` / `Python3 (App Installer)`. Also `mkdir C:\tmp`.
+**Benefit:** Makes `python3` resolve to the real Python install, and gives Unix-inspired tools the `/tmp/` directory they assume exists. Does NOT make the mgrep hook work — bugs 3 and 4 remain (Unix-only kwargs + shell=True issue). But cleans up 2 of the 4 incompatibility layers. Takes about 30 seconds. Worth doing when convenient, not urgent.
 
 ### F17 — Tool sweep methodology: check all VS Code MCP config locations
 **Priority:** Medium.
