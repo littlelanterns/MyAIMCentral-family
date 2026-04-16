@@ -23,7 +23,7 @@ A tool that passes 1 + 2 but fails 3 is the exact failure mode that prompted thi
 | Tool | Registered | Authed | Actually Firing | Status |
 |---|---|---|---|---|
 | codegraph MCP | ✓ | n/a | ✓ **after full re-index this session** | Green — verified via real query for post-Mar-28 code |
-| endor-cli-tools MCP (AURI) | ✓ | n/a | ⚠ Partial | MCP reachable; full scan verification requires Endor Labs account setup (F1) |
+| endor-cli-tools MCP (AURI) | ✗ **Formally disabled 2026-04-16 (afternoon)** | n/a | ✗ Not functional | Registration removed from `~/.claude.json` after discovery that the plugin-installed config was broken end-to-end: User-scope registration used `npx` (non-functional on this Windows machine per the Go-npm shim issue), AND no credentials stored. Brief "✓ Connected" status after `claude plugin install ai-plugins@claude-plugins-official` was transient — ToolSearch confirmed zero `mcp__endor-cli-tools__*` tools ever exposed. Developer Edition was always the target (no ENDOR_* env vars set; MCP server's first call hit `/v1/namespaces/demo-trial/policies` = DevEd default namespace). Full reinstall required (invocation + credentials + verified MCP tool call). See F1. Canonical example of the "Connected ≠ Functional" pattern. |
 | mgrep CLI | ✓ | ✓ | ✓ **Scale tier + full re-index this session** | Green for most surfaces. Yellow: `src/components/studio/wizards/` files not yet appearing in searches — likely async embedding lag on last-48h files (F10). |
 | mgrep watch hook (plugin) | ✓ | n/a | ✗ **Fundamentally broken on Windows — has never run** | RED — initial diagnosis was "file-count limit failure"; deeper investigation found 4 independent Windows-incompatibility bugs, starting with `python3` not being installed at all. See Finding 2b. **Resolved by replacing the hook with a VS Code workspace task** at `.vscode/tasks.json` (committed 2026-04-16). Hook itself still broken but now redundant — the task does the real work. |
 | claude.ai Gmail MCP | ✓ | ✗ Needs auth | n/a | Optional — not required for code builds |
@@ -308,10 +308,32 @@ None block anything. Surface only.
 
 ## Followups (tracked for future execution)
 
-### F1 — Set up Endor Labs account, verify AURI end-to-end scan
+### F1 — Full AURI reinstall: invocation + credentials + verified MCP tool call
 **Priority:** High.
-**Blocker for:** Being able to trust that AURI is actually scanning auth/permissions code, not just connected. Until this is done, Step 0 reports "MCP reachable" for AURI, but we do not have ground truth that real scans return real findings.
-**Action:** Create Endor Labs account, configure API key/secret on `endorctl` CLI, run a minimal scan on a small test file, confirm findings output. Then update Step 0 Task 4 probe to include a scan assertion, not just connection.
+**Status:** AURI formally disabled 2026-04-16 afternoon. Registration removed from `~/.claude.json`. Not a partial/ambient broken state — explicitly removed so nothing silently claims to be a security scanner.
+
+**Blocker for:** Being able to trust that AURI is actually scanning auth/permissions code. Not just "connected" — we learned today that "Connected" can be transient, misleading, and wholly disconnected from whether the scanner is exposing tools or authenticating successfully.
+
+**What was learned this session (2026-04-16 afternoon):**
+1. `claude plugin install ai-plugins@claude-plugins-official` is NOT sufficient on its own. It briefly produced a "✓ Connected" status that turned out to be illusory — ToolSearch for "endor" returned zero deferred tools, meaning the MCP server never exposed any scanner tools to the session.
+2. The plugin's User-scope registration uses `npx -y endorctl ai-tools mcp-server`, which is non-functional on Tenise's Windows machine due to the Go-npm shim issue already documented in `feedback_windows_npm_path.md`. Must use the full binary path: `C:/Users/tenis/AppData/Roaming/npm/bin/endorctl.exe`.
+3. Even with a correct invocation path, `endorctl auth --print-access-token` returns `Error: no credentials found`. Credentials must be obtained separately via `endorctl init` in a real Windows terminal (PowerShell/cmd) where a browser can open for device-code OAuth — this cannot be done from a Bash subprocess inside Claude Code.
+4. Developer Edition is the correct target (Enterprise requires a paid tenant). No ENDOR_* environment variables were set; the broken MCP server's first API call hit `/v1/namespaces/demo-trial/policies` which is the Developer Edition default namespace. Nothing Enterprise-specific to unwind during reinstall.
+5. `endorctl init` opens a GitHub/GitLab/Google OAuth flow. GitHub identity `littlelanterns@github` (email `tenisewertman@gmail.com`) successfully authenticated against Enterprise flow earlier and received "No authorized tenant found" — that's the Enterprise path confirming itself as wrong. Developer Edition flow is separate and should not require tenant authorization.
+
+**Reinstall recipe (to execute in Phase 0.25):**
+1. In a real Windows terminal (PowerShell or cmd), NOT Claude Code's Bash: run `C:\Users\tenis\AppData\Roaming\npm\bin\endorctl.exe init` and complete the Developer Edition OAuth flow. Browser should open. Complete login.
+2. Verify credentials landed: `C:\Users\tenis\AppData\Roaming\npm\bin\endorctl.exe auth --print-access-token` should print a token, not "no credentials found."
+3. Register the MCP server with the full binary path: `claude mcp add endor-cli-tools "C:/Users/tenis/AppData/Roaming/npm/bin/endorctl.exe" -- ai-tools mcp-server` (or equivalent — avoid the plugin install path that created the npx config).
+4. Restart Claude Code so the MCP server gets reinvoked in a subprocess that can now read the credentials file.
+5. **End-to-end verification (the actual bar for "done"):** In a new Claude Code session, run ToolSearch with query "endor" and confirm `mcp__endor-cli-tools__*` tools appear. Call at least one of them against a real file and confirm a real scan result (not an error, not silence). "Connected" in `claude mcp list` is not sufficient.
+6. Update Step 0 Task 4 probe (F2) to include a real MCP call assertion for AURI — not just a connection check.
+
+**Do NOT do:**
+- Trust `claude plugin install` to handle everything. Today's experience proves it doesn't.
+- Trust "✓ Connected" status alone. Always verify with an actual tool call.
+- Run `endorctl init` from Claude Code's Bash subprocess — the browser OAuth flow does not work cleanly in a subprocess.
+- Set any `ENDOR_NAMESPACE`, `ENDOR_MCP_SERVER_AUTH_MODE`, or `ENDOR_MCP_SERVER_AUTH_TENANT` env vars — those are Enterprise Edition settings and we are on Developer Edition.
 
 ### F2 — Task 4: Enhance Step 0 with end-to-end probes (not just connection checks)
 **Priority:** High. Pulled straight out of this sweep's core finding.
