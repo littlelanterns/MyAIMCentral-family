@@ -19,6 +19,92 @@ The argument is a PRD number. If no number is provided, ask for one.
 
 ---
 
+## Step 0: Tool Health Check (MANDATORY — HARD GATE)
+
+**This step runs before anything else.** Do not read the PRD, do not search addenda, do not touch any other step until tool health is confirmed. Silent tool disconnects have historically gone undetected for weeks (AURI scanned nothing while we thought it was protecting auth code — see `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift").
+
+### Required tools (hard halt if any are broken)
+
+| Tool | Purpose | Check |
+|---|---|---|
+| codegraph MCP | Code graph queries for cross-file impact analysis | `claude mcp list` → must show `✓ Connected` |
+| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | `claude mcp list` → must show `✓ Connected` |
+| mgrep CLI | Semantic search across PRDs, specs, and source | `mgrep whoami` → must return an authenticated user, not `Failed to refresh token` |
+
+### Optional tools (surface status, do NOT halt)
+
+| Tool | Notes |
+|---|---|
+| Gmail MCP, Google Calendar MCP | `! Needs authentication` is expected and acceptable. These are not required for code builds. |
+| Google Drive MCP | If present and connected, note it. If disconnected, note it but do not halt. |
+
+### Execution
+
+1. Run `claude mcp list` and parse output for each server's status.
+2. Run `mgrep whoami 2>&1 | head -3` and check for the auth-failed string.
+3. Build the status table. Include the current timestamp in the header so future log reviews know when the check ran:
+
+   ```
+   Tool Health Check (before /prebuild PRD-XX) — YYYY-MM-DD HH:MM
+   ───────────────────────────────────────────────────────────────
+   ✓ codegraph MCP            — Connected
+   ✓ endor-cli-tools (AURI)   — Connected (scan verification pending account setup)
+   ✓ mgrep CLI                — Authenticated as Tenise
+   ! Gmail MCP                — Needs auth (optional, OK)
+   ! Google Calendar MCP      — Needs auth (optional, OK)
+   ```
+
+   Note: AURI `✓ Connected` confirms MCP reachability only. Full end-to-end scan verification requires Endor Labs account setup, tracked separately as a reconnaissance followup item. This is acknowledged and is not a hard halt — connection alone is sufficient for Step 0 to pass.
+
+4. **If all required tools are green:** print "Tool health ✓ — proceeding to Step 1" and continue.
+
+5. **If ANY required tool is broken: HALT.** Print:
+   - Which tool failed
+   - The exact fix command (see table below)
+   - Instructions: "Resolve the broken tool, then re-invoke `/prebuild PRD-XX`"
+   - **Do not proceed to Step 1.** Return from the skill.
+
+### Fix commands (reference — print the relevant one on failure)
+
+| Tool broken | Fix |
+|---|---|
+| `endor-cli-tools: ✗ Failed to connect` | `claude mcp remove "endor-cli-tools" -s local` then `claude mcp add endor-cli-tools "C:/Users/tenis/AppData/Roaming/npm/bin/endorctl.exe" -- ai-tools mcp-server` then `claude mcp list` to verify. Full context: `reference_auri_security.md` |
+| `codegraph: ✗ Failed to connect` | Check `claude mcp get codegraph` for the registered command. Reinstall codegraph CLI if the binary is missing. |
+| `mgrep: Failed to refresh token` | Tenise must run `mgrep login` in her OWN terminal (outside Claude Code — the device-code flow needs interactive stdin). Full context: `reference_mgrep.md` |
+
+### Override Acknowledged (escape hatch — use sparingly)
+
+If Tenise explicitly says "override acknowledged" or "proceed with override acknowledged" after seeing a failure, the skill may proceed BUT must:
+
+1. Record an audit entry in `CURRENT_BUILD.md` under the active build's Pre-Build Summary section, using this exact format:
+
+   ```
+   YYYY-MM-DD HH:MM — Step 0 override: <tool name> <failure state>, Tenise proceeded with override acknowledged. Known gap: <what capability is missing this build>.
+   ```
+
+   Example:
+   ```
+   2026-04-16 14:32 — Step 0 override: mgrep auth expired, Tenise proceeded with override acknowledged. Known gap: semantic search unavailable this build.
+   ```
+
+2. Include the audit entry in the final pre-build summary presented for founder review (Step 6).
+
+3. Do NOT treat "override acknowledged" as a standing authorization — it applies to this build only. Next `/prebuild` invocation re-runs Step 0 from scratch.
+
+### Why this step exists
+
+See `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift." The short version: tools that silently no-op get forgotten for months while we think we're getting their benefits. AURI was installed specifically to scan auth/permissions code. PRD-01 and PRD-02 shipped without it scanning anything because the MCP was `✗ Failed to connect` and no error ever surfaced. This check closes that gap before every build.
+
+### Reference memory
+
+Full mechanics of why each tool drifts and how to fix:
+- `reference_auri_security.md` — AURI/endorctl quirks, npm-shim gotcha
+- `reference_mgrep.md` — mgrep device-code auth flow, interactive requirement
+- `feedback_windows_npm_path.md` — Windows 3-node-install PATH layering
+- `feedback_mcp_verify_after_register.md` — general auth-backed-tool drift pattern
+
+---
+
 ## Step 1: Locate and Read the Full PRD
 
 1. Check `claude/feature_glossary.md` to find the PRD's category folder
