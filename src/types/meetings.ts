@@ -166,12 +166,14 @@ export type MeetingUrgency = 'overdue' | 'due_today' | 'upcoming'
 
 export function getMeetingUrgency(nextDueDate: string | null): MeetingUrgency | null {
   if (!nextDueDate) return null
+  // Compare using local dates to avoid UTC timezone off-by-one
   const now = new Date()
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const due = new Date(nextDueDate)
-  const diffMs = due.getTime() - now.getTime()
-  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+  const dueLocal = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueLocal.getTime() - todayLocal.getTime()) / (1000 * 60 * 60 * 24))
 
   if (diffDays < 0) return 'overdue'
-  if (diffDays < 1) return 'due_today'
+  if (diffDays === 0) return 'due_today'
   return 'upcoming'
 }

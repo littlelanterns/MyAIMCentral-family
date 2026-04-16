@@ -3,7 +3,7 @@
 // optional facilitator designation. Creates meetings + meeting_participants rows
 // and opens the meeting conversation view.
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { UsersRound, Clock, Sparkles } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
@@ -41,11 +41,18 @@ export function StartMeetingModal({
   const createMeeting = useCreateMeeting()
 
   const [mode, setMode] = useState<MeetingMode>('live')
-  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>(() => {
-    // Default participants based on meeting type
-    return getDefaultParticipants(meetingType, memberId, relatedMemberId, members)
-  })
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([])
   const [facilitatorId, setFacilitatorId] = useState<string | null>(null)
+  const [hasInitializedParticipants, setHasInitializedParticipants] = useState(false)
+
+  // Populate default participants once members load (the useState initializer
+  // runs before useFamilyMembers resolves, so members is [] at mount time)
+  React.useEffect(() => {
+    if (members.length > 0 && !hasInitializedParticipants) {
+      setSelectedParticipantIds(getDefaultParticipants(meetingType, memberId, relatedMemberId, members))
+      setHasInitializedParticipants(true)
+    }
+  }, [members, meetingType, memberId, relatedMemberId, hasInitializedParticipants])
 
   const isFamilyCouncil = meetingType === 'family_council'
   const showParticipantPicker = isFamilyCouncil

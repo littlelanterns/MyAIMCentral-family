@@ -26,10 +26,19 @@ function MeetingUpcomingCard({ schedule, agendaCount, childName, onStartMeeting 
 }) {
   const urgency = getMeetingUrgency(schedule.next_due_date)
   const urgencyColor = urgency === 'overdue' ? 'var(--color-error)' : urgency === 'due_today' ? 'var(--color-warning)' : 'var(--color-text-tertiary)'
+  // Use local date math to avoid UTC off-by-one
+  const daysUntil = (() => {
+    if (!schedule.next_due_date) return null
+    const now = new Date()
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const due = new Date(schedule.next_due_date)
+    const dueLocal = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+    return Math.round((dueLocal.getTime() - todayLocal.getTime()) / (1000 * 60 * 60 * 24))
+  })()
   const urgencyLabel = urgency === 'overdue'
-    ? `Overdue ${Math.abs(Math.floor((new Date(schedule.next_due_date!).getTime() - Date.now()) / 86400000))}d`
-    : urgency === 'due_today' ? 'Due Today' : schedule.next_due_date
-      ? `In ${Math.ceil((new Date(schedule.next_due_date).getTime() - Date.now()) / 86400000)}d`
+    ? `Overdue ${Math.abs(daysUntil ?? 0)}d`
+    : urgency === 'due_today' ? 'Due Today' : daysUntil !== null
+      ? `In ${daysUntil}d`
       : 'Not scheduled'
 
   const label = schedule.meeting_type === 'mentor' || schedule.meeting_type === 'parent_child'
