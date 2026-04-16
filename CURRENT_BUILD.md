@@ -4,12 +4,16 @@
 > When no build is active, status is IDLE and no code should be written without starting the pre-build process.
 > Multiple concurrent builds are tracked with separate sections below.
 
-## Status: VERIFICATION COMPLETE — PRD-16 Meetings (awaiting founder sign-off)
+## Status: IDLE
 
 > **Previous builds signed off:**
-> PRD-28 (Tracking, Allowance & Financial) — 2026-04-13. Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build M (PRD-24+PRD-26 Play Dashboard + Sticker Book) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
+> PRD-16 Meetings (Build P) — 2026-04-16. Build M Gamification (PRD-24+PRD-26 Play Dashboard + Sticker Book + Configurable Earning Strategies) — formalized 2026-04-16 (originally recorded 2026-04-13). PRD-28 (Tracking, Allowance & Financial) — 2026-04-13. Phase 1b (PRD-23 BookShelf) — 2026-04-13. Build N (PRD-18 Phase D) — 2026-04-07.
 >
-> **Build P (PRD-16 Meetings):** Phases A-E complete 2026-04-15. 127 requirements: 114 wired, 13 stubbed, 0 missing. tsc -b zero errors. 16/16 E2E tests pass. Verification table in `claude/feature-decisions/PRD-16-Meetings.md`. Conventions #229-240 added to CLAUDE.md. **Reset to IDLE after founder confirms.**
+> **PRD-16 Meetings sign-off (2026-04-16):** 127 requirements verified — 114 wired, 13 stubbed, 0 missing. `tsc -b` zero errors. 16/16 E2E tests pass (38 functional tests after follow-on fixes). Conventions #229-240 added to CLAUDE.md. All stubs documented in STUB_REGISTRY.md and accepted as deferred. Verification table in `claude/feature-decisions/PRD-16-Meetings.md`.
+>
+> **Build M Gamification sign-off (formalized 2026-04-16):** 42 requirements wired, 12 stubbed, 0 missing. Baby step Sub-phases A-F + Configurable Earning Strategies Phases 1-7 complete. Conventions #198-222 added to CLAUDE.md. All stubs documented in STUB_REGISTRY.md and accepted as deferred. Verification tables in `claude/feature-decisions/PRD-24-PRD-26-Play-Dashboard-Sticker-Book.md` and `claude/feature-decisions/PRD-24-PRD-26-Configurable-Earning-Strategies.md`.
+>
+> **No active build.** Entering structured planning phase. No new work begins until a pre-build summary is populated and founder-approved per `claude/PRE_BUILD_PROCESS.md`.
 
 ---
 
