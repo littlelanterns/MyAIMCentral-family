@@ -33,12 +33,47 @@ Registration, authentication, and connection handshakes are necessary but NOT su
 
 Step 0 probes each required tool END-TO-END — not just "is it connected" but "does a real call return real data." Connection check is a cheap first filter; the end-to-end probe is the proof.
 
+### Pre-flight: Orphaned codegraph lock check
+
+<!-- Per RECON Decision 11: orphaned lock directory mitigation -->
+
+Before any tool health probes, check for an orphaned codegraph lock directory at `.codegraph/codegraph.db.lock`. This directory is codegraph's lockfile mechanism — when a codegraph process exits uncleanly (crash, SIGKILL, machine shutdown mid-operation), the directory is left behind and every subsequent tool call returns `"CodeGraph not initialized"` or `"database is locked"`. This is a known failure mode (codegraph April 2026 incident — three-week-stale lock silently broke every codegraph call).
+
+**Behavior:** HARD GATE on detection. Do NOT auto-fix. The lock's existence is a diagnostic signal — it means the previous codegraph process crashed. Clearing it without inspection could mask a recurring issue. Require explicit user acknowledgment before proceeding.
+
+**Probe (runs before any other Step 0 work):**
+
+```bash
+if [ -d ".codegraph/codegraph.db.lock" ]; then
+  # Confirm no live codegraph process (avoids false positive on an active run).
+  # Windows: tasklist | grep -i codegraph
+  # Unix:    pgrep codegraph
+  # If no live process → orphan. Hard gate.
+fi
+```
+
+**On hit, print exactly:**
+
+```
+[HARD GATE] Orphaned codegraph lock detected: .codegraph/codegraph.db.lock
+
+Likely cause: previous codegraph process exited without releasing lock.
+
+Resolution: rm -rf .codegraph/codegraph.db.lock
+
+This empty directory is the lock — removing it preserves the index.
+Acknowledge with [continue] after running the command, or investigate
+if you suspect a deeper crash before clearing.
+```
+
+**If the directory does not exist:** silent pass, continue to `### Required tools`.
+
 ### Required tools (hard halt if any are broken)
 
 | Tool | Purpose | Connection Check | End-to-end Probe |
 |---|---|---|---|
 | codegraph MCP | Code graph queries for cross-file impact analysis | `claude mcp list` → `✓ Connected` | Call `mcp__codegraph__codegraph_status` — must return real index stats (files > 0, nodes > 0). NOT "CodeGraph not initialized" or "database is locked" |
-| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | `claude mcp list` → `✓ Connected` | Connection alone is accepted at Step 0 until Endor Labs account is configured. Once configured, extend probe to include a minimal `endorctl` scan that returns findings. Until then, Step 0 output MUST include the caveat "Connected ≠ scanning — full verification pending account setup (followup F1)." |
+| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | (disabled — skip connection check) | Disabled until Developer Edition reinstall (per Finding F1, `RECONNAISSANCE_REPORT_v1.md`). Skip security scan step. |
 | mgrep CLI | Semantic search across PRDs, specs, and source | `mgrep whoami` → authenticated user (not `Failed to refresh token`) | Freshness probe: `mgrep search "<known-recent identifier for this PRD>" .` — must return BOTH source files AND PRD markdown. If only markdown appears, the index is missing code — halt. |
 
 ### Optional tools (surface status, do NOT halt)
@@ -49,6 +84,8 @@ Step 0 probes each required tool END-TO-END — not just "is it connected" but "
 | Google Drive MCP | If present and connected, note it. If disconnected, note it but do not halt. |
 
 ### Execution
+
+**Pre-flight:** Before any probes, run the orphaned codegraph lock check from `### Pre-flight: Orphaned codegraph lock check` above. If it hard-gates, HALT here and wait for explicit user acknowledgment before continuing.
 
 1. **Connection checks (in parallel):**
    - `claude mcp list` → parse each server's status
