@@ -86,7 +86,7 @@ export function ExtractionSidebar({
         if (!seen.has(t)) seen.set(t, {
           index: item.section_index ?? 999,
           bookId: item.book_library_id,
-          partNum: 0,
+          partNum: item.source_part_number ?? 0,
         })
       }
       return Array.from(seen.entries())
@@ -107,7 +107,7 @@ export function ExtractionSidebar({
       if (!seen.has(key)) seen.set(key, {
         index: item.section_index ?? 999,
         bookId: item.book_library_id,
-        partNum: 0,
+        partNum: item.source_part_number ?? 0,
       })
     }
     return Array.from(seen.entries())

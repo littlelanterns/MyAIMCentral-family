@@ -169,19 +169,33 @@ function ChaptersView(props: ExtractionContentProps) {
   const isMultiBook = books.length > 1
 
   // Build section list from chapters or section_title fallback
+  // Sort by (source_part_number, section_index) so multi-part books read
+  // Part 1 sections → Part 2 sections → ... instead of interleaving all
+  // section_index=0 across parts (scrambling bug).
   const sectionTitles = useMemo(() => {
     if (chapters.length > 0) {
       return chapters.map(c => c.chapter_title)
     }
-    // Fallback: collect unique section_titles across all items
-    const titles = new Set<string>()
+    // First-occurrence wins: store the part+index of the first time each
+    // section_title is seen, then sort titles by that position.
+    const firstSeen = new Map<string, { part: number; index: number }>()
     for (const tab of allTabs) {
       const items = getItemsForTab(props, tab)
       for (const item of items) {
-        titles.add(item.section_title || 'General')
+        const t = item.section_title || 'General'
+        if (!firstSeen.has(t)) {
+          firstSeen.set(t, {
+            part: item.source_part_number ?? 0,
+            index: item.section_index ?? 999,
+          })
+        }
       }
     }
-    return Array.from(titles)
+    return Array.from(firstSeen.entries())
+      .sort((a, b) => a[1].part !== b[1].part
+        ? a[1].part - b[1].part
+        : a[1].index - b[1].index)
+      .map(([title]) => title)
   }, [chapters, props])
 
   return (

@@ -12,7 +12,7 @@ import type { ViewMode } from '@/hooks/useExtractionBrowser'
 interface ChapterJumpOverlayProps {
   chapters: BookShelfChapter[]
   bookTitle?: string
-  allItems: Pick<BookExtraction, 'section_title' | 'section_index'>[]
+  allItems: Pick<BookExtraction, 'section_title' | 'section_index' | 'source_part_number'>[]
   viewMode: ViewMode
   activeTab: ExtractionTab
 }
@@ -31,6 +31,11 @@ export function ChapterJumpOverlay({
   const entries = useMemo((): NavEntry[] => {
     if (viewMode === 'notes') return []
 
+    // Sort key: (source_part_number, section_index) — prevents multi-part
+    // book scrambling where all section_index=0 rows cluster across parts.
+    const byPartThenIndex = (a: { part: number; idx: number }, b: { part: number; idx: number }) =>
+      a.part !== b.part ? a.part - b.part : a.idx - b.idx
+
     if (viewMode === 'chapters') {
       // Chapters from DB or fallback from section_title
       if (chapters.length > 0) {
@@ -39,25 +44,31 @@ export function ChapterJumpOverlay({
           title: ch.chapter_title,
         }))
       }
-      const seen = new Map<string, number>()
+      const seen = new Map<string, { part: number; idx: number }>()
       for (const item of allItems) {
         const t = item.section_title || 'General'
-        if (!seen.has(t)) seen.set(t, item.section_index ?? 999)
+        if (!seen.has(t)) seen.set(t, {
+          part: item.source_part_number ?? 0,
+          idx: item.section_index ?? 999,
+        })
       }
       return Array.from(seen.entries())
-        .sort((a, b) => a[1] - b[1])
+        .sort((a, b) => byPartThenIndex(a[1], b[1]))
         .map(([title]) => ({ key: `ch-${title}`, title }))
     }
 
     // Tabs view — sections within active tab
-    const seen = new Map<string, number>()
+    const seen = new Map<string, { part: number; idx: number }>()
     for (const item of allItems) {
       const t = item.section_title || 'General'
       const key = `tab-${activeTab}-${t}`
-      if (!seen.has(key)) seen.set(key, item.section_index ?? 999)
+      if (!seen.has(key)) seen.set(key, {
+        part: item.source_part_number ?? 0,
+        idx: item.section_index ?? 999,
+      })
     }
     return Array.from(seen.entries())
-      .sort((a, b) => a[1] - b[1])
+      .sort((a, b) => byPartThenIndex(a[1], b[1]))
       .map(([key]) => ({
         key,
         title: key.replace(`tab-${activeTab}-`, ''),

@@ -220,6 +220,7 @@ export interface BookExtraction {
   sent_to_prompts: boolean
   journal_prompt_id: string | null
   user_state_id: string | null
+  source_part_number: number
   // Backward-compat aliases for components still using BaseExtractionItem shape
   family_id?: string
   family_member_id?: string
