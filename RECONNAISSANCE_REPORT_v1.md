@@ -1,5 +1,7 @@
 # Reconnaissance Report v1
 
+> **UPDATE 2026-04-17:** All 13 founder decisions resolved. See RECON_DECISIONS_RESOLVED.md for resolutions and Phase 0.26 scope.
+
 > **Phase 0.25 deliverable per `MYAIM_GAMEPLAN_v2.2.md` lines 152-190.**
 > **Audit window:** 2026-04-16 evening session.
 > **Scope:** All 5 reconnaissance scopes (doc reconciliation, compliance/safety gap analysis, tool-firing verification, 17 followups classification, wizard state check).
