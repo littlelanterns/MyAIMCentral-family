@@ -551,6 +551,8 @@ The correct fix is:
 
 ### Finding 3.4 — npm/nvm4w PATH broken
 
+**Status:** **RESOLVED 2026-04-17.** Stray `npm install @anthropic-ai/claude-code` with wrong cwd wiped npm from v20.10.0. Fixed via surgical copy of npm 10.8.2 from v20.19.3's node_modules. No nvm4w/PATH/config changes. Pre-commit hook now runs cleanly, `--no-verify` no longer needed. Failure pattern captured in `claude/LESSONS_LEARNED.md` under "Claude Code install/update corrupting bundled npm when run with wrong cwd."
+
 **Description:** node works; npm/npx broken.
 
 **Evidence:**

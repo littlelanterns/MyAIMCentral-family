@@ -54,7 +54,6 @@ Claude Code updates this file when founder explicitly asks, not automatically.
 
 **Known active gaps:**
 - AURI formally disabled until proper Developer Edition reinstall (F1 in TOOL_HEALTH_REPORT)
-- npm/nvm4w PATH broken — pre-commit hook crashes on invocation, markdown commits need --no-verify
 - Universal List Wizard committed at 21a47a1 but founder-flagged as not serving intended use case (shared permanent shopping list with husband) — investigation deferred
 
 ---
