@@ -164,6 +164,13 @@ export function TasksPage() {
     } else if (searchParams.get('tab') === 'finances') {
       setActiveTab('finances')
       setSearchParams({}, { replace: true })
+    } else if (searchParams.get('member')) {
+      // Deep-link from ViewAs "Manage Tasks": pre-set the member pill filter
+      const memberId = searchParams.get('member')
+      if (memberId) {
+        setFilterMemberId(memberId)
+        setSearchParams({}, { replace: true })
+      }
     }
   }, [searchParams])
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Eye, RefreshCw, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Eye, RefreshCw, X, ListTodo } from 'lucide-react'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { ViewAsMemberPicker } from './ViewAsMemberPicker'
 
@@ -28,10 +29,23 @@ function getModeLabel(
 export function ViewAsBanner() {
   const { isViewingAs, viewingAsMember, stopViewAs } = useViewAs()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const navigate = useNavigate()
 
   if (!isViewingAs || !viewingAsMember) return null
 
   const modeLabel = getModeLabel(viewingAsMember.dashboard_mode, viewingAsMember.role)
+
+  // Kid shells (Play/Guided) have no adult task-management UI. Offer a fast
+  // exit to the adult Tasks page pre-filtered to this child.
+  const childMode = viewingAsMember.dashboard_mode === 'play'
+    || viewingAsMember.dashboard_mode === 'guided'
+    || viewingAsMember.dashboard_mode === 'independent'
+
+  const goManageTasks = () => {
+    const targetId = viewingAsMember.id
+    stopViewAs()
+    navigate(`/tasks?member=${targetId}`)
+  }
 
   return (
     <>
@@ -58,6 +72,21 @@ export function ViewAsBanner() {
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {childMode && (
+            <button
+              onClick={goManageTasks}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                color: 'var(--color-text-on-primary, #fff)',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+              }}
+              aria-label={`Manage ${viewingAsMember.display_name}'s tasks`}
+            >
+              <ListTodo size={12} />
+              <span className="hidden sm:inline">Manage Tasks</span>
+            </button>
+          )}
           <button
             onClick={() => setPickerOpen(true)}
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
