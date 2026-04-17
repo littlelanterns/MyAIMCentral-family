@@ -1,0 +1,59 @@
+# Dependabot configuration — MyAIM Central
+#
+# Strategy: group all minor/patch updates per ecosystem into a single
+# weekly PR. Ignore major versions — those need human triage (breaking
+# changes, migration notes, peer-dep ripple effects).
+#
+# Two ecosystems monitored:
+#   - npm          — package.json dependencies
+#   - github-actions — pinned action versions in .github/workflows/
+#
+# Updates land on Monday mornings so they're the first thing on the
+# triage plate each week.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+    commit-message:
+      prefix: 'chore(deps)'
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/New_York
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+    commit-message:
+      prefix: 'chore(actions)'
+      include: scope

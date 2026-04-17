@@ -1,0 +1,64 @@
+# MyAIM Central — CI baseline
+#
+# Proof-of-life workflow that confirms GitHub Actions infrastructure is
+# wired for this repo. Does NOT run the full build, schema:dump, or
+# migration apply — those live in separate workflows that need repo
+# secrets (VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) and can be
+# added later without re-litigating the foundation.
+#
+# ─── Permissions model for this repo's workflows ────────────────────
+#
+# Default: contents: read
+#   Everything inherits read-only access unless a specific workflow
+#   declares otherwise. Safer default; matches GitHub's 2024+ guidance
+#   after permission-scope incidents.
+#
+# Elevated scopes are declared PER WORKFLOW, not at repo level:
+#   - enforce-convention-14.yml → contents: write + issues: write
+#     (auto-commits doc fixes, opens issues for non-correctable drift)
+#   - check-convention-76.yml   → pull-requests: write + checks: write
+#     (surfaces advisory findings as PR comments / check annotations)
+#
+# Repo-level setting required for contents: write to work:
+#   Settings → Actions → General → Workflow permissions
+#     must be set to "Read and write permissions."
+#   (Confirmed enabled 2026-04-17.)
+#
+# Token used: GITHUB_TOKEN (auto-provided). No PATs.
+#
+# Branch protection on `main`: none (verified 2026-04-17). If
+# protection is added later, enforce-convention-14.yml's auto-commit
+# will break and must switch to a PR-open pattern.
+#
+# ────────────────────────────────────────────────────────────────────
+
+name: CI baseline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  proof-of-life:
+    name: Toolchain resolves
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Confirm TypeScript toolchain
+        run: ./node_modules/.bin/tsc --version
