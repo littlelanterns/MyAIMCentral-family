@@ -1,0 +1,83 @@
+#!/usr/bin/env sh
+#
+# Pre-commit hook — MyAIM Central
+#
+# File-type-aware check managed by Husky v9 (installed via `prepare`
+# lifecycle script in package.json; writes core.hooksPath = .husky/_).
+#
+# Behavior
+# --------
+# - .ts / .tsx staged → run `./node_modules/.bin/tsc -b` (strict build,
+#   matches the mode Vercel uses — catches noUnusedLocals,
+#   noUnusedParameters, and strict type issues that `vite dev`'s
+#   esbuild silently tolerates). Blocks the commit on error.
+# - Doc-only commits (.md / .json / .yml etc., no .ts/.tsx) → skip the
+#   TS check entirely. Fast path for doc-only work.
+# - supabase/migrations/ staged → non-blocking advisory reminder to
+#   run `npm run schema:dump` post-commit (regenerates
+#   claude/live_schema.md per Convention #244). Warning only, never
+#   fails the commit.
+#
+# Why tsc -b (not --noEmit)
+# -------------------------
+# Repo's tsconfig.json is a project-references solution style
+# (`references: [...], files: []`) with composite sub-projects. That's
+# exactly what tsc -b was designed for, and package.json's `build`
+# script already uses `tsc -b && vite build`. Running the same mode
+# here means this hook sees what Vercel sees.
+#
+# Previous state
+# --------------
+# Replaces the raw `.git/hooks/pre-commit` shell script that ran
+# `npx tsc --noEmit`. That hook was NOT version-controlled, used the
+# global npm cache (broke during the April 2026 npm/nvm4w corruption
+# incident), and skipped type-check granularity. This replacement is
+# committed to the repo and auto-installs via Husky on every
+# `npm install`.
+
+set -e
+
+# Get staged files (added, copied, modified, renamed — exclude deletions)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# Detect file categories
+TS_STAGED=false
+MIGRATION_STAGED=false
+for f in $STAGED_FILES; do
+  case "$f" in
+    *.ts|*.tsx)
+      TS_STAGED=true
+      ;;
+    supabase/migrations/*)
+      MIGRATION_STAGED=true
+      ;;
+  esac
+done
+
+# TypeScript check — only when .ts/.tsx staged
+if [ "$TS_STAGED" = "true" ]; then
+  echo "Running TypeScript project build check (tsc -b)..."
+  if ! ./node_modules/.bin/tsc -b; then
+    echo ""
+    echo "TypeScript errors found. Fix them before committing."
+    echo "Vercel uses the same tsc -b mode and will reject this build."
+    exit 1
+  fi
+else
+  echo "No .ts/.tsx staged — skipping TypeScript check."
+fi
+
+# Migration reminder — non-blocking
+if [ "$MIGRATION_STAGED" = "true" ]; then
+  echo ""
+  echo "[warning] supabase/migrations/ files staged. Remember to run:"
+  echo "    npm run schema:dump"
+  echo "This regenerates claude/live_schema.md per Convention #244."
+  echo ""
+fi
+
+exit 0

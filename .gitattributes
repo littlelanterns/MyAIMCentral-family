@@ -1,3 +1,9 @@
 # Fix GitHub language detection — project is TypeScript, not HTML
 *.html linguist-documentation
 *.css linguist-documentation
+
+# Shell scripts (including Husky hooks, which are extensionless)
+# MUST be stored with LF line endings regardless of local git config.
+# CRLF breaks `sh` execution on Linux/macOS/CI.
+.husky/* text eol=lf
+*.sh text eol=lf
