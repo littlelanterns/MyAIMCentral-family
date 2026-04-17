@@ -43,8 +43,7 @@ Common types:
 | `PRD-Template-and-Audit-Updates.md` | Any feature using templates |
 
 ### Schema
-- `claude/database_schema.md` — full schema reference
-- `claude/live_schema.md` — what's actually in the database right now
+- `claude/live_schema.md` — what's actually in the database right now (regenerated from production via `npm run schema:dump`)
 - Check for gaps between what the PRD requires and what exists in the live schema
 
 ### Wiring Status
@@ -70,7 +69,10 @@ This file is permanent — it stays in the codebase after the build as reference
 
 ---
 
-## Step 3: Populate CURRENT_BUILD.md
+## Step 3: Create the Active Build File
+
+Create `.claude/rules/current-builds/<build-name>.md` (e.g., `PRD-30-safety-monitoring.md`).
+Do NOT add YAML `paths:` frontmatter — the folder auto-loads unconditionally, and frontmatter with `paths:` makes the file path-conditional and breaks the auto-load.
 
 Fill in every section:
 - Set Status → **ACTIVE**
@@ -98,7 +100,7 @@ She reviews:
 ## Step 5: Build
 
 Now write code. With:
-- `CURRENT_BUILD.md` loaded in context (auto-loaded via CLAUDE.md)
+- The active build file at `.claude/rules/current-builds/<build-name>.md` loaded in context (auto-loaded via Claude Code's native `.claude/rules/` recursive discovery)
 - The feature decision file available by path
 - The full PRD and addenda already read and processed
 
@@ -128,7 +130,7 @@ interaction, every field, every rule, every edge case — and assign it a status
 
 **Zero Missing items = build is complete. Any Missing item must be resolved.**
 
-Fill in the Post-Build Verification table in `CURRENT_BUILD.md`. Then present the
+Fill in the Post-Build Verification table in the active build file under `.claude/rules/current-builds/`. Then present the
 completed verification to Tenise as the handoff report:
 
 > "Here is every requirement from the PRD. Here is the status of each one.
@@ -190,11 +192,11 @@ not two different products.
 After verification is complete and Tenise has confirmed:
 
 - [ ] `BUILD_STATUS.md` — mark phase complete with date
-- [ ] `claude/database_schema.md` — update new/changed tables and columns
+- [ ] `claude/live_schema.md` — regenerate via `npm run schema:dump` after migrations are applied
 - [ ] `STUB_REGISTRY.md` — add new stubs, update wired status of existing stubs
 - [ ] `CLAUDE.md` — add any new conventions introduced by the phase
 - [ ] Add `<FeatureGuide featureKey="xxx" />` to every new page/feature
-- [ ] `CURRENT_BUILD.md` — copy verification table to feature decision file, then reset to IDLE
+- [ ] Active build file — copy verification table to feature decision file, then move the file from `.claude/rules/current-builds/` to `.claude/completed-builds/YYYY-MM/`. If no active builds remain, ensure `IDLE.md` stays in place as the folder anchor.
 - [ ] `claude/feature-decisions/PRD-XX.md` — add the verification results to the file
 - [ ] `claude/feature-decisions/README.md` — add the new file to the index table
 - [ ] Commit the feature decision file
