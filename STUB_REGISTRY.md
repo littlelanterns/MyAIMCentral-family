@@ -521,6 +521,20 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 | Teen purchase deduction requests via PRD-15 | PRD-28 + PRD-15 | PRD-15 Messages | 📌 Post-MVP | Teen requests a purchase deduction through family_requests, mom approves/declines. |
 | Allowance history trend charts | PRD-28 | — | 📌 Post-MVP | Visual charts showing completion %, earnings, and balance over time per child. |
 
+---
+
+## Phase 0.25 Residue Backfill (2026-04-17)
+
+Five pre-existing items that were in the codebase before the STUB_REGISTRY convention took hold. Backfilled here for visibility. Target phases reflect where they'll be wired. Per `RECON_DECISIONS_RESOLVED.md` residue cleanup list.
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| `lila_messages.safety_scanned` column (migration 7, line 86) | PRD-05 (migration 7) | PRD-30 | ⏳ Unwired (MVP) | PRD-30 Safety Monitoring build — column exists in schema but no logic reads or writes it. Will be wired when PRD-30 builds its safety-scan pipeline. |
+| `lila_conversations.safety_scanned` column (migration 7, line 44) | PRD-05 (migration 7) | PRD-30 | ⏳ Unwired (MVP) | PRD-30 Safety Monitoring build — same pattern as the message-level column at the conversation level. Wired alongside the message-level column. |
+| Safe Harbor `'manage'` permission preset (migration 19, lines 463-469, Full Partner preset, `safe_harbor: 'manage'` on line 468) | PRD-02 (migration 19) | PRD-20 | ⏳ Unwired (MVP) | PRD-20 Safe Harbor frontend — preset entry exists and is dormant. Expected no-op until PRD-20 ships the Safe Harbor UI and gating tables. Behaves correctly today as an unused permission value. |
+| Safe Harbor placeholder UI + ViewAs exclusion (`src/pages/placeholder/index.tsx:53`, `src/App.tsx:176`, `src/lib/permissions/ViewAsProvider.tsx:46` `PRIVACY_EXCLUSIONS = ['safe_harbor']` constant) | PRD-04 / PRD-02 | PRD-20 | ⏳ Unwired (MVP) | PRD-20 Safe Harbor frontend — placeholder component and ViewAs exclusion are in place so PRD-20 can slot into existing routing and privacy infrastructure without retrofit. |
+| `_requestingMemberId` parameter in `supabase/functions/_shared/relationship-context.ts:261` (caller at line 189 passes a real `memberId` value but the function ignores it) | Phase 0.25 recon | Phase 0.26 Session 3 | ⏳ Unwired (Phase 0.26 S3) | Phase 0.26 Session 3 (privacy filter fix) — Parameter declared with leading underscore (intentionally unused). Ten Edge Functions consume this path: Cyrano, Higgins Say, Higgins Navigate, Mediator, Quality Time, Gifts, Gratitude, Observe Serve, Words Affirmation, Perspective Shifter. S3 will drop the underscore and consume the value to enforce role-asymmetric `is_privacy_filtered` filtering per Convention #76. |
+
 ## Summary
 
 | Status | Count |
