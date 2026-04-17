@@ -1,0 +1,185 @@
+# Convention #76 — Privacy Filter CI check (advisory)
+#
+# Purpose
+# -------
+# Convention #76 in CLAUDE.md requires that all queries against
+# `archive_context_items` filter `is_privacy_filtered` unless the query
+# is explicitly scoped to a primary-parent context (PRD-13 role-
+# asymmetric privacy model, confirmed by RECON_DECISIONS_RESOLVED.md
+# Decision 6).
+#
+# This workflow is a grep-based heuristic that cannot fully validate
+# runtime filter logic — that's Session 3's code change. What it CAN
+# do: flag queries that reference `archive_context_items` without any
+# `is_privacy_filtered` mention within ±20 lines of the hit. This is
+# a prompt to review, not a hard gate.
+#
+# Heuristic tuning reference
+# --------------------------
+# Window size: ±20 lines (founder-confirmed 2026-04-17). Wider window
+# catches cases where the filter lives in a nearby helper/private
+# function called from the query site. If v1 shows excessive false
+# positives, narrow to ±10.
+#
+# Files excluded
+# --------------
+# - **/*.test.ts, **/*.spec.ts, **/__tests__/**
+#   Tests legitimately query without filtering for verification.
+# - **/*.archive.*
+#   Archived file variants are out of scope by definition.
+#
+# Advisory behavior
+# -----------------
+# Exits 0 even with findings. Never blocks merge.
+#   - PR diff view: yellow `::warning file=X,line=Y::` annotations on
+#     each suspected line.
+#   - PR conversation: one comment per PR, tagged with
+#     `<!-- conv-76-check -->` marker. Updated in place on subsequent
+#     pushes (no comment pile-up). Updated to a clean-state message
+#     once the PR author resolves all findings.
+#   - Push to main: annotations only (no PR to comment on).
+
+name: Convention #76 — Privacy Filter Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  scan:
+    name: archive_context_items filter audit
+    runs-on: ubuntu-latest
+    env:
+      # Proximity window — founder-confirmed ±20 lines. Tune here if
+      # v1 false-positive rate is too high.
+      WINDOW: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan for archive_context_items without nearby filter
+        id: scan
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          # ripgrep is preinstalled on ubuntu-latest.
+          # Exclude test files, __tests__ directories, and archive variants.
+          HITS=$(rg --line-number --no-heading --color=never \
+              --glob '!**/*.test.ts' \
+              --glob '!**/*.spec.ts' \
+              --glob '!**/__tests__/**' \
+              --glob '!**/*.archive.*' \
+              'archive_context_items' \
+              supabase/functions/ src/lib/ 2>/dev/null || true)
+
+          if [ -z "$HITS" ]; then
+            echo "No archive_context_items references found in scanned paths."
+            echo "finding_count=0" >> "$GITHUB_OUTPUT"
+            {
+              echo "findings<<__FINDINGS_EOF__"
+              echo "__FINDINGS_EOF__"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FINDINGS=""
+          COUNT=0
+
+          while IFS= read -r hit; do
+            [ -z "$hit" ] && continue
+            FILE=$(printf '%s' "$hit" | cut -d: -f1)
+            LINE=$(printf '%s' "$hit" | cut -d: -f2)
+
+            # Skip if we can't parse line number (shouldn't happen with rg output)
+            if ! [[ "$LINE" =~ ^[0-9]+$ ]]; then
+              continue
+            fi
+
+            # Check ±WINDOW lines for is_privacy_filtered
+            START=$((LINE > WINDOW ? LINE - WINDOW : 1))
+            END=$((LINE + WINDOW))
+
+            if ! sed -n "${START},${END}p" "$FILE" 2>/dev/null | grep -q 'is_privacy_filtered'; then
+              # Missing filter — record finding with 3-line snippet
+              SNIP_START=$((LINE > 1 ? LINE - 1 : 1))
+              SNIP_END=$((LINE + 1))
+              SNIPPET=$(sed -n "${SNIP_START},${SNIP_END}p" "$FILE" 2>/dev/null \
+                | awk -v start="$SNIP_START" '{printf "  L%d: %s\n", start+NR-1, $0}')
+
+              # Append finding block via printf — no YAML-indent leakage.
+              FINDINGS=$(printf '%s- `%s:%s`\n```\n%s```\n\n' \
+                "$FINDINGS" "$FILE" "$LINE" "$SNIPPET")
+              COUNT=$((COUNT + 1))
+
+              # Inline annotation for PR diff view
+              echo "::warning file=${FILE},line=${LINE}::archive_context_items reference without is_privacy_filtered filter within ±${WINDOW} lines. Verify this query respects Convention #76 or document the exception (Safe Harbor history view, admin tooling, etc.)."
+            fi
+          done <<< "$HITS"
+
+          echo "finding_count=$COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "findings<<__FINDINGS_EOF__"
+            printf '%s' "$FINDINGS"
+            echo ""
+            echo "__FINDINGS_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Scan complete: $COUNT finding(s)."
+
+      - name: Update PR comment (findings or clean)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COUNT: ${{ steps.scan.outputs.finding_count }}
+          FINDINGS: ${{ steps.scan.outputs.findings }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MARKER='<!-- conv-76-check -->'
+
+          # Build body via printf to avoid YAML-indent leakage into the
+          # rendered comment. Single-quoted format strings keep backticks,
+          # $, etc. literal; %s splices in values.
+          if [ "$COUNT" = "0" ]; then
+            BODY=$(printf '%s\n## Convention #76 — Privacy Filter Check\n\n✅ No findings. All `archive_context_items` references have nearby `is_privacy_filtered` filtering within ±%s lines.\n\n_Advisory check, does not block merge. See Convention #76 in CLAUDE.md._\n' \
+              "$MARKER" "$WINDOW")
+          else
+            BODY=$(printf '%s\n## Convention #76 — Privacy Filter Check\n\nFound %s reference(s) to `archive_context_items` without nearby `is_privacy_filtered` filter:\n\n%s\nThese may be legitimate (Safe Harbor history view, admin tooling). Verify before merging or document the exception.\n\n_Advisory check, does not block merge. See Convention #76 in CLAUDE.md._\n' \
+              "$MARKER" "$COUNT" "$FINDINGS")
+          fi
+
+          # Find existing conv-76-check comment via REST API (numeric IDs).
+          EXISTING_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | startswith(\"${MARKER}\")) | .id" \
+            | head -n 1)
+
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Updating existing comment id=$EXISTING_ID"
+            jq -n --arg body "$BODY" '{body: $body}' \
+              | gh api -X PATCH "repos/${REPO}/issues/comments/${EXISTING_ID}" --input -
+          else
+            echo "Creating new comment"
+            gh pr comment "$PR_NUMBER" --body "$BODY"
+          fi
+
+      - name: Summary log
+        shell: bash
+        env:
+          COUNT: ${{ steps.scan.outputs.finding_count }}
+        run: |
+          if [ "$COUNT" = "0" ]; then
+            echo "::notice::Convention #76 check: no findings."
+          else
+            echo "::warning::Convention #76 check: $COUNT reference(s) to archive_context_items without nearby is_privacy_filtered filter. See inline annotations and/or PR comment."
+          fi
