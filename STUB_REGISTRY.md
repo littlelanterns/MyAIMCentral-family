@@ -3,11 +3,16 @@
 Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and build phase assignment.
 
 ## Status Legend
-- ✅ **Wired** — Stub fully implemented by a later PRD
-- 🔗 **Partially Wired** — Some aspects implemented, some remain
-- ⏳ **Unwired (MVP)** — Not yet wired, expected during MVP build
-- 📌 **Unwired (Post-MVP)** — Intentionally deferred to post-MVP
-- ❌ **Superseded** — Replaced by a different approach
+
+- ✅ **Wired** — Fully implemented. No further action.
+- 🔗 **Partially Wired** — Some aspects implemented, some remain. Track the unwired aspects separately.
+- ⏳ **Unwired (MVP)** — Committed deferred work: stub is scheduled for wiring in a specific future MVP build. Counts toward per-build stub metrics.
+- 📌 **Unwired (Post-MVP)** — Speculative / nice-to-have, intentionally deferred beyond MVP. Not committed to any specific build. Counted separately — never included in a build's stub count.
+- ❌ **Superseded** — Replaced by a different approach.
+
+### Stub count convention
+
+"Build X stub count" means "Unwired (MVP) stubs introduced or touched in Build X." Post-MVP items are counted separately. Wired items from prior builds are not re-counted — the per-build count is a snapshot of deferred MVP work tied to that build, not a lifetime total.
 
 ---
 

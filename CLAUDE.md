@@ -61,14 +61,12 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 ## Detailed Documentation
 
 @claude/architecture.md
-@claude/database_schema.md
 @claude/live_schema.md
 @claude/conventions.md
 @claude/ai_patterns.md
 @claude/feature_glossary.md
 @WIRING_STATUS.md
 @specs/studio-seed-templates.md
-@CURRENT_BUILD.md
 @claude/PRE_BUILD_PROCESS.md
 
 ## Pre-Build Process (MANDATORY — NO EXCEPTIONS)
@@ -113,10 +111,13 @@ This process exists because weeks of careful planning went into every PRD and ad
 12. **Never modify files in `prds/`, `specs/`, or `reference/`.** These are read-only source material.
 13. **The PRDs ARE the minimum. There is no simpler version.** Do not suggest an "MVP approach," an "easy version for now," a "simplified implementation," or any reduction of what the PRD specifies. The PRDs were designed carefully and ARE the minimum viable product — not a ceiling to aim toward later, but the floor to build from now. Every screen, every field, every interaction, every edge case in the PRD gets built exactly as written. If something in the PRD cannot be built correctly right now (missing dependency, unclear spec, infrastructure not ready), stop and ask Tenise — do not substitute a simpler version without explicit approval. Never use local regex stubs, setTimeout placeholders, hardcoded data, or "simple parsing for now" shortcuts. If a feature needs AI, connect AI. If it needs streaming, stream. If it needs a real database query, write the real query. Build it right or don't build it yet.
 14. **Post-phase checklist (MANDATORY after completing each build phase):** Two parts — verification first, then file updates. Do not skip Part A.
+
+    *Architecture note:* Active builds are tracked as one `.md` file per in-flight build under `.claude/rules/current-builds/`, with filenames like `PRD-30-safety-monitoring.md`. This folder auto-loads into every Claude Code session via Claude Code's native `.claude/rules/` recursive discovery — no `@`-reference in CLAUDE.md is required. Build files in `.claude/rules/current-builds/` **must not include YAML `paths:` frontmatter** — frontmatter with `paths:` makes a rule file path-conditional and breaks the unconditional auto-load this folder relies on.
+
     **Part A — PRD Verification (before anything else):**
     - Go through every requirement from the pre-build summary — every screen, every interaction, every field, every rule, every edge case
     - Assign each a status: **Wired** (built and functional), **Stubbed** (documented placeholder in STUB_REGISTRY.md), or **Missing** (not built, not stubbed)
-    - Fill in the Post-Build Verification table in `CURRENT_BUILD.md`
+    - Fill in the Post-Build Verification table in the active build file under `.claude/rules/current-builds/`
     - Present the completed table to Tenise — every requirement, every status
     - Zero Missing items required before the build is considered complete. Any Missing must be built or explicitly approved as a stub.
     - **Mobile/desktop navigation parity check:** if the build added or renamed any top-level page (anything that earns a sidebar entry), confirm:
@@ -126,7 +127,7 @@ This process exists because weeks of careful planning went into every PRD and ad
       (d) Note the parity check pass in the verification table (e.g. "Mobile More menu shows new page in correct section ✓").
     **Part B — File updates (after Tenise confirms verification):**
     - `BUILD_STATUS.md` — mark phase complete with date
-    - `claude/database_schema.md` — update any new/changed tables and columns
+    - `claude/live_schema.md` — regenerate via `npm run schema:dump` after migrations are applied
     - `STUB_REGISTRY.md` — add new stubs created, update wired status of existing stubs
     - `CLAUDE.md` — add any new conventions introduced by the phase
     - Add `<FeatureGuide featureKey="xxx" />` to every new page/feature
@@ -135,7 +136,7 @@ This process exists because weeks of careful planning went into every PRD and ad
       (b) `supabase/functions/_shared/feature-guide-knowledge.ts` — add page knowledge + use case recipes with warm clarifying questions so LiLa can walk mom through setup
       (c) If it was built, LiLa must know how to explain it and guide a mom through using it
     - Copy verification table into `claude/feature-decisions/PRD-XX.md`, get founder post-build sign-off
-    - `CURRENT_BUILD.md` — reset Status to IDLE, clear all sections
+    - Move the completed build file from `.claude/rules/current-builds/` to `.claude/completed-builds/YYYY-MM/`. The folder itself is the current-state indicator; if no files remain, an `IDLE.md` placeholder should exist as the folder anchor.
     - `claude/feature-decisions/README.md` — add the new file to the index table
 
 15. **Member colors:** Use the 44-color AIMfM palette from `src/config/member_colors.ts`. Never hardcode hex colors — use CSS custom properties with fallbacks. Run `npm run check:colors` to verify.
@@ -509,3 +510,9 @@ This process exists because weeks of careful planning went into every PRD and ad
 ## Tooling Hygiene (Non-Negotiable)
 
 241. **Tool health check must pass before any build work begins.** See `/prebuild` Step 0 for the current mechanism. Applies to required MCP servers (codegraph, endor-cli-tools) and auth-backed CLIs (mgrep). Silent disconnects and auth expiry have historically gone undetected for weeks — AURI sat disconnected through the PRD-01 and PRD-02 builds without any error surfacing. This check closes that gap. Reference: `claude/LESSONS_LEARNED.md` → "The Second Failure Mode: Silent Tool Drift" and `TOOL_HEALTH_REPORT_2026-04-16.md`. If a tool is disconnected or unauthenticated at session start, resolve it before starting build work or explicitly record an "override acknowledged" audit entry in CURRENT_BUILD.md acknowledging the known gap for that specific build.
+
+242. **Always use `mgrep` for search — Grep, Glob, and WebSearch are prohibited for cross-cutting lookups.** mgrep is semantic (finds cross-PRD, convention, and architectural matches keyword grep misses) and returns ranked top-N results instead of every regex hit, which lowers token usage significantly. Use `mgrep "query" --max 5` for code/content search, `mgrep --web "query"` for external docs. The only acceptable Grep/Glob uses are (a) looking up a single symbol in a specific file whose path is already known, or (b) confirming a specific file exists at a known path — everything else routes through mgrep. If mgrep is unavailable (auth expired, daemon down), treat it as a tool health failure per convention 241 rather than silently falling back to Grep. Enforcement reference: `feedback_use_mgrep` memory entry (session-persistent).
+
+## Privacy Guardrails (Non-Negotiable)
+
+243. **Safe Harbor aggregation-exclusion guardrail.** All queries against `lila_conversations` used for aggregation, reporting, or context assembly MUST filter `is_safe_harbor = false` unless the query is explicitly scoped to a Safe Harbor history view. Safe Harbor conversations are isolated by design — they must never surface in cross-conversation aggregations, family reports, platform intelligence pipelines, or LiLa context assembly. Convention text only at this stage; grep-based CI check and RLS/view guard implementation land with the first aggregation PRD build (PRD-19, PRD-28B, or PRD-30 — whichever ships first, per `RECON_DECISIONS_RESOLVED.md` Decision 10).

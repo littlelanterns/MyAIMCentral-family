@@ -1,3 +1,7 @@
+> **SUPERSEDED as of 2026-04-17.** This document was the planning-era schema summary, retained for historical reference only. The authoritative schema is now `claude/live_schema.md`, regenerated from production Supabase state via `npm run schema:dump`. Do not build from this file.
+
+---
+
 # MyAIM Central — Unified Database Schema
 
 > **Generated for Family Platform v2**

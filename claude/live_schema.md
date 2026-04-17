@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-06
+> Auto-generated from live Supabase on 2026-04-17
 > Script: `node scripts/full-schema-dump.cjs`
 > Column names from OpenAPI spec (accurate for all API-exposed tables)
 > Row counts from live queries
@@ -118,7 +118,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 91 rows
+### `view_as_sessions` — 144 rows
 
 | # | Column |
 |---|---|
@@ -129,7 +129,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 6 rows
+### `view_as_feature_exclusions` — 59 rows
 
 | # | Column |
 |---|---|
@@ -219,7 +219,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 153 rows
+### `feature_key_registry` — 196 rows
 
 | # | Column |
 |---|---|
@@ -230,7 +230,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 178 rows
+### `feature_access_v2` — 330 rows
 
 | # | Column |
 |---|---|
@@ -286,7 +286,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 62 rows
+### `lila_conversations` — 143 rows
 
 | # | Column |
 |---|---|
@@ -311,7 +311,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 124 rows
+### `lila_messages` — 270 rows
 
 | # | Column |
 |---|---|
@@ -387,7 +387,7 @@
 
 *(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
 
-### `ai_usage_tracking` — 369 rows
+### `ai_usage_tracking` — 738 rows
 
 | # | Column |
 |---|---|
@@ -404,7 +404,7 @@
 
 ## Personal Growth (PRD-06 to PRD-08)
 
-### `guiding_stars` — 34 rows
+### `guiding_stars` — 39 rows
 
 | # | Column |
 |---|---|
@@ -428,7 +428,7 @@
 | 18 | `sort_order` |
 | 19 | `archived_at` |
 
-### `best_intentions` — 20 rows
+### `best_intentions` — 23 rows
 
 | # | Column |
 |---|---|
@@ -456,7 +456,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 72 rows
+### `intention_iterations` — 86 rows
 
 | # | Column |
 |---|---|
@@ -470,7 +470,7 @@
 | 8 | `day_date` |
 | 9 | `acted_by` |
 
-### `self_knowledge` — 141 rows
+### `self_knowledge` — 144 rows
 
 | # | Column |
 |---|---|
@@ -493,7 +493,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 9 rows
+### `journal_entries` — 49 rows
 
 | # | Column |
 |---|---|
@@ -522,7 +522,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 19 rows
+### `notepad_tabs` — 21 rows
 
 | # | Column |
 |---|---|
@@ -574,7 +574,7 @@
 
 ## Tasks & Studio (PRD-09A, PRD-09B, PRD-17)
 
-### `task_templates` — 15 rows
+### `task_templates` — 21 rows
 
 | # | Column |
 |---|---|
@@ -613,8 +613,13 @@
 | 33 | `category_label` |
 | 34 | `guided_form_subtype` |
 | 35 | `guided_form_sections` |
+| 36 | `counts_for_allowance` |
+| 37 | `counts_for_homework` |
+| 38 | `counts_for_gamification` |
+| 39 | `allowance_points` |
+| 40 | `homework_subject_ids` |
 
-### `task_template_sections` — 6 rows
+### `task_template_sections` — 52 rows
 
 | # | Column |
 |---|---|
@@ -629,7 +634,7 @@
 | 9 | `show_until_complete` |
 | 10 | `updated_at` |
 
-### `task_template_steps` — 22 rows
+### `task_template_steps` — 228 rows
 
 | # | Column |
 |---|---|
@@ -643,8 +648,12 @@
 | 8 | `instance_count` |
 | 9 | `require_photo` |
 | 10 | `updated_at` |
+| 11 | `step_type` |
+| 12 | `linked_source_id` |
+| 13 | `linked_source_type` |
+| 14 | `display_name_override` |
 
-### `tasks` — 50 rows
+### `tasks` — 179 rows
 
 | # | Column |
 |---|---|
@@ -702,8 +711,28 @@
 | 52 | `time_threshold_minutes` |
 | 53 | `linked_list_id` |
 | 54 | `list_delivery_mode` |
+| 55 | `advancement_mode` |
+| 56 | `practice_target` |
+| 57 | `practice_count` |
+| 58 | `mastery_status` |
+| 59 | `mastery_submitted_at` |
+| 60 | `mastery_approved_by` |
+| 61 | `mastery_approved_at` |
+| 62 | `require_mastery_approval` |
+| 63 | `require_mastery_evidence` |
+| 64 | `track_duration` |
+| 65 | `resource_url` |
+| 66 | `carry_forward_override` |
+| 67 | `icon_asset_key` |
+| 68 | `icon_variant` |
+| 69 | `task_segment_id` |
+| 70 | `counts_for_allowance` |
+| 71 | `counts_for_homework` |
+| 72 | `counts_for_gamification` |
+| 73 | `allowance_points` |
+| 74 | `homework_subject_ids` |
 
-### `task_assignments` — 9 rows
+### `task_assignments` — 39 rows
 
 | # | Column |
 |---|---|
@@ -720,7 +749,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 10 rows
+### `task_completions` — 36 rows
 
 | # | Column |
 |---|---|
@@ -739,8 +768,12 @@
 | 13 | `rejection_note` |
 | 14 | `period_date` |
 | 15 | `acted_by` |
+| 16 | `completion_type` |
+| 17 | `duration_minutes` |
+| 18 | `mastery_evidence_url` |
+| 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 0 rows
+### `routine_step_completions` — 15 rows
 
 | # | Column |
 |---|---|
@@ -754,7 +787,7 @@
 | 8 | `period_date` |
 | 9 | `photo_url` |
 
-### `sequential_collections` — 0 rows
+### `sequential_collections` — 6 rows
 
 | # | Column |
 |---|---|
@@ -772,6 +805,11 @@
 | 12 | `life_area_tag` |
 | 13 | `reward_per_item_type` |
 | 14 | `reward_per_item_amount` |
+| 15 | `default_advancement_mode` |
+| 16 | `default_practice_target` |
+| 17 | `default_require_approval` |
+| 18 | `default_require_evidence` |
+| 19 | `default_track_duration` |
 
 ### `task_claims` — 0 rows
 
@@ -798,7 +836,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 17 rows
+### `studio_queue` — 24 rows
 
 | # | Column |
 |---|---|
@@ -821,7 +859,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 17 rows
+### `lists` — 68 rows
 
 | # | Column |
 |---|---|
@@ -849,8 +887,22 @@
 | 22 | `pool_mode` |
 | 23 | `eligible_members` |
 | 24 | `tags` |
+| 25 | `victory_mode` |
+| 26 | `draw_mode` |
+| 27 | `max_active_draws` |
+| 28 | `default_advancement_mode` |
+| 29 | `default_practice_target` |
+| 30 | `default_require_approval` |
+| 31 | `default_require_evidence` |
+| 32 | `default_track_duration` |
+| 33 | `is_opportunity` |
+| 34 | `default_opportunity_subtype` |
+| 35 | `default_reward_type` |
+| 36 | `default_reward_amount` |
+| 37 | `default_claim_lock_duration` |
+| 38 | `default_claim_lock_unit` |
 
-### `list_items` — 116 rows
+### `list_items` — 127 rows
 
 | # | Column |
 |---|---|
@@ -892,8 +944,23 @@
 | 36 | `last_completed_at` |
 | 37 | `period_completion_count` |
 | 38 | `reward_amount` |
+| 39 | `victory_flagged` |
+| 40 | `advancement_mode` |
+| 41 | `practice_target` |
+| 42 | `practice_count` |
+| 43 | `mastery_status` |
+| 44 | `mastery_submitted_at` |
+| 45 | `mastery_approved_by` |
+| 46 | `mastery_approved_at` |
+| 47 | `require_mastery_approval` |
+| 48 | `require_mastery_evidence` |
+| 49 | `track_duration` |
+| 50 | `opportunity_subtype` |
+| 51 | `reward_type` |
+| 52 | `claim_lock_duration` |
+| 53 | `claim_lock_unit` |
 
-### `list_shares` — 1 rows
+### `list_shares` — 2 rows
 
 | # | Column |
 |---|---|
@@ -947,7 +1014,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 28 rows
+### `dashboard_configs` — 31 rows
 
 | # | Column |
 |---|---|
@@ -963,7 +1030,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 152 rows
+### `dashboard_widgets` — 155 rows
 
 | # | Column |
 |---|---|
@@ -1041,7 +1108,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `calendar_events` — 19 rows
+### `calendar_events` — 37 rows
 
 | # | Column |
 |---|---|
@@ -1089,7 +1156,7 @@
 | 42 | `option_group_title` |
 | 43 | `calendar_subtype` |
 
-### `event_attendees` — 29 rows
+### `event_attendees` — 68 rows
 
 | # | Column |
 |---|---|
@@ -1165,7 +1232,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `family_best_intentions` — 12 rows
+### `family_best_intentions` — 15 rows
 
 | # | Column |
 |---|---|
@@ -1194,7 +1261,7 @@
 | 5 | `day_date` |
 | 6 | `created_at` |
 
-### `countdowns` — 12 rows
+### `countdowns` — 15 rows
 
 | # | Column |
 |---|---|
@@ -1214,7 +1281,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 20 rows
+### `victories` — 17 rows
 
 | # | Column |
 |---|---|
@@ -1377,7 +1444,7 @@
 
 ## Communication (PRD-15)
 
-### `conversation_spaces` — 0 rows
+### `conversation_spaces` — 20 rows
 
 | # | Column |
 |---|---|
@@ -1391,7 +1458,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `conversation_space_members` — 0 rows
+### `conversation_space_members` — 68 rows
 
 | # | Column |
 |---|---|
@@ -1402,7 +1469,7 @@
 | 5 | `notifications_muted` |
 | 6 | `joined_at` |
 
-### `conversation_threads` — 0 rows
+### `conversation_threads` — 6 rows
 
 | # | Column |
 |---|---|
@@ -1417,7 +1484,7 @@
 | 9 | `last_message_at` |
 | 10 | `created_at` |
 
-### `messages` — 0 rows
+### `messages` — 7 rows
 
 | # | Column |
 |---|---|
@@ -1432,7 +1499,7 @@
 | 9 | `edited_at` |
 | 10 | `created_at` |
 
-### `message_read_status` — 0 rows
+### `message_read_status` — 5 rows
 
 | # | Column |
 |---|---|
@@ -1442,7 +1509,7 @@
 | 4 | `last_read_message_id` |
 | 5 | `last_read_at` |
 
-### `messaging_settings` — 0 rows
+### `messaging_settings` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1465,7 +1532,7 @@
 | 4 | `can_message_member_id` |
 | 5 | `created_at` |
 
-### `message_coaching_settings` — 0 rows
+### `message_coaching_settings` — 7 rows
 
 | # | Column |
 |---|---|
@@ -1477,7 +1544,7 @@
 | 6 | `created_at` |
 | 7 | `updated_at` |
 
-### `family_requests` — 0 rows
+### `family_requests` — 11 rows
 
 | # | Column |
 |---|---|
@@ -1524,7 +1591,7 @@
 | 17 | `priority` |
 | 18 | `created_at` |
 
-### `notification_preferences` — 0 rows
+### `notification_preferences` — 6 rows
 
 | # | Column |
 |---|---|
@@ -1649,7 +1716,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 559 rows
+### `bookshelf_items` — 712 rows
 
 | # | Column |
 |---|---|
@@ -1687,7 +1754,7 @@
 | 32 | `folder_id` |
 | 33 | `book_library_id` |
 
-### `bookshelf_chapters` — 0 rows
+### `bookshelf_chapters` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1699,7 +1766,7 @@
 | 6 | `end_chunk_index` |
 | 7 | `created_at` |
 
-### `bookshelf_chunks` — 58115 rows
+### `bookshelf_chunks` — 58379 rows
 
 | # | Column |
 |---|---|
@@ -1738,7 +1805,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `bookshelf_insights` — 23977 rows
+### `bookshelf_insights` — 24360 rows
 
 | # | Column |
 |---|---|
@@ -1791,7 +1858,7 @@
 | 22 | `created_at` |
 | 23 | `updated_at` |
 
-### `bookshelf_action_steps` — 16134 rows
+### `bookshelf_action_steps` — 16396 rows
 
 | # | Column |
 |---|---|
@@ -1817,7 +1884,7 @@
 | 20 | `created_at` |
 | 21 | `updated_at` |
 
-### `bookshelf_questions` — 9894 rows
+### `bookshelf_questions` — 10168 rows
 
 | # | Column |
 |---|---|
@@ -1870,7 +1937,7 @@
 | 5 | `metadata` |
 | 6 | `created_at` |
 
-### `bookshelf_collections` — 15 rows
+### `bookshelf_collections` — 16 rows
 
 | # | Column |
 |---|---|
@@ -1884,7 +1951,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `bookshelf_collection_items` — 83 rows
+### `bookshelf_collection_items` — 86 rows
 
 | # | Column |
 |---|---|
@@ -1907,7 +1974,7 @@
 | 7 | `collection_id` |
 | 8 | `created_at` |
 
-### `bookshelf_member_settings` — 3 rows
+### `bookshelf_member_settings` — 4 rows
 
 | # | Column |
 |---|---|
@@ -1939,7 +2006,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `bookshelf_user_state` — 20 rows
+### `bookshelf_user_state` — 47 rows
 
 | # | Column |
 |---|---|
@@ -1964,7 +2031,7 @@
 
 ## AI Vault (PRD-21A/B/C)
 
-### `vault_items` — 16 rows
+### `vault_items` — 17 rows
 
 | # | Column |
 |---|---|
@@ -2073,7 +2140,7 @@
 | 3 | `vault_item_id` |
 | 4 | `created_at` |
 
-### `vault_user_progress` — 10 rows
+### `vault_user_progress` — 25 rows
 
 | # | Column |
 |---|---|
@@ -2087,7 +2154,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 58 rows
+### `vault_user_visits` — 281 rows
 
 | # | Column |
 |---|---|
@@ -2095,7 +2162,7 @@
 | 2 | `user_id` |
 | 3 | `visited_at` |
 
-### `vault_first_sightings` — 48 rows
+### `vault_first_sightings` — 97 rows
 
 | # | Column |
 |---|---|
@@ -2207,7 +2274,7 @@
 | 15 | `created_at` |
 | 16 | `updated_at` |
 
-### `teaching_skill_history` — 28 rows
+### `teaching_skill_history` — 29 rows
 
 | # | Column |
 |---|---|
@@ -2307,7 +2374,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 76 rows
+### `activity_log_entries` — 380 rows
 
 | # | Column |
 |---|---|
@@ -2343,7 +2410,7 @@
 
 *(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
 
-### `feature_demand_responses` — 0 rows
+### `feature_demand_responses` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2362,7 +2429,7 @@
 
 ## Platform Assets
 
-### `platform_assets` — 539 rows
+### `platform_assets` — 622 rows
 
 | # | Column |
 |---|---|
