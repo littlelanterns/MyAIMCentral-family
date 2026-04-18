@@ -11,7 +11,7 @@
 >
 > **Conventions used here:** no emoji; audit-style format; dated commits via SHA trail; carry-forward items use checkboxes for unresolved, plain text for resolved.
 >
-> **Current status:** Phase 0.26 is 7 of 8 sessions complete. S6 and S4 remain.
+> **Current status:** Phase 0.26 is 8 of 9 sessions complete. S4 remains.
 
 ---
 
@@ -29,7 +29,7 @@ Phase 0.26 executes the cleanup and infrastructure work surfaced by the Phase 0.
 | S2 | Complete | CI enforcement infrastructure (GitHub Actions, Husky) |
 | S3 | Complete | Privacy filter fix (Convention #76 defense-in-depth) |
 | S7 | Complete | Skill/agent stale path migration |
-| S6 | Pending | BUILD_STATUS reconciliation |
+| S6 | Complete | BUILD_STATUS reconciliation + Husky schema:dump enforcement |
 | S5 | Complete | 17-followups doc batch + S7 carry-forward + Convention candidates synthesis |
 | S4 | Pending | Wizard multi-user Playwright test (Testworth seeding) |
 
@@ -232,6 +232,50 @@ Sessions can run in any dependency-respecting order; founder decides sequence. S
 
 ---
 
+## Session S6 — BUILD_STATUS Reconciliation + Husky schema:dump Enforcement
+
+**Date:** 2026-04-18
+**SHA trail:** `5ffa787` → `2361dd2` (+ this session-log update commit)
+
+**Delivered:**
+
+*Task 1 — BUILD_STATUS reconciliation (`5ffa787`):*
+- Phase 17 (Meetings) flipped Pending → **Complete** (2026-04-16, Build P).
+- Phase 19 (Rhythms) flipped Partial → **Complete** (2026-04-07, Build L Phase C + Build N Phase D).
+- Phase 28 (BookShelf) flipped Pending → **Complete** (2026-04-13, Phase 1b platform migration).
+- Phase 29 (Gamification) flipped Pending → **Complete** (2026-04-16, Build M).
+- "Last updated" bumped 2026-04-17 → 2026-04-18.
+- Phase 32 (PRD-28) confirmed still correctly Partial — PRD-28 sub-phases A/B complete, PRD-28B (Compliance & Progress Reporting) pending. Untouched per brief.
+- Ledger-only correction; no build content, stub registry, or sign-off records touched.
+
+*Task 2 — Husky schema:dump enforcement (`2361dd2`):*
+- `.husky/pre-commit` migration pattern narrowed from `supabase/migrations/*` → `supabase/migrations/*.sql` (matches the only file type that exists in that directory; intentional tightening).
+- Added `SCHEMA_STAGED` detection on exact path `claude/live_schema.md`.
+- Replaced non-blocking `[warning]` block with hard-block + exit 1 when a migration is staged without `claude/live_schema.md`.
+- Error message names the fix path verbatim (`npm run schema:dump` → `git add claude/live_schema.md` → retry), acknowledges the `--no-verify` escape hatch honestly, and names the bypass cost (schema drift from production) with a self-imposed follow-up requirement (next commit MUST include the regen).
+- File-presence check only — does not verify freshness; inline header comment documents why (mtime unreliable through git operations; diff-based freshness adds fragility for marginal benefit).
+- Existing `tsc -b` check behavior preserved unchanged.
+- Enforces Convention #244 at commit time instead of relying on manual post-migration discipline.
+
+*Task 3 — this session-log update.*
+
+**Behavior matrix validated locally (Task 2 pre-commit):**
+
+| Scenario | Staged | Expected | Actual |
+|---|---|---|---|
+| A | markdown only | pass exit 0 | pass exit 0 ✓ |
+| B | migration + live_schema.md | pass exit 0 | pass exit 0 ✓ |
+| C | migration only | block exit 1 with exact error | block exit 1 with exact error ✓ |
+| D | C + `--no-verify` | git-level hook bypass | git-level guarantee (not actively tested to avoid history pollution) |
+
+**Surprises:**
+- One stray test fixture (`STUB_REGISTRY_test.md.tmp`) leaked from an early prep step during Task 2 scenario setup. Caught before the Task 2 commit and removed. Exactly the kind of leakage expected-surprise item 7 warned about; single-commit scope discipline held.
+
+**Carry-forward:**
+- None from S6. S4 remains the only Phase 0.26 session pending, dependent on Testworth family seeding.
+
+---
+
 ## Convention Candidates — Accumulated (fold into S5)
 
 These are discoveries from S2/S3/S7 that warrant formal Convention entries in CLAUDE.md, plus (where applicable) CI checks or tooling-hygiene documentation. All bookmarked for S5.
@@ -250,22 +294,6 @@ These are discoveries from S2/S3/S7 that warrant formal Convention entries in CL
 
 ## Remaining Sessions
 
-### S6 — BUILD_STATUS Reconciliation + Husky schema:dump Enforcement
-
-**Scope (per recon Finding 1.2):** Update `BUILD_STATUS.md` to reflect 4 phases that completed but weren't recorded there:
-- Phase 17 (Meetings) — signed off as Build P
-- Phase 29 (Gamification) — signed off as Build M
-- Phase 19 (Rhythms C+D) — complete
-- Phase 28 (BookShelf Phase 1b) — complete
-
-Phase 32 (PRD-28) was flagged in recon but is already aligned; drop from the list.
-
-**Scope (added 2026-04-18 during S5):** Level 2 Husky schema:dump enforcement — promote the current non-blocking `[warning]` on `supabase/migrations/*.sql` changes to a hard pre-commit block when `claude/live_schema.md` is not also staged. Natural extension of S2's Husky v9 file-type-aware hook work. Enforces Convention #244 at commit time instead of relying on manual post-migration discipline.
-
-**Dependencies:** None. Lightweight doc reconciliation + small Husky hook edit.
-
-**Pre-flight for S6:** mgrep subcommand ergonomics now known (use `mgrep search "pattern"`, not bare `mgrep`); no auth issue exists. Session can proceed at founder's leisure.
-
 ### S4 — Wizard Multi-User Playwright Test
 
 **Scope (per recon Decision 13):** End-to-end Playwright test using seeded Testworth family. Tier 1 structure with Tier 2 properties. UI-only actions (no backend shortcuts). Screenshot capture at every assertion. Multi-user flows with per-role browser contexts.
@@ -276,8 +304,8 @@ Phase 32 (PRD-28) was flagged in recon but is already aligned; drop from the lis
 
 ## Phase 0.26 Status
 
-**Complete (7 of 8):** S1a, S1b, S1.5, S2, S3, S7, S5
-**Remaining (2):** S6, S4
+**Complete (8 of 9):** S1a, S1b, S1.5, S2, S3, S7, S5, S6
+**Remaining (1):** S4
 **Target completion:** None set; founder-paced.
 
 **Production changes live from Phase 0.26:**
@@ -285,7 +313,8 @@ Phase 32 (PRD-28) was flagged in recon but is already aligned; drop from the lis
 - RLS policy `archive_context_items_privacy_filter_role_asymmetric` enforcing role-asymmetric visibility
 - GitHub Actions enforcing Convention #14 (doc updates) and Convention #76 (privacy filter checks)
 - Husky v9 file-type-aware pre-commit hook
+- Husky schema:dump enforcement (Convention #244 hard block on missing live_schema.md regen)
 - Documentation architecture on folder-based current-builds pattern
 
 **Not yet deployed:**
-- S6/S5/S4 outputs (pending)
+- S4 outputs (pending)
