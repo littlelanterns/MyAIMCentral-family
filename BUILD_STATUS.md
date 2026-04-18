@@ -1,6 +1,6 @@
 # Build Status — MyAIM Central v2
 
-> Last updated: 2026-04-17
+> Last updated: 2026-04-18
 
 ## Foundation Phases (Complete)
 
@@ -49,9 +49,9 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 14 | PRD-14, PRD-14B | Personal Dashboard & Calendar | Phase 05, 10, 11 | **Complete** | 2026-03-30 |
 | 15 | PRD-14C, PRD-14D, PRD-14E | Family Overview, Hub & TV Mode | Phase 14 | Pending |
 | 16 | PRD-15 | Messages, Requests & Notifications (12 tables, NotificationBell, Realtime, 4 Edge Functions, cross-cutting infrastructure) | Phase 06 | **Complete** | 2026-04-06 |
-| 17 | PRD-16 | Meetings | Phase 10, 16 | Pending |
+| 17 | PRD-16 | Meetings | Phase 10, 16 | **Complete** | 2026-04-16 |
 | 18 | PRD-17, PRD-17B | Universal Queue (PRD-17) + MindSweep Sprint 1+2 (PRD-17B Phase A + partial B) | Phase 10, 16 | **Partial** — PRD-17 complete 2026-04-03; PRD-17B Phase B remainder + Phase C pending |
-| 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | **Partial** — Phase A complete 2026-04-07 (foundation, morning + evening modals, Guided mini evening rhythm). Phase B complete 2026-04-07 (Tomorrow Capture + Morning Recall + On the Horizon + Carry Forward fallback + Weekly/Monthly/Quarterly cards + section cleanup). Phase C (MindSweep-Lite, Morning Insight, Feature Discovery, Rhythm Tracker Prompts) and Phase D (Independent Teen tailored experience) pending. |
+| 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | **Complete** | 2026-04-07 |
 | 20 | PRD-19 | Family Context & Relationships | Phase 13 | Pending |
 | 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | Pending |
 | 22 | PRD-12A, PRD-12B | LifeLantern & Family Vision Quest | Phase 07, 08, 13 | Pending |
@@ -60,8 +60,8 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 25 | PRD-21A | AI Vault Browse & Content Delivery | Phase 06, 23 | **Complete** | 2026-03-25 |
 | 26 | PRD-21C | AI Vault Engagement & Community | Phase 25 | Pending |
 | 27 | PRD-22 | Settings | Phase 04, 16 | Pending |
-| 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | Pending |
-| 29 | PRD-24, PRD-24A, PRD-24B | Gamification | Phase 10, 12 | Pending |
+| 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | **Complete** | 2026-04-13 |
+| 29 | PRD-24, PRD-24A, PRD-24B | Gamification | Phase 10, 12 | **Complete** | 2026-04-16 |
 | 30 | PRD-25, PRD-26 | Guided & Play Dashboards | Phase 14, 29 | Pending |
 | 31 | PRD-27 | Caregiver Tools | Phase 02, 05 | Pending |
 | 32 | PRD-28, PRD-28B | Tracking, Allowance & Compliance | Phase 05, 10, 11 | **Partial** — PRD-28 complete 2026-04-13 (Sub-phase A: allowance system + financial ledger + Privilege Status Widget; Sub-phase B: homework subjects + time logging + Log Learning widget). PRD-28B (Compliance & Progress Reporting) pending. | 2026-04-13 |
