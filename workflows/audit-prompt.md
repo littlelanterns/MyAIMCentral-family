@@ -58,8 +58,8 @@ Create a lean CLAUDE.md that uses @imports. This is what Claude Code reads at ev
 - Import references to detailed files in `claude/`
 - Critical conventions that apply to ALL code
 
-### 3B: claude/database_schema.md
-The complete unified database schema. Every table, every column, every type, every index, every RLS policy, every trigger. Organized by domain (auth, personal_growth, family, communication, ai_vault, gamification, platform). Include the total table count.
+### 3B: claude/live_schema.md
+The live database schema snapshot, auto-generated from production via `npm run schema:dump`. Every API-exposed table and every column, with current row counts. Types, indexes, RLS policies, and triggers are NOT included — for those, refer to migration files under `supabase/migrations/`. Organized by domain (auth, personal_growth, family, communication, ai_vault, gamification, platform). Include the total table count.
 
 ### 3C: claude/architecture.md
 Component architecture, routing structure, service layer patterns, state management approach, the 5-shell system, responsive patterns. Enough for a developer to understand how the app is structured without reading every PRD.

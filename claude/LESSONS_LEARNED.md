@@ -25,7 +25,7 @@ We built features in phases, working through the PRD list. Each phase felt produ
 
 Here's how it happened:
 
-1. **Schema summaries replaced PRDs.** The project had a `database_schema.md` file — a convenient reference summarizing all ~165 tables. The AI would read this summary and start building. The problem? A summary captures the *shape* of a feature, not the *intent*. Column names don't tell you which fields are required on which screens, what the empty states should say, how features interact, or what the edge cases are. The PRDs had all of this. The schema summary had none of it.
+1. **Schema summaries replaced PRDs.** The project had a `database_schema.md` file (now archived — see `claude/live_schema.md` for current schema reference) — a convenient reference summarizing all ~165 tables. The AI would read this summary and start building. The problem? A summary captures the *shape* of a feature, not the *intent*. Column names don't tell you which fields are required on which screens, what the empty states should say, how features interact, or what the edge cases are. The PRDs had all of this. The schema summary had none of it.
 
 2. **Addenda were missed entirely.** Many PRDs had addenda — follow-up documents capturing decisions made after the base PRD was written. These addenda often *overrode* or *clarified* the base PRD. For example, an addendum might say "use `access_schedules` instead of `shift_schedules`" or "this table name was changed from X to Y." When the AI only read the base PRD (or worse, only the schema summary), it built against outdated or incomplete specifications.
 
@@ -89,7 +89,7 @@ A permanent record in `claude/feature-decisions/` that captures:
 This file does NOT duplicate the PRD — it's a build-focused extraction that ensures nothing is missed. It stays in the codebase permanently as reference.
 
 #### Step 4: Populate the Build Context File
-`CURRENT_BUILD.md` gets filled with the complete pre-build summary. This file is auto-loaded into every AI conversation, so the build context is always present.
+A new file at `.claude/rules/current-builds/<build-name>.md` is created with the complete pre-build summary. The `.claude/rules/current-builds/` folder auto-loads into every AI conversation via Claude Code's native recursive discovery, so the build context is always present.
 
 #### Step 5: Founder Review Before Code
 The pre-build summary is presented to the founder. She reviews:

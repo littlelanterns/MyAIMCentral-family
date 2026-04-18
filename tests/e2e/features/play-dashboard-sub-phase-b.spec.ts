@@ -25,7 +25,7 @@
  * are the founder's Play members.
  *
  * Reference:
- *   CURRENT_BUILD.md § "Build M" (feature decision file)
+ *   .claude/completed-builds/2026-04/build-m-prd-24-26-play-dashboard.md § "Build M" (signed-off build file)
  *   claude/feature-decisions/PRD-24-PRD-26-Play-Dashboard-Sticker-Book.md §9 + §16
  */
 import { test, expect, Page } from '@playwright/test'

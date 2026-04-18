@@ -132,15 +132,15 @@ This sequence exists because LiLa's trustworthiness depends on everything undern
 **Tasks:**
 - Formally sign off Build M (Gamification) verification
 - Formally sign off PRD-16 (Meetings) verification
-- Reset `CURRENT_BUILD.md` to IDLE state
+- Reset `.claude/rules/current-builds/` to IDLE state (move active build files to `.claude/completed-builds/YYYY-MM/`; `IDLE.md` anchor remains)
 - Commit: `chore: sign off Build M + PRD-16 Meetings, reset to IDLE`
 
 **Session prompt for Claude Code:**
 
-> "Before we start anything new, I need to formally sign off on two completed builds so CURRENT_BUILD.md resets clean. Please:
+> "Before we start anything new, I need to formally sign off on two completed builds so `.claude/rules/current-builds/` resets clean. Please:
 > 1. Show me the verification tables for Build M (Gamification) and PRD-16 (Meetings)
 > 2. Confirm there are no open blocking items in either
-> 3. Update CURRENT_BUILD.md to IDLE state
+> 3. Reset `.claude/rules/current-builds/` to IDLE state (archive active build files to `.claude/completed-builds/YYYY-MM/`)
 > 4. Commit with message 'chore: sign off Build M + PRD-16 Meetings, reset to IDLE'
 >
 > Do NOT start any new work after this. We're entering a structured planning phase."
@@ -161,7 +161,7 @@ This sequence exists because LiLa's trustworthiness depends on everything undern
    - `BUILD_STATUS.md` — does it match actual built state?
    - `CLAUDE.md` — are all conventions current? Any orphaned rules from deleted features?
    - `STUB_REGISTRY.md` — is every "Wired" actually wired? Every "Stubbed" actually still stubbed?
-   - `CURRENT_BUILD.md` — reflects actual current work?
+   - `.claude/rules/current-builds/` — reflects actual current work?
    - Any other living docs in the claude/ directory
    
    Flag drift. Produce a reconciliation report. Update files to match reality. The auto-update-after-push convention silently failed — this is the one-time catch-up pass.

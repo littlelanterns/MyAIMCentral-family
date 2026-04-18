@@ -13,7 +13,7 @@ This doc is the front-page for every new conversation about MyAIM Family. It's i
 **When starting a new conversation, read in this order:**
 1. This file (CONVERSATION_CONTEXT.md) — orientation
 2. MYAIM_GAMEPLAN_v2.2.md — current phase plan
-3. CURRENT_BUILD.md — what's actively being built (if anything)
+3. `.claude/rules/current-builds/` — what's actively being built (folder auto-loads; `IDLE.md` anchor when nothing in flight)
 4. Specific PRD + addenda for the task at hand
 5. CLAUDE.md — conventions (usually auto-loaded)
 
@@ -40,7 +40,7 @@ Claude Code updates this file when founder explicitly asks, not automatically.
 - MYAIM_GAMEPLAN_v2.2.md committed to repo root
 - Build M formally signed off (42 wired, 12 stubbed, 0 missing)
 - PRD-16 formally signed off (114 wired, 13 stubbed, 0 missing)
-- CURRENT_BUILD.md cleared to between-builds state
+- `.claude/rules/current-builds/` cleared to between-builds state (only `IDLE.md` anchor remains)
 
 **What's in flight:**
 - Phase 0.25 Reconnaissance (Claude Code session)
@@ -167,7 +167,7 @@ PRDs have addenda. Addenda contain binding decisions that supersede original PRD
 - MYAIM_GAMEPLAN_v2.2.md — the plan, phases, gates, audit scopes
 
 **Living state:**
-- CURRENT_BUILD.md — active build (IDLE when nothing in flight)
+- `.claude/rules/current-builds/` — active build files (folder auto-loads; `IDLE.md` anchor when nothing in flight)
 - BUILD_STATUS.md — phase completion log
 - STUB_REGISTRY.md — all stubs, wired status, target phases
 
