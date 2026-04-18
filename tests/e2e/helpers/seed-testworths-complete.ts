@@ -1101,6 +1101,110 @@ async function seedLists() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  PART 7B: PRIVACY-FILTERED ARCHIVE ITEMS (S4 Wizard multi-user test prep)
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Adds 3 is_privacy_filtered=true items to exercise S3's role-asymmetric RLS
+//  policy (migration 00000000100149) + Edge Function privacy filters in
+//  context-assembler.ts, relationship-context.ts, and bookshelf-study-guide.
+//  Per-row idempotency (probe by family_id + context_value + is_privacy_filtered)
+//  so re-runs are safe after seedArchives() has already populated the family.
+
+async function seedPrivacyFilteredArchiveItems() {
+  console.log('\n── Part 7B: Privacy-Filtered Archive Items (S4 prep) ──')
+
+  const FIXED_CREATED_AT = '2026-04-18T00:00:00Z'
+
+  // Family Overview → Current Focus (family-level, member_id=NULL)
+  const currentFocus = await findFolder('Current Focus')
+
+  // Jordan's member subfolders (person-level + negative-preference)
+  async function jordanSubfolder(folderName: string): Promise<string | null> {
+    const { data: root } = await supabase.from('archive_folders').select('id')
+      .eq('family_id', familyId).eq('member_id', IDS.jordan)
+      .eq('folder_type', 'member_root').single()
+    if (!root) return null
+    const { data: sub } = await supabase.from('archive_folders').select('id')
+      .eq('parent_folder_id', root.id).eq('folder_name', folderName).single()
+    return sub?.id ?? null
+  }
+  const jordanPersonality = await jordanSubfolder('Personality & Traits')
+  const jordanPrefs = await jordanSubfolder('Preferences')
+
+  const rows: Record<string, unknown>[] = []
+
+  if (currentFocus) {
+    rows.push({
+      family_id: familyId,
+      folder_id: currentFocus,
+      member_id: null,
+      context_value: '[TEST S4] A family-level sensitive note that only Sarah should see in context',
+      context_type: 'family_focus',
+      is_included_in_ai: true,
+      is_privacy_filtered: true,
+      is_negative_preference: false,
+      source: 'manual',
+      created_at: FIXED_CREATED_AT,
+    })
+  }
+
+  if (jordanPersonality) {
+    rows.push({
+      family_id: familyId,
+      folder_id: jordanPersonality,
+      member_id: IDS.jordan,
+      context_value: '[TEST S4] A person-level sensitive note about Jordan that only Sarah should see in context',
+      context_type: 'personality',
+      is_included_in_ai: true,
+      is_privacy_filtered: true,
+      is_negative_preference: false,
+      source: 'manual',
+      created_at: FIXED_CREATED_AT,
+    })
+  }
+
+  if (jordanPrefs) {
+    rows.push({
+      family_id: familyId,
+      folder_id: jordanPrefs,
+      member_id: IDS.jordan,
+      context_value: '[TEST S4] A negative preference about Jordan that only Sarah should see in context',
+      context_type: 'preference',
+      is_included_in_ai: true,
+      is_privacy_filtered: true,
+      is_negative_preference: true,
+      source: 'manual',
+      created_at: FIXED_CREATED_AT,
+    })
+  }
+
+  if (rows.length === 0) {
+    console.log('  No target folders found (auto-provisioning incomplete?) — skipping')
+    return
+  }
+
+  let inserted = 0
+  let skipped = 0
+  for (const row of rows) {
+    const { data: existing } = await supabase
+      .from('archive_context_items')
+      .select('id')
+      .eq('family_id', familyId)
+      .eq('context_value', row.context_value as string)
+      .eq('is_privacy_filtered', true)
+      .maybeSingle()
+    if (existing) { skipped++; continue }
+    const { error } = await supabase.from('archive_context_items').insert(row)
+    if (error) {
+      console.error(`  privacy-filtered insert failed: ${error.message}`)
+      continue
+    }
+    inserted++
+  }
+  if (inserted > 0) count('archive_context_items', inserted)
+  console.log(`  archive_context_items (privacy-filtered): ${inserted} inserted, ${skipped} already present`)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  PART 16: NOTEPAD TABS (so Notepad looks used)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1147,6 +1251,7 @@ async function main() {
     await seedGuidingStars()
     await seedBestIntentions()
     await seedArchives()
+    await seedPrivacyFilteredArchiveItems()
     await seedTasks()
     await seedVictories()
     await seedJournal()
