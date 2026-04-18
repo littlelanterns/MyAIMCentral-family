@@ -13,10 +13,9 @@
 #   esbuild silently tolerates). Blocks the commit on error.
 # - Doc-only commits (.md / .json / .yml etc., no .ts/.tsx) → skip the
 #   TS check entirely. Fast path for doc-only work.
-# - supabase/migrations/ staged → non-blocking advisory reminder to
-#   run `npm run schema:dump` post-commit (regenerates
-#   claude/live_schema.md per Convention #244). Warning only, never
-#   fails the commit.
+# - supabase/migrations/*.sql staged → claude/live_schema.md MUST be
+#   staged in the same commit (Convention #244 enforcement). Blocks
+#   the commit if missing. Escape hatch: `git commit --no-verify`.
 #
 # Why tsc -b (not --noEmit)
 # -------------------------
@@ -34,6 +33,16 @@
 # incident), and skipped type-check granularity. This replacement is
 # committed to the repo and auto-installs via Husky on every
 # `npm install`.
+#
+# Schema:dump enforcement (Phase 0.26 S6)
+# ---------------------------------------
+# Promotes the prior non-blocking migration warning to a hard block.
+# File-presence check only — does not verify freshness (mtime or
+# content diff). mtime does not travel reliably through git operations
+# (clones, rebases, stash pops) and diff-based checks add fragility
+# for marginal benefit. Catches the "forgot entirely" failure mode,
+# which is the actual failure mode. The "willfully staged stale
+# version" case is outside hook scope.
 
 set -e
 
@@ -47,13 +56,17 @@ fi
 # Detect file categories
 TS_STAGED=false
 MIGRATION_STAGED=false
+SCHEMA_STAGED=false
 for f in $STAGED_FILES; do
   case "$f" in
     *.ts|*.tsx)
       TS_STAGED=true
       ;;
-    supabase/migrations/*)
+    supabase/migrations/*.sql)
       MIGRATION_STAGED=true
+      ;;
+    claude/live_schema.md)
+      SCHEMA_STAGED=true
       ;;
   esac
 done
@@ -71,13 +84,23 @@ else
   echo "No .ts/.tsx staged — skipping TypeScript check."
 fi
 
-# Migration reminder — non-blocking
-if [ "$MIGRATION_STAGED" = "true" ]; then
+# Schema:dump enforcement — hard block when migration staged without
+# a concurrent claude/live_schema.md update. File-presence check only
+# (see header comment re: why freshness isn't verified).
+if [ "$MIGRATION_STAGED" = "true" ] && [ "$SCHEMA_STAGED" = "false" ]; then
   echo ""
-  echo "[warning] supabase/migrations/ files staged. Remember to run:"
-  echo "    npm run schema:dump"
-  echo "This regenerates claude/live_schema.md per Convention #244."
+  echo "[error] Migration file staged without live_schema.md update."
   echo ""
+  echo "Convention #244 requires schema regeneration after migration changes."
+  echo "Run: npm run schema:dump"
+  echo "Then: git add claude/live_schema.md"
+  echo "Then: retry the commit."
+  echo ""
+  echo "This hook can be bypassed with --no-verify, but doing so creates schema"
+  echo "drift between the repo and production. If you bypass, the next commit"
+  echo "MUST include the regenerated live_schema.md to resolve the drift."
+  echo ""
+  exit 1
 fi
 
 exit 0
