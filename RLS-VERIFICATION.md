@@ -21,6 +21,7 @@ Per-table, per-role access verification. Run after each build phase.
 | rhythm_completions | Read all + write own | Own CRUD | None | Own CRUD | Own CRUD | rhythm_completions_manage_own, rhythm_completions_read_parent | 2026-04-07 | PRD-18 Phase A. Mom can SELECT all family completions for Family Overview indicators. Members manage own. Dad CANNOT read mom's completions (privacy). |
 | feature_discovery_dismissals | Own CRUD | Own CRUD | None | Own CRUD | Own CRUD | fdd_manage_own | 2026-04-07 | PRD-18 Phase A. Per-member dismissal tracking. No cross-member access. Verified Dad cannot read mom's dismissals. |
 | morning_insight_questions | Read all + family-custom CRUD | Read | Read | Read | Read | miq_read_all, miq_manage_family | 2026-04-07 | PRD-18 Phase A. Empty in Phase A (Phase C seeds 35 questions). Read open to all authenticated. Family-level custom questions writable by primary_parent only. |
+| archive_context_items | All (full CRUD + filtered rows) | Read family non-filtered only | Read family non-filtered only | Read family non-filtered only | Read family non-filtered only | aci_select_own_family, aci_manage_primary_parent, archive_context_items_privacy_filter_role_asymmetric | 2026-04-17 (inspection) | PRD-13 + Convention #76 + RECON Decision 7. New RESTRICTIVE policy (S3.4) enforces role-asymmetric `is_privacy_filtered`: mom sees all rows, non-mom roles see only `is_privacy_filtered=false`. Reuses `public.is_primary_parent_of(family_id)` helper from migration 100100. Behavioral verification deferred — production has zero `is_privacy_filtered=true` rows at push time (see S3 entry below). |
 | | | | | | | | | |
 
 ---
@@ -132,12 +133,22 @@ FROM public.archive_context_items;
 -- Expected: filtered_visible = 0, unfiltered_visible > 0
 ```
 
-### Test Results
+### Test Results — 2026-04-17
 
-To be filled in after `supabase db push` + verification queries run against production.
+Migration `00000000100149_archive_context_items_privacy_rls.sql` applied to production (project ref `vjfbzpliqialqmabfnxs`) on 2026-04-17. Push output: clean apply, no errors, policy live on `archive_context_items`.
 
 | # | Test | Expected | Actual | Result |
 |---|------|----------|--------|--------|
-| 1 | Mom sees filtered + unfiltered | both > 0 | TBD | TBD |
-| 2 | Dad sees unfiltered only | filtered=0, unfiltered>0 | TBD | TBD |
-| 3 | Non-mom member sees unfiltered only | filtered=0, unfiltered>0 | TBD | TBD |
+| 1 | Mom sees filtered + unfiltered | both > 0 | Deferred — no test data | Deferred |
+| 2 | Dad sees unfiltered only | filtered=0, unfiltered>0 | Deferred — no test data | Deferred |
+| 3 | Non-mom member sees unfiltered only | filtered=0, unfiltered>0 | Deferred — no test data | Deferred |
+
+**Verification deferred.** Production `archive_context_items` had zero `is_privacy_filtered=true` rows at push time (170 total rows, all unfiltered). The Mom's Observations feature (`InnerWorkings.tsx:1103-1120` — sole writer of `is_privacy_filtered=true`) is built but unused in production. Role-asymmetric behavior is asserted by policy inspection (RESTRICTIVE + reuse of vetted `is_primary_parent_of()` helper from migration `00000000100100_prd15_fix_rls_recursion.sql`) rather than behavioral test. Running identical-result queries across mom/dad/non-mom proxy against a dataset with no filtered rows would produce false confidence, not signal — so the queries were not executed. Verification will re-run when the first privacy-filtered row exists in production, or when Testworth family is seeded with test data for synthetic verification (future session).
+
+**Policy correctness asserted by inspection:**
+- RESTRICTIVE clause correctly AND's with existing PERMISSIVE policies (rather than creating a silent no-op, which PERMISSIVE would have done).
+- `USING (is_privacy_filtered = false OR public.is_primary_parent_of(family_id))` — mom passes the second arm, non-mom roles only pass the first arm.
+- Helper function `is_primary_parent_of(p_family_id UUID)` is STABLE, SECURITY DEFINER, `search_path` locked — vetted and reused from migration 100100.
+- SELECT-only scope — writes untouched, no CRUD lockouts introduced.
+
+**Pre-push audit of app-layer consumers** (38 `archive_context_items` references across `src/` and `supabase/functions/`): 4 fixed in S3.1-S3.3 (Edge Function sites wrapped with `applyPrivacyFilter`), 11 writes (unaffected by SELECT RLS), 1 pre-existing frontend read with correct conditional filter (`src/lib/ai/context-assembly.ts:218-228`), 12 reads without filter (now tightened invisibly by RLS — all are either mom-only features, non-mom accessing their own data where filtering is intended, or cosmetic count queries), 10 non-query references. Zero legitimate use cases require non-mom access to filtered rows. Defense-in-depth acts as belt-and-suspenders for the 12 unfiltered frontend reads.
