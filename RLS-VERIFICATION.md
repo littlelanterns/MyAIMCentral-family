@@ -78,3 +78,66 @@ Special Adult role was NOT directly tested because OurFamily has no active speci
 | W-2 | Warning | calendar_events | pending_approval events visible to ALL roles including Guided/Play children | Change SELECT arm 1 from `IN ('approved','pending_approval')` to `= 'approved'` |
 | W-3 | Warning | calendar_events | INSERT policy doesn't enforce `status = 'pending_approval'` for non-primary-parent | Add CHECK constraint or policy condition on status column |
 | E-1 | Error | event_attendees | SELECT bypasses calendar_events visibility rules — non-mom can see attendees for rejected/cancelled events | Mirror the calendar_events visibility logic in attendee SELECT policy |
+
+
+---
+
+## Archive Privacy Filter Defense-in-Depth RLS Verification (Phase 0.26 Session 3)
+
+Migration `00000000100149_archive_context_items_privacy_rls.sql` adds a RESTRICTIVE SELECT policy on `archive_context_items` enforcing role-asymmetric `is_privacy_filtered` semantics at the database layer. Defense-in-depth on top of Edge Function filtering applied in commits `6760ad1`, `7fe5ffa`, `7cd034e`.
+
+### Test Users
+
+Same as PRD-18 Phase A verification (OurFamily, founder family):
+- **Mom (Tenise):** `7434224b-ebb4-4138-8bd8-9fbc62259c42` — primary_parent
+- **Dad (Jerrod):** `44a07ad8-94ca-4dd4-84d8-42ae103cf1a6` — additional_adult
+- **Guided kid (Mosiah):** `bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4` — member, dashboard_mode='guided'
+
+Note: OurFamily has no independent teen at the time of this verification. Mosiah's tests serve as the non-mom proxy. The role-asymmetric policy only checks `role = 'primary_parent'`, so all non-primary roles (additional_adult, special_adult, independent, guided, play) behave identically under this policy.
+
+### Test Cases (reproducible SQL)
+
+Each test runs against `archive_context_items`. Setup assumes at least one row in OurFamily with `is_privacy_filtered = true` and at least one with `is_privacy_filtered = false`. Run via `npx supabase db query` with JWT claim impersonation (matches PRD-18 Phase A pattern).
+
+#### Test 1: Mom sees both filtered and unfiltered rows
+```sql
+SET LOCAL request.jwt.claims TO '{"sub":"7434224b-ebb4-4138-8bd8-9fbc62259c42","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+SELECT
+  COUNT(*) FILTER (WHERE is_privacy_filtered = true)  AS filtered_visible,
+  COUNT(*) FILTER (WHERE is_privacy_filtered = false) AS unfiltered_visible
+FROM public.archive_context_items;
+-- Expected: filtered_visible > 0, unfiltered_visible > 0
+```
+
+#### Test 2: Dad sees only unfiltered rows
+```sql
+SET LOCAL request.jwt.claims TO '{"sub":"44a07ad8-94ca-4dd4-84d8-42ae103cf1a6","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+SELECT
+  COUNT(*) FILTER (WHERE is_privacy_filtered = true)  AS filtered_visible,
+  COUNT(*) FILTER (WHERE is_privacy_filtered = false) AS unfiltered_visible
+FROM public.archive_context_items;
+-- Expected: filtered_visible = 0, unfiltered_visible > 0
+```
+
+#### Test 3: Non-mom member (teen / guided / additional adult / etc.) sees only unfiltered rows
+```sql
+SET LOCAL request.jwt.claims TO '{"sub":"bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+SELECT
+  COUNT(*) FILTER (WHERE is_privacy_filtered = true)  AS filtered_visible,
+  COUNT(*) FILTER (WHERE is_privacy_filtered = false) AS unfiltered_visible
+FROM public.archive_context_items;
+-- Expected: filtered_visible = 0, unfiltered_visible > 0
+```
+
+### Test Results
+
+To be filled in after `supabase db push` + verification queries run against production.
+
+| # | Test | Expected | Actual | Result |
+|---|------|----------|--------|--------|
+| 1 | Mom sees filtered + unfiltered | both > 0 | TBD | TBD |
+| 2 | Dad sees unfiltered only | filtered=0, unfiltered>0 | TBD | TBD |
+| 3 | Non-mom member sees unfiltered only | filtered=0, unfiltered>0 | TBD | TBD |
