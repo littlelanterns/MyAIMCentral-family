@@ -1,15 +1,19 @@
 /**
- * Complete Testworth Family Demo Seed
- * ====================================
- * Creates a fully lived-in family with rich data across all features.
+ * Testworth Family Seed — sole Testworth fixture for Playwright + demo
+ * =====================================================================
+ * Creates "The Testworth Family" with rich data across all features.
  * Idempotent: safe to run multiple times (upsert patterns throughout).
  *
- * Run: npx tsx tests/e2e/helpers/seed-testworths-complete.ts
+ * CLI (manual run):       npx tsx tests/e2e/helpers/seed-testworths-complete.ts
+ * Programmatic (imports): import { seedTestworthFamily, TEST_USERS, TEST_IDS }
+ *                                from './seed-testworths-complete'
+ * Called by:              tests/e2e/helpers/global-setup.ts (Playwright globalSetup)
  *
- * Family: "The Testworth Family" (login: testworthfamily)
+ * Family: "The Testworth Family" (login: testworthfamily, password: Demo2026!)
  * Members: Sarah (mom), Mark (dad), Alex (15), Casey (14),
  *          Jordan (10), Ruthie (7), Amy (special adult), Kylie (special adult)
  */
+import { basename } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import { localIso, todayLocalIso } from './dates'
@@ -43,6 +47,34 @@ const MEMBERS = {
   amy:   { email: 'amytest@testworths.com', name: 'Amy', role: 'special_adult', mode: 'adult', color: '#4b7c66', age: null },
   kylie: { email: 'kylietest@testworths.com', name: 'Kylie', role: 'special_adult', mode: 'adult', color: '#5aab9a', age: null },
 } as const
+
+// Credentials exported for Playwright auth helpers.
+// Kylie is omitted — she's not Playwright-facing (no loginAsKylie helper,
+// no specs reference her). She still gets created by the seed below.
+export const TEST_USERS = {
+  sarah:  { email: MEMBERS.sarah.email,  password: PASSWORD },
+  mark:   { email: MEMBERS.mark.email,   password: PASSWORD },
+  amy:    { email: MEMBERS.amy.email,    password: PASSWORD },
+  alex:   { email: MEMBERS.alex.email,   password: PASSWORD },
+  casey:  { email: MEMBERS.casey.email,  password: PASSWORD },
+  jordan: { email: MEMBERS.jordan.email, password: PASSWORD },
+  ruthie: { email: MEMBERS.ruthie.email, password: PASSWORD },
+} as const
+
+// IDs populated by seedTestworthFamily() — consumed by feature specs that
+// need to query by auth.users.id or family_members.id directly.
+// Shape mirrors the old seed-family.ts's TEST_IDS for easy consumer migration.
+export const TEST_IDS: {
+  familyId?: string
+  sarahId?: string;   sarahMemberId?: string
+  markId?: string;    markMemberId?: string
+  amyId?: string;     amyMemberId?: string
+  kylieId?: string;   kylieMemberId?: string
+  alexId?: string;    alexMemberId?: string
+  caseyId?: string;   caseyMemberId?: string
+  jordanId?: string;  jordanMemberId?: string
+  ruthieId?: string;  ruthieMemberId?: string
+} = {}
 
 // Store IDs after creation
 const IDS: Record<string, string> = {}
@@ -1238,6 +1270,49 @@ async function seedNotepad() {
 //  MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Seed "The Testworth Family" — idempotent. Returns the family id and
+ * a flat member-id map. Also populates the module-level TEST_IDS export
+ * (mirrors the old seed-family.ts pattern for direct consumers).
+ * Throws on failure — CLI main() wraps this with process.exit(1).
+ */
+export async function seedTestworthFamily(): Promise<{
+  familyId: string
+  memberIds: Record<'sarah' | 'mark' | 'amy' | 'kylie' | 'alex' | 'casey' | 'jordan' | 'ruthie', string>
+}> {
+  await seedFamilyStructure()
+  await seedInnerWorkings()
+  await seedGuidingStars()
+  await seedBestIntentions()
+  await seedArchives()
+  await seedPrivacyFilteredArchiveItems()
+  await seedTasks()
+  await seedVictories()
+  await seedJournal()
+  await seedCalendarEvents()
+  await seedWidgets()
+  await seedLists()
+  await seedNotepad()
+
+  // Populate exported TEST_IDS from the module-internal IDS map.
+  TEST_IDS.familyId = familyId
+  for (const key of ['sarah','mark','amy','kylie','alex','casey','jordan','ruthie'] as const) {
+    ;(TEST_IDS as Record<string, string>)[`${key}Id`] = IDS[`${key}Auth`]
+    ;(TEST_IDS as Record<string, string>)[`${key}MemberId`] = IDS[key]
+  }
+
+  return {
+    familyId,
+    memberIds: {
+      sarah:  IDS.sarah,  mark:   IDS.mark,
+      amy:    IDS.amy,    kylie:  IDS.kylie,
+      alex:   IDS.alex,   casey:  IDS.casey,
+      jordan: IDS.jordan, ruthie: IDS.ruthie,
+    },
+  }
+}
+
+// CLI entry point — runs only when invoked directly via `npx tsx ...`, not on import.
 async function main() {
   console.log('╔══════════════════════════════════════════════════╗')
   console.log('║  Testworth Family Complete Demo Seed             ║')
@@ -1246,31 +1321,19 @@ async function main() {
   const start = Date.now()
 
   try {
-    await seedFamilyStructure()
-    await seedInnerWorkings()
-    await seedGuidingStars()
-    await seedBestIntentions()
-    await seedArchives()
-    await seedPrivacyFilteredArchiveItems()
-    await seedTasks()
-    await seedVictories()
-    await seedJournal()
-    await seedCalendarEvents()
-    await seedWidgets()
-    await seedLists()
-    await seedNotepad()
+    await seedTestworthFamily()
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1)
     console.log('\n╔══════════════════════════════════════════════════╗')
     console.log(`║  COMPLETE: ${totalRecords} records across ${tablesCounted.size} tables`)
     console.log(`║  Time: ${elapsed}s`)
     console.log('║')
-    console.log('║  Login credentials (all use TestPassword123!):')
-    for (const [key, m] of Object.entries(MEMBERS)) {
+    console.log(`║  Login credentials (all use ${PASSWORD}):`)
+    for (const [, m] of Object.entries(MEMBERS)) {
       console.log(`║    ${m.name.padEnd(8)} ${m.email}`)
     }
     console.log('║')
-    console.log('║  Family login: testworthfamily')
+    console.log(`║  Family login: ${FAMILY_LOGIN}`)
     console.log('╚══════════════════════════════════════════════════╝')
   } catch (e) {
     console.error('\n SEED FAILED:', (e as Error).message)
@@ -1278,4 +1341,10 @@ async function main() {
   }
 }
 
-main()
+// Guard against module-import side-effects: only run main() when this file
+// is the CLI entry point. Works across Windows/Unix and CJS/ESM under tsx
+// by comparing basename of the invoked script.
+const invokedBasename = basename(process.argv[1] ?? '')
+if (invokedBasename === 'seed-testworths-complete.ts' || invokedBasename === 'seed-testworths-complete.js') {
+  main()
+}
