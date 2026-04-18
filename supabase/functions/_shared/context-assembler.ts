@@ -18,6 +18,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { applyPrivacyFilter, isPrimaryParent } from './privacy-filter.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -339,6 +340,7 @@ export async function assembleContext(
   if (membersToLoadArchive.length > 0) {
     const archiveContext = await loadFilteredArchive(
       familyId,
+      memberId,
       membersToLoadArchive,
       detectedTopics,
       maxItemsPerMember,
@@ -541,6 +543,7 @@ async function loadBookShelfContext(
 
 async function loadFilteredArchive(
   familyId: string,
+  requestingMemberId: string,
   memberIds: string[],
   detectedTopics: Set<string>,
   maxPerMember: number,
@@ -603,16 +606,22 @@ async function loadFilteredArchive(
     const folderOwnerMap = new Map(enabledFolders.map(f => [f.id, f.member_id]))
 
     // Step 3: Load items
+    // Role-asymmetric privacy filter per Convention #76 + RECON Decision 6.
+    // Mom (primary_parent) sees everything; all other roles are excluded from
+    // is_privacy_filtered = true rows. Prior code applied this filter
+    // unconditionally, which wrongly excluded mom from her own context items.
+    const requesterIsMom = await isPrimaryParent(supabase, requestingMemberId)
     const totalLimit = maxPerMember * enabledMembers.length
-    const { data: items } = await supabase
+    let itemsQuery = supabase
       .from('archive_context_items')
       .select('context_value, folder_id, member_id')
       .eq('family_id', familyId)
       .in('folder_id', enabledFolderIds)
       .eq('is_included_in_ai', true)
-      .eq('is_privacy_filtered', false)
       .is('archived_at', null)
       .limit(totalLimit)
+    itemsQuery = applyPrivacyFilter(itemsQuery, requesterIsMom)
+    const { data: items } = await itemsQuery
 
     if (!items || items.length === 0) return empty
 
