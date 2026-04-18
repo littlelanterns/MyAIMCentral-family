@@ -12,8 +12,8 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL!
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!
 
 const DEMO_USERS = {
-  sarah: { email: 'testmom@testworths.com', password: 'TestPassword123!' },
-  alex: { email: 'alextest@testworths.com', password: 'TestPassword123!' },
+  sarah: { email: 'testmom@testworths.com', password: 'Demo2026!' },
+  alex: { email: 'alextest@testworths.com', password: 'Demo2026!' },
 }
 
 async function loginAs(page: Page, email: string, password: string) {

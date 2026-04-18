@@ -5,7 +5,7 @@
  */
 import { Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
-import { TEST_USERS } from './seed-family'
+import { TEST_USERS } from './seed-testworths-complete'
 import dotenv from 'dotenv'
 import path from 'path'
 import fs from 'fs'
@@ -113,18 +113,18 @@ async function injectSession(
 // Public login functions for each test role
 
 export async function loginAsMom(page: Page): Promise<void> {
-  await loginAs(page, TEST_USERS.mom.email, TEST_USERS.mom.password, 'mom')
+  await loginAs(page, TEST_USERS.sarah.email, TEST_USERS.sarah.password, 'mom')
 }
 
 export async function loginAsDad(page: Page): Promise<void> {
-  await loginAs(page, TEST_USERS.dad.email, TEST_USERS.dad.password, 'dad')
+  await loginAs(page, TEST_USERS.mark.email, TEST_USERS.mark.password, 'dad')
 }
 
 export async function loginAsGrandma(page: Page): Promise<void> {
   await loginAs(
     page,
-    TEST_USERS.grandma.email,
-    TEST_USERS.grandma.password,
+    TEST_USERS.amy.email,
+    TEST_USERS.amy.password,
     'grandma'
   )
 }
@@ -154,8 +154,8 @@ export async function loginAsJordan(page: Page): Promise<void> {
 export async function loginAsRiley(page: Page): Promise<void> {
   await loginAs(
     page,
-    TEST_USERS.riley.email,
-    TEST_USERS.riley.password,
+    TEST_USERS.ruthie.email,
+    TEST_USERS.ruthie.password,
     'riley'
   )
 }

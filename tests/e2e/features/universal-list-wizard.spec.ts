@@ -21,7 +21,7 @@
  */
 import { test, expect, type Page } from '@playwright/test'
 import { loginAsMom } from '../helpers/auth'
-import { TEST_USERS } from '../helpers/seed-family'
+import { TEST_USERS } from '../helpers/seed-testworths-complete'
 import { waitForAppReady, captureConsoleErrors, assertNoInfiniteRenders } from '../helpers/assertions'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
@@ -38,8 +38,8 @@ async function getMomSupabase() {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const { data, error } = await sb.auth.signInWithPassword({
-    email: TEST_USERS.mom.email,
-    password: TEST_USERS.mom.password,
+    email: TEST_USERS.sarah.email,
+    password: TEST_USERS.sarah.password,
   })
   if (error || !data.user) throw new Error(`Mom login failed: ${error?.message}`)
   return { sb, userId: data.user.id }

@@ -11,7 +11,7 @@
  */
 import { test, expect, Page } from '@playwright/test'
 import { loginAsMom, loginAsDad } from '../helpers/auth'
-import { TEST_USERS } from '../helpers/seed-family'
+import { TEST_USERS } from '../helpers/seed-testworths-complete'
 import {
   captureConsoleErrors,
   assertNoInfiniteRenders,
@@ -37,7 +37,7 @@ async function getAuthenticatedSb(email: string, password: string) {
 }
 
 async function getMomSupabase() {
-  return getAuthenticatedSb(TEST_USERS.mom.email, TEST_USERS.mom.password)
+  return getAuthenticatedSb(TEST_USERS.sarah.email, TEST_USERS.sarah.password)
 }
 
 async function getMomMember() {
@@ -53,7 +53,7 @@ async function getMomMember() {
 }
 
 async function getDadMember() {
-  const { sb, userId } = await getAuthenticatedSb(TEST_USERS.dad.email, TEST_USERS.dad.password)
+  const { sb, userId } = await getAuthenticatedSb(TEST_USERS.mark.email, TEST_USERS.mark.password)
   const { data } = await sb
     .from('family_members')
     .select('id, family_id')

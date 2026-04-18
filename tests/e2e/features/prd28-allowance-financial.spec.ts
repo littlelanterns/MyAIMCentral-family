@@ -30,8 +30,8 @@ async function getMomSupabase() {
     auth: { autoRefreshToken: false, persistSession: false },
   })
   const { data, error } = await sb.auth.signInWithPassword({
-    email: 'testmom@myaim.test',
-    password: 'TestPassword123!',
+    email: 'testmom@testworths.com',
+    password: 'Demo2026!',
   })
   if (error || !data.user) throw new Error(`Mom login failed: ${error?.message}`)
   return { sb, userId: data.user.id }

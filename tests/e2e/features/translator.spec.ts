@@ -16,7 +16,7 @@ import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import { loginAsMom } from '../helpers/auth'
-import { TEST_IDS } from '../helpers/seed-family'
+import { TEST_IDS } from '../helpers/seed-testworths-complete'
 
 dotenv.config({ path: '.env.local' })
 
@@ -128,12 +128,12 @@ test.describe('PRD-34: Translator (AI Vault launch path)', () => {
     // ── Step 7: database-side verification ──
     // Confirm the conversations and messages were persisted by the
     // Edge Function — not just the UI optimistically rendering.
-    if (TEST_IDS.momMemberId) {
+    if (TEST_IDS.sarahMemberId) {
       const since = new Date(Date.now() - 5 * 60 * 1000).toISOString()
       const { data: convs } = await supabaseAdmin
         .from('lila_conversations')
         .select('id, model_used, message_count')
-        .eq('member_id', TEST_IDS.momMemberId)
+        .eq('member_id', TEST_IDS.sarahMemberId)
         .eq('guided_mode', 'translator')
         .gte('created_at', since)
         .order('created_at', { ascending: false })

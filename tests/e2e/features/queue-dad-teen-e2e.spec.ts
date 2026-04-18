@@ -17,7 +17,6 @@ import {
   assertNoInfiniteRenders,
   waitForAppReady,
 } from '../helpers/assertions'
-import { TEST_IDS } from '../helpers/seed-family'
 import dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
@@ -35,7 +34,7 @@ async function getTestFamily() {
   const { data: family } = await adminClient
     .from('families')
     .select('id')
-    .eq('family_login_name', 'testworths')
+    .eq('family_login_name', 'testworthfamily')
     .single()
 
   if (!family) throw new Error('Testworths family not found — run global setup')
@@ -49,8 +48,8 @@ async function getTestFamily() {
 
   return {
     familyId: family.id,
-    mom: byName('Test Mom')!,
-    dad: byName('Test Dad')!,
+    mom: byName('Sarah')!,
+    dad: byName('Mark')!,
     alex: byName('Alex')!,
   }
 }
