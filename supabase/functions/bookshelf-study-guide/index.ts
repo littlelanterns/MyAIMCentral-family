@@ -15,6 +15,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { corsHeaders, handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { applyPrivacyFilter, isPrimaryParent } from '../_shared/privacy-filter.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -74,8 +75,14 @@ Deno.serve(async (req) => {
     const childAge = child.age || 10
     const childName = child.display_name || 'this child'
 
-    // Load child's archive context for personalization (optional)
-    const { data: archiveItems } = await supabase
+    // Load child's archive context for personalization (optional).
+    // Role-asymmetric privacy filter per Convention #76 + RECON Decision 6.
+    // Mom (primary_parent) sees privacy-filtered items; non-mom requesters
+    // do not. Helper used (vs. sync roster check) because no member roster
+    // is in scope at this Edge Function — matches Task 1's pattern in
+    // loadFilteredArchive.
+    const requesterIsMom = await isPrimaryParent(supabase, member_id)
+    let archiveQuery = supabase
       .from('archive_context_items')
       .select('context_value, context_type')
       .eq('family_id', family_id)
@@ -83,6 +90,8 @@ Deno.serve(async (req) => {
       .eq('is_included_in_ai', true)
       .is('archived_at', null)
       .limit(10)
+    archiveQuery = applyPrivacyFilter(archiveQuery, requesterIsMom)
+    const { data: archiveItems } = await archiveQuery
 
     const childContext = (archiveItems || [])
       .map((i: { context_value: string; context_type: string | null }) =>
