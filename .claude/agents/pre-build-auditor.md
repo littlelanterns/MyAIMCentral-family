@@ -30,10 +30,9 @@ The user will provide a PRD number (e.g., "PRD-11" or "PRD-14B").
    - `prds/addenda/PRD-36-Cross-PRD-Impact-Addendum.md` (if feature has timers)
    - `prds/addenda/PRD-Audit-Readiness-Addendum.md` (always)
    - `prds/addenda/PRD-Template-and-Audit-Updates.md` (if feature uses templates)
-4. Read `claude/database_schema.md` for the tables relevant to this PRD.
-5. Read `claude/live_schema.md` to check what actually exists in the database.
-6. Read `WIRING_STATUS.md` to check what this feature connects to.
-7. Read `STUB_REGISTRY.md` to find stubs this phase should wire.
+4. Read `claude/live_schema.md` to check what tables and columns exist in the database.
+5. Read `WIRING_STATUS.md` to check what this feature connects to.
+6. Read `STUB_REGISTRY.md` to find stubs this phase should wire.
 
 ### Step 2: Analyze Gaps
 

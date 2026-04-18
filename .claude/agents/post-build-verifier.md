@@ -22,10 +22,10 @@ The user will say something like "verify PRD-11" or "run post-build verification
 
 ### Step 1: Load the Requirements
 
-1. Read `CURRENT_BUILD.md` to get the pre-build summary and feature decision file path.
+1. Read the active build file in `.claude/rules/current-builds/` to get the pre-build summary and feature decision file path.
 2. Read the feature decision file from `claude/feature-decisions/`.
 3. Read the original PRD for the complete requirement list.
-4. **Independently search `prds/addenda/` for ALL files containing the PRD number** — do not rely on CURRENT_BUILD.md's list. Addenda contain binding decisions that override the base PRD. Read every match.
+4. **Independently search `prds/addenda/` for ALL files containing the PRD number** — do not rely on the active build file's list. Addenda contain binding decisions that override the base PRD. Read every match.
 5. Also check these universal addenda where relevant:
    - `PRD-31-Permission-Matrix-Addendum.md` (if feature has permissions/tiers)
    - `PRD-35-Cross-PRD-Impact-Addendum.md` (if feature has scheduling)

@@ -44,7 +44,7 @@ For each table:
    - UPDATE (can they modify? which rows?)
    - DELETE (can they remove? which rows?)
 
-3. **Compare against PRD spec:** Read the table's entry in `claude/database_schema.md` for the expected RLS behavior.
+3. **Compare against PRD spec:** Read the PRD's RLS section for expected behavior. `claude/live_schema.md` confirms the column exists but does not document RLS narrative.
 
 4. **Record results** using this shorthand:
    - `full` = read/write all rows in family scope

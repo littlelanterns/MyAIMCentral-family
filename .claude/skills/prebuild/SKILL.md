@@ -1,6 +1,6 @@
 ---
 name: prebuild
-description: "Run the mandatory pre-build audit for a PRD. Reads the full PRD, finds all matching addenda, checks live schema gaps, creates the feature decision file, and populates CURRENT_BUILD.md. Invoke with a PRD number: /prebuild PRD-15"
+description: "Run the mandatory pre-build audit for a PRD. Reads the full PRD, finds all matching addenda, checks live schema gaps, creates the feature decision file, and populates the active build file under .claude/rules/current-builds/. Invoke with a PRD number: /prebuild PRD-15"
 ---
 
 # Pre-Build Audit — Claude Code Skill
@@ -158,7 +158,7 @@ After the main Step 0 probes pass, optionally check for the plugin hook failure 
 
 If Tenise explicitly says "override acknowledged" or "proceed with override acknowledged" after seeing a failure, the skill may proceed BUT must:
 
-1. Record an audit entry in `CURRENT_BUILD.md` under the active build's Pre-Build Summary section, using this exact format:
+1. Record an audit entry in the active build file under `.claude/rules/current-builds/<build-name>.md` in its Pre-Build Summary section, using this exact format:
 
    ```
    YYYY-MM-DD HH:MM — Step 0 override: <tool name> <failure state>, Tenise proceeded with override acknowledged. Known gap: <what capability is missing this build>.
@@ -232,9 +232,8 @@ Read the applicable always-relevant addenda too.
 ## Step 3: Check Schema Gaps
 
 1. Read `claude/live_schema.md` — check what tables exist in the live database right now
-2. Read `claude/database_schema.md` — check the planned schema for this feature's tables
-3. Identify gaps: tables the PRD requires that don't exist yet, columns that need adding
-4. Read `WIRING_STATUS.md` — check what's wired vs stubbed that this feature connects to
+2. Identify gaps: tables the PRD requires that don't exist yet, columns that need adding
+3. Read `WIRING_STATUS.md` — check what's wired vs stubbed that this feature connects to
 
 ---
 
@@ -255,9 +254,11 @@ Fill in ALL sections:
 
 ---
 
-## Step 5: Populate CURRENT_BUILD.md
+## Step 5: Create the Active Build File
 
-Add a new build section to `CURRENT_BUILD.md` with:
+Create `.claude/rules/current-builds/<build-name>.md` (e.g., `PRD-30-safety-monitoring.md`). Do NOT add YAML `paths:` frontmatter — the folder auto-loads unconditionally via Claude Code's recursive `.claude/rules/` discovery, and `paths:` frontmatter would make it path-conditional and break the auto-load.
+
+Populate the file with:
 - Status: **ACTIVE**
 - PRD file path
 - Every addendum file read (list them ALL)

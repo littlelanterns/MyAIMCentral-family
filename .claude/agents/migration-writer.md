@@ -20,10 +20,9 @@ The user will describe what schema changes are needed, referencing a PRD number 
 
 ## Before Writing
 
-1. Read `claude/database_schema.md` for the canonical schema definition of the tables involved.
-2. Read `claude/live_schema.md` to check what already exists.
-3. Check existing migrations in `supabase/migrations/` to understand the naming pattern and next sequence number.
-4. Read the PRD if a PRD number is provided — the PRD is authoritative for schema design, not database_schema.md.
+1. Read `claude/live_schema.md` to check what already exists.
+2. Check existing migrations in `supabase/migrations/` to understand the naming pattern and next sequence number.
+3. Read the PRD if a PRD number is provided — the PRD is authoritative for schema design.
 
 ## Migration File Conventions
 
@@ -133,14 +132,13 @@ CREATE POLICY "tablename_select_own" ON table_name
 Write the migration file to `supabase/migrations/` with the correct sequence number. After writing, remind the user to:
 1. Run `supabase db push` to apply
 2. Verify via API query
-3. Update `claude/database_schema.md` if needed
-4. Update `claude/live_schema.md` by running `node scripts/dump-schema.cjs`
+3. Update `claude/live_schema.md` by running `node scripts/dump-schema.cjs`
 
 ## Rules
 
 - NEVER write destructive migrations (DROP TABLE, DROP COLUMN) without explicit founder approval.
 - Always use IF NOT EXISTS / IF EXISTS for idempotency.
 - Every table gets RLS enabled. No exceptions.
-- Check that column names match the PRD exactly — database_schema.md is a summary, PRD is authoritative.
+- Check that column names match the PRD exactly — the PRD is authoritative.
 - Include appropriate indexes for foreign keys and common query patterns.
 - Seed data goes in a separate migration file from schema changes.
