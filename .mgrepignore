@@ -1,0 +1,19 @@
+# .mgrepignore — exclude from mgrep index to free token budget
+# Created: 2026-04-18 (Phase 0.26 S5)
+#
+# Purpose: reduce mgrep index size by excluding paths that don't benefit
+# from semantic search. Each line is a gitignore-style pattern.
+
+# tmp files (watcher artifacts, editor swap files, etc.)
+*.tmp
+*.tmp.*
+tmp/
+.tmp/
+
+# Visual schedule migrations (large auto-generated migration SQL,
+# not useful for cross-feature semantic search)
+supabase/migrations/*visual_schedule*.sql
+
+# OPTIONAL: exclude public assets from index (uncomment if needed).
+# Leaving indexed by default to preserve search against public HTML/images.
+# public/**

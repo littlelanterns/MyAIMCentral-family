@@ -16,6 +16,43 @@ Code written without it is a guess.
 
 ---
 
+## Prerequisites: mgrep Index Must Be Running
+
+Every step below uses `mgrep search` for semantic lookups across PRDs, addenda,
+and source. If mgrep isn't running, Grep fallback works but is slower and
+misses semantic matches.
+
+### Auto-start via VS Code task
+
+When this repo is opened in VS Code, the workspace task at `.vscode/tasks.json`
+auto-starts `mgrep watch --max-file-count 3000`. One-time setup after cloning:
+run `Tasks: Manage Automatic Tasks → Allow Automatic Tasks` from the command
+palette. Without this, VS Code silently disables the auto-run task.
+
+### Why the `--max-file-count 3000` flag matters
+
+The mgrep CLI default is **1000 files**. This repo has ~2000+ indexable files.
+Running `mgrep watch` with no flag silently truncates the index — queries
+return confident results from a partial snapshot, indistinguishable from a
+correctly-indexed run. The 3000 flag is baked into the VS Code task args; if
+launching mgrep manually, pass it explicitly or set
+`MGREP_MAX_FILE_COUNT=3000` in the environment.
+
+### If mgrep isn't running at session start
+
+Open the VS Code task terminal and look for `✔ Initial sync complete`. If
+missing:
+1. Verify the VS Code task is enabled (see above).
+2. Manually start: `mgrep watch --max-file-count 3000` in a long-lived terminal.
+3. If auth expired (`Failed to refresh token`), run `mgrep login` in a real
+   interactive terminal (not piped stdin — device-code flow needs the CLI to
+   poll past the browser step).
+
+Session-start hygiene check: `mgrep search "<recent-identifier>"` should
+return both source files and PRD markdown. If only markdown, index is stale.
+
+---
+
 ## Step 1: Identify the Full Source Material
 
 Read ALL of the following before writing a single line:

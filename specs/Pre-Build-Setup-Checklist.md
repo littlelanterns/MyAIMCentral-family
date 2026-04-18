@@ -57,6 +57,31 @@ The audit prompt should instruct Opus to check for:
 - [ ] Note: "Connected" only confirms the MCP process started. A test scan is the only way to verify the full path works end-to-end. Until an Endor Labs account is set up, scans remain untested — track as a followup, and document the gap.
 - [ ] If disconnected later: reconnection procedure is in `~/.claude/projects/<slug>/memory/reference_auri_security.md`
 
+### MCP Configuration Location Sweep (applies to all MCP servers)
+
+**The surprise worth knowing up-front:** Claude Code CLI reads MCP server config from a different file than VS Code's integrated Claude extension. "Registered" in one doesn't mean "registered" in the other. This has caused tools to appear active in one surface while silently missing from the other for weeks.
+
+**Authoritative locations per surface:**
+
+| Surface | Config file | MCP section |
+|---|---|---|
+| Claude Code CLI (global) | `~/.claude.json` | `.mcpServers` |
+| Claude Code CLI (per-project) | `~/.claude.json` | `.projects.<cwd>.mcpServers` |
+| VS Code integrated Claude extension | `.vscode/mcp.json` | (whole file) |
+| VS Code settings (some variants) | `.vscode/settings.json` | `mcp.servers` or extension-specific key |
+| Claude Code project settings | `.claude/settings.json` | `mcpServers` (if present) |
+| Claude Code project local settings | `.claude/settings.local.json` | `mcpServers` (if present) |
+
+**Six-location sweep during health check:** When auditing MCP state, inspect all six locations. A server registered only in `.vscode/mcp.json` will NOT be visible to Claude Code CLI. A server registered only in `~/.claude.json` will NOT be used by the VS Code integrated extension. Both must be present for the same tool to work in both surfaces.
+
+**Verification command:**
+- `claude mcp list` — shows what the CLI sees (reads `~/.claude.json`, `.claude/settings.json`, `.claude/settings.local.json` merged)
+- Open VS Code command palette → `MCP: List Servers` (or equivalent) — shows what the VS Code extension sees (reads `.vscode/mcp.json` + `.vscode/settings.json`)
+
+If both report the same set of connected servers, registration is consistent. If one reports a server the other doesn't, fix by adding to the missing surface's config file.
+
+**Historical incident:** Multiple MCP-related debugging sessions in early 2026 stalled because tool state was checked in only one surface. The six-location sweep catches registration drift that single-surface checks miss.
+
 ### mgrep Semantic Search
 
 **What it is:** CLI semantic search tool by Mixedbread AI. Understands meaning, not just exact strings. When Claude Code needs to find something in your codebase, mgrep returns the most relevant code/doc chunks by meaning — even if the exact words don't match.

@@ -88,7 +88,7 @@ if you suspect a deeper crash before clearing.
 **Pre-flight:** Before any probes, run the orphaned codegraph lock check from `### Pre-flight: Orphaned codegraph lock check` above. If it hard-gates, HALT here and wait for explicit user acknowledgment before continuing.
 
 1. **Connection checks (in parallel):**
-   - `claude mcp list` → parse each server's status
+   - `claude mcp list` → parse each server's status (reads `~/.claude.json` — NOT `.vscode/mcp.json`; see `specs/Pre-Build-Setup-Checklist.md` § MCP Configuration Location Sweep for the full six-location check methodology when drift is suspected)
    - `mgrep whoami 2>&1 | head -3` → check for auth-failed string
 
 2. **End-to-end probes (for each required tool):**
