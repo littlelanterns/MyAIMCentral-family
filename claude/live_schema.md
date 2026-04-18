@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-17
+> Auto-generated from live Supabase on 2026-04-18
 > Script: `node scripts/full-schema-dump.cjs`
 > Column names from OpenAPI spec (accurate for all API-exposed tables)
 > Row counts from live queries
@@ -9,7 +9,7 @@
 
 ## Auth & Family (PRD-01, PRD-02)
 
-### `families` — 5 rows
+### `families` — 3 rows
 
 | # | Column |
 |---|---|
@@ -36,7 +36,7 @@
 | 21 | `hub_config` |
 | 22 | `family_photo_url` |
 
-### `family_members` — 26 rows
+### `family_members` — 18 rows
 
 | # | Column |
 |---|---|
@@ -83,7 +83,7 @@
 | 41 | `pin_locked_until` |
 | 42 | `emergency_locked` |
 
-### `special_adult_assignments` — 4 rows
+### `special_adult_assignments` — 2 rows
 
 | # | Column |
 |---|---|
@@ -118,7 +118,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 144 rows
+### `view_as_sessions` — 143 rows
 
 | # | Column |
 |---|---|
@@ -129,7 +129,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 59 rows
+### `view_as_feature_exclusions` — 58 rows
 
 | # | Column |
 |---|---|
@@ -201,7 +201,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `family_subscriptions` — 3 rows
+### `family_subscriptions` — 2 rows
 
 | # | Column |
 |---|---|
@@ -286,7 +286,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 143 rows
+### `lila_conversations` — 72 rows
 
 | # | Column |
 |---|---|
@@ -311,7 +311,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 270 rows
+### `lila_messages` — 150 rows
 
 | # | Column |
 |---|---|
@@ -387,7 +387,7 @@
 
 *(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
 
-### `ai_usage_tracking` — 738 rows
+### `ai_usage_tracking` — 528 rows
 
 | # | Column |
 |---|---|
@@ -404,7 +404,7 @@
 
 ## Personal Growth (PRD-06 to PRD-08)
 
-### `guiding_stars` — 39 rows
+### `guiding_stars` — 27 rows
 
 | # | Column |
 |---|---|
@@ -428,7 +428,7 @@
 | 18 | `sort_order` |
 | 19 | `archived_at` |
 
-### `best_intentions` — 23 rows
+### `best_intentions` — 12 rows
 
 | # | Column |
 |---|---|
@@ -456,7 +456,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 86 rows
+### `intention_iterations` — 46 rows
 
 | # | Column |
 |---|---|
@@ -470,7 +470,7 @@
 | 8 | `day_date` |
 | 9 | `acted_by` |
 
-### `self_knowledge` — 144 rows
+### `self_knowledge` — 141 rows
 
 | # | Column |
 |---|---|
@@ -522,7 +522,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 21 rows
+### `notepad_tabs` — 20 rows
 
 | # | Column |
 |---|---|
@@ -653,7 +653,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 179 rows
+### `tasks` — 71 rows
 
 | # | Column |
 |---|---|
@@ -732,7 +732,7 @@
 | 73 | `allowance_points` |
 | 74 | `homework_subject_ids` |
 
-### `task_assignments` — 39 rows
+### `task_assignments` — 22 rows
 
 | # | Column |
 |---|---|
@@ -749,7 +749,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 36 rows
+### `task_completions` — 33 rows
 
 | # | Column |
 |---|---|
@@ -773,7 +773,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 15 rows
+### `routine_step_completions` — 21 rows
 
 | # | Column |
 |---|---|
@@ -787,7 +787,7 @@
 | 8 | `period_date` |
 | 9 | `photo_url` |
 
-### `sequential_collections` — 6 rows
+### `sequential_collections` — 0 rows
 
 | # | Column |
 |---|---|
@@ -859,7 +859,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 68 rows
+### `lists` — 42 rows
 
 | # | Column |
 |---|---|
@@ -902,7 +902,7 @@
 | 37 | `default_claim_lock_duration` |
 | 38 | `default_claim_lock_unit` |
 
-### `list_items` — 127 rows
+### `list_items` — 116 rows
 
 | # | Column |
 |---|---|
@@ -960,7 +960,7 @@
 | 52 | `claim_lock_duration` |
 | 53 | `claim_lock_unit` |
 
-### `list_shares` — 2 rows
+### `list_shares` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1014,7 +1014,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 31 rows
+### `dashboard_configs` — 21 rows
 
 | # | Column |
 |---|---|
@@ -1030,7 +1030,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 155 rows
+### `dashboard_widgets` — 41 rows
 
 | # | Column |
 |---|---|
@@ -1108,7 +1108,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `calendar_events` — 37 rows
+### `calendar_events` — 34 rows
 
 | # | Column |
 |---|---|
@@ -1181,7 +1181,7 @@
 | 8 | `sort_order` |
 | 9 | `created_at` |
 
-### `calendar_settings` — 3 rows
+### `calendar_settings` — 2 rows
 
 | # | Column |
 |---|---|
@@ -1194,7 +1194,7 @@
 | 7 | `created_at` |
 | 8 | `updated_at` |
 
-### `family_overview_configs` — 2 rows
+### `family_overview_configs` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1214,7 +1214,7 @@
 
 ## Family Hub (PRD-14D)
 
-### `family_hub_configs` — 2 rows
+### `family_hub_configs` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1232,7 +1232,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `family_best_intentions` — 15 rows
+### `family_best_intentions` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1261,7 +1261,7 @@
 | 5 | `day_date` |
 | 6 | `created_at` |
 
-### `countdowns` — 15 rows
+### `countdowns` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1281,7 +1281,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 17 rows
+### `victories` — 12 rows
 
 | # | Column |
 |---|---|
@@ -1343,7 +1343,7 @@
 
 ## Archives & Context (PRD-13)
 
-### `archive_folders` — 264 rows
+### `archive_folders` — 180 rows
 
 | # | Column |
 |---|---|
@@ -1388,7 +1388,7 @@
 | 20 | `updated_at` |
 | 21 | `is_negative_preference` |
 
-### `archive_member_settings` — 26 rows
+### `archive_member_settings` — 18 rows
 
 | # | Column |
 |---|---|
@@ -1444,7 +1444,7 @@
 
 ## Communication (PRD-15)
 
-### `conversation_spaces` — 20 rows
+### `conversation_spaces` — 11 rows
 
 | # | Column |
 |---|---|
@@ -1458,7 +1458,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `conversation_space_members` — 68 rows
+### `conversation_space_members` — 40 rows
 
 | # | Column |
 |---|---|
@@ -1469,7 +1469,7 @@
 | 5 | `notifications_muted` |
 | 6 | `joined_at` |
 
-### `conversation_threads` — 6 rows
+### `conversation_threads` — 3 rows
 
 | # | Column |
 |---|---|
@@ -1484,7 +1484,7 @@
 | 9 | `last_message_at` |
 | 10 | `created_at` |
 
-### `messages` — 7 rows
+### `messages` — 4 rows
 
 | # | Column |
 |---|---|
@@ -1499,7 +1499,7 @@
 | 9 | `edited_at` |
 | 10 | `created_at` |
 
-### `message_read_status` — 5 rows
+### `message_read_status` — 4 rows
 
 | # | Column |
 |---|---|
@@ -1509,7 +1509,7 @@
 | 4 | `last_read_message_id` |
 | 5 | `last_read_at` |
 
-### `messaging_settings` — 1 rows
+### `messaging_settings` — 0 rows
 
 | # | Column |
 |---|---|
@@ -1532,7 +1532,7 @@
 | 4 | `can_message_member_id` |
 | 5 | `created_at` |
 
-### `message_coaching_settings` — 7 rows
+### `message_coaching_settings` — 4 rows
 
 | # | Column |
 |---|---|
@@ -1544,7 +1544,7 @@
 | 6 | `created_at` |
 | 7 | `updated_at` |
 
-### `family_requests` — 11 rows
+### `family_requests` — 0 rows
 
 | # | Column |
 |---|---|
@@ -1591,7 +1591,7 @@
 | 17 | `priority` |
 | 18 | `created_at` |
 
-### `notification_preferences` — 6 rows
+### `notification_preferences` — 0 rows
 
 | # | Column |
 |---|---|
@@ -1716,7 +1716,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 712 rows
+### `bookshelf_items` — 562 rows
 
 | # | Column |
 |---|---|
@@ -1937,7 +1937,7 @@
 | 5 | `metadata` |
 | 6 | `created_at` |
 
-### `bookshelf_collections` — 16 rows
+### `bookshelf_collections` — 15 rows
 
 | # | Column |
 |---|---|
@@ -1951,7 +1951,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `bookshelf_collection_items` — 86 rows
+### `bookshelf_collection_items` — 83 rows
 
 | # | Column |
 |---|---|
@@ -2140,7 +2140,7 @@
 | 3 | `vault_item_id` |
 | 4 | `created_at` |
 
-### `vault_user_progress` — 25 rows
+### `vault_user_progress` — 12 rows
 
 | # | Column |
 |---|---|
@@ -2154,7 +2154,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 281 rows
+### `vault_user_visits` — 222 rows
 
 | # | Column |
 |---|---|
@@ -2162,7 +2162,7 @@
 | 2 | `user_id` |
 | 3 | `visited_at` |
 
-### `vault_first_sightings` — 97 rows
+### `vault_first_sightings` — 81 rows
 
 | # | Column |
 |---|---|
@@ -2374,7 +2374,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 380 rows
+### `activity_log_entries` — 132 rows
 
 | # | Column |
 |---|---|
