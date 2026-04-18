@@ -5,6 +5,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { detectTopics } from './context-assembler.ts'
+import { applyPrivacyFilter } from './privacy-filter.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -90,6 +91,15 @@ export async function loadRelationshipContext(
     .eq('is_active', true)
 
   const members = allMembers || []
+
+  // Role-asymmetric privacy filter per Convention #76 + RECON Decision 6.
+  // Mom sees privacy-filtered archive items; non-mom roles do not. Computed
+  // once from the already-loaded roster (zero extra DB calls) and plumbed
+  // down to query sites. Pattern note: synchronous roster lookup preferred
+  // here because members[] is in scope; isPrimaryParent() helper is the
+  // correct choice at sites without roster access (e.g. loadFilteredArchive
+  // in context-assembler.ts).
+  const requesterIsMom = members.find(m => m.id === memberId)?.role === 'primary_parent'
 
   // Build name alias map from archive_member_settings
   const { data: aliasData } = await supabase
@@ -186,7 +196,7 @@ export async function loadRelationshipContext(
       .eq('family_id', familyId)
       .maybeSingle(),
     // Load context for each selected person (with topic filtering)
-    ...personIds.map(pid => loadPersonContext(familyId, memberId, pid, members, detectedTopics)),
+    ...personIds.map(pid => loadPersonContext(familyId, memberId, requesterIsMom, pid, members, detectedTopics)),
   ])
 
   // Filter relationship notes to only relevant pairs
@@ -258,7 +268,8 @@ export async function loadRelationshipContext(
 
 async function loadPersonContext(
   familyId: string,
-  _requestingMemberId: string,
+  requestingMemberId: string,
+  requesterIsMom: boolean,
   personId: string,
   allMembers: Array<{ id: string; display_name: string; role: string; age?: number; dashboard_mode?: string; relationship?: string }>,
   detectedTopics?: Set<string>,
@@ -276,15 +287,21 @@ async function loadPersonContext(
       .is('archived_at', null)
       .limit(25), // Raised from 15 to accommodate connection preference categories
     // Person's archive items (3-tier filtered, topic-scoped when available)
-    loadPersonArchiveItems(familyId, personId, detectedTopics),
-    // Negative preferences (veto items)
-    supabase.from('archive_context_items')
-      .select('context_value')
-      .eq('family_id', familyId)
-      .eq('member_id', personId)
-      .eq('is_negative_preference', true)
-      .eq('is_included_in_ai', true)
-      .is('archived_at', null),
+    loadPersonArchiveItems(familyId, personId, requesterIsMom, detectedTopics),
+    // Negative preferences (veto items).
+    // Role-asymmetric privacy filter per Convention #76 + RECON Decision 6.
+    // Inline-wrap pattern (vs. let/reassign in Site 3) preserves the
+    // Promise.all parallel-load structure here.
+    applyPrivacyFilter(
+      supabase.from('archive_context_items')
+        .select('context_value')
+        .eq('family_id', familyId)
+        .eq('member_id', personId)
+        .eq('is_negative_preference', true)
+        .eq('is_included_in_ai', true)
+        .is('archived_at', null),
+      requesterIsMom,
+    ),
     // Person's wishlist items (from AI-included wishlists)
     loadPersonWishlistItems(familyId, personId),
   ])
@@ -344,6 +361,7 @@ async function loadPersonContext(
 async function loadPersonArchiveItems(
   familyId: string,
   personId: string,
+  requesterIsMom: boolean,
   detectedTopics?: Set<string>,
 ): Promise<Array<{ content: string; type?: string }>> {
   // Check person-level toggle
@@ -392,8 +410,9 @@ async function loadPersonArchiveItems(
   if (filteredFolders.length === 0) return []
   const folderIds = filteredFolders.map(f => f.id)
 
-  // Load items from enabled (and topic-scoped) folders
-  const { data: items } = await supabase
+  // Load items from enabled (and topic-scoped) folders.
+  // Role-asymmetric privacy filter per Convention #76 + RECON Decision 6.
+  let itemsQuery = supabase
     .from('archive_context_items')
     .select('context_value, context_type, is_negative_preference')
     .eq('family_id', familyId)
@@ -402,6 +421,8 @@ async function loadPersonArchiveItems(
     .eq('is_negative_preference', false)
     .is('archived_at', null)
     .limit(50)
+  itemsQuery = applyPrivacyFilter(itemsQuery, requesterIsMom)
+  const { data: items } = await itemsQuery
 
   return (items || []).map((item: { context_value: string; context_type?: string }) => ({
     content: item.context_value,
