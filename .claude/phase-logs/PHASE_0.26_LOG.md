@@ -11,7 +11,7 @@
 >
 > **Conventions used here:** no emoji; audit-style format; dated commits via SHA trail; carry-forward items use checkboxes for unresolved, plain text for resolved.
 >
-> **Current status:** Phase 0.26 is 6 of 8 sessions complete. S6, S5, S4 remain.
+> **Current status:** Phase 0.26 is 7 of 8 sessions complete. S6 and S4 remain.
 
 ---
 
@@ -30,7 +30,7 @@ Phase 0.26 executes the cleanup and infrastructure work surfaced by the Phase 0.
 | S3 | Complete | Privacy filter fix (Convention #76 defense-in-depth) |
 | S7 | Complete | Skill/agent stale path migration |
 | S6 | Pending | BUILD_STATUS reconciliation |
-| S5 | Pending | 17-followups doc batch + Convention candidates bookmark |
+| S5 | Complete | 17-followups doc batch + S7 carry-forward + Convention candidates synthesis |
 | S4 | Pending | Wizard multi-user Playwright test (Testworth seeding) |
 
 Sessions can run in any dependency-respecting order; founder decides sequence. S1 → all others established; S6 depends on nothing; S4 depends on Testworth test data.
@@ -189,25 +189,68 @@ Sessions can run in any dependency-respecting order; founder decides sequence. S
 
 ---
 
+## Session S5 — 17-Followups Doc Batch + S7 Carry-Forward + Convention Synthesis
+
+**Date:** 2026-04-18
+**SHA trail:** `c1a39a7` → `32df8d7` → `a208bbb` (+ this session-log update commit)
+
+**Delivered:**
+
+*Task 1 — 17-followups doc batch (`c1a39a7`):*
+- F3: `claude/PRE_BUILD_PROCESS.md` — new "Prerequisites: mgrep Index Must Be Running" section documenting VS Code auto-start task, 3000-file flag necessity, and if-not-running remediation steps.
+- F4: `reference_mgrep.md` memory file — promoted the default-1000 silent-truncation limit from a buried sentence to a dedicated "Known limits (silent failure modes)" bullet block.
+- F11: new `.mgrepignore` at repo root — `*.tmp`, `*.tmp.*`, `tmp/`, `.tmp/`, plus `supabase/migrations/*visual_schedule*.sql`; `public/**` commented as optional.
+- F15: new `REPO_STATS.md` at repo root — approximate token sizes for `src/`, `supabase/`, `prds/`, `claude/`, `.claude/` with measurement method.
+- F17 + Finding 3.6: `specs/Pre-Build-Setup-Checklist.md` new "MCP Configuration Location Sweep" subsection with a 6-location table; `.claude/skills/prebuild/SKILL.md` Step 0 cross-reference added.
+- F14 deferred to founder (out of scope for Claude Code).
+
+*Task 2 — S7 carry-forward path migration (`32df8d7`):*
+- 11 references migrated across 5 active docs that S1a/S1.5 missed: `MYAIM_GAMEPLAN_v2.2.md` (4 Replace), `claude/LESSONS_LEARNED.md` (1 Replace + 1 Preserve-with-parenthetical), `CONVERSATION_CONTEXT.md` (3 Replace), `tests/e2e/features/play-dashboard-sub-phase-b.spec.ts` (1 Replace, JSDoc-only), `workflows/audit-prompt.md` (1 Replace + clause-level prose realignment).
+- `LESSONS_LEARNED.md` line 28 narrative preservation: kept the historical `database_schema.md` reference verbatim (documents a specific past incident) with parenthetical `(now archived — see claude/live_schema.md for current schema reference)` added for one-hop trail.
+- `workflows/audit-prompt.md` clause-level realignment: old prose overpromised `live_schema.md`'s contents ("every type, every index, every RLS policy, every trigger"). New prose accurately describes column-only + row counts with redirect to `supabase/migrations/` for indexes/RLS/triggers.
+
+*Task 3 — Convention candidates synthesis (`a208bbb`):*
+- CLAUDE.md Convention #241 expanded with "Silent Tooling Failure Patterns" subsection — 5 patterns (candidates 1, 2, 3, 4, 7 from Convention Candidates list below). Each documented as: name, symptom, correct approach, diagnostic signature.
+- New `## Data Access Patterns (Non-Negotiable)` h2 header + Convention #245 "Primary Parent Check Pattern" — formalizes the sync-roster vs helper pattern discipline from S3 Task 2.
+- New `.claude/backlogs/CLASS_D_PRIVACY_WRAPS.md` — 12 Class D sites from S3 Task 4 pre-push audit archived as backlog (not bug list), with `[PENDING]`/`[WRAPPED]`/`[DEFERRED]` status tracking. Creates new `.claude/backlogs/` folder.
+
+*Task 4 — this session-log update.*
+
+**Key quality catches:**
+- `claude/reference_mgrep.md` path from recon was a misnomer — `reference_mgrep.md` lives in the memory system (`~/.claude/projects/.../memory/`), not in the repo. Flagged before writing and updated the correct location.
+- `CURRENT_BUILD.md` file at repo root — mgrep hits suggested it still existed; verification confirmed the hits were stale index artifacts (`.tmp.*` patterns) from pre-S1a state. File correctly absent; no out-of-scope drift requiring S5 handling.
+- Convention #76 verbatim-quote check before including quoted text in `CLASS_D_PRIVACY_WRAPS.md` cross-references (exact match confirmed).
+
+**Surprises:**
+- **Mixedbread billing scare:** Mid-session discovery that mgrep usage had been running against Scale tier more aggressively than assumed. Resolved by confirming the `$5 spending cap` is still active and the increase was within expected envelope for a heavy documentation-cleanup phase. No action required beyond awareness.
+- **OpenWolf consideration:** Briefly evaluated whether to migrate from mgrep to OpenWolf for semantic search. Decision: stay on mgrep — OpenWolf doesn't yet have a Claude Code plugin, and the VS Code task architecture is stable. Revisit post-Phase-0.26.
+- **Level 2 Husky schema:dump enforcement scope expansion:** surfaced during S5 planning that Husky's file-type-aware hook should also block commits that stage `supabase/migrations/*.sql` changes without a corresponding `claude/live_schema.md` regeneration. Currently a non-blocking `[warning]`; bumping to a hard block is a natural extension of S2's Husky work. Added to S6's scope rather than spinning a new session.
+
+**Carry-forward:**
+- [ ] F14 — founder files upstream GitHub issue on Mixedbread-Grep plugin Windows-incompatibility bugs. Founder keyboard only; not a Claude Code action.
+- S1a/S1.5 stale-path sweep is complete as of this session; no further migration work expected.
+
+---
+
 ## Convention Candidates — Accumulated (fold into S5)
 
 These are discoveries from S2/S3/S7 that warrant formal Convention entries in CLAUDE.md, plus (where applicable) CI checks or tooling-hygiene documentation. All bookmarked for S5.
 
-1. **Heredoc-vs-printf in YAML shell steps** — use `printf '...' "$VAR"` over heredocs in GitHub Actions shell scripts to avoid YAML-indent leak into rendered output.
-2. **`.gitattributes` `text eol=lf` for shell scripts and Husky hooks** — never rely on local `core.autocrlf` for line-ending normalization on executable scripts.
-3. **Untrusted commit metadata in GitHub Actions shell steps must pass via `env:` vars, never inline `${{ }}` interpolation** — commit messages are attacker-controlled.
-4. **Session-start hygiene check `./node_modules/.bin/tsc --version`** — catches empty-typescript-package state that allows commits to pass locally but fail CI.
-5. **Primary-parent check: sync roster lookup when `family_members` array is in scope; fall back to `isPrimaryParent()` helper for isolated sites without roster access** — both converge on `family_members.role = 'primary_parent'` ground truth; pick cheapest that doesn't lose correctness.
-6. **12 Class D frontend sites for explicit `applyPrivacyFilter` wrapping** — list archived in S3 Task 4 pre-push audit. Currently RLS-protected; migration to app-layer is an intention-clarity improvement, not a correctness fix.
-7. **mgrep invocation must include `search` subcommand** — bare `mgrep "pattern"` silently routes to default `index` mode returning empty output.
+1. **Heredoc-vs-printf in YAML shell steps** — use `printf '...' "$VAR"` over heredocs in GitHub Actions shell scripts to avoid YAML-indent leak into rendered output. *Resolved: folded into Convention #241 expansion (Silent Tooling Failure Patterns subsection) in S5 Task 3 (`a208bbb`).*
+2. **`.gitattributes` `text eol=lf` for shell scripts and Husky hooks** — never rely on local `core.autocrlf` for line-ending normalization on executable scripts. *Resolved: folded into Convention #241 expansion (Silent Tooling Failure Patterns subsection) in S5 Task 3 (`a208bbb`).*
+3. **Untrusted commit metadata in GitHub Actions shell steps must pass via `env:` vars, never inline `${{ }}` interpolation** — commit messages are attacker-controlled. *Resolved: folded into Convention #241 expansion (Silent Tooling Failure Patterns subsection) in S5 Task 3 (`a208bbb`).*
+4. **Session-start hygiene check `./node_modules/.bin/tsc --version`** — catches empty-typescript-package state that allows commits to pass locally but fail CI. *Resolved: folded into Convention #241 expansion (Silent Tooling Failure Patterns subsection) in S5 Task 3 (`a208bbb`).*
+5. **Primary-parent check: sync roster lookup when `family_members` array is in scope; fall back to `isPrimaryParent()` helper for isolated sites without roster access** — both converge on `family_members.role = 'primary_parent'` ground truth; pick cheapest that doesn't lose correctness. *Resolved: formalized as Convention #245 (Primary Parent Check Pattern) under new `## Data Access Patterns` h2 in S5 Task 3 (`a208bbb`).*
+6. **12 Class D frontend sites for explicit `applyPrivacyFilter` wrapping** — list archived in S3 Task 4 pre-push audit. Currently RLS-protected; migration to app-layer is an intention-clarity improvement, not a correctness fix. *Resolved: archived as `.claude/backlogs/CLASS_D_PRIVACY_WRAPS.md` in S5 Task 3 (`a208bbb`).*
+7. **mgrep invocation must include `search` subcommand** — bare `mgrep "pattern"` silently routes to default `index` mode returning empty output. *Resolved: folded into Convention #241 expansion (Silent Tooling Failure Patterns subsection) in S5 Task 3 (`a208bbb`).*
 
-**Framing note for S5 drafters:** All 7 candidates share a pattern — tools or techniques that "look fine" but silently produce wrong or empty output. Consider folding into an expansion of Convention #241 (Tooling Hygiene) as a "Silent Tooling Failure Patterns" subsection rather than 7 independent conventions. Single lookup surface, easier to maintain, captures the common diagnostic signature.
+**Framing note for S5 drafters:** All 7 candidates share a pattern — tools or techniques that "look fine" but silently produce wrong or empty output. Consider folding into an expansion of Convention #241 (Tooling Hygiene) as a "Silent Tooling Failure Patterns" subsection rather than 7 independent conventions. Single lookup surface, easier to maintain, captures the common diagnostic signature. *Acted on: the framing note drove the actual Task 3 synthesis — candidates 1, 2, 3, 4, 7 folded into #241 as a subsection; candidate 5 became its own #245 (different pattern class — data access, not tooling hygiene); candidate 6 became a backlog file (site list, not principle).*
 
 ---
 
 ## Remaining Sessions
 
-### S6 — BUILD_STATUS Reconciliation
+### S6 — BUILD_STATUS Reconciliation + Husky schema:dump Enforcement
 
 **Scope (per recon Finding 1.2):** Update `BUILD_STATUS.md` to reflect 4 phases that completed but weren't recorded there:
 - Phase 17 (Meetings) — signed off as Build P
@@ -217,19 +260,11 @@ These are discoveries from S2/S3/S7 that warrant formal Convention entries in CL
 
 Phase 32 (PRD-28) was flagged in recon but is already aligned; drop from the list.
 
-**Dependencies:** None. Lightweight doc reconciliation session.
+**Scope (added 2026-04-18 during S5):** Level 2 Husky schema:dump enforcement — promote the current non-blocking `[warning]` on `supabase/migrations/*.sql` changes to a hard pre-commit block when `claude/live_schema.md` is not also staged. Natural extension of S2's Husky v9 file-type-aware hook work. Enforces Convention #244 at commit time instead of relying on manual post-migration discipline.
+
+**Dependencies:** None. Lightweight doc reconciliation + small Husky hook edit.
 
 **Pre-flight for S6:** mgrep subcommand ergonomics now known (use `mgrep search "pattern"`, not bare `mgrep`); no auth issue exists. Session can proceed at founder's leisure.
-
-### S5 — 17-Followups Doc Batch + Convention Candidates
-
-**Scope:**
-- **17-followups Phase 0.26 batch:** F3 (mgrep watch startup in PRE_BUILD_PROCESS.md), F4 (1000-file mgrep default limit), F11 (`.mgrepignore` for tmp files), F14 (founder files upstream Mixedbread-Grep issue), F15 (repo token-size measurement), F17 (Pre-Build-Setup-Checklist methodology)
-- **Convention candidates:** 7 bookmarked entries above
-- **S7 carry-forward:** 5 active docs with stale path references S1a/S1.5 missed
-- Recon Finding 3.6 — specs/Pre-Build-Setup-Checklist.md update for multi-location MCP sweep
-
-**Dependencies:** None. Can run anytime.
 
 ### S4 — Wizard Multi-User Playwright Test
 
@@ -241,8 +276,8 @@ Phase 32 (PRD-28) was flagged in recon but is already aligned; drop from the lis
 
 ## Phase 0.26 Status
 
-**Complete (6 of 8):** S1a, S1b, S1.5, S2, S3, S7
-**Remaining (3):** S6, S5, S4
+**Complete (7 of 8):** S1a, S1b, S1.5, S2, S3, S7, S5
+**Remaining (2):** S6, S4
 **Target completion:** None set; founder-paced.
 
 **Production changes live from Phase 0.26:**
