@@ -38,6 +38,7 @@ Paste these paths into your Claude.ai project's GitHub sync settings **once**:
 
 ```
 claude/web-sync/
+claude/feature-decisions/
 claude/architecture.md
 claude/conventions.md
 claude/live_schema.md
@@ -54,6 +55,7 @@ STUB_REGISTRY.md
 | Path | Why it needs to be current |
 |---|---|
 | `claude/web-sync/` | Active coordination docs Claude Code rotates through this folder |
+| `claude/feature-decisions/` | Tenise's per-feature decision files (Universal-Setup-Wizards, addenda, etc.) — living docs that evolve with design decisions |
 | `claude/architecture.md` | Evolves as architecture decisions land |
 | `claude/conventions.md` | Grows as conventions add (#1 through #245 and counting) |
 | `claude/live_schema.md` | Regenerates after every migration via `npm run schema:dump` |
