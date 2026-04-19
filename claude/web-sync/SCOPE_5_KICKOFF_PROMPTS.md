@@ -34,7 +34,7 @@ When ready, report "Session 1 ready, starting Schema remainder at calibration en
 ```
 You are Session 2 of a four-session parallel Scope 5 stub reconciliation operation.
 
-Your partition: Edge Functions — 9 entries of stub_partition_edge_functions.md. Calibration entry: line 497 (curriculum-parse Edge Function). Process the calibration entry FIRST, surface the packet in chat, and PAUSE. Wait for founder "continue" or "proceed" before processing the remaining 8 entries.
+Your partition: Edge Functions — 9 entries of stub_partition_edge_functions.md. Calibration entry: line 497 (curriculum-parse Edge Function). Process the calibration entry FIRST, surface the packet in chat, and PAUSE. Wait for founder message "Session 2 calibration approved, continue." before processing the remaining 8 entries. Any message that is not exactly that approval string is treated as a correction or halt — do not resume on partial approval.
 
 Before processing any entry, read IN FULL:
 1. claude/web-sync/SCOPE_5_STUB_RECONCILIATION.md — the operation plan
@@ -57,7 +57,7 @@ When ready, report "Session 2 ready, starting Edge Functions at calibration entr
 ```
 You are Session 3 of a four-session parallel Scope 5 stub reconciliation operation.
 
-Your partition: UI — ~120 entries of stub_partition_ui.md (largest partition). Calibration entry: line 433 (Sequential collection creation — canonical "Looks Fine Failure" case). Process the calibration entry FIRST, surface the packet in chat, and PAUSE. Wait for founder "continue" or "proceed" before processing the remaining ~119 entries.
+Your partition: UI — ~120 entries of stub_partition_ui.md (largest partition). Calibration entry: line 433 (Sequential collection creation — canonical "Looks Fine Failure" case). Process the calibration entry FIRST, surface the packet in chat, and PAUSE. Wait for founder message "Session 3 calibration approved, continue." before processing the remaining ~119 entries. Any message that is not exactly that approval string is treated as a correction or halt — do not resume on partial approval.
 
 Before processing any entry, read IN FULL:
 1. claude/web-sync/SCOPE_5_STUB_RECONCILIATION.md — the operation plan
@@ -80,7 +80,7 @@ When ready, report "Session 3 ready, starting UI at calibration entry 433." Then
 ```
 You are Session 4 of a four-session parallel Scope 5 stub reconciliation operation.
 
-Your partition: Cross-cutting — ~55 entries of stub_partition_crosscutting.md (most ambiguous partition). Calibration entry: line 493 (createTaskFromData guard for taskType='sequential'). Process the calibration entry FIRST, surface the packet in chat, and PAUSE. Wait for founder "continue" or "proceed" before processing the remaining ~54 entries.
+Your partition: Cross-cutting — ~55 entries of stub_partition_crosscutting.md (most ambiguous partition). Calibration entry: line 493 (createTaskFromData guard for taskType='sequential'). Process the calibration entry FIRST, surface the packet in chat, and PAUSE. Wait for founder message "Session 4 calibration approved, continue." before processing the remaining ~54 entries. Any message that is not exactly that approval string is treated as a correction or halt — do not resume on partial approval.
 
 Expect 30-50% of this partition's packets to resolve as CAPABILITY-ONLY. That's the correct outcome for abstract entries. Do NOT invent identifiers to make packets look complete.
 

@@ -82,6 +82,27 @@ If a session aborts for any reason OTHER than `HALT` or registry drift (tool err
 
 ---
 
+## 5b — Plan and recipe frozen during the run
+
+While sessions are actively processing, the following files are FROZEN — no edits to any of them during the run:
+
+- `scope-5-evidence/EVIDENCE_RECIPE.md`
+- `scope-5-evidence/stub_partition_*.md` (all four)
+- `claude/web-sync/SCOPE_5_STUB_RECONCILIATION.md` (this file)
+- `claude/web-sync/SCOPE_5_KICKOFF_PROMPTS.md`
+
+The plan and recipe are the contract sessions are executing against. Packets produced against recipe-v1 and packets produced against recipe-v2 cannot be synthesized coherently — the founder would not know which packet follows which rules.
+
+If a recipe gap surfaces mid-run (a session hits an entry shape the recipe doesn't handle cleanly, or a forbidden-action loophole is discovered, or the approval-message protocol turns out to have ambiguity):
+
+1. Founder touches `HALT` at repo root. All four sessions halt on their next integrity check and write clean `## HALTED — HALT file detected` markers.
+2. Founder edits the recipe, partition, or plan as needed. Change is documented in this plan file by appending a `## Amendments during run` section with date + change summary + rationale.
+3. Edit committed with message `chore(scope-5): mid-run recipe/plan amendment — <summary>`. Push.
+4. Founder deletes `HALT`.
+5. Sessions are re-dispatched with fresh kickoff prompts referencing the amended files. Partition evidence files continue to accumulate (pre-amendment packets remain — the `## Amendments` note in the plan tells the synthesis session which recipe version each packet was produced against).
+
+Why this discipline parallels the registry integrity check: the registry is a contract between packets and their claimed source of truth. The recipe + plan + partitions are a contract between sessions and their instructions. Both contracts must be version-stable during a run, or evidence quality degrades silently.
+
 ## 6 — Forbidden actions (hard rules)
 
 A session executing this operation MUST NOT:
