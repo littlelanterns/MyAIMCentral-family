@@ -73,13 +73,13 @@ if you suspect a deeper crash before clearing.
 | Tool | Purpose | Connection Check | End-to-end Probe |
 |---|---|---|---|
 | codegraph MCP | Code graph queries for cross-file impact analysis | `claude mcp list` → `✓ Connected` | Call `mcp__codegraph__codegraph_status` — must return real index stats (files > 0, nodes > 0). NOT "CodeGraph not initialized" or "database is locked" |
-| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | (disabled — skip connection check) | Disabled until Developer Edition reinstall (per Finding F1, `RECONNAISSANCE_REPORT_v1.md`). Skip security scan step. |
-| mgrep CLI | Semantic search across PRDs, specs, and source | `mgrep whoami` → authenticated user (not `Failed to refresh token`) | Freshness probe: `mgrep search "<known-recent identifier for this PRD>" .` — must return BOTH source files AND PRD markdown. If only markdown appears, the index is missing code — halt. |
+| endor-cli-tools MCP (AURI) | Real-time security scanning of AI-generated code | `claude mcp list` → `✓ Connected` (Developer Edition, user scope, re-enabled 2026-04-18) | Call `mcp__endor-cli-tools__check_dependency_for_vulnerabilities` with a known-vulnerable fixture (e.g., `lodash@4.17.20`) — must return real vulnerability data. See `reference_auri_security.md`. |
 
 ### Optional tools (surface status, do NOT halt)
 
 | Tool | Notes |
 |---|---|
+| mgrep CLI | **Demoted from Required to Optional 2026-04-18** (Convention 242 inverted — downgraded to free tier, per-query-approved only). If `mgrep whoami` fails or returns spend/quota/auth errors, note it in the status table but DO NOT HALT. Pre-build proceeds with Grep/Glob. Only probe freshness if mgrep is going to be used this session. |
 | Gmail MCP, Google Calendar MCP | `! Needs authentication` is expected and acceptable. These are not required for code builds. |
 | Google Drive MCP | If present and connected, note it. If disconnected, note it but do not halt. |
 
@@ -89,18 +89,12 @@ if you suspect a deeper crash before clearing.
 
 1. **Connection checks (in parallel):**
    - `claude mcp list` → parse each server's status (reads `~/.claude.json` — NOT `.vscode/mcp.json`; see `specs/Pre-Build-Setup-Checklist.md` § MCP Configuration Location Sweep for the full six-location check methodology when drift is suspected)
-   - `mgrep whoami 2>&1 | head -3` → check for auth-failed string
+   - mgrep: skipped by default (optional tool). Only run `mgrep whoami 2>&1 | head -3` if mgrep is going to be used this session; do NOT halt on failure.
 
 2. **End-to-end probes (for each required tool):**
    - codegraph: call `mcp__codegraph__codegraph_status` tool. Verify the response includes non-zero file/node counts.
-   - mgrep: pick a freshness probe identifier appropriate to the PRD being built. Examples:
-     - PRD-15 → search for `MessageCoachingSettings` (post-Mar-28 messaging code)
-     - PRD-16 → search for `MeetingSetupWizard`
-     - PRD-24 → search for `roll_creature_for_completion`
-     - PRD-28 → search for (once built) `homeschool_time_logs` or similar
-     - Default if no obvious recent identifier: search for `MeetingSetupWizard` as a known-post-Mar-28 baseline check
-     If the probe returns zero source file results (only markdown), treat the index as stale and halt with a refresh instruction.
-   - endor-cli-tools: connection-only for now (account setup pending). The caveat line MUST appear in the status table.
+   - endor-cli-tools (AURI): call `mcp__endor-cli-tools__check_dependency_for_vulnerabilities` with a known-vulnerable fixture (e.g., `lodash@4.17.20`). Must return real vulnerability data with non-empty `vulnerability_ids`. If tools are not yet in the session's tool surface, start a fresh Claude Code session after OAuth to rebuild the surface.
+   - mgrep (optional): no probe unless approved for this session. If probed and the freshness heuristic returns only markdown, note the staleness but do NOT halt.
 
 3. **Freshness heuristic (warn, do NOT halt):**
    - Compare `.codegraph/codegraph.db` modification time against `git log -1 --format=%ct`
@@ -137,9 +131,9 @@ if you suspect a deeper crash before clearing.
 | `codegraph: ✗ Failed to connect` | Connection | Check `claude mcp get codegraph` for the registered command. Reinstall codegraph CLI if the binary is missing. |
 | `codegraph: probe returned "not initialized" or "database is locked"` | End-to-end | Check for stale lock: `ls .codegraph/codegraph.db.lock` (directory or file). If present and no codegraph process is running (`tasklist \| grep codegraph`), it's stale — `rm -rf .codegraph/codegraph.db.lock`. If the DB itself is corrupted, `rm -rf .codegraph && codegraph init && codegraph index` (takes 1-3 min, rebuilds from current code). |
 | `codegraph: probe succeeded but index stale vs latest commit` | Freshness | `codegraph sync` (fast) or `codegraph index` (full rebuild). Warning only — not a halt unless the sweep specifically needs recent code. |
-| `mgrep: Failed to refresh token` | Connection/Auth | Tenise must run `mgrep login` in her OWN terminal (outside Claude Code — the device-code flow needs interactive stdin). Full context: `reference_mgrep.md` |
-| `mgrep: probe returned only markdown, no source files` | End-to-end | Index is stale or incomplete. Tenise runs `mgrep watch --max-file-count 3000` in her own terminal to refresh. (The plugin hook silently fails on MyAIMCentral because of the 1000-file default — see F13.) Wait for `✔ Initial sync complete` before re-invoking `/prebuild`. |
-| `mgrep: quota exhausted` (on free tier) | Quota | Either wait for monthly quota reset, upgrade to paid tier, or add `.mgrepignore` exclusions to fit under limit. Scale tier ($20/mo) is the current MyAIM recommendation. |
+| `mgrep: Failed to refresh token` | Connection/Auth | **Do NOT halt** (Convention 242 — mgrep demoted to optional 2026-04-18). Surface the failure in the status table, proceed with Grep/Glob. If mgrep is genuinely needed this session, Tenise runs `mgrep login` in her OWN terminal (outside Claude Code). Full context: `reference_mgrep.md`. |
+| `mgrep: probe returned only markdown, no source files` | End-to-end | **Do NOT halt.** Index is stale. Note it in the status table, proceed with Grep/Glob. If mgrep is genuinely needed, Tenise refreshes the index manually. |
+| `mgrep: quota/spend limit exhausted` (free tier expected) | Quota | **Do NOT halt — expected on free tier.** Log the state, proceed with Grep/Glob for all search this session. |
 
 ### Interactive auth — NEVER attempt from within the skill
 

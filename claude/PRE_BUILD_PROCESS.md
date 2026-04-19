@@ -16,37 +16,36 @@ Code written without it is a guess.
 
 ---
 
-## Prerequisites: mgrep Index Must Be Running
+## Prerequisites: Search tools
 
-Every step below uses `mgrep search` for semantic lookups across PRDs, addenda,
-and source. If mgrep isn't running, Grep fallback works but is slower and
-misses semantic matches.
+Default search tools for this process are `Grep` and `Glob`. Use them first for
+any lookup — cross-PRD references, file existence, symbol search, keyword
+matches across source and addenda. These cover the overwhelming majority of
+real pre-build lookups.
 
-### Auto-start via VS Code task
+### mgrep is NOT a prerequisite (changed 2026-04-18)
 
-When this repo is opened in VS Code, the workspace task at `.vscode/tasks.json`
-auto-starts `mgrep watch --max-file-count 3000`. One-time setup after cloning:
-run `Tasks: Manage Automatic Tasks → Allow Automatic Tasks` from the command
-palette. Without this, VS Code silently disables the auto-run task.
+mgrep was previously a hard prerequisite (`mgrep watch` running, index fresh,
+auth valid). That changed 2026-04-18 after Scale-tier cost proved unsustainable
+for solo-founder workload — see `CLAUDE.md` Convention 242 and
+`feedback_use_mgrep` memory. mgrep is now a per-query-approved escape hatch
+for genuinely semantic questions that keyword matching cannot answer.
 
-### Why the `--max-file-count 3000` flag matters
+**What this means for pre-build:**
+- Do NOT block the pre-build on mgrep availability. Proceed with Grep/Glob.
+- If a pre-build lookup is genuinely cross-cutting and Grep is missing it
+  (e.g., "which PRDs describe this pattern without naming it directly"),
+  surface the query to Tenise in chat and request explicit per-query approval
+  before invoking `mgrep`. Do not invoke it silently.
+- If mgrep returns a spend/quota/auth error, log it as a known gap for this
+  session, continue with Grep/Glob, do NOT halt pre-build.
 
-The mgrep CLI default is **1000 files**. This repo has ~2000+ indexable files.
-Running `mgrep watch` with no flag silently truncates the index — queries
-return confident results from a partial snapshot, indistinguishable from a
-correctly-indexed run. The 3000 flag is baked into the VS Code task args; if
-launching mgrep manually, pass it explicitly or set
-`MGREP_MAX_FILE_COUNT=3000` in the environment.
+### If mgrep IS approved for a specific query
 
-### If mgrep isn't running at session start
-
-Open the VS Code task terminal and look for `✔ Initial sync complete`. If
-missing:
-1. Verify the VS Code task is enabled (see above).
-2. Manually start: `mgrep watch --max-file-count 3000` in a long-lived terminal.
-3. If auth expired (`Failed to refresh token`), run `mgrep login` in a real
-   interactive terminal (not piped stdin — device-code flow needs the CLI to
-   poll past the browser step).
+Mechanics documented in `reference_mgrep.md`. Session-start hygiene (index
+freshness probe) is optional — only run it if mgrep is going to be used this
+session. Free-tier limits may affect `watch` mode; treat any limit error as
+expected behavior, not a failure to escalate.
 
 Session-start hygiene check: `mgrep search "<recent-identifier>"` should
 return both source files and PRD markdown. If only markdown, index is stale.
