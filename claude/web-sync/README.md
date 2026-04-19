@@ -30,41 +30,6 @@ Only **currently-active coordination or reference docs** that Claude.ai needs fo
 |---|---|---|
 | `AUDIT_PARALLEL_PLAN.md` | Coordinates Phase 2 audit (Claude Code) with wizard user-flow design (Claude.ai) | Gate 1 exit + Phase 5 Zod/simplify completion |
 
-## Current Claude.ai sync config (copy these paths)
-
-**Last updated:** 2026-04-18 — scoped for Phase 2 audit + wizard flow design window.
-
-Paste these into your Claude.ai project's GitHub sync settings:
-
-```
-claude/web-sync/
-claude/feature-decisions/
-MYAIM_GAMEPLAN_v2.2.md
-RECONNAISSANCE_REPORT_v1.md
-RECON_DECISIONS_RESOLVED.md
-WIRING_STATUS.md
-STUB_REGISTRY.md
-```
-
-**Rationale per entry:**
-
-| Path | Why Claude.ai needs it |
-|---|---|
-| `claude/web-sync/` | This folder — active coordination docs |
-| `claude/feature-decisions/` | Existing wizard spec + addendum that flow design builds on |
-| `MYAIM_GAMEPLAN_v2.2.md` | Master plan the audit derives from |
-| `RECONNAISSANCE_REPORT_v1.md` | Phase 0.25 findings — avoid re-litigating settled issues |
-| `RECON_DECISIONS_RESOLVED.md` | 13 founder decisions from recon — authoritative current-state |
-| `WIRING_STATUS.md` | What's wired vs stubbed — flow design depends on this |
-| `STUB_REGISTRY.md` | Companion to WIRING_STATUS — intentional stubs vs "wired but broken" |
-
-**When to update this list:**
-- At the start of each new work window (phase transition, new PRD focus, etc.)
-- Whenever a root-level doc becomes relevant to Claude.ai's current work
-- Whenever a doc falls off Claude.ai's relevance radar — remove to keep the sync focused
-
-Claude Code updates this section when entering or closing a work window. Tenise opens the README, copies the current list, pastes into Claude.ai project settings.
-
 ## Rotation rules
 
 - When a doc rotates out, note it in this README's "What's here right now" table (strike through or remove the row) and commit.
