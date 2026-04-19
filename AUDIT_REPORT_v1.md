@@ -172,9 +172,22 @@ Status: **IN PROGRESS** (1 finding logged; full line-by-line reconciliation cont
 - **Wizard Design Impact:** N/A
 - **Beta Readiness flag:** N
 
+### [SCOPE-5.F2] live_schema.md missing widget_starter_configs table (surfaced during pilot)
+
+- **Severity:** Medium (schema doc drift — reduces `live_schema.md`'s authority as a reference during evidence-collection work; not a code defect)
+- **Location:** `claude/live_schema.md` widget section — should list `widget_starter_configs`; does not.
+- **Description:** The Scope 5 pilot's second packet (Schema partition, entry 413 "Widget starter configs (10 seeds)") revealed that `widget_starter_configs` — a DB table created and seeded by migration `00000000100032_seed_widget_starter_configs.sql` with exactly 10 INSERTs, with additional Phase B2 + hub-widget seeds in migrations 100056 and 100063, and queried live by `useWidgetStarterConfigs()` in `src/hooks/useWidgets.ts:115-123`, consumed by Studio, Dashboard, WidgetPicker, and WidgetConfiguration — is NOT listed in `claude/live_schema.md`. The closest entry is `widget_templates` (listed with 0 rows, no application-layer consumer found in pilot greps).
+- **Evidence:** Grep `widget_starter_configs` in `supabase/migrations/` → 3 hits (100032 + 100056 + 100063). Grep `widget_starter_configs` in `src/` → ≥4 hits (hook definition + 3 consumers). Grep `widget_starter_configs` in `claude/live_schema.md` → 0 hits. Migration 100032 touching commit `051ac23` (2026-03-25) "Seed 10 widget starter configs for Studio Trackers & Widgets category" — predates the last `npm run schema:dump` run by several weeks.
+- **Three possible causes:** (a) `scripts/full-schema-dump.cjs` missed the table because it uses PostgREST OpenAPI introspection and `widget_starter_configs` isn't in the API schema grant (matches CLAUDE.md Convention 244's note about API-exposed tables); (b) the dump script has a bug that silently skipped this table; (c) `live_schema.md` is simply stale relative to production and `npm run schema:dump` hasn't been run since the migration landed.
+- **Proposed resolution:** **Intentional-Update-Doc.** Next `npm run schema:dump` run with verbose output should identify why `widget_starter_configs` is missing. If the dump is correctly scoped to API-exposed tables, amend `live_schema.md` header to explicitly enumerate the API-schema-only-vs-full limitation AND cross-reference migration-only tables in a supplementary section. If the dump has a bug, fix `scripts/full-schema-dump.cjs`. Defer fix to Phase 3 doc-hygiene pass; for Scope 5 evidence collection, sub-agents should treat `live_schema.md` as an advisory reference and grep migrations for schema ground truth.
+- **Related pilot-discovery:** Partition-file rationale column was wrong in 2 of 5 sampled entries (413 guessed `widget_templates` instead of `widget_starter_configs`; 417 guessed `coloring_image_library` rather than the live `coloring_reveal_library`). Rationale column will be stripped from all 4 partition files before overnight dispatch per separate action item. Not a separate finding — it's the same category of doc drift as F2 but in a different doc.
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
 ### Remaining Scope 5 work
 
-Full line-by-line reconciliation of the remaining 223 entries against code reality. Plan: batch Grep/Glob-based spot-checks on a representative subset — every ⏳ Unwired-MVP entry (42 items) gets a "does it actually exist in code yet?" check; every ✅ Wired entry gets a random-sample spot-check (~10% sample). Entries that fail the spot-check become SCOPE-5.F{N} findings following the same template as F1.
+Full line-by-line reconciliation of the remaining 223 entries (minus the 5 processed in pilot = 218 to go) against code reality. Approach: four parallel sessions per the operation plan at `claude/web-sync/SCOPE_5_STUB_RECONCILIATION.md`. Each session produces evidence packets per `scope-5-evidence/EVIDENCE_RECIPE.md`. Morning synthesis merges evidence into a reconciliation draft for founder review. Entries that contradict the registry's claimed status become SCOPE-5.F{N} findings following the same template as F1 and F2.
 
 ## 8a — Scope 8a: Binary compliance/safety checklist
 
