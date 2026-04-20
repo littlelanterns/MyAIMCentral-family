@@ -221,9 +221,77 @@ No Batch 2 hygiene notes. No Scope 4 / Scope 3+8b emissions from this batch (cro
 5. **BookShelf Discussion mode funneling behavior** — LiLa drives discussion topic vs. letting mom lead. Mode-level system prompt defect (not opening message issue). Forward to Batch 7 PRD-23 evidence pass.
 6. **`lila_tool_permissions` 0-row adoption gap** — wired end-to-end but no production use. If Scope 4 or Scope 6 finds no non-mom user has launched a LiLa modal, this is the explanation. Logged for visibility; not a finding.
 
-## Round 3 — Personal Growth evidence pass (Batch 3, PRDs 06, 07, 08, 11, 11B, 13)
+## Round 3 — Personal Growth evidence pass (Batch 3, PRDs 06, 07, 08, 11, 11B, 13, 18, 19)
 
-*(entry filled during walk-through)*
+- **Date:** 2026-04-20
+- **Worker pass:** [EVIDENCE_BATCH_3_personal-growth.md](EVIDENCE_BATCH_3_personal-growth.md)
+- **Aggregate:** 52 rows across 8 PRDs (PRD-06: 6, PRD-07: 5, PRD-08: 7, PRD-11: 7, PRD-11B: 5, PRD-13: 7, PRD-18: 8, PRD-19: 7). 9 ambiguity flags. 5 unexpected findings. 8 worker-proposed candidates.
+
+### Per-candidate-finding verdict table
+
+| Candidate | Contributing rows | Proposed verdict | Proposed severity | Emits into | Founder decision | Beta Readiness |
+|---|---|---|---|---|---|---|
+| PRD06-PARTNER-SHARE-UI | PRD-06 R1, R2 | Unintentional-Fix-Code | Low | SCOPE-2.F16 | Confirmed — column wired on `guiding_stars` + `best_intentions`; per-entry UI toggle missing. Person-level backup via `archive_member_settings` exists. PATTERN-FLAG-FOR-SCOPE-3 preserved (partner-sharing pattern recurs across PRD-06, PRD-07, PRD-19) | N |
+| PRD08-MESSAGING-SUPERSESSION | PRD-08 R2 | Intentional-Document | Low | SCOPE-2.F17 | Confirmed — emit as finding (NOT downgrade to hygiene note). Drift is structural (2 tables vs 3-table PRD-15 architecture), warrants proper audit record. Founder flagged separate concern: "messaging not working exactly as envisioned, some is working" — that product-level concern is carried forward to Batch 6 Communication walk-through for PRD-15 behavior-vs-intent review; outside Scope 2 F17 scope which is doc-drift only | N |
+| PRD08-JOURNAL-VISIBILITY-UI | PRD-08 R3 | Unintentional-Fix-Code | Low | SCOPE-2.F18 | Confirmed — `journal_visibility_settings` table wired (6 columns, 0 rows); mom-configurable per-child-per-entry-type visibility UI missing. RLS default protects teens at baseline. Fix when mom-configurable visibility becomes roadmap priority | N |
+| PRD11B-FAMILY-CELEBRATION-UNBUILT | PRD-11B R1–R5 | Unintentional-Fix-Code | Medium | SCOPE-2.F19 | Confirmed Medium — matches F1/F9 tier-monetization-unbuilt pattern. Founder direction 2026-04-20: "sooner than later, but not urgent" — added as product-timing note to finding remediation section. STUB_REGISTRY.md line 120 falsely claims "Wired Phase 12" — flagged for Phase 3 doc-hygiene note (Scope 5 closed, not reopening) | N |
+| PRD18-MOOD-TRIAGE-SUPERSESSION | PRD-18 R2 | Intentional-Document | Low | SCOPE-2.F20 | Confirmed — Enhancement Addendum §Evening Rhythm Revised Section Sequence + Convention 25 ("Mood tracking is NOT a default rhythm section") superseded base PRD-18. Column preserved on `rhythm_completions` for future use | N |
+| PRD18-TEEN-EXPERIENCE-SUPERSESSION | PRD-18 R4 | Intentional-Document | Low | SCOPE-2.F21 | Confirmed Intentional-Document — NOT mirroring F5 override. Enhancement Addendum §Enhancement 7 + Conventions #189–197 captures teen tailored template fully. Base PRD-18 gets one-line pointer ("see Enhancement Addendum §Enhancement 7") not a rewrite. Different shape from F5 (F5 was archaeological table definitions; F21 is properly addendum-captured) | N |
+| PRD19-INFRASTRUCTURE-UNBUILT | PRD-19 R1–R4 | Unintentional-Fix-Code | Medium | SCOPE-2.F22 | Confirmed Medium — 4 of 6 PRD-19 tables missing (`member_documents`, `guided_interview_progress`, `monthly_data_aggregations`, `generated_reports`). Founder direction 2026-04-20: near-term roadmap (2–3 month horizon), build posture "wait until app has content to load onto" but ensure connection readiness. Two critical coupling notes: (a) F23 column drift must land BEFORE or CONCURRENT WITH F22 feature build — otherwise reports pipeline gets built against schema missing addendum-specified columns; (b) PRD-28B infrastructure prerequisite decision (merge into PRD-19 OR build PRD-28B separately) must be made BEFORE F22 build — flagged for Batch 9 walk-through | N |
+| PRD19-ARCHIVE-COLUMN-DRIFT | PRD-19 R5, R6 | Unintentional-Fix-Code | Low | SCOPE-2.F23 | Confirmed — PRD-19 Cross-PRD Impact Addendum §PRD-13 specifies 5 column additions on `archive_context_items` + 3 on `archive_member_settings`; none migrated. `display_name_aliases` provides partial alias coverage. Cross-ref coupling to F22: F23 migration must land before/with F22 feature build per founder's 2–3 month horizon direction | N |
+
+### Load-bearing unexpected findings
+
+1. STUB_REGISTRY.md:120 falsely claims Family Celebration "Wired Phase 12" — actual state is entirely unbuilt (0 tables, 0 components, 0 feature keys). Meta-finding: stub registry integrity issue surfaced by Scope 2 after Scope 5 walk-through missed it. Consolidated into SCOPE-2.F19. Phase 3 doc-hygiene triage addresses registry correction alongside feature build.
+2. Five `archive_context_items` column additions specified in PRD-19 addendum absent from live schema. Silent addendum drift — addendum written 2026-03-13; no STUB_REGISTRY entry captures the gap. Consolidated into SCOPE-2.F23.
+3. PRD-19 reports pipeline completely unbuilt — 4 of 6 PRD-19 tables missing. Connects to closed SCOPE-5.F4 Finding A (PRD-28B absence) for combined compliance-reporting surface. Consolidated into SCOPE-2.F22. Founder flagged 2–3 month timing horizon.
+4. `is_shared_with_partner` column-wired-UI-absent pattern across 3 context tables (`guiding_stars`, `best_intentions`, potentially `self_knowledge`) — same shape as SCOPE-2.F2 gate-adoption pattern. Consolidated into SCOPE-2.F16. PATTERN-FLAG-FOR-SCOPE-3 preserved.
+5. MemberArchiveDetail.tsx "Looks-Fine-Failure" — page renders aggregation but misses PRD-19 layer (private notes, relationship notes, aliases, How-to-Reach-Me) because backing columns absent (rolls into F23). Noted, not emitted separately.
+
+### Cross-references
+
+- CROSS-REF: SCOPE-5.F4 Finding B cited by SCOPE-2.F22 (AIR unbuilt — PRD-11 + PRD-06 auto-victory routing to PRD-19 aggregation pipeline)
+- CROSS-REF: SCOPE-5.F4 Finding A cited by SCOPE-2.F22 (PRD-28B absence — compliance reporting surface overlap with PRD-19)
+- CROSS-REF: SCOPE-5.F4 Finding J noted (PRD-12B unbuilt — PRD-13 Family Vision Statement aggregation dependency; no Scope 2 re-emission)
+- CROSS-REF: SCOPE-8a.F6 cited by PRD-11 R2 evidence (DailyCelebration HITM bypass already closed)
+- CROSS-REF: Convention #92 (ThoughtSift Mediator supersedes PRD-19 relationship_mediation) confirmed in PRD-19 R7 evidence
+- CROSS-REF: Enhancement Addendum §Enhancement 7 + Conventions #189–197 anchor F21
+- CROSS-REF: Enhancement Addendum §Evening Rhythm Revised Section Sequence + Convention 25 anchor F20
+- PATTERN-FLAG-FOR-SCOPE-3: partner-sharing pattern (F16) recurs across PRD-06, PRD-07, PRD-19
+
+### Founder adjudication
+
+- **F16 Partner-share UI missing:** Per-entry "Share with partner" toggle specified on Guiding Stars Screen 1 + Best Intentions Screen 2; backing columns wired on both tables but UI never surfaced. Person-level backup via `archive_member_settings` toggle exists. Low priority — fix when per-entry granular sharing becomes roadmap priority.
+- **F17 PRD-08 messaging supersession:** PRD-08 text describes 2-table messaging architecture; PRD-15 ships 3-table spaces/threads/messages model. Update PRD-08 text. Founder flagged separate product concern: "not working exactly as I envisioned, some is working" — distinct from F17 doc-drift scope; carried forward to Batch 6 Communication walk-through for PRD-15 behavior-vs-intent review.
+- **F18 Per-child journal visibility UI:** `journal_visibility_settings` table wired with 6 columns, 0 rows. Mom-configurable per-child-per-entry-type visibility UI missing. RLS default protects at baseline. Yes, eventually fix when mom-configurable visibility becomes roadmap priority.
+- **F19 Family Celebration unbuilt:** Entire surface absent (`family_victory_celebrations` table missing, no component, no feature keys, no journal-entry-type support, no prompt modes). STUB_REGISTRY.md line 120 falsely claims "Wired Phase 12" — meta-finding flagged for Phase 3 doc-hygiene (Scope 5 closed). Founder direction: "sooner than later, but not urgent" — baked into finding as product-timing note on remediation queue.
+- **F20 PRD-18 mood triage supersession:** Base PRD had mood_triage ON in default evening rhythm; Enhancement Addendum removed it (Convention 25 "Mood tracking is NOT a default rhythm section"). Column preserved for future. Clean supersession, update PRD-18 base to cite addendum.
+- **F21 PRD-18 teen rhythm supersession:** Base PRD described teens as "reduced sections"; Enhancement Addendum §Enhancement 7 + Conventions #189–197 capture full tailored template (7 morning + 8 evening, 15 teen-specific questions, teen MindSweep-Lite dispositions including `talk_to_someone` as PRIVATE journal write). Intentional-Document confirmed — NOT mirroring F5 override. F5 was archaeological tables; F21 is properly-addendum-captured supersession. Base PRD-18 gets pointer amendment, not rewrite.
+- **F22 PRD-19 reports + aggregation unbuilt:** 4 of 6 PRD-19 tables missing (`member_documents`, `guided_interview_progress`, `monthly_data_aggregations`, `generated_reports`). Founder direction 2026-04-20: near-term roadmap (next 2–3 months), build posture "wait until app has content to load onto" but ensure forward-thinking integration readiness. Two critical coupling notes baked into finding: (a) F23 archive column drift MUST land before or concurrent with F22 feature build (reports pipeline else built against wrong schema); (b) PRD-28B infrastructure prerequisite decision (merge PRD-28B into PRD-19 OR build PRD-28B separately) must be made BEFORE F22 build kicks off — flagged for Batch 9 walk-through.
+- **F23 PRD-19 archive column drift:** 5 columns on `archive_context_items` + 3 on `archive_member_settings` specified in PRD-19 Cross-PRD Impact Addendum §PRD-13; none migrated. Dual-context sharing, drag-reorder priority, alias system for external LLM privacy all unbacked. `display_name_aliases` provides partial alias coverage. Cross-ref F22 coupling: migration must land before or with F22 build.
+
+### Emission list
+
+Findings to emit (8 total):
+- SCOPE-2.F16 — PRD-06 partner-share UI missing (Low, Unintentional-Fix-Code, Beta N)
+- SCOPE-2.F17 — PRD-08 messaging supersession (Low, Intentional-Document, Beta N; Batch 6 carry-forward for founder product concern)
+- SCOPE-2.F18 — PRD-08 per-child journal visibility UI missing (Low, Unintentional-Fix-Code, Beta N)
+- SCOPE-2.F19 — PRD-11B Family Celebration unbuilt (Medium, Unintentional-Fix-Code, Beta N; founder product-timing note "sooner than later, not urgent"; STUB_REGISTRY line 120 correction)
+- SCOPE-2.F20 — PRD-18 mood triage supersession (Low, Intentional-Document, Beta N)
+- SCOPE-2.F21 — PRD-18 teen rhythm supersession (Low, Intentional-Document, Beta N; base PRD pointer amendment only)
+- SCOPE-2.F22 — PRD-19 reports + aggregation pipeline unbuilt (Medium, Unintentional-Fix-Code, Beta N; 2–3 month roadmap horizon; F23 + PRD-28B prerequisite coupling)
+- SCOPE-2.F23 — PRD-19 archive column drift (Low, Unintentional-Fix-Code, Beta N; must land before/with F22)
+
+No Batch 3 hygiene notes. No new Scope 4 / Scope 3+8b emissions from this batch (cross-scope carry-forwards logged in open flags below).
+
+### Open flags (tech-debt + cross-scope register)
+
+1. **STUB_REGISTRY.md line 120 false-Wired claim** (PRD-11B Family Celebration) — registry claim "Wired Phase 12" predates any build work. Scope 5 walk-through missed this. Phase 3 doc-hygiene triage correction alongside F19 feature build. Not reopening Scope 5.
+2. **PRD-08 messaging behavior vs founder intent** — separate from F17 doc-drift. Carried forward to Batch 6 Communication walk-through for PRD-15 behavior-vs-intent review per founder 2026-04-20 signal.
+3. **F22 / F23 coupling** — F23 archive column migration must land before or concurrent with F22 feature build. Not independently schedulable.
+4. **PRD-28B prerequisite decision for F22** — before PRD-19 reports feature build kicks off, founder must decide whether to merge PRD-28B infrastructure into PRD-19 OR build PRD-28B separately. Flagged for Batch 9 walk-through when PRD-37-PRD-28B shared addendum surfaces.
+5. **PATTERN-FLAG-FOR-SCOPE-3 — partner-sharing pattern** recurs across PRD-06, PRD-07, PRD-19 (F16 + F23 cross-PRD seam); Scope 3+8b evidence pass for PRD-19 cross-PRD addendum should examine as an integration pattern rather than single-PRD drift.
+6. **MemberArchiveDetail.tsx Looks-Fine-Failure** — page renders aggregation layer but misses PRD-19 layer (private notes, relationship notes, aliases, How-to-Reach-Me). Rolls into F22 + F23 build; noted for visibility.
 
 ## Round 4 — Tasks/Studio evidence pass (Batch 4, PRDs 09A, 09B, 17, 17B)
 
