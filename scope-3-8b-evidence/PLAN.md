@@ -69,7 +69,7 @@ Enumerated via Glob against `prds/addenda/` on 2026-04-20. 41 addenda present. M
 
 ### 3.1 Single-PRD addenda (scope: PRD-internal, not cross-PRD)
 
-These addenda clarify a single PRD's own decisions rather than describing a cross-PRD seam. They are Scope 2 material, not Scope 3+8b. Listed for completeness; skipped in integration traversal unless the addendum's contents surprise (confirmed during per-surface reading).
+These addenda clarify a single PRD's own decisions rather than describing a cross-PRD seam. They are Scope 2 material, not Scope 3+8b. Listed for completeness; skipped in integration traversal unless the addendum's contents surprise (confirmed during per-surface reading). Single-PRD addenda listed here are Scope 2 reading material (per [scope-2-evidence/PLAN.md](../scope-2-evidence/PLAN.md) §3.5), not Scope 3+8b traversal targets. Included in this inventory for completeness only. A Scope 3+8b evidence-pass worker encountering a single-PRD addendum referenced by a cross-PRD addendum they're tracing cites it but does not traverse its contents.
 
 | Addendum | PRD | Expected content (filename-only inference) |
 |---|---|---|
@@ -260,6 +260,9 @@ A cross-PRD seam traversal in Scope 3+8b can only run when both sides' PRD batch
 | PRD-36 Universal Timer integrations | Batch 9 (Compliance) + Batches 4, 5, 8 (Tasks, Dashboard widgets, Play) |
 | PRD-20 Safe Harbor integrations | Deferred — PRD-20 unbuilt per SCOPE-8a.F3. Traversal becomes prerequisite-mapping for the remediation build. |
 | PRD-28 Financial integrations | Batch 9 (Compliance) + Batch 4 (Tasks allowance hooks) + Batch 8 (Gamification points separation) |
+| PRD-18 Cross-PRD (Rhythms consumers — Tomorrow Capture, MindSweep-Lite, Morning Insight, Feature Discovery) | Batch 3 (Personal Growth — owns PRD-18 itself), Batch 4 (Tasks/Studio — Tomorrow Capture + MindSweep-Lite destinations), Batch 6 (Communication — `family_request` disposition per convention #197), Batch 7 (Vault/BookShelf — Morning Insight embedding match against `book_extractions`) |
+| PRD-19 Cross-PRD (Family Context & Relationships integrations) | Batch 3 (Personal Growth — owns both PRD-13 Archives and PRD-19); Batch 6 (Communication) if messaging hooks surface during evidence pass |
+| PRD-31 Cross-PRD (feature gating cascades) | Batch 1 (Foundation — owns PRD-31 itself); integration cascades across every built PRD per Scope 3+8b §10.1 Priority 1. Unlocks immediately after Foundation closes. |
 
 ### 9.2 Parallel execution
 

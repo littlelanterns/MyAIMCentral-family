@@ -64,9 +64,16 @@ Each per-candidate row in the verdict table uses one of the 5 Gameplan classific
 
 Items flagged for consideration before Foundation batch kicks off. Confirmed or overridden at Round 1 kickoff.
 
-### Open scope question — PRDs not in any batch
+### Resolved pre-walkthrough (2026-04-20)
 
-Per PLAN.md §3.3, four PRDs that exist in `prds/` are not currently assigned to a batch: PRD-18 Rhythms, PRD-19 Family Context, PRD-31 Subscription, PRD-32A Demand Validation Engine. Founder ruling needed at plan-approval on placement or skip. Logged here so a fresh session knows the open question.
+Four PRDs not initially assigned to Scope 2 batches were placed per founder ruling 2026-04-20:
+
+- PRD-18 Rhythms & Reflections → Personal Growth (batch 3)
+- PRD-19 Family Context & Relationships → Personal Growth (batch 3)
+- PRD-31 Subscription Tier System → Foundation (batch 1)
+- PRD-32A Demand Validation Engine → excluded from Scope 2 (PlannedExpansionCard stub; PRD-32-32A Cross-PRD addendum stays in Scope 3+8b as Deferred-to-Gate-4)
+
+Plan amended same commit as §3.5 addenda-per-PRD inventory (see PLAN.md §3.1 updated batch counts, §3.3 exclusion table, §3.4 per-domain detail additions, §3.5 new section, §4.1 column shape, §7 new rule 8). Original open-question paragraph removed to prevent confusion for fresh sessions.
 
 ### Pattern-to-watch — three-tier toggle wiring drift
 

@@ -56,9 +56,9 @@ Domains run in the gameplan dependency order (founder-confirmed 2026-04-20). Fou
 
 | # | Domain | PRDs in scope | Count | Notes on likely volume |
 |---|---|---|---|---|
-| 1 | Foundation | PRD-01, PRD-02, PRD-03, PRD-04 | 4 | PRD-01 invite/auth flows + PRD-02 permission matrix are large-surface; PRD-03 theme tokens and PRD-04 shell routing are structural. Expected ~8–14 findings total. |
+| 1 | Foundation | PRD-01, PRD-02, PRD-03, PRD-04, PRD-31 | 5 | PRD-01 invite/auth flows + PRD-02 permission matrix are large-surface; PRD-03 theme tokens and PRD-04 shell routing are structural; PRD-31 Subscription Tier System adds feature-key-registry and feature_access_v2 infrastructure (added to Foundation per founder ruling 2026-04-20 because those tables ARE Foundation infrastructure). Expected ~10–16 findings total. |
 | 2 | LiLa | PRD-05, PRD-05C | 2 | PRD-05 is the single most load-bearing PRD; context-assembly layer, guided-mode registry, crisis override, and mode routing all audit here. PRD-05C Optimizer is smaller surface. Expected ~6–10 findings. |
-| 3 | Personal Growth | PRD-06, PRD-07, PRD-08, PRD-11, PRD-11B, PRD-13 | 6 | Guiding Stars, InnerWorkings, Journal/Notepad, Victory Recorder, Family Celebration, Archives. Heavy on context-source tables + three-tier toggle + `is_included_in_ai` audit. Expected ~10–16 findings. |
+| 3 | Personal Growth | PRD-06, PRD-07, PRD-08, PRD-11, PRD-11B, PRD-13, PRD-18, PRD-19 | 8 | Guiding Stars, InnerWorkings, Journal/Notepad, Victory Recorder, Family Celebration, Archives, Rhythms & Reflections, Family Context & Relationships. Heavy on context-source tables + three-tier toggle + `is_included_in_ai` audit. PRD-18 ships across Phases A–D per completed-builds 2026-04 with non-trivial surface (rhythm_configs, morning_insight_questions, feature_discovery_dismissals). PRD-19 Archives overlap is the anchor; several PRD-19 claims already flipped Unwired in Scope 5. Expected ~14–20 findings. |
 | 4 | Tasks/Studio | PRD-09A, PRD-09B, PRD-17, PRD-17B | 4 | Tasks is the largest feature PRD, plus 2 addenda (Linked-Steps-Mastery-Advancement, Studio-Intelligence-Universal-Creation-Hub); Studio Queue + MindSweep integration tight. Expected ~10–14 findings. |
 | 5 | Dashboards/Calendar | PRD-10, PRD-14, PRD-14B, PRD-14C, PRD-14D, PRD-14E, PRD-25, PRD-26 | 8 | Widgets, personal dashboard, calendar, family overview, family hub + TV mode, guided dashboard, play dashboard. Calendar recurrence + widget starter configs are known drift surfaces (Scope 5 findings referenced them). Expected ~12–18 findings. |
 | 6 | Communication | PRD-15, PRD-16 | 2 | Messages / Requests / Notifications is large; Meetings ships with Build P verified (see completed-builds 2026-04). Expected ~6–10 findings. |
@@ -84,16 +84,13 @@ The following PRDs exist in `prds/` but are intentionally excluded from Scope 2 
 |---|---|---|
 | PRD-12A | Personal LifeLantern | Unbuilt per Scope 5 walk-through (WALKTHROUGH_DECISIONS.md Round 3). No built surface to audit. |
 | PRD-12B | Family Vision Quest | Unbuilt per Scope 5 Finding J (PRD-12B attribution gap). No built surface to audit. |
-| PRD-18 | Rhythms & Reflections | Built and verified through Phase B/C/D. Domain assignment was not provided by the founder. Proposed placement: add to Personal Growth batch as a deferred expansion, OR run as a standalone 10th batch if volume warrants. To be confirmed during founder plan-approval. |
-| PRD-19 | Family Context & Relationships | Partially built (Archives + member docs layer intersect). Domain assignment not provided. Proposed: add to Personal Growth batch for the Archives-overlap portions; structural remainder may be stubbed and cited from Scope 5. To be confirmed. |
 | PRD-20 | Safe Harbor | Closed in SCOPE-8a.F3 (unbuilt). Scope 2 would have no code to audit. |
 | PRD-28B | Compliance & Progress Reporting | Closed in Scope 5 Finding A (6-table infrastructure unbuilt, 5 registry rows flipped Unwired). No built surface to audit. |
-| PRD-31 | Subscription Tier System | Missing from prompt's Compliance batch. Not currently assigned to any batch. Likely belongs in Foundation (feature_key_registry + feature_access_v2 are Foundation infrastructure). To be confirmed. |
 | PRD-32 | Admin Console | Unbuilt per SCOPE-8a.F1 evidence (no admin pages in `src/pages/`). No built surface to audit. |
-| PRD-32A | Demand Validation Engine | Built as PlannedExpansionCard surface; limited discrete PRD-audit surface. Proposed placement: Dashboards/Calendar batch or skip. To be confirmed. |
+| PRD-32A | Demand Validation Engine | Founder ruling 2026-04-20 — PlannedExpansionCard-based stub feature per CLAUDE.md convention #31; discrete PRD-audit surface is minimal. Excluded from Scope 2. PRD-32-32A-Cross-PRD-Impact-Addendum remains in Scope 3+8b inventory and is Deferred-to-Gate-4 (same treatment as PRD-20, PRD-30 seams). |
 | PRD-33 | Offline / PWA | Post-MVP per feature glossary. Not beta-relevant; skipped unless founder directs otherwise. |
 
-**Action for founder plan-approval:** confirm whether PRD-18, PRD-19, PRD-31, and PRD-32A fold into existing batches, run as a 10th batch, or skip. Other exclusions are self-justifying.
+Founder ruling 2026-04-20: PRD-18 placed in Personal Growth (batch 3), PRD-19 placed in Personal Growth (batch 3), PRD-31 placed in Foundation (batch 1), PRD-32A excluded. Amendment applied in same commit as §3.5 addenda-per-PRD insert.
 
 ### 3.4 Per-domain detail and known drift surfaces
 
@@ -105,13 +102,16 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-02 Permissions & Access Control** — `member_permissions`, `feature_access_v2`, `member_feature_toggles`, View As modal, PIN lockout. Known wired: `verify_member_pin` server-side, `ViewAsShellWrapper`. Verify: 164 rows in `permission_level_profiles` align with PRD matrix.
 - **PRD-03 Design System & Themes** — 38 themes × light/dark variants; 20 semantic tokens per theme. Verify: every theme token field listed in PRD-03 is present in the theme implementation; tooltip theme-adaptivity per convention #43.
 - **PRD-04 Shell Routing & Layouts** — 5-shell system, routing, QuickTasks strip, BottomNav parity. Known wired: shell-aware BottomNav, NotepadProvider wrapping MomShell. Verify: sidebar/BottomNav parity per convention #16.
+- **PRD-31 Subscription Tier System** — `feature_key_registry` (196 rows per live_schema), `feature_access_v2` (330 rows), `member_feature_toggles` (24 rows), `family_subscriptions` (2 rows), `subscription_tiers` (4 rows). Known drift: tier gating behavior during beta (CLAUDE.md convention #10 returns true for everything) vs. PRD-31 full-tier enforcement. Watch: 4 tiers per feature_glossary.md, `ai_credits` ledger (flagged missing in live_schema), subscription lifecycle (no Stripe webhook Edge Function exists — cross-ref SCOPE-8a.F1 prerequisite gap). Permission-Matrix Addendum reading required per §3.5.
 - **Batch-specific watch list:** permission-boundary drift (scope leak across roles) flags Y on Beta Readiness by default.
+- **Batch 1 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-31-Cross-PRD-Impact-Addendum (tier-gating cascades into every built PRD) and PRD-31-Permission-Matrix-Addendum (shapes `permission_level_profiles` 164-row matrix that Foundation PRD-02 work must reconcile against).
 
 #### Batch 2 — LiLa (PRD-05, PRD-05C)
 
 - **PRD-05 LiLa Core AI System** — the single largest audit surface. `lila_conversations`, `lila_messages`, `lila_guided_modes` (43 rows in live_schema — verify against PRD's registry). Context assembler (Layered Context Assembly per ai_patterns.md lines 96–166; Scope 4 §2.4 audits P4 application, Scope 2 audits PRD alignment). Crisis override globality per CLAUDE.md #7 (cross-ref SCOPE-8a.F4 for Translator exception).
 - **PRD-05C LiLa Optimizer** — smaller surface; BYOK, optimizer outputs. Verify: optimizer gating (`optimizer_outputs`, `optimizer_context_presets` — note these tables are flagged missing in live_schema).
 - **Batch-specific watch list:** guided-mode registry alignment (43 rows in DB vs PRD spec count), opening-message coverage per mode, model-tier correctness per mode (Sonnet/Haiku routing per ai_patterns.md §Model Routing).
+- **Batch 2 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-05-Planning-Decisions-Addendum (shapes guided-mode registry scope + opening-message rotation decisions — rows citing registry drift will cite the planning addendum rather than base PRD-05).
 
 #### Batch 3 — Personal Growth (PRD-06, 07, 08, 11, 11B, 13)
 
@@ -121,7 +121,10 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-11 Victory Recorder & DailyCelebration** — `victories`, `victory_celebrations`, `victory_voice_preferences`. Cross-ref SCOPE-8a.F6 (DailyCelebration HITM bypass — already closed; do not re-emit). Watch: AIR writer absence already captured in Scope 5 Finding B; Scope 2 reports on any PRD-11 screen drift NOT already captured.
 - **PRD-11B Family Celebration** — `family_victory_celebrations` flagged missing in live_schema; verify whether feature is stubbed or partially built.
 - **PRD-13 Archives & Context** — `archive_folders`, `archive_context_items`, `archive_member_settings`, `faith_preferences`. Watch: three-tier toggle propagation per DECISIONS.md Round 0 pattern-to-watch; faith_preferences individual boolean columns per convention #78.
+- **PRD-18 Rhythms & Reflections** — `rhythm_configs` (68 rows), `rhythm_completions` (12 rows), `reflection_prompts` (192 rows), `reflection_responses` (44 rows), `morning_insight_questions` (35 rows), `feature_discovery_dismissals` (2 rows). Known wired through Phases A–D per completed-builds 2026-04 (Builds K through N). Watch: rhythm audience derivation per convention #189, teen rhythm naming per #190, MindSweep-Lite `talk_to_someone` vs `family_request` disposition per conventions #192–197, batched metadata commits on Close My Day per #169, carry-forward cron per #171, Morning Insight dedicated query-embedding Edge Function per #183. Enhancement Addendum reading required per §3.5.
+- **PRD-19 Family Context & Relationships** — surface is `relationship_notes`, `private_notes` (both 0 rows per live_schema), plus Archives overlap with PRD-13 context items. Known gap: several PRD-19 claims flipped Unwired in Scope 5 walk-through (partner profile aggregation, guided interview progress, custom report templates state-specific formatting). Watch: relationship notes inclusion in LiLa context per convention #79 (name detection + topic matching), partner-specific context loaders in `_shared/context-assembler.ts`, `private_notes` RLS scoping.
 - **Batch-specific watch list:** three-tier toggle end-to-end, `is_included_in_ai` write-back to source tables per convention #75.
+- **Batch 3 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-18-Enhancement-Addendum (Phase B/C/D enhancements that override the base PRD-18 section registry), PRD-18-Cross-PRD-Impact-Addendum (downstream seams to Tasks/MindSweep that Scope 2 cites but Scope 3+8b traverses), PRD-08-Cross-PRD-Impact-Addendum (Journal/Notepad routing that shapes how entries land), and PRD-19-Cross-PRD-Impact-Addendum (partner context + guided-interview integrations).
 
 #### Batch 4 — Tasks/Studio (PRD-09A, 09B, 17, 17B)
 
@@ -130,6 +133,7 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-17 Universal Queue & Routing** — `studio_queue` authoritative. Cross-check for `task_queue` references anywhere (should not exist per PRD-17 superseding PRD-09A).
 - **PRD-17B MindSweep** — classification pipeline, 5 source channels, autopilot. Cross-ref SCOPE-8a.F7 (autopilot `source='manual'` labeling — already closed; do not re-emit).
 - **Batch-specific watch list:** `sequential_collections` integrity (Scope 5 previously flagged this as a broken-path-now-fixed surface via `createTaskFromData` guard), studio_queue source-field discipline.
+- **Batch 4 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum (supersedes the base-PRD three-page model with the unified Studio surface per CLAUDE.md convention #149 — most Studio-cross-surface rows will cite this addendum), PRD-09A-09B-Linked-Steps-Mastery-Advancement-Addendum (advancement modes + `practice_log` dual-write pattern), and PRD-17B-Cross-PRD-Impact-Addendum (MindSweep destination discipline).
 
 #### Batch 5 — Dashboards/Calendar (PRD-10, 14, 14B, 14C, 14D, 14E, 25, 26)
 
@@ -142,12 +146,14 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-25 Guided Dashboard** — sections per convention #122. Watch: which sections cannot be hidden (greeting, next_best_thing, best_intentions per convention #123); Reading Support / Spelling Coaching flags.
 - **PRD-26 Play Dashboard** — cross-ref Build M (already landed). Watch: age-gate + gamification coexistence.
 - **Batch-specific watch list:** widget picker misleading UI (Scope 5 flagged color_reveal, gameboard entries in widget picker — already noted; Scope 2 reports only if additional surfaces surface).
+- **Batch 5 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-14B-Cross-PRD-Impact-Addendum (supersedes base PRD calendar recurrence surface via Universal Scheduler integration per CLAUDE.md conventions #106, #117 — most calendar-recurrence-related rows will cite this addendum as authoritative spec), PRD-14D-Cross-PRD-Impact-Addendum (Family Hub Victory/Countdown integrations), PRD-25-Cross-PRD-Impact-Addendum (Guided Dashboard section registry), PRD-26-Cross-PRD-Impact-Addendum (Play Dashboard gamification coexistence per Build M).
 
 #### Batch 6 — Communication (PRD-15, 16)
 
 - **PRD-15 Messages, Requests & Notifications** — large surface; `conversation_spaces`, `conversation_threads`, `messages`, `message_read_status`, `messaging_settings`, `member_messaging_permissions`, `family_requests`, `notifications`, `notification_preferences`, `out_of_nest_members`. Watch: space_type enum values per PRD spec; mom cannot read other members' messages per convention #141 (RLS verify); Content Corner lock behavior per convention #147; LiLa never-automatically-present per convention #138.
 - **PRD-16 Meetings** — Build P closed 2026-04-16 with 127 requirements verified (see `.claude/rules/current-builds/IDLE.md`). Spot-check the 13 stubbed items from Build P verification table and confirm no regression. Meeting types per convention #229; agenda items always through studio_queue per convention #231.
 - **Batch-specific watch list:** message-coaching triggering rules; notification priority handling (safety always bypasses DND per convention #143).
+- **Batch 6 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-15-Cross-PRD-Impact-Addendum (Messaging integrations to LiLa, Requests, Content Corner, Out of Nest cascade into many downstream PRDs) and PRD-16-Cross-PRD-Impact-Addendum (Meeting integrations with Universal Scheduler + Studio Queue + LiLa facilitation per Build P).
 
 #### Batch 7 — Vault/BookShelf (PRD-21, 21A, 21B, 21C, 22, 23, 34)
 
@@ -159,6 +165,7 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-23 BookShelf** — huge extraction pipeline; `bookshelf_items` (562 rows), `bookshelf_chunks` (58,379 rows), `bookshelf_summaries` (21,538 rows), `bookshelf_insights` (24,360 rows), `bookshelf_declarations` (16,931 rows), `bookshelf_action_steps` (16,396 rows), `bookshelf_questions` (10,168 rows). Recent Phase 1b migration per completed-builds. Watch: Platform Intelligence cache usage (`platform_intelligence.book_library`, `book_chunks`, `book_extractions`).
 - **PRD-34 ThoughtSift** — 5 separate tools per convention #92. Cross-ref SCOPE-8a.F5 (BoD fail-open — already closed; do not re-emit). Watch: Mediator 8 context modes; Perspective Shifter lens chips (17 rows in `perspective_lenses` — confirm alignment); Decision Guide 15 frameworks (`decision_frameworks` 15 rows).
 - **Batch-specific watch list:** BookShelf extraction counts per audience (Guided/Independent/Adult); Vault delivery method routing.
+- **Batch 7 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-23-Session-Addendum (Phase 1b platform-migration decisions that override earlier BookShelf architecture), PRD-23-Cross-PRD-Impact-Addendum (Guiding Stars / Tasks / Journal prompts routing), PRD-34-Cross-PRD-Impact-Addendum (5-tool ThoughtSift integrations + persona caching per convention #99), and PRD-21A-Cross-PRD-Impact-Addendum (Vault delivery-method → Toolbox permission linkage).
 
 #### Batch 8 — Gamification (PRD-24, 24A, 24B)
 
@@ -166,6 +173,7 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-24A Overlay Engine & Game Modes** — convention-level description extensive; live_schema may not fully reflect. Watch: overlay_instances, recipe_completions, dashboard_backgrounds — flagged missing in live_schema for some. Verify build coverage.
 - **PRD-24B Gamification Visuals & Interactions** — overlap with 24A. Watch: reveal videos, SparkleOverlay usage per convention #46.
 - **Batch-specific watch list:** practice-vs-completion separation per convention #200 (practice NEVER triggers gamification); `counts_for_gamification` flag per convention #224.
+- **Batch 8 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-24A-Game-Modes-Addendum (overlay engine game-mode variants that the base PRD does not fully cover) and PRD-24B-Content-Pipeline-Tool-Decisions (visual content pipeline decisions for reveal animations + creature artwork).
 
 #### Batch 9 — Compliance (PRD-27, 28, 29, 30, 35, 36, 37, 38)
 
@@ -178,6 +186,122 @@ The per-domain summary below names the primary PRD surfaces, the known drift sur
 - **PRD-37 Family Feeds** — `family_moments`, `moment_media`, `moment_reactions`, `moment_comments`, `out_of_nest_feed_settings`, `feed_approval_settings` flagged missing in live_schema. Verify build state.
 - **PRD-38 Blog (Cookie Dough)** — `blog_posts`, `blog_engagement`, `blog_comments`, `blog_free_tools`, `blog_categories` flagged missing. Public-facing surface; verify Phase state.
 - **Batch-specific watch list:** PRD-28 tracking flag propagation (`counts_for_allowance`, `counts_for_homework`, `counts_for_gamification`) per convention #224; PRD-35/36 consumer integrations (handoff to Scope 3).
+- **Batch 9 addenda:** see §3.5 for the full reading list; classification drivers likely include PRD-28-Cross-PRD-Impact-Addendum (financial-transaction append-only discipline + dual homework/allowance tracking per conventions #223–226), PRD-35-Cross-PRD-Impact-Addendum (radio-button scheduler surface that supersedes the NO/YES toggle per convention #117), PRD-36-Cross-PRD-Impact-Addendum (timestamp-based timer persistence per conventions #32–37), and PRD-37-PRD-28B-Cross-PRD-Impact-Addendum (Family Feeds × Compliance reporting pipeline — shared addendum whose PRD-28B half is closed Unwired per Scope 5 Finding A, so rows cite the PRD-37 half only).
+
+### 3.5 Addenda to read per PRD
+
+Every Scope 2 batch evidence-pass worker reads base PRD + every matching addendum listed below for each PRD in the batch, before classifying rows. Per CLAUDE.md Pre-Build Process: addenda override base PRDs when they conflict, and when they do not conflict they still add spec material the three-column comparison must cover. See §7 Standing Rule 8 for addendum-citation discipline. Paths below Glob-verified present on 2026-04-20.
+
+#### Batch 1 — Foundation
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-01 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-02 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-03 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-04 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-31 | PRD-31-Cross-PRD-Impact-Addendum.md; PRD-31-Permission-Matrix-Addendum.md | Cross-PRD addendum cascades tier gating across every built PRD; Permission-Matrix addendum shapes the `permission_level_profiles` 164-row table and is Foundation-adjacent despite its PRD-31 filename. |
+| Global addenda (read once at batch 1 start, cited per-row when relevant) | PRD-Audit-Readiness-Addendum.md; PRD-Template-and-Audit-Updates.md | Cross-cutting audit rulings + template-using PRD rulings. Cited in any batch where a row invokes them. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 2 — LiLa
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-05 | PRD-05-Planning-Decisions-Addendum.md | Single-PRD; shapes guided-mode registry scope and context-assembly layering decisions. |
+| PRD-05C | None present | No matching addendum in `prds/addenda/`. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 3 — Personal Growth
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-06 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-07 | PRD-07-Session-Addendum.md | Single-PRD; InnerWorkings session-specific decisions. |
+| PRD-08 | PRD-08-Cross-PRD-Impact-Addendum.md | Cross-PRD; Journal/Notepad outbound routing across Studio Queue, MindSweep, Journal destinations. |
+| PRD-11 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-11B | None present | No matching addendum in `prds/addenda/`. |
+| PRD-13 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-18 | PRD-18-Cross-PRD-Impact-Addendum.md; PRD-18-Enhancement-Addendum.md | Two addenda — Enhancement addendum carries Phase B/C/D enhancements (MindSweep-Lite, Morning Insight, Feature Discovery, teen variants) that override base PRD-18 sections; Cross-PRD addendum covers downstream seams. NOTE: Enhancement addendum is not listed in CLAUDE.md Quick Reference table. |
+| PRD-19 | PRD-19-Cross-PRD-Impact-Addendum.md | Cross-PRD; partner context + guided-interview integrations. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 4 — Tasks/Studio
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-09A | PRD-09A-09B-Linked-Steps-Mastery-Advancement-Addendum.md; PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md | Shared with PRD-09B (same batch owns both). NOTE: neither addendum listed in CLAUDE.md Quick Reference table. Studio-Intelligence addendum supersedes base-PRD three-page model per convention #149; Linked-Steps addendum carries advancement-modes + practice_log dual-write. |
+| PRD-09B | PRD-09A-09B-Linked-Steps-Mastery-Advancement-Addendum.md; PRD-09A-09B-Studio-Intelligence-Universal-Creation-Hub-Addendum.md | Same two shared addenda as PRD-09A. |
+| PRD-17 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-17B | PRD-17B-Cross-PRD-Impact-Addendum.md | Cross-PRD; MindSweep auto-sweep destination discipline. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 5 — Dashboards/Calendar
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-10 | None present | No matching addendum in `prds/addenda/`. |
+| PRD-14 | PRD-14-Cross-PRD-Impact-Addendum.md | Cross-PRD; Personal Dashboard widget/reorder integrations. |
+| PRD-14B | PRD-14B-Cross-PRD-Impact-Addendum.md | Cross-PRD; supersedes base-PRD calendar recurrence surface via Universal Scheduler integration per conventions #106, #117. |
+| PRD-14C | None present | No matching addendum in `prds/addenda/`. |
+| PRD-14D | PRD-14D-Cross-PRD-Impact-Addendum.md | Cross-PRD; Family Hub Victory + Countdowns integrations. |
+| PRD-14E | None present | No matching addendum in `prds/addenda/`. |
+| PRD-25 | PRD-25-Cross-PRD-Impact-Addendum.md | Cross-PRD; Guided Dashboard section registry + Write drawer integrations. |
+| PRD-26 | PRD-26-Cross-PRD-Impact-Addendum.md | Cross-PRD; Play Dashboard gamification coexistence. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 6 — Communication
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-15 | PRD-15-Cross-PRD-Impact-Addendum.md | Cross-PRD; Messaging / Requests / Notifications cascade across many downstream PRDs. |
+| PRD-16 | PRD-16-Cross-PRD-Impact-Addendum.md | Cross-PRD; Meeting integrations with Universal Scheduler + Studio Queue + LiLa facilitation. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 7 — Vault/BookShelf
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-21 | PRD-21-Cross-PRD-Impact-Addendum.md | Cross-PRD; Communication tool integrations (8 tool modes). |
+| PRD-21A | PRD-21A-Cross-PRD-Impact-Addendum.md | Cross-PRD; AI Vault browse/content delivery-method routing. |
+| PRD-21B | PRD-21B-Cross-PRD-Impact-Addendum.md | Cross-PRD; AI Vault admin integrations. |
+| PRD-21C | PRD-21C-Cross-PRD-Impact-Addendum.md | Cross-PRD; AI Vault engagement/community integrations (hearts + comments). |
+| PRD-22 | PRD-22-Cross-PRD-Impact-Addendum.md | Cross-PRD; Settings data-export + account-lifecycle integrations. |
+| PRD-23 | PRD-23-Cross-PRD-Impact-Addendum.md; PRD-23-Session-Addendum.md | Two addenda — Session addendum carries Phase 1b platform-migration decisions. |
+| PRD-34 | PRD-34-Cross-PRD-Impact-Addendum.md | Cross-PRD; ThoughtSift 5-tool integrations + persona caching. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 8 — Gamification
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-24 | PRD-24-Cross-PRD-Impact-Addendum.md | Cross-PRD; Gamification foundation integrations. |
+| PRD-24A | PRD-24A-Cross-PRD-Impact-Addendum.md; PRD-24A-Game-Modes-Addendum.md | Two addenda — Game-Modes addendum carries overlay-engine game-mode variants. |
+| PRD-24B | PRD-24B-Cross-PRD-Impact-Addendum.md; PRD-24B-Content-Pipeline-Tool-Decisions.md | Two addenda — Content-Pipeline addendum carries visual-content pipeline decisions. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
+
+#### Batch 9 — Compliance
+
+| PRD | Matching addenda | Notes |
+|---|---|---|
+| PRD-27 | PRD-27-Cross-PRD-Impact-Addendum.md | Cross-PRD; Caregiver Tools integrations. |
+| PRD-28 | PRD-28-Cross-PRD-Impact-Addendum.md | Cross-PRD; financial-transaction append-only + dual homework/allowance tracking. |
+| PRD-29 | PRD-29-Cross-PRD-Impact-Addendum.md | Cross-PRD; BigPlans integrations. |
+| PRD-30 | PRD-30-Cross-PRD-Impact-Addendum.md | Cross-PRD; Safety Monitoring integrations (PRD-30 structural absence closed as SCOPE-8a.F3; addendum read for any UI-stub surfaces that exist independently). |
+| PRD-35 | PRD-35-Cross-PRD-Impact-Addendum.md | Cross-PRD; Universal Scheduler consumer integrations (radio-button primary interface per convention #117). |
+| PRD-36 | PRD-36-Cross-PRD-Impact-Addendum.md | Cross-PRD; Universal Timer integrations (timestamp-based persistence per convention #32). |
+| PRD-37 | PRD-37-PRD-28B-Cross-PRD-Impact-Addendum.md | Shared with PRD-28B (PRD-28B itself excluded from Scope 2 per Scope 5 Finding A); rows cite the PRD-37 half only. |
+| PRD-38 | None present | No matching addendum in `prds/addenda/`. |
+
+_Glob verification performed 2026-04-20. 'None present' means no matching addendum filename was found in `prds/addenda/`._
 
 ## 4 — Per-batch packet format
 
@@ -204,7 +328,7 @@ Each file contains, in order:
 
 1. **Frontmatter** — Status, Stage, Scope, Opened date, Related sections (same 5-line shape as this plan).
 2. **Worker cover paragraph (10–20 lines)** — written after the evidence pass completes. Names the PRDs examined, the total row count in the table, headline patterns, and any load-bearing surprises that do not fit the table format. Modeled on the cover paragraphs at the top of [EVIDENCE_BUCKET_2.md](../.claude/completed-builds/scope-8a-evidence/EVIDENCE_BUCKET_2.md) and [EVIDENCE_BUCKET_5.md](../.claude/completed-builds/scope-8a-evidence/EVIDENCE_BUCKET_5.md).
-3. **Per-PRD three-column discrepancy table** — one table per PRD in the batch. Columns: `PRD spec (with §/L reference) × code reality (with file:line) × classification`. Classification uses the 5 Gameplan labels from §2. Every row cites evidence per the "evidence not intuition" rule.
+3. **Per-PRD three-column discrepancy table** — one table per PRD in the batch. Columns: `PRD spec (with §/L reference) × code reality (with file:line) × classification`. Classification uses the 5 Gameplan labels from §2. Every row cites evidence per the "evidence not intuition" rule. The PRD spec column accepts any of: (a) PRD-XX §Y.Z alone, (b) PRD-XX-AddendumName §Y.Z alone, or (c) both separated by semicolon when the row is informed by both base PRD and addendum. When base PRD and matching addendum conflict, the row cites both; the addendum citation is prefixed `SUPERSEDES:` and classification proceeds against the addendum per §7 Standing Rule 8.
 4. **Unexpected findings list** — defects surfaced during the pass that do not fit the row-table format. Modeled on the "Unexpected Findings 1–5" blocks in EVIDENCE_BUCKET_4/5.
 5. **Proposed consolidation** — worker-drafted grouping of rows into SCOPE-2.F{N} candidates, following §5 consolidation discipline. Worker proposes; orchestrator adjudicates.
 6. **Orchestrator adjudication table** — filled during the walk-through, not by the evidence-pass worker. Columns: candidate finding × worker proposed severity × founder decision × emits SCOPE-2.F{N}. Modeled on CHECKLIST_DECISIONS.md §Per-item verdict table.
@@ -238,6 +362,8 @@ When a row could be classified two different ways with the same evidence strengt
 - "The code just does X" is not evidence the drift is intentional. It is evidence the drift exists.
 
 If the worker reaches for `Intentional-Document` without one of the listed evidence types, demote to `Unintentional-Fix-Code` + flag ambiguity.
+
+Addendum supersession is a legitimate Intentional-Document evidence source per §7 Standing Rule 8. Cite the specific addendum clause (e.g., `PRD-14B-Cross-PRD-Impact-Addendum §Universal-Scheduler-integration`) in the row's column 3 or directly in column 1 with the `SUPERSEDES:` prefix.
 
 ## 5 — Consolidation discipline
 
@@ -281,6 +407,7 @@ Inherited from Scope 5 walk-through and Scope 8a adjudication log. These apply t
 5. **Grep/Glob primary per Convention 242.** mgrep is per-query-approved only (inverted 2026-04-18). If a pre-build lookup is genuinely cross-cutting and keyword-grep is missing it, the worker surfaces the query to the founder for per-query approval. Do not invoke mgrep silently. If mgrep returns spend/quota/auth error, log as known gap for that batch and continue with Grep/Glob.
 6. **Consolidate aggressively.** Per §5 rules. Under-consolidation is the easier failure mode; orchestrator reviews for it on every batch.
 7. **Scope 2 does not re-emit Scope 5 / Scope 8a closed findings.** When a Scope 2 row maps 1:1 to a closed finding, cite the finding ID and skip emission. When a Scope 2 row identifies a *new* drift on the same PRD as a closed finding, emit normally with a cross-reference.
+8. **Addenda override base PRDs.** When a PRD's matching addendum (§3.5) modifies a spec, the row cites the addendum line reference and classifies against it. Base-PRD-only comparison is insufficient evidence per CLAUDE.md Pre-Build Process. If a row could be classified `Unintentional-Fix-Code` against the base PRD but `Intentional-Document` against an addendum override, the addendum wins — classify `Intentional-Document` and cite the addendum clause that supersedes the base PRD. When base PRD and addendum agree, citing the base PRD alone is sufficient; the addendum reference is optional.
 
 ## 8 — Handoff to apply-phase
 
