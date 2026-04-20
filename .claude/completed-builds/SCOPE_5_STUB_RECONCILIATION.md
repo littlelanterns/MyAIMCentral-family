@@ -1,7 +1,7 @@
 > **OPERATION COMPLETE.** Scope 5 stub registry reconciliation closed
 > 2026-04-20. Apply commit: b7ccf2e. Schema dump expansion: a307549. CLAUDE.md
 > #161 line fix: 303a1bb. Evidence archive: 5e1b90d. Final archive (this
-> file + kickoff prompts): 01743c9.
+> file + kickoff prompts): e57ca4c.
 >
 > Registry outcome: 12 status flips, 7 duplicate-row merges, 1 row split,
 > 5 count-drops, glossary + header notes added. AUDIT_REPORT_v1.md
