@@ -233,9 +233,12 @@ Full line-by-line reconciliation of the remaining 223 entries (minus the 5 proce
 
 ## 8a — Scope 8a: Binary compliance/safety checklist
 
-**Status:** COMPLETE — All 5 rounds closed. 8 findings emitted (F1–F8). 5 Beta Readiness blockers open: F1, F2, F3, F5, F6. Non-Beta: F4, F7, F8.
-**Checklist inventory:** [scope-8a-evidence/CHECKLIST_INVENTORY.md](scope-8a-evidence/CHECKLIST_INVENTORY.md) (40 binary items across 5 buckets).
-**Decisions log:** [scope-8a-evidence/CHECKLIST_DECISIONS.md](scope-8a-evidence/CHECKLIST_DECISIONS.md) (append-only; founder adjudication captured).
+**Status:** COMPLETE — All 5 rounds closed 2026-04-20. 8 findings emitted (F1–F8). 5 Beta Readiness blockers open: F1, F2, F3, F5, F6. Non-Beta: F4, F7, F8.
+
+**Evidence archived** 2026-04-20 to [.claude/completed-builds/scope-8a-evidence/](.claude/completed-builds/scope-8a-evidence/) (this commit). The `scope-8a-evidence/...` paths referenced throughout this section are historical anchors — the files now live at the archive path.
+
+**Checklist inventory:** [.claude/completed-builds/scope-8a-evidence/CHECKLIST_INVENTORY.md](.claude/completed-builds/scope-8a-evidence/CHECKLIST_INVENTORY.md) (40 binary items across 5 buckets).
+**Decisions log:** [.claude/completed-builds/scope-8a-evidence/CHECKLIST_DECISIONS.md](.claude/completed-builds/scope-8a-evidence/CHECKLIST_DECISIONS.md) (append-only; founder adjudication captured).
 
 ### Round 1 — Bucket 1: PRD-40 COPPA compliance (items 8a-CL-01 through 8a-CL-16)
 
