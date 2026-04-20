@@ -295,7 +295,72 @@ No Batch 3 hygiene notes. No new Scope 4 / Scope 3+8b emissions from this batch 
 
 ## Round 4 — Tasks/Studio evidence pass (Batch 4, PRDs 09A, 09B, 17, 17B)
 
-*(entry filled during walk-through)*
+- **Date:** 2026-04-20
+- **Worker pass:** [EVIDENCE_BATCH_4_tasks-studio.md](EVIDENCE_BATCH_4_tasks-studio.md)
+- **Aggregate:** 28 rows across 4 PRDs (PRD-09A: 10, PRD-09B: 7, PRD-17: 5, PRD-17B: 6). 6 ambiguity flags. 5 unexpected findings. 6 worker-proposed candidates.
+
+### Per-candidate-finding verdict table
+
+| Candidate | Contributing rows | Proposed verdict | Proposed severity | Emits into | Founder decision | Beta Readiness |
+|---|---|---|---|---|---|---|
+| PRD09A-TASK-QUEUE-LEGACY-NAMING | PRD-09A R1, R9; PRD-09B R7 | Unintentional-Fix-PRD | Low | SCOPE-2.F24 | Confirmed — PRD-09A text uses task_queue 10 times across Screens, Stubs, CLAUDE.md Additions, Tier Gating; PRD-17 §Schema Reconciliation Note mandated rename that was never applied. Feature key tasks_queue also obsolete (not in registry; code ships canonical keys per PRD-17 §Tier Gating). Remediation: PRD-09A text update to use studio_queue consistently | N |
+| PRD09A-PRIORITIZATION-VIEWS-PARTIAL | PRD-09A R2 | Deferred-Document | Low | SCOPE-2.F25 | Confirmed — PRD text internally inconsistent (13 vs 14 views); code ships 12 options with 7 real view components + 5 PlannedViewStub placeholders + ABCDE explicitly removed per founder decision 2026-04-13. Keep as single finding; ABCDE-removal sub-note embedded in primary Deferred-Document classification | N |
+| PRD09A-HABIT-TYPE-UNWIRED | PRD-09A R3 | Unintentional-Fix-Code | Low | SCOPE-2.F26 | Confirmed — Habit task_type spec'd but no consumer. Founder product direction 2026-04-20 CLARIFIES: Habit is a meta-type that branches into 3 rendering modes based on user tracking preference — (a) tally-type (wire to PRD-10 widget), (b) calendar-day-mark-type (wire to PRD-10 widget), (c) task-at-interval-type (wire to existing routine/recurrence infrastructure). Habit is a legitimate concept (not redundant with routines/trackers) — it mixes task+best-intention semantics and lets the user pick how it gets surfaced. Remediation: build Habit creation flow with 3 rendering-mode pickers, each creating the appropriate downstream artifact (widget row or scheduled task). Enum + PRD text stay | N |
+| PRD09B-LIST-TYPE-CATALOG-EXPANSION | PRD-09B R1 | Intentional-Document (orchestrator override from worker's Scope-Creep-Evaluate) | Low | SCOPE-2.F27 | Confirmed — Scope-Creep-Evaluate resolved to codify per founder direction 2026-04-20. All 5 extra list types have legitimate provenance: backburner + ideas (CLAUDE.md Convention #21 auto-system lists), prayer (specs/studio-seed-templates.md §List Formats), sequential (Studio Intelligence addendum Phase 1C), reference (founder direction: static reference materials like Nicholeen Peck parenting-response skills cards — content to refer to, not interact with). Remediation: update PRD-09B + specs/studio-seed-templates.md to catalog all 5 extras with their documented use cases. Doc-only pass | N |
+| PRD17-NUMERIC-INDICATOR-PREF | PRD-17 R4 | Deferred-Document | Low | SCOPE-2.F28 | Confirmed — breathing glow (Discreet default) is live; Numeric mode has no opt-in path. PRD-17 §L570 explicitly defers to Settings PRD (future); not currently in STUB_REGISTRY. Tied to Settings PRD (PRD-22) timeline — surfaces naturally when Settings build kicks off | N |
+| PRD17B-AUTOSEED-MEMBER-SETTINGS | PRD-17B R2 | Unintentional-Fix-Code | Medium | SCOPE-2.F29 | Confirmed Medium — addendum contract unmet (18 family_members, 0 rows in mindsweep_settings + mindsweep_allowed_senders). Founder context 2026-04-20: the 18 family_members predate MindSweep build; even with seed code wired, no backfill would populate pre-existing families. MindSweep is in "halfway state especially email-related" (see STUB_REGISTRY L167 email forwarding Partially Wired DNS blocker). Remediation: group with broader MindSweep halfway-state completion bucket — auto-seed implementation AND backfill for pre-existing families land together when MindSweep build is finished. Classification stays Unintentional-Fix-Code (addendum contract is the target); severity Medium (addendum promise broken, affects every family's MindSweep first-use experience) | N |
+
+### Load-bearing unexpected findings
+
+1. `task_queue` nomenclature staleness across PRD-09A despite PRD-17's explicit reconciliation mandate. 10 occurrences remain. Consolidated into SCOPE-2.F24. PATTERN-FLAG-FOR-SCOPE-3 preserved (cross-PRD staleness surfaces in both PRD-09A and PRD-09B).
+2. 14-view prioritization framework ships 7 real + 5 PlannedViewStub + ABCDE removed; PRD text internally inconsistent on count. Consolidated into SCOPE-2.F25.
+3. `task_type = 'habit'` enum value with zero consumer and no STUB_REGISTRY entry. Consolidated into SCOPE-2.F26. Founder-clarified Habit semantics (meta-type branching to 3 rendering modes) reshape remediation.
+4. MindSweep `mindsweep_settings` auto-seed on family creation not observed in live data — 18 family_members, 0 rows in both `mindsweep_settings` and `mindsweep_allowed_senders`. Founder context: family predates MindSweep; no backfill for pre-existing families. Consolidated into SCOPE-2.F29.
+5. `reference` as 12th list_type with no spec provenance — founder-confirmed use case (static reference materials, Nicholeen Peck skills example). Consolidated into SCOPE-2.F27 as codified.
+
+### Cross-references
+
+- CROSS-REF: SCOPE-5.F4 cited by PRD-09A R4 (View As unmark cascade + Convention #206 task unmark cascade — already closed; not re-emitted)
+- CROSS-REF: SCOPE-5.F{B} cited by PRD-09A R5 (AIR auto-victory from task completions — Scope 5 closed; not re-emitted)
+- CROSS-REF: SCOPE-5.F4 cited by PRD-09A R6 (sequential_collections Studio Intelligence Phase 1 fix — Phase 1 closed; zero-row table state is legitimate empty-state, not re-emitted)
+- CROSS-REF: SCOPE-2.F5 cited by PRD-09A R8 (`activity_log_entries.shift_session_id` FK to superseded `shift_sessions` table — rolls into Foundation F5 shift-supersession finding scope)
+- CROSS-REF: SCOPE-8a.F7 cited by PRD-17B R4 (MindSweep autopilot `source='manual'` labeling — already closed; not re-emitted)
+- CROSS-REF: STUB_REGISTRY L167 (MindSweep email forwarding Partially Wired DNS blocker) grouped with SCOPE-2.F29 as MindSweep halfway-state completion bucket
+- PATTERN-FLAG-FOR-SCOPE-3: `task_queue` → `studio_queue` naming staleness (F24)
+- PATTERN-FLAG-FOR-SCOPE-4: MindSweep embedding-first classification (P2 pattern) — PRD-17B R6 wired by inspection; Scope 4 pattern audit will verify the ~90% LLM-call reduction claim against production `ai_usage_tracking` data
+
+### Founder adjudication
+
+- **F24 PRD-09A task_queue legacy naming:** PRD-17 §Schema Reconciliation Note explicitly mandated the rename to `studio_queue` as a pre-build audit amendment; the mandate was applied in code (entire codebase uses `studio_queue` consistently) but never applied to PRD-09A text. 10 occurrences remain across Screens, Stubs, CLAUDE.md Additions, Tier Gating. PRD-09B correctly cites the rename; PRD-09A itself stayed stale. Remediation: PRD-09A text pass to replace `task_queue` → `studio_queue`, `tasks_queue` feature key → canonical PRD-17 keys (`studio_queue`, `queue_modal`, `queue_quick_mode`, `routing_strip`, `queue_batch_processing`). Pure doc update.
+
+- **F25 Prioritization views partial:** PRD-09A internally inconsistent (13 vs 14 views); code ships 12 options with 7 real view components (Simple List, Now/Next/Optional, By Category, Eisenhower, Eat the Frog, 1-3-5, Kanban) + 5 PlannedViewStub placeholders (Big Rocks, Ivy Lee, MoSCoW, Impact/Effort, By Member) + ABCDE explicitly removed per founder decision 2026-04-13. Keep as single finding rather than splitting. Honest stub pattern is graceful degradation.
+
+- **F26 Habit task type unwired:** Founder direction 2026-04-20 clarified Habit is a meta-type that branches into 3 rendering modes based on user tracking preference — (a) tally type (PRD-10 widget), (b) calendar-day-mark type (PRD-10 widget), (c) task-at-interval type (existing routine/recurrence infrastructure). Not redundant with routines or trackers alone — mixes task+best-intention semantics and lets user pick how the habit surfaces. Remediation: build Habit creation flow with 3 rendering-mode pickers, each creating appropriate downstream artifact. Enum value + PRD-09A §Screen 3 text stay; code gets the build work.
+
+- **F27 List type catalog expansion:** Scope-Creep-Evaluate resolved to codify per founder direction. All 5 extras legitimate: `backburner` + `ideas` (Convention #21), `prayer` (Studio seed spec), `sequential` (Studio Intelligence addendum Phase 1C), `reference` (founder-described use case — static reference materials, Nicholeen Peck parenting-response skills cards, content to refer to not interact with). Remediation: update PRD-09B catalog + specs/studio-seed-templates.md to document all 5 with their use cases. One doc pass.
+
+- **F28 Numeric indicator preference:** Breathing glow (Discreet default) works; Numeric mode has no opt-in UI. PRD-17 §L570 explicitly defers to Settings PRD. Tied to Settings PRD (PRD-22) timeline. Not urgent — surfaces naturally when Settings build kicks off.
+
+- **F29 MindSweep auto-seed contract unmet:** Addendum promise (auto-create `mindsweep_settings` + populate `mindsweep_allowed_senders` during family setup) unmet — 18 family_members, 0 rows in both tables. Founder context 2026-04-20: family predates MindSweep build; even wired seed code would only populate NEW families after seed-code-land, not backfill. Combined with "MindSweep halfway state especially email-related" signal. Remediation groups with broader MindSweep completion bucket (auto-seed + backfill + email-forwarding DNS resolution per STUB_REGISTRY L167). Medium severity — addendum contract broken, affects every family's MindSweep first-use experience.
+
+### Emission list
+
+Findings to emit (6 total):
+- SCOPE-2.F24 — PRD-09A task_queue legacy naming (Low, Unintentional-Fix-PRD, Beta N)
+- SCOPE-2.F25 — PRD-09A prioritization views partial with ABCDE removed (Low, Deferred-Document, Beta N)
+- SCOPE-2.F26 — PRD-09A Habit task type unwired — 3-mode branching remediation (Low, Unintentional-Fix-Code, Beta N)
+- SCOPE-2.F27 — PRD-09B list type catalog codification (Low, Intentional-Document, Beta N; orchestrator override from Scope-Creep-Evaluate per founder direction to codify 5 extras)
+- SCOPE-2.F28 — PRD-17 numeric indicator preference deferred to Settings PRD (Low, Deferred-Document, Beta N)
+- SCOPE-2.F29 — PRD-17B MindSweep auto-seed contract unmet — group with halfway-state completion bucket (Medium, Unintentional-Fix-Code, Beta N)
+
+No Batch 4 hygiene notes. No new Scope 4 / Scope 3+8b emissions from this batch (cross-scope carry-forwards logged in open flags below).
+
+### Open flags (tech-debt + cross-scope register)
+
+1. **PRD-09A task_queue nomenclature staleness** pattern-flagged for Scope 3+8b — cross-PRD staleness between PRD-09A and PRD-09B indicates a broader "upstream PRD text not updated after downstream reconciliation mandate" pattern that may recur. Flagged for Scope 3+8b integration-traversal pass to evaluate whether the pattern warrants a cross-PRD finding beyond F24's per-PRD scope.
+2. **MindSweep halfway-state completion bucket** — F29 auto-seed groups with STUB_REGISTRY L167 (email forwarding DNS blocker). When MindSweep completion pass lands, F29 + email forwarding + any other halfway-state items close together. Single build scope.
+3. **PRD-09A R2 inconsistency** (13 vs 14 views count) — batch-hygiene item embedded in F25 rather than separate hygiene note. PRD-09A text update pass (same update that fixes F24 task_queue naming) should also reconcile the count.
+4. **MindSweep embedding-first classification P2 pattern** — PATTERN-FLAG-FOR-SCOPE-4 preserved. Scope 4 P2 pattern audit will verify the ~90% LLM-call reduction claim against production `ai_usage_tracking` data when that scope runs.
 
 ## Round 5 — Dashboards/Calendar evidence pass (Batch 5, PRDs 10, 14, 14B, 14C, 14D, 14E, 25, 26)
 
