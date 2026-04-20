@@ -424,7 +424,7 @@ Apply-phase worker scope:
 
 ## 9 — Sequencing
 
-Domain 1 Foundation runs first. Domains 2–9 are queued. Each kicks off after the prior domain's walk-through adjudication closes in DECISIONS.md. Parallel execution across domains is not planned for Scope 2 — walk-through and apply sequencing is cleaner if domains land one at a time.
+Domain 1 Foundation runs serial first as the pattern-setter. Foundation walk-through closes before any other batch dispatches. After Foundation walk-through closes, batches 2–9 dispatch in parallel (founder ruling 2026-04-20). Walk-through remains serial — orchestrator adjudicates one batch at a time as evidence files arrive. Parallel-dispatch discipline: each batch 2–9 worker prompt references EVIDENCE_BATCH_1_foundation.md as the stylistic anchor so row-table shape, citation density, and consolidation cardinality stay consistent across the eight parallel workers.
 
 Domains 2 (LiLa), 5 (Dashboards/Calendar), and 7 (Vault/BookShelf) may have Scope 3 + 8b cross-PRD work that cannot start until Scope 2 for both sides of a seam has closed. See [scope-3-8b-evidence/PLAN.md](../scope-3-8b-evidence/PLAN.md) §9 Sequencing for the cross-scope gating rules.
 
