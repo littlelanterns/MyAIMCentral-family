@@ -4,7 +4,7 @@
 > Audit window opened: 2026-04-18
 > Coordinated via: [claude/web-sync/AUDIT_PARALLEL_PLAN.md](claude/web-sync/AUDIT_PARALLEL_PLAN.md)
 > Gameplan: [MYAIM_GAMEPLAN_v2.2.md](MYAIM_GAMEPLAN_v2.2.md) Phase 2 (lines 284-351)
-> Status: **IN PROGRESS — Stage A closed; Stage B Scope 8a Round 1 complete (PRD-40 COPPA Bucket 1, 16/16 FAIL); Buckets 2-5 pending**
+> Status: **Stage A closed; Stage B Scope 8a COMPLETE — all 5 rounds closed, 8 findings emitted (F1–F8), 5 Beta Readiness blockers open pending Phase 3 triage; Stage C (Scope 2/3/8b/4) pending**
 
 ---
 
@@ -233,9 +233,9 @@ Full line-by-line reconciliation of the remaining 223 entries (minus the 5 proce
 
 ## 8a — Scope 8a: Binary compliance/safety checklist
 
-**Status:** IN PROGRESS — Round 1 complete (Bucket 1: PRD-40 COPPA, 16/16 FAIL).
+**Status:** COMPLETE — All 5 rounds closed. 8 findings emitted (F1–F8). 5 Beta Readiness blockers open: F1, F2, F3, F5, F6. Non-Beta: F4, F7, F8.
 **Checklist inventory:** [scope-8a-evidence/CHECKLIST_INVENTORY.md](scope-8a-evidence/CHECKLIST_INVENTORY.md) (40 binary items across 5 buckets).
-**Decisions log:** [scope-8a-evidence/CHECKLIST_DECISIONS.md](scope-8a-evidence/CHECKLIST_DECISIONS.md) (append-only).
+**Decisions log:** [scope-8a-evidence/CHECKLIST_DECISIONS.md](scope-8a-evidence/CHECKLIST_DECISIONS.md) (append-only; founder adjudication captured).
 
 ### Round 1 — Bucket 1: PRD-40 COPPA compliance (items 8a-CL-01 through 8a-CL-16)
 
@@ -256,9 +256,124 @@ Evidence pass executed 2026-04-20. Worker report at [scope-8a-evidence/EVIDENCE_
 - **Wizard Design Impact:** N/A
 - **Beta Readiness flag:** Y — **primary Beta Readiness blocker for Scope 8a.** No under-13 beta user exposure is permissible until F1 is resolved.
 
-### Round 2-5 — Buckets 2, 3, 4, 5
+### Round 2 — Bucket 2: Child data handling (items 8a-CL-17 through 8a-CL-22)
 
-*Pending. Evidence passes will run in parallel once dispatched.*
+Evidence pass: [scope-8a-evidence/EVIDENCE_BUCKET_2.md](scope-8a-evidence/EVIDENCE_BUCKET_2.md). 2 PASS, 1 PASS-with-caveat, 2 PARTIAL, 1 FAIL. RLS coverage on child-data tables is clean (20/20 present tables). Privacy Filtered hard-enforcement via `applyPrivacyFilter` at `_shared/context-assembler.ts:623` + migration `100149` defense-in-depth RLS. One consolidated finding emitted for the three data-lifecycle gaps (export, deletion, voice retention).
+
+#### [SCOPE-8a.F2] Privacy-data-lifecycle incomplete — export, deletion, voice retention
+
+- **Severity:** Blocking
+- **Location:**
+  - **Data export:** Archives-only surface; no full-family export anywhere in `src/pages/settings/`
+  - **Data deletion:** `process_expired_deletions()` flips `family_members.is_active = false` only; no cascade to child-data tables; scheduled cron commented out
+  - **Voice retention:** `journal_entries.audio_file_path` live in production; no pg_cron job cleaning audio files; CLAUDE.md architecture note referencing "daily voice recording cleanup" is aspirational only
+- **Description:** COPPA grants parents rights to access the full data record of their under-13 children AND to have that data actually deleted. Today, mom can only export Archives (a subset); "deleting" a family member soft-deactivates the `family_members` row while leaving tasks, journal entries, tracker data, LiLa conversations, and photos behind in their respective tables; kids' voice recordings in `audio_file_path` persist indefinitely. The COPPA access right, the COPPA deletion right, and the general indefinite-retention-of-child-audio concern are three separate gaps with a single remediation theme: privacy-data-lifecycle is incomplete.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_2.md](scope-8a-evidence/EVIDENCE_BUCKET_2.md) items CL-18 (PARTIAL, Archives-only export), CL-19 (PARTIAL, soft-deactivate + no child-data cascade), CL-20 (FAIL, no retention cron). Founder adjudication captured at [scope-8a-evidence/CHECKLIST_DECISIONS.md](scope-8a-evidence/CHECKLIST_DECISIONS.md) §Founder adjudication.
+- **Cross-reference to F1:** The existing `process_expired_deletions()` flips only `family_members.is_active`; child-data tables are untouched. PRD-40 revocation cascade is therefore not achievable against current code, even if the 4 COPPA tables were in place. F1's Fix Now scope is broader than originally described — it must include the deletion cascade work captured in F2's resolution scope.
+- **Proposed resolution:** **Fix Now.** Scope: (a) full-family data export surface in PRD-22 Settings covering every table with family-scoped rows; (b) cascading deletion that actually removes child-data rows per PRD-22 + PRD-40 revocation requirements; (c) voice-recording retention cron with a specified retention threshold (default proposal: 90 days; legal review for beta-appropriate threshold).
+- **Founder decision required:** Y (retention threshold; deletion cascade scope — hard-delete vs archive-to-cold-storage)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### Round 3 — Bucket 3: LiLa safety enforcement (items 8a-CL-23 through 8a-CL-31)
+
+Evidence pass: [scope-8a-evidence/EVIDENCE_BUCKET_3.md](scope-8a-evidence/EVIDENCE_BUCKET_3.md). 2 PASS, 1 PARTIAL, 6 FAIL. The 6 FAILs are structural "PRD not built" states for PRD-20 and PRD-30 (and PRD-41, not yet authored). `lila-mediator` is the reference implementation for durable safety-flag persistence — the pattern PRD-30/PRD-41 should generalize. Two findings emitted: F3 (structural PRD build gap) + F4 (Translator code-level consistency).
+
+#### [SCOPE-8a.F3] PRD-20 Safe Harbor + PRD-30/PRD-41 Safety Monitoring entirely unbuilt
+
+- **Severity:** Blocking
+- **Location:**
+  - PRD-20 Safe Harbor tables (`safe_harbor_orientation_completions`, `safe_harbor_literacy_completions`, `safe_harbor_consent_records`) and UI unbuilt
+  - PRD-30 Safety Monitoring tables (`safety_monitoring_configs`, `safety_sensitivity_configs`, `safety_notification_recipients`, `safety_flags`, `safety_keywords`, `safety_resources`, `safety_pattern_summaries`) unbuilt; `safety-classify` Edge Function not present; no Layer 1 keyword scanner wired to message-send path; no Layer 2 cron scheduler; `lila_messages.safety_scanned` column is dead weight
+  - PRD-41 LiLa Runtime Ethics Enforcement: not authored per PRD-40 dependency note (line 4); no output-validation Edge Function runs AFTER model response; ethics auto-reject categories (force, coercion, manipulation, shame-based control, withholding affection) enforced only in system prompt text
+- **Description:** Scope 8a Bucket 3 evidence pass verified all six safety-infrastructure items FAIL: Safe Harbor feature flows, PRD-30 Safety Monitoring 7-table schema, Layer 1 keyword scanner, Layer 2 async Haiku classifier scheduling, monitoring-scope defaults, and code-level ethics auto-reject. Collectively this means a child's LiLa conversations are not monitored for crisis/harm content today, the private processing space PRD-20 promises moms and teens does not exist, and ethics enforcement relies on the model following system prompt instructions rather than non-circumventable code-level checks. No child-facing AI beta exposure is permissible with this infrastructure absent.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_3.md](scope-8a-evidence/EVIDENCE_BUCKET_3.md) items CL-25 through CL-30 all FAIL. CL-31 PASS confirms `lila-mediator` persists `safety_triggered` to `lila_conversations.context_snapshot` and reads it before every turn — the reference pattern PRD-30/PRD-41 should generalize.
+- **Founder framing captured:** Build PRD-30 + PRD-41 safety-monitoring infrastructure in a way that PRD-20 Safe Harbor can plug into cleanly when it is built. Do not defer PRD-30/PRD-41 until PRD-20 — the monitoring infrastructure is independently needed for every LiLa surface children touch.
+- **Remediation intelligence:** `lila-mediator` pattern generalization for durable safety-flag persistence across every LiLa Edge Function. `safety_scanned` columns on `lila_messages`/`lila_conversations` already exist and can be wired by Layer 2 Haiku classifier writes.
+- **Proposed resolution:** **Fix Now.** Scope: (a) PRD-20 Safe Harbor build (orientation flow + literacy flow + consent records + shell UI); (b) PRD-30 Safety Monitoring build (7-table schema + `safety-classify` Edge Function + Layer 1 keyword scan wired to message-send + Layer 2 pg_cron + monitoring-scope defaults seeded per role); (c) PRD-41 LiLa Runtime Ethics Enforcement authoring and build (output-validation Edge Function with code-level rejection for ethics auto-reject categories).
+- **Founder decision required:** Y (ordering of PRD-20 vs PRD-30 vs PRD-41 builds; whether PRD-41 is authored during remediation or as a separate pre-build session)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y — **largest single Scope 8a Beta blocker by scope**
+
+#### [SCOPE-8a.F4] Translator LiLa Edge Function exempted from code-level crisis detection
+
+- **Severity:** Medium
+- **Location:** `supabase/functions/lila-translator/index.ts`; `supabase/functions/_shared/` crisis-detection helper with documented "except Translator" exception in header
+- **Description:** CLAUDE.md Convention #7 states that Crisis Override is GLOBAL and every system prompt must include crisis detection. Every LiLa Edge Function except Translator runs a code-level `detectCrisis` check before response emission; Translator is explicitly exempted in the shared helper and relies only on an in-prompt safety clause. The two mechanisms are not equivalent: code-level detection is non-circumventable, while in-prompt safety relies on model compliance. Translator accepts arbitrary pasted text from the user (positioned as a style-rewrite toy per founder product framing — pirate, sportscaster, Gen Z voice), which is the same input-surface shape every other LiLa tool has. The same input-surface argues for the same guardrail.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_3.md](scope-8a-evidence/EVIDENCE_BUCKET_3.md) item CL-23 PARTIAL. Shared helper "except Translator" exception documented in header. `lila-translator/index.ts` has no `detectCrisis` invocation.
+- **Founder product context:** Translator is a stylistic rewrite tool, not a tone-softener. Not positioned as a conversational surface. Captured here as rationale for Vault positioning, not as a safety-exemption justification.
+- **Proposed resolution:** **Fix Next Build.** Extend `detectCrisis` to Translator input. Remove the "except Translator" exception from the shared helper. CLAUDE.md #7 stays as-is. Mechanical change: one import + one call in `lila-translator/index.ts`.
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### Round 4 — Bucket 4: Board of Directors content policy (items 8a-CL-32 through 8a-CL-36)
+
+Evidence pass: [scope-8a-evidence/EVIDENCE_BUCKET_4.md](scope-8a-evidence/EVIDENCE_BUCKET_4.md). 5/5 PASS — the Haiku pre-screen, deity → Prayer Seat redirect, blocked-figure hard block, Prayer Seat no-AI rule, and once-per-session disclaimer are all wired end-to-end across `lila-board-of-directors/index.ts` and `BoardOfDirectorsModal.tsx`. Three fail-open / defense-in-depth defects surfaced as unexpected findings and consolidate into a single Beta-Readiness-relevant finding.
+
+#### [SCOPE-8a.F5] Board of Directors content policy has fail-open defects
+
+- **Severity:** Medium
+- **Location:**
+  - `supabase/functions/lila-board-of-directors/index.ts:74` and `:100–102` — `contentPolicyCheck` returns `approved` on Haiku API failure or JSON parse failure
+  - Same file, `create_persona` action handler — does not internally re-invoke `contentPolicyCheck`; gate is enforced only at client-caller site in `BoardOfDirectorsModal.tsx`
+  - Same file, `:195–201` — hardcoded fallback prayer questions returned only on JSON parse failure (edge case)
+- **Description:** The PRD-34 Board of Directors content policy gate (deity → Prayer Seat; blocked-figure → hard block) is correctly wired when Haiku is reachable and returns valid JSON. Two failure-mode defects undermine the guardrail: (a) Haiku classifier errors default to `approved` (fail-open) — during a Haiku outage, a user attempting to add a deity or blocked figure would succeed; (b) the `create_persona` action on the Edge Function does not re-invoke the content policy check server-side, so a direct API call bypassing the client modal would skip the gate entirely. The hardcoded prayer-question fallback on JSON parse failure violates CLAUDE.md #100 ("never canned") if the fallback path ever became dominant, but is a low-severity edge case today.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_4.md](scope-8a-evidence/EVIDENCE_BUCKET_4.md) Unexpected Findings 1–3. All five checklist items CL-32 through CL-36 PASS — the gate works when its call chain is intact.
+- **Proposed resolution:** **Fix Now** for (a) and (b); **Tech Debt** for (c).
+  - (a) Flip fail-open default to fail-closed with user-facing retry message on Haiku classifier error
+  - (b) Add server-side `contentPolicyCheck` invocation inside `create_persona` action handler
+  - (c) Replace hardcoded prayer-question fallback with a re-query or user-visible error state; tracked in `TECH_DEBT_REGISTER`
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y — **fail-open on a safety gate is a beta-visible safety concern, however low the failure probability**
+
+### Round 5 — Bucket 5: Human-in-the-Mix sweep (items 8a-CL-37 through 8a-CL-40)
+
+Evidence pass: [scope-8a-evidence/EVIDENCE_BUCKET_5.md](scope-8a-evidence/EVIDENCE_BUCKET_5.md). HITM is applied in spirit across 22/30 AI-persistence surfaces. Shared `HumanInTheMix` component has reuse count = 1. CL-39 (LiLa chat) and CL-40 (embeddings) confirmed as scope confirmations per checklist design. Five bypass patterns surfaced: one Blocking (DailyCelebration), one Medium audit-trail defect (MindSweep autopilot), one Medium tech-debt (component reuse), and two intentional-design confirmations (BookShelf extraction pipeline + auto-titles). Three findings emitted: F6, F7, F8.
+
+#### [SCOPE-8a.F6] DailyCelebration auto-persists AI celebration narrative with no HITM
+
+- **Severity:** Blocking
+- **Location:** `src/components/dashboard/DailyCelebration.tsx:180–196` — on Done click, AI-generated celebration narrative writes to `victory_celebrations` with no Edit, Regenerate, or Reject step
+- **Description:** The DailyCelebration feature generates an AI narrative summarizing a child's victories and auto-saves that narrative to `victory_celebrations` when mom closes the celebration. The narrative is child-facing and becomes a permanent celebration record. Mom has no opportunity to correct hallucinations (misattributed victories, wrong names, content that references Safe Harbor material), soften tone for a kid having a hard day, or reject the narrative entirely. This is the most load-bearing HITM bypass in the codebase per Bucket 5 evidence — child-facing + persistent + no review. CLAUDE.md #4 ("every AI output MUST go through Human-in-the-Mix before persisting") applies without exception here.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_5.md](scope-8a-evidence/EVIDENCE_BUCKET_5.md) Unexpected Finding 1. Direct read of `DailyCelebration.tsx:180–196` confirms no HITM UI; `victory_celebrations` insert fires unconditionally on Done.
+- **Proposed resolution:** **Fix Now.** Add Edit / Approve / Regenerate / Reject UI between narrative generation and `victory_celebrations` insert. Mom must explicitly approve before the record persists. Use the shared `HumanInTheMix` component (addressing F8's reuse-count concern in the same change).
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+#### [SCOPE-8a.F7] MindSweep autopilot routes labeled `source='manual'` — audit-trail integrity defect
+
+- **Severity:** Medium
+- **Location:** `supabase/functions/mindsweep-sort/index.ts` + consuming code paths that write to `guiding_stars`, `best_intentions`, `self_knowledge`, `journal_entries`, `victories` with `source='manual'` when routed via `trust_obvious` or `full_autopilot` mode
+- **Description:** Mom's opt-in to MindSweep's `trust_obvious` or `full_autopilot` mode IS the HITM consent — the opt-in covers every subsequent auto-route under that consent. Not a HITM violation. However, autopilot-routed records persist with `source='manual'`, which makes them indistinguishable from hand-approved entries in the audit trail. If mom later audits her guiding stars or journal entries to understand which items she manually curated vs which arrived via autopilot, the data does not support that query. Audit-trail integrity is particularly relevant for items that flow into the platform-intelligence pipeline.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_5.md](scope-8a-evidence/EVIDENCE_BUCKET_5.md) Unexpected Finding 4.
+- **Proposed resolution:** **Fix Next Build.** Rename the source value written on autopilot routes from `'manual'` to `'mindsweep_autopilot'`. Update any downstream query that filters by `source='manual'` to handle both values where appropriate.
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+#### [SCOPE-8a.F8] HumanInTheMix component reuse count = 1 — inconsistent HITM implementations
+
+- **Severity:** Medium
+- **Location:** `src/components/` — shared `HumanInTheMix` component (imported only by `LilaMessageBubble`); 22+ other AI-output surfaces reinvent Edit / Approve / Regenerate / Reject inline with different button labels ("Save" vs "Approve" vs "Accept" vs "Use this")
+- **Description:** The HITM pattern is applied in spirit across 22 of 30 AI-persistence surfaces checked, but the shared component exists with a single import site. Every other feature rebuilds the four-action review UX from scratch, producing inconsistent button labels and inconsistent interaction patterns. This is not a safety bypass — HITM is happening — but it is a UX consistency defect AND a maintenance defect (any future change to the review pattern has to touch 22+ sites instead of one).
+- **Evidence:** [scope-8a-evidence/EVIDENCE_BUCKET_5.md](scope-8a-evidence/EVIDENCE_BUCKET_5.md) Unexpected Finding 5 + component reuse count.
+- **Proposed resolution:** **Tech Debt.** Refactor AI-output surfaces to import the shared `HumanInTheMix` component; standardize button labels per CLAUDE.md / conventions.md §Human-in-the-Mix Pattern. Sequence during the Universal Setup Wizards workstream (non-concurrent zone during audit per AUDIT_REPORT_v1.md §0). Opportunistic during wizard feature work — not a dedicated pass.
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Wizard Design Impact:** Y — refactor should happen as part of wizard workstream to batch component consolidation with other UX polish
+- **Beta Readiness flag:** N
+
+#### Scope confirmations (not findings — logged for audit completeness)
+
+Five AI-output surfaces commit output without pre-commit HITM. After founder adjudication, each is confirmed as intentional design or metadata-level output, not a HITM violation:
+
+- **LiLa chat messages (8a-CL-39):** conversational, not persistence-bound content.
+- **Embeddings (8a-CL-40):** async metadata, no user-facing text.
+- **BookShelf extraction pipeline (`bookshelf-extract`, `bookshelf-study-guide`):** hundreds of extractions per book make pre-commit HITM impractical. Post-hoc Heart/Hide is the intentional user-facing review surface.
+- **Auto-titles (Notepad tabs + message threads):** titles are metadata; mom can rename inline. Treated as embeddings-class metadata.
+- **MindSweep autopilot opt-in:** mom's opt-in IS the HITM consent for every subsequent auto-route. (Audit-trail labeling defect captured separately in F7.)
 
 ## 2 — Scope 2: PRD-to-code alignment
 
@@ -330,8 +445,12 @@ Preventative hygiene actions taken during the audit that are NOT discrepancies. 
 | SCOPE-1.F3 (RESOLVED) | 1 | AURI retroactive scan blocked on first-call OAuth in fresh session | Closed 2026-04-18 — fresh session picked up user-scope registration, OAuth completed, smoke test returned real data |
 | SCOPE-1.F5 (RESOLVED) | 1 | AURI retroactive scan exit 0 but empty findings output | Closed 2026-04-18 — MCP `scan` tool with scoped `include_path` returned 6 findings (all false positives). Working protocol established for Scopes 2/3. |
 | SCOPE-8a.F1 (OPEN) | 8a | PRD-40 COPPA compliance infrastructure entirely unbuilt | **Blocking.** 16/16 Bucket 1 checklist items FAIL high-confidence. First under-13 `family_members` insert at `FamilySetup.tsx:276` has no consent precondition. Compound dependencies on absent Stripe webhook handler (PRD-31) and absent admin console shell (PRD-32). Fix Now scope spans PRD-40 + the two prerequisite builds. Legal disclosure copy requires attorney review separately. |
+| SCOPE-8a.F2 (OPEN) | 8a | Privacy-data-lifecycle incomplete — export, deletion, voice retention | **Blocking.** Export is Archives-only; deletion soft-deactivates without child-data cascade; voice retention cron does not exist, audio persists indefinitely. COPPA access + deletion rights not satisfied. Fix Now: full-family export, cascading deletion, retention cron with threshold. |
+| SCOPE-8a.F3 (OPEN) | 8a | PRD-20 Safe Harbor + PRD-30/PRD-41 Safety Monitoring entirely unbuilt | **Blocking.** Largest Scope 8a Beta blocker by build scope. Child LiLa conversations not monitored for crisis/harm today. Ethics auto-reject lives only in prompt text, not code. `lila-mediator` is reference pattern for generalization. Fix Now: PRD-20 + PRD-30 build + PRD-41 author+build. |
+| SCOPE-8a.F5 (OPEN) | 8a | Board of Directors content policy fail-open defects | **Medium.** Gate works end-to-end when Haiku is reachable. Fail-open on classifier error; `create_persona` action lacks server-side re-invocation. Fix Now for fail-closed flip + server-side gate; Tech Debt for hardcoded prayer fallback. |
+| SCOPE-8a.F6 (OPEN) | 8a | DailyCelebration auto-persists AI narrative with no HITM | **Blocking.** Child-facing + persistent + no review. `DailyCelebration.tsx:180–196` writes AI-generated celebration narrative to `victory_celebrations` on Done click with no Edit/Regenerate/Reject. CLAUDE.md #4 violation. Fix Now: add HITM step using shared component. |
 
-**Open Beta Readiness blocker:** SCOPE-8a.F1 (primary Scope 8a compliance gate blocker). No other currently-open Beta Readiness blockers. SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
+**Open Beta Readiness blockers (5):** SCOPE-8a.F1, F2, F3, F5, F6. Non-Beta Scope 8a findings (not in this index): F4 (Translator crisis-detection consistency — Medium, code-fix Next Build), F7 (MindSweep autopilot audit-trail labeling — Medium, Fix Next Build), F8 (HITM component under-reuse — Medium, Tech Debt). SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
 
 ---
 
