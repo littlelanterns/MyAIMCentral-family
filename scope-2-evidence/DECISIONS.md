@@ -85,9 +85,73 @@ Several PRDs (notably PRD-14B Calendar, PRD-15 Messages, PRD-21A Vault) specify 
 
 ## Decisions
 
-## Round 1 — Foundation evidence pass (Batch 1, PRDs 01–04)
+## Round 1 — Foundation evidence pass (Batch 1, PRDs 01, 02, 03, 04, 31)
 
-*(entry filled during walk-through)*
+- **Date:** 2026-04-20
+- **Worker pass:** [EVIDENCE_BATCH_1_foundation.md](EVIDENCE_BATCH_1_foundation.md)
+- **Aggregate:** 34 rows across 5 PRDs (PRD-01: 6, PRD-02: 9, PRD-03: 6, PRD-04: 5, PRD-31: 8). 6 ambiguity flags. 5 unexpected findings. 9 worker-proposed candidates.
+
+### Per-candidate-finding verdict table
+
+| Candidate | Contributing rows | Proposed verdict | Proposed severity | Emits into | Founder decision | Beta Readiness |
+|---|---|---|---|---|---|---|
+| PRD31-TIER-MONETIZATION-UNBUILT | PRD-01 R5, PRD-31 R1–R8 | Deferred-Document | Medium | SCOPE-2.F1 | Confirmed — intentional beta-deferral per Convention #10; linked to F2 as pre-monetization prerequisite work | N |
+| PRD02-GATE-ADOPTION | PRD-02 R4, R5 | Unintentional-Fix-Code | Low | SCOPE-2.F2 | Confirmed as pre-monetization prerequisite — cannot flip paid tiers on without wrapping features; Low during beta, escalates to High when tier-gating activates | N |
+| PRD02-ACCESS-LEVEL-PICKER-MISSING | PRD-02 R6 | Unintentional-Fix-Code | Medium | SCOPE-2.F3 | Confirmed — ESCALATED per founder: build soon rather than next normal build sprint. Every new founding family hits this degraded onboarding surface; 164 profile rows seeded ready to consume. Near-term build priority. | N |
+| PRD01-LEGACY-HUB-COLUMNS | PRD-01 R3, PRD-04 R1 | Intentional-Document | Low | SCOPE-2.F4 | Confirmed — documentation cleanup per PRD-14D supersession. Optional drop migration Phase 3 triage. | N |
+| PRD02-SHIFT-SUPERSESSION | PRD-02 R1, R2 | Intentional-Document → Overridden to Unintentional-Fix-PRD | Low | SCOPE-2.F5 | Orchestrator override confirmed by founder: update PRD-02 text to cite Conventions #26 + #40 rather than leaving archaeology. PRDs stay authoritative only if kept accurate. | N |
+| PRD03-THEME-COUNT-DRIFT | PRD-03 R1 | Scope-Creep-Evaluate | Low | SCOPE-2.F6 | Confirmed — founder direction: codify 46 themes as truth (update PRD-03 + Convention #42 to 46). Future consolidation/rework logged as post-audit product workstream (reduce themes + make each deliberately differentiated); not audit scope. | N |
+| PRD03-SHARED-COMPONENT-GAP | PRD-03 R4 | Unintentional-Fix-Code | Low | SCOPE-2.F7 | Confirmed — inventory reconciliation needed across PRD-03 (18) vs Convention #44 (13) vs STUB_REGISTRY (11). PATTERN-FLAG-FOR-SCOPE-3 preserved since shared components cross PRDs. | N |
+| PRD04-HUB-TV-STUB | PRD-04 R2 | Deferred-Document | Low | SCOPE-2.F8 | Confirmed — founder confirmed no TV mode advertising exists, PlannedExpansionCard placeholder is honest. Post-MVP per PRD-33 PWA PRD. | N |
+| PRD01-FIELD-NAME-DRIFT | PRD-01 R1 | Unintentional-Fix-PRD | Low | Downgraded to batch-hygiene note (not a finding) | Orchestrator proposed, founder confirmed: one-line PRD-01 field-name typo (auth_user_id → user_id) does not warrant full finding. Captured in Emission list below as batch-hygiene note. | N |
+
+### Load-bearing unexpected findings
+
+1. Low adoption of tier-gating wrapping conventions — consolidated into SCOPE-2.F2. See [EVIDENCE_BATCH_1_foundation.md](EVIDENCE_BATCH_1_foundation.md) §Unexpected findings #1.
+2. `permission_level_profiles` seeded with 164 rows but zero consumer — consolidated into SCOPE-2.F3. See §Unexpected findings #2.
+3. Three dead Hub columns on `families` table post-PRD-14D — consolidated into SCOPE-2.F4. See §Unexpected findings #3.
+4. Zero Stripe code anywhere in the codebase — consolidated into SCOPE-2.F1. Cross-ref SCOPE-8a.F1 prerequisite note. See §Unexpected findings #4.
+5. `feature_key_registry` 196 rows vs Feature Glossary "130+" — documentation-staleness; not a finding. Flagged as doc-hygiene for Phase 3 triage.
+
+### Cross-references
+
+- CROSS-REF: SCOPE-8a.F1 prerequisite gap (Stripe webhook Edge Function absence) cited by SCOPE-2.F1
+- CROSS-REF: SCOPE-5.F4 walk-through (Foundation-touching registry decisions) inherited; no re-emission
+- CROSS-REF: CLAUDE.md Convention #10 (beta-unlock `useCanAccess` returns true) anchors F1, F2 classification
+- CROSS-REF: CLAUDE.md Conventions #26 + #40 (shift supersession architectural decisions) anchor F5 addendum supersession
+- CROSS-REF: CLAUDE.md Convention #31 (PlannedExpansionCard pattern) anchors F8 stub legitimacy
+- CROSS-REF: CLAUDE.md Convention #207 (`member_color` + `assigned_color` sync rule) anchors PRD-03 R3 scope confirmation
+
+### Founder adjudication
+
+- **F1 tier monetization:** Intentional beta-deferral. Nothing to sell until the app is worth subscribing to, which it isn't yet. Build the full monetization surface when founder decides the app has crossed that threshold. Forward-thinking consideration: F1, F2, and F3 together form the pre-monetization prerequisite stack.
+- **F2 gate adoption:** Deferred but explicitly linked to F1 as mandatory prerequisite. The permission matrix covers Layer 1 (feature registry) and Layer 2 (tier-to-feature mapping) but NOT Layer 3 (UI gate enforcement via PermissionGate wrapping). When tier-gating flips on, unwrapped features stay unrestricted regardless of matrix rows. Beta has no visible impact; paid tier activation requires wrapping catchup pass.
+- **F3 access-level picker missing:** ESCALATED to near-term build. Light/Balanced/Maximum picker is a signature onboarding moment specified in the Permission-Matrix addendum. Every founding family recruited from this point forward hits the degraded Permission-Hub-only flow. Founder prioritizes restoring the intended onboarding for founding family acquisition.
+- **F4 legacy hub columns:** Documentation cleanup per PRD-14D supersession. Optional drop migration during Phase 3 triage.
+- **F5 shift supersession:** Override to Unintentional-Fix-PRD. Update PRD-02 text to cite CLAUDE.md Conventions #26 and #40 explicitly. Reason: PRDs remain authoritative references; leaving them stale (even with conventions documenting the change) degrades the spec surface for future contributors and AI-assisted builds.
+- **F6 theme count 46 vs 38:** Codify 46 as truth. Update PRD-03 and Convention #42 to reflect 46. Founder plans post-audit product workstream to consolidate overlapping themes and make each deliberately differentiated — tracked as future product work, not audit scope.
+- **F7 shared component count:** Low-priority inventory reconciliation. Three docs disagree; one needs to become the source of truth during doc-hygiene pass.
+- **F8 TV mode stub:** Honest placeholder stays. No TV mode advertising anywhere; PlannedExpansionCard is correctly framed as post-MVP per PRD-33 PWA PRD.
+
+### Emission list
+
+Findings to emit (8 total):
+- SCOPE-2.F1 — PRD-31 monetization infrastructure unbuilt (Medium, Deferred-Document, Beta-Readiness N)
+- SCOPE-2.F2 — Permission gate adoption low; pre-monetization prerequisite (Low, Unintentional-Fix-Code, Beta-Readiness N)
+- SCOPE-2.F3 — Access-level picker missing for member onboarding (Medium, Unintentional-Fix-Code, Beta-Readiness N, ESCALATED for near-term build)
+- SCOPE-2.F4 — Legacy Hub columns on `families` table post-PRD-14D (Low, Intentional-Document, Beta-Readiness N)
+- SCOPE-2.F5 — PRD-02 shift-scheduling text superseded by access_schedules + time_sessions (Low, Unintentional-Fix-PRD, Beta-Readiness N)
+- SCOPE-2.F6 — Theme count 46 vs spec 38; codify 46 (Low, Scope-Creep-Evaluate → resolved Codify, Beta-Readiness N)
+- SCOPE-2.F7 — Shared component inventory mismatch across PRD-03 / Convention #44 / STUB_REGISTRY (Low, Unintentional-Fix-Code, Beta-Readiness N)
+- SCOPE-2.F8 — `/hub/tv` PlannedExpansionCard stub; PRD-14E spec as MVP but feature glossary Post-MVP (Low, Deferred-Document, Beta-Readiness N)
+
+Batch 1 hygiene note (not a finding — apply-phase includes in a hygiene sub-list):
+- PRD-01 §Data Schema L424 calls the column `auth_user_id`; live schema uses `user_id`. One-line PRD-01 text amendment.
+
+### Open flags (tech-debt register for post-walk-through triage)
+
+1. **Permission-Matrix addendum vs CLAUDE.md sparse/dense `member_feature_toggles` semantics.** Addendum's Light/Balanced/Maximum profile seeder implies dense pre-populated rows per profile; Convention says sparse "no row = enabled." Neither is consistently implemented today (PermissionHub writes sparsely; the addendum's profile seeder doesn't exist). Not a Scope 2 finding (spec-to-spec divergence, not PRD-to-code). Defer to addendum-amendment decision OR profile-seeder-build decision during F3 build kickoff pre-build audit.
+2. **Theme consolidation / differentiation product workstream (post-audit).** Founder direction 2026-04-20: reduce theme count and make each theme deliberately differentiated rather than many-that-look-similar. Future product workstream, not audit scope. Tracked here so it doesn't get lost.
 
 ## Round 2 — LiLa evidence pass (Batch 2, PRDs 05, 05C)
 
