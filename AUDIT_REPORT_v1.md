@@ -206,6 +206,31 @@ Status: **IN PROGRESS** (1 finding logged; full line-by-line reconciliation cont
 
 Full line-by-line reconciliation of the remaining 223 entries (minus the 5 processed in pilot = 218 to go) against code reality. Approach: four parallel sessions per the operation plan at `claude/web-sync/SCOPE_5_STUB_RECONCILIATION.md`. Each session produces evidence packets per `scope-5-evidence/EVIDENCE_RECIPE.md`. Morning synthesis merges evidence into a reconciliation draft for founder review. Entries that contradict the registry's claimed status become SCOPE-5.F{N} findings following the same template as F1 and F2.
 
+### [SCOPE-5.F4] Scope 5 walk-through summary — 12 registry flips, 7 merges, 1 split, 3 hygiene adds, 1 commit applied
+
+- **Severity:** Medium (documentation truth — the registry now tells the truth)
+- **Location:** STUB_REGISTRY.md (applied in this commit); WALKTHROUGH_DECISIONS.md (authoritative per-entry detail preserved in scope-5-evidence/)
+- **Description:** The Scope 5 stub registry reconciliation walk-through completed 2026-04-20 across 5 rounds against the 224 registry entries. The synthesis pass identified 11 aggregate findings, 17 contradictions, 45 ambiguous entries, and ~160 confirmed-accurate entries. Founder walk-through resolved every entry into one of: registry flip, registry hygiene (merge / count-drop / note-update / row-split / glossary-add / header-note-add), or batch approval. Cross-cutting patterns identified:
+    - PRD-28B compliance infrastructure absence (Finding A): 5 rows prematurely marked Wired against an unbuilt 6-table schema. All flipped to Unwired.
+    - Automatic Intelligent Routing unbuilt (Finding B): 3 of 3 designed AIR sources (task completions, intention iterations, widget milestones) lack writer code. List-completion auto-victory is a separate pattern, not AIR. All AIR-source rows flipped to Unwired.
+    - Looks-Fine-Failure bidirectional (Finding C + Round 4 Line 321): 2 rows registry-says-Wired-but-code-is-stub (165 MindSweep email, 117 task AIR); 2 rows registry-says-stub-but-code-is-functional (323 GuidedVictories, 321 Celebrate section). Flipped to truth in both directions.
+    - Build M silent delivery (Finding F) + Vault delivery methods silent delivery (Finding G): 4 rows understated — Build M and Phase 25 AIVault work was not captured in the registry. Flipped to ✅ Wired.
+    - PRD-12B attribution gap (Finding J): 2 rows attributed to an unbuilt PRD. Flipped to Unwired per founder rule "if it doesn't work in the app, it is not wired."
+    - Duplicate registry rows (Finding D): 7 pairs merged.
+    - Stale parenthetical counts (Finding E): 5 count-drops applied.
+    - Misleading UI surfaces: identified at multiple sites — Studio shelf tiles (line 390), Widget starter configs (413), WidgetPicker color_reveal and gameboard (414), LiLa Optimizer mode (50), GamificationSettingsModal Tracker Goal option (266). Notes added per the "misleading-UI rule" (WALKTHROUGH_DECISIONS.md Recording Rules section).
+- **Evidence:** 407 evidence packets produced across 4 partition sessions (Schema 48, Edge Functions 9, UI 195, Cross-cutting 155); preserved in scope-5-evidence/STUB_REGISTRY_EVIDENCE_*.md. Synthesis reconciliation draft at scope-5-evidence/STUB_REGISTRY_RECONCILIATION_DRAFT.md. Founder walk-through decisions at scope-5-evidence/WALKTHROUGH_DECISIONS.md. Parallel inventories produced: scope-5-evidence/STUDIO_TEMPLATE_INVENTORY.md + PHASE_B_TRACKER_INVENTORY.md (feed future Universal Setup Wizards workstream).
+- **Proposed resolution:** **Applied** in this commit. Post-audit follow-ups:
+    - Studio shelf broken click-flows — remediation via Universal Setup Wizards workstream (non-concurrent during audit; picks up post-audit)
+    - WidgetPicker color_reveal/gameboard misleading UI — remove from picker OR bridge to Build M widget; Tenise to choose post-audit
+    - AIR writer build — build task / intention / widget-milestone auto-victory writers per the architectural doc
+    - PRD-28B build — full 6-table schema + UI surfaces
+    - PRD-12B build — full Family Vision Quest schema + UI surfaces
+    - live_schema.md drift (SCOPE-5.F2) — addressed by separate schema-dump expansion commit (parallel workstream)
+- **Founder decision required:** N (walk-through completed; decisions recorded)
+- **Wizard Design Impact:** Y — STUDIO_TEMPLATE_INVENTORY.md + PHASE_B_TRACKER_INVENTORY.md become agenda material for Universal Setup Wizards design sessions
+- **Beta Readiness flag:** N (registry now matches code reality; no new blockers introduced by this finding)
+
 ## 8a — Scope 8a: Binary compliance/safety checklist
 
 *Not yet started. Stage B.*

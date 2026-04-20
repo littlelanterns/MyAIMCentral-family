@@ -9,6 +9,8 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 - ⏳ **Unwired (MVP)** — Committed deferred work: stub is scheduled for wiring in a specific future MVP build. Counts toward per-build stub metrics.
 - 📌 **Unwired (Post-MVP)** — Speculative / nice-to-have, intentionally deferred beyond MVP. Not committed to any specific build. Counted separately — never included in a build's stub count.
 - ❌ **Superseded** — Replaced by a different approach.
+- 🚫 **Removed** — Removed from the seed default.
+  ⤷ 'Removed' means removed from the seed default (e.g., section dropped from the default morning/evening rhythm, template removed from the default Studio shelf). The underlying code / component may still exist in the repo for custom configurations or future reuse. This symbol does NOT mean 'code deleted.'
 
 ### Stub count convention
 
@@ -47,7 +49,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
-| LiLa Optimizer mode | PRD-05 | PRD-05C | ✅ Wired | Phase 23 |
+| LiLa Optimizer mode | PRD-05 | PRD-05C | ⏳ Unwired (MVP) | MISLEADING UI: `optimizer` mode_key appears in LiLa mode picker, but PRD-05C Optimizer flow not built. TODO in `PromptPackDetail.tsx:152` explicitly notes the gap. Tapping the mode does not launch an optimization experience. |
 | HumanInTheMix Regenerate/Reject | PRD-05 | PRD-05 | ✅ Wired | Remediation |
 | Help/Assist pattern matching (13 FAQs) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
 | Opening messages (core + task_breaker) | PRD-05 | PRD-05 | ✅ Wired | Remediation |
@@ -64,7 +66,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Archive context loading | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
 | BookShelf RAG context | PRD-05 | PRD-23 | ✅ Wired | 2026-04-11 (Phase 1b-E: context-assembler → get_bookshelf_context platform RPC) |
 | Tool permission management UI | PRD-05 | PRD-22 | ⏳ Unwired (MVP) | Phase 27 |
-| Victory detection/recording | PRD-05 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
+| Victory detection/recording | PRD-05 | PRD-11 (AIR) | ⏳ Unwired (MVP) | All 3 designed AIR sources (task, intention, widget) await build. List-completion auto-victories fire via separate `list_completed` path (migration 100102), not AIR. |
 | Context Learning write-back | PRD-05 | PRD-13 | ✅ Wired | Phase 13 |
 | Mediator/Peacemaker mode | PRD-05 | PRD-34 (mediator) | ✅ Wired | Phase 35 |
 | Decision Guide mode | PRD-05 | PRD-34 (decision_guide) | ✅ Wired | Phase 35 |
@@ -78,17 +80,17 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Review & Route action chip | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
 | Create Task action chip | PRD-05 (Phase 06) | PRD-09A | ✅ Wired | Phase 10 |
 | Record Victory action chip | PRD-05 (Phase 06) | PRD-11 | ⏳ Unwired (MVP) | Phase 12 |
-| Voice input (Whisper) | PRD-05 (Phase 06) | PRD-08 (Phase 09) | ✅ Wired | Phase 09 |
-| LiLa conversation summary (long convos) | PRD-05 (Phase 06) | — | 📌 Post-MVP | — |
 
 ## Personal Growth Stubs
 
+> **AIR scope note:** "AIR Wired" status means silent auto-creation on source event (task completion, intention iteration, widget milestone). Manual scan-and-claim paths do not qualify.
+
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
-| Family-level GuidingStars | PRD-06 | PRD-12B | ✅ Wired | Phase 22 |
+| Family-level GuidingStars | PRD-06 | PRD-12B | ⏳ Unwired (MVP) | `owner_type` column on `guiding_stars` supports family-scope values but no UI creates or renders family-owned Guiding Stars. PRD-12B schema never built. Column was prep-scaffolded under PRD-06/07 repair work; full Family Vision Quest feature deferred. |
 | Dashboard widget containers | PRD-06 | PRD-10 | ✅ Wired | Phase 11 |
 | Morning/Evening rhythm integration | PRD-06 | PRD-18 | ✅ Wired | Phase 19 |
-| Victory Recorder logging from intentions | PRD-06 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
+| Victory Recorder logging from intentions | PRD-06 | PRD-11 (AIR) | ⏳ Unwired (MVP) | `useLogIntentionIteration` writes iteration + activity_log; no victory insert in the mutation. |
 | InnerWorkings context in LiLa | PRD-07 | PRD-13 | ✅ Wired | Phase 13 |
 | LiLa self-discovery guided mode | PRD-07 | PRD-07 | ✅ Wired | Phase 08 |
 | "Craft with LiLa" — pre-primed conversation for GS crafting (button exists, shows stub alert) | PRD-06 | PRD-05 (LiLa integration) | ⏳ Unwired (MVP) | Phase 06 |
@@ -99,7 +101,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Victory Recorder GS thread detection — celebration checks GS for connections | PRD-06 | PRD-11 (Victory Recorder) | ⏳ Unwired (MVP) | Phase 12 |
 | Declaration language coaching — LiLa guides toward honest commitment language | PRD-06 | PRD-05 (LiLa crafting flow) | ⏳ Unwired (MVP) | Phase 06 |
 | Victory Recorder daily intention summary — intention_iterations consumed by Victory Recorder | PRD-06 | PRD-11 (Victory Recorder) | ⏳ Unwired (MVP) | Phase 12 |
-| Dashboard widget for BI celebration — widget config defined | PRD-06 | PRD-10 (Widgets) | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Dashboard widget for BI celebration — widget config defined | PRD-06 | PRD-10 (Widgets) | ⏳ Unwired (MVP) | Planned celebration/milestone UI moment when a Best Intention threshold is hit (confetti/congrats card). Distinct from the existing `InfoFamilyIntention.tsx` tally display widget — the tally is a separate feature and is not the referent of this stub. |
 | Bar graph tracker visualization — tracker_style column exists, UI shows "Enhanced" badge | PRD-06 | best_intentions_tracker_views feature key | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | Streak tracker visualization — tracker_style column exists, UI shows "Enhanced" badge | PRD-06 | best_intentions_tracker_views feature key | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | "Discover with LiLa" (self_discovery guided mode) — button exists, stub behavior | PRD-07 | PRD-05 (lila_guided_modes seed + system prompt) | ⏳ Unwired (MVP) | Phase 06 |
@@ -114,10 +116,10 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Reward system integration | PRD-09A | PRD-24 | ✅ Wired | Phase 29 |
 | Allowance pool calculation | PRD-09A | PRD-28 | ✅ Wired | Phase 32 |
 | Widget milestone → victory | PRD-10 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
-| Auto-victory from task completions | PRD-11 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
+| Auto-victory from task completions | PRD-11 | PRD-11 (AIR) | ⏳ Unwired (MVP) | Auto-victory call commented out in `useTaskCompletion.ts:106-108` with `(stub — PRD-11)` marker. |
 | Family Celebration mode | PRD-11 | PRD-11B | ✅ Wired | Phase 12 |
 | Complex goal → Project Planner | PRD-12A | PRD-29 | ✅ Wired | Phase 33 |
-| Family Vision Quest discussions | PRD-12B | PRD-12B | 🔗 Partial (audio stub) | Phase 22 |
+| Family Vision Quest discussions | PRD-12B | PRD-12B | ⏳ Unwired (MVP) | PRD-12B schema (`family_vision_quests`, `vision_sections`, `family_vision_statements`, etc.) never built. Feature unavailable in app. Partial claim was aspirational. |
 | Context export for external AI | PRD-13 | PRD-13 | ✅ Wired | Phase 13 |
 
 ## Archives & Context Stubs (PRD-13)
@@ -162,7 +164,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | "Refer back to decisions" cross-conversation intelligence | PRD-16 (Build P) | — | 📌 Post-MVP | — |
 | Meeting templates in AI Vault for community sharing | PRD-16 (Build P) | — | 📌 Post-MVP | — |
 | Queue Modal future tabs | PRD-14B | PRD-15 (Requests), PRD-17 (Sort) | ✅ Wired | Phase 18 |
-| MindSweep email forwarding | PRD-08 | PRD-17B | ✅ Wired | Phase 18 |
+| MindSweep email forwarding | PRD-08 | PRD-17B | 🔗 Partially Wired | Edge Function code-complete; blocked on DNS / email forwarding provider configuration. WIRING_STATUS.md and the function header both already call it a stub; registry's "Wired" claim was premature. |
 | MindSweep approval learning | PRD-17B | PRD-17B | ✅ Wired | Phase 18 |
 | Weekly MindSweep intelligence report | PRD-17B | — | 📌 Post-MVP | — |
 
@@ -192,9 +194,8 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | PRD-18 Phase B: Quarterly Inventory Stale Areas / LifeLantern launch | PRD-18 Phase B (Build K) | PRD-12A (LifeLantern) | ⏳ Unwired (MVP) | "LifeLantern coming soon" stub |
 | PRD-18 Phase B: On the Horizon "Schedule time for this?" calendar block creation | PRD-18 Phase B (Build K) | PRD-18 polish | ⏳ Unwired (MVP) | Component shows [Break into steps] + [Open task]; calendar block deferred |
 | PRD-18 Phase D: Independent Teen tailored rhythm experience | PRD-18 Phase B (Build K) | PRD-18 Phase D (Build N) | ✅ Wired 2026-04-07 | Teen morning (7 sections) + evening (8 sections, section_order_locked) with "Morning Check-in"/"Evening Check-in" display names, reflection_guideline_count=2, MindSweepLiteTeenSection with 4-option dropdown (Schedule/Journal about it/Talk to someone/Let it go), 15 teen morning insight questions, 3 teen feature discovery entries, talk_to_someone disposition writing private journal reminders (NEVER family_requests). Migration 100114 seeded teen content and forked auto_provision_member_resources. |
-| Custom report templates (mom-authored) | PRD-19 | PRD-28B | ✅ Wired | Phase 32 |
-| State-specific compliance formatting | PRD-19 | PRD-28B | ✅ Wired | Phase 32 |
-| My Circle (non-family contacts) | PRD-19 | — | 📌 Post-MVP | — |
+| Custom report templates (mom-authored) | PRD-19 | PRD-28B | ⏳ Unwired (MVP) | Depends on PRD-28B compliance infrastructure (see entry 517 — 6 tables not yet built). Previous ✅ Wired claim was premature. |
+| State-specific compliance formatting | PRD-19 | PRD-28B | ⏳ Unwired (MVP) | Depends on PRD-28B compliance infrastructure (see entry 517 — 6 tables not yet built). Previous ✅ Wired claim was premature. |
 | Teen "Tell LiLa About Yourself" | PRD-19 | — | 📌 Post-MVP | — |
 | Safe Harbor → Library RAG | PRD-20 | — | 📌 Post-MVP | — |
 | Safe Harbor offline support | PRD-20 | PRD-33 | ⏳ Unwired (MVP) | Phase 40 |
@@ -209,8 +210,8 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Library Vault tutorial links from LiLa Assist | PRD-05 | PRD-21A | ✅ Wired | Phase 25 (2026-03-25) |
 | Optimize with LiLa (full flow) | PRD-21A | PRD-05C | ⏳ Unwired (MVP) | Phase 23 |
 | Deploy with LiLa (skill deployment) | PRD-21A | — | 📌 Post-MVP | — |
-| Embedded tool iframe delivery | PRD-21A | — | 📌 Post-MVP | — |
-| Native AI tool LiLa modal launch | PRD-21A | PRD-05 | ⏳ Unwired (MVP) | Phase 24 |
+| Embedded tool iframe delivery | PRD-21A | PRD-21A | ✅ Wired | Delivered Phase 25 AIVault wiring (commit 2026-04-07). `AIToolDetail.tsx` has full `delivery_method === 'embedded'` branch rendering sandboxed iframe. |
+| Native AI tool LiLa modal launch | PRD-21A | PRD-05 | ✅ Wired | Delivered Phase 25 AIVault wiring (commit 2026-04-07, "Vault native tools launch into correct modal (Translator, BoD + all others)"). `openTool(guided_mode_key)` + `ToolLauncherProvider` dispatch across 9 files. |
 | Vault recommended dashboard widget | PRD-21A | PRD-10 | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | LiLa proactive Vault suggestions | PRD-21A | — | 📌 Post-MVP | — |
 | Seasonal tag auto-surfacing (date logic) | PRD-21A | — | ⏳ Unwired (MVP) | Phase 25 enhancement |
@@ -263,13 +264,15 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Mystery tap tile + show upfront tile | Build M Phase 6 | Build M Phase 6 | ✅ Wired | 2026-04-11 — `MysteryTapTile` card-flip + per-segment `randomizer_reveal_style` |
 | Redraw button (adult-only, math gate) | Build M Phase 6 | Build M Phase 6 | ✅ Wired | 2026-04-11 — `RedrawButton` updates draw in-place, requires math gate for adults |
 | First-time setup wizard (guided onboarding flow) | Build M Phase 4 | — | 📌 Post-MVP | Settings modal serves as both first-time and ongoing config |
-| Tracker Goal page earning (widget data point consumption) | Build M Phase 1 | — | ⏳ Unwired (MVP) | Schema + RPC branch exist. Widget picker wired. Data point trigger not connected. |
+| Tracker Goal page earning (widget data point consumption) | Build M Phase 1 | — | ⏳ Unwired (MVP) | MISLEADING UI: GamificationSettingsModal exposes Tracker Goal page earning mode option, but the widget data-point trigger is not wired. Schema + RPC branch exist. Widget picker wired. Data point trigger not connected. |
 | Sunday List faith-themed sticker theme override | Build M Phase 1 | — | 📌 Post-MVP | `theme_override_id` on `task_segments`. No faith theme created. |
 | Streak milestone earning mode | Feature decision file §7 | — | 📌 Post-MVP | Earning mode enum extensible |
-| Timer goal earning mode | Feature decision file §7 | — | 📌 Post-MVP | Not built |
+| Timer goal earning mode | Feature decision file §7 | — | 📌 Post-MVP | Time-interval page unlock earning mode (e.g., new page unlocks every day or every N days). Distinct from Build M's `tracker_goal` mode (which is threshold-on-widget). Not built. |
 | Approval-based manual earning mode | Feature decision file §7 | — | 📌 Post-MVP | Not built |
 
 ## Platform Complete Stubs
+
+> **PRD-28B absence note:** `report_templates` + 5 companion tables not yet built; all ✅ Wired rows claiming per-template features are pending that build. See entry 517 in Studio Intelligence Stubs for the 6-table compliance dependency.
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
@@ -282,13 +285,13 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | ESA vendor integration | PRD-28B | — | 📌 Post-MVP | — |
 | System design trial expiration UI | PRD-29 | — | 📌 Post-MVP | — |
 | Safety journal/message scanning | PRD-30 | — | 📌 Post-MVP | — |
-| Community persona moderation queue | PRD-34 | PRD-32 | ✅ Wired | Phase 39 |
-| Community lens moderation queue | PRD-34 | PRD-32 | ✅ Wired | Phase 39 |
+| Community persona moderation queue | PRD-34 | PRD-32 | 🔗 Partially Wired | Backend only: `content_policy_status` column + writer (Edge Function sets `pending_review` for community submissions) + consumer filter (`.eq('approved')`) all exist. No admin UI page, no approve/block RPC — queue fills but has no drain surface. Admin Console itself is a PlannedExpansionCard roadmap item. |
+| Community lens moderation queue | PRD-34 | PRD-32 | 🔗 Partially Wired | Backend only: same shape as the persona queue. Admin Console is a PlannedExpansionCard roadmap item (`feature_expansion_registry.ts:278-282`), so neither persona nor lens moderation has a live surface. |
 | Board session export | PRD-34 | — | 📌 Post-MVP | — |
-| Translator language support | PRD-34 | — | 📌 Post-MVP | — |
-| Standards linkage on portfolio | PRD-37 | PRD-28B | ✅ Wired | Phase 32 |
-| Portfolio export | PRD-37 | PRD-28B | ✅ Wired | Phase 32 |
-| Family Newsletter report template | PRD-37 | PRD-28B | ✅ Wired | Phase 32 |
+| Translator non-English language support | PRD-34 | — | 📌 Post-MVP | — |
+| Standards linkage on portfolio | PRD-37 | PRD-28B | ⏳ Unwired (MVP) | Depends on PRD-28B compliance infrastructure (see entry 517 — 6 tables not yet built). Previous ✅ Wired claim was premature. |
+| Portfolio export | PRD-37 | PRD-28B | ⏳ Unwired (MVP) | Depends on PRD-28B compliance infrastructure (see entry 517 — 6 tables not yet built). Previous ✅ Wired claim was premature. |
+| Family Newsletter report template | PRD-37 | PRD-28B | ⏳ Unwired (MVP) | Depends on PRD-28B compliance infrastructure (see entry 517 — 6 tables not yet built). Previous ✅ Wired claim was premature. |
 | Image auto-tagging | PRD-37 | — | 📌 Post-MVP | — |
 
 ## Scale & Monetize Stubs
@@ -318,9 +321,9 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
-| Celebrate section | PRD-25 (Phase A) | PRD-11 (Victory Recorder) | ⏳ Unwired (MVP) | PlannedExpansionCard stub |
+| Celebrate section | PRD-25 (Phase A) | PRD-11 (Victory Recorder) | ✅ Wired | `CelebrateSection.tsx` is a functional 60-line component rendering a gold Celebrate! button wired to launch the DailyCelebration overlay. Imported and rendered at `GuidedDashboard.tsx:21,165`. CLAUDE.md Convention #179 documents as live. Reverse-direction Looks-Fine-Failure same as Finding C Entry 323. |
 | DailyCelebration Reflections Step 2.5 | PRD-25 (Phase C) | PRD-11 | ⏳ Unwired (MVP) | Code comment insertion point |
-| Victories page (Guided) | PRD-25 (Phase C) | PRD-11 | ⏳ Unwired (MVP) | GuidedVictories.tsx warm stub |
+| Victories page (Guided) | PRD-25 (Phase C) | PRD-11 | ✅ Wired | GuidedVictories.tsx is a functional page consuming real `useVictories` hooks (spot-verified 2026-04-19). Registry "warm stub" wording was stale — the page has been live in the Guided shell. |
 | Progress page (Guided) | PRD-25 (Phase C) | PRD-24 (Gamification) | ⏳ Unwired (MVP) | GuidedProgress.tsx warm stub |
 | Gamification header indicators | PRD-25 (Phase A) | PRD-24 | ⏳ Unwired (MVP) | Display from family_members columns |
 | Task point values | PRD-25 (Phase A) | PRD-24 | ⏳ Unwired (MVP) | Read from tasks table |
@@ -354,7 +357,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Timer session history + editing | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
 | Play mode age gate + visual timer | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
 | Timer config panel (per-member) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
-| All 38 color themes | PRD-03 | PRD-03 | ✅ Wired | Remediation |
+| All configured color themes | PRD-03 | PRD-03 | ✅ Wired | Remediation |
 | Theme-adaptive Tooltip | PRD-03 | PRD-03 | ✅ Wired | Remediation |
 | 11 shared components (Button, Card, etc.) | PRD-03 | PRD-03 | ✅ Wired | Remediation |
 | SparkleOverlay (Play victories) | PRD-03 | PRD-03 | ✅ Wired | Remediation |
@@ -387,7 +390,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Studio [Customize] → List types | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Studio [Customize] → Guided Forms | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Studio [Customize] → Trackers/Widgets | PRD-09B | PRD-10 | ✅ Wired | PRD-10 Phase A |
-| Studio seed templates (15 in DB) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
+| Studio seed templates | PRD-09B | PRD-09B | 🔗 Partially Wired | Template cards render in Studio; click-through deploys nothing or drops user into generic task/tally creator for most templates. Tailored wizard flows pending — feeds Universal Setup Wizards workstream. |
 | Lists full CRUD (9 types) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Lists Randomizer draw view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Lists promote-to-task | PRD-09B | PRD-09A | ✅ Wired | Phase 10 |
@@ -395,8 +398,8 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Guided Form child fill view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Guided Form mom review view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Guided Form LiLa help button | PRD-09B | PRD-05 | ⏳ Unwired (MVP) | Phase 06 |
-| System list auto-provision (Backburner, Ideas) | PRD-09B | — | ⏳ Unwired (MVP) | Phase 10+ |
-| ListPicker overlay (Notepad → Lists) | PRD-09B | — | ⏳ Unwired (MVP) | Phase 10+ |
+| System list auto-provision (Backburner, Ideas) | PRD-09B | PRD-09B | ✅ Wired | Delivered via `auto_provision_member_resources` trigger in migration 00000000100101 (list_provision fix). Backfill for existing members included in same migration. Trigger body preserved verbatim in all 8 subsequent revisions (100103–100115). Founder verified 2026-04-19 that Backburner and Ideas lists appear for her family members. Caveat: routing INTO these lists from other features is tracked separately in WIRING_STATUS.md and remains untested as of walk-through date. |
+| ListPicker overlay (Notepad → Lists) | PRD-09B | — | ⏳ Unwired (MVP) | Routing via studio_queue works; no separate ListPicker overlay component exists — may not be needed. |
 | List drag-to-rearrange (@dnd-kit) | PRD-09B | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
 | Save list as template to Studio | PRD-09B | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
 | List item promotion badge | PRD-09B | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
@@ -405,22 +408,22 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
-| Dashboard grid + 6 tracker types | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
+| Dashboard grid + all configured tracker types | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
 | Widget Picker modal | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
 | Widget Configuration modal | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
 | Widget Detail View modal | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
 | Widget folders (create/view) | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
-| Widget starter configs (10 seeds) | PRD-10 | PRD-10 Phase A | ✅ Wired | PRD-10 Phase A |
-| Phase B tracker types (11 remaining) | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase B |
+| Widget starter configs | PRD-10 | PRD-10 Phase A | 🔗 Partially Wired | Widget starter config cards render; deploy flow either no-ops or falls through to generic creator. Wizard flows pending — feeds Universal Setup Wizards workstream. |
+| Phase B tracker types | PRD-10 | — | 🔗 Partially Wired | 11 of 13 Phase B tracker types wired (per PHASE_B_TRACKER_INVENTORY.md, 2026-04-20). 2 remain unbuilt: `color_reveal` and `gameboard`. MISLEADING UI: both unbuilt types appear in WidgetPicker.tsx:34 under goal_pursuit.trackerTypes, but neither has a case branch in WidgetRenderer.tsx — selecting them falls through to PlannedTrackerStub ('Coming soon'). Note: `color_reveal` here refers to the WidgetPicker tracker path, which is distinct from Build M's separately-rendered `ColorRevealTallyWidget` — same name, different code paths. Remediation options (picker removal vs. code-path bridge) are post-audit backlog. |
 | Multiplayer layer | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase B |
 | Track This flow (Screen 5) | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase B |
-| Color-reveal tracker + image library | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase C |
+| Color-reveal tracker + image library | PRD-10 | Build M | ✅ Wired | Delivered via Build M (2026-04-11). `coloring_reveal_library` table (32 Woodland Felt subjects) + `ColorRevealCanvas` + `ColorRevealTallyWidget` rendered on 3 dashboards. PRD-10 Phase C's original `coloring_image_library` table was superseded. |
 | Gameboard tracker | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase C |
 | Linked pair deployment | PRD-10 | — | ⏳ Unwired (MVP) | PRD-10 Phase C |
 | Special Adult child-widget view | PRD-10 | — | 📌 Post-MVP | — |
 | Decorative layer (Cozy Journal) | PRD-10 | — | 📌 Post-MVP | — |
 | Widget milestone → Victory Record | PRD-10 | PRD-11 | ⏳ Unwired (MVP) | PRD-11 |
-| Widget → Gamification progress | PRD-10 | PRD-24 | ⏳ Unwired (MVP) | PRD-24 |
+| Widget → Gamification progress | PRD-10 | PRD-24 | 🔗 Partially Wired | Infrastructure delivered via Build M (page_earning_tracker_widget_id + threshold columns on member_sticker_book_state, CLAUDE.md Convention #210). Downstream widget-data-point consumer trigger remains unwired — see stub 266. |
 | Allowance Calculator → payment | PRD-10 | PRD-28 | ⏳ Unwired (MVP) | PRD-28 |
 
 ## Tasks Repair Stubs (Phase 10 Repair — PRD-09A, PRD-17)
@@ -435,7 +438,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Routine step progress indicator | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
 | Approval-required parent UI | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
 | Completion photo evidence | PRD-09A | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
-| Unmark cascade behavior | PRD-09A | Phase 10 Repair | 🔗 Partially Wired | Phase 10 Repair |
+| Unmark cascade behavior | PRD-09A | Phase 10 Repair | ⏳ Unwired (MVP) | Aligned with line 243 and Convention #206 — unmark cascade explicitly unimplemented. Previously 'Partial' status was inconsistent with lines 243/448. |
 | Batch Process All progress bar | PRD-17 | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
 | Role-scoped queue visibility | PRD-17 | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
 | Breathing glow vs badge toggle | PRD-17 | Phase 10 Repair | ✅ Wired | Phase 10 Repair |
@@ -454,12 +457,8 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | ThoughtSift guided modes (5) | PRD-05 | PRD-34 | ✅ Wired | Phase 35 (34A) |
 | `relationship_mediation` guided mode | PRD-19 | PRD-34 (mediator) | ✅ Wired | Phase 35 (34B) |
 | Board of Directors persona library | Platform Intelligence Channel D | PRD-34 | ✅ Wired | Phase 35 (34A) |
-| Community persona moderation queue | PRD-34 | PRD-32 | ⏳ Unwired (MVP) | Phase 39 (Admin Console) |
-| Community lens moderation queue | PRD-34 | PRD-32 | ⏳ Unwired (MVP) | Phase 39 (Admin Console) |
 | Full persona library browse page (categories/filtering) | PRD-34 | — | 📌 Post-MVP | — |
 | LiLa proactive ThoughtSift tool suggestion | PRD-34 | — | 📌 Post-MVP | — |
-| Board session export | PRD-34 | — | 📌 Post-MVP | — |
-| Translator non-English language support | PRD-34 | — | 📌 Post-MVP | — |
 | Custom lens creation UI (describe → LiLa caches) | PRD-34 | — | 📌 Post-MVP | — |
 | Custom lens sharing to community library | PRD-34 | — | 📌 Post-MVP | — |
 | Decision Guide: user-created custom frameworks | PRD-34 | — | 📌 Post-MVP | — |
@@ -489,11 +488,11 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 | Sequential creation entry from Lists [+ New List] | PRD-09A/09B Phase 1 | PRD-09A/09B Phase 1 | ✅ Wired | 2026-04-06 |
 | Randomizer in Lists [+ New List] type picker grid | PRD-09A/09B Phase 1 | PRD-09A/09B Phase 1 | ✅ Wired | 2026-04-06 (one-line fix in Lists.tsx:357) |
 | `capability_tags` required on StudioTemplate type | PRD-09A/09B Phase 1 | PRD-09A/09B Phase 1 | ✅ Wired | 2026-04-06 |
-| `capability_tags` populated on all 27 seed templates | PRD-09A/09B Phase 1 | PRD-09A/09B Phase 1 | ✅ Wired | 2026-04-06 |
+| `capability_tags` populated on all seed templates | PRD-09A/09B Phase 1 | PRD-09A/09B Phase 1 | ✅ Wired | 2026-04-06 |
 | `createTaskFromData` guard for taskType='sequential' | PRD-09A/09B Phase 1 | PRD-09A/09B Phase 1 | ✅ Wired | 2026-04-06 |
 | Sequential advancement modes (practice_count, mastery) | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J) | ✅ Wired | 2026-04-06 — migration 100105 + `usePractice.ts` hooks + SequentialCreator defaults section + SequentialCollectionView per-item progress + TaskCard submit-as-mastered button + PendingApprovalsSection mastery fork (Tasks.tsx). 7/7 E2E tests passing. |
 | `practice_log` + `randomizer_draws` tables | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J) | ✅ Wired | 2026-04-06 — migration 100105 with RLS + indexes + UNIQUE partial index on randomizer_draws for Surprise Me determinism. E2E test E verifies duplicate rejection. |
-| Linked routine steps (`step_type` enum) | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J) | 🔗 Partially Wired | 2026-04-06 — schema + RoutineSectionEditor "Add linked step" + LinkedSourcePicker + createTaskFromData persistence. Dashboard RENDERING of linked steps (expand to show current active item from source) is the next incremental step. |
+| Linked routine steps (`step_type` enum) | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J) | ✅ Wired | Dashboard rendering of linked routine steps landed 2026-04-13 per WIRING_STATUS.md; step_type enum + all three linked branches (sequential/randomizer/task) render in RoutineStepChecklist.tsx:214-221. |
 | `curriculum-parse` Edge Function | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J) | ✅ Wired | 2026-04-06 — dedicated Haiku-powered Edge Function (not ai-parse). CurriculumParseModal Human-in-the-Mix review wired into SequentialCreator `[Paste Curriculum]` button. Per-item advancement/URL metadata flows through to handleSave via parallel parsedItems state. |
 | Reading List Studio template | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J) | ✅ Wired | 2026-04-06 — `ex_reading_list` in studio-seed-data.ts. Studio.tsx handleCustomize tracks sequentialTemplateId and opens SequentialCreatorModal with `initialDefaults` (mastery + duration tracking + active_count=1 + manual promotion). |
 | Routine duplication with linked step resolution | PRD-09A/09B Phase 1 | Linked Steps addendum (Build J → follow-up) | ✅ Wired | 2026-04-13 — RoutineDuplicateDialog deep-copies template + sections + steps. Linked steps surface for review with "Change" button opening LinkedSourcePicker. Member pill picker for target child. Wired into Studio "My Customized" Duplicate button (routines open dialog, non-routines keep shallow copy). |
@@ -512,7 +511,8 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 | Conversational school year planner | Linked Steps addendum | Studio Intelligence Phase 3 | 📌 Post-MVP | Depends on PRD-05, PRD-18, PRD-29 |
 | Living shopping list enhancement | Concept capture 2026-04-06 | — | 📌 Post-MVP | `specs/Concept-Capture-Shopping-List-Backburner-Victory.md` |
 | Backburner/Ideas activation as victory | Concept capture 2026-04-06 | — | 📌 Post-MVP | Wire when Backburner activation paths are built |
-| `homeschool_time_review` LiLa guided mode | PRD-28 Screen 7 | PRD-05 dependency | 📌 Post-MVP | AI subject estimation from child's Log Learning description. Haiku reviews text, estimates subject allocation. Requires PRD-05 day-data context enhancement. |
+| homework-estimate AI subject allocation | PRD-28 Screen 7 | PRD-28 | ✅ Wired | Edge Function `homework-estimate` + inline invocation from `LogLearningModal.tsx:69`. When mom types a learning description, AI estimates which subject(s) to allocate the logged time to. Migration 00000000100138 seeded the `homeschool_time_review` mode_key used by this call. |
+| Full `homeschool_time_review` LiLa guided-mode conversation | PRD-28 Screen 7 | PRD-05 dependency | 📌 Post-MVP | Conversational weekly time-log review with LiLa. Depends on PRD-05 day-data context enhancement. The Edge Function under this mode_key is wired for inline subject estimation (see row above) but no guided-mode conversation UI surface exists. |
 | Subject Tracking section in TaskCreationModal | PRD-28 Addendum | Polish pass | ⏳ Unwired (MVP) | Per-task subject assignment checkboxes in "Rewards & Completion Tracking" section. Would enable automatic `homeschool_time_logs` creation on task completion for homework-tagged tasks. Currently mom uses Log Learning widget for manual entry. |
 | PRD-28B Compliance & Progress Reporting (6 tables) | PRD-28B | Separate build | ⏳ Unwired (MVP) | `homeschool_family_config`, `homeschool_student_config`, `education_standards`, `standard_evidence`, `report_templates`, `esa_invoices`. Consumes `homeschool_time_logs` + `homeschool_subjects` from PRD-28. Needs working data first. |
 | Biweekly/monthly allowance periods | PRD-28 + PRD-35 | PRD-35 integration | 📌 Post-MVP | Weekly only at MVP. PRD-35 Universal Scheduler biweekly/monthly support needed. |
@@ -539,9 +539,9 @@ Five pre-existing items that were in the codebase before the STUB_REGISTRY conve
 
 | Status | Count |
 |--------|-------|
-| ✅ Wired | ~92 |
-| 🔗 Partially Wired | ~3 |
-| ⏳ Unwired (MVP) | ~42 |
-| 📌 Post-MVP | ~84 |
+| ✅ Wired | ~85 |
+| 🔗 Partially Wired | ~7 |
+| ⏳ Unwired (MVP) | ~44 |
+| 📌 Post-MVP | ~79 |
 | ❌ Superseded | ~3 |
-| **Total** | ~224 |
+| **Total** | ~218 |
