@@ -155,7 +155,71 @@ Batch 1 hygiene note (not a finding — apply-phase includes in a hygiene sub-li
 
 ## Round 2 — LiLa evidence pass (Batch 2, PRDs 05, 05C)
 
-*(entry filled during walk-through)*
+- **Date:** 2026-04-20
+- **Worker pass:** [EVIDENCE_BATCH_2_lila.md](EVIDENCE_BATCH_2_lila.md)
+- **Decision-support:** [ANALYSIS_F11_CONTEXT_ARCHITECTURE_COMPARISON.md](ANALYSIS_F11_CONTEXT_ARCHITECTURE_COMPARISON.md) (commit 0fe6c3d) — comparison analysis informing F11 adjudication; founder confirmed 3-layer wraps 8 concepts (option c), `context_sources` field retired as registry documentation per founder direction.
+- **Aggregate:** 12 rows across 2 PRDs (PRD-05: 8, PRD-05C: 4). 4 ambiguity flags. 5 unexpected findings. 7 worker-proposed candidates.
+
+### Per-candidate-finding verdict table
+
+| Candidate | Contributing rows | Proposed verdict | Proposed severity | Emits into | Founder decision | Beta Readiness |
+|---|---|---|---|---|---|---|
+| PRD05C-OPTIMIZER-UNBUILT | PRD-05C R1, R2, R3 | Deferred-Document | Medium | SCOPE-2.F9 | Confirmed — same shape as F1 tier monetization; Enhanced-tier flagship unbuilt; beta-deferred per Convention #10; misleading UI already captured in Scope 5 | N |
+| PRD05-DOWNSTREAM-SUPERSESSION | PRD-05 R1, R2, R3 | Intentional-Document | Low | SCOPE-2.F10 | Confirmed as Intentional-Document — NOT mirroring F5 override. F5 was unambiguous table replacement (shift_schedules → access_schedules). F10 is spec-snapshot drift with extensibility documented at PRD-05 L398. No PRD text rewrite needed; snapshot refresh sufficient | N |
+| PRD05-CONTEXT-ASSEMBLY-LAYERED | PRD-05 R6 | Intentional-Document | Medium (orchestrator override from worker's Low) | SCOPE-2.F11 | Confirmed Intentional-Document; severity override to Medium — highest-weight system in the platform (context assembly drives every LiLa surface). F11 comparison analysis (option c, complementary) confirms 3-layer wraps 8 concepts; no capability lost; 7 new capabilities added. Remediation: PRD-05 §Context Assembly prose amendment citing ai_patterns.md + Convention #105 + context_sources field retirement. No code changes. | N |
+| PRD05-PRIVACY-FILTERED-FOLDER-DEFERRED | PRD-05 R4 | Deferred-Document | Low | SCOPE-2.F12 | Confirmed — privacy boundary holds via item-level is_privacy_filtered + applyPrivacyFilter(). Folder-level category UI deferred to PRD-13. Beta Y flag considered per PLAN §6 shape #2 (privacy-adjacent) and rejected — Beta Y reserved for actual exposure risk; discoverability UX gap does not meet that bar | N |
+| PRD05-OPENING-MESSAGE-COVERAGE-GAP | PRD-05 R7 | Unintentional-Fix-Code | Low | SCOPE-2.F13 | Confirmed. Remediation direction per founder 2026-04-20: do NOT generate openings at runtime (latency makes UX messy across every mode). Seed rotating hard-coded greetings in migration for all 35 missing modes. Tone: invitational, not directive. Pattern to AVOID: BookShelf mode's current funneling into LiLa-selected discussion rather than letting mom lead. Openers describe mode capability (good), not pick mode topic (bad). 35 of 43 modes affected; core 4 + task_breaker variants + homeschool_time_review already have openings | N |
+| PRD05-FAITH-DEAD-HELPER-DRIFT | PRD-05 R8 | Unintentional-Fix-Code | Low | SCOPE-2.F14 | Confirmed. src/lib/ai/system-prompts.ts buildFaithContext() reads a response_approach field that doesn't exist in schema. Edge Function context-assembler correctly reads individual boolean columns. Helper is likely dead code. Remediation: deletion (not schema change). Classification stays Unintentional-Fix-Code regardless of dead-code confirmation — deleting dead code is "fix code" shape | N |
+| PRD05C-AI-USAGE-TRACKING-SCHEMA-DRIFT | PRD-05C R4 | Intentional-Document | Low | SCOPE-2.F15 | Confirmed — live ai_usage_tracking (531 active rows) is a generic platform-level per-AI-call tracker, which is the shipped truth. PRD-05C specified an Optimizer-specific rollup shape; generic is broader and correct. PRD-05C text amendment to cite generic schema | N |
+
+### Load-bearing unexpected findings
+
+1. Crisis Override text duplicated in `src/lib/ai/system-prompts.ts:14–31` and `supabase/functions/lila-chat/index.ts:39–44` with slight drift. Both functionally correct; SCOPE-8a.F4 already closed Translator exemption. Tech-debt item for Phase 3 triage: consolidate into `supabase/functions/_shared/crisis-detection.ts` (the file exists and is imported by lila-chat L9, suggesting the inline duplication is vestigial). Not a Scope 2 finding.
+2. `lila_tool_permissions` wired end-to-end but 0 rows in live schema — adoption absence, not code drift. Noted for orchestrator visibility; if Scope 4 or Scope 6 finds no non-mom user has successfully launched a LiLa modal, the adoption gap is the explanation. Not a Scope 2 finding.
+3. Opening messages silent-degradation schema pattern — `opening_messages JSONB` defaults to `'[]'` with no CHECK constraint enforcing `jsonb_array_length >= 2`. Consolidated into SCOPE-2.F13.
+4. Higgins Multi-Person Selector Family tab per Planning-Decisions-Addendum L66–70 not found in code. Higgins is PRD-21 surface (Batch 7 territory); forward-flagged to Batch 7 PRD-21 evidence pass rather than emitted here.
+5. `lila_tool_permissions` RLS policy verification — PRD-05 L718 specifies "Mom can CRUD; members read own." Deeper RLS policy trace out of Scope 2 scope; deferred to Scope 3+8b integration/RLS review.
+
+### Cross-references
+
+- CROSS-REF: SCOPE-8a.F3 cited by SCOPE-2.F11 analysis (PRD-20/30/41 structural absence affects safety-context assembly downstream)
+- CROSS-REF: SCOPE-8a.F4 cited by Unexpected Finding #1 (Translator crisis exemption already closed)
+- CROSS-REF: SCOPE-8a.F5 noted for Batch 7 Vault/BookShelf walk-through (PRD-34 BoD content-policy fail-open)
+- CROSS-REF: SCOPE-5.F4 cited by SCOPE-2.F9 (Foundation-touching registry decisions; misleading-UI Vault pattern for optimizer mode_key)
+- CROSS-REF: SCOPE-2.F1 (Foundation tier monetization unbuilt) — SCOPE-2.F9 shares same pattern (Enhanced-tier flagship unbuilt, beta-deferred)
+- CROSS-REF: SCOPE-2.F5 (Foundation shift-supersession override) — SCOPE-2.F10 explicitly NOT mirroring the override per different drift shape
+
+### Founder adjudication
+
+- **F9 Optimizer unbuilt:** Intentional beta-deferral, same shape as F1. Optimizer is an Enhanced-tier flagship — 4 tables, 5 screens, 9-step optimization pipeline, prompt cards, "What did I add?" explainer, Quick/Walk-Me-Through modes, context presets, usage thermometer — none exist. Build when app is worth subscribing to, per founder's F1 direction. Misleading UI already captured in Scope 5.
+- **F10 Downstream registry supersession:** PRD-05 lists 15 modes, live has 43 (downstream PRDs register modes per PRD-05 L398 extensibility mechanism). Similar pattern applies to `lila_conversations` columns added by PRD-20/21A/30 and `member_self_insights` superseded by PRD-07 `self_knowledge`. Not mirroring F5 override — F10 is snapshot-drift with extensibility explicitly documented, not archaeology pointing at replaced tables. PRD-05 schema section gets a "current state at time of writing, extensible via X/Y/Z" disclaimer rather than a full rewrite.
+- **F11 Context assembly architecture drift:** Founder-directed comparison analysis (commit 0fe6c3d) confirmed option (c) — complementary, not replacement. 3-layer framework wraps 8 PRD-05 concepts. No capability lost. 7 new capabilities added (name detection, topic matching, Layer 3 semantic RPCs, P9 per-turn refresh, per-tool overrides, explainability metadata, baseline fallback). `context_sources` field retained as registry documentation per founder direction — the code-hardcoded per-tool steering IS superior because modes diverged beyond what a single-field list can express. Server-side per-tool-per-person enforcement (Q2 from analysis §7) deferred to Scope 3+8b RLS/seams review per founder agreement. Severity override to Medium: highest-weight system; future AI-assisted LiLa builds reading PRD-05 alone would implement against the wrong architecture. Remediation: PRD-05 §Context Assembly prose amendment describing wrapping relationship, citing ai_patterns.md §Context Assembly Pipeline Layered Architecture + CLAUDE.md Convention #105, plus one sentence on `context_sources` retirement as registry documentation only.
+- **F12 Privacy Filtered folder:** Item-level privacy enforcement is wired and correct. Folder-level UX discoverability is missing but not a privacy leak. Beta Y flag evaluated and rejected — `applyPrivacyFilter()` already enforces the hard boundary at the Edge Function level. Folder UI is PRD-13 Archives territory and surfaces there in natural build sequence.
+- **F13 Opening message gap:** 35 of 43 modes launch without warm openings. Remediation direction captured per founder 2026-04-20: runtime generation rejected (latency makes UX messy); rotating hard-coded openings seeded via migration, invitational tone, not directive. BookShelf mode's current funneling (LiLa drives discussion vs. letting mom lead) flagged forward to Batch 7 PRD-23 evidence pass as a separate defect — that is mode-level system prompt behavior, not an opening message issue.
+- **F14 Faith helper dead code:** `buildFaithContext()` in `src/lib/ai/system-prompts.ts` reads a TEXT field that doesn't exist in schema. Edge Function context-assembler correctly reads individual boolean columns (Convention #78). Helper is almost certainly dead code. Remediation: deletion.
+- **F15 AI usage tracking schema drift:** PRD-05C specified an Optimizer-specific rollup schema; live table is generic platform-wide per-AI-call tracker with 531 active rows. Generic schema is the shipped truth and is broader/better than PRD-05C's original design. PRD-05C text amendment to cite the generic schema.
+
+### Emission list
+
+Findings to emit (7 total):
+- SCOPE-2.F9  — PRD-05C Optimizer infrastructure unbuilt (Medium, Deferred-Document, Beta N)
+- SCOPE-2.F10 — PRD-05 downstream registry supersession (Low, Intentional-Document, Beta N)
+- SCOPE-2.F11 — PRD-05 context assembly architecture wrapping drift (Medium, Intentional-Document, Beta N; remediation cites ai_patterns.md + Convention #105 + context_sources field retirement)
+- SCOPE-2.F12 — PRD-05 Privacy Filtered folder category deferred to PRD-13 (Low, Deferred-Document, Beta N)
+- SCOPE-2.F13 — PRD-05 opening messages missing for 35 of 43 modes (Low, Unintentional-Fix-Code, Beta N; remediation: seed rotating hard-coded invitational openings via migration)
+- SCOPE-2.F14 — PRD-05 buildFaithContext() reads nonexistent schema field — likely dead code (Low, Unintentional-Fix-Code, Beta N; remediation: deletion)
+- SCOPE-2.F15 — PRD-05C ai_usage_tracking schema drift from spec (Low, Intentional-Document, Beta N)
+
+No Batch 2 hygiene notes. No Scope 4 / Scope 3+8b emissions from this batch (cross-scope carry-forwards logged in open flags below).
+
+### Open flags (tech-debt + cross-scope register)
+
+1. **Crisis Override text duplication** — `src/lib/ai/system-prompts.ts:14–31` vs `supabase/functions/lila-chat/index.ts:39–44`. Consolidate into `supabase/functions/_shared/crisis-detection.ts` (already exists, already imported by lila-chat L9). Phase 3 tech-debt triage.
+2. **Higgins Multi-Person Selector Family tab** (Planning-Decisions-Addendum L66–70) — forward to Batch 7 PRD-21 evidence pass for verification.
+3. **`lila_tool_permissions` RLS policy verification** — PRD-05 L718 spec vs live policy not verified during Batch 2. Defer to Scope 3+8b RLS/seams review.
+4. **Server-side per-tool-per-person context-sharing enforcement in `assembleContext()`** — F11 analysis §7 Q2. Current UI-layer enforcement works for beta but server-side is the defense-in-depth posture. Defer to Scope 3+8b (likely SCOPE-8b finding with Beta Readiness Y when surfaced).
+5. **BookShelf Discussion mode funneling behavior** — LiLa drives discussion topic vs. letting mom lead. Mode-level system prompt defect (not opening message issue). Forward to Batch 7 PRD-23 evidence pass.
+6. **`lila_tool_permissions` 0-row adoption gap** — wired end-to-end but no production use. If Scope 4 or Scope 6 finds no non-mom user has launched a LiLa modal, this is the explanation. Logged for visibility; not a finding.
 
 ## Round 3 — Personal Growth evidence pass (Batch 3, PRDs 06, 07, 08, 11, 11B, 13)
 
