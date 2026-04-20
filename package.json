@@ -27,11 +27,11 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@stripe/stripe-js": "^8.11.0",
-    "@supabase/supabase-js": "^2.103.3",
-    "@tanstack/react-query": "^5.99.0",
-    "@tiptap/pm": "^3.22.3",
-    "@tiptap/react": "^3.22.3",
-    "@tiptap/starter-kit": "^3.22.3",
+    "@supabase/supabase-js": "^2.104.0",
+    "@tanstack/react-query": "^5.99.2",
+    "@tiptap/pm": "^3.22.4",
+    "@tiptap/react": "^3.22.4",
+    "@tiptap/starter-kit": "^3.22.4",
     "dom-to-image-more": "^3.7.2",
     "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
@@ -69,7 +69,7 @@
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.8",
+    "vite": "^8.0.9",
     "vitest": "^4.1.4"
   }
 }
