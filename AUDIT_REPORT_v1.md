@@ -4,7 +4,7 @@
 > Audit window opened: 2026-04-18
 > Coordinated via: [claude/web-sync/AUDIT_PARALLEL_PLAN.md](claude/web-sync/AUDIT_PARALLEL_PLAN.md)
 > Gameplan: [MYAIM_GAMEPLAN_v2.2.md](MYAIM_GAMEPLAN_v2.2.md) Phase 2 (lines 284-351)
-> Status: **IN PROGRESS — Stage A mid-stage; AURI OAuth complete, Convention 242 inverted mid-audit (2026-04-18)**
+> Status: **IN PROGRESS — Stage A closed; Stage B Scope 8a Round 1 complete (PRD-40 COPPA Bucket 1, 16/16 FAIL); Buckets 2-5 pending**
 
 ---
 
@@ -233,7 +233,32 @@ Full line-by-line reconciliation of the remaining 223 entries (minus the 5 proce
 
 ## 8a — Scope 8a: Binary compliance/safety checklist
 
-*Not yet started. Stage B.*
+**Status:** IN PROGRESS — Round 1 complete (Bucket 1: PRD-40 COPPA, 16/16 FAIL).
+**Checklist inventory:** [scope-8a-evidence/CHECKLIST_INVENTORY.md](scope-8a-evidence/CHECKLIST_INVENTORY.md) (40 binary items across 5 buckets).
+**Decisions log:** [scope-8a-evidence/CHECKLIST_DECISIONS.md](scope-8a-evidence/CHECKLIST_DECISIONS.md) (append-only).
+
+### Round 1 — Bucket 1: PRD-40 COPPA compliance (items 8a-CL-01 through 8a-CL-16)
+
+Evidence pass executed 2026-04-20. Worker report at [scope-8a-evidence/EVIDENCE_PRD40_COPPA.md](scope-8a-evidence/EVIDENCE_PRD40_COPPA.md) (local commit `203878a`). All 16 items FAIL with high confidence. Consolidated into a single finding rather than 16 individual findings to reduce noise; individual item verdicts preserved in the decisions log.
+
+#### [SCOPE-8a.F1] PRD-40 COPPA compliance infrastructure entirely unbuilt
+
+- **Severity:** Blocking
+- **Location:** `prds/foundation/PRD-40-COPPA-Compliance-Parental-Verification.md` (Status: Not Started); no migration, no `src/` component, no Edge Function, no hook implements any COPPA infrastructure
+- **Description:** Scope 8a Bucket 1 evidence pass ([scope-8a-evidence/EVIDENCE_PRD40_COPPA.md](scope-8a-evidence/EVIDENCE_PRD40_COPPA.md), commit `203878a` local) verified all 16 COPPA checklist items (`8a-CL-01` through `8a-CL-16`) as FAIL with high confidence. The four PRD-40 tables (`parent_verifications`, `coppa_consents`, `coppa_consent_templates`, `parent_verification_attempts`) do not exist. The two `family_members` column additions (`coppa_age_bracket`, `is_suspended_for_deletion`) are absent. No consent UX, no `useCoppaConsent` hook, no RLS gate on child-data tables references COPPA consent, no scheduled deletion job, no turns-13 transition trigger. The first-under-13-child trigger specified in PRD-40 §Incoming Flows L710 is not implemented: `FamilySetup.tsx:276` commits under-13 `family_members` rows directly with zero consent precondition. Under current code, a family can be created containing an under-13 child with no COPPA consent record, no parental verification, no audit trail.
+- **Evidence:** [scope-8a-evidence/EVIDENCE_PRD40_COPPA.md](scope-8a-evidence/EVIDENCE_PRD40_COPPA.md) — per-item grep/glob queries returned zero hits across migrations, `src/`, and `supabase/functions/`; [FamilySetup.tsx:276](src/pages/FamilySetup.tsx#L276) save-action anchor directly confirms CL-10 and CL-15. Supplementary blanket scan confirmed zero `coppa` mentions anywhere in the codebase.
+- **Prerequisite gaps surfaced (block PRD-40 even if it were started):**
+  - **Stripe webhook Edge Function does not exist.** CL-14 (COPPA branch in webhook handler) fails because the prerequisite handler has never been built. Primary ownership: Scope 2 / Scope 3 (PRD-31 audit, Stage C).
+  - **No admin console pages exist in `src/pages/`.** CL-13 (admin verification log Screen 10) is a compound gap — PRD-32 Admin Console is unbuilt. Primary ownership: Scope 2 (PRD-32 audit, Stage C).
+- **Remediation intelligence:** `account_deletions` table (PRD-22 migration `100027`) exists with deletion function + RLS. Not currently COPPA-wired but available as revocation cascade leverage when PRD-40 is built.
+- **Proposed resolution:** **Fix Now** — blocks Beta Readiness Gate by definition (this scope IS the beta compliance gate per gameplan line 513). COPPA is a hard legal precondition for under-13 beta user exposure. Scope of Fix Now is the full PRD-40 build (4 tables, column additions, 10 screens, Stripe webhook Edge Function, scheduled deletion job, transition trigger, RLS updates, PRD-01 retrofit), plus the two prerequisite builds (Stripe webhook handler owned by PRD-31; admin console shell owned by PRD-32). Legal disclosure copy requires attorney review before beta user exposure — flagged separately for human-lawyer attention per PRD-40 `[LAWYER REVIEW REQUIRED]` markers.
+- **Founder decision required:** Y (scope of remediation; ordering of dependency builds; whether admin console shell is built concurrently with PRD-40 or staged separately)
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y — **primary Beta Readiness blocker for Scope 8a.** No under-13 beta user exposure is permissible until F1 is resolved.
+
+### Round 2-5 — Buckets 2, 3, 4, 5
+
+*Pending. Evidence passes will run in parallel once dispatched.*
 
 ## 2 — Scope 2: PRD-to-code alignment
 
@@ -304,8 +329,9 @@ Preventative hygiene actions taken during the audit that are NOT discrepancies. 
 |---|---|---|---|
 | SCOPE-1.F3 (RESOLVED) | 1 | AURI retroactive scan blocked on first-call OAuth in fresh session | Closed 2026-04-18 — fresh session picked up user-scope registration, OAuth completed, smoke test returned real data |
 | SCOPE-1.F5 (RESOLVED) | 1 | AURI retroactive scan exit 0 but empty findings output | Closed 2026-04-18 — MCP `scan` tool with scoped `include_path` returned 6 findings (all false positives). Working protocol established for Scopes 2/3. |
+| SCOPE-8a.F1 (OPEN) | 8a | PRD-40 COPPA compliance infrastructure entirely unbuilt | **Blocking.** 16/16 Bucket 1 checklist items FAIL high-confidence. First under-13 `family_members` insert at `FamilySetup.tsx:276` has no consent precondition. Compound dependencies on absent Stripe webhook handler (PRD-31) and absent admin console shell (PRD-32). Fix Now scope spans PRD-40 + the two prerequisite builds. Legal disclosure copy requires attorney review separately. |
 
-No currently-open Beta Readiness blockers from Stage A. SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
+**Open Beta Readiness blocker:** SCOPE-8a.F1 (primary Scope 8a compliance gate blocker). No other currently-open Beta Readiness blockers. SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
 
 ---
 
