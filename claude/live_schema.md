@@ -1,9 +1,13 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-18
+> Auto-generated from live Supabase on 2026-04-20
 > Script: `node scripts/full-schema-dump.cjs`
-> Column names from OpenAPI spec (accurate for all API-exposed tables)
-> Row counts from live queries
+>
+> **Two-pass capture:**
+> 1. **API-exposed tables** — columns from the PostgREST OpenAPI spec, row counts via `supabase-js` HEAD queries.
+> 2. **Migration-only tables** — tables that exist in the database but are not in the PostgREST schema cache. Columns and row counts come from direct SQL against `information_schema` + dynamic `COUNT(*)` via `supabase db query --linked`.
+>
+> Both `public` and `platform_intelligence` schemas are captured in pass 2.
 
 ---
 
@@ -258,29 +262,29 @@
 | 10 | `applied_profile_level` |
 | 11 | `updated_at` |
 
-### `ai_credits` — not API-exposed
+### `ai_credits`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `credit_packs` — not API-exposed
+### `credit_packs`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `tier_sampling_costs` — not API-exposed
+### `tier_sampling_costs`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `tier_sample_sessions` — not API-exposed
+### `tier_sample_sessions`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `onboarding_milestones` — not API-exposed
+### `onboarding_milestones`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `subscription_cancellations` — not API-exposed
+### `subscription_cancellations`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
 ---
 
@@ -375,19 +379,19 @@
 | 7 | `created_at` |
 | 8 | `updated_at` |
 
-### `optimizer_outputs` — not API-exposed
+### `optimizer_outputs`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `user_prompt_templates` — not API-exposed
+### `user_prompt_templates`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `context_presets` — not API-exposed
+### `context_presets`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 528 rows
+### `ai_usage_tracking` — 531 rows
 
 | # | Column |
 |---|---|
@@ -1108,6 +1112,22 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
+### `widget_starter_configs` — 39 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `tracker_type` |
+| 3 | `visual_variant` |
+| 4 | `config_name` |
+| 5 | `description` |
+| 6 | `category` |
+| 7 | `default_config` |
+| 8 | `is_example` |
+| 9 | `sort_order` |
+| 10 | `created_at` |
+| 11 | `updated_at` |
+
 ### `calendar_events` — 34 rows
 
 | # | Column |
@@ -1335,9 +1355,9 @@
 | 4 | `selected_voice` |
 | 5 | `updated_at` |
 
-### `family_victory_celebrations` — not API-exposed
+### `family_victory_celebrations`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
 ---
 
@@ -1362,7 +1382,7 @@
 | 13 | `is_included_in_ai` |
 | 14 | `sort_order` |
 
-### `archive_context_items` — 170 rows
+### `archive_context_items` — 173 rows
 
 | # | Column |
 |---|---|
@@ -2154,7 +2174,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 222 rows
+### `vault_user_visits` — 224 rows
 
 | # | Column |
 |---|---|
@@ -2225,29 +2245,29 @@
 | 9 | `created_at` |
 | 10 | `updated_at` |
 
-### `vault_engagement` — not API-exposed
+### `vault_engagement`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `vault_comments` — not API-exposed
+### `vault_comments`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `vault_comment_reports` — not API-exposed
+### `vault_comment_reports`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `vault_moderation_log` — not API-exposed
+### `vault_moderation_log`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `vault_satisfaction_signals` — not API-exposed
+### `vault_satisfaction_signals`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `vault_engagement_config` — not API-exposed
+### `vault_engagement_config`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
 ---
 
@@ -2291,25 +2311,83 @@
 
 ## MindSweep (PRD-17B)
 
-### `mindsweep_settings` — not API-exposed
+### `mindsweep_settings` — 0 rows
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `aggressiveness` |
+| 5 | `always_review_rules` |
+| 6 | `custom_review_rules` |
+| 7 | `auto_sweep_shared` |
+| 8 | `auto_sweep_time` |
+| 9 | `email_process_immediately` |
+| 10 | `high_accuracy_voice` |
+| 11 | `digest_morning` |
+| 12 | `digest_evening` |
+| 13 | `digest_weekly` |
+| 14 | `created_at` |
+| 15 | `updated_at` |
 
-### `mindsweep_holding` — not API-exposed
+### `mindsweep_holding` — 1 rows
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `content` |
+| 5 | `content_type` |
+| 6 | `source_channel` |
+| 7 | `audio_blob_local` |
+| 8 | `link_url` |
+| 9 | `captured_at` |
+| 10 | `processed_at` |
+| 11 | `sweep_event_id` |
+| 12 | `created_at` |
 
-### `mindsweep_allowed_senders` — not API-exposed
+### `mindsweep_allowed_senders` — 0 rows
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `email_address` |
+| 4 | `added_by` |
+| 5 | `created_at` |
 
-### `mindsweep_events` — not API-exposed
+### `mindsweep_events` — 9 rows
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `source_channel` |
+| 5 | `input_type` |
+| 6 | `raw_content_preview` |
+| 7 | `items_extracted` |
+| 8 | `items_auto_routed` |
+| 9 | `items_queued` |
+| 10 | `items_direct_routed` |
+| 11 | `aggressiveness_at_time` |
+| 12 | `processing_cost_cents` |
+| 13 | `created_at` |
 
-### `mindsweep_approval_patterns` — not API-exposed
+### `mindsweep_approval_patterns` — 20 rows
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `content_category` |
+| 5 | `action_taken` |
+| 6 | `suggested_destination` |
+| 7 | `actual_destination` |
+| 8 | `created_at` |
 
 ---
 
@@ -2394,21 +2472,21 @@
 | 14 | `shift_session_id` |
 | 15 | `hidden` |
 
-### `ai_usage_log` — not API-exposed
+### `ai_usage_log`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `platform_usage_log` — not API-exposed
+### `platform_usage_log`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `feedback_submissions` — not API-exposed
+### `feedback_submissions`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `known_issues` — not API-exposed
+### `known_issues`
 
-*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*
+*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
 ### `feature_demand_responses` — 1 rows
 
@@ -2452,32 +2530,1042 @@
 
 ---
 
-## Platform Intelligence Schema (`platform_intelligence.*`)
+## API-exposed tables (not yet grouped into a domain)
 
-*(Separate PostgreSQL schema — not queryable via PostgREST. Columns from migration files.)*
+*Live `public` tables that PostgREST exposes but that no DOMAIN_ORDER entry claims. They may belong in an existing section or deserve their own — update `scripts/full-schema-dump.cjs` DOMAIN_ORDER to resolve. Columns come from the OpenAPI spec; row counts from live HEAD queries.*
 
-### `platform_intelligence.book_library (renamed from book_cache)`
+### `account_deletions` — 0 rows
 
 | # | Column |
 |---|---|
 | 1 | `id` |
-| 2 | `title` |
-| 3 | `author` |
-| 4 | `isbn` |
-| 5 | `genres` |
+| 2 | `family_id` |
+| 3 | `requested_by` |
+| 4 | `deletion_type` |
+| 5 | `status` |
+| 6 | `scheduled_for` |
+| 7 | `grace_period_days` |
+| 8 | `created_at` |
+| 9 | `completed_at` |
+
+### `allowance_configs` — 4 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `enabled` |
+| 5 | `weekly_amount` |
+| 6 | `calculation_approach` |
+| 7 | `default_point_value` |
+| 8 | `minimum_threshold` |
+| 9 | `bonus_threshold` |
+| 10 | `bonus_percentage` |
+| 11 | `rounding_behavior` |
+| 12 | `grace_days_enabled` |
+| 13 | `makeup_window_enabled` |
+| 14 | `makeup_window_days` |
+| 15 | `extra_credit_enabled` |
+| 16 | `child_can_see_finances` |
+| 17 | `period_type` |
+| 18 | `period_start_day` |
+| 19 | `calculation_time` |
+| 20 | `loans_enabled` |
+| 21 | `loan_interest_enabled` |
+| 22 | `loan_default_interest_rate` |
+| 23 | `loan_interest_period` |
+| 24 | `loan_max_amount` |
+| 25 | `created_at` |
+| 26 | `updated_at` |
+| 27 | `bonus_type` |
+| 28 | `bonus_flat_amount` |
+
+### `allowance_periods` — 4 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `period_start` |
+| 5 | `period_end` |
+| 6 | `status` |
+| 7 | `total_tasks_assigned` |
+| 8 | `grace_day_tasks_excluded` |
+| 9 | `effective_tasks_assigned` |
+| 10 | `tasks_completed` |
+| 11 | `extra_credit_completed` |
+| 12 | `effective_tasks_completed` |
+| 13 | `completion_percentage` |
+| 14 | `base_amount` |
+| 15 | `calculated_amount` |
+| 16 | `bonus_applied` |
+| 17 | `bonus_amount` |
+| 18 | `total_earned` |
+| 19 | `grace_days` |
+| 20 | `calculation_details` |
+| 21 | `calculated_at` |
+| 22 | `closed_at` |
+| 23 | `closed_early` |
+| 24 | `created_at` |
+| 25 | `updated_at` |
+
+### `beta_glitch_reports` — 49 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `created_at` |
+| 3 | `user_id` |
+| 4 | `family_id` |
+| 5 | `family_member_id` |
+| 6 | `shell_type` |
+| 7 | `display_name` |
+| 8 | `what_doing` |
+| 9 | `what_tried` |
+| 10 | `what_happened` |
+| 11 | `what_expected` |
+| 12 | `user_image_url` |
+| 13 | `screenshot_data_url` |
+| 14 | `current_route` |
+| 15 | `browser_info` |
+| 16 | `console_errors` |
+| 17 | `recent_routes` |
+| 18 | `status` |
+| 19 | `admin_notes` |
+| 20 | `resolved_at` |
+
+### `bookshelf_search_history` — 13 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `query` |
+| 5 | `mode` |
+| 6 | `scope` |
+| 7 | `result_count` |
+| 8 | `created_at` |
+
+### `color_reveal_progress` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `widget_id` |
+| 3 | `color_zone_index` |
+| 4 | `color_hex` |
+| 5 | `color_name` |
+| 6 | `revealed_at` |
+| 7 | `revealed_by_member_id` |
+| 8 | `achievement_count` |
+| 9 | `created_at` |
+
+### `coloring_gallery` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `widget_id` |
+| 5 | `coloring_image_id` |
+| 6 | `image_name` |
+| 7 | `completed_image_url` |
+| 8 | `completed_at` |
+| 9 | `total_achievements` |
+| 10 | `achievement_description` |
+| 11 | `is_favorite` |
+| 12 | `display_order` |
+| 13 | `created_at` |
+
+### `coloring_image_library` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `color_image_url` |
+| 3 | `grayscale_image_url` |
+| 4 | `line_art_url` |
+| 5 | `thumbnail_url` |
+| 6 | `image_name` |
+| 7 | `theme_category` |
+| 8 | `gamification_theme` |
+| 9 | `color_zones` |
+| 10 | `total_color_zones` |
+| 11 | `recommended_min_achievements` |
+| 12 | `recommended_max_achievements` |
+| 13 | `supports_gradient_reveals` |
+| 14 | `complexity_level` |
+| 15 | `age_group` |
+| 16 | `keywords` |
+| 17 | `is_available_for_print` |
+| 18 | `is_active` |
+| 19 | `created_at` |
+
+### `coloring_reveal_library` — 32 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `theme_id` |
+| 3 | `slug` |
+| 4 | `display_name` |
+| 5 | `subject_category` |
+| 6 | `color_zones` |
+| 7 | `reveal_sequences` |
+| 8 | `zone_count` |
+| 9 | `sort_order` |
+| 10 | `is_active` |
+| 11 | `created_at` |
+
+### `congratulations_messages` — 20 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `message_text` |
+| 3 | `category` |
+| 4 | `is_system` |
+| 5 | `family_id` |
+| 6 | `sort_order` |
+| 7 | `created_at` |
+
+### `daily_holidays` — 1502 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `name` |
+| 3 | `description` |
+| 4 | `date_month` |
+| 5 | `date_day` |
+| 6 | `date_type` |
+| 7 | `floating_rule` |
+| 8 | `tags` |
+| 9 | `is_kid_friendly` |
+| 10 | `silliness_score` |
+| 11 | `obscurity_score` |
+| 12 | `is_excluded` |
+| 13 | `source` |
+| 14 | `created_at` |
+
+### `earned_prizes` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `reward_reveal_id` |
+| 5 | `attachment_id` |
+| 6 | `source_type` |
+| 7 | `source_id` |
+| 8 | `prize_type` |
+| 9 | `prize_text` |
+| 10 | `prize_name` |
+| 11 | `prize_image_url` |
+| 12 | `prize_asset_key` |
+| 13 | `animation_slug` |
+| 14 | `earned_at` |
+| 15 | `redeemed_at` |
+| 16 | `redeemed_by` |
+| 17 | `created_at` |
+
+### `feature_discovery_dismissals` — 2 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `feature_key` |
+| 5 | `dismissed_at` |
+
+### `feature_expansion_dismissals` — 2 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `feature_key` |
+| 5 | `dismissed_at` |
+| 6 | `dismissed_via_view_as` |
+| 7 | `actual_dismisser_id` |
+
+### `financial_transactions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `transaction_type` |
+| 5 | `amount` |
+| 6 | `balance_after` |
+| 7 | `description` |
+| 8 | `source_type` |
+| 9 | `source_reference_id` |
+| 10 | `category` |
+| 11 | `note` |
+| 12 | `metadata` |
+| 13 | `created_at` |
+
+### `gamification_configs` — 18 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `enabled` |
+| 5 | `currency_name` |
+| 6 | `currency_icon` |
+| 7 | `base_points_per_task` |
+| 8 | `bonus_at_three` |
+| 9 | `bonus_at_five` |
+| 10 | `routine_points_mode` |
+| 11 | `streak_grace_days` |
+| 12 | `streak_schedule_aware` |
+| 13 | `streak_pause_enabled` |
+| 14 | `streak_paused` |
+| 15 | `streak_paused_at` |
+| 16 | `visualization_mode` |
+| 17 | `level_thresholds` |
+| 18 | `created_at` |
+| 19 | `updated_at` |
+
+### `gamification_creatures` — 161 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `theme_id` |
+| 3 | `slug` |
+| 4 | `display_name` |
+| 5 | `rarity` |
 | 6 | `tags` |
-| 7 | `ai_summary` |
-| 8 | `toc` |
-| 9 | `chunk_count` |
-| 10 | `title_author_embedding` |
-| 11 | `ethics_gate_status` |
-| 12 | `extraction_status` |
-| 13 | `extraction_count` |
-| 14 | `discovered_sections` |
+| 7 | `description` |
+| 8 | `image_url` |
+| 9 | `sort_order` |
+| 10 | `is_active` |
+| 11 | `created_at` |
+
+### `gamification_sticker_pages` — 26 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `theme_id` |
+| 3 | `slug` |
+| 4 | `display_name` |
+| 5 | `scene` |
+| 6 | `season` |
+| 7 | `image_url` |
+| 8 | `sort_order` |
+| 9 | `is_active` |
+| 10 | `created_at` |
+
+### `gamification_themes` — 1 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `theme_slug` |
+| 3 | `display_name` |
+| 4 | `description` |
+| 5 | `creature_reveal_video_url` |
+| 6 | `page_reveal_video_url` |
+| 7 | `thumbnail_image_url` |
+| 8 | `is_active` |
+| 9 | `sort_order` |
+| 10 | `created_at` |
+
+### `homeschool_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `time_allocation_mode` |
+| 5 | `allow_subject_overlap` |
+| 6 | `subject_hour_overrides` |
+| 7 | `school_year_start` |
+| 8 | `school_year_end` |
+| 9 | `term_breaks` |
+| 10 | `created_at` |
+| 11 | `updated_at` |
+
+### `homeschool_subjects` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `name` |
+| 4 | `default_weekly_hours` |
+| 5 | `icon_key` |
+| 6 | `sort_order` |
+| 7 | `is_active` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `homeschool_time_logs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `subject_id` |
+| 5 | `task_id` |
+| 6 | `log_date` |
+| 7 | `minutes_logged` |
+| 8 | `allocation_mode_used` |
+| 9 | `source` |
+| 10 | `source_reference_id` |
+| 11 | `status` |
+| 12 | `description` |
+| 13 | `approved_by` |
+| 14 | `approved_at` |
 | 15 | `created_at` |
 | 16 | `updated_at` |
 
-### `platform_intelligence.book_chunks`
+### `journal_visibility_settings` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `parent_member_id` |
+| 4 | `child_member_id` |
+| 5 | `entry_type` |
+| 6 | `is_visible_to_parent` |
+| 7 | `is_included_in_ai_default` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `list_item_member_tracking` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `list_item_id` |
+| 3 | `family_member_id` |
+| 4 | `last_completed_at` |
+| 5 | `period_completion_count` |
+| 6 | `lifetime_completion_count` |
+| 7 | `created_at` |
+| 8 | `updated_at` |
+
+### `loans` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `original_amount` |
+| 5 | `remaining_balance` |
+| 6 | `reason` |
+| 7 | `repayment_mode` |
+| 8 | `auto_deduct_amount` |
+| 9 | `interest_rate` |
+| 10 | `interest_period` |
+| 11 | `interest_last_accrued` |
+| 12 | `total_interest_accrued` |
+| 13 | `status` |
+| 14 | `issued_at` |
+| 15 | `paid_off_at` |
+| 16 | `created_at` |
+| 17 | `updated_at` |
+
+### `meeting_agenda_items` — 10 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `meeting_type` |
+| 4 | `template_id` |
+| 5 | `related_member_id` |
+| 6 | `content` |
+| 7 | `added_by` |
+| 8 | `suggested_by_guided` |
+| 9 | `status` |
+| 10 | `discussed_in_meeting_id` |
+| 11 | `source` |
+| 12 | `source_reference_id` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+
+### `meeting_participants` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `meeting_id` |
+| 3 | `family_member_id` |
+| 4 | `role` |
+| 5 | `notified_at` |
+| 6 | `created_at` |
+
+### `meeting_schedules` — 9 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `meeting_type` |
+| 4 | `template_id` |
+| 5 | `related_member_id` |
+| 6 | `recurrence_rule` |
+| 7 | `recurrence_details` |
+| 8 | `next_due_date` |
+| 9 | `last_completed_date` |
+| 10 | `calendar_event_id` |
+| 11 | `is_active` |
+| 12 | `created_by` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+
+### `meeting_template_sections` — 31174 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `meeting_type` |
+| 4 | `template_id` |
+| 5 | `section_name` |
+| 6 | `prompt_text` |
+| 7 | `sort_order` |
+| 8 | `is_default` |
+| 9 | `is_archived` |
+| 10 | `created_at` |
+| 11 | `updated_at` |
+
+### `meeting_templates` — 11 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `name` |
+| 4 | `participant_type` |
+| 5 | `default_partner_id` |
+| 6 | `default_participant_ids` |
+| 7 | `created_by` |
+| 8 | `is_archived` |
+| 9 | `created_at` |
+| 10 | `updated_at` |
+
+### `meetings` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `meeting_type` |
+| 4 | `template_id` |
+| 5 | `custom_title` |
+| 6 | `related_member_id` |
+| 7 | `status` |
+| 8 | `mode` |
+| 9 | `facilitator_member_id` |
+| 10 | `started_by` |
+| 11 | `summary` |
+| 12 | `impressions` |
+| 13 | `lila_conversation_id` |
+| 14 | `schedule_id` |
+| 15 | `calendar_event_id` |
+| 16 | `started_at` |
+| 17 | `completed_at` |
+| 18 | `duration_minutes` |
+| 19 | `created_at` |
+| 20 | `updated_at` |
+
+### `member_coloring_reveals` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `coloring_image_id` |
+| 5 | `reveal_step_count` |
+| 6 | `current_step` |
+| 7 | `revealed_zone_ids` |
+| 8 | `earning_mode` |
+| 9 | `earning_threshold` |
+| 10 | `earning_counter` |
+| 11 | `earning_segment_ids` |
+| 12 | `earning_tracker_widget_id` |
+| 13 | `earning_tracker_threshold` |
+| 14 | `lineart_preference` |
+| 15 | `is_complete` |
+| 16 | `completed_at` |
+| 17 | `printed_at` |
+| 18 | `is_active` |
+| 19 | `created_at` |
+| 20 | `updated_at` |
+| 21 | `earning_task_id` |
+
+### `member_creature_collection` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `creature_id` |
+| 5 | `sticker_page_id` |
+| 6 | `position_x` |
+| 7 | `position_y` |
+| 8 | `awarded_source_type` |
+| 9 | `awarded_source_id` |
+| 10 | `awarded_at` |
+
+### `member_emails` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_member_id` |
+| 3 | `email` |
+| 4 | `is_primary` |
+| 5 | `is_verified` |
+| 6 | `verification_token` |
+| 7 | `verification_expires_at` |
+| 8 | `created_at` |
+
+### `member_page_unlocks` — 18 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `sticker_page_id` |
+| 5 | `unlocked_at` |
+| 6 | `unlocked_trigger_type` |
+| 7 | `creatures_at_unlock` |
+
+### `member_sticker_book_state` — 18 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `active_theme_id` |
+| 5 | `active_page_id` |
+| 6 | `page_unlock_mode` |
+| 7 | `page_unlock_interval` |
+| 8 | `rarity_weights` |
+| 9 | `creature_roll_chance_per_task` |
+| 10 | `is_enabled` |
+| 11 | `creatures_earned_total` |
+| 12 | `pages_unlocked_total` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+| 15 | `creature_earning_mode` |
+| 16 | `creature_earning_threshold` |
+| 17 | `creature_earning_counter` |
+| 18 | `creature_earning_counter_resets` |
+| 19 | `creature_earning_segment_ids` |
+| 20 | `page_earning_mode` |
+| 21 | `page_earning_completion_threshold` |
+| 22 | `page_earning_completion_counter` |
+| 23 | `page_earning_tracker_widget_id` |
+| 24 | `page_earning_tracker_threshold` |
+| 25 | `randomizer_reveal_style` |
+
+### `mom_self_restrictions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `primary_parent_id` |
+| 4 | `target_member_id` |
+| 5 | `feature_key` |
+| 6 | `restriction_type` |
+| 7 | `restricted_tags` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `morning_insight_questions` — 35 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `audience` |
+| 4 | `category` |
+| 5 | `question_text` |
+| 6 | `is_active` |
+| 7 | `sort_order` |
+| 8 | `created_at` |
+
+### `practice_log` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `source_type` |
+| 5 | `source_id` |
+| 6 | `draw_id` |
+| 7 | `practice_type` |
+| 8 | `duration_minutes` |
+| 9 | `evidence_url` |
+| 10 | `evidence_note` |
+| 11 | `period_date` |
+| 12 | `rejected` |
+| 13 | `rejection_note` |
+| 14 | `created_at` |
+
+### `private_notes` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `about_member_id` |
+| 4 | `author_id` |
+| 5 | `content` |
+| 6 | `is_included_in_ai` |
+| 7 | `created_at` |
+| 8 | `updated_at` |
+
+### `randomizer_draws` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `list_id` |
+| 3 | `list_item_id` |
+| 4 | `family_member_id` |
+| 5 | `drawn_at` |
+| 6 | `draw_source` |
+| 7 | `routine_instance_date` |
+| 8 | `status` |
+| 9 | `completed_at` |
+| 10 | `practice_count` |
+| 11 | `created_at` |
+
+### `reflection_prompts` — 192 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `prompt_text` |
+| 5 | `original_text` |
+| 6 | `category` |
+| 7 | `source` |
+| 8 | `is_ephemeral` |
+| 9 | `sort_order` |
+| 10 | `archived_at` |
+| 11 | `created_at` |
+| 12 | `updated_at` |
+
+### `reflection_responses` — 44 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `prompt_id` |
+| 5 | `response_text` |
+| 6 | `response_date` |
+| 7 | `source_context` |
+| 8 | `journal_entry_id` |
+| 9 | `routed_destinations` |
+| 10 | `created_at` |
+
+### `relationship_notes` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `author_id` |
+| 4 | `person_a_id` |
+| 5 | `person_b_id` |
+| 6 | `content` |
+| 7 | `is_included_in_ai` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `reveal_animations` — 33 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `slug` |
+| 3 | `display_name` |
+| 4 | `description` |
+| 5 | `style_category` |
+| 6 | `reveal_type` |
+| 7 | `video_url` |
+| 8 | `css_component` |
+| 9 | `thumbnail_url` |
+| 10 | `duration_seconds` |
+| 11 | `sort_order` |
+| 12 | `is_active` |
+| 13 | `created_at` |
+
+### `reward_reveal_attachments` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `reward_reveal_id` |
+| 4 | `source_type` |
+| 5 | `source_id` |
+| 6 | `family_member_id` |
+| 7 | `is_repeating` |
+| 8 | `reveal_trigger_mode` |
+| 9 | `reveal_trigger_n` |
+| 10 | `times_revealed` |
+| 11 | `last_revealed_at` |
+| 12 | `is_active` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+
+### `reward_reveals` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `created_by` |
+| 4 | `name` |
+| 5 | `animation_ids` |
+| 6 | `animation_rotation` |
+| 7 | `prize_mode` |
+| 8 | `prize_type` |
+| 9 | `prize_text` |
+| 10 | `prize_name` |
+| 11 | `prize_image_url` |
+| 12 | `prize_asset_key` |
+| 13 | `prize_randomizer_list_id` |
+| 14 | `prize_pool` |
+| 15 | `is_active` |
+| 16 | `created_at` |
+| 17 | `updated_at` |
+
+### `rhythm_completions` — 12 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `rhythm_key` |
+| 5 | `period` |
+| 6 | `status` |
+| 7 | `mood_triage` |
+| 8 | `snoozed_until` |
+| 9 | `metadata` |
+| 10 | `completed_at` |
+| 11 | `dismissed_at` |
+| 12 | `created_at` |
+
+### `rhythm_configs` — 68 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `rhythm_key` |
+| 5 | `display_name` |
+| 6 | `rhythm_type` |
+| 7 | `enabled` |
+| 8 | `sections` |
+| 9 | `section_order_locked` |
+| 10 | `timing` |
+| 11 | `auto_open` |
+| 12 | `reflection_guideline_count` |
+| 13 | `source_template_id` |
+| 14 | `archived_at` |
+| 15 | `created_at` |
+| 16 | `updated_at` |
+
+### `shift_sessions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `special_adult_id` |
+| 4 | `started_at` |
+| 5 | `ended_at` |
+| 6 | `started_by` |
+| 7 | `ended_by` |
+| 8 | `summary_compiled` |
+| 9 | `summary_text` |
+| 10 | `is_co_parent_session` |
+| 11 | `created_at` |
+
+### `slideshow_slides` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `slide_type` |
+| 4 | `image_url` |
+| 5 | `text_body` |
+| 6 | `source_guiding_star_id` |
+| 7 | `sort_order` |
+| 8 | `is_active` |
+| 9 | `created_at` |
+
+### `special_adult_permissions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `assignment_id` |
+| 4 | `feature_key` |
+| 5 | `access_level` |
+| 6 | `created_at` |
+| 7 | `updated_at` |
+
+### `spelling_coaching_cache` — 30 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `misspelling` |
+| 3 | `correction` |
+| 4 | `explanation` |
+| 5 | `source` |
+| 6 | `language` |
+| 7 | `usage_count` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `task_segments` — 8 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `segment_name` |
+| 5 | `icon_key` |
+| 6 | `sort_order` |
+| 7 | `day_filter` |
+| 8 | `creature_earning_enabled` |
+| 9 | `segment_complete_celebration` |
+| 10 | `randomizer_reveal_style` |
+| 11 | `theme_override_id` |
+| 12 | `is_active` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+
+### `teen_sharing_overrides` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `feature_key` |
+| 5 | `resource_id` |
+| 6 | `original_visibility` |
+| 7 | `new_visibility` |
+| 8 | `created_at` |
+
+### `view_as_permissions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `viewer_id` |
+| 4 | `target_member_id` |
+| 5 | `enabled` |
+| 6 | `excluded_features` |
+| 7 | `created_at` |
+| 8 | `updated_at` |
+
+### `visual_schedule_member_assignments` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_member_id` |
+| 3 | `routine_id` |
+| 4 | `assigned_at` |
+| 5 | `display_order` |
+
+### `visual_schedule_member_tasks` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_member_id` |
+| 3 | `asset_key` |
+| 4 | `variant` |
+| 5 | `custom_label` |
+| 6 | `is_complete` |
+| 7 | `scheduled_date` |
+| 8 | `display_order` |
+| 9 | `created_at` |
+| 10 | `updated_at` |
+
+### `visual_schedule_routine_steps` — 58 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `routine_id` |
+| 3 | `step_order` |
+| 4 | `asset_key` |
+| 5 | `variant` |
+| 6 | `custom_label` |
+| 7 | `is_active` |
+| 8 | `created_at` |
+
+### `visual_schedule_routines` — 10 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `routine_key` |
+| 4 | `display_name` |
+| 5 | `description` |
+| 6 | `icon_asset_key` |
+| 7 | `icon_variant` |
+| 8 | `is_system_routine` |
+| 9 | `is_active` |
+| 10 | `sort_order` |
+| 11 | `created_at` |
+| 12 | `updated_at` |
+
+---
+
+## Platform Intelligence Schema (`platform_intelligence.*`)
+
+*Separate PostgreSQL schema — not queryable via PostgREST. Columns and row counts come from `information_schema`.*
+
+### `platform_intelligence.book_chunks` — 56964 rows
 
 | # | Column |
 |---|---|
@@ -2491,7 +3579,7 @@
 | 8 | `tokens_count` |
 | 9 | `created_at` |
 
-### `platform_intelligence.book_extractions`
+### `platform_intelligence.book_extractions` — 89921 rows
 
 | # | Column |
 |---|---|
@@ -2515,65 +3603,34 @@
 | 18 | `is_deleted` |
 | 19 | `created_at` |
 | 20 | `updated_at` |
+| 21 | `source_part_number` |
+| 22 | `embedding` |
 
-### `platform_intelligence.prompt_patterns`
-
-| # | Column |
-|---|---|
-| 1 | `id` |
-| 2 | `pattern_key` |
-| 3 | `pattern_data` |
-| 4 | `source_channel` |
-| 5 | `approved` |
-| 6 | `approved_by` |
-| 7 | `created_at` |
-
-### `platform_intelligence.context_effectiveness`
+### `platform_intelligence.book_library` — 583 rows
 
 | # | Column |
 |---|---|
 | 1 | `id` |
-| 2 | `context_type` |
-| 3 | `effectiveness_score` |
-| 4 | `sample_size` |
-| 5 | `created_at` |
-| 6 | `updated_at` |
-
-### `platform_intelligence.edge_case_registry`
-
-| # | Column |
-|---|---|
-| 1 | `id` |
-| 2 | `description` |
-| 3 | `source_prd` |
-| 4 | `metadata` |
-| 5 | `created_at` |
-
-### `platform_intelligence.synthesized_principles`
-
-| # | Column |
-|---|---|
-| 1 | `id` |
-| 2 | `principle` |
-| 3 | `source_patterns` |
-| 4 | `approved` |
-| 5 | `approved_by` |
-| 6 | `created_at` |
-
-### `platform_intelligence.framework_ethics_log`
-
-| # | Column |
-|---|---|
-| 1 | `id` |
-| 2 | `framework_name` |
-| 3 | `source_book` |
-| 4 | `review_status` |
-| 5 | `review_notes` |
-| 6 | `reviewed_by` |
-| 7 | `created_at` |
+| 2 | `title` |
+| 3 | `author` |
+| 4 | `isbn` |
+| 5 | `genres` |
+| 6 | `tags` |
+| 7 | `ai_summary` |
+| 8 | `toc` |
+| 9 | `chunk_count` |
+| 10 | `title_author_embedding` |
+| 11 | `ethics_gate_status` |
+| 12 | `created_at` |
+| 13 | `updated_at` |
+| 14 | `extraction_status` |
+| 15 | `extraction_count` |
+| 16 | `discovered_sections` |
 
 ---
 
-> **Summary:** 120 API-exposed tables with columns | 25 non-API tables | 8 platform_intelligence tables
+> **Summary:** 126 API-exposed tables in domain sections | 60 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 3 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
-> **Non-API tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add them to the API schema grant.
+> **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
+>
+> **DOMAIN_ORDER missing entries** are tables that `scripts/full-schema-dump.cjs` expects to see but that don't exist in the live database. Most common cause: the owning PRD was planned but the migration hasn't been built yet. Each is flagged inline in its domain section.

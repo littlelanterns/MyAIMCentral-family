@@ -1,12 +1,23 @@
 /**
  * Queries live Supabase to generate a fully accurate schema doc.
- * Uses the OpenAPI spec for column names (works even for empty tables),
- * plus row counts from direct queries.
+ *
+ * Two-pass approach:
+ *   Pass 1 — OpenAPI introspection via PostgREST (captures API-exposed tables).
+ *            Column names come from the OpenAPI spec; row counts come from
+ *            `supabase.from(t).select('*', { count: 'exact', head: true })`.
+ *   Pass 2 — Direct SQL against information_schema via `supabase db query
+ *            --linked -f <tmp.sql>` (captures migration-only tables, i.e. tables
+ *            that exist in the database but are not in the PostgREST schema
+ *            cache / API grant). Row counts come from a dynamically built
+ *            UNION ALL of COUNT(*) queries. Also captures the
+ *            platform_intelligence schema the same way.
  *
  * Run: node scripts/full-schema-dump.cjs
  */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 
 const { createClient } = require('@supabase/supabase-js');
@@ -18,56 +29,9 @@ if (!url || !key) {
 }
 const supabase = createClient(url, key);
 
-// Tables known to exist but not in PostgREST API schema cache.
-// These are real tables accessible from Edge Functions and direct SQL.
-const NON_API_TABLES = [
-  'ai_credits', 'credit_packs', 'tier_sampling_costs', 'tier_sample_sessions',
-  'onboarding_milestones', 'subscription_cancellations', 'optimizer_outputs',
-  'user_prompt_templates', 'context_presets', 'family_victory_celebrations',
-  // notifications + notification_preferences are now API-exposed (PRD-15 migration 100098)
-  'vault_engagement', 'vault_comments', 'vault_comment_reports',
-  'vault_moderation_log', 'vault_satisfaction_signals', 'vault_engagement_config',
-  'mindsweep_settings', 'mindsweep_holding', 'mindsweep_allowed_senders',
-  'mindsweep_events', 'mindsweep_approval_patterns',
-  'ai_usage_log', 'platform_usage_log', 'feedback_submissions', 'known_issues',
-];
-
-// platform_intelligence schema tables (not queryable via PostgREST)
-const PI_TABLES_FROM_MIGRATIONS = {
-  'platform_intelligence.book_library (renamed from book_cache)': [
-    'id', 'title', 'author', 'isbn', 'genres', 'tags', 'ai_summary', 'toc',
-    'chunk_count', 'title_author_embedding', 'ethics_gate_status',
-    'extraction_status', 'extraction_count', 'discovered_sections',
-    'created_at', 'updated_at'
-  ],
-  'platform_intelligence.book_chunks': [
-    'id', 'book_library_id', 'chunk_index', 'chapter_index', 'chapter_title',
-    'text', 'embedding', 'tokens_count', 'created_at'
-  ],
-  'platform_intelligence.book_extractions': [
-    'id', 'book_library_id', 'extraction_type', 'text', 'guided_text', 'independent_text',
-    'content_type', 'declaration_text', 'style_variant', 'value_name', 'richness',
-    'section_title', 'section_index', 'sort_order', 'audience',
-    'is_key_point', 'is_from_go_deeper', 'is_deleted', 'created_at', 'updated_at'
-  ],
-  'platform_intelligence.prompt_patterns': [
-    'id', 'pattern_key', 'pattern_data', 'source_channel', 'approved', 'approved_by', 'created_at'
-  ],
-  'platform_intelligence.context_effectiveness': [
-    'id', 'context_type', 'effectiveness_score', 'sample_size', 'created_at', 'updated_at'
-  ],
-  'platform_intelligence.edge_case_registry': [
-    'id', 'description', 'source_prd', 'metadata', 'created_at'
-  ],
-  'platform_intelligence.synthesized_principles': [
-    'id', 'principle', 'source_patterns', 'approved', 'approved_by', 'created_at'
-  ],
-  'platform_intelligence.framework_ethics_log': [
-    'id', 'framework_name', 'source_book', 'review_status', 'review_notes', 'reviewed_by', 'created_at'
-  ],
-};
-
-// Domain groupings for readability
+// Domain groupings for readability. Tables not listed here still appear — either
+// under their matching domain if they're API-exposed, or in the catch-all
+// "Migration-only tables (uncatalogued)" section at the bottom.
 const DOMAIN_ORDER = [
   { name: 'Auth & Family', prefix: 'PRD-01, PRD-02', tables: [
     'families', 'family_members', 'special_adult_assignments', 'member_permissions',
@@ -97,7 +61,7 @@ const DOMAIN_ORDER = [
   ]},
   { name: 'Dashboards & Calendar', prefix: 'PRD-14 family', tables: [
     'dashboard_configs', 'dashboard_widgets', 'dashboard_widget_folders',
-    'widget_data_points', 'widget_templates',
+    'widget_data_points', 'widget_templates', 'widget_starter_configs',
     'calendar_events', 'event_attendees', 'event_categories', 'calendar_settings',
     'family_overview_configs',
   ]},
@@ -158,73 +122,219 @@ const DOMAIN_ORDER = [
   ]},
 ];
 
+/**
+ * Run a SQL query against the linked Supabase project via the CLI.
+ * Writes SQL to a temp file (to avoid arg-length + quoting headaches on Windows)
+ * and parses the JSON response. Returns the `rows` array.
+ */
+function runSql(sql, label) {
+  const tmp = path.join(os.tmpdir(), `schema-dump-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
+  fs.writeFileSync(tmp, sql);
+  try {
+    const raw = execFileSync('npx', ['supabase', 'db', 'query', '--linked', '-o', 'json', '-f', tmp], {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8',
+      maxBuffer: 128 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
+    });
+    // CLI wraps JSON in an "untrusted data" envelope — extract the outer object.
+    // The stdout is already JSON: { boundary, rows, warning }. Parse directly.
+    const parsed = JSON.parse(raw);
+    if (!parsed.rows) {
+      throw new Error(`${label}: no rows in response`);
+    }
+    return parsed.rows;
+  } finally {
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+  }
+}
+
 async function main() {
-  // Step 1: Fetch OpenAPI spec for column metadata
-  process.stdout.write('Fetching OpenAPI spec...');
+  // ----- Pass 1: OpenAPI spec for API-exposed column metadata -----
+  process.stdout.write('Pass 1: fetching OpenAPI spec...');
   const specResp = await fetch(url + '/rest/v1/', {
     headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
   });
   const spec = await specResp.json();
   const defs = spec.definitions || {};
-  console.log(` ${Object.keys(defs).length} tables found`);
+  const apiTables = new Set(Object.keys(defs));
+  console.log(` ${apiTables.size} API-exposed tables`);
 
-  // Step 2: Get row counts for tables with data
-  const rowCounts = {};
-  const allTables = DOMAIN_ORDER.flatMap(d => d.tables);
-  for (const t of allTables) {
-    if (NON_API_TABLES.includes(t)) {
-      rowCounts[t] = '(not API-exposed)';
-      continue;
+  // ----- Pass 2: information_schema for migration-only tables -----
+  process.stdout.write('Pass 2: querying information_schema via supabase db query --linked...');
+  const infoRows = runSql(`
+SELECT
+  t.table_schema,
+  t.table_name,
+  json_agg(c.column_name ORDER BY c.ordinal_position) AS columns
+FROM information_schema.tables t
+JOIN information_schema.columns c
+  ON c.table_schema = t.table_schema AND c.table_name = t.table_name
+WHERE t.table_schema IN ('public', 'platform_intelligence')
+  AND t.table_type = 'BASE TABLE'
+GROUP BY t.table_schema, t.table_name
+ORDER BY t.table_schema, t.table_name;
+`, 'information_schema dump');
+  console.log(` ${infoRows.length} tables discovered`);
+
+  // Index live tables by name (public) and qualified name (platform_intelligence).
+  // If the same table_name happens to exist in both schemas, the public one wins
+  // for the `publicLiveCols` lookup; platform_intelligence lives in a separate map.
+  const publicLiveCols = new Map(); // table_name -> columns[]
+  const piLive = new Map();         // "platform_intelligence.<table>" -> columns[]
+  for (const r of infoRows) {
+    if (r.table_schema === 'public') {
+      publicLiveCols.set(r.table_name, r.columns);
+    } else if (r.table_schema === 'platform_intelligence') {
+      piLive.set(`platform_intelligence.${r.table_name}`, r.columns);
     }
+  }
+
+  // ----- Row counts: API-exposed via PostgREST, migration-only via SQL -----
+  const rowCounts = {}; // keyed the same as we render: either 'table' or 'schema.table'
+
+  // API-exposed row counts
+  const domainTables = DOMAIN_ORDER.flatMap(d => d.tables);
+  const apiTablesToCount = new Set([...domainTables, ...apiTables].filter(t => apiTables.has(t)));
+  for (const t of apiTablesToCount) {
     try {
       const { count } = await supabase.from(t).select('*', { count: 'exact', head: true });
-      rowCounts[t] = count;
+      rowCounts[t] = count ?? 0;
     } catch {
       rowCounts[t] = '?';
     }
   }
 
-  // Step 3: Build markdown
+  // Row counts for every live public table + every platform_intelligence table —
+  // one UNION ALL query. "Migration-only" means live in info_schema but not in the
+  // OpenAPI spec; "uncatalogued" means live + API-exposed but not in DOMAIN_ORDER.
+  // Both sets need row counts, plus any DOMAIN_ORDER API tables not already
+  // counted above (they were, but this is a safety net).
+  const migrationOnlyPublic = [...publicLiveCols.keys()].filter(t => !apiTables.has(t));
+  const uncataloguedPublic = [...publicLiveCols.keys()]
+    .filter(t => apiTables.has(t) && !domainTables.includes(t));
+  const piTables = [...piLive.keys()]; // already qualified
+  const countTargets = [
+    ...migrationOnlyPublic.map(t => ({ qualified: `public.${t}`, key: t })),
+    ...uncataloguedPublic.map(t => ({ qualified: `public.${t}`, key: t })),
+    ...piTables.map(q => ({ qualified: q, key: q })),
+  ].filter((ct, i, arr) => arr.findIndex(x => x.key === ct.key) === i);
+
+  if (countTargets.length > 0) {
+    process.stdout.write(`Pass 2b: counting rows on ${countTargets.length} migration-only tables...`);
+    const unionSql = countTargets
+      .map(ct => `SELECT '${ct.key}' AS k, (SELECT COUNT(*) FROM ${ct.qualified})::bigint AS n`)
+      .join('\nUNION ALL\n');
+    try {
+      const countRows = runSql(unionSql + ';', 'row counts');
+      for (const row of countRows) {
+        // JSON from CLI may render bigint as string — normalize to number when safe.
+        const n = typeof row.n === 'string' ? Number(row.n) : row.n;
+        rowCounts[row.k] = Number.isFinite(n) ? n : row.n;
+      }
+      console.log(' done');
+    } catch (e) {
+      console.log(` FAILED (${e.message})`);
+      for (const ct of countTargets) rowCounts[ct.key] = '?';
+    }
+  }
+
+  // ----- Build markdown -----
   let md = '# Live Database Schema — MyAIM Central v2\n\n';
   md += `> Auto-generated from live Supabase on ${new Date().toISOString().split('T')[0]}\n`;
   md += `> Script: \`node scripts/full-schema-dump.cjs\`\n`;
-  md += `> Column names from OpenAPI spec (accurate for all API-exposed tables)\n`;
-  md += `> Row counts from live queries\n\n`;
+  md += `>\n`;
+  md += `> **Two-pass capture:**\n`;
+  md += `> 1. **API-exposed tables** — columns from the PostgREST OpenAPI spec, row counts via \`supabase-js\` HEAD queries.\n`;
+  md += `> 2. **Migration-only tables** — tables that exist in the database but are not in the PostgREST schema cache. Columns and row counts come from direct SQL against \`information_schema\` + dynamic \`COUNT(*)\` via \`supabase db query --linked\`.\n`;
+  md += `>\n`;
+  md += `> Both \`public\` and \`platform_intelligence\` schemas are captured in pass 2.\n\n`;
 
-  let apiExposed = 0;
-  let nonApi = 0;
+  let apiRendered = 0;
+  let migRendered = 0;
+  let uncataloguedRendered = 0;
+  let missingCount = 0;
+  const renderedNames = new Set();
 
   for (const domain of DOMAIN_ORDER) {
     md += `---\n\n## ${domain.name}${domain.prefix ? ` (${domain.prefix})` : ''}\n\n`;
 
     for (const table of domain.tables) {
-      const def = defs[table];
+      renderedNames.add(table);
       const count = rowCounts[table];
-      const countStr = typeof count === 'number' ? ` — ${count} rows` : (count === '(not API-exposed)' ? ' — not API-exposed' : '');
+      const def = defs[table];
+      const isApi = apiTables.has(table);
+      const isLive = publicLiveCols.has(table);
 
-      md += `### \`${table}\`${countStr}\n\n`;
-
-      if (NON_API_TABLES.includes(table)) {
-        md += '*(exists in DB but not exposed via PostgREST API — accessible from Edge Functions and direct SQL)*\n\n';
-        nonApi++;
-      } else if (def && def.properties) {
+      if (isApi && def && def.properties) {
         const cols = Object.keys(def.properties);
+        const countStr = typeof count === 'number' ? ` — ${count} rows` : '';
+        md += `### \`${table}\`${countStr}\n\n`;
         md += '| # | Column |\n|---|---|\n';
         cols.forEach((c, i) => { md += `| ${i + 1} | \`${c}\` |\n`; });
         md += '\n';
-        apiExposed++;
+        apiRendered++;
+      } else if (isLive) {
+        const cols = publicLiveCols.get(table);
+        const countStr = typeof count === 'number' ? ` — ${count} rows` : '';
+        md += `### \`${table}\`${countStr} *(migration-only — not API-exposed)*\n\n`;
+        md += '| # | Column |\n|---|---|\n';
+        cols.forEach((c, i) => { md += `| ${i + 1} | \`${c}\` |\n`; });
+        md += '\n';
+        migRendered++;
       } else {
-        md += '*(not found in API schema)*\n\n';
+        md += `### \`${table}\`\n\n`;
+        md += '*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*\n\n';
+        missingCount++;
       }
     }
   }
 
-  // Platform Intelligence schema
-  md += '---\n\n## Platform Intelligence Schema (`platform_intelligence.*`)\n\n';
-  md += '*(Separate PostgreSQL schema — not queryable via PostgREST. Columns from migration files.)*\n\n';
+  // Live public tables not claimed by any DOMAIN_ORDER entry
+  const uncataloguedApi = uncataloguedPublic.filter(t => !renderedNames.has(t)).sort();
+  const uncataloguedMigOnly = migrationOnlyPublic.filter(t => !renderedNames.has(t)).sort();
 
-  for (const [table, cols] of Object.entries(PI_TABLES_FROM_MIGRATIONS)) {
-    md += `### \`${table}\`\n\n`;
+  if (uncataloguedApi.length > 0) {
+    md += `---\n\n## API-exposed tables (not yet grouped into a domain)\n\n`;
+    md += `*Live \`public\` tables that PostgREST exposes but that no DOMAIN_ORDER entry claims. They may belong in an existing section or deserve their own — update \`scripts/full-schema-dump.cjs\` DOMAIN_ORDER to resolve. Columns come from the OpenAPI spec; row counts from live HEAD queries.*\n\n`;
+    for (const t of uncataloguedApi) {
+      const def = defs[t];
+      const cols = def && def.properties ? Object.keys(def.properties) : publicLiveCols.get(t) || [];
+      const count = rowCounts[t];
+      const countStr = typeof count === 'number' ? ` — ${count} rows` : '';
+      md += `### \`${t}\`${countStr}\n\n`;
+      md += '| # | Column |\n|---|---|\n';
+      cols.forEach((c, i) => { md += `| ${i + 1} | \`${c}\` |\n`; });
+      md += '\n';
+      uncataloguedRendered++;
+    }
+  }
+
+  if (uncataloguedMigOnly.length > 0) {
+    md += `---\n\n## Migration-only public tables (not API-exposed)\n\n`;
+    md += `*Tables that exist in the \`public\` schema but are not in the PostgREST API grant. Accessible from Edge Functions and direct SQL only. Columns and row counts come from \`information_schema\`.*\n\n`;
+    for (const t of uncataloguedMigOnly) {
+      const cols = publicLiveCols.get(t);
+      const count = rowCounts[t];
+      const countStr = typeof count === 'number' ? ` — ${count} rows` : '';
+      md += `### \`${t}\`${countStr}\n\n`;
+      md += '| # | Column |\n|---|---|\n';
+      cols.forEach((c, i) => { md += `| ${i + 1} | \`${c}\` |\n`; });
+      md += '\n';
+      migRendered++;
+    }
+  }
+
+  // Platform Intelligence schema — now from live information_schema, not hardcoded.
+  md += `---\n\n## Platform Intelligence Schema (\`platform_intelligence.*\`)\n\n`;
+  md += `*Separate PostgreSQL schema — not queryable via PostgREST. Columns and row counts come from \`information_schema\`.*\n\n`;
+  const piSorted = [...piLive.keys()].sort();
+  for (const qualified of piSorted) {
+    const cols = piLive.get(qualified);
+    const count = rowCounts[qualified];
+    const countStr = typeof count === 'number' ? ` — ${count} rows` : '';
+    md += `### \`${qualified}\`${countStr}\n\n`;
     md += '| # | Column |\n|---|---|\n';
     cols.forEach((c, i) => { md += `| ${i + 1} | \`${c}\` |\n`; });
     md += '\n';
@@ -232,14 +342,20 @@ async function main() {
 
   // Summary
   md += `---\n\n`;
-  md += `> **Summary:** ${apiExposed} API-exposed tables with columns | ${nonApi} non-API tables | ${Object.keys(PI_TABLES_FROM_MIGRATIONS).length} platform_intelligence tables\n`;
+  md += `> **Summary:** ${apiRendered} API-exposed tables in domain sections | ${uncataloguedRendered} API-exposed but uncatalogued | ${migRendered} migration-only (\`public\`) tables | ${piSorted.length} \`platform_intelligence\` tables`;
+  if (missingCount > 0) md += ` | ${missingCount} DOMAIN_ORDER entries missing from live database`;
+  md += `\n>\n`;
+  md += `> **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.\n`;
   md += `>\n`;
-  md += `> **Non-API tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add them to the API schema grant.\n`;
+  md += `> **DOMAIN_ORDER missing entries** are tables that \`scripts/full-schema-dump.cjs\` expects to see but that don't exist in the live database. Most common cause: the owning PRD was planned but the migration hasn't been built yet. Each is flagged inline in its domain section.\n`;
 
   const outPath = path.join(__dirname, '..', 'claude', 'live_schema.md');
   fs.writeFileSync(outPath, md);
   console.log(`\nWritten to claude/live_schema.md`);
-  console.log(`  ${apiExposed} API-exposed | ${nonApi} non-API | ${Object.keys(PI_TABLES_FROM_MIGRATIONS).length} platform_intelligence`);
+  console.log(`  ${apiRendered} API-exposed in domain | ${uncataloguedRendered} API-uncatalogued | ${migRendered} migration-only | ${piSorted.length} platform_intelligence | ${missingCount} missing`);
 }
 
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
