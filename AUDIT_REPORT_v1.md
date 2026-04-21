@@ -382,7 +382,7 @@ Five AI-output surfaces commit output without pre-commit HITM. After founder adj
 
 **Status:** COMPLETE — 9 domain batches closed 2026-04-20. 70 findings emitted (F1–F70) spanning 43 PRDs + 24 addenda audited against code reality.
 
-**Evidence archived** 2026-04-20 to `.claude/completed-builds/scope-2-evidence/` (handled by separate archive-phase commit — this apply-phase commit lands findings only). Per-batch decision rationale preserved in `scope-2-evidence/DECISIONS.md` Rounds 1–9 with full founder adjudication paragraphs.
+**Evidence archived** 2026-04-20 to [.claude/completed-builds/scope-2-evidence/](.claude/completed-builds/scope-2-evidence/) (this commit). The `scope-2-evidence/...` paths referenced throughout this section are historical anchors — the files now live at the archive path. Per-batch decision rationale preserved in [.claude/completed-builds/scope-2-evidence/DECISIONS.md](.claude/completed-builds/scope-2-evidence/DECISIONS.md) Rounds 1–9 with full founder adjudication paragraphs.
 
 **Beta Readiness flag count:** 0 — every Scope 2 finding is doc/code-drift with no direct beta-visible safety/privacy/compliance impact. Product-timing escalations (F19, F22, F34, F36) are remediation-queue priority signals, not beta blockers.
 
