@@ -24,6 +24,7 @@ import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { RoutineStepChecklist } from '@/components/tasks/RoutineStepChecklist'
 import { todayLocalIso } from '@/utils/dates'
+import { groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import type { Task } from '@/types/tasks'
 import type { TaskSegment } from '@/types/play-dashboard'
 
@@ -104,30 +105,17 @@ export function PlayTaskTileGrid({
 
   const hasSegments = activeSegments.length > 0
 
-  // Group tasks by segment
+  // Group tasks by segment — shared helper hides tasks assigned to inactive
+  // segments rather than rebucketing them into "Other".
   const { segmentGroups, unsegmentedTasks } = useMemo(() => {
-    if (!hasSegments) return { segmentGroups: [] as Array<{ segment: TaskSegment; tasks: Task[] }>, unsegmentedTasks: tasks }
-
-    const grouped: Array<{ segment: TaskSegment; tasks: Task[] }> = activeSegments.map(seg => ({
-      segment: seg,
-      tasks: [],
-    }))
-
-    const segmentIndexMap = new Map<string, number>()
-    activeSegments.forEach((seg, idx) => segmentIndexMap.set(seg.id, idx))
-
-    const unseg: Task[] = []
-
-    for (const task of tasks) {
-      if (task.task_segment_id && segmentIndexMap.has(task.task_segment_id)) {
-        grouped[segmentIndexMap.get(task.task_segment_id)!].tasks.push(task)
-      } else {
-        unseg.push(task)
+    if (!hasSegments) {
+      return {
+        segmentGroups: [] as Array<{ segment: TaskSegment; tasks: Task[] }>,
+        unsegmentedTasks: tasks,
       }
     }
-
-    return { segmentGroups: grouped, unsegmentedTasks: unseg }
-  }, [hasSegments, activeSegments, tasks])
+    return groupTasksBySegment(activeSegments, tasks, allSegments ?? undefined)
+  }, [hasSegments, activeSegments, tasks, allSegments])
 
   if (tasks.length === 0) {
     return (

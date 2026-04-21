@@ -335,18 +335,23 @@ export function TaskCard({
     action()
   }
 
-  const dueDateFormatted = task.due_date
+  // Routines never render a due date or overdue styling — they are recurring
+  // and missed days feed allowance tracking, not guilt. Only one-time tasks
+  // with an explicitly-set due_date surface that metadata.
+  const showDueDate = !isRoutine && !!task.due_date
+
+  const dueDateFormatted = showDueDate
     ? new Date(task.due_date + 'T00:00:00').toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
       })
     : null
 
-  const isDueSoon = task.due_date
+  const isDueSoon = showDueDate
     ? new Date(task.due_date + 'T00:00:00') <= new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
     : false
 
-  const isOverdue = task.due_date
+  const isOverdue = showDueDate
     ? new Date(task.due_date + 'T00:00:00') < new Date(new Date().toDateString())
     : false
 

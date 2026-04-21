@@ -53,9 +53,22 @@ export function isRecurringTaskVisibleToday(task: Task, today?: Date): boolean {
         ? new Date(task.due_date + 'T00:00:00')
         : new Date('2020-01-01T00:00:00')
 
+    // Per PRD-35 the RRULE end date may be stored as recurrence_details.until
+    // (or recurrence_details.end_date) as a separate field rather than baked
+    // into the RRULE string. schedulerUtils.ts does the same injection when
+    // generating preview instances; this filter must match.
+    const untilRaw =
+      (details.until as string | null | undefined) ??
+      (details.end_date as string | undefined) ??
+      null
+    const until = untilRaw
+      ? new Date(untilRaw.includes('T') ? untilRaw : untilRaw + 'T23:59:59')
+      : undefined
+
     const fullRule = new RRule({
       ...rule.origOptions,
       dtstart,
+      ...(until ? { until } : {}),
     })
 
     // Check if today falls on a recurrence day.

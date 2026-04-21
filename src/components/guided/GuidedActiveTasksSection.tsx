@@ -95,11 +95,13 @@ export function GuidedActiveTasksSection({
     [allSegments],
   )
 
-  // Segment grouping
+  // Segment grouping — pass full segment list so tasks assigned to an
+  // inactive segment (e.g. weekday segment on Saturday) are hidden, not
+  // rebucketed as "Other Tasks".
   const hasSegments = activeSegments.length > 0
   const { segmentGroups, unsegmentedTasks: unsegmented } = useMemo(
-    () => groupTasksBySegment(activeSegments, tasks),
-    [activeSegments, tasks],
+    () => groupTasksBySegment(activeSegments, tasks, allSegments ?? undefined),
+    [activeSegments, tasks, allSegments],
   )
   const segmentStatus = useSegmentCompletionStatus(activeSegments, tasks)
 

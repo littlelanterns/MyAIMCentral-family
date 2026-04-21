@@ -49,6 +49,7 @@ import { PageUnlockRevealModal } from '@/components/play-dashboard/PageUnlockRev
 import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
+import { todayLocalIso } from '@/utils/dates'
 import type { Task } from '@/types/tasks'
 import type { PlayDashboardProps, RevealEvent, MemberColoringReveal } from '@/types/play-dashboard'
 import {
@@ -73,16 +74,27 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     assigneeId: memberId,
   })
 
-  // Filter recurring tasks to only those scheduled for today, then to Play types
+  // Filter recurring tasks to only those scheduled for today, then to Play
+  // types. Also drop completed tasks that weren't completed today so old
+  // finished tasks don't linger on the Play dashboard.
+  const today = todayLocalIso()
   const playTasks = useMemo(
     () =>
-      filterTasksForToday(allTasks).filter(
-        t =>
-          t.task_type === 'task' ||
-          t.task_type === 'routine' ||
-          t.task_type === 'habit',
-      ),
-    [allTasks],
+      filterTasksForToday(allTasks)
+        .filter(
+          t =>
+            t.task_type === 'task' ||
+            t.task_type === 'routine' ||
+            t.task_type === 'habit',
+        )
+        .filter(t => {
+          if (t.status !== 'completed') return true
+          if (!t.completed_at) return false
+          const d = new Date(t.completed_at)
+          const completedLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          return completedLocal === today
+        }),
+    [allTasks, today],
   )
 
   const { data: stickerBookState } = useStickerBookState(memberId)

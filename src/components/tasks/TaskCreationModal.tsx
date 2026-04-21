@@ -755,12 +755,37 @@ export function TaskCreationModal({
           </label>
         </div>
         {scheduleMode === 'one_time' && (
-          <input
-            type="date"
-            value={quickDate}
-            onChange={(e) => setQuickDate(e.target.value)}
-            style={{ ...inputStyle, marginTop: '0.5rem' }}
-          />
+          <div style={{ marginTop: '0.5rem' }}>
+            <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '0.25rem' }}>
+              Due date (optional)
+            </label>
+            <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+              <input
+                type="date"
+                value={quickDate}
+                onChange={(e) => setQuickDate(e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              {quickDate && (
+                <button
+                  type="button"
+                  onClick={() => setQuickDate('')}
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    color: 'var(--color-text-secondary)',
+                    background: 'transparent',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--vibe-radius-input, 0.375rem)',
+                    padding: '0.375rem 0.625rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <HelperText>Leave blank to just add it to the list — no pressure.</HelperText>
+          </div>
         )}
         {scheduleMode === 'weekly' && (
           <DayChips days={quickDays} onChange={setQuickDays} />
@@ -1808,12 +1833,35 @@ export function TaskCreationModal({
           {/* Contextual pickers */}
           {scheduleMode === 'one_time' && (
             <div style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-              <input
-                type="date"
-                value={quickDate}
-                onChange={(e) => setQuickDate(e.target.value)}
-                style={inputStyle}
-              />
+              <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: '0.25rem' }}>
+                Due date (optional)
+              </label>
+              <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                <input
+                  type="date"
+                  value={quickDate}
+                  onChange={(e) => setQuickDate(e.target.value)}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                {quickDate && (
+                  <button
+                    type="button"
+                    onClick={() => setQuickDate('')}
+                    style={{
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'var(--color-text-secondary)',
+                      background: 'transparent',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--vibe-radius-input, 0.375rem)',
+                      padding: '0.375rem 0.625rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <HelperText>Leave blank to just add it to the list — no pressure.</HelperText>
             </div>
           )}
           {scheduleMode === 'weekly' && (

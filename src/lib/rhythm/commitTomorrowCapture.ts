@@ -31,7 +31,6 @@
  */
 
 import { supabase } from '@/lib/supabase/client'
-import { localIsoDaysFromToday } from '@/utils/dates'
 import type { RhythmPriorityItem } from '@/types/rhythms'
 
 export interface StagedPriorityItem {
@@ -67,8 +66,6 @@ export async function commitTomorrowCapture({
   const populated = items.filter(i => i.text.trim().length > 0)
   if (populated.length === 0) return []
 
-  const tomorrow = localIsoDaysFromToday(1)
-
   // ─── 1. Bump priority='now' on matched tasks ────────────────
   const matchedIds = populated
     .filter(i => i.matchedTaskId !== null)
@@ -101,7 +98,6 @@ export async function commitTomorrowCapture({
       status: 'pending' as const,
       priority: 'now' as const,
       source: 'rhythm_priority' as const,
-      due_date: tomorrow,
       sort_order: idx,
     }))
 
