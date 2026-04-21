@@ -5,7 +5,7 @@ Scope: 3 + 8b (cross-PRD integration; integration compliance & safety)
 Opened: 2026-04-20
 Adjudicated: 2026-04-21 (founder verdicts via claude.ai web session, captured in [FOUNDER_HANDOFF.md](FOUNDER_HANDOFF.md))
 Amended: 2026-04-21 (5 amendments + 2 flag verdicts from founder isolated review — see Sign-off section)
-Final emission counts: 13 SCOPE-8b + 42 SCOPE-3 main-table + 1 SCOPE-3 Appendix-only (F39a) + 7 Deferred-to-Gate-4 Appendix entries
+Final emission counts: 13 SCOPE-8b + 42 SCOPE-3 main-table findings (F1–F42 sequential) + 9 Deferred-to-Gate-4 Appendix entries (6 pre-existing + PRD-27 + PRD-29 + PRD-19 core)
 Related: [AUDIT_REPORT_v1.md](../AUDIT_REPORT_v1.md) §3 and §8b; [PLAN.md](PLAN.md); [SYNTHESIS.md](SYNTHESIS.md); [MYAIM_GAMEPLAN_v2.2.md](../MYAIM_GAMEPLAN_v2.2.md) Phase 2 (lines 305–308, 332)
 ---
 
@@ -892,7 +892,7 @@ Round 0 content itself is append-only; this round records the amendment as a sup
 | PRD-41 Runtime ethics enforcement integrations | PRD-41 unauthored | SCOPE-8a.F3 |
 | **PRD-27 Caregiver Tools integrations** ← NEW | PRD-27 mostly unbuilt (3 tables, no UI surface) | EVIDENCE_prd27 F-B; cross-ref SCOPE-3 roster |
 | **PRD-29 BigPlans integrations** ← NEW | PRD-29 entirely unbuilt | EVIDENCE_prd29 F-A; cross-ref SCOPE-3 roster |
-| **PRD-19 Family Context & Relationships core infrastructure** ← NEW (added per Amendment 3 — founder isolated review 2026-04-21) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry) | EVIDENCE_prd19 F-B; cross-ref SCOPE-3.F39a |
+| **PRD-19 Family Context & Relationships core infrastructure** ← NEW (added per Amendment 3 — founder isolated review 2026-04-21) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry) | EVIDENCE_prd19 F-B (PRD-19 fixable integration items are SCOPE-3.F39 in main table) |
 
 ### Findings that DO remain standalone after this amendment
 
@@ -901,7 +901,7 @@ Round 0 content itself is append-only; this round records the amendment as a sup
 - **PRD-29 F-C (5 feature keys absent from registry)** — standalone SCOPE-3
 - **PRD-29 F-D (stub-socket WIRED)** — SCOPE-3.F13 (Round 16 / Decision 13)
 - **PRD-19 F-A (is_available_for_mediation)** — folded into SCOPE-8b.F4 Pattern 1D (Round 6)
-- **PRD-19 F-C + F-D (lila-chat doesn't load private/relationship notes + family_context_interview drift)** — SCOPE-3.F39b (Amendment 3)
+- **PRD-19 F-C + F-D (lila-chat doesn't load private/relationship notes + family_context_interview drift)** — SCOPE-3.F39 (Amendment 3 — formerly labeled F39b, now takes the F39 slot since F39a is Appendix-only and not numbered in the main table)
 
 ### Emission
 
@@ -981,13 +981,12 @@ Aggressive cross-addendum consolidation applied per PLAN §5.2 to compress SYNTH
 | SCOPE-3.F36 | PRD-36 cross-PRD integration bundle: engine wired but cross-PRD integration dispatched to void + timer completion-side integrations partially wired + FloatingBubble z-35 below BottomNav z-40 (consolidated PRD-36 bundle excluding TimerConfigPanel which is SCOPE-3.F10, and zero-listener events which is SCOPE-3.F12) | Medium | N | Fix Next Build | EVIDENCE_prd36 F-A + F-B + F-D |
 | SCOPE-3.F37 | PRD-17B mindsweep-sort 6 seams consolidated (seams 1, 2, 4, 7, 9, 12, 13, 14) — excluding auto-sweep no-op which is SCOPE-8b.F6 | Medium | N | Fix Next Build | EVIDENCE_prd17b consolidated |
 | SCOPE-3.F38 | PRD-14D dashboard architecture gaps: Hub widget_grid section registered but returns null + PerspectiveSwitcher overgrants to special_adult (Family Overview + Hub) (consolidated PRD-14D bundle excluding PIN + family_best_intentions.is_included_in_ai which are SCOPE-8b.F4) | Medium | N | Fix Next Build | EVIDENCE_prd14d F-B + F-C |
-| SCOPE-3.F39a | PRD-19 infrastructure unbuilt (4 core tables absent: member_documents, guided_interview_progress, monthly_aggregations, generated_reports + no UI entry point) | — | — | **Deferred-to-Gate-4 (Appendix only — NO main §3 finding-table emission)** | EVIDENCE_prd19 F-B |
-| SCOPE-3.F39b | PRD-19 fixable integration items: general lila-chat doesn't load private_notes/relationship_notes + family_context_interview model-tier drift (cross-ref SCOPE-3.F5) and no UI entry | Medium | N | Fix Next Build | EVIDENCE_prd19 F-C + F-D |
+| SCOPE-3.F39 | PRD-19 fixable integration items: general lila-chat doesn't load private_notes/relationship_notes + family_context_interview model-tier drift (cross-ref SCOPE-3.F5) and no UI entry (per Amendment 3 — F39 = formerly F39b; PRD-19 core infrastructure unbuilt is Appendix-only, see Deferred-to-Gate-4 table below) | Medium | N | Fix Next Build | EVIDENCE_prd19 F-C + F-D |
 | SCOPE-3.F40 | PRD-21A minor wire-up + vault_tool_sessions tracking unwired + Optimizer integration unbuilt at server layer (consolidated PRD-21A bundle excluding MemberAssignmentModal broken write which is SCOPE-3.F41 Beta-Y, and Vault teen-filter which is folded into SCOPE-8b.F1 as 13th contributing surface per Flag 1 verdict) | Low | N | Fix Next Build + Deferred-Document | EVIDENCE_prd21a F-B + F-D + F-E |
 | SCOPE-3.F41 | PRD-21A MemberAssignmentModal writes `is_granted`/`granted_by` to dropped columns (broken write) | High | Y | Fix Now | EVIDENCE_prd21a F-A |
 | SCOPE-3.F42 | PRD-21C entire PRD deferred (cross-ref Round 0 Deferred list) | Low | N | Deferred-Document | EVIDENCE_prd21c F-A |
 
-**Emission count: 42 SCOPE-3 main-table findings + 1 Appendix-only (SCOPE-3.F39a moved to Deferred-to-Gate-4 Appendix per Amendment 3).** Main-table count remains 42 (F39 → F39b takes the main-table slot; F39a is Appendix-only, not counted in main §3 finding table).
+**Emission count: 42 SCOPE-3 main-table findings (F1–F42 sequential, no F39a/F39b in the main roster).** Per Amendment 3 the PRD-19 split produces (a) SCOPE-3.F39 = the fixable PRD-19 integration items (main-table slot, shown above), and (b) an Appendix-only Deferred-to-Gate-4 entry for PRD-19 core infrastructure unbuilt (shown in the Deferred-to-Gate-4 Appendix table below, cross-referenced from Round 20). The Appendix entry is NOT counted in the main 42-finding roster.
 
 Founder confirmed during isolated review (2026-04-21): **keep at 42 — do not compress further.** The candidate folds originally surfaced (F28+F29+F30 PRD-24 family, F33+F34 PRD-31 tier/monetization, F15+F16+F17 CLAUDE.md proposals) all lose necessary distinctions (per-addendum traceability, resolution-tag coherence, handoff specificity). "~35–40" in FOUNDER_HANDOFF was an estimate, not a directive. 42 with cleaner logic wins.
 
@@ -1030,7 +1029,7 @@ Apply-phase worker emits as §3 Appendix or similar — NOT finding-table entrie
 | PRD-41 Runtime ethics enforcement | SCOPE-8a.F3 | (see Scope 8a) |
 | PRD-27 Caregiver Tools (NEW per Round 20) | PRD-27 mostly unbuilt; EVIDENCE_prd27 F-B collapsed | EVIDENCE_prd27 F-B |
 | PRD-29 BigPlans (NEW per Round 20) | PRD-29 entirely unbuilt; EVIDENCE_prd29 F-A collapsed | EVIDENCE_prd29 F-A |
-| PRD-19 Family Context & Relationships core infrastructure (NEW per Amendment 3) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry); SCOPE-3.F39a Appendix-only | EVIDENCE_prd19 F-B |
+| PRD-19 Family Context & Relationships core infrastructure (NEW per Amendment 3) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry); PRD-19 fixable integration items are SCOPE-3.F39 in main table | EVIDENCE_prd19 F-B |
 
 ### Cross-references to closed findings (cite, do not re-describe)
 
@@ -1065,12 +1064,12 @@ All 15 Decisions + 3 Pushbacks + 3 Post-Audit Recommendations + Round 0 amendmen
 
 - **Amendment 1** — Split F17: retrospective PRD-22 `history_retention` footnote moved inside SCOPE-8b.F4's finding body (apply-phase instruction in Round 6); SCOPE-3.F17 now emits only the prospective Habit #9 convention proposal.
 - **Amendment 2** — SCOPE-8b.F11 sequencing dependency now embedded as explicit apply-phase instruction in Round 18 (both the Round note AND the finding body carry the sentence so the dependency surfaces in AUDIT_REPORT_v1.md).
-- **Amendment 3** — SCOPE-3.F39 split into F39a (PRD-19 core infrastructure unbuilt — moved to Deferred-to-Gate-4 Appendix, no main §3 finding-table emission) + F39b (PRD-19 fixable integration items — standalone SCOPE-3 Medium, Beta N, Fix Next Build).
+- **Amendment 3** — SCOPE-3.F39 split: (a) PRD-19 core infrastructure unbuilt moved to Deferred-to-Gate-4 Appendix (no main §3 finding-table emission, no F39a finding ID), (b) PRD-19 fixable integration items take the SCOPE-3.F39 main-table slot as standalone Medium, Beta N, Fix Next Build.
 - **Amendment 4** — PRD-19 added to Round 20 Deferred-to-Gate-4 amendment table (third new row alongside PRD-27, PRD-29).
 - **Amendment 5** — Round 10 (Decision 7) Scope 4 scope-move flag stricken; Scope 4 closed 2026-04-20 / applied / archived; this finding stays in Scope 3+8b with read-only cross-reference only.
 - **Flag 1 verdict** — SCOPE-8b.F14 (PRD-21A Vault teen-filter) folded into SCOPE-8b.F1 as 13th contributing surface; same root cause + same `authorizeForFamily` helper class of fix + one build one helper one fix. SCOPE-8b count: 15 → 14 → **13 (final)**. Beta Readiness delta to Appendix C: +16 entries (was +17).
 - **Flag 2 verdict** — SCOPE-3 compression kept at 42 main-table findings; candidate folds all lose necessary distinctions; "~35–40" in FOUNDER_HANDOFF was estimate not directive.
 
-**Final emission counts:** 13 SCOPE-8b findings + 42 SCOPE-3 main-table findings + 1 SCOPE-3 Appendix-only entry (F39a) + 7 Deferred-to-Gate-4 Appendix entries.
+**Final emission counts:** 13 SCOPE-8b findings + 42 SCOPE-3 main-table findings (F1–F42 sequential, no F39a/F39b IDs — PRD-19 fixable items take the F39 slot) + 9 Deferred-to-Gate-4 Appendix entries (6 pre-existing + PRD-27 + PRD-29 + PRD-19 core).
 
 Ready for fresh session to draft apply-phase worker prompt per established Phase 2 audit pattern. Fresh session's 4 primary inputs: DECISIONS.md (this amended commit), FOUNDER_HANDOFF.md, SYNTHESIS.md, PLAN.md. If fresh session reaches for any of the 33 evidence files, that's a signal DECISIONS.md is under-documented and should be amended before apply-phase prompt drafts.
