@@ -605,3 +605,14 @@ These are patterns where a tool or technique appears to work but silently produc
     3. **Per-mode content policy** — narrowly scoped to specific tools with persona-creation surfaces. Currently only Board of Directors.
 
     Both Layer 1 AND Layer 2 must be in place before beta user exposure. Neither is alone sufficient.
+
+248. **Native AI Vault tool categories.** Native AI Vault tools (`vault_items.delivery_method='native'`) fall into two categories:
+
+    - **LiLa-powered native tools** — registered in `lila_guided_modes` (`vault_items.guided_mode_key` populated on the vault row). Use full LiLa infrastructure per Convention 247: shared conversation engine, shared context assembly pipeline, shared context update pipeline. Examples: Cyrano, Higgins, Love Language tools, ThoughtSift tools, Board of Directors, Safe Harbor, BookShelf discussion.
+    - **Native utility tools** — own dedicated Edge Function, NOT registered in `lila_guided_modes` (`vault_items.guided_mode_key` is null on the vault row). Use MyAIM AI infrastructure (OpenRouter, Zod validation, cost logging) but are NOT part of LiLa. Do not participate in shared context assembly or context-update pipelines. Canonical example: Task Breaker — breaks tasks into steps at three detail levels, embedded in any task surface that needs it, lives separately with its own Edge Function as correct architecture. The "why isn't it in `lila_guided_modes`" question is not a registration gap — it's a category distinction.
+
+    **When introducing a new native AI Vault tool, the PRD must explicitly state which category and why.** The category choice determines whether the tool participates in LiLa's gleaning behavior; it is load-bearing for the family-context promise and cannot be decided silently.
+
+    **Invariant for detecting category from the registry:** Phase 3 Recon-1 (2026-04-21, `RECON_F8B_ASSEMBLER.md`) established that the category-1-vs-category-2 invariant reads from `lila_guided_modes.context_sources`: category-1 tools have non-empty `context_sources` arrays and MUST call `assembleContext()` from `_shared/context-assembler.ts`; category-2 tools declare `context_sources='{}'` (empty) and correctly do not use the shared assembler. A tool with populated `context_sources` that hand-rolls its own context queries is a defect, not a category divergence.
+
+    **Implication for audit findings:** a tool not using `_shared/context-assembler.ts` is not automatically a defect. Check whether the tool is category (1) LiLa-powered (assembler bypass = defect) or category (2) utility (bypass = correct architecture per this convention).
