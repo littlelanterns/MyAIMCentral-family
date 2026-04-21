@@ -1118,7 +1118,160 @@ Captured here for completeness; each is a one-line amendment scheduled for Phase
 
 ## 4 — Scope 4: Cost optimization patterns (P1–P9)
 
-*Not yet started. Stage C.*
+**Status:** COMPLETE — 9 pattern rounds closed 2026-04-20 (Round 2 P2 re-dispatched and closed 2026-04-21 after original worker hit usage cap mid-run). 10 findings emitted (F1–F10) spanning cost-optimization patterns P1 Batch Processing, P2 Embedding-Based Classification, P4 Semantic Context Compression, P5 On-Demand Secondary Output, P6 Caching and Reuse, P8 User-Controlled Scope, and P9 Per-Turn Semantic Refresh. P3 Context Learning Detection deferred to post-beta re-audit (feature unbuilt; detector needs 3–6 months of family usage history before meaningful patterns emerge). P7 Time-Based Sampling closed with no findings (all 16 built aggregation sites apply P7 correctly).
+
+**Key discovery:** F1 MindSweep embedding-first classification is silently 100% Haiku in production due to a missing `archive_context_items.embedding` column the RPC assumes exists — triangulated via `ai_usage_tracking` telemetry (9 paired embedding+Haiku calls across 24 items, 0 auto-routes, 24/24 items queued vs 0/24 direct-routed). CLAUDE.md line 12 architectural claim ("~90% of routine classification uses pgvector") currently measures 0% on the canonical classifier site.
+
+**Beta Readiness flag count:** 1 — SCOPE-4.F4 (Board of Directors persona cache cross-family leak via multitenancy scope defect). Feature unused in beta so current exposure is low (`board_sessions` 0 live rows), but fix must land before Board of Directors sees real usage.
+
+**Founder directive 2026-04-21:** "I do want all of these fixed." Every F1–F10 has an active fix path on the remediation queue — no architectural-curiosity write-offs. Apply-phase narrative reflects this as an executable remediation plan, not an open-ended list of notes.
+
+**Open re-audit triggers carried forward (3):**
+- **Context Learning (P3) re-audit** when the detector builds out post-beta (~3–6 months of real family usage history accumulated). Re-audit scope: embedding-delta threshold gates Haiku call, threshold tunable, `context_learning_dismissals` writes on user dismiss, suggested items write to `archive_context_items` with `source='lila_detected'`.
+- **F22 homeschool reporting re-audit for P1/P5/P7** when `monthly-aggregate` or `report-generate` Edge Functions build (whichever first). Re-audit scope: aggregation path enqueues through `pgmq` never synchronous OpenAI; primary output only (no pre-generated secondary extractions); explicit sampling/windowing on family-corpus queries.
+- **Feedback sentiment (P2) + blog moderation (P2) re-audits** when PRD-32 feedback submission and PRD-38 blog features build out — both are candidate embedding-first classifier sites currently unbuilt.
+
+### [SCOPE-4.F1] `archive_context_items` missing `embedding` column silently breaks MindSweep embedding-first classification entirely
+
+- **Severity:** High
+- **Location:** [claude/live_schema.md](claude/live_schema.md) §Archives & Context — `archive_context_items` (173 rows) has no `embedding` column; migration `supabase/migrations/00000000100089_*.sql:234-327` defines `match_archive_context_embeddings` RPC + `classify_by_embedding` RPC with UNION ALL across 5 sources including `archive_context_items aci` binding `aci.embedding`; [supabase/functions/mindsweep-sort/index.ts:129-156](supabase/functions/mindsweep-sort/index.ts#L129) wraps the RPC call in a bare `try { } catch { }` with no error logging, silently falling through to Haiku.
+- **Description:** The canonical P2 embedding-first classifier site (MindSweep) is 100% non-functional. `archive_context_items` never had an `embedding` column added, but the PL/pgSQL RPC that queries it succeeds at CREATE time (runtime column resolution). Every call raises `SQLSTATE 42703 undefined_column` at planning time, the entire UNION ALL query aborts, and ALL 5 classifier sources (archive_context_items, guiding_stars, best_intentions, self_knowledge, journal_entries) lose their embedding path — not just archives. Silent `catch {}` hides the failure; MindSweep still classifies correctly via Haiku fallback, but at 100% Haiku rate instead of the architectural ~90% embedding target. CLAUDE.md line 12 architectural claim ("~90% of routine classification uses pgvector embeddings, not LLM calls") currently measures 0% on this site.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P1_batch-processing.md](scope-4-evidence/EVIDENCE_P1_batch-processing.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 1 §"Telemetry confirmation (2026-04-20)" — triangulated three ways against production `ai_usage_tracking`: (1) 9 `mindsweep_sort` events 2026-04-04 to 2026-04-12 each paired exactly one `text-embedding-3-small` row with one `claude-haiku-4.5` row in the same minute (the pattern of "embed query → RPC aborts silently → fall through to Haiku"); (2) `mindsweep_events.items_auto_routed = 0` across all 9 events and 24 items (auto-routing requires high-confidence embedding classification); (3) 24/24 items queued to Haiku path, 0/24 direct-routed. Cost-impact observed: $0.00639 total `mindsweep_sort` cost across 8-day window (~$0.024/family/month extrapolated at current beta volume, well under $1/family/month target; F1-attributable waste ~$0.005/family/month).
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-20, all founder-green-lit):
+  - (a) Migration adding `embedding halfvec(1536)` column + HNSW index + `util.queue_embedding_job()` trigger on `archive_context_items`
+  - (b) Backfill embeddings for the 173 existing rows (polling consumer handles automatically once column+trigger land)
+  - (c) Structured logging in `mindsweep-sort/index.ts:129-156` silent catch — log RPC error code+message so this class of regression never hides again; plus `ai_parse` catchall `feature_key` split into per-sub-function keys (`ai_parse:review_route`, `ai_parse:smart_list`, `ai_parse:meeting_action`) so future P2 audits can measure per-site Haiku-vs-embedding rates cleanly. One telemetry-hardening pass covers both gaps.
+  - (d) CLAUDE.md line 12 amendment — from aspirational claim to measured framing once embeddings actually flow
+- **Founder decision required:** N (all adjudicated 2026-04-20 / 2026-04-21)
+- **Beta Readiness flag:** N (Haiku per-call cost small; functional classification intact via fallback; fix should land before MindSweep graduates from beta-volume to regular-adoption volume)
+
+### [SCOPE-4.F2] pgmq `embedding_jobs` pipeline dormant; polling-consumer is the real architecture
+
+- **Severity:** Low
+- **Location:** Migration `supabase/migrations/029_*.sql` downgraded `util.queue_embedding_job()` to `PERFORM 1; -- no-op for now — pgmq not configured yet`; [supabase/functions/embed/index.ts](supabase/functions/embed/index.ts) TABLE_CONFIG polls source tables directly for `embedding IS NULL` rows; [claude/ai_patterns.md](claude/ai_patterns.md) §Embedding Pipeline L222-251 describes the pgmq queue-consumer architecture.
+- **Description:** The pgmq `embedding_jobs` queue + trigger-push architecture described as the P1 implementation in `ai_patterns.md` is dormant. The actual production architecture is a scheduled polling consumer that queries each embedding-bearing table for NULL embedding rows. Functionally equivalent to P1's "never synchronous OpenAI on write" guarantee — the write itself enqueues nothing, the consumer batches work outside the write path. Documentation drift, not functional defect.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P1_batch-processing.md](scope-4-evidence/EVIDENCE_P1_batch-processing.md) — grep confirmed migration 029 downgrade; `embed` Edge Function TABLE_CONFIG enumerates tables polled; trigger function bodies contain no `pg_net.http_post` to OpenAI.
+- **Proposed resolution:** Intentional-Document. Amend `ai_patterns.md` §Embedding Pipeline L222-251 to describe the polling-consumer architecture accurately (or founder decision to restore the pgmq path — code change instead of doc change).
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N
+
+### [SCOPE-4.F3] `embed` pg_cron schedule undeclared in migrations
+
+- **Severity:** Low
+- **Location:** [supabase/migrations/00000000000000_*.sql:50-68](supabase/migrations/00000000000000_init.sql#L50) is comment-only pointing to Supabase Dashboard for cron setup; all other cron jobs (mindsweep-auto-sweep, advance_task_rotations, process_carry_forward_fallback, expire_overdue_task_claims, allowance_period_calculation) are declared in migrations via `cron.schedule(...)`.
+- **Description:** The `embed` Edge Function's `*/10 * * * * *` (every-10-seconds) schedule is not declared in any migration. It lives in Supabase Dashboard state. A fresh DB rebuilt from migrations alone would have no consumer scheduled — embeddings would accumulate as NULL forever until the dashboard schedule is manually added. Staging-rebuild risk. All other cron jobs in the codebase are migration-declared.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P1_batch-processing.md](scope-4-evidence/EVIDENCE_P1_batch-processing.md) — grep across `supabase/migrations/` for `cron.schedule` returned all jobs except the `embed` consumer.
+- **Proposed resolution:** Unintentional-Fix-Code. One migration adding `cron.schedule('process-embeddings', '*/10 * * * * *', ...)` with documented service_role_key access pattern, matching the shape of other migration-declared cron jobs.
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N
+
+### [SCOPE-4.F4] Board of Directors persona cache architecture defect — cross-family persona leak potential
+
+- **Severity:** High
+- **Location:** [supabase/functions/lila-board-of-directors/index.ts](supabase/functions/lila-board-of-directors/index.ts) persona cache-lookup path filters only by `.ilike(name)` + `content_policy_status='approved'` — no `is_public` scope, no `family_id` scope; `board_personas` table (18 live platform rows) has `is_public BOOLEAN` and `family_id UUID` columns per [claude/live_schema.md](claude/live_schema.md) §ThoughtSift but the cache-lookup ignores both; no `persona_promotion_queue` table or admin approval surface exists in schema or code; content-policy screener approves personal-custom personas at insert time under the same approval bar as public personas, making them cache-hit-eligible for every other family querying the same name. CLAUDE.md Convention #99.
+- **Description:** Board of Directors persona cache architecture is wrong at the platform-policy layer, not just the tenancy-filter layer. Founder direction 2026-04-20: platform personas (shared cache) must only contain personas that Tenise / the platform team has specifically approved for reuse; personal-custom personas (e.g., "Grandma Rose") must NEVER enter the shared cache — they stay scoped to the family that created them and are invisible to other families entirely, not just filtered out at lookup time. Current implementation is wrong on all three tiers: cache-lookup doesn't scope by `is_public` or `family_id`; content-policy gate conflates "safe to generate" with "safe to share across families"; no platform-approval queue exists. Current exposure is low (`board_sessions` 0 live rows, feature built but unused in beta), but the defect becomes active cross-family data leak as soon as the feature sees real usage.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P6_caching-and-reuse.md](scope-4-evidence/EVIDENCE_P6_caching-and-reuse.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 6 + Round 2 founder adjudication (2026-04-21 folded `content_policy_check` embedding pre-screen into F4 fix scope).
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-20, extended 2026-04-21):
+  - (a) Cache-lookup rewrite — restrict to `is_public=true AND family_id IS NULL AND content_policy_status='approved'`; personal personas never cache candidates
+  - (b) Personal persona write path — `persona_type='personal_custom'` writes `is_public=false`, `family_id=requestingFamily`, RLS scoped to that family
+  - (c) Platform-approval queue — new table (or existing-table reuse TBD pre-build) `persona_promotion_queue`, admin surface in PRD-32 Admin Console for Tenise to review/improve/approve; approval writes a NEW `board_personas` row with `is_public=true, family_id=NULL` (preserves originating family's personal reference)
+  - (d) Content-policy screen extension — after harm screen passes, classify multi-family-relevance; yes → promotion queue, no → personal-only
+  - (e) Seeded-persona audit + regression test fixture ("Family A personal persona must NOT cache-hit for Family B same-name query")
+  - (f) CLAUDE.md Convention #99 amendment — document the three-tier architecture (personal scoped / promotion queue / approved shared cache)
+  - (g) `content_policy_check` embedding pre-screen (folded 2026-04-21) — wire embedding-first against platform-approved persona corpus; leverages F5 substitution pipeline; similarity match → suggest approved persona instead of generating; below threshold → continue to harm screen + promotion-queue classification
+- **Founder decision required:** N (all adjudicated 2026-04-20 / 2026-04-21)
+- **Beta Readiness flag:** **Y** — founder-approved exception beyond PLAN §7's three literal criteria. Cross-family data leak via pattern implementation defect is now a fourth Y-flag exception category for Scope 4 (recorded in DECISIONS.md Standing rules). Fix must land before Board of Directors sees real usage.
+
+### [SCOPE-4.F5] `board_personas.embedding` is intended product infrastructure for alternative-persona substitution, not orphaned dead weight
+
+- **Severity:** Medium
+- **Location:** Migration `supabase/migrations/00000000100049_*.sql` added `board_personas.embedding halfvec(1536)` column + HNSW index per [claude/live_schema.md](claude/live_schema.md) §ThoughtSift; 18 seeded personas have NULL embeddings; [supabase/functions/embed/index.ts](supabase/functions/embed/index.ts) TABLE_CONFIG does not poll `board_personas`; [supabase/functions/lila-board-of-directors/index.ts](supabase/functions/lila-board-of-directors/index.ts) content-policy blocked-persona code path has no alternative-suggestion branch.
+- **Description:** Founder clarification 2026-04-20: the `board_personas.embedding` column was architected so that when a user requests a persona the platform can't generate (e.g., "Brené Brown" — currently blocked for IP/content-policy reasons), the system uses embedding similarity to suggest approved platform personas who share the requested persona's vibe ("we can't do Brené Brown directly, but here are three platform-approved personas who share her research/empathy approach — pick one"). Real product capability that was architected-in but never wired. User-visible experience when someone requests a blocked persona today is a hard-block with no substitution offer. Ordering dependency on F4 — suggestion query filters on `is_public=true AND family_id IS NULL` which only carries meaning once F4's platform-approval architecture lands.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P6_caching-and-reuse.md](scope-4-evidence/EVIDENCE_P6_caching-and-reuse.md); [scope-4-evidence/EVIDENCE_P1_batch-processing.md](scope-4-evidence/EVIDENCE_P1_batch-processing.md) §Round 1 load-bearing unexpected findings noted column exists but no consumer; [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 6.
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-20):
+  - (a) Add `board_personas` to `embed` Edge Function TABLE_CONFIG so polling consumer populates embeddings
+  - (b) Wire alternative-suggestion consumer in persona-generation Edge Function — embedding-similarity query against platform personas scoped `is_public=true AND family_id IS NULL AND content_policy_status='approved'`
+  - (c) UI surface for suggestions in ThoughtSift Board of Directors persona-add flow when request blocked or user asks "suggest similar"
+  - (d) Backfill embedding generation for 18 seeded personas before suggestion feature goes live
+  - (e) Build F4 first, F5 second (ordering dependency)
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N (no current harm; product feature just unavailable)
+
+### [SCOPE-4.F6] Heart/HeartOff UI toggle gaps across six context-source surfaces — hearts everywhere
+
+- **Severity:** Low
+- **Location:** Six context-source surfaces with `is_included_in_ai` column + server-side filter honored but no UI lever: `journal_entries` (column filtered server-side; no Heart UI on entries); `family_best_intentions` (mutation hook exists, UI missing); `bookshelf_member_settings.book_knowledge_access` (hook exists, picker component never shipped); `faith_preferences` (column exists; `relevance_setting='manual'` acts as proxy, not Heart); `calendar_events` (defensive column, not yet consumed by any Edge Function); `dashboard_widgets` (defensive column, not yet consumed). CLAUDE.md Convention #8 + Icon Semantics section.
+- **Description:** `is_included_in_ai` column exists and server-side filter is honored, but mom has no UI lever to exclude specific items on six surfaces. Default state is `is_included_in_ai=true`, so the gap is "mom can't opt out selectively" not "AI fires without consent" — lower severity than if defaults were inverted. Founder direction 2026-04-20: "The hearts should work anywhere/everywhere." No deferral for calendar/widget surfaces on the grounds that "nothing reads them yet" — if the column exists, the Heart toggle exists. Consistency beats lazy-rollout. Extends the flagship three-tier Heart/HeartOff pattern uniformly across every context-source surface.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P8_user-controlled-scope.md](scope-4-evidence/EVIDENCE_P8_user-controlled-scope.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 8.
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-20, all six sites included):
+  - (a) Journal entries — Heart/HeartOff toggle per entry card (cross-ref SCOPE-2.F18 journal UI polish; coordinate fixes if same build sprint)
+  - (b) Family Best Intentions — wire existing mutation hook to Heart/HeartOff icon on each family-intention card
+  - (c) Book knowledge access — ship picker component consuming existing `bookshelf_member_settings.book_knowledge_access` enum
+  - (d) Faith preferences — Heart/HeartOff alongside existing `relevance_setting` dropdown (two controls mean different things; both stay)
+  - (e) Calendar events — Heart/HeartOff per event card (defensive wiring today; ready when LiLa calendar-context loading ships)
+  - (f) Dashboard widgets — Heart/HeartOff in widget configuration surface
+  - (g) Pattern convention anchor — CLAUDE.md Convention #8 + Icon Semantics already mandate this; finding enforces existing convention
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N (no forced-AI behavior; defaults are user-positive)
+
+### [SCOPE-4.F7] Board of Directors moderator interjection fires auto-default — revoke to opt-in-only
+
+- **Severity:** Low
+- **Location:** [supabase/functions/lila-board-of-directors/index.ts](supabase/functions/lila-board-of-directors/index.ts) end-of-round hook fires moderator persona automatically without user opt-in; per-session Sonnet cost ~$0.01–0.02; PRD-34 §Board of Directors moderator persona specification.
+- **Description:** Per PRD-34 specification the auto-interjection was intentional behavior, but founder direction 2026-04-20 revokes that default — the interjection should be opt-in via a "Get moderator summary" button that mom taps when she actually wants a round-summary. Default behavior: no auto-fire; moderator silent unless invoked. The current implementation is the opposite shape of P5 (on-demand secondary output) — auto-generated secondary output the user didn't request. Aligns with architectural principle "AI shouldn't talk when the user didn't ask."
+- **Evidence:** [scope-4-evidence/EVIDENCE_P5_on-demand-secondary-output.md](scope-4-evidence/EVIDENCE_P5_on-demand-secondary-output.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 5 — founder quote "I don't think I want the moderator interjection unless it is super beneficial."
+- **Proposed resolution:** Unintentional-Fix-Code (founder-directed behavior change; PRD-34 needs corresponding amendment). Fix scope (approved 2026-04-20):
+  - (a) Remove auto-interjection trigger from Board of Directors Edge Function
+  - (b) Add "Get moderator summary" button to Board of Directors conversation UI, visible after advisor round completes
+  - (c) PRD-34 amendment — update moderator-behavior section to match opt-in-only default
+  - (d) Cost-impact note — prior behavior ~$0.01–0.02/session; new behavior $0 unless invoked
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N (no harm; pure cost + UX quality improvement)
+
+### [SCOPE-4.F8] ThoughtSift Decision Guide + Board of Directors bypass shared 3-layer context assembler
+
+- **Severity:** Low
+- **Location:** [supabase/functions/lila-decision-guide/index.ts](supabase/functions/lila-decision-guide/index.ts) uses parallel `loadDecisionContext` helper bypassing `_shared/context-assembler.ts`; [supabase/functions/lila-board-of-directors/index.ts](supabase/functions/lila-board-of-directors/index.ts) uses inline `.from().select()` bulk-loads against context-source tables bypassing `_shared/context-assembler.ts`; [supabase/functions/_shared/context-assembler.ts](supabase/functions/_shared/context-assembler.ts) L96–166 matches `claude/ai_patterns.md` spec exactly and is used correctly by the other 14 lila-* Edge Functions. CLAUDE.md Convention #105.
+- **Description:** Both Decision Guide and Board of Directors bypass the shared 3-layer context assembler. Both miss: Layer 1 roster (current-user tagging), name-detection + topic-matching relevance filtering, P9 per-turn refresh via sliding 4-message window, `is_privacy_filtered` hard-constraint guard. Applied correctly at 14 of 16 LiLa Edge Functions. Both bypass sites have zero lifetime production calls per `ai_usage_tracking` — latent architectural defect, not a live cost leak. Bypass sites also break P9 per-turn refresh by definition (no `assembleContext()` → no sliding 4-message window) — P9 resolution at both sites is a side effect of F8's fix.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P4_semantic-context-compression.md](scope-4-evidence/EVIDENCE_P4_semantic-context-compression.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 4.
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-20):
+  - (a) Decision Guide retrofit — replace `loadDecisionContext` helper with existing `_shared/relationship-context.ts` `loadRelationshipContext` helper (better-fit shape for values/advisor tools than full `assembleContext`)
+  - (b) Board of Directors retrofit — replace inline `.from().select()` bulk-loads with `assembleContext()` call; use `alwaysIncludeCategories` per-tool override for advisor-panel needs; coordinate with F4 fix (same Edge Function, same build sprint)
+  - (c) CLAUDE.md Convention #105 amendment — extend to explicitly forbid bespoke context-load helpers in lila-* Edge Functions (per-tool overrides via `assembleContext()` only)
+  - (d) `lila_conversations.token_usage` observability wiring — populate the currently-all-NULL JSONB column during F8 retrofit so future P4/P9 audits have first-class telemetry
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N (zero lifetime production calls on either Edge Function; fix must land before either feature graduates from zero-use state)
+
+### [SCOPE-4.F9] `lila-message-respond` omits `recentMessages` parameter in `assembleContext` call — sliding window shrinks to 1 message
+
+- **Severity:** Low
+- **Location:** [supabase/functions/lila-message-respond/index.ts](supabase/functions/lila-message-respond/index.ts) invokes `assembleContext()` per turn (outer P9 invariant intact) but omits the `recentMessages` parameter entirely; `alwaysIncludeMembers: participantIds` override papers over the defect for thread participants but non-participant mentions from prior turns don't load. 13 of 14 other consumers wire the parameter correctly.
+- **Description:** Subtle partial miss — the outer P9 invariant is intact (per-turn invocation) but a single consumer accidentally shrinks the detection window from 5 messages (current + last 4) to 1 message (current only). Concrete failure mode: mom in a thread with her teen mentions her mother ("Grandma Linda") on turn 3; on turn 4, turn-4's user message no longer references Grandma Linda directly; without the sliding window, Grandma Linda's archive context doesn't carry forward; LiLa feels like she forgot. Single-line wiring defect; `alwaysIncludeMembers` mitigates most common case (thread participants), leaving the hole at cross-turn non-participant mentions.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P9_per-turn-semantic-refresh.md](scope-4-evidence/EVIDENCE_P9_per-turn-semantic-refresh.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 9.
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-20):
+  - (a) Single-line retrofit — add `recentMessages: recentMessages.slice(-4)` (or equivalent matching shape of 13 correct consumers) to `assembleContext()` call in `lila-message-respond`
+  - (b) Regression test fixture — "In multi-turn thread, non-participant member mentioned on turn N must still have context loaded on turn N+1 even if turn N+1's message doesn't directly name them"
+  - (c) CLAUDE.md Convention #105 amendment (coordinated with F8 (c)) — extend to explicitly require `recentMessages` sliding-window parameter in every `assembleContext()` call
+- **Founder decision required:** N (adjudicated 2026-04-20)
+- **Beta Readiness flag:** N (partial miss not total; bypass-by-omission not bypass-by-design; `alwaysIncludeMembers` mitigates common case)
+
+### [SCOPE-4.F10] Notepad Review & Route + Smart List Import + Post-Meeting Review classifiers are Haiku-first with no embedding pre-screen
+
+- **Severity:** Low
+- **Location:** Three active classifier sites Haiku-first with no embedding-first pre-screen: (1) Notepad Review & Route via `useExtractContent` → [supabase/functions/ai-parse/index.ts](supabase/functions/ai-parse/index.ts) classifier path; (2) Smart List Import via [supabase/functions/smart-list-import/index.ts](supabase/functions/smart-list-import/index.ts); (3) Post-Meeting Review action-item routing. Each classifies user-authored text into one of a small set of category enums. Archives BulkAddSort is a fourth would-be P2 site blocked by F1's missing `archive_context_items.embedding` column — F1 fix unlocks it as a side effect.
+- **Description:** Each classifier site calls Haiku unconditionally with no similarity lookup against prior classifications or pattern library. P2 pattern per `ai_patterns.md` L194 applies but not wired. No classifier site in the codebase currently applies P2 correctly — F1 (MindSweep) adjudicated 2026-04-20; F10 covers the remaining three active sites. Combined cost impact ~$0.05–0.15/family/month at regular post-beta adoption; well under the $5/family/month Beta Y threshold.
+- **Evidence:** [scope-4-evidence/EVIDENCE_P2_embedding-based-classification.md](scope-4-evidence/EVIDENCE_P2_embedding-based-classification.md); [scope-4-evidence/DECISIONS.md](scope-4-evidence/DECISIONS.md) Round 2 (closed on re-dispatch 2026-04-21 after original worker hit usage cap).
+- **Proposed resolution:** Unintentional-Fix-Code. Fix scope (approved 2026-04-21 per founder "all of these fixed" directive):
+  - (a) Notepad Review & Route — wire embedding-first classifier against `notepad_routing_stats` (captures per-member routing frequency; natural reference corpus) or seed pattern library; Haiku fallback when similarity below threshold
+  - (b) Smart List Import — highest-leverage single retrofit per worker analysis; wire embedding similarity against `list_items` already in target list type; Haiku fallback for novel item categories
+  - (c) Post-Meeting Review — wire against prior meeting action-item routing outcomes as reference corpus; smallest usage volume today but consistency with other classifier sites warrants it
+  - (d) Shared `embedding-first-classifier` helper in `_shared/` — forward-looking guardrail so the fifth and sixth classifier sites don't repeat the pattern
+  - (e) Reference corpus cold-start documentation — fresh family with no prior classifications falls through to Haiku 100% until corpus populates; acceptable per P2 spec
+  - (f) Per-classifier-site `feature_key` telemetry instrumentation on `ai_usage_tracking` writes so future P2 audits measure actual embedding/Haiku rate per site (coordinated with F1 fix scope (c))
+- **Founder decision required:** N (all adjudicated 2026-04-21)
+- **Beta Readiness flag:** N
+
+
 
 ## 6 — Scope 6: LiLa content discrepancy (reporting-only)
 
@@ -1178,8 +1331,9 @@ Preventative hygiene actions taken during the audit that are NOT discrepancies. 
 | SCOPE-8a.F3 (OPEN) | 8a | PRD-20 Safe Harbor + PRD-30/PRD-41 Safety Monitoring entirely unbuilt | **Blocking.** Largest Scope 8a Beta blocker by build scope. Child LiLa conversations not monitored for crisis/harm today. Ethics auto-reject lives only in prompt text, not code. `lila-mediator` is reference pattern for generalization. Fix Now: PRD-20 + PRD-30 build + PRD-41 author+build. |
 | SCOPE-8a.F5 (OPEN) | 8a | Board of Directors content policy fail-open defects | **Medium.** Gate works end-to-end when Haiku is reachable. Fail-open on classifier error; `create_persona` action lacks server-side re-invocation. Fix Now for fail-closed flip + server-side gate; Tech Debt for hardcoded prayer fallback. |
 | SCOPE-8a.F6 (OPEN) | 8a | DailyCelebration auto-persists AI narrative with no HITM | **Blocking.** Child-facing + persistent + no review. `DailyCelebration.tsx:180–196` writes AI-generated celebration narrative to `victory_celebrations` on Done click with no Edit/Regenerate/Reject. CLAUDE.md #4 violation. Fix Now: add HITM step using shared component. |
+| SCOPE-4.F4 (OPEN) | 4 | Board of Directors persona cache architecture defect — cross-family persona leak potential | **Fix-before-feature-use.** Founder-approved Y-flag exception beyond PLAN §7's three literal criteria — cross-family data leak via pattern implementation defect is a fourth Y-flag exception category for Scope 4 (per DECISIONS.md Standing rules). Cache-lookup ignores `is_public` + `family_id` scope; personal-custom personas become cache-hit-eligible for other families querying same name. Current exposure low (`board_sessions` 0 live rows, feature unused in beta); fix must land before Board of Directors sees real usage. Fix scope: 3-tier architecture rebuild (personal-scoped writes + platform-approval queue + approved-only cache) plus `content_policy_check` embedding pre-screen (folded 2026-04-21). Coordinate with F5 (alternative-persona substitution; F4 blocks F5) and F8 (Board of Directors context-assembler retrofit; same Edge Function, same build sprint). |
 
-**Open Beta Readiness blockers (5):** SCOPE-8a.F1, F2, F3, F5, F6. Non-Beta Scope 8a findings (not in this index): F4 (Translator crisis-detection consistency — Medium, code-fix Next Build), F7 (MindSweep autopilot audit-trail labeling — Medium, Fix Next Build), F8 (HITM component under-reuse — Medium, Tech Debt). SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
+**Open Beta Readiness blockers (6):** SCOPE-8a.F1, F2, F3, F5, F6, SCOPE-4.F4. Non-Beta Scope 8a findings (not in this index): F4 (Translator crisis-detection consistency — Medium, code-fix Next Build), F7 (MindSweep autopilot audit-trail labeling — Medium, Fix Next Build), F8 (HITM component under-reuse — Medium, Tech Debt). Non-Beta Scope 4 findings (not in this index): F1 (MindSweep embedding-first 100% Haiku — High, Fix Next Build; cost impact below threshold, functional classification intact via fallback), F2 (pgmq dormant — Low, Doc amendment), F3 (embed cron undeclared — Low, Fix Next Build), F5 (Board personas embedding unwired — Medium, Fix after F4), F6 (Heart/HeartOff UI gaps on 6 surfaces — Low, Fix Next Build), F7 (Moderator auto-interjection opt-in flip — Low, Fix Next Build), F8 (Decision Guide + Board context-assembler bypass — Low, Fix Next Build with F4), F9 (lila-message-respond recentMessages omission — Low, Fix Next Build), F10 (3 classifier sites Haiku-first — Low, Fix Next Build with shared embedding-first helper). SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
 
 ---
 
