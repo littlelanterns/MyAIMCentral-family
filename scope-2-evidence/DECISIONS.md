@@ -364,7 +364,91 @@ No Batch 4 hygiene notes. No new Scope 4 / Scope 3+8b emissions from this batch 
 
 ## Round 5 — Dashboards/Calendar evidence pass (Batch 5, PRDs 10, 14, 14B, 14C, 14D, 14E, 25, 26)
 
-*(entry filled during walk-through)*
+- **Date:** 2026-04-20
+- **Worker pass:** [EVIDENCE_BATCH_5_dashboards-calendar.md](EVIDENCE_BATCH_5_dashboards-calendar.md)
+- **Aggregate:** 46 rows across 8 PRDs (PRD-10: 7, PRD-14: 5, PRD-14B: 11, PRD-14C: 4, PRD-14D: 6, PRD-14E: 2, PRD-25: 7, PRD-26: 4). 10 ambiguity flags. 5 unexpected findings. 9 worker-proposed candidates + 1 Foundation F8 cross-ref (not re-emitted).
+
+### Per-candidate-finding verdict table
+
+| Candidate | Contributing rows | Proposed verdict | Proposed severity | Emits into | Founder decision | Beta Readiness |
+|---|---|---|---|---|---|---|
+| PRD10-TRACKER-CATALOG-EXPANSION | PRD-10 R1 | Unintentional-Fix-PRD | Low | SCOPE-2.F30 | Confirmed — internal PRD-10 contradiction (Overview L18 "19" vs enum L624-629 lists 17) + 4 post-PRD extras (`randomizer_spinner`, `privilege_status`, `log_learning`, `best_intention`) lack PRD coverage. Remediation per F27 pattern: codify 17 canonical + 4 extras with use-case notes in one PRD-10 doc pass. Founder confirmed all 4 extras legitimate: randomizer_spinner = widget version of randomizer list type; privilege_status = permission/access tracking; log_learning = homeschool time logging (Build K); best_intention = Best Intentions counter/tracker | N |
+| PRD10-WIDGET-TEMPLATES-VS-STARTER-CONFIGS | PRD-10 R2 | Intentional-Document | Low | SCOPE-2.F31 | Confirmed — architectural split (`widget_templates` 0 rows vs `widget_starter_configs` 39 rows) already documented as SCOPE-5.F2 closed finding. PRD-10 §Data Schema L596-611 text update to cite `widget_starter_configs` as shipped truth. Doc-only pass | N |
+| PRD14-COL-SPAN-UNBUILT | PRD-14 R1 | Unintentional-Fix-Code | Low | SCOPE-2.F32 | Confirmed — zero code adoption despite PRD-14 Decision #14 + Cross-PRD addendum L28-33 reinforcement. Founder direction 2026-04-20: "needs to be fixed eventually" — baked as "will-be-built" flag rather than indefinite polish. Not currently stub-registered; remediation notes include "consider adding to STUB_REGISTRY so future contributors see it as a tracked unbuilt feature." No code path consumes `col_span`; sections render full-width as fallback | N |
+| PRD14B-SCHEMA-REFACTOR-DOCS | PRD-14B R1, R2, R3 | Intentional-Document | Low | SCOPE-2.F33 | Confirmed — 3 schema drifts documented by CLAUDE.md Conventions #110 (category_id UUID FK, not text), #114 (auto_approve_members UUID[], not JSONB), #115 (week_start_day INTEGER column added). Code is truth; PRD-14B §Data Schema text update. SUPERSEDES citations present in worker pass | N |
+| PRD14B-AI-INTAKE-UNBUILT | PRD-14B R6, R7, R8 | Deferred-Document | Medium | SCOPE-2.F34 | Confirmed Medium with founder product-timing note 2026-04-20: "this needs to be working" — near-term build priority similar to F22 homeschool reporting. `calendar-parse-event` Edge Function absent from `supabase/functions/` (45 Edge Functions verified); Image-to-Event Screen 6 vision-model flow unbuilt; "Help Me Plan This" LiLa Guided Intake + `calendar_event_create` guided mode not seeded. 3 MVP checklist items missing (PRD-14B L881-884). PATTERN-FLAG-FOR-SCOPE-4 preserved (AI cost analysis when built) | N |
+| PRD14C-POLISH-DEFERRED | PRD-14C R2, R3, R4 | Deferred-Document | Low | SCOPE-2.F35 | Confirmed — 4 Family Overview polish items stub-registered Post-MVP (column drag-to-reorder, section drag-to-reorder, per-column override via long-press, calendar week/month toggle). Core FamilyOverview.tsx surface ships; interaction polish deferred per STUB_REGISTRY:315-318 | N |
+| PRD25-LILA-TOOLS-UNBUILT | PRD-25 R2 | Deferred-Document | Medium (orchestrator severity escalation from worker's Low) | SCOPE-2.F36 | Escalated to Medium per founder direction 2026-04-20: "my son has requested and asked how to use these" — active user demand elevates seeded-but-unwired `guided_homework_help` + `guided_communication_coach` from academic concern to real UX gap. Migration 00000000000013 seeds both modes into `lila_guided_modes` (43 rows total) with complete system_prompt_key + opening_messages. Zero invoking UI — grep surfaces only type declaration. STUB_REGISTRY:333-334 marks both ⏳ Unwired (MVP). Registry is ready; consuming Guided shell LiLa modal surface missing | N |
+| PRD25-GRADUATION-UNBUILT | PRD-25 R4, PRD-26 R4 | Deferred-Document | Low | SCOPE-2.F37 | Confirmed — Post-MVP per STUB_REGISTRY:337 ("Data flag only"). Both graduation flows (Guided→Independent from PRD-25 Screen 7, Play→Guided from PRD-26 Screen 4) share the same shape: celebration overlay + interactive tutorial + welcome card + `graduation_tutorial_completed` preference. Only the preference key ships; UX flows absent. Consolidated across both PRDs into one finding | N |
+| PRD26-REVEAL-ARCHITECTURE-SUPERSESSION | PRD-26 R1, R2 | Intentional-Document | Low | SCOPE-2.F38 | Confirmed — Build M Convention #215 (Build M completed-build record 2026-04-11) superseded PRD-26's 5-style per-tile model (`spinner`/`mystery_doors`/`card_flip`/`scratch_off`/`gift_box` stored in `dashboard_configs.preferences.reveal_tiles[]`) with 2-style per-segment model (`show_upfront`/`mystery_tap` on `task_segments.randomizer_reveal_style`). PRD-26 §Screen 2 + Data Schema L329-398 text update. PRD-26 `reveal_tiles` JSONB preferences architecture never shipped — `play_reveal_tiles` ships as a PlannedExpansionCard stub | N |
+
+### Load-bearing unexpected findings
+
+1. PRD-26 reveal-style vocabulary entirely rewritten during Build M without back-propagation to PRD-26 text — 5 styles → 2 styles, per-tile → per-segment. Documented as intentional via Convention #215 and Build M completed-build record. Consolidated into SCOPE-2.F38.
+2. PRD-25 two LiLa Tool Modals are seeded-but-unwired — `guided_homework_help` + `guided_communication_coach` seeded in migration 00000000000013, zero invoking UI. Elevated to Medium severity per founder's active-user-demand signal. Consolidated into SCOPE-2.F36.
+3. PRD-14B `calendar-parse-event` Edge Function absent from all 45 Edge Functions in `supabase/functions/`. Image OCR + LiLa Guided Intake + Send-to-Calendar AI parsing all blocked. Consolidated into SCOPE-2.F34 with near-term build priority per founder direction.
+4. PRD-14 `col_span` responsive-section feature has zero code adoption despite PRD Decision #14 + Cross-PRD addendum reinforcement. Not currently stub-registered. Consolidated into SCOPE-2.F32 with will-be-built flag and STUB_REGISTRY add recommendation.
+5. PRD-26 `tasks.source='randomizer_reveal'` expectation vs Build J `randomizer_draws` table actuality — cross-PRD seam between PRD-26 and PRD-09A/09B Build J architecture. Flagged as PATTERN-FLAG-FOR-SCOPE-3 rather than emitted as a Scope 2 finding.
+
+### Cross-references
+
+- CROSS-REF: SCOPE-2.F8 (Foundation PRD-04 HubTV stub) cited by PRD-14E R1, R2 — entire PRD-14E maps 1:1 to Foundation finding, not re-emitted per §7 Rule 7
+- CROSS-REF: SCOPE-5.F2 (widget_starter_configs live_schema drift) cited by SCOPE-2.F31
+- CROSS-REF: SCOPE-5.F4 (widget picker misleading UI — color_reveal, gameboard) cited by PRD-10 R5 evidence, not re-emitted
+- CROSS-REF: SCOPE-2.F27 (PRD-09B list type catalog expansion codify pattern) anchors F30 remediation shape
+- CROSS-REF: SCOPE-2.F22 (PRD-19 reports pipeline near-term build) anchors F34 product-timing pattern
+- CROSS-REF: CLAUDE.md Convention #215 + Build M completed-build record (2026-04-11) anchor F38 supersession evidence bar per PLAN §4.3.2
+- CROSS-REF: CLAUDE.md Conventions #110, #114, #115 anchor F33 schema-refactor supersession
+- PATTERN-FLAG-FOR-SCOPE-3: PRD-26 `tasks.source='randomizer_reveal'` expectation vs Build J `randomizer_draws` table — cross-PRD seam between PRD-26 and PRD-09A/09B
+- PATTERN-FLAG-FOR-SCOPE-3: PRD-14 `col_span` feature may recur across PRD-25 and PRD-26 section rendering — flagged for cross-PRD integration evaluation
+- PATTERN-FLAG-FOR-SCOPE-4: PRD-14B AI intake cost analysis applicable when `calendar-parse-event` Edge Function eventually built (vision-model per-call cost)
+
+### Founder adjudication
+
+- **F30 PRD-10 tracker catalog expansion:** Internal PRD-10 contradiction — Overview L18 claims "19 tracker types" while enum L624-629 lists 17. Code ships the 17-value enum plus 4 extras that arrived post-PRD. Founder confirmed 2026-04-20 all 4 extras are legitimate and should be codified per F27 pattern: `randomizer_spinner` (widget version of randomizer list type), `privilege_status` (permission/access tracking for kids), `log_learning` (homeschool time logging per Build K), `best_intention` (Best Intentions counter/tracker). Remediation: one PRD-10 doc pass to reconcile Overview count and add 4 extras with brief use-case notes. No code changes.
+
+- **F31 PRD-10 widget_templates vs widget_starter_configs:** Architectural split already closed as SCOPE-5.F2. `widget_templates` (0 rows, PRD-10 spec) was superseded by `widget_starter_configs` (39 rows, architectural reality). Code is truth. Remediation: PRD-10 §Data Schema L596-611 text update to describe the shipped architecture. Doc-only.
+
+- **F32 PRD-14 col_span unbuilt:** Zero code adoption despite PRD-14 Decision #14 + Cross-PRD addendum L28-33 reinforcement. Founder direction 2026-04-20: "needs to be fixed eventually" — baked into remediation as "will-be-built" flag rather than indefinite polish. Sections currently render full-width as fallback; no functional regression today, but responsive grid utility is lost. Recommendation in open flags: add to STUB_REGISTRY so future contributors see it as a tracked unbuilt feature rather than forgotten spec text.
+
+- **F33 PRD-14B schema refactor docs:** 3 schema drifts — category→category_id UUID FK (Convention #110), auto_approve_members JSONB→UUID[] (Convention #114), week_start_day INTEGER column added (Convention #115). All deliberately superseded via Conventions. Evidence bar per §4.3.2 met. PRD-14B §Data Schema text update. Doc-only.
+
+- **F34 PRD-14B AI intake unbuilt:** 3 MVP checklist items (PRD-14B L881-884) missing from code — `calendar-parse-event` Edge Function not in any of the 45 Edge Functions in `supabase/functions/`, Image-to-Event Screen 6 vision-model flow absent from EventCreationModal, "Help Me Plan This" LiLa Guided Intake + `calendar_event_create` guided mode not seeded in `lila_guided_modes`. Founder direction 2026-04-20: "this needs to be working" — near-term build priority similar to F22 homeschool reporting. Not urgent blocker, but next-build-queue priority. PATTERN-FLAG-FOR-SCOPE-4 preserved: when the vision-model pipeline is eventually built, Scope 4 cost analysis applicable.
+
+- **F35 PRD-14C polish deferred:** 4 Family Overview UX polish items stub-registered Post-MVP per STUB_REGISTRY:315-318 (column drag-to-reorder, section drag-to-reorder, per-column override via long-press gesture, calendar week/month toggle on Family Overview). Core [FamilyOverview.tsx](../src/components/family-overview/FamilyOverview.tsx) surface ships; interaction polish deferred. Low severity — no functional regression.
+
+- **F36 PRD-25 LiLa tools unbuilt:** Severity escalated from Low to Medium per founder direction 2026-04-20: "my son has requested and asked how to use these." Active user demand elevates the finding from academic seeded-but-unwired concern to real UX gap — a kid is asking about features that don't launch. Migration 00000000000013 seeds both `guided_homework_help` (Socratic homework assistance, Haiku-class) and `guided_communication_coach` (kid-adapted Higgins, Haiku-class) into `lila_guided_modes` with complete opening_messages + system_prompt_key. Zero invoking UI — grep for the mode keys in `src/` surfaces only type declarations. Guided shell LiLa modal surface is the missing piece; the AI infrastructure is ready. Remediation: wire permission-gated LiLa modals for Guided members on Homework Help + Communication Coach per PRD-25 §AI Integration L520-539.
+
+- **F37 PRD-25/26 graduation unbuilt:** Both graduation flows share the same shape (celebration overlay + interactive tutorial + welcome card + `graduation_tutorial_completed` preference). PRD-25 Screen 7 (Guided→Independent, 5-step tutorial) and PRD-26 Screen 4 (Play→Guided, 4-step tutorial) both only ship the preference flag. STUB_REGISTRY:337 marks "Graduation celebration + tutorial" as 📌 Post-MVP. Consolidated across both PRDs into one finding. Low severity — member experience on shell transition is functional (data carries over) without the celebration/tutorial polish.
+
+- **F38 PRD-26 reveal architecture supersession:** Build M (2026-04-11 completed-build record) + CLAUDE.md Convention #215 superseded PRD-26's 5-style per-tile model with 2-style per-segment model. PRD-26 Screen 2 (Reveal Task Tile Flow L168-221) + Data Schema L329-398 describe the 5 reveal styles (`spinner`, `mystery_doors`, `card_flip`, `scratch_off`, `gift_box`) stored in `dashboard_configs.preferences.reveal_tiles[]` — none of that shipped. Build M ships `show_upfront`/`mystery_tap` on `task_segments.randomizer_reveal_style` per-segment. `play_reveal_tiles` feature key ships as a PlannedExpansionCard stub. Evidence bar per §4.3.2 met (Convention #215 + completed-build record are explicit architectural decisions). PRD-26 text update. Doc-only.
+
+### Emission list
+
+Findings to emit (9 total):
+- SCOPE-2.F30 — PRD-10 tracker catalog expansion (Low, Unintentional-Fix-PRD, Beta N; codify 17 canonical + 4 extras per F27 pattern)
+- SCOPE-2.F31 — PRD-10 widget_templates vs widget_starter_configs (Low, Intentional-Document, Beta N; CROSS-REF SCOPE-5.F2)
+- SCOPE-2.F32 — PRD-14 col_span unbuilt (Low, Unintentional-Fix-Code, Beta N; founder "will-be-built eventually" flag; STUB_REGISTRY add recommended)
+- SCOPE-2.F33 — PRD-14B schema refactor docs (Low, Intentional-Document, Beta N; SUPERSEDES Conventions #110, #114, #115)
+- SCOPE-2.F34 — PRD-14B AI intake unbuilt (Medium, Deferred-Document, Beta N; founder "this needs to be working" — near-term build priority; PATTERN-FLAG-FOR-SCOPE-4)
+- SCOPE-2.F35 — PRD-14C polish deferred (Low, Deferred-Document, Beta N)
+- SCOPE-2.F36 — PRD-25 Guided LiLa tools unbuilt (Medium per user demand elevation, Deferred-Document, Beta N; founder "my son has requested and asked how to use these")
+- SCOPE-2.F37 — PRD-25/26 graduation unbuilt (Low, Deferred-Document, Beta N; Post-MVP per STUB_REGISTRY:337)
+- SCOPE-2.F38 — PRD-26 reveal architecture supersession (Low, Intentional-Document, Beta N; SUPERSEDES Convention #215 + Build M completed-build record)
+
+No Batch 5 hygiene notes. No new Scope 4 / Scope 3+8b emissions from this batch (cross-scope carry-forwards logged in open flags below).
+
+### Open flags (tech-debt + cross-scope register)
+
+1. **F34 user-demand elevation — near-term build priority.** Founder direction 2026-04-20 "this needs to be working" marks PRD-14B AI intake (Edge Function + Image OCR + Help-Me-Plan-This guided mode) as next-build-queue priority similar to F22 homeschool reporting. Product-timing signal for post-audit remediation queue prioritization.
+2. **F36 user-demand elevation — active kid demand.** Founder direction 2026-04-20 "my son has requested and asked how to use these" marks PRD-25 Guided LiLa tools (Homework Help + Communication Coach modals) as near-term build priority. Distinct from F34 shape — F36 is seeded-but-unwired UI adoption rather than unbuilt infrastructure. Low code lift, high user value.
+3. **F32 STUB_REGISTRY add recommendation.** PRD-14 `col_span` responsive-section feature has zero code adoption and no STUB_REGISTRY entry tracking it. Consider adding to STUB_REGISTRY so future contributors see it as a tracked unbuilt feature rather than forgotten spec text. Low priority registry hygiene.
+4. **PRD-26 randomizer_reveal source value vs Build J randomizer_draws seam** — PATTERN-FLAG-FOR-SCOPE-3. PRD-26 §Data Schema L399 adds `'randomizer_reveal'` to `tasks.source`; Build J ships separate `randomizer_draws` table (Convention #163) with no source-flagged task. Cross-PRD seam between PRD-26 and PRD-09A/09B Build J architecture. Scope 3+8b evidence pass for PRD-26 cross-PRD addendum should examine as an integration pattern.
+5. **F32 col_span may recur across PRD-25/PRD-26 section rendering** — PATTERN-FLAG-FOR-SCOPE-3. If Guided and Play dashboards reference the same `col_span` model, multi-PRD integration pattern surfaces during Scope 3+8b traversal.
+6. **PRD-14B vision-model cost analysis** — PATTERN-FLAG-FOR-SCOPE-4. When `calendar-parse-event` Edge Function is eventually built (per F34 near-term queue), Scope 4 cost analysis applicable — OpenRouter vision-model per-call cost vs. Haiku text-only extraction cost for the same intake pipeline.
+7. **PRD-14E entirely rolls to Foundation SCOPE-2.F8.** All 7 PRD-14E MVP checklist items absent from code; `/hub/tv` route renders PlannedExpansionCard. Foundation F8 captures the full stub state. No separate Batch 5 emission. When PRD-14E build kicks off, scope inherits from PRD-33 PWA PRD timeline.
+
+
 
 ## Round 6 — Communication evidence pass (Batch 6, PRDs 15, 16)
 
