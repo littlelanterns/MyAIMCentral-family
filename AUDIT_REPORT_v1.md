@@ -1110,11 +1110,667 @@ Captured here for completeness; each is a one-line amendment scheduled for Phase
 
 ## 3 — Scope 3: Cross-PRD integration
 
-*Not yet started. Stage C (merged with Scope 8b).*
+**Status:** COMPLETE — 42 findings emitted (F1–F42) from Scope 3+8b integration traversal closed 2026-04-21. 3 Beta Y (F14, F22, F41); 39 Beta N.
+
+**Pattern summary:** Source/enum discipline drift (F1), PRD-35 vocabulary drift + consumer gaps (F2–F4), model-tier registry drift → multi-provider helper (F5), addendum supersession + self-reporting (F6, F7), Lego primitive library (F8), `is_included_in_ai` column-drop (F9), Settings nav entry gaps (F10), stale stub comments + void event dispatch (F11, F12), WIRING convention violation (F13), first-allowance-period gap (F14), three CLAUDE.md convention proposals (F15–F17), per-PRD integration bundles (F18–F42). PRD-19 fixable items take the F39 slot; PRD-19 core infrastructure unbuilt moves to the Deferred-to-Gate-4 Appendix (below).
+
+**Sequencing dependencies to preserve:**
+- SCOPE-3.F2 PRD-35 type consolidation must land before SCOPE-8b.F11 PRD-27 shift bifurcation fix.
+- SCOPE-3.F9 PRD-14 column-drop must coordinate with SCOPE-8b.F4's wire-the-consumer work on PRD-14D `family_best_intentions.is_included_in_ai` (same convention area, opposite fates).
+- SCOPE-3.F6 Build M supersession scope overlaps with PRD-24-family bundles F28/F29/F30 (cross-reference, do not consolidate — founder Flag 2 verdict kept the distinction).
+
+### [SCOPE-3.F1] Source/enum discipline drift pattern (7+ columns freeform TEXT with missing CHECKs)
+
+- **Severity:** Medium
+- **Location:** Pattern spans 7+ surfaces across PRDs 08, 15, 16 (×2), 17B (×2), 18, 21, 23: `studio_queue.source` freeform TEXT with 4 promised enum values never constrained (EVIDENCE_prd17b seam #3); `family_requests.source` enum widened by PRD-28 without amending PRD-15 (EVIDENCE_prd15 seam #9); `notifications.notification_type='system'` + `category='tasks'` used where PRD-16 specifies `'meeting_completed'` + `'meetings'` (EVIDENCE_prd16 seam #1); `meeting_agenda_items.source` missing `'request'` value per PRD flow (EVIDENCE_prd16 Unexpected #3); `calendar_events.source_type` addendum-promised `'mindsweep'` CHECK absent (EVIDENCE_prd17b seam #10); `studio_queue.source='rhythm_request'` addendum-promised, never wired (EVIDENCE_prd18 seam #14); `communication_drafts.sent_via` freeform TEXT; PRD-21 L284 enumerated 3 values (EVIDENCE_prd21 seam #2); `tasks.source`, `guiding_stars.source`, `best_intentions.source` freeform TEXT (EVIDENCE_prd23 cross-pattern); `useNotepad.ts:535` writes `source: 'manual'` instead of `'hatch_routed'` (EVIDENCE_prd08 F-B); Notepad→Message `studio_queue.destination='message'` orphan (EVIDENCE_prd08 F-A).
+- **Description:** Source and enum discipline is soft across the platform — columns are freeform TEXT where addenda/PRDs spec enumerated values, writers drift over time, and no CHECK constraint catches the drift at write time. Not a runtime failure (that's SCOPE-8b.F7 PRD-14B `.ics` CHECK violation — categorically different, separate finding per Pushback B verdict); this is documentation drift where the spec calls out enum values the implementation silently accepts as freeform strings. Remediation is case-by-case per contributing surface: columns that SHOULD have CHECK constraints per addendum intent → add CHECK + migrate enum values (Unintentional-Fix-Code per surface); columns where the pattern is "addendum spec drifted from reality" → update spec (Intentional-Update-Doc per surface). The founder's "case-by-case" resolution tag means apply-phase does not prescribe a single decision for all 7+ surfaces; each is triaged individually at fix-build time.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd08-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd08-cross-prd-impact.md) F-A + F-B; [scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md) seam #9; [scope-3-8b-evidence/EVIDENCE_prd16-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd16-cross-prd-impact.md) seam #1 + Unexpected #3; [scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md) seams #3, #10; [scope-3-8b-evidence/EVIDENCE_prd18-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd18-cross-prd-impact.md) seam #14; [scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md) seam #2; [scope-3-8b-evidence/EVIDENCE_prd23-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd23-cross-prd-impact.md) cross-pattern.
+- **Proposed resolution:** Fix Next Build (case-by-case per surface)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F2] PRD-35 schedule vocabulary drift (4 incompatible vocabularies + 2 RecurrenceDetails TS types)
+
+- **Severity:** Medium
+- **Location:** [src/components/scheduling/types.ts](src/components/scheduling/types.ts) defines one `RecurrenceDetails` type; [src/lib/scheduling/scheduleUtils.ts](src/lib/scheduling/scheduleUtils.ts) defines an incompatible second one; `parseRecurrenceDetails` silently returns `null` when given the UniversalScheduler shape; `access_schedules.schedule_type` CHECK = `'shift'|'custody'|'always_on'` (live) vs PRD-35 spec `'recurring'|'custody'|'always_on'`; `access_schedules` column named `recurrence_details` (live) vs PRD-35 spec `recurrence_data`; `SchedulerOutput.schedule_type` TypeScript union `'fixed'|'completion_dependent'|'custody'` vs DB-bridge `buildTaskScheduleFields` hardcoded `'recurring'`; `calendar_events`/`meeting_schedules.recurrence_rule` CHECK missing `'completion_dependent'`, `'custody'` values that `tasks.recurrence_rule` CHECK has.
+- **Description:** PRD-35 Universal Scheduler introduces THREE incompatible `schedule_type` vocabularies + a second incompatible `RecurrenceDetails` TypeScript contract. All drifts concentrate in PRD-35 but compound PRD-27's shift-session bifurcation. Remediation sequencing is critical: (1) first amend PRD-35 spec to match shipped code (lower-risk; migrations and schema have landed); (2) then consolidate the two `RecurrenceDetails` TypeScript contracts into one canonical type. PRD-35 spec amendment ships first; then the two `RecurrenceDetails` TypeScript contracts consolidate into one canonical type. SCOPE-8b.F11 PRD-27 shift bifurcation remediation depends on this type consolidation landing first — the `parseRecurrenceDetails` silently-returning-null is the root cause of that bifurcation.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md) F-A (seam #4 + Unexpected #1, #3, #4).
+- **Proposed resolution:** Fix Next Build (spec amendment → type consolidation, sequenced)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F3] PRD-35 scheduler output broken semantics (completion-dependent + alternating-weeks + buildTaskScheduleFields)
+
+- **Severity:** Medium
+- **Location:** [src/lib/scheduling/buildTaskScheduleFields.ts](src/lib/scheduling/buildTaskScheduleFields.ts); `SchedulerOutput.schedule_type='completion_dependent'` path doesn't round-trip through the DB bridge; alternating-weeks output shape mismatches the RRULE emitter; hardcoded `'recurring'` string in the DB write path.
+- **Description:** `SchedulerOutput` TypeScript shape claims three `schedule_type` discriminants (`'fixed'`, `'completion_dependent'`, `'custody'`) but `buildTaskScheduleFields` hardcodes `'recurring'` on every DB write, discarding the completion-dependent and custody semantics on the way to persistence. Alternating-weeks output also mismatches the RRULE emitter (emits a `BYSETPOS` shape the consumer doesn't parse). Separate from F2 because F2 is vocabulary alignment (names) while this is semantic round-trip (behavior) — fix in the same build sprint but conceptually distinct.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md) F-B.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F4] PRD-35 convention surface unwired (calendar preview 2/3 consumers, weekStartDay, allowedFrequencies, _legacy_recurrence, CHECK gaps, scheduler tier gating)
+
+- **Severity:** Low
+- **Location:** Universal Scheduler calendar-preview rendered by 2 of 3 consumers (one consumer uses its own inline picker); `weekStartDay` prop honored in grid but not in preview; `allowedFrequencies` prop plumbed through but not enforced at the UI level; `_legacy_recurrence` shape still accepted by DB bridge as compatibility fallback; scheduler tier gating (`scheduler_custom`, `scheduler_advanced`, `scheduler_lila_extract`) registered in `feature_key_registry` but not actually checked at the UI level.
+- **Description:** Scheduler convention surface has several downstream polish items — calendar preview consumer consistency, weekStartDay preview alignment, allowedFrequencies enforcement, legacy-shape cleanup, and scheduler tier gating. Each small, each fixable next-build; collectively they're the "scheduler polish" that lets F2 + F3 land cleanly.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md) F-C.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F5] Model-tier registry-vs-runtime drift — expanded to multi-provider `invokeAI()` helper architecture
+
+- **Severity:** Medium
+- **Location:** Three live drift sites: [supabase/functions/lila-decision-guide/index.ts](supabase/functions/lila-decision-guide/index.ts) L17 `const MODEL = 'anthropic/claude-sonnet-4'` despite migration `00000000100087:5-8` downgrading `decision_guide` to `model_tier='haiku'`; [supabase/functions/lila-gratitude/index.ts](supabase/functions/lila-gratitude/index.ts) same pattern (registry Haiku, runtime Sonnet — live cost hit); family_context_interview mode seeded Sonnet in migration but PRD-19 L710 specifies Haiku (latent landmine).
+- **Description:** `lila_guided_modes.model_tier` is treated as documentation by Edge Functions that hardcode MODEL strings. Runtime value and DB-registered tier drift in both directions. Founder-specified architectural requirement goes beyond "read model_tier string from DB at runtime": (1) consolidated location for model assignments; (2) multi-provider capability (Anthropic, OpenAI, Google, OpenRouter-routed, future providers); (3) easy response to pricing/capability changes as the AI landscape shifts. Proposed architecture: expand `lila_guided_modes` with columns `provider TEXT`, `model_id TEXT`, `fallback_provider TEXT NULL`, `fallback_model_id TEXT NULL`, `max_tokens INTEGER NULL`, `temperature NUMERIC NULL`. Build shared helper `invokeAI(mode_name, messages, options?)` in `_shared/ai-invoke.ts` that reads the mode's registry row, dispatches to the correct provider SDK (or parameterizes the OpenRouter call with `model_id`), returns a normalized response shape, handles fallback logic on provider outage, and logs the actually-used provider+model for cost audit visibility. All Edge Functions migrate from hardcoded MODEL strings to `invokeAI(mode_name, messages)`. Model/provider changes become DB migrations, not code changes. Severity upgraded from Low to Medium because two Edge Functions are already drifting live (gratitude + decision_guide running Sonnet despite registry saying Haiku = live cost hit today) plus one latent landmine. Cross-reference to Scope 4 cost-pattern findings is read-only citation (Scope 4 closed + applied + archived 2026-04-20, Amendment 5 prohibits scope-moves) — see SCOPE-4.F1, SCOPE-4.F4 for related cost infrastructure context.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd19-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd19-cross-prd-impact.md) seam #8; [scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md) seam #9; [scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md) seam #15.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F6] PRD-24 family Cross-PRD Impact Addenda pre-Build-M, never back-amended
+
+- **Severity:** Medium
+- **Location:** `prds/addenda/PRD-24-Cross-PRD-Impact-Addendum.md`, `prds/addenda/PRD-24A-Cross-PRD-Impact-Addendum.md`, `prds/addenda/PRD-24A-Game-Modes-Addendum.md`, `prds/addenda/PRD-24B-Cross-PRD-Impact-Addendum.md`, `prds/addenda/PRD-24B-Content-Pipeline-Tool-Decisions.md`; Build M signed off 2026-04-13 per `.claude/completed-builds/2026-04/build-m-*.md`.
+- **Description:** PRD-24 family Cross-PRD Impact Addenda were written against a pre-pivot design. Build M (2026-04-13) replaced the overlay-engine architecture with a Sticker Book substrate. The PRD-24 family addenda were never back-amended. 9 of 9 promised PRD-24A tables don't exist; 6 of 8 promised PRD-24 tables don't exist; PRD-24B's flat 8-ID reveal library pivoted to 33 themed variants. Remediation: amend each affected addendum with `> **Superseded by Build M 2026-04-13 — see .claude/completed-builds/2026-04/build-m-*.md**` tag or equivalent. Cross-reference SCOPE-3.F28 (PRD-24 bundle), SCOPE-3.F29 (PRD-24A bundle), SCOPE-3.F30 (PRD-24B bundle) — founder Flag 2 verdict kept the distinction between supersession (this finding) and per-PRD integration bundle scope (F28/F29/F30).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md) F-α; [scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md) F-A; [scope-3-8b-evidence/EVIDENCE_prd24b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24b-cross-prd-impact.md) F-α.
+- **Proposed resolution:** Intentional-Update-Doc
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F7] Addendum self-reporting drift — 3 addenda assert completion facts code contradicts
+
+- **Severity:** Low
+- **Location:** `prds/addenda/PRD-21C-*.md` L196 claims "PRD-21C completed" + "6 new tables" — ZERO tables exist in live schema; PRD-24 addendum describes pre-pivot architecture that Build M superseded (cross-ref F6); `prds/addenda/PRD-29-Cross-PRD-Impact-Addendum.md` L94–98 marks `tasks.source='project_planner'` + `tasks.related_plan_id` stub sockets as "WIRED" despite no writer code existing (cross-ref F13).
+- **Description:** Three addenda assert completion facts that live schema or code contradicts. PRD-21C's "6 new tables" claim is not grounded in any migration. PRD-24's pre-pivot description is stale post-Build-M. PRD-29's stub-socket-as-WIRED violates WIRING_STATUS.md L3 convention. These are documentation-hygiene issues distinct from SCOPE-3.F6 (which is specific to the PRD-24 family architectural pivot); this finding is the broader pattern of addenda asserting completion facts that don't match live code. Remediation: amend the 3 addenda to correct their completion-status claims. Apply-phase Appendix E records the forward-looking process-hygiene observation that triggered this finding.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd21c-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21c-cross-prd-impact.md) F-A; [scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md) F-α (cross-ref F6); [scope-3-8b-evidence/EVIDENCE_prd29-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd29-cross-prd-impact.md) F-D.
+- **Proposed resolution:** Intentional-Update-Doc
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F8] Reusable animation/visual primitive library intentionally unassigned to production consumers (Lego/surge-protector architecture)
+
+- **Severity:** Low
+- **Location:** 9+ components in `src/components/gamification/` + related visual primitives: PRD-24 `TreasureBoxIdle`; PRD-24A `BackgroundCelebration`, `ReadabilityGradient`; PRD-24B `CardFlipReveal`, `ThreeDoorsReveal`, `SpinnerWheelReveal`, `ScratchOffReveal`, `PointsPopup`, `StreakFire`, `LevelUpBurst`, `StarChartAnimation`. Internal preview surface: [src/pages/dev/GamificationShowcase.tsx](src/pages/dev/GamificationShowcase.tsx) at `/dev/gamification`.
+- **Description:** Reusable animation/visual primitive library (9+ components) intentionally unassigned to production consumers per Lego/surge-protector architecture (MYAIM_GAMEPLAN v2.2, Phase 1 CLAUDE.md convention addition). Components ship as a primitive library for attachment to Lists, Tasks, Routines, Rewards, Consequences, and other configurable surfaces. Each list/task/routine can be configured with connectors like reward reveals, scratch card reveals, treasure box, sticker charts, tallies that open a reveal every N iterations, etc. — a deliberately configurable library of connection-ready primitives. `GamificationShowcase.tsx` (`/dev/gamification`) serves as the internal preview surface. Production wiring happens incrementally as each consuming feature is built. This is Intentional-Document per founder verdict — NOT "dead code" or "stubbed components." Future consumer wire-up is prerequisite-gated per SCOPE-3.F15 (Lego Connector Documentation convention proposal): before a consumer wires a Lego component, the component's header comment / STUB_REGISTRY entry must be updated to declare its expected consumers and the connection shape. Carve-outs (NOT part of this finding): PRD-36 `TimerConfigPanel` (509 lines orphaned from SettingsPage) and PRD-36 `LogLearningModal` "Use Timer" button (no onClick) are SCOPE-3.F10 territory — they were described in addenda as wired and aren't, different shape, different remediation.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md) F-β sub-element; [scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md) seams cross-ref; [scope-3-8b-evidence/EVIDENCE_prd24b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24b-cross-prd-impact.md) F-β.
+- **Proposed resolution:** Intentional-Document
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F9] PRD-14 `dashboard_widgets.is_included_in_ai` widget toggle is no-op — drop column + UI toggle
+
+- **Severity:** Low
+- **Location:** `dashboard_widgets.is_included_in_ai` column per live schema §Dashboards; Settings UI widget-level context-inclusion toggle renders `is_included_in_ai` state but no LiLa Edge Function reads the column during context assembly; PRD-14 spec prescribes the toggle.
+- **Description:** Widget-level `is_included_in_ai` is redundant double-control. Widgets *display* data from source tables (guiding_stars, victories, family_best_intentions, etc.); those source tables have (or should have) their own `is_included_in_ai` controls at the data layer. The widget-level toggle has zero runtime effect — no consumer reads it — and a mom who expects the toggle to work has been silently ignored. Remediation per founder verdict: DROP the column AND the Settings UI toggle. Migration drops `dashboard_widgets.is_included_in_ai`; PRD-14 spec amended to remove the toggle; Settings UI toggle removed. Coordination note: this "drop the column" work must coordinate with Pattern 1D's "wire the consumer" work on PRD-14D `family_best_intentions.is_included_in_ai` (folded into SCOPE-8b.F4) — same convention area (heart-icon / context-inclusion), opposite fates, needs clear distinction in the respective PRD amendments.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd14-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd14-cross-prd-impact.md) F-B.
+- **Proposed resolution:** Intentional-Update-PRD
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F10] Pattern 2H — Settings page missing nav entry points (4 PRD-22 cross-PRD entries + PRD-36 TimerConfigPanel + PRD-36 LogLearningModal Use Timer button)
+
+- **Severity:** Low
+- **Location:** [src/pages/SettingsPage.tsx](src/pages/SettingsPage.tsx) links only Permission Hub among the PRD-22-prescribed cross-PRD Settings sections; missing entries for Calendar Settings, Messaging Settings, Notification Preferences, Faith Preferences; [src/components/timer/TimerConfigPanel.tsx](src/components/timer/TimerConfigPanel.tsx) (509 lines) has no nav entry point; [src/components/homeschool/LogLearningModal.tsx](src/components/homeschool/LogLearningModal.tsx) "Use Timer" button has no `onClick` handler.
+- **Description:** SettingsPage is the intended hub for cross-PRD configuration surfaces. Multiple addenda prescribe Settings sections SettingsPage doesn't link to; orphaned Settings panels exist as demo-only components. PRD-22 specifies 5 nav entries; only 1 (Permission Hub) is wired. PRD-36's TimerConfigPanel is built but orphaned — mom cannot reach it. PRD-36's LogLearningModal "Use Timer" button renders but tapping does nothing. Remediation: ~5 nav entry additions + 1 button handler. Cross-referenced from SCOPE-3.F8 (Lego library finding — these two PRD-36 surfaces were carved OUT of F8 per Decision 9 because they're "described in addenda as wired and aren't," which is Pattern 2H shape, not Lego-primitive shape).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md) F-D; [scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md) F-A sub-element.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F11] PRD-24 useUncompleteTask stub comment stale post-Build-M
+
+- **Severity:** Low
+- **Location:** [src/hooks/useTasks.ts](src/hooks/useTasks.ts) `useUncompleteTask` L434–438 stub comment "wires when PRD-24 is built"; Build M shipped 2026-04-13 per `.claude/completed-builds/2026-04/build-m-*.md`; CLAUDE.md Convention #206 explicitly acknowledges the task-unmark cascade gap as a known limitation.
+- **Description:** Stub comment references "when PRD-24 is built" — Build M (PRD-24 + PRD-26) shipped 2026-04-13. Comment is stale. Beyond comment cleanup, the underlying behavior (task unmark does NOT reverse gamification points / streak / creature awards / page unlocks) is an explicit known limitation per Convention #206; this finding is scoped to comment hygiene only. Remediation: update the stub comment to reference the Convention #206 limitation and the deferred undo-pipeline build.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md) F-β sub-element.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F12] PRD-36 time_session_completed + time_session_modified events have zero listeners (wire to Build M gamification hooks)
+
+- **Severity:** Low
+- **Location:** [src/hooks/useTimer.ts](src/hooks/useTimer.ts) L218, L295, L328 dispatch `time_session_completed` + `time_session_modified` CustomEvents; grep across `src/` and `supabase/functions/` returns ZERO listener bindings (`addEventListener('time_session_completed'`) or equivalent.
+- **Description:** Timer events are dispatched to void. PRD-36 addendum intent: loose coupling so downstream gamification hooks, activity log, and analytics can independently listen. Actual state: no listeners exist anywhere. Remediation goes beyond "add listeners" — wire specifically to the Build M gamification pipeline hooks that listen for completion events (so time-based tasks trigger creature rolls on completion). Build M ships creature-roll triggers on `task_completions` writes; extending to `time_session_completed` means a completed pomodoro / duration timer feeds the same pipeline.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F13] PRD-29 addendum marks stub sockets as WIRED despite no writer code existing (WIRING_STATUS convention violation)
+
+- **Severity:** Low
+- **Location:** `prds/addenda/PRD-29-Cross-PRD-Impact-Addendum.md` L94–98 marks `tasks.source='project_planner'` and `tasks.related_plan_id` as "WIRED"; grep across `src/` for writers of `source='project_planner'` returns ZERO matches; `tasks.related_plan_id` column exists but no writer populates it; [WIRING_STATUS.md](WIRING_STATUS.md) L3 convention: "If it doesn't work in the app, it is not wired."
+- **Description:** Stub sockets labeled "WIRED" in the addendum despite no writer code existing. Violates WIRING_STATUS.md L3 convention. Watch for 3rd occurrence before escalating to pattern (hold as PRD-29 standalone Low per Decision 13). Remediation: amend the PRD-29 addendum to use accurate socket terminology (e.g., "stub socket present, writer deferred to PRD-29 build"). Related forward-looking convention proposal captured as SCOPE-3.F17 (prospective Habit #9). Also triggered Appendix E process-hygiene observation #3 (addendum stub-socket language discipline).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd29-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd29-cross-prd-impact.md) F-D.
+- **Proposed resolution:** Intentional-Update-Doc
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F14] PRD-28 first allowance_periods row never created (allowance non-operational at first-use)
+
+- **Severity:** High
+- **Location:** [src/hooks/useAllowance.ts](src/hooks/useAllowance.ts) assumes an existing current-period `allowance_periods` row for any member with `allowance_configs.enabled=true`; migration `00000000100134_allowance_accrual.sql` defines the `calculate-allowance-period` Edge Function but does NOT bootstrap the first period; no trigger creates the first period when `allowance_configs` is enabled for a new member.
+- **Description:** Enabling allowance for a family member creates the config row but never creates the first `allowance_periods` row. The Edge Function that rolls new periods at period-boundary time assumes a prior period exists — without one, the function finds no current period to close, the next period is never opened, and the allowance system is functionally non-operational at first-use. Every dashboard widget and child-facing surface that reads the current period shows empty / broken state. Remediation: on `allowance_configs.enabled=true` INSERT or UPDATE, trigger creates the first `allowance_periods` row with period_start = [next period start per config] and populates the tasks-assigned counter by matching existing `tasks` rows. Beta-Y because "allowance works" is a core promise of the platform for families using the feature.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd28-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd28-cross-prd-impact.md) seam #8.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-3.F15] CLAUDE.md convention proposal: Lego Primitive Connector Documentation
+
+- **Severity:** Low
+- **Location:** Proposed new CLAUDE.md convention; triggered by SCOPE-3.F8 reframe (Decision 9 / Round 12). Without the documentation convention, future builders may mistake Lego primitives for dead code.
+- **Description:** Proposed convention text (drafted by founder during Round 19, to be numbered in a dedicated CLAUDE.md convention session): every component/table/feature that serves as a Lego primitive in the surge-protector architecture must declare its expected consumers via (1) a component header comment block with "Lego Primitive / Expected consumers / Connection shape / Wired consumers" fields; (2) a STUB_REGISTRY.md entry under a new "Lego Primitives Awaiting Consumers" category; (3) on wire-up, adds to Wired consumers list, removes from Expected consumers list, cross-references the wire-up in CLAUDE.md build log. Prevents future builders from mistaking Lego primitives for dead code and provides discoverability when building consumer features. Emit for audit-trail continuity per founder's "C (both)" preference; hand off to dedicated CLAUDE.md convention session for numbering / text drafting.
+- **Evidence:** [scope-3-8b-evidence/DECISIONS.md](scope-3-8b-evidence/DECISIONS.md) Round 19 Post-Audit Recommendation #1.
+- **Proposed resolution:** Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F16] CLAUDE.md convention proposal: AI Model Selection is Registry-Driven (`invokeAI()` helper)
+
+- **Severity:** Low
+- **Location:** Proposed new CLAUDE.md convention; triggered by SCOPE-3.F5 expansion (Decision 7 / Round 10). Companion to the multi-provider `invokeAI()` helper architecture.
+- **Description:** Proposed convention text: AI model selection is registry-driven, never hardcoded in Edge Functions. All LiLa guided modes, tool invocations, and ad-hoc AI calls select their model/provider by reading `lila_guided_modes` (or equivalent registry) at runtime via the shared `invokeAI(mode_name, messages, options?)` helper in `_shared/ai-invoke.ts`. Model or provider changes are DB migrations, not code changes. Supports multi-provider capability, per-mode fallback on provider outage, cost/capability response as the AI landscape shifts, and centralized visibility for cost audit (actually-used provider+model logged per invocation). Edge Functions that hardcode MODEL strings fail CI pre-deploy check (new CI rule to be added). Cross-reference: Scope 4 (cost-pattern audit, closed 2026-04-20) should formally adopt the `invokeAI()` pattern as enforceable convention; read-only citation per Amendment 5. Emit for audit-trail continuity per founder's "C (both)" preference; hand off to dedicated CLAUDE.md convention session for numbering / text drafting.
+- **Evidence:** [scope-3-8b-evidence/DECISIONS.md](scope-3-8b-evidence/DECISIONS.md) Round 19 Post-Audit Recommendation #2.
+- **Proposed resolution:** Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F17] CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9, prospective only)
+
+- **Severity:** Low
+- **Location:** Proposed new CLAUDE.md addendum-writing habit #9; forward-looking convention only. Retrospective footnote about the PRD-22 `history_retention` correction lives inside SCOPE-8b.F4's Description per Amendment 1; F17 emits only the forward-looking convention proposal.
+- **Description:** Proposed addendum-writing habit #9 (prospective only): "When a DB column exists and a PRD section specs it, the audit default is 'consumer missing,' not 'feature never built.' Verify against PRD text before classifying." This is the forward-looking convention proposal. Retrospective footnote about the PRD-22 `history_retention` correction lives inside SCOPE-8b.F4's Description per Amendment 1; F17 emits only the forward-looking convention proposal. Emit for audit-trail continuity per founder's "C (both)" preference; hand off to dedicated CLAUDE.md convention session for numbering / text drafting.
+- **Evidence:** [scope-3-8b-evidence/DECISIONS.md](scope-3-8b-evidence/DECISIONS.md) Round 19 Post-Audit Recommendation #3; retrospective footnote lives inside SCOPE-8b.F4.
+- **Proposed resolution:** Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F18] PRD-08 Notepad→studio_queue orphan destinations + source tracking lost on direct destination writes
+
+- **Severity:** Low
+- **Location:** `studio_queue.destination='message'` has no downstream consumer (PRD-15 messaging tab architecturally rejected Queue Modal entries per Convention #146); `studio_queue.destination='track'` orphan (PRD-10 widget data routing not built); `studio_queue.destination='optimizer'` orphan (PRD-05C LiLa Optimizer integration not built); [src/hooks/useNotepad.ts](src/hooks/useNotepad.ts) L535 writes `source: 'manual'` instead of the promised `'hatch_routed'` on direct destination writes, losing Notepad→Task/Journal/Victory traceability.
+- **Description:** Consolidated PRD-08 bundle (Notepad routing destinations + source field discipline). Three orphan destinations (no downstream consumer wires them through) + one source-label drift (falls back to generic `'manual'` instead of `'hatch_routed'` when routing directly to a destination table). Remediation: (a) remove the 3 orphan destinations from RoutingStrip or add their consumers; (b) fix `useNotepad.ts:535` to write `source: 'hatch_routed'`. Cross-reference SCOPE-3.F1 (pattern-level source/enum drift).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd08-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd08-cross-prd-impact.md) F-A + F-B.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F19] PRD-23 BookShelf 5 outbound handoffs partially built + cross-PRD addendum schema drift
+
+- **Severity:** Medium
+- **Location:** PRD-23 addendum-promised outbound handoffs: (1) Send to Guiding Stars; (2) Send to Tasks; (3) Send to Journal Prompts; (4) Send to Widgets (stubbed); (5) Send to BigPlans (stubbed pending PRD-29). First 3 partially built with cross-PRD schema drift (`bookshelf_declarations.sent_to_guiding_stars` shape vs `guiding_stars.source_reference_id` shape); `bookshelf_action_steps.sent_to_tasks` vs `tasks.source_reference_id` naming drift.
+- **Description:** Consolidated PRD-23 BookShelf bundle: outbound handoffs from extraction tables to consumer features (guiding stars, tasks, journal prompts, widgets, BigPlans) partially built with schema drift in the linkage columns. 3 of 5 handoffs wired in part; schema column names drift between addendum spec and live columns; stubbed handoffs (widgets, BigPlans) wait on PRD-10 / PRD-29 downstream builds. Remediation: (a) align column names across source and consumer tables per addendum; (b) wire the remaining send-to paths or document deferral explicitly; (c) update addendum to reflect actual wired columns and live schema.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd23-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd23-cross-prd-impact.md) Findings C + D.
+- **Proposed resolution:** Fix Next Build + Intentional-Update-Doc
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F20] PRD-25 Guided cross-feature integrations ship as UI-visible placeholders (consolidated PRD-25 bundle)
+
+- **Severity:** Medium
+- **Location:** Multiple PRD-25 Guided surfaces visible but non-functional: Step 2.5 Reflections tab in Write drawer shows placeholder; Messages tab stub per Convention #125; Write badge unread-count renders without backing data; SendTo Message destination falls back to Notepad; bottom nav missing Victories (per Convention #124, should be present); Guided LiLa modes registered against wrong feature_key gate; gamification-disable flag unimplemented on Guided surfaces.
+- **Description:** Consolidated PRD-25 Guided bundle. Multiple cross-feature integration surfaces visible to child users as placeholder UI (renders, but tapping produces no effect or routes to a surrogate). The cumulative effect for a kid in the Guided shell is inconsistency between "this button exists" and "this button works" — worse than the button not existing. Remediation per surface: wire Reflections to `reflection_responses` per PRD-18 Phase B; Messages tab stays stubbed with a "When PRD-15 teen messaging ships" PlannedExpansionCard; Write badge queries the correct count source; SendTo Message stays routed to Notepad with explicit transitional copy; bottom nav adds Victories; Guided LiLa modes gate on correct feature_keys; gamification-disable flag enforced.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd25-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd25-cross-prd-impact.md) F-A through F-consolidated.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F21] PRD-26 Build-M-superseded surfaces: Reveal Task Tile + Mom Message Card + section-key data-driven layout
+
+- **Severity:** Low
+- **Location:** PRD-26 addendum-prescribed Reveal Task Tile superseded by Build M Sticker Book + Task Segments; PRD-26 Mom Message Card stubbed pending PRD-15 messaging build; section-key data-driven layout architecture replaced by hardcoded JSX in [src/pages/PlayDashboard.tsx](src/pages/PlayDashboard.tsx) per Build M pivot.
+- **Description:** Consolidated PRD-26 Play Dashboard bundle. Build M (PRD-24 + PRD-26, 2026-04-13) pivoted the architectural model from section-key-driven layout to hardcoded JSX, and superseded the Reveal Task Tile concept with Sticker Book creature rolls + segment progress. The addendum describes the superseded architecture. Mom Message Card stays stubbed pending PRD-15. Remediation: (a) amend PRD-26 addendum with Build M supersession tag (cross-ref F6); (b) if section-key data-driven layout is desired for future flexibility, re-architect in a future build (not required for beta); (c) Mom Message Card stays stubbed until PRD-15.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd26-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd26-cross-prd-impact.md) F-A + F-B + F-C.
+- **Proposed resolution:** Intentional-Document (stubs) + Fix Next Build (data-driven layout if pursued)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F22] Play shell "Fun" tab 404 (/rewards route missing)
+
+- **Severity:** Low
+- **Location:** PlayShell bottom nav renders a "Fun" tab linking to `/rewards`; no route definition exists in `App.tsx` router; tapping the Fun tab 404s.
+- **Description:** 1-line fix — kid in Play shell taps "Fun" and gets a broken route. Mild Beta-Y because child-facing broken link on the primary shell is user-visible pain, but the remediation is trivial (either remove the tab or add the route to a placeholder / rewards surface). Adding a placeholder rewards page that references Build M Sticker Book is the likely right answer if the Fun tab stays.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md) F-B.
+- **Proposed resolution:** Fix Now (1 line)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N (mild Y — 1-line fix)
+
+### [SCOPE-3.F23] PRD-14 dashboard polish bundle (col_span + grid sharing + Today's Victories widget)
+
+- **Severity:** Low
+- **Location:** Dashboard section `col_span` field defined in config but not honored by grid renderer; grid sharing across sections unimplemented; Today's Victories widget displays recent-3 instead of today-filtered per PRD-14 spec.
+- **Description:** Consolidated PRD-14 dashboard polish bundle. Three small items: (a) `col_span` in section config isn't read by the renderer; (b) grid sharing across sections isn't implemented (sections are always independent grids); (c) Today's Victories widget shows recent-3 regardless of date instead of today-only filter per spec. Remediation: wire col_span + grid sharing in the DashboardGrid renderer; filter Today's Victories to today-only (`completed_at::date = current_date`).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd14-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd14-cross-prd-impact.md) F-A + F-C.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F24] PRD-14B polish bundle: calendar-parse-event + calendar_event_create + duplicate calendar_color + getMemberColor drift + showTimeDefault violation
+
+- **Severity:** Low
+- **Location:** `calendar-parse-event` Edge Function addendum-promised, does not exist (Notepad → Calendar falls through to `mindsweep-sort`); `calendar_event_create` guided mode seeded in `lila_guided_modes` but never invoked (zero `src/` references); duplicate `calendar_color` column on `family_members` (canonical color resolution via `getMemberColor(m)` per Convention #207; `calendar_color` is redundant override with no UI); `EventCreationModal.tsx` L411 passes `showTimeDefault={false}` violating Convention #109 (time-centric features must pass `true`).
+- **Description:** Consolidated PRD-14B polish bundle. Four small items: (a) AI intake Edge Function unbuilt (already addendum-deferred; cross-ref Scope 2 Batch 5 `PRD14B-AI-INTAKE-UNBUILT`); (b) guided-mode row unused; (c) duplicate color column architecturally redundant; (d) Convention #109 violation, but time fields render outside the scheduler so the convention is satisfied conceptually. Remediation: build the AI intake Edge Function (or explicitly defer); remove the unused guided-mode row or wire its consumer; deprecate `calendar_color` column in favor of `getMemberColor`; change `showTimeDefault` to `true`.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd14b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd14b-cross-prd-impact.md) seams #3, #8, cross-refs.
+- **Proposed resolution:** Fix Next Build (or Deferred for AI intake per Scope 2)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F25] PRD-18 5 cross-feature wirings delivered as schema/type scaffolding (GIN index, rhythm_request enum, reflection_routed, contextual_help, mood_triage)
+
+- **Severity:** Low
+- **Location:** Rhythms cross-feature integrations scaffold-only: GIN index on `rhythm_completions` tags planned but missing; `studio_queue.source='rhythm_request'` addendum-promised, column freeform (cross-ref F1); `reflection_responses.routed_destinations` array column added but no writer populates it; contextual help integration between rhythms and LiLa help patterns unwired; `rhythm_completions.mood_triage` column exists but no consumer reads it beyond the UI display.
+- **Description:** Consolidated PRD-18 Rhythms bundle. Five scaffolding items where schema / type shape exists but downstream wiring is incomplete. Each a small next-build item; collectively they close out the addendum-promised integration surface. Remediation: add GIN index; add `studio_queue.source` CHECK with `'rhythm_request'` (or per F1 case-by-case); wire `routed_destinations` writer in `useRhythmCommit`; wire contextual-help integration; wire `mood_triage` consumer in LiLa context assembly for evening rhythm.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd18-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd18-cross-prd-impact.md) F-consolidated.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F26] PRD-21 4 integration surfaces scaffolding only (Higgins Navigate skill save + AI Toolbox sidebar + Send via Message + name auto-detection)
+
+- **Severity:** Medium
+- **Location:** PRD-21 cross-feature integrations scaffold-only: Higgins Navigate teaching-skill save path persists to `teaching_skill_history` but missing the AI-generated "teaching note" field per addendum; AI Toolbox sidebar surface not registered in sidebar nav despite PRD-21 addendum; Send via Message handoff stubbed pending PRD-15 Messages integration; name auto-detection in `communication_drafts` text does not cross-reference family_members roster.
+- **Description:** Consolidated PRD-21 communication-tools bundle. Four scaffold items. Each requires wiring work (not just spec alignment) — Higgins Navigate skill save needs AI teaching-note generation; AI Toolbox sidebar needs registration; Send via Message needs PRD-15 follow-through; name auto-detection needs roster lookup integration. Remediation per surface varies; bundle as PRD-21 wire-up sweep.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md) F-C.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F27] PRD-22 infrastructure consumer gaps bundle
+
+- **Severity:** Medium
+- **Location:** `member_emails` table + `lila_member_preferences` schema extensions added per PRD-22 addendum; both have zero consumer wiring; Settings surface architected as modal overlay per one addendum section and as /settings route per another (drift); Out of Nest notification infrastructure partially built — notification row writes succeed but delivery channel (email vs in-app) selector unwired.
+- **Description:** Consolidated PRD-22 bundle excluding two carve-outs: GDPR deletion is SCOPE-8b.F8 (separate Beta-Y finding); analytics / history_retention silent-unenforceability is folded into SCOPE-8b.F4 Pattern 1D. This finding captures the remaining PRD-22 surface: schema added, consumers missing; settings architecture drifts between overlay and route framings in the addenda; Out of Nest notification delivery partial. Remediation: wire `member_emails` login resolution consumer (cross-ref SCOPE-8b.F1 surface); wire `lila_member_preferences` consumers; pick one settings architecture (modal overlay per current shipped code) and amend the drifted addendum section; complete Out of Nest notification delivery channel selector.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md) F-C + F-E + F-F.
+- **Proposed resolution:** Fix Next Build (consumers) + Intentional-Document (overlay-vs-route)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F28] PRD-24 integration edges schema/primitive-only
+
+- **Severity:** Low
+- **Location:** PRD-24 cross-feature integration edges: tables referenced by the addendum exist but no active production consumer wires through them; primitive components ship to the Lego library (cross-ref F8) but the PRD-24 integration edges remain unwired post-Build-M pivot.
+- **Description:** PRD-24 integration edges are schema/primitive-only, consistent with the Build M pivot. Cross-reference SCOPE-3.F6 (Build M supersession) for the architectural reason; this finding captures the standalone PRD-24 cross-PRD integration edges that need either wire-up work or explicit addendum updates. Remediation: wire the handful of specific integration edges where Build M substrate is the intended consumer; explicitly Intentional-Document the ones that remain Lego primitives per F8.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24-cross-prd-impact.md) F-α + F-β.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F29] PRD-24A overlay-engine architecture entirely superseded by Build M
+
+- **Severity:** Medium
+- **Location:** PRD-24A overlay-engine architecture described in addendum; 9 of 9 promised PRD-24A tables don't exist; Build M Sticker Book substrate replaced the overlay-engine model (cross-ref F6).
+- **Description:** Entire PRD-24A overlay-engine architecture superseded by Build M. Nine promised tables never shipped; instead, Build M's Sticker Book + Task Segments + Coloring Reveals substrate delivers the equivalent user-facing capability via a different data model. Remediation: Intentional-Document — amend PRD-24A addendum with Build M supersession tag; reference `.claude/completed-builds/2026-04/build-m-*.md` as canonical architecture. No code remediation; the superseded architecture shouldn't be revived.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24a-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Intentional-Document
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F30] PRD-24B superseded architectures: flat Reveal Type Library → reveal_animations style_category + Color-Reveal → Build M tally-counter + animation primitives demo-only
+
+- **Severity:** Medium
+- **Location:** PRD-24B flat 8-ID Reveal Type Library pivoted to 33 themed variants in `reveal_animations.style_category`; PRD-24B Color-Reveal feature pivoted to Build M's tally-counter coloring reveals (cross-ref F6); animation primitives demo-only at `GamificationShowcase` (cross-ref F8).
+- **Description:** Two architectural superspies + one demo-only surface. PRD-24B addendum described a flat 8-ID library; Build M pivoted to 33 themed variants. PRD-24B addendum described an earning-mode-driven Color-Reveal system; Build M pivoted to a 1:1 task-linked tally counter (per Convention #211). Animation primitives ship as Lego (F8). Remediation: Intentional-Document for the two superspies (amend addendum); animation primitives keep their Lego status pending consumer wire-up.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd24b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd24b-cross-prd-impact.md) F-α + F-β + F-γ.
+- **Proposed resolution:** Intentional-Document + Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F31] PRD-28 enum + compliance bundle (PRD-28B handoff + hourly + financial_approval dead enum values + homework approval-path time log gap)
+
+- **Severity:** Low
+- **Location:** PRD-28B compliance handoff unbuilt (PRD-28B itself unbuilt — Deferred per Scope 5 Finding A); `homeschool_configs` enum has `'hourly'` value but no consumer distinguishes hourly from non-hourly time_allocation_mode; `financial_transactions` / `loans` adjacent schema has dead `financial_approval` transaction-type references in adjacent code; homework approval-path does not write `homeschool_time_logs` row when mom approves the task.
+- **Description:** Consolidated PRD-28 bundle excluding first-allowance-period gap (SCOPE-3.F14, Beta-Y). Four small items: (a) PRD-28B handoff is Deferred-Document (PRD-28B unbuilt, cross-ref Scope 5 Finding A); (b) dead enum values to prune; (c) homework approval path missing the time_log write. Remediation per surface.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd28-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd28-cross-prd-impact.md) seams #1, #9, #10, #12, #15.
+- **Proposed resolution:** Fix Next Build (enums, time log) + Deferred-Document (PRD-28B)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F32] PRD-29 BigPlans surface-level drift: guided-mode taxonomy (4 addendum vs 5 seeded) + 5 BigPlans feature keys referenced but absent from feature_key_registry
+
+- **Severity:** Medium
+- **Location:** PRD-29 addendum enumerates 4 BigPlans guided modes; `lila_guided_modes` has 5 seeded (`bigplans_planning`, `bigplans_friction_finder`, `bigplans_checkin`, `bigplans_system_design_trial`, `bigplans_deployed_component`); 5 BigPlans feature keys referenced in code/addendum but absent from `feature_key_registry` table.
+- **Description:** Consolidated PRD-29 surface-level drift (excluding F-A structural entirely-unbuilt per Round 20 Deferred-to-Gate-4 Appendix, and F-D stub-sockets per SCOPE-3.F13). Two small discipline items: (a) reconcile guided-mode taxonomy — either update addendum to match 5 seeded modes or remove the 5th seeded row; (b) register the 5 BigPlans feature keys in `feature_key_registry` so `useCanAccess` checks can resolve them (needed for when PRD-29 is built).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd29-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd29-cross-prd-impact.md) F-B + F-C.
+- **Proposed resolution:** Fix Next Build + Intentional-Update-Doc
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F33] PRD-31 tier enforcement wire-up bundle (useCanAccess/PermissionGate adoption + permission_level_profiles + feature_access_v2 drift + founding override + founding_rate columns)
+
+- **Severity:** Medium
+- **Location:** `useCanAccess` / `<PermissionGate>` adoption across the codebase has gaps (not every tier-gated surface is wrapped); `permission_level_profiles` seeded (164 rows) but never surfaced to Settings UI; `feature_access_v2` schema uses `minimum_tier_id UUID` + `is_enabled BOOLEAN` vs PRD-31 spec `min_tier TEXT` enum — structurally different same-semantics; founding override in `check_feature_access` RPC missing `onboarding_complete` clause per PRD-31 grace-deadline semantics; `founding_rate` / `founding_family_rates` columns on `families` needed for billing but not present per addendum's billing cascade.
+- **Description:** Consolidated PRD-31 tier enforcement bundle. Five wire-up / documentation items that do NOT require the entire monetization engine to ship (server-side tier enforcement across Edge Functions is SCOPE-8b.F13, the Beta-Y tier-gate gap; Stripe webhook + monetization engine entirely unbuilt is SCOPE-3.F34, Deferred). Remediation per surface: adopt `useCanAccess` on remaining gated surfaces; surface `permission_level_profiles` to Settings UI; update PRD-31 spec to match shipped `feature_access_v2` schema (or migrate schema to spec shape — founder preference TBD at fix time); add `onboarding_complete` clause to founding override; add `founding_rate` billing columns if the founding-rate feature ships before PRD-31 monetization lands.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd31-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd31-cross-prd-impact.md) F-A + F-B + F-C + F-E + F-F.
+- **Proposed resolution:** Fix Next Build + Intentional-Update-Doc
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F34] PRD-31 monetization engine entirely unbuilt at server layer (Stripe webhook + tier enforcement cascade)
+
+- **Severity:** Medium
+- **Location:** Stripe webhook handler Edge Function `stripe-webhook-handler` does not exist; no Stripe SDK imports anywhere in the codebase; `tier_sampling_costs`, `tier_sample_sessions`, `ai_credits`, `credit_packs`, `onboarding_milestones`, `subscription_cancellations` tables do not exist in live schema (listed in DOMAIN_ORDER as planned but never migrated).
+- **Description:** PRD-31 monetization engine is entirely unbuilt at the server layer. Subscription status, credit ledger, tier sampling, onboarding milestone tracking, cancellation — all absent. Stays Deferred-Document because PRD-31 itself is tagged "Not Started" in the addendum; Scope 3+8b traversal confirms the status. Cross-reference SCOPE-8b.F13 for the tier-enforcement-cascade Beta-Y gap that ships earlier than the full monetization build (server-side tier check over ungated Edge Functions can ship without Stripe webhook landing).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd31-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd31-cross-prd-impact.md) F-D.
+- **Proposed resolution:** Deferred-Document
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F35] PRD-34 ThoughtSift implementation drift bundle
+
+- **Severity:** Low-Medium
+- **Location:** ThoughtSift residual implementation drift: content policy gate frontend-chained (seam #9 — client expected to chain `content_policy_check` → `create_persona`; server-side doesn't enforce chaining); Board of Directors partial three-tier toggle (seam #14 — only item-level `is_included_in_ai` checked; doesn't call `applyPrivacyFilter`; doesn't use `_shared/relationship-context.ts`); `[SAFETY_TRIGGERED]` marker streamed to client mid-response before stripping (Unexpected #3); shared helper inconsistency — Board of Directors is the only ThoughtSift Edge Function NOT using `_shared/relationship-context.ts` (Unexpected #4); `lila_messages.safety_scanned` not marked on insert (Unexpected #2 — latent until PRD-30 Layer 2 ships).
+- **Description:** Consolidated PRD-34 ThoughtSift residual items (separate from F1 Mediator / F3 persona HITM which are Beta-Y SCOPE-8b). Five minor implementation drift items. Remediation per surface: server-side chain enforcement for content_policy → create_persona; Board of Directors three-tier toggle retrofit using shared helper; strip `[SAFETY_TRIGGERED]` marker before SSE emit (not just at DB persist); consolidate Board of Directors on `_shared/relationship-context.ts`; mark `safety_scanned=false` on insert for PRD-30 future-ready.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md) F-D.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F36] PRD-36 cross-PRD integration bundle (engine wired but cross-PRD integration dispatched to void + timer completion-side integrations partially wired + FloatingBubble z-index below BottomNav)
+
+- **Severity:** Medium
+- **Location:** Timer engine wired per PRD-36; cross-PRD integrations (task / widget / list_item completion path from timer stop) partial; `FloatingBubble` z-index 35 vs `BottomNav` z-index 40 — bubble renders behind bottom nav on mobile.
+- **Description:** Consolidated PRD-36 cross-PRD bundle (excluding TimerConfigPanel which is SCOPE-3.F10, and zero-listener events which is SCOPE-3.F12). Timer engine is solid; the cross-PRD integration edges (writes back to `tasks`, `dashboard_widgets`, `list_items` on completion) are partially wired with some consumers missing. FloatingBubble z-index below BottomNav is a mobile-layout bug (bubble is visually occluded). Remediation: complete the three completion-side integrations; raise `FloatingBubble` z-index above `BottomNav`.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md) F-A + F-B + F-D.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F37] PRD-17B mindsweep-sort 6 seams consolidated (seams 1, 2, 4, 7, 9, 12, 13, 14)
+
+- **Severity:** Medium
+- **Location:** Multiple MindSweep integration seams: `families.sweep_email_address` auto-generation trigger missing (seam #1); `mindsweep_settings` auto-creation alongside Backburner not wired (seam #2); `mindsweep-sort` Edge Function only classifies, does not route (seam #4 — client-driven routing via `useMindSweep.routeSweepResults`); email-intake DNS/email-forwarding unconfigured (seam #7); settings aggressiveness UI alignment gap (seam #9); addendum-promised direct-destination sources discipline drift (seam #12); mindsweep → calendar audit-trail loss via CalendarTab source_type downcast (seam #13); `studio_queue.source='rhythm_request'` addendum-promised but not wired (seam #14).
+- **Description:** Consolidated PRD-17B bundle (excluding auto-sweep no-op which is SCOPE-8b.F6, and the two SCOPE-8b surfaces folded into F1). Eight small-to-medium integration items. Remediation per surface; bundle as PRD-17B wire-up sweep alongside the F6 server-routing fix.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md) consolidated.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F38] PRD-14D dashboard architecture gaps (Hub widget_grid section + PerspectiveSwitcher over-grants)
+
+- **Severity:** Medium
+- **Location:** PRD-14D Family Hub widget_grid section registered in hub config but the section component returns `null` (renders nothing); `PerspectiveSwitcher` component grants Family Overview + Family Hub perspectives to `special_adult` role — per PRD-14C/D those perspectives are mom-only; over-grant in the perspective switcher's role gating.
+- **Description:** Consolidated PRD-14D bundle (excluding PIN + `family_best_intentions.is_included_in_ai` which are folded into SCOPE-8b.F4). Two items: (a) Hub widget_grid section is a registered-but-inert UI surface; (b) PerspectiveSwitcher over-grants. Remediation: wire the Hub widget_grid section OR remove it from the hub config; constrain PerspectiveSwitcher gating to `primary_parent` only (or `primary_parent` + documented additional_adult cases per PRD).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd14d-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd14d-cross-prd-impact.md) F-B + F-C.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F39] PRD-19 fixable integration items (lila-chat doesn't load private/relationship notes + family_context_interview no UI entry + model-tier drift)
+
+- **Severity:** Medium
+- **Location:** [supabase/functions/lila-chat/index.ts](supabase/functions/lila-chat/index.ts) context assembly does not load `private_notes` or `relationship_notes` (PRD-19 tables that are mom-authored); `family_context_interview` guided-mode row exists in `lila_guided_modes` but has no UI entry point from any shell; model-tier seeded Sonnet, PRD-19 L710 specifies Haiku (latent — mode doesn't ship yet, but will hit on first invocation per SCOPE-3.F5 pattern).
+- **Description:** PRD-19 fixable integration items (per Amendment 3 — F39 takes the F39 slot since F39a is Appendix-only and not numbered in the main table; PRD-19 core infrastructure unbuilt is Appendix-only, see Deferred-to-Gate-4 Appendix below). Three surfaces: (a) general lila-chat context assembly doesn't read the two PRD-19 note tables — mom's private thoughts about a kid and mom's relationship notes between two family members can't be surfaced when mom asks LiLa about parenting; (b) the family_context_interview guided mode is seeded but mom has no way to invoke it from any UI; (c) model-tier latent drift (cross-ref SCOPE-3.F5 — multi-provider `invokeAI()` helper remediation resolves this as a side effect). Remediation: wire the two-table loader into lila-chat's topic-matching branch for `love|marriage|spouse|relationship` / parenting topics; add the family_context_interview UI entry to Settings or Archives; fix the model-tier drift in `lila_guided_modes` (or via SCOPE-3.F5 registry-driven architecture when that lands).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd19-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd19-cross-prd-impact.md) F-C + F-D.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F40] PRD-21A minor wire-up + vault_tool_sessions tracking + Optimizer integration server layer
+
+- **Severity:** Low
+- **Location:** PRD-21A miscellaneous items: `vault_tool_sessions` session-tracking table exists (live schema) but `VaultContentCard.tsx` tool-launch path doesn't create session rows on launch; LiLa Optimizer integration server-layer unbuilt (PRD-05C `optimizer_outputs` table doesn't exist in live schema, `optimizer` guided mode registered); Vault-side Optimizer handoff scaffold-only.
+- **Description:** Consolidated PRD-21A bundle (excluding MemberAssignmentModal broken write which is SCOPE-3.F41 Beta-Y, and Vault teen-filter which is folded into SCOPE-8b.F1 as the 13th contributing surface per Flag 1 verdict). Two small items + one Deferred (Optimizer server layer unbuilt per PRD-05C). Remediation: wire `vault_tool_sessions` session writes on tool launch; PRD-05C Optimizer stays Deferred-Document.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd21a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21a-cross-prd-impact.md) F-B + F-D + F-E.
+- **Proposed resolution:** Fix Next Build + Deferred-Document
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### [SCOPE-3.F41] PRD-21A MemberAssignmentModal writes `is_granted`/`granted_by` to dropped columns (broken write)
+
+- **Severity:** High
+- **Location:** [src/components/vault/MemberAssignmentModal.tsx](src/components/vault/MemberAssignmentModal.tsx) INSERT path writes `is_granted` and `granted_by` columns to `lila_tool_permissions`; live `lila_tool_permissions` schema (per [claude/live_schema.md](claude/live_schema.md) §LiLa AI System) has neither column — both were dropped in a prior migration; INSERT likely succeeds against unknown columns silently or fails with a DB error depending on supabase-js's strictness.
+- **Description:** The "Add to AI Toolbox" flow from Vault assignments writes permissions to columns that don't exist. Net effect: either the INSERT silently loses the `is_granted` / `granted_by` field values (behavior depends on supabase-js version and RLS policies) or the INSERT throws and the UI shows a save failure. Either way, assigning a Vault tool to a family member via this modal doesn't produce a functional permission row. Beta-Y High because the feature is user-facing and core to PRD-21A's value prop ("Add to AI Toolbox"). Remediation: correct the INSERT to write only columns that exist in live `lila_tool_permissions` schema (`is_enabled`, `source`, `vault_item_id`, etc. per live schema).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd21a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21a-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Fix Now
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-3.F42] PRD-21C entire PRD deferred (cross-ref Round 0 Deferred list)
+
+- **Severity:** Low
+- **Location:** `prds/addenda/PRD-21C-*.md` L196 claims "PRD-21C completed" + "6 new tables" (cross-ref F7 addendum self-reporting drift); ZERO promised tables exist in live schema; PRD-21C entirely deferred to post-MVP per the addendum's own tail context despite the L196 claim.
+- **Description:** PRD-21C (AI Vault Engagement & Community — hearts, comments, moderation) is entirely deferred post-MVP. The addendum's own L196 completion claim is wrong and drives SCOPE-3.F7 (addendum self-reporting drift); this finding captures the structural deferral. Remediation: Deferred-Document — defer PRD-21C to post-MVP; amend L196 completion claim to reflect deferred status (work covered by F7 Intentional-Update-Doc).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd21c-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21c-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Deferred-Document
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** N
+
+### Deferred-to-Gate-4 Appendix
+
+Integration surfaces that cannot be evaluated because one side of the seam is unbuilt. Not finding-table entries — remediation scope is already captured by the cited closed finding. Amended 2026-04-21 per DECISIONS.md Round 20 + Amendment 3.
+
+| Deferred Surface | Blocking unbuilt PRD | Cross-Ref |
+|---|---|---|
+| PRD-20 Safe Harbor integrations | PRD-20 unbuilt | SCOPE-8a.F3 |
+| PRD-30 Safety Monitoring integrations | PRD-30 unbuilt | SCOPE-8a.F3 |
+| PRD-32/32A Admin Console integrations | PRD-32 unbuilt | SCOPE-8a.F1 remediation scope |
+| PRD-37/PRD-28B Compliance & Progress Reporting seam | PRD-28B unbuilt | Scope 5 Finding A |
+| PRD-40 COPPA consent gating integrations | PRD-40 unbuilt | SCOPE-8a.F1 |
+| PRD-41 Runtime ethics enforcement integrations | PRD-41 unauthored | SCOPE-8a.F3 |
+| PRD-27 Caregiver Tools integrations (added Round 20 Decision 14) | PRD-27 mostly unbuilt (3 tables, no UI surface) | PRD-27 F-A shift bifurcation remains standalone as SCOPE-8b.F11 (live data gap, not unbuilt-PRD gap); EVIDENCE_prd27 F-B structural consolidation collapses to this Deferred entry |
+| PRD-29 BigPlans integrations (added Round 20 Decision 14) | PRD-29 entirely unbuilt | EVIDENCE_prd29 F-A collapsed; cross-ref SCOPE-3.F32 + F13 (stub-socket WIRED) |
+| PRD-19 Family Context & Relationships core infrastructure (added Amendment 3) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry) | EVIDENCE_prd19 F-B; PRD-19 fixable integration items are SCOPE-3.F39 in main §3 finding table |
 
 ## 8b — Scope 8b: Integration compliance & safety
 
-*Not yet started. Stage C (merged with Scope 3).*
+**Status:** COMPLETE — 13 findings emitted (F1–F13) from Scope 3+8b integration traversal closed 2026-04-21.
+
+**Pattern summary:** Edge Function authorization layer (F1), HITM gate bypasses on non-conversation AI writes (F2, F3), documented user-control mechanisms silently unenforceable (F4), Crisis Override omissions (F5), auto-sweep no-op (F6), `.ics` runtime CHECK violation (F7), GDPR right-to-erasure unenforced (F8), meeting privacy + permission gaps (F9, F10), shift-session bifurcation (F11), messaging safety client-side only (F12), server-side tier enforcement absent (F13). 13 of 13 are Beta Y blockers.
+
+**Ships-together blocks identified during adjudication:**
+- F1 + F5 ship in same commit cycle (same `_shared/` directory, same class of fix, both safety substrate).
+- F11 sequenced after SCOPE-3.F2 PRD-35 RecurrenceDetails type consolidation (root-cause dependency).
+- F1 Mediator Full Picture ships first as proof-of-pattern, remaining 11+1 surfaces follow in tight sequence as one cohesive build.
+
+### [SCOPE-8b.F1] Edge Functions authenticate but do not authorize (13 surfaces including cross-family Mediator Full Picture data leakage)
+
+- **Severity:** Blocking
+- **Location:** [supabase/functions/lila-mediator/index.ts](supabase/functions/lila-mediator/index.ts) Full Picture mode (lede — EVIDENCE_prd34 seam #12 + F-B); [supabase/functions/_shared/auth.ts](supabase/functions/_shared/auth.ts) L26–40 `authenticateRequest` only verifies Bearer token resolves to a user — no helper compares `auth.user.id` against the resource's `family_id`. Additional contributing surfaces enumerated below.
+- **Description:** An authenticated user from family A can POST another family's `conversation_id` (or `family_id`, or resource ID) to an Edge Function and receive that family's context back. Concrete lede example: Mediator Full Picture (EVIDENCE_prd34 F-B, seam #12) loads `private_notes` across multiple members AND `relationship_notes` from all authors, synthesizes them into a Sonnet prompt, and streams the response — with no check that `auth.user.id` matches a `family_members.user_id` row where `family_id = conv.family_id`. Same root cause reproduces across 13 Edge Function surfaces; same fix applies to all. Remediation: shared `authorizeForFamily(user, family_id)` helper added to `_shared/auth.ts` called immediately after `authenticateRequest`, plus `auth.uid()` membership check inside SECURITY DEFINER RPCs (`classify_by_embedding`, `match_book_extractions`). That RPC rewrite also picks up the privacy-filter joins Pattern 1F identified — `is_safe_harbor`, `is_included_in_ai`, `is_privacy_filtered` enforced inside the RPC body, not just at the context-assembler level. Contributing surfaces (PRD-level enumeration; PRD-21's 8 tool Edge Functions count as one surface; PRD-34's 5 ThoughtSift Edge Functions count as one surface with Mediator F-B elevated as the lede sub-point):
+
+    - **PRD-15** — per-pair `member_messaging_permissions` enforced client-side only; server accepts any cross-pair POST (EVIDENCE_prd15 seam #4).
+    - **PRD-17B** — `classify_by_embedding` SECURITY DEFINER RPC accepts trusted `p_family_id` parameter without verifying caller membership (EVIDENCE_prd17b seam #6).
+    - **PRD-18** — `match_book_extractions` SECURITY DEFINER RPC accepts trusted `p_family_id` parameter without verifying caller membership (EVIDENCE_prd18 seam #7).
+    - **PRD-21** — `lila_tool_permissions` not checked by 8 tool Edge Functions (cyrano, higgins_say/navigate, 4 Love Language, gratitude) (EVIDENCE_prd21 F-A).
+    - **PRD-21A** — Vault browse role-/tier-based filtering absent; teen-visible subset (teen_visible flag) not applied server-side; folded into F1 per Flag 1 verdict 2026-04-21 — same root cause, same `authorizeForFamily` class of fix with role-check extension (EVIDENCE_prd21a F-C).
+    - **PRD-22** — `member_emails` login resolution not enforced server-side; `lila_member_preferences` not loaded during authorization check (EVIDENCE_prd22 F-C).
+    - **PRD-25** — `guided-nbt-glaze` Edge Function has NO `authenticateRequest` call at all (EVIDENCE_prd25 seam #7).
+    - **PRD-27** — Special Adult shift-window permission check reads one table, writes to another; compounds with Decision 15 3E remediation; 2 live `special_adult_assignments` rows in production (EVIDENCE_prd27 F-A).
+    - **PRD-34** — `lila_tool_permissions` not checked by 5 ThoughtSift Edge Functions (board_of_directors, perspective_shifter, decision_guide, mediator, translator) (EVIDENCE_prd34 F-A). **Lede sub-point: Mediator Full Picture cross-family conversation ownership bypass (EVIDENCE_prd34 F-B) — most severe payload; ships first as proof-of-pattern.**
+    - **PRD-36** — `time_sessions` RLS checks self + mom; no dad/Special Adult policies — compounds PRD-27 F-A (EVIDENCE_prd36 F-C).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md) seams #11, #12 + F-A, F-B; [scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md) seam #4; [scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md) seam #6; [scope-3-8b-evidence/EVIDENCE_prd18-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd18-cross-prd-impact.md) seam #7; [scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md) F-A; [scope-3-8b-evidence/EVIDENCE_prd21a-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21a-cross-prd-impact.md) F-C; [scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md) F-C; [scope-3-8b-evidence/EVIDENCE_prd25-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd25-cross-prd-impact.md) seam #7; [scope-3-8b-evidence/EVIDENCE_prd27-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd27-cross-prd-impact.md) F-A; [scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd36-cross-prd-impact.md) F-C.
+- **Proposed resolution:** Fix Now (Mediator) + Fix Next Build (remaining 11+1 surfaces + SECURITY DEFINER RPC rewrites). Ships with SCOPE-8b.F5 Crisis Override in the same commit cycle — same `_shared/` directory, same class of fix, both safety substrate.
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F2] HITM gate bypassed on PRD-21 `communication_drafts` persist
+
+- **Severity:** High
+- **Location:** [supabase/functions/lila-cyrano/index.ts](supabase/functions/lila-cyrano/index.ts) + the 7 peer communication-tool Edge Functions (higgins_say, higgins_navigate, 4 Love Language modes, gratitude); `communication_drafts` table persistence path between stream-complete and DB insert.
+- **Description:** AI-generated draft text is streamed to the UI and persisted to `communication_drafts` without an Edit/Approve/Regenerate/Reject gate. CLAUDE.md Convention #4 requires every AI output to pass through Human-in-the-Mix before persisting. Remediation: insert a "Preview / Regenerate / Save" gate between stream-complete and DB insert; mom's tap on "Save Draft" routes through the Edit/Approve/Regenerate/Reject cycle before persistence. Not consolidated with SCOPE-8b.F3 because remediation UX is genuinely different per surface (message-draft Edit-Approve cycle vs. persona-generation review-before-cache); both are below the 3+ consolidation threshold regardless.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd21-cross-prd-impact.md) F-B (communication_drafts persistence path).
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F3] HITM gate bypassed on PRD-34 `board_personas` generation
+
+- **Severity:** High
+- **Location:** [supabase/functions/lila-board-of-directors/index.ts](supabase/functions/lila-board-of-directors/index.ts) `generatePersona()` path; `board_personas` table (platform intelligence tier) insert occurs immediately during/after streaming with no gate.
+- **Description:** Persona generation writes to `board_personas` — a platform-intelligence-tier table whose rows amortize across all future users — in one shot, with no review step. If Sonnet hallucinates a persona with wrong philosophy or misrepresented source material, the hallucinated persona enters the shared cache and propagates to every other family querying the same name. CLAUDE.md Convention #4 is explicit that AI output must go through Edit/Approve/Regenerate/Reject before persisting; the chat modality (PRD-05) is an accepted HITM exception but this is a non-conversation platform write, not a chat bubble. Remediation: insert a review step before the `board_personas` cache write; user confirms the persona's philosophy, source framing, and description before the row persists. Cross-ref SCOPE-4.F4 (persona cache tenancy architecture defect — same Edge Function, same build sprint).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd34-cross-prd-impact.md) F-C + seam #13.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F4] Documented user-controlled accountability/privacy silently unenforceable (5 surfaces)
+
+- **Severity:** High
+- **Location:** Five surfaces spanning three PRDs: (1) PRD-14D `family_best_intentions.require_pin_to_tally` — PIN captured in Settings, never checked in `useLogFamilyIntentionTally` INSERT path; (2) PRD-19 `relationship_notes.is_available_for_mediation` — Decision 18 per-author opt-out; column **doesn't exist in live schema** despite addendum spec; `loadFullPictureContext` cannot filter; (3) PRD-22 `analytics_opt_in` — BOOLEAN default TRUE on `families`; no UI toggle; no consumer-side check before anonymized event writes; (4) PRD-22 `lila_member_preferences.history_retention` — specced auto-archive of `lila_conversations` past retention window; no Settings UI; no cron consumer; (5) PRD-14D `family_best_intentions.is_included_in_ai` — column exists; LiLa context assembly never reads it. All five share trust-violation shape.
+- **Description:** Mom's mental model is "I flipped this, it works." Runtime enforcement is absent. Whether the control is a PIN, a toggle, a heart icon, or a dropdown preference doesn't matter — what matters is that the UI promises control that the runtime doesn't deliver. Once one beta user discovers a setting that doesn't do what it says, confidence in every other setting degrades. Remediation bundle ("user-control enforcement sweep"): (a) PRD-14D PIN — add `require_pin_to_tally` check + `verify_member_pin` RPC call before INSERT in `useLogFamilyIntentionTally`; (b) PRD-19 — add missing columns (`is_available_for_mediation`, `sort_order`, `archived_at`) + filter in `loadFullPictureContext`; (c) PRD-22 analytics — add Settings toggle + `checkAnalyticsOptIn(family_id)` helper at every anonymized-event write site; (d) PRD-22 history_retention — Settings UI (selector: `forever` / `90_days` / `30_days` / `7_days`) + scheduled cron job that soft-archives `lila_conversations` past retention period + fallback logic (kid's preference → mom's default → system default); cron infrastructure also serves COPPA retention sweeps (PRD-40) with more aggressive windows; (e) PRD-14D `family_best_intentions.is_included_in_ai` — wire the LiLa context assembly consumer to read the column.
+
+    **Footnote (audit-trail continuity):** PRD-22 `history_retention` was initially triaged as "never built" during pre-synthesis evidence pass; founder adjudication restored it as a specced-but-unwired consumer based on PRD-22 design session 2026-03-19 artifacts. Future evidence passes should treat columns with corresponding PRD spec text as "consumer missing," not "feature never built."
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd14d-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd14d-cross-prd-impact.md) F-A + F-D; [scope-3-8b-evidence/EVIDENCE_prd19-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd19-cross-prd-impact.md) F-A SCOPE-8b side; [scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md) F-B + F-C sub-element.
+- **Proposed resolution:** Fix Next Build (user-control enforcement sweep — one build bundle)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F5] Crisis Override missing in 3 Edge Functions (message-coach, auto-title-thread, bookshelf-discuss)
+
+- **Severity:** Blocking
+- **Location:** [supabase/functions/message-coach/index.ts](supabase/functions/message-coach/index.ts), [supabase/functions/auto-title-thread/index.ts](supabase/functions/auto-title-thread/index.ts), [supabase/functions/bookshelf-discuss/index.ts](supabase/functions/bookshelf-discuss/index.ts) — each processes user text and invokes AI (Haiku or Sonnet) without importing or calling `detectCrisis` / `CRISIS_RESPONSE` from `_shared/crisis-detection.ts`.
+- **Description:** CLAUDE.md Convention #7 is non-negotiable: Crisis Override is global and every system prompt / Edge Function that processes user content must include crisis detection before any Sonnet/Haiku invocation. Three Edge Functions import zero crisis-detection code: `message-coach` and `auto-title-thread` send crisis-language drafts straight to Haiku; `bookshelf-discuss` writes discussion messages to `bookshelf_discussion_messages` (NOT `lila_messages`), so PRD-30 Layer 2 cannot scan them when built. Remediation is uniform and mechanical (~5 lines per file): `import { detectCrisis, CRISIS_RESPONSE } from '_shared/crisis-detection.ts'; const crisis = detectCrisis(content); if (crisis) return CRISIS_RESPONSE;` before any AI call. Ships with SCOPE-8b.F1 shared-helper rollout — same `_shared/` directory, same class of fix, same commit cycle, both safety substrate.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md) seam #6 (message-coach + auto-title-thread); [scope-3-8b-evidence/EVIDENCE_prd23-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd23-cross-prd-impact.md) Finding A (bookshelf-discuss).
+- **Proposed resolution:** Fix Now (ships with SCOPE-8b.F1)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F6] PRD-17B auto-sweep silently a no-op (marquee "wake up to sorted items" promise unimplemented)
+
+- **Severity:** High
+- **Location:** [supabase/functions/mindsweep-auto-sweep/index.ts](supabase/functions/mindsweep-auto-sweep/index.ts) L116 invokes `mindsweep-sort` from the server; [supabase/functions/mindsweep-sort/index.ts](supabase/functions/mindsweep-sort/index.ts) L99–383 classifies and returns results but writes ZERO rows to destination tables or `studio_queue`; `mindsweep-auto-sweep/index.ts` L144–147 marks holding items `processed_at=now()` DESPITE no destination rows being created.
+- **Description:** PRD-17B Screen 2 promises "auto-sweep at member's configured time — wake up to sorted items." The actual architecture routes all writes through client-side `useMindSweep.routeSweepResults` (manual sweep path). Server-side cron has no routing layer — it calls `mindsweep-sort`, receives classifications, marks the holding items processed, and evaporates them with zero `studio_queue` / `journal_entries` / `victories` / destination-table rows materialized. Net effect: holding items disappear overnight; nothing arrives. The ADHD / disability-family use case is "I dump in the morning, see it sorted by 8pm" — silently dropping work breaks trust. Remediation: wire a server-side routing layer equivalent to `routeSweepResults` (or invoke the client routing path from the cron trigger if architectural constraints require client-side writes) so auto-sweep produces the same destination rows the manual sweep produces.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd17b-cross-prd-impact.md) seam #5.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F7] PRD-14B `.ics` import CHECK violation (runtime failure on marquee import feature)
+
+- **Severity:** High
+- **Location:** [src/components/queue/CalendarTab.tsx](src/components/queue/CalendarTab.tsx) L301, L380, L448 all INSERT `source_type: 'ics_import'` into `calendar_events` on approval; live `calendar_events_source_type_check` CHECK (migration `00000000100146_meetings.sql:301`) allows only `('manual','review_route','image_ocr','lila_guided','task_auto','google_sync','meeting_schedule')` — `'ics_import'` and `'mindsweep'` are missing.
+- **Description:** The first family who uploads a `.ics` file and clicks Approve on the resulting `studio_queue` entries will hit a CHECK constraint violation on every INSERT. The `.insert()` call is awaited and `eventErr` is thrown — no try/catch downgrade. This is a runtime-throwing CHECK violation on a marquee MVP feature (PRD-14B Screen 5 `.ics` flow + PRD-17B Phase 0 calendar import), latent since migration 100146 and invisible in beta only because nobody has uploaded a `.ics` file yet (live `calendar_events` row count = 34, none with `source_type='ics_import'`). Categorically different from the SCOPE-3.F1 documentation-drift pattern: that pattern is "enum CHECK missing where an enum is appropriate"; this is "CHECK exists but does not permit values the live code writes." Remediation is a one-line migration:
+
+    ```sql
+    ALTER TABLE calendar_events DROP CONSTRAINT calendar_events_source_type_check;
+    ALTER TABLE calendar_events ADD CONSTRAINT calendar_events_source_type_check
+      CHECK (source_type IN ('manual','review_route','image_ocr','lila_guided','task_auto','google_sync','meeting_schedule','ics_import','mindsweep'));
+    ```
+
+    See also: SCOPE-3.F1 (documentation-drift side of source/enum pattern — separate finding, no overlap per Pushback B verdict).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd14b-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd14b-cross-prd-impact.md) seam #6.
+- **Proposed resolution:** Fix Now (1-line migration)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F8] PRD-22 `account_deletions` GDPR right-to-erasure unenforced
+
+- **Severity:** High
+- **Location:** `account_deletions` table exists (live schema `account_deletions` — 0 rows); `process_expired_deletions()` PL/pgSQL function only soft-deactivates `family_members.is_active=false`; `pg_cron` schedule declaration for `process_expired_deletions` is commented out in migrations; no UI path from Settings for a family to request account deletion.
+- **Description:** GDPR Article 17 (right to erasure) and CCPA analogous rights require that when a user requests deletion, their data is actually deleted (or anonymized) within a compliant window — not soft-deactivated indefinitely. Current state: (a) no UI entry to request deletion; (b) `account_deletions` rows would never be created by the app even if the table existed; (c) the cron that would process deletions is not scheduled; (d) the function that processes deletions does not cascade through child data (lila_conversations, victories, archive_context_items, financial_transactions, etc.); (e) consent-backed under-13 data (COPPA cross-ref SCOPE-8a.F1) has no deletion pathway either. Compliance blocker + child-data cascade risk. Remediation: (1) Settings UI for deletion request with grace-period selector; (2) schedule `process_expired_deletions` cron per Convention #246 via `util.invoke_edge_function`; (3) rewrite the function to cascade-delete or anonymize across every family-owned table per documented retention rules; (4) notification flow to confirm request and completion.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd22-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F9] PRD-16 meeting impressions privacy unenforced (Convention #232 enforced only by SQL comment)
+
+- **Severity:** High
+- **Location:** `meetings.impressions` column (PRD-16 addendum); RLS policy on `meetings` allows all `meeting_participants` to SELECT the row including the `impressions` column; CLAUDE.md Convention #232 specifies "Meeting impressions are PERSONAL — only visible to the person who ended the meeting."
+- **Description:** Convention #232 is enforced only by an inline SQL comment in the migration. The RLS policy on `meetings` grants SELECT to all participants of the meeting, and no column-level grant / view redaction protects `impressions`. A couple meeting's private impressions are readable by the partner — a beta-tester privacy leak that breaks the trust contract of the Couple Meeting Impressions feature. Remediation: either (a) a VIEW that redacts `impressions` unless `auth.uid()` matches the `started_by` member's user_id, or (b) a column-level RLS policy restricting SELECT on `impressions` specifically to the meeting ender. The reference pattern is the per-participant visibility constraint PRD-16 already documents.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd16-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd16-cross-prd-impact.md) seam #2.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F10] PRD-16 dad meeting permission gate absent (useCreateMeeting does NO member_permissions check)
+
+- **Severity:** High
+- **Location:** `useCreateMeeting` mutation in [src/hooks/useMeetings.ts](src/hooks/useMeetings.ts); `member_permissions` check absent on the INSERT path; PRD-16 specifies per-kid `member_permissions` grants are required for non-mom participants in parent-child and mentor meetings (couple meetings have implicit permission).
+- **Description:** Dad (or any non-mom additional adult) can create parent-child or mentor meetings for kids they do not have explicit `member_permissions` grants for. The application-layer allowance is silently unenforced. Couple meetings' implicit permission is correct per Convention #235; the gap is the non-couple meeting types that explicitly require per-kid permission grants per PRD-16. Remediation: in `useCreateMeeting`, branch on `meeting_type`; for `parent_child` and `mentor` types, verify the creator has a `member_permissions` row with `target_member_id = [kid]` and an appropriate `permission_key` before allowing the INSERT. Couple meetings skip the check per Convention #235.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd16-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd16-cross-prd-impact.md) seam #3.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F11] PRD-27 shift_sessions/time_sessions bifurcation (live data gap; 2 live rows in production)
+
+- **Severity:** High
+- **Location:** `special_adult_assignments` table has 2 live production rows; live schema shows both `shift_sessions` (0 rows) and `time_sessions` (1 row) tables; PRD-27 addendum + CLAUDE.md Convention #40 specify "Special Adult shifts use `time_sessions` with `source_type='shift'`, `is_standalone=true`. No separate `shift_sessions` table." The `shift_sessions` table still exists as a parallel structure; shift-window permission resolution reads one table while writes go to the other.
+- **Description:** Shift-session bifurcation cascades through Special Adult permission checks: `member_permissions` shift-window evaluation resolves against one schema, while shift start/end writes target the other. Live data gap — 2 live `special_adult_assignments` rows in production — means the cascade is live, not hypothetical. `parseRecurrenceDetails` silently returns `null` when it receives the UniversalScheduler RecurrenceDetails shape (vs. the older scheduleUtils shape), dropping shift-window evaluation to "no matching schedule" and collapsing the permission check. Remediation: (a) consolidate the two `RecurrenceDetails` TypeScript contracts (see SCOPE-3.F2); (b) migrate any live `shift_sessions` data into `time_sessions` with `source_type='shift'`; (c) drop `shift_sessions`; (d) point shift-window permission reads at `time_sessions`. Remediation sequenced after SCOPE-3.F2 PRD-35 RecurrenceDetails type consolidation — that consolidation is the root cause of this bifurcation.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd27-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd27-cross-prd-impact.md) F-A; [scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd35-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Fix Now (sequenced after SCOPE-3.F2)
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F12] PRD-15 messaging safety semantics enforced client-side only (consolidated 4 sub-surfaces)
+
+- **Severity:** High
+- **Location:** Four sub-surfaces across the PRD-15 messaging stack: (1) coaching activity log is fictional — `useRef`-backed counter in the UI with no DB write to any audit surface; (2) per-pair `member_messaging_permissions` enforced client-side only (cross-ref SCOPE-8b.F1 contributing surface); (3) safety alert Do Not Disturb bypass absent — `notifications` of `priority='high'` do not force-deliver past DnD preferences per CLAUDE.md Convention #143; (4) Content Corner lock (`content_corner_locked_until`) enforced client-side only — members can VIEW locked content via direct DB query before the unlock timestamp. Crisis Override in the messaging stack cross-cites SCOPE-8b.F5 (separate finding).
+- **Description:** Client-side-only safety semantics means a motivated teen, a misconfigured browser, or any direct-API actor can bypass four separate safety mechanisms that are described in PRD-15 addendum and CLAUDE.md as enforced safeguards. The coaching log fabrication (sub-surface 1) is the subtlest: mom sees "coaching triggered" in the UI but no audit row exists to reconcile against — the log is literally fictional. Remediation per sub-surface: (1) write coaching events to a server-side audit table (`message_coaching_events`) on send; (2) server-side per-pair permission check on the `messages` INSERT path (fold into SCOPE-8b.F1 `authorizeForFamily` rollout); (3) notification-delivery pipeline reads `priority='high'` and bypasses DnD preferences before rendering; (4) Content Corner RLS policy enforces `content_corner_locked_until <= now()` OR `auth.uid() = mom.user_id` for SELECT on the Content Corner space messages.
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd15-cross-prd-impact.md) F-A.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
+
+### [SCOPE-8b.F13] PRD-31 server-side subscription tier enforcement absent (47 Edge Functions ungated)
+
+- **Severity:** High
+- **Location:** All 47 Edge Functions in `supabase/functions/`; none check `family_subscriptions.tier_id` or `ai_credits` before invoking Sonnet/Haiku; `feature_access_v2` table seeded per PRD-02 but never consulted server-side; `useCanAccess` client-side helper is the only gate.
+- **Description:** Subscription tier enforcement is 100% client-side. A user with Essential tier can invoke any Sonnet-level tool by POSTing directly to the Edge Function URL regardless of their tier — the server has no check. This compounds three distinct exposures: (1) monetization integrity — users can consume Full Magic AI workloads while paying Essential; (2) child-data tier gating — tier-restricted features that are restricted specifically to protect child data (e.g., Full Magic tools that read relationship_notes cross-member) are ungated server-side; (3) HITM bypass surface — bypassing tier gate also bypasses every UI-side gate wrapped around those tools. Remediation: shared server-side tier-gate helper in `_shared/tier-gate.ts` that reads `family_subscriptions` + `feature_access_v2` per Edge Function invocation; every AI Edge Function calls `requireTier(family_id, feature_key, minimum_tier)` immediately after `authenticateRequest` + `authorizeForFamily`. Ships as part of the F1 shared-helper rollout directory but as a distinct helper (different invariant).
+- **Evidence:** [scope-3-8b-evidence/EVIDENCE_prd31-cross-prd-impact.md](scope-3-8b-evidence/EVIDENCE_prd31-cross-prd-impact.md) F-G.
+- **Proposed resolution:** Fix Next Build
+- **Founder decision required:** N
+- **Wizard Design Impact:** N/A
+- **Beta Readiness flag:** Y
 
 ## 4 — Scope 4: Cost optimization patterns (P1–P9)
 
@@ -1332,8 +1988,36 @@ Preventative hygiene actions taken during the audit that are NOT discrepancies. 
 | SCOPE-8a.F5 (OPEN) | 8a | Board of Directors content policy fail-open defects | **Medium.** Gate works end-to-end when Haiku is reachable. Fail-open on classifier error; `create_persona` action lacks server-side re-invocation. Fix Now for fail-closed flip + server-side gate; Tech Debt for hardcoded prayer fallback. |
 | SCOPE-8a.F6 (OPEN) | 8a | DailyCelebration auto-persists AI narrative with no HITM | **Blocking.** Child-facing + persistent + no review. `DailyCelebration.tsx:180–196` writes AI-generated celebration narrative to `victory_celebrations` on Done click with no Edit/Regenerate/Reject. CLAUDE.md #4 violation. Fix Now: add HITM step using shared component. |
 | SCOPE-4.F4 (OPEN) | 4 | Board of Directors persona cache architecture defect — cross-family persona leak potential | **Fix-before-feature-use.** Founder-approved Y-flag exception beyond PLAN §7's three literal criteria — cross-family data leak via pattern implementation defect is a fourth Y-flag exception category for Scope 4 (per DECISIONS.md Standing rules). Cache-lookup ignores `is_public` + `family_id` scope; personal-custom personas become cache-hit-eligible for other families querying same name. Current exposure low (`board_sessions` 0 live rows, feature unused in beta); fix must land before Board of Directors sees real usage. Fix scope: 3-tier architecture rebuild (personal-scoped writes + platform-approval queue + approved-only cache) plus `content_policy_check` embedding pre-screen (folded 2026-04-21). Coordinate with F5 (alternative-persona substitution; F4 blocks F5) and F8 (Board of Directors context-assembler retrofit; same Edge Function, same build sprint). |
+| SCOPE-8b.F1 | 3+8b | Authenticate-not-authorize (13 surfaces including PRD-21A Vault teen-filter) | Cross-tenant data leakage + paid-AI cost amplification + teen-visible cross-tier content |
+| SCOPE-8b.F2 | 3+8b | HITM PRD-21 communication_drafts | AI output persisted without review |
+| SCOPE-8b.F3 | 3+8b | HITM PRD-34 board_personas | Hallucinated personas amortize cross-family |
+| SCOPE-8b.F4 | 3+8b | Pattern 1D user-control enforcement (5 surfaces) | Trust-violation compounding |
+| SCOPE-8b.F5 | 3+8b | Crisis Override missing (3 Edge Functions) | Convention #7 non-negotiable |
+| SCOPE-8b.F6 | 3+8b | PRD-17B auto-sweep no-op | Marquee ADHD-mom use case non-viable |
+| SCOPE-8b.F7 | 3+8b | PRD-14B .ics CHECK violation | Runtime DB error on marquee import |
+| SCOPE-8b.F8 | 3+8b | PRD-22 GDPR deletion unenforced | Compliance + child-data cascade |
+| SCOPE-8b.F9 | 3+8b | PRD-16 meeting impressions privacy | Couple-tester privacy leak |
+| SCOPE-8b.F10 | 3+8b | PRD-16 dad permission gate absent | Cross-parent access violation |
+| SCOPE-8b.F11 | 3+8b | PRD-27 shift bifurcation | 2 live rows; Special Adult permission cascade; sequenced after SCOPE-3.F2 |
+| SCOPE-8b.F12 | 3+8b | PRD-15 messaging safety (4 sub-surfaces) | Client-side-only safety semantics |
+| SCOPE-8b.F13 | 3+8b | PRD-31 server-side tier enforcement absent | 47 Edge Functions ungated |
+| SCOPE-3.F14 | 3+8b | PRD-28 first allowance_period row never created | Allowance non-operational at first-use |
+| SCOPE-3.F22 | 3+8b | Play shell Fun-tab 404 | (mild Y — 1-line fix) |
+| SCOPE-3.F41 | 3+8b | PRD-21A MemberAssignmentModal broken write | High — permissions don't persist |
 
-**Open Beta Readiness blockers (6):** SCOPE-8a.F1, F2, F3, F5, F6, SCOPE-4.F4. Non-Beta Scope 8a findings (not in this index): F4 (Translator crisis-detection consistency — Medium, code-fix Next Build), F7 (MindSweep autopilot audit-trail labeling — Medium, Fix Next Build), F8 (HITM component under-reuse — Medium, Tech Debt). Non-Beta Scope 4 findings (not in this index): F1 (MindSweep embedding-first 100% Haiku — High, Fix Next Build; cost impact below threshold, functional classification intact via fallback), F2 (pgmq dormant — Low, Doc amendment), F3 (embed cron undeclared — Low, Fix Next Build), F5 (Board personas embedding unwired — Medium, Fix after F4), F6 (Heart/HeartOff UI gaps on 6 surfaces — Low, Fix Next Build), F7 (Moderator auto-interjection opt-in flip — Low, Fix Next Build), F8 (Decision Guide + Board context-assembler bypass — Low, Fix Next Build with F4), F9 (lila-message-respond recentMessages omission — Low, Fix Next Build), F10 (3 classifier sites Haiku-first — Low, Fix Next Build with shared embedding-first helper). SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
+**Open Beta Readiness blockers (22):** SCOPE-8a.F1, F2, F3, F5, F6, SCOPE-4.F4, SCOPE-8b.F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, SCOPE-3.F14, F22, F41. Non-Beta Scope 8a findings (not in this index): F4 (Translator crisis-detection consistency — Medium, code-fix Next Build), F7 (MindSweep autopilot audit-trail labeling — Medium, Fix Next Build), F8 (HITM component under-reuse — Medium, Tech Debt). Non-Beta Scope 4 findings (not in this index): F1 (MindSweep embedding-first 100% Haiku — High, Fix Next Build; cost impact below threshold, functional classification intact via fallback), F2 (pgmq dormant — Low, Doc amendment), F3 (embed cron undeclared — Low, Fix Next Build), F5 (Board personas embedding unwired — Medium, Fix after F4), F6 (Heart/HeartOff UI gaps on 6 surfaces — Low, Fix Next Build), F7 (Moderator auto-interjection opt-in flip — Low, Fix Next Build), F8 (Decision Guide + Board context-assembler bypass — Low, Fix Next Build with F4), F9 (lila-message-respond recentMessages omission — Low, Fix Next Build), F10 (3 classifier sites Haiku-first — Low, Fix Next Build with shared embedding-first helper). SCOPE-1.F6 is false-positive noise (not a blocker). SCOPE-5.F1 is documentation staleness (not a blocker).
+
+## Appendix E — Process-hygiene observations (Scope 3+8b global-addenda traversal)
+
+Three process-hygiene observations from the Scope 3+8b EVIDENCE_global-addenda pattern pass, recorded as Appendix notes rather than findings per DECISIONS.md Round 19 + SYNTHESIS §9 note #5.
+
+1. **Addendum supersession tagging.** When a build supersedes a pre-build addendum's architecture, the affected addendum should carry a `> **Superseded by Build X YYYY-MM-DD — see .claude/completed-builds/YYYY-MM/build-X-*.md**` tag at the top or at the affected section. PRD-24 family addenda (PRD-24, PRD-24A, PRD-24B) predate Build M 2026-04-13 and do not carry this tag; remediation captured as SCOPE-3.F6.
+
+2. **Addendum completion-fact verification.** When an addendum asserts a feature/table/column is "completed" or "wired," the assertion should be verified against live schema + code on the date the addendum is finalized, with a `> **Verified against code on YYYY-MM-DD**` marker. PRD-21C addendum L196, PRD-24 addendum, and PRD-29 addendum all assert completion facts that live schema or code contradicts; remediation captured as SCOPE-3.F7.
+
+3. **Addendum stub-socket language discipline.** When an addendum refers to an in-progress integration socket (a column or table that exists but has no live writer/consumer), the addendum must NOT label it "WIRED" per WIRING_STATUS.md L3 convention ("If it doesn't work in the app, it is not wired"). PRD-29 addendum L94–98 labels `tasks.source='project_planner'` + `tasks.related_plan_id` stub sockets as "WIRED" despite no writer code existing; remediation captured as SCOPE-3.F13. Related forward-looking convention proposal captured as SCOPE-3.F17 (prospective Habit #9).
+
+These are documentation hygiene observations, not integration defects. The corresponding remediations (F6, F7, F13, F17) are logged as findings per normal §3 emission.
 
 ---
 
