@@ -748,7 +748,82 @@ No Batch 8 hygiene notes. No new Scope 4 / Scope 3+8b emissions from this batch 
 
 ## Round 9 — Compliance evidence pass (Batch 9, PRDs 27, 28, 29, 30, 35, 36, 37, 38)
 
-*(entry filled during walk-through)*
+- **Date:** 2026-04-20
+- **Worker pass:** [EVIDENCE_BATCH_9_compliance.md](EVIDENCE_BATCH_9_compliance.md)
+- **Aggregate:** 38 rows across 8 PRDs (PRD-27: 6, PRD-28: 8, PRD-29: 5, PRD-30: 4, PRD-35: 4, PRD-36: 5, PRD-37: 3, PRD-38: 3). 4 ambiguity flags. 5 unexpected findings. 3 worker-proposed candidates → 5 emitted findings after orchestrator split + 1 batch-hygiene note.
+
+### Per-candidate-finding verdict table
+
+Orchestrator split the worker's mega-consolidation (PRD27-29-30-37-38-SCREEN-LAYER-UNBUILT) into per-PRD findings per PLAN §5.1 rule 3 ("Do NOT consolidate across PRDs in Scope 2") and Round 1–5 precedent (F1, F9, F19, F22, F34 all kept per-PRD scope for unbuilt features). PRD-30 cross-refs SCOPE-8a.F3 (closed) and does not emit.
+
+| Candidate | Contributing rows | Proposed verdict | Proposed severity | Emits into | Founder decision | Beta Readiness |
+|---|---|---|---|---|---|---|
+| PRD27-CAREGIVER-TOOLS-UNBUILT | PRD-27 R1, R2, R4, R5, R6 | Deferred-Document | Medium | SCOPE-2.F66 | Confirmed — Enhanced-tier flagship unbuilt, honest PlannedExpansionCard stub registered, beta-deferred per Convention #31. Same shape as F1/F9/F19 pattern. Purpose-built CaregiverLayout + 3 tables (trackable_event_categories, trackable_event_logs, shift_reports) absent; only shift_sessions.is_co_parent_session column shipped. Most beta families won't have caregivers during beta window | N |
+| PRD29-BIGPLANS-UNBUILT | PRD-29 R1, R2, R3, R4 | Deferred-Document | Medium | SCOPE-2.F67 | Confirmed — Enhanced-tier flagship unbuilt. 5 tables absent (plans, plan_milestones, plan_components, plan_check_ins, friction_diagnosis_templates). 4 guided modes (bigplans, bigplans_goal, bigplans_project, bigplans_system) unseeded. bigplans-compile Edge Function absent. Coupling: PRD-12A LifeLantern goal decomposition stub routes to BigPlans (PRD-29 Cross-PRD Impact Addendum §PRD-12A) | N |
+| PRD37-FAMILY-FEEDS-UNBUILT | PRD-37 R1, R2, R3 | Deferred-Document | Medium | SCOPE-2.F68 | Confirmed — 6 tables absent (family_moments, moment_media, moment_reactions, moment_comments, out_of_nest_feed_settings, feed_approval_settings). homeschool_bulk_summary guided mode unseeded. /feeds renders honest FamilyFeedsStub PlannedExpansionCard. Paired in build order with PRD-28B per shared addendum — PRD-28B merge-vs-separate prerequisite decision preserved in open flags (defer to F22 pre-build audit) | N |
+| PRD38-BLOG-UNBUILT | PRD-38 R1, R2, R3 | Deferred-Document | Medium | SCOPE-2.F69 | Confirmed — 5 tables absent (blog_posts, blog_engagement, blog_comments, blog_free_tools, blog_categories). Zero Supabase Storage buckets. No domain routing between aimagicformoms.com + myaimcentral.com. No blog-comment-moderate / blog-publish-scheduled Edge Functions. Pre-launch stack finding — pairs with F1 (tier monetization) + F2 (gate adoption) + F3 (access-level picker) as pre-paid-launch prerequisite. Not beta blocker; launch blocker | N |
+| PRD35-FIELD-NAME-DRIFT | PRD-35 R1 | Unintentional-Fix-PRD | Low | SCOPE-2.F70 | Confirmed — PRD-35 §Data Schema specifies access_schedules.special_adult_id + recurrence_data; live schema + migration 00000000000004_universal_scheduler.sql:13-22 ship member_id + recurrence_details. Consumer code consistent. Neither PRD-27 addendum nor Convention #26 reference field names literally. Same shape as F24 (PRD-09A task_queue naming staleness). One-line PRD-35 amendment closes it | N |
+| PRD28-SUBJECT-TRACKING-STUB-REGISTRY-STALE | PRD-28 R7 | Intentional-Document → downgraded to batch-hygiene note (not a finding) | Low | Not emitted — batch-hygiene note | Orchestrator proposed, founder confirmed: STUB_REGISTRY row 516 claims "Subject Tracking section in TaskCreationModal" is Unwired (MVP). Code reality: wired at TaskCreationModal.tsx:1947-1966 via countsForHomework + homeworkSubjectIds. Pure registry drift. One-line STUB_REGISTRY amendment. Matches Round 1 PRD01-FIELD-NAME-DRIFT batch-hygiene downgrade precedent | N |
+
+### Load-bearing unexpected findings
+
+1. `access_schedules` field-name drift (`special_adult_id` → `member_id`, `recurrence_data` → `recurrence_details`) between PRD-35 spec and implementation. Consumer code consistent; PRD text never updated after remediation migration 00000000000019. Consolidated into SCOPE-2.F70.
+2. `lila_messages.safety_scanned` column exists but is stub infrastructure — no logic reads or writes it per STUB_REGISTRY rows 532–533. Only PRD-30 artifact in the live schema independent of the unbuilt core. Already captured in SCOPE-8a.F3 scope — not re-emitted, noted for orchestrator visibility only.
+3. STUB_REGISTRY row 516 stale re: Subject Tracking in TaskCreationModal — claims Unwired, actually wired. Downgraded to batch-hygiene note per founder direction. Matches Round 1 PRD01-FIELD-NAME-DRIFT shape.
+4. 5 Compliance-batch PRDs unbuilt at screen layer (PRD-27, PRD-29, PRD-30, PRD-37, PRD-38). Worker's mega-consolidation violated PLAN §5.1 rule 3 and Round 1–5 precedent. Orchestrator split into 4 per-PRD findings (F66–F69); PRD-30 cross-refs SCOPE-8a.F3 and does not emit. Each PRD has honest PlannedExpansionCard stub registered in `feature_expansion_registry.ts` per Convention #31.
+5. PRD-28 is the only Compliance-batch PRD at MVP parity with its spec (migrations 100134/100135/100136/100138 — 7 tables, 2 Edge Functions, 2 pg_cron jobs, feature keys wired). Healthy baseline confirming Compliance-domain density is deliberate build-order outcome, not accidental drift. No finding needed.
+
+### Cross-references
+
+- CROSS-REF: SCOPE-8a.F3 cited by SCOPE-2 Batch 9 for PRD-30 structural absence. Not re-emitted per PLAN §7 Rule 7.
+- CROSS-REF: SCOPE-5.F4 Finding A (PRD-28B 6-table infrastructure unbuilt) cited by PRD-37 evidence rows covering shared addendum; PRD-28B-exclusive clauses classified Deferred-Document per scope clarification.
+- CROSS-REF: SCOPE-2.F1 / SCOPE-2.F9 / SCOPE-2.F19 anchor F66–F69 Deferred-Document Medium pattern (unbuilt Enhanced-tier flagship).
+- CROSS-REF: SCOPE-2.F24 (PRD-09A task_queue naming staleness) anchors F70 Unintentional-Fix-PRD Low pattern (consumer code consistent, PRD text stale).
+- CROSS-REF: SCOPE-2.F22 (PRD-19 reports near-term build) — F68 PRD-37 Family Feeds pairs in build order with PRD-28B per shared addendum; prerequisite merge-vs-separate decision deferred to F22 pre-build audit.
+- CROSS-REF: Batch 3 Round 3 open flag #4 (PRD-28B prerequisite decision) — resolved per founder direction 2026-04-20 to defer to pre-build audit when F22 kicks off; preserved in open flags below.
+- CROSS-REF: Round 1 PRD01-FIELD-NAME-DRIFT batch-hygiene note precedent anchors Row 7 downgrade shape.
+- PATTERN-FLAG-FOR-SCOPE-4: PRD-28 Row 6 financial data exclusion from LiLa context assembly enforced by omission rather than active filter. No CI guard prevents future regression. If Scope 4 audits AI-cost-pattern application + LiLa context assembler surface, grep-based CI guard decision surfaces there.
+
+### Founder adjudication
+
+- **F66 PRD-27 Caregiver Tools unbuilt:** Same shape as F1/F9/F19 pattern — Enhanced-tier flagship unbuilt, honest PlannedExpansionCard stub registered, beta-deferred. Purpose-built CaregiverLayout two-view model (Caregiver View + Kid View), swipeable columns, trackable event logging, LiLa-compiled shift reports all absent. The only infrastructure shipped: `shift_sessions.is_co_parent_session` column (PRD-27 L429 addition). Most beta families won't have babysitters/grandma/aide/co-parent during beta window. Founder direction: defer per tier-monetization stack; when PRD-27 build kicks off, Scope 3+8b integration with PRD-02 permissions + PRD-15 messaging + PRD-25/26 Kid View rendering verified at pre-build audit.
+
+- **F67 PRD-29 BigPlans unbuilt:** Same shape as F66. Enhanced-tier flagship unbuilt. Planning/system-design tool (Friction Detective diagnostic with four-category taxonomy, goal backward-planning, multi-track projects, trial period with check-ins) entirely absent. Cross-coupling: PRD-12A LifeLantern goal decomposition stub routes to BigPlans (PRD-29 Cross-PRD Impact Addendum §PRD-12A); PRD-09A `tasks.related_plan_id` column + `source='project_planner'` enum value ARE pre-wired stub sockets from PRD-09A build. Consumer deferred until F67 builds. No urgency during beta.
+
+- **F68 PRD-37 Family Feeds unbuilt:** Same shape as F66/F67. Family Life Feed + Homeschool Portfolio Feed + Out of Nest adult-child PWA entry point all absent. `homeschool_bulk_summary` guided mode unseeded. Paired in build order with PRD-28B (Compliance Reporting) per shared addendum — PRD-28B merge-vs-separate prerequisite decision preserved in open flags (founder direction: defer to F22 pre-build audit when PRD-19 reports pipeline kicks off, 2–3 month horizon per Round 3).
+
+- **F69 PRD-38 Blog (Cookie Dough & Contingency Plans) unbuilt:** Same shape but distinct timing context. Public marketing blog at aimagicformoms.com — the Pinterest traffic funnel, SEO surface, free-tools hub, founder-voice customer-acquisition hook — entirely unbuilt. Pairs with F1 (tier monetization) + F2 (gate adoption) + F3 (access-level picker) as pre-paid-launch prerequisite stack. Not beta blocker (beta ships without a public site); becomes prerequisite when pricing goes live. Severity stays Medium; open flag pairs it with F1/F2/F3.
+
+- **F70 PRD-35 field-name drift:** Pure PRD-text-stale-doc-drift. PRD-35 §Data Schema L326–343 specifies `access_schedules` columns `special_adult_id UUID NOT NULL` + `recurrence_data JSONB`. Migration 00000000000004 created with `member_id` + `recurrence_details`; remediation migration 00000000000019 added missing `schedule_name`/`start_time`/`end_time` columns but did not rename the base two. Neither PRD-27 Cross-PRD addendum nor CLAUDE.md Convention #26 reference the column names literally. All consumer code consistent. Same shape as F24 (PRD-09A task_queue naming staleness) — one-line PRD-35 amendment closes it.
+
+- **PRD-28 Row 7 (batch-hygiene note, not finding):** STUB_REGISTRY row 516 claims Subject Tracking is Unwired (MVP); actually wired at `TaskCreationModal.tsx:1947-1966` via `countsForHomework` + `homeworkSubjectIds` and persisted via `createTaskFromData.ts:96-99`. Pure registry drift — feature works, doc is stale. Downgraded to batch-hygiene note per Round 1 PRD01-FIELD-NAME-DRIFT precedent. One-line STUB_REGISTRY amendment captured in Emission list hygiene sub-list.
+
+### Emission list
+
+Findings to emit (5 total):
+
+- SCOPE-2.F66 — PRD-27 Caregiver Tools unbuilt (Medium, Deferred-Document, Beta-Readiness N; tier-monetization-stack shape per F1/F9/F19)
+- SCOPE-2.F67 — PRD-29 BigPlans unbuilt (Medium, Deferred-Document, Beta-Readiness N; Enhanced-tier flagship; couples with PRD-12A goal decomposition stub)
+- SCOPE-2.F68 — PRD-37 Family Feeds unbuilt (Medium, Deferred-Document, Beta-Readiness N; PRD-28B merge-vs-separate prerequisite decision preserved in open flags)
+- SCOPE-2.F69 — PRD-38 Blog (Cookie Dough & Contingency Plans) unbuilt (Medium, Deferred-Document, Beta-Readiness N; pre-paid-launch prerequisite stack with F1/F2/F3)
+- SCOPE-2.F70 — PRD-35 `access_schedules` field-name drift (Low, Unintentional-Fix-PRD, Beta-Readiness N; SUPERSEDES: current live schema per migrations 00000000000004 + 00000000000019)
+
+Batch 9 hygiene note (not a finding — apply-phase includes in a hygiene sub-list):
+
+- STUB_REGISTRY row 516 claims "Subject Tracking section in TaskCreationModal" is Unwired (MVP); code reality at `TaskCreationModal.tsx:1947-1966` shows it wired. One-line STUB_REGISTRY amendment: flip row 516 from Unwired (MVP) to Wired.
+
+No new Scope 4 / Scope 3+8b emissions from this batch (cross-scope carry-forwards logged in open flags below).
+
+**Numbering note:** Round 9 emits finding IDs **F66–F70**, continuing sequentially after Round 7's F45–F57 (real IDs) and leaving F58–F65 for Round 8 once apply-phase renumbers its placeholder range (Round 8 closed with F39–F46 placeholder IDs + an explicit renumber-at-Stage-C note, producing 8 findings that will occupy F58–F65). Fresh-worker prompt originally proposed F39–F43; founder direction 2026-04-20 during adjudication: "use available numbers that come after the other ones" — renumbered to F66–F70 to preserve audit cross-reference integrity.
+
+### Open flags (tech-debt + cross-scope register)
+
+1. **PRD-28B merge-vs-separate prerequisite decision** — preserved from Round 3 open flag #4. Founder direction 2026-04-20 at Batch 9 walk-through: defer to pre-build audit when F22 PRD-19 reports pipeline kicks off (2–3 month horizon). Before F22 build begins, founder decides whether to merge PRD-28B's 6-table infrastructure (`homeschool_family_config`, `homeschool_student_config`, `education_standards`, `standard_evidence`, `report_templates`, `esa_invoices`) into PRD-19's build OR build PRD-28B as its own phase first. F68 PRD-37 Family Feeds shares the PRD-28B addendum and will also surface this decision at its build time.
+2. **Pre-paid-launch prerequisite stack** — F69 PRD-38 Blog joins F1 (tier monetization infrastructure) + F2 (permission-gate adoption) + F3 (access-level picker) as the pre-launch prerequisite stack. Beta ships without these; they become blockers when pricing goes live. Founder's "100 founding family" customer-acquisition funnel requires F69 operational. No urgency during beta.
+3. **PRD-28 financial data exclusion enforced by omission** — PATTERN-FLAG-FOR-SCOPE-4. `supabase/functions/_shared/context-assembler.ts:13-14` carries a comment documenting the exclusion but the file simply never queries `financial_transactions` / `allowance_configs` / `allowance_periods` / `loans`. No CI guard prevents future regression. When Scope 4 audits AI-cost-pattern application + LiLa context assembler surface, grep-based CI guard decision surfaces there.
+4. **`lila_messages.safety_scanned` column unwired but present** — STUB_REGISTRY rows 532–533 already capture. Only PRD-30 artifact in live schema independent of the unbuilt core. Will be wired when PRD-30 build kicks off; no independent remediation needed. Captured in SCOPE-8a.F3 scope, not re-emitted.
+5. **`homeschool_time_review` LiLa guided mode seeded but consumer unwired** — STUB_REGISTRY row 515 captures. Mode exists in DB (migration 00000000100138); `homework-estimate` Edge Function wired for inline subject estimation but conversational guided-mode UI surface absent. Will be wired when PRD-05 day-data context enhancement lands. No independent remediation.
+6. **`access_schedules` field-name drift may recur in PRD-27 build** — when PRD-27 Caregiver Tools (F66) eventually builds, its Cross-PRD Impact Addendum §PRD-02 references `access_schedules` without naming the columns. PRD-35 amendment per F70 should land before or concurrent with F66 build so PRD-27 implementation reads correct field names. Coupling note for future pre-build audit.
 
 ## Synthesis pass
 
