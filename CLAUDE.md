@@ -571,3 +571,37 @@ These are patterns where a tool or technique appears to work but silently produc
     2. Populate Vault: two `vault.create_secret()` calls for `supabase_url` and `service_role_key`.
     3. Apply migrations: the cron-scheduling migrations (including 100150) will then succeed.
     4. Verify: `SELECT jobname, command FROM cron.job;` — every command should be a `SELECT util.invoke_edge_function(...)` one-liner. `SELECT * FROM cron.job_run_details WHERE status='failed' ORDER BY start_time DESC LIMIT 5;` — should be empty.
+
+
+## LiLa Scope (Non-Negotiable)
+
+247. **LiLa is the unified conversation engine + family-context-aware personality system that *learns about and from each family over time*.** Three defining attributes, all required:
+
+    1. **Shared conversation engine** — `lila-chat` Edge Function and supporting infrastructure (streaming, HumanInTheMix persistence, crisis override, etc.).
+    2. **Shared context assembly pipeline** — reads relevant family knowledge into every conversation via `_shared/context-assembler.ts` (Archives, Best Intentions, Guiding Stars, Faith preferences, InnerWorkings, relationship notes, BookShelf hearted extractions, etc.). Three-layer architecture per CLAUDE.md LiLa AI section.
+    3. **Shared context update pipeline** — writes new understanding back to family knowledge via Archives auto-detection, Smart Notepad routing, victory AIR, conversation summaries, and similar mechanisms.
+
+    The third attribute (gleaning) is what distinguishes LiLa from generic AI: LiLa gets to know a specific family and gets smarter about that family over time.
+
+    **What IS LiLa:**
+    - All modes registered in `lila_guided_modes` (43+ rows as of 2026-04-21)
+    - Core avatars (Help, Assist, Optimizer) — LiLa's "named voice"
+    - All other guided modes (BigPlans, Safe Harbor, BookShelf discussion, homeschool report gen, ThoughtSift modes, Communication tools, Love Language tools, Cyrano, Higgins, Meeting facilitation, etc.) — LiLa specialized voices
+
+    **What surfaces LiLa through AI Vault:**
+    - AI Vault native-delivery tools registered in `lila_guided_modes` (`vault_items.delivery_method='native'` AND `vault_items.guided_mode_key` populated) ARE LiLa, surfaced through Vault discovery
+
+    **What is NOT LiLa:**
+    - Native utility tools that have their own Edge Function and are NOT registered in `lila_guided_modes` (Task Breaker is the canonical example) — see Convention 248. These use MyAIM AI infrastructure but do not participate in the LiLa context-assembly or context-update pipelines.
+    - Embedded Vault tools (`delivery_method='embedded'` — iframes pointing at external platforms)
+    - Link-out Vault tools (`delivery_method='link_out'` — external integrations opening in new tab)
+
+    **Per-mode content policy is narrowly scoped, not universal.** Deity-block + Prayer Seat applies *specifically and only* to Board of Directors persona creation per PRD-34 Convention 100–102. If a future PRD introduces additional persona-generation surfaces, that PRD must explicitly pick up the same content-policy gate — it is not pre-applied to other surfaces (e.g., Perspective Shifter uses a curated lens library with family-member-bounded lenses and no free-form persona input, so deity-block does not apply).
+
+    **Three governance layers must be distinguished** when discussing "LiLa ethics" in audit findings, PRDs, or addenda:
+
+    1. **Platform AI ethics / output validation** (PRD-41 scope) — runs after every model response, applies to every AI surface platform-wide. Auto-reject categories (force, coercion, manipulation, shame-based control, withholding affection) are intended to live here as defense-in-depth. Not yet built.
+    2. **LiLa system-prompt guardrails** — embedded in each of the 43+ mode system prompts. Per-mode coverage has not been audited (tracked as Beta Readiness audit finding NEW-D).
+    3. **Per-mode content policy** — narrowly scoped to specific tools with persona-creation surfaces. Currently only Board of Directors.
+
+    Both Layer 1 AND Layer 2 must be in place before beta user exposure. Neither is alone sufficient.
