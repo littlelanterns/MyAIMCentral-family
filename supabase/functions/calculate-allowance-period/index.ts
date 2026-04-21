@@ -10,9 +10,14 @@
  * handles auto-deduct loan repayments, closes the period, and opens
  * the next one.
  *
- * Pro-rated first periods: tasks created mid-period only count from
- * their creation date forward — the denominator is tasks that existed
- * during the period, not tasks that exist at calculation time.
+ * Pro-rated assignments: when a task or routine is added to the allowance
+ * pool mid-period, its pool weight is scaled to (days_active / period_days)
+ * where days_active is counted from max(task.created_at_date, period_start)
+ * through period_end inclusive. For routines, the same shrinkage is applied
+ * to the "total possible steps" denominator (total_steps × days_active). A
+ * completed task still credits its full weight toward the numerator — the
+ * kid gets full credit for completing something, but only a partial penalty
+ * if they didn't (the thing wasn't on their list the whole week).
  *
  * Auth: service role only.
  */
@@ -168,14 +173,37 @@ Deno.serve(async (req) => {
           let totalPoints = 0
           let completedPoints = 0
 
-          // For routine tasks, pre-fetch step completion data for partial credit
+          // Period length in days (inclusive). Used for pro-rating.
+          const periodDays = Math.max(1,
+            Math.ceil((new Date(period.period_end).getTime() - new Date(period.period_start).getTime()) / (1000 * 60 * 60 * 24)) + 1
+          )
+
+          // Helper: how many days of the period a task was eligible for
+          // (from max(task_created_date, period_start) through period_end, inclusive,
+          // capped at periodDays). Used to pro-rate pool weight.
+          const daysActiveInPeriod = (taskCreatedAt: string): number => {
+            const taskCreatedDate = taskCreatedAt.slice(0, 10) // YYYY-MM-DD (UTC)
+            const effectiveStart = taskCreatedDate > period.period_start
+              ? taskCreatedDate
+              : period.period_start
+            if (effectiveStart > period.period_end) return 0
+            const startMs = new Date(effectiveStart + 'T00:00:00Z').getTime()
+            const endMs = new Date(period.period_end + 'T00:00:00Z').getTime()
+            const days = Math.ceil((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1
+            return Math.max(0, Math.min(days, periodDays))
+          }
+
+          // For routine tasks, pre-fetch step completion data for partial credit.
+          // total_possible scales with days_active so mid-week-added routines
+          // don't count as if they existed the whole week.
           const routineTaskIds = tasks.filter(t => t.task_type === 'routine').map(t => t.id)
-          const routineStepData = new Map<string, { completed: number; total: number }>()
+          const routineStepData = new Map<string, { completed: number; total: number; daysActive: number }>()
 
           if (routineTaskIds.length > 0) {
-            // Get template step counts and step completions for each routine
             for (const routineId of routineTaskIds) {
-              // Get the task's template_id
+              const routineTaskRow = tasks.find(t => t.id === routineId)
+              if (!routineTaskRow) continue
+
               const { data: routineTask } = await supabase
                 .from('tasks')
                 .select('template_id')
@@ -184,7 +212,6 @@ Deno.serve(async (req) => {
 
               if (!routineTask?.template_id) continue
 
-              // Count total steps in the template
               const { count: totalSteps } = await supabase
                 .from('task_template_steps')
                 .select('id', { count: 'exact', head: true })
@@ -195,7 +222,6 @@ Deno.serve(async (req) => {
                     .eq('template_id', routineTask.template_id)
                 ).data?.map((s: { id: string }) => s.id) ?? [])
 
-              // Count step completions during this period
               const { count: completedSteps } = await supabase
                 .from('routine_step_completions')
                 .select('id', { count: 'exact', head: true })
@@ -204,17 +230,14 @@ Deno.serve(async (req) => {
                 .gte('period_date', period.period_start)
                 .lte('period_date', period.period_end)
 
-              // Average daily completion: completedSteps / (totalSteps * days_in_period)
-              // But simpler: just ratio of completed vs total per-day average
-              const periodDays = Math.max(1,
-                Math.ceil((new Date(period.period_end).getTime() - new Date(period.period_start).getTime()) / (1000 * 60 * 60 * 24)) + 1
-              )
-              const totalPossible = (totalSteps ?? 0) * periodDays
+              const daysActive = daysActiveInPeriod(routineTaskRow.created_at)
+              const totalPossible = (totalSteps ?? 0) * daysActive
               const actualCompleted = completedSteps ?? 0
 
               routineStepData.set(routineId, {
                 completed: actualCompleted,
                 total: totalPossible,
+                daysActive,
               })
             }
           }
@@ -228,22 +251,37 @@ Deno.serve(async (req) => {
             }
 
             const weight = task.allowance_points ?? config.default_point_value
-            totalAssigned++
-            totalPoints += weight
+            const daysActive = daysActiveInPeriod(task.created_at)
+            if (daysActive === 0) continue // created after period_end — skip entirely
+
+            // Pro-rated pool share: how much weight this task contributes to the
+            // denominator. A task that existed all 7 days contributes its full
+            // weight; a task added on day 5 contributes weight × (3/7).
+            const poolFraction = daysActive / periodDays
+            totalAssigned += poolFraction
+            totalPoints += weight * poolFraction
 
             if (task.task_type === 'routine') {
-              // Routine: partial credit based on step completions
+              // Routine: partial credit based on step completions. The
+              // step-completion denominator has already been scaled to
+              // days_active in routineStepData, so stepData.total reflects
+              // "steps the kid could actually have done this period."
               const stepData = routineStepData.get(task.id)
               if (stepData && stepData.total > 0) {
                 const fraction = Math.min(stepData.completed / stepData.total, 1)
+                // Numerator gets full credit when completed (not pro-rated).
                 completedPoints += weight * fraction
-                if (fraction >= 1) completed++
-                else if (fraction > 0) completed += fraction // fractional "completed" count
+                if (fraction >= 1) completed += poolFraction
+                else if (fraction > 0) completed += fraction * poolFraction
               }
-              // If no step data, routine contributes 0
+              // If stepData.total === 0 (routine with no template steps), contribute 0.
             } else if (task.status === 'completed') {
-              completed++
-              completedPoints += weight
+              // Regular task completed: credit the full pool share toward the
+              // numerator. Partial-period tasks still get full credit for
+              // being done, while the matching denominator share is also
+              // pro-rated, so the math stays fair.
+              completed += poolFraction
+              completedPoints += weight * poolFraction
 
               // Extra credit tasks (task_type='makeup') count separately
               if (task.task_type === 'makeup') {
@@ -252,20 +290,26 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Effective counts
-          const effectiveAssigned = totalAssigned
-          const effectiveCompleted = Math.min(completed, totalAssigned) // cap at 100%
+          // Internal (precise, fractional) effective counts — used for percentage math.
+          const effectiveAssignedRaw = totalAssigned
+          const effectiveCompletedRaw = Math.min(completed, totalAssigned) // cap at 100%
 
-          // Calculate completion percentage
+          // Display counts (integer) — stored in allowance_periods.*_tasks_* columns
+          // which are INTEGER. Rounded only for display; the percentage below uses
+          // the precise fractional values so pro-rating is exact.
+          const effectiveAssigned = Math.round(effectiveAssignedRaw)
+          const effectiveCompleted = Math.round(effectiveCompletedRaw)
+
+          // Calculate completion percentage (uses precise fractional values)
           let completionPct: number
-          if (effectiveAssigned === 0) {
-            completionPct = 100 // zero tasks = 100%
+          if (effectiveAssignedRaw === 0) {
+            completionPct = 100 // zero tasks in pool = 100%
           } else if (config.calculation_approach === 'points_weighted') {
             completionPct = totalPoints > 0
               ? Math.min((completedPoints / totalPoints) * 100, 100)
               : 100
           } else {
-            completionPct = Math.min((effectiveCompleted / effectiveAssigned) * 100, 100)
+            completionPct = Math.min((effectiveCompletedRaw / effectiveAssignedRaw) * 100, 100)
           }
 
           // Round to 2 decimal places
