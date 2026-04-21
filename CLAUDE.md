@@ -525,6 +525,10 @@ These are patterns where a tool or technique appears to work but silently produc
 
 **5. mgrep invocation must include `search` subcommand.** Bare `mgrep "pattern"` without a subcommand silently routes to the default `index` mode, which returns empty output regardless of what's indexed. The CLI looks like it's working — it exits cleanly, no errors — but returns nothing. Symptom: mgrep queries that should match known text return no hits, and the user concludes the index is broken. Correct approach: always invoke as `mgrep search "pattern"` with the explicit subcommand. Diagnostic: if `mgrep "foo"` returns nothing but you know "foo" is in the codebase, retry as `mgrep search "foo"` — if results appear, the original invocation was missing the subcommand.
 
+**6. pg_cron jobs using `current_setting('app.settings.*')` on Supabase hosted.** Migrations scaffolded with the pattern `url := current_setting('app.settings.supabase_url')` assume you can `ALTER DATABASE postgres SET app.settings.*` — which is **permission-denied on Supabase hosted for every role, even in the Dashboard SQL Editor**. Custom GUCs cannot be set. The jobs register successfully, look correct in `cron.job`, and then fail silently every single run with `ERROR: unrecognized configuration parameter "app.settings.supabase_url"`. No user-facing error because cron runs in its own session. Symptom: feature that depends on a scheduled Edge Function (allowance calculation, MindSweep auto-sweep, rhythm carry-forward, embedding queue) appears completely dead with no application log entries, and `cron.job_run_details` shows `status='failed'` for every row. Correct approach: route ALL cron → Edge Function invocations through `util.invoke_edge_function()` which reads secrets from Supabase Vault — see Convention 246. Diagnostic: `SELECT jobname, status, return_message FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;` — any row with `unrecognized configuration parameter` needs to be migrated to the helper pattern immediately.
+
+**7. Edge Functions invoked from cron with `sb_secret_...` keys fail when `verify_jwt` is enabled.** The new-style Supabase secret key format (`sb_secret_abc123...`) is NOT a JWT. Edge Functions deployed with default settings (`verify_jwt = true`) reject it at the gateway with `UNAUTHORIZED_INVALID_JWT_FORMAT` before the function code ever runs. Old-style JWT keys (`eyJ...`) slip past the gateway. Symptom: cron job fires successfully, `cron.job_run_details.status='succeeded'` (because `net.http_post` returned a response), but `net._http_response` shows `status_code=401`. Correct approach: deploy cron-invoked functions with `--no-verify-jwt` (or `config.toml` `verify_jwt = false`) — the function code still validates the service role bearer token. Diagnostic: `SELECT id, status_code, content::text FROM net._http_response ORDER BY id DESC LIMIT 10;` after manually invoking a job via `SELECT util.invoke_edge_function('fn-name');` — any 401 with `UNAUTHORIZED_INVALID_JWT_FORMAT` means redeploy with `--no-verify-jwt`.
+
 242. **Grep and Glob are the primary search tools; mgrep is reserved for semantic queries that literal matching cannot answer, and each use requires per-query founder approval.** Inverted 2026-04-18 after Scale-tier mgrep burn rate ($36.54 in 36 hours of audit use, projecting $300+/month for solo-founder workload) proved unsustainable and hit the spend limit mid-Stage-A of the Phase 2 audit. mgrep was downgraded from Scale tier to free tier and its convention status flipped from "required default" to "escape hatch for genuine semantic needs." Default workflow: reach for `Grep`/`Glob` first. If a lookup is genuinely cross-cutting and keyword-grep is missing it (e.g., "which PRDs reference this architectural pattern without naming it directly"), surface the query to the founder and request explicit per-query approval before invoking mgrep. If mgrep is unavailable for any reason, continue with `Grep`/`Glob` — it is no longer a tool-health halt condition. This convention will be re-evaluated post-audit based on how often semantic capability was genuinely needed vs. how often Grep/Glob was sufficient. Reference: `claude/LESSONS_LEARNED.md` → "Convention Cost Evaluation" pattern; AUDIT_REPORT_v1.md SCOPE-1.F4; `feedback_use_mgrep` memory entry.
 
 ## Privacy Guardrails (Non-Negotiable)
@@ -538,3 +542,32 @@ These are patterns where a tool or technique appears to work but silently produc
 ## Data Access Patterns (Non-Negotiable)
 
 245. **Primary Parent Check Pattern.** For authorization or routing decisions that hinge on "is this member the primary parent?", prefer a synchronous roster lookup when the `family_members` array is already in scope: `members.find(m => m.id === requesterId)?.role === 'primary_parent'`. Fall back to the `isPrimaryParent()` helper from `supabase/functions/_shared/privacy-filter.ts` at sites without roster access. Both converge on the `family_members.role = 'primary_parent'` ground truth; the difference is cost. The async helper fires a DB roundtrip per call — in loops over a family roster this stacks to 2N roundtrips (one per member × two sites) where zero are needed. Task 2 of Phase 0.26 S3 avoided this cost by using the sync variant at sites where `members` was already loaded. Use whichever is cheapest without losing correctness. Reference: `RECON_DECISIONS_RESOLVED.md` Decision 6; Phase 0.26 S3 Task 2 pattern discipline.
+
+## pg_cron → Edge Function Invocations (Non-Negotiable)
+
+246. **All pg_cron jobs that invoke Edge Functions MUST use `util.invoke_edge_function(p_function_name TEXT, p_body JSONB DEFAULT '{}')`.** One line in `cron.job.command`, no URLs, no keys. The helper reads `supabase_url` and `service_role_key` from Supabase Vault (`vault.decrypted_secrets`). Defined in migration `00000000100150_cron_invoke_edge_function_helper.sql`. Usage:
+
+    ```sql
+    SELECT cron.schedule('my-job', '0 * * * *', $cron$
+      SELECT util.invoke_edge_function('my-edge-function');
+    $cron$);
+    ```
+
+    **Why:** `ALTER DATABASE postgres SET app.settings.*` is **permission-denied on Supabase hosted** — even in the Dashboard SQL Editor, even for the `postgres` role, even for `supabase_admin`. Custom GUCs simply cannot be set. Migrations that tried (100093 mindsweep-auto-sweep, 100110 rhythm-carry-forward-fallback, 100134 calculate-allowance-period + accrue-loan-interest) silently failed on every run for 7+ days with `ERROR: unrecognized configuration parameter "app.settings.supabase_url"` — discovered by Scope 7 performance baseline (PERFORMANCE_BASELINE.md issue #1, 2026-04-20). Hardcoding secrets into `cron.job.command` also bad: persists in DB catalog, requires code changes + redeploys to rotate. Vault is the correct middle ground.
+
+    **Required one-time bootstrap per environment** (run once via `vault.create_secret()` — postgres role has permission even though it can't ALTER DATABASE):
+
+    ```sql
+    SELECT vault.create_secret('https://<project-ref>.supabase.co', 'supabase_url', 'Base URL for the project.');
+    SELECT vault.create_secret('<service_role_key>', 'service_role_key', 'Service role key for cron-invoked Edge Functions.');
+    ```
+
+    Rotation: update via Supabase Dashboard → Database → Vault. All jobs pick up the new value on their next run — no redeploy, no migration.
+
+    **Edge Functions invoked from cron MUST be deployed with `--no-verify-jwt`** (or a per-function `config.toml` with `verify_jwt = false`) because the new-style `sb_secret_...` service-role key is not a JWT and Supabase's edge gateway rejects it with `UNAUTHORIZED_INVALID_JWT_FORMAT` when JWT verification is enabled. Functions like `calculate-allowance-period` and `accrue-loan-interest` that are exclusively cron-invoked should disable JWT verification at deploy time; the service-role bearer token in the Authorization header is still checked by the function code itself for authorization.
+
+    **Deployment checklist (add to any runbook that provisions a new Supabase project):**
+    1. Deploy Edge Functions: `supabase functions deploy <name> --project-ref <ref> --no-verify-jwt` for cron-invoked functions.
+    2. Populate Vault: two `vault.create_secret()` calls for `supabase_url` and `service_role_key`.
+    3. Apply migrations: the cron-scheduling migrations (including 100150) will then succeed.
+    4. Verify: `SELECT jobname, command FROM cron.job;` — every command should be a `SELECT util.invoke_edge_function(...)` one-liner. `SELECT * FROM cron.job_run_details WHERE status='failed' ORDER BY start_time DESC LIMIT 5;` — should be empty.

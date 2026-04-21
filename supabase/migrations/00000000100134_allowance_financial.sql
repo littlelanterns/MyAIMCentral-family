@@ -909,39 +909,50 @@ $fn$;
 
 -- ============================================================================
 -- 11. pg_cron jobs
+--
+--     Originally written with current_setting('app.settings.*') which is
+--     permission-denied on Supabase hosted; both jobs silently failed on
+--     every run for 7+ days (Scope 7 baseline). Rewritten 2026-04-20 to
+--     use util.invoke_edge_function which reads from Supabase Vault.
+--     Migration 100150 creates the helper and reschedules; this file is
+--     kept in sync for fresh-DB rebuilds.
 -- ============================================================================
 
--- Allowance period calculation — hourly at :10
-SELECT cron.schedule(
-  'calculate-allowance-period',
-  '10 * * * *',
-  $$
-  SELECT net.http_post(
-    url := current_setting('app.settings.supabase_url') || '/functions/v1/calculate-allowance-period',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'util' AND p.proname = 'invoke_edge_function'
+  ) THEN
+    RAISE NOTICE 'util.invoke_edge_function not yet present; migration 100150 will schedule these jobs.';
+    RETURN;
+  END IF;
 
--- Loan interest accrual — hourly at :15
-SELECT cron.schedule(
-  'accrue-loan-interest',
-  '15 * * * *',
-  $$
-  SELECT net.http_post(
-    url := current_setting('app.settings.supabase_url') || '/functions/v1/accrue-loan-interest',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-    ),
-    body := '{}'::jsonb
+  -- Allowance period calculation — hourly at :10
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'calculate-allowance-period') THEN
+    PERFORM cron.unschedule('calculate-allowance-period');
+  END IF;
+  PERFORM cron.schedule(
+    'calculate-allowance-period',
+    '10 * * * *',
+    $cron$
+    SELECT util.invoke_edge_function('calculate-allowance-period');
+    $cron$
   );
-  $$
-);
+
+  -- Loan interest accrual — hourly at :15
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'accrue-loan-interest') THEN
+    PERFORM cron.unschedule('accrue-loan-interest');
+  END IF;
+  PERFORM cron.schedule(
+    'accrue-loan-interest',
+    '15 * * * *',
+    $cron$
+    SELECT util.invoke_edge_function('accrue-loan-interest');
+    $cron$
+  );
+END $$;
 
 
 -- ============================================================================

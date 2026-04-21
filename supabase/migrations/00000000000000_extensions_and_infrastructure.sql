@@ -48,20 +48,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================
--- Schedule embedding queue processing (every 10 seconds)
+-- Schedule embedding queue processing
 -- Requires pg_cron extension (enabled on Supabase Pro)
 -- ============================================================
--- NOTE: pg_cron scheduling is set up via Supabase Dashboard
--- because it requires the supabase_url and service_role_key
--- which are configured as app.settings in the dashboard.
---
--- Cron job to add via Dashboard → Database → Cron Jobs:
--- Name: process-embeddings
--- Schedule: */10 * * * * (every 10 seconds not supported by pg_cron,
---           use Supabase's interval scheduling or set to * * * * * for every minute)
--- Command:
---   SELECT net.http_post(
---     url := 'https://vjfbzpliqialqmabfnxs.supabase.co/functions/v1/embed',
---     headers := '{"Authorization": "Bearer SERVICE_ROLE_KEY"}'::jsonb,
---     body := '{}'::jsonb
---   );
+-- The process-embeddings cron job is scheduled by migration 100150, which
+-- also creates util.invoke_edge_function (the universal cron → Edge Function
+-- bridge that reads URL + service role key from Supabase Vault). All
+-- cron-scheduled Edge Function invocations in this codebase go through that
+-- helper — do NOT hardcode URLs/keys into cron.job.command, and do NOT use
+-- current_setting('app.settings.*') (permission-denied on Supabase hosted).
+-- See CLAUDE.md "pg_cron Edge Function invocations" convention for context.

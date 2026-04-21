@@ -350,20 +350,36 @@ WHERE rc.member_id = fm.id
 -- 6. pg_cron job: rhythm-carry-forward-fallback
 --    Runs hourly at :05 (offset from mindsweep at :00). The
 --    Edge Function checks each family's timezone and only
---    processes members whose local hour === 0 (midnight). Same
---    service-role auth pattern as mindsweep-auto-sweep.
+--    processes members whose local hour === 0 (midnight).
+--
+--    Originally written with current_setting('app.settings.*')
+--    which is permission-denied on Supabase hosted; this job
+--    silently failed on every run for 7+ days (Scope 7 baseline).
+--    Rewritten 2026-04-20 to use util.invoke_edge_function which
+--    reads from Supabase Vault. Migration 100150 creates the
+--    helper and reschedules; this file kept in sync for fresh
+--    rebuilds.
 -- ============================================================
-SELECT cron.schedule(
-  'rhythm-carry-forward-fallback',
-  '5 * * * *',  -- every hour at :05
-  $$
-  SELECT net.http_post(
-    url := current_setting('app.settings.supabase_url') || '/functions/v1/process-carry-forward-fallback',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
-    ),
-    body := '{}'::jsonb
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'util' AND p.proname = 'invoke_edge_function'
+  ) THEN
+    RAISE NOTICE 'util.invoke_edge_function not yet present; migration 100150 will schedule this job.';
+    RETURN;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'rhythm-carry-forward-fallback') THEN
+    PERFORM cron.unschedule('rhythm-carry-forward-fallback');
+  END IF;
+
+  PERFORM cron.schedule(
+    'rhythm-carry-forward-fallback',
+    '5 * * * *',  -- every hour at :05
+    $cron$
+    SELECT util.invoke_edge_function('process-carry-forward-fallback');
+    $cron$
   );
-  $$
-);
+END $$;

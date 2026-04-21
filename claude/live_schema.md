@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-20
+> Auto-generated from live Supabase on 2026-04-21
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 531 rows
+### `ai_usage_tracking` — 533 rows
 
 | # | Column |
 |---|---|
@@ -623,7 +623,7 @@
 | 39 | `allowance_points` |
 | 40 | `homework_subject_ids` |
 
-### `task_template_sections` — 52 rows
+### `task_template_sections` — 84 rows
 
 | # | Column |
 |---|---|
@@ -638,7 +638,7 @@
 | 9 | `show_until_complete` |
 | 10 | `updated_at` |
 
-### `task_template_steps` — 228 rows
+### `task_template_steps` — 250 rows
 
 | # | Column |
 |---|---|
@@ -657,7 +657,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 71 rows
+### `tasks` — 75 rows
 
 | # | Column |
 |---|---|
@@ -736,7 +736,7 @@
 | 73 | `allowance_points` |
 | 74 | `homework_subject_ids` |
 
-### `task_assignments` — 22 rows
+### `task_assignments` — 26 rows
 
 | # | Column |
 |---|---|
@@ -2026,7 +2026,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `bookshelf_user_state` — 47 rows
+### `bookshelf_user_state` — 49 rows
 
 | # | Column |
 |---|---|
@@ -2452,7 +2452,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 132 rows
+### `activity_log_entries` — 133 rows
 
 | # | Column |
 |---|---|
@@ -2611,7 +2611,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 49 rows
+### `beta_glitch_reports` — 50 rows
 
 | # | Column |
 |---|---|
@@ -2636,7 +2636,7 @@
 | 19 | `admin_notes` |
 | 20 | `resolved_at` |
 
-### `bookshelf_search_history` — 13 rows
+### `bookshelf_search_history` — 15 rows
 
 | # | Column |
 |---|---|
@@ -3365,7 +3365,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 12 rows
+### `rhythm_completions` — 13 rows
 
 | # | Column |
 |---|---|
