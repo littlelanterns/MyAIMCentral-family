@@ -1,9 +1,11 @@
 ---
-Status: ADJUDICATED — all 15 decisions + 3 structural pushbacks + 3 post-audit recommendations captured 2026-04-21; awaiting apply-phase
+Status: APPROVED WITH AMENDMENTS — founder isolated review complete 2026-04-21; ready for fresh-session apply-phase prompt drafting
 Stage: C
 Scope: 3 + 8b (cross-PRD integration; integration compliance & safety)
 Opened: 2026-04-20
 Adjudicated: 2026-04-21 (founder verdicts via claude.ai web session, captured in [FOUNDER_HANDOFF.md](FOUNDER_HANDOFF.md))
+Amended: 2026-04-21 (5 amendments + 2 flag verdicts from founder isolated review — see Sign-off section)
+Final emission counts: 13 SCOPE-8b + 42 SCOPE-3 main-table + 1 SCOPE-3 Appendix-only (F39a) + 7 Deferred-to-Gate-4 Appendix entries
 Related: [AUDIT_REPORT_v1.md](../AUDIT_REPORT_v1.md) §3 and §8b; [PLAN.md](PLAN.md); [SYNTHESIS.md](SYNTHESIS.md); [MYAIM_GAMEPLAN_v2.2.md](../MYAIM_GAMEPLAN_v2.2.md) Phase 2 (lines 305–308, 332)
 ---
 
@@ -229,12 +231,13 @@ One build. The shared helper rollout is mechanical once the helper exists — PR
 
 Blocking. Beta Y.
 
-### Contributing evidence files (12+ surfaces)
+### Contributing evidence files (13 surfaces — PRD-21A folded in per founder isolated review 2026-04-21 Flag 1 verdict)
 
 - EVIDENCE_prd15 seam #4 (per-pair `member_messaging_permissions` client-side only)
 - EVIDENCE_prd17b seam #6 (`classify_by_embedding` SECURITY DEFINER + trusted `p_family_id`)
 - EVIDENCE_prd18 seam #7 (`match_book_extractions` SECURITY DEFINER + trusted `p_family_id`)
 - EVIDENCE_prd21 F-A (`lila_tool_permissions` not checked by 8 tool Edge Functions)
+- **EVIDENCE_prd21a F-C (Vault browse role-/tier-based filtering absent — teen-visible subset; folded per Flag 1 verdict — same root cause, same `authorizeForFamily` helper class of fix with role-check extension)**
 - EVIDENCE_prd22 F-C (`member_emails` login resolution not enforced; `lila_member_preferences` not loaded)
 - EVIDENCE_prd25 seam #7 (`guided-nbt-glaze` has NO `authenticateRequest` call at all)
 - EVIDENCE_prd27 F-A (Special Adult shift-window permission read vs write table mismatch — 2 live rows in production; compounds with Decision 15 3E remediation)
@@ -245,7 +248,7 @@ Blocking. Beta Y.
 ### Remediation sequencing notes
 
 - **Ships with Decision 4** (Crisis Override) if possible — same `_shared/` directory, same class of fix, same commit cycle, both safety substrate.
-- PRD-21A Vault teen-subset role/tier filtering may emerge as a 13th contributing surface or as standalone finding; see Synthesis pass §Emission roster for final placement.
+- **PRD-21A Vault teen-filter folded in per Flag 1 verdict** — not a standalone finding. One build, one helper, one fix.
 
 ### Emission
 
@@ -327,6 +330,10 @@ High. Beta Y. Fix Next Build (one build bundle).
 ### Emission
 
 **SCOPE-8b.F4** — "Documented user-controlled accountability/privacy silently unenforceable (5 surfaces)" — High, Beta Y, Fix Next Build
+
+**Apply-phase instruction (required inside F4's finding body):** Include the following retrospective footnote (audit-trail continuity for how `history_retention` was restored to this pattern):
+
+> "PRD-22 `history_retention` was initially triaged as 'never built' during pre-synthesis evidence pass; founder adjudication restored it as a specced-but-unwired consumer based on PRD-22 design session 2026-03-19 artifacts. Future evidence passes should treat columns with corresponding PRD spec text as 'consumer missing,' not 'feature never built.'"
 
 **No separate §3 emission for Decision 15 3G (PRD-14D PIN-per-intention).** Folded into this finding per FOUNDER_HANDOFF Decision 15 table.
 
@@ -508,9 +515,7 @@ Not just cost drift. Architectural flexibility founder explicitly wants. Two Edg
 
 ### Cross-ref
 
-This finding **feeds Scope 4** (cost-pattern audit). Scope 4 should formally adopt the `invokeAI()` pattern as enforceable convention. See also Round 19 Post-Audit Recommendation #2 (CLAUDE.md convention proposal).
-
-**Orchestrator flag to founder during apply-phase review:** If Scope 4 orchestrator is still in flight, founder may want to scope-move Decision 7 remediation entirely to Scope 4 for cohesion with F1 MindSweep embedding-first finding.
+This finding **relates to Scope 4** (cost-pattern audit, closed + applied + archived 2026-04-20). Scope 4 closed 2026-04-20; this finding stays in Scope 3+8b. Cross-reference to Scope 4 cost-pattern findings is read-only citation in F5's finding body — no reopening of closed scopes. See also Round 19 Post-Audit Recommendation #2 (CLAUDE.md convention proposal).
 
 ### Severity + Beta + Resolution
 
@@ -782,7 +787,11 @@ No new findings. Reduction from SCOPE-3 roster.
 - **SCOPE-8b.F8** — "PRD-22 account_deletions GDPR right-to-erasure unenforced" — High, Beta Y, Fix Next Build — EVIDENCE_prd22 F-A. pg_cron schedule commented out; `process_expired_deletions()` only soft-deactivates; no UI path.
 - **SCOPE-8b.F9** — "PRD-16 meeting impressions privacy unenforced" — High, Beta Y, Fix Next Build — EVIDENCE_prd16 seam #2. Convention #232 enforced only by SQL comment. Couple meeting impressions readable by partner.
 - **SCOPE-8b.F10** — "PRD-16 dad meeting permission gate absent" — High, Beta Y, Fix Next Build — EVIDENCE_prd16 seam #3. `useCreateMeeting` does NO `member_permissions` check before INSERT.
-- **SCOPE-8b.F11** — "PRD-27 shift_sessions/time_sessions bifurcation (live data gap)" — High, Beta Y, Fix Now — EVIDENCE_prd27 F-A. **Sequenced after Decision 6 PRD-35 type consolidation.** 2 live `special_adult_assignments` rows in production.
+- **SCOPE-8b.F11** — "PRD-27 shift_sessions/time_sessions bifurcation (live data gap)" — High, Beta Y, Fix Now — EVIDENCE_prd27 F-A. 2 live `special_adult_assignments` rows in production. **Apply-phase instruction (required inside F11's finding body):** include the following sentence to carry the sequencing dependency forward into AUDIT_REPORT_v1.md:
+
+  > "Remediation sequenced after SCOPE-3.F2 PRD-35 RecurrenceDetails type consolidation — that consolidation is the root cause of this bifurcation."
+
+  Same dependency note is already placed on SCOPE-3.F2's body per Round 9. Both sides of the dependency must carry it so a reader scanning either finding sees the sequencing.
 - **SCOPE-3.F14** — "PRD-28 first allowance_periods row never created" — High, Beta Y, Fix Next Build — EVIDENCE_prd28 seam #8. Allowance system functionally non-operational at first-use.
 - **Decision 15 3G** → folded into SCOPE-8b.F4 Pattern 1D (Round 6). No separate emission.
 - **SCOPE-8b.F12** — "PRD-15 messaging safety semantics enforced client-side only (consolidated 4 sub-surfaces)" — High, Beta Y, Fix Next Build — EVIDENCE_prd15 F-A. Coaching log fictional (`useRef` no DB write); per-pair messaging permission client-side only; safety alert DnD bypass absent; Content Corner lock client-only. (Crisis Override sub-element cross-cites SCOPE-8b.F5 from Round 7.)
@@ -838,13 +847,9 @@ No new findings. Reduction from SCOPE-3 roster.
 
 **Cross-reference:** Scope 4 (cost-pattern audit) should formally adopt the `invokeAI()` pattern as enforceable convention.
 
-### Post-Audit Recommendation #3: Addendum-writing habit — "consumer missing" vs "never built"
+### Post-Audit Recommendation #3: Addendum-writing habit — "consumer missing" vs "never built" (prospective convention only)
 
-**Trigger:** Pushback C (Round 3) — PRD-22 `history_retention` initially triaged as "never built" when it's actually "specced with DB column, consumers missing."
-
-**Proposed footnote for Pattern 1D (SCOPE-8b.F4) finding body:**
-
-> "PRD-22 `history_retention` was initially triaged as 'never built' during pre-synthesis evidence pass; founder adjudication restored it as a specced-but-unwired consumer based on PRD-22 design session 2026-03-19 artifacts. Future evidence passes should treat columns with corresponding PRD spec text as 'consumer missing,' not 'feature never built.'"
+**Trigger:** Pushback C (Round 3) — PRD-22 `history_retention` initially triaged as "never built" when it's actually "specced with DB column, consumers missing." The retrospective footnote documenting this specific correction has been moved into SCOPE-8b.F4's finding body (see Round 6 emission instruction). This Recommendation #3 is **forward-looking only** — a prospective addendum-writing convention for future audits.
 
 **Proposed addendum-writing habit #9 (future — for CLAUDE.md session):**
 
@@ -854,7 +859,7 @@ No new findings. Reduction from SCOPE-3 roster.
 
 - **SCOPE-3.F15** — "CLAUDE.md convention proposal: Lego Primitive Connector Documentation" — Low, Beta N, Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session)
 - **SCOPE-3.F16** — "CLAUDE.md convention proposal: AI Model Selection is Registry-Driven (`invokeAI()` helper)" — Low, Beta N, Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session)
-- **SCOPE-3.F17** — "CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9)" — Low, Beta N, Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session)
+- **SCOPE-3.F17** — "CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9, prospective convention only)" — Low, Beta N, Intentional-Update-CLAUDE-md (hand to dedicated CLAUDE.md session). Retrospective footnote about the PRD-22 `history_retention` correction is NOT part of this emission — it lives inside SCOPE-8b.F4's finding body per Round 6 apply-phase instruction.
 
 ### Additional global-addenda process-hygiene observations
 
@@ -887,6 +892,7 @@ Round 0 content itself is append-only; this round records the amendment as a sup
 | PRD-41 Runtime ethics enforcement integrations | PRD-41 unauthored | SCOPE-8a.F3 |
 | **PRD-27 Caregiver Tools integrations** ← NEW | PRD-27 mostly unbuilt (3 tables, no UI surface) | EVIDENCE_prd27 F-B; cross-ref SCOPE-3 roster |
 | **PRD-29 BigPlans integrations** ← NEW | PRD-29 entirely unbuilt | EVIDENCE_prd29 F-A; cross-ref SCOPE-3 roster |
+| **PRD-19 Family Context & Relationships core infrastructure** ← NEW (added per Amendment 3 — founder isolated review 2026-04-21) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry) | EVIDENCE_prd19 F-B; cross-ref SCOPE-3.F39a |
 
 ### Findings that DO remain standalone after this amendment
 
@@ -894,6 +900,8 @@ Round 0 content itself is append-only; this round records the amendment as a sup
 - **PRD-29 F-B (guided-mode taxonomy drift)** — standalone SCOPE-3
 - **PRD-29 F-C (5 feature keys absent from registry)** — standalone SCOPE-3
 - **PRD-29 F-D (stub-socket WIRED)** — SCOPE-3.F13 (Round 16 / Decision 13)
+- **PRD-19 F-A (is_available_for_mediation)** — folded into SCOPE-8b.F4 Pattern 1D (Round 6)
+- **PRD-19 F-C + F-D (lila-chat doesn't load private/relationship notes + family_context_interview drift)** — SCOPE-3.F39b (Amendment 3)
 
 ### Emission
 
@@ -909,11 +917,11 @@ No new findings. PRD-27 F-B + PRD-29 F-A collapse to one-line Deferred-to-Gate-4
 
 This is the first Scope to use the **Option A pattern-grouped walk-through** (single-session pattern-level adjudication against [SYNTHESIS.md](SYNTHESIS.md) §§1–7 instead of per-surface round-by-round adjudication). Founder walked the 15 decision prompts in SYNTHESIS.md §6 during the 2026-04-21 claude.ai web session; pattern-level verdicts cascaded to per-surface emissions via the tables below. Handoff captured in [FOUNDER_HANDOFF.md](FOUNDER_HANDOFF.md); pushbacks captured in Rounds 1–3; decisions captured in Rounds 4–18; post-audit recommendations in Round 19; Deferred amendment in Round 20.
 
-### Emission roster — SCOPE-8b (14 findings)
+### Emission roster — SCOPE-8b (13 findings per Flag 1 verdict)
 
 | ID | Title | Severity | Beta Y | Resolution | Location / Primary Evidence |
 |---|---|---|---|---|---|
-| SCOPE-8b.F1 | Edge Functions authenticate but do not authorize (12+ surfaces including cross-family Mediator Full Picture data leakage) | Blocking | Y | Fix Now (Mediator) + Fix Next Build (remainder) | EVIDENCE_prd34 F-B (lede); cross-refs: EVIDENCE_prd15 seam #4, _prd17b seam #6, _prd18 seam #7, _prd21 F-A, _prd22 F-C, _prd25 seam #7, _prd27 F-A, _prd34 F-A, _prd36 F-C |
+| SCOPE-8b.F1 | Edge Functions authenticate but do not authorize (13 surfaces including cross-family Mediator Full Picture data leakage + PRD-21A Vault teen-filter) | Blocking | Y | Fix Now (Mediator) + Fix Next Build (remainder) | EVIDENCE_prd34 F-B (lede); cross-refs: EVIDENCE_prd15 seam #4, _prd17b seam #6, _prd18 seam #7, _prd21 F-A, _prd21a F-C (teen-filter — folded per Flag 1), _prd22 F-C, _prd25 seam #7, _prd27 F-A, _prd34 F-A, _prd36 F-C |
 | SCOPE-8b.F2 | HITM gate bypassed on PRD-21 `communication_drafts` persist | High | Y | Fix Next Build | EVIDENCE_prd21 F-B |
 | SCOPE-8b.F3 | HITM gate bypassed on PRD-34 `board_personas` generation | High | Y | Fix Next Build | EVIDENCE_prd34 F-C |
 | SCOPE-8b.F4 | Documented user-controlled accountability/privacy silently unenforceable (5 surfaces: PIN, is_available_for_mediation, analytics_opt_in, history_retention, family_best_intentions.is_included_in_ai) | High | Y | Fix Next Build (user-control enforcement sweep) | EVIDENCE_prd14d F-A + F-D, _prd19 F-A 8b side, _prd22 F-B + F-C sub-element |
@@ -923,12 +931,11 @@ This is the first Scope to use the **Option A pattern-grouped walk-through** (si
 | SCOPE-8b.F8 | PRD-22 `account_deletions` GDPR right-to-erasure unenforced (pg_cron commented out; soft-deactivate only; no UI path) | High | Y | Fix Next Build | EVIDENCE_prd22 F-A |
 | SCOPE-8b.F9 | PRD-16 meeting impressions privacy unenforced (Convention #232 enforced only by SQL comment) | High | Y | Fix Next Build | EVIDENCE_prd16 seam #2 |
 | SCOPE-8b.F10 | PRD-16 dad meeting permission gate absent (useCreateMeeting does NO member_permissions check) | High | Y | Fix Next Build | EVIDENCE_prd16 seam #3 |
-| SCOPE-8b.F11 | PRD-27 shift_sessions/time_sessions bifurcation (live data gap; 2 live rows in production) | High | Y | Fix Now (sequenced after Decision 6 PRD-35 type consolidation) | EVIDENCE_prd27 F-A |
+| SCOPE-8b.F11 | PRD-27 shift_sessions/time_sessions bifurcation (live data gap; 2 live rows in production). Apply-phase **must** embed sequencing sentence in finding body: "Remediation sequenced after SCOPE-3.F2 PRD-35 RecurrenceDetails type consolidation — that consolidation is the root cause of this bifurcation." | High | Y | Fix Now (sequenced after SCOPE-3.F2) | EVIDENCE_prd27 F-A |
 | SCOPE-8b.F12 | PRD-15 messaging safety semantics enforced client-side only (consolidated 4 sub-surfaces) | High | Y | Fix Next Build | EVIDENCE_prd15 F-A |
 | SCOPE-8b.F13 | PRD-31 server-side subscription tier enforcement absent (47 Edge Functions ungated) | High | Y | Fix Next Build | EVIDENCE_prd31 F-G |
-| SCOPE-8b.F14 | PRD-21A Vault browse role-/tier-based filtering absent (teen-visible subset — cross-cites F1 pattern) | Medium | Y (teen-filter subset) | Fix Next Build | EVIDENCE_prd21a F-C |
 
-**Count reconciliation:** FOUNDER_HANDOFF states "SCOPE-8b: 14 findings (was 15; F1+F2 merged per Pushback A)." SYNTHESIS §7.1 had 15 findings; Pushback A merges 2 → 1. Decision 3 fold of analytics_opt_in into Pattern 1D is already reflected in SYNTHESIS §1D surface list (analytics_opt_in was BOTH a sub-surface of F5 AND its own standalone F14 in SYNTHESIS); post-Decision-3 the standalone F14 removes. PRD-21A teen-subset (SYNTHESIS §7.2 F69 noted "teen-visible SCOPE-8b primary via 1A") emits as SCOPE-8b.F14 here. **Orchestrator flag for founder isolated review:** the 14th slot is either (a) PRD-21A teen-subset as separate SCOPE-8b.F14 (as shown above), OR (b) folded into SCOPE-8b.F1 as the 13th contributing surface of Pattern 1A. The FOUNDER_HANDOFF count of 14 can be satisfied either way. Default shown: (a) standalone. Founder to confirm during isolated DECISIONS.md review.
+**Count reconciliation:** Final SCOPE-8b count = **13 findings** per founder isolated review 2026-04-21 Flag 1 verdict. FOUNDER_HANDOFF initially stated "14 findings (was 15; F1+F2 merged per Pushback A)." During isolated DECISIONS.md review, founder verdicted to fold PRD-21A Vault teen-filter (originally SYNTHESIS §7.2 F69 "teen-visible SCOPE-8b primary via 1A") into SCOPE-8b.F1 as the 13th contributing surface of Pattern 1A — same root cause, same `authorizeForFamily` helper class of fix with role-check extension, one build one helper one fix. Standalone emission would fragment the remediation. SCOPE-8b count: 15 (SYNTHESIS draft) → 14 (post-Pushback A) → 13 (post-Flag 1 verdict, final).
 
 ### Emission roster — SCOPE-3 (38 findings post-consolidation)
 
@@ -952,7 +959,7 @@ Aggressive cross-addendum consolidation applied per PLAN §5.2 to compress SYNTH
 | SCOPE-3.F14 | PRD-28 first allowance_periods row never created (allowance non-operational at first-use) | High | Y | Fix Next Build | EVIDENCE_prd28 seam #8 |
 | SCOPE-3.F15 | CLAUDE.md convention proposal: Lego Primitive Connector Documentation | Low | N | Intentional-Update-CLAUDE-md | Round 19 / Rec #1 |
 | SCOPE-3.F16 | CLAUDE.md convention proposal: AI Model Selection is Registry-Driven (`invokeAI()` helper) | Low | N | Intentional-Update-CLAUDE-md | Round 19 / Rec #2 |
-| SCOPE-3.F17 | CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9) | Low | N | Intentional-Update-CLAUDE-md | Round 19 / Rec #3 |
+| SCOPE-3.F17 | CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9, prospective only; retrospective footnote lives in F4) | Low | N | Intentional-Update-CLAUDE-md | Round 19 / Rec #3 |
 | SCOPE-3.F18 | PRD-08 Notepad→studio_queue orphan destinations (message, track, optimizer) + source tracking lost on direct destination writes (consolidated) | Low | N | Fix Next Build | EVIDENCE_prd08 F-A + F-B |
 | SCOPE-3.F19 | PRD-23 BookShelf 5 outbound handoffs partially built + cross-PRD addendum schema drift (consolidated) | Medium | N | Fix Next Build + Intentional-Update-Doc | EVIDENCE_prd23 C + D |
 | SCOPE-3.F20 | PRD-25 Guided cross-feature integrations ship as UI-visible placeholders (Step 2.5 Reflections, Messages tab, Write badge, SendTo Message) + bottom nav missing Victories + wrong feature_key gate on Guided LiLa modes + gamification-disable unimplemented (consolidated PRD-25 bundle) | Medium | N | Fix Next Build | EVIDENCE_prd25 F-A through F-consolidated |
@@ -974,27 +981,23 @@ Aggressive cross-addendum consolidation applied per PLAN §5.2 to compress SYNTH
 | SCOPE-3.F36 | PRD-36 cross-PRD integration bundle: engine wired but cross-PRD integration dispatched to void + timer completion-side integrations partially wired + FloatingBubble z-35 below BottomNav z-40 (consolidated PRD-36 bundle excluding TimerConfigPanel which is SCOPE-3.F10, and zero-listener events which is SCOPE-3.F12) | Medium | N | Fix Next Build | EVIDENCE_prd36 F-A + F-B + F-D |
 | SCOPE-3.F37 | PRD-17B mindsweep-sort 6 seams consolidated (seams 1, 2, 4, 7, 9, 12, 13, 14) — excluding auto-sweep no-op which is SCOPE-8b.F6 | Medium | N | Fix Next Build | EVIDENCE_prd17b consolidated |
 | SCOPE-3.F38 | PRD-14D dashboard architecture gaps: Hub widget_grid section registered but returns null + PerspectiveSwitcher overgrants to special_adult (Family Overview + Hub) (consolidated PRD-14D bundle excluding PIN + family_best_intentions.is_included_in_ai which are SCOPE-8b.F4) | Medium | N | Fix Next Build | EVIDENCE_prd14d F-B + F-C |
-| SCOPE-3.F39 | PRD-19 bundle: 4 core tables absent (member_documents, guided_interview_progress, monthly_aggregations, generated_reports) + general lila-chat doesn't load private_notes/relationship_notes + family_context_interview model-tier drift (cross-ref SCOPE-3.F5) and no UI entry (consolidated PRD-19 excluding is_available_for_mediation which is SCOPE-8b.F4) | High | N (PRD-19 core is Deferred-Document; minor items Fix-Next-Build) | Deferred-Document + Fix Next Build | EVIDENCE_prd19 F-B + F-C + F-D |
-| SCOPE-3.F40 | PRD-21A minor wire-up + vault_tool_sessions tracking unwired + Optimizer integration unbuilt at server layer (consolidated PRD-21A bundle excluding MemberAssignmentModal broken write which is SCOPE-3.F41 Beta-Y, Vault teen-filter which is SCOPE-8b.F14) | Low | N | Fix Next Build + Deferred-Document | EVIDENCE_prd21a F-B + F-D + F-E |
+| SCOPE-3.F39a | PRD-19 infrastructure unbuilt (4 core tables absent: member_documents, guided_interview_progress, monthly_aggregations, generated_reports + no UI entry point) | — | — | **Deferred-to-Gate-4 (Appendix only — NO main §3 finding-table emission)** | EVIDENCE_prd19 F-B |
+| SCOPE-3.F39b | PRD-19 fixable integration items: general lila-chat doesn't load private_notes/relationship_notes + family_context_interview model-tier drift (cross-ref SCOPE-3.F5) and no UI entry | Medium | N | Fix Next Build | EVIDENCE_prd19 F-C + F-D |
+| SCOPE-3.F40 | PRD-21A minor wire-up + vault_tool_sessions tracking unwired + Optimizer integration unbuilt at server layer (consolidated PRD-21A bundle excluding MemberAssignmentModal broken write which is SCOPE-3.F41 Beta-Y, and Vault teen-filter which is folded into SCOPE-8b.F1 as 13th contributing surface per Flag 1 verdict) | Low | N | Fix Next Build + Deferred-Document | EVIDENCE_prd21a F-B + F-D + F-E |
 | SCOPE-3.F41 | PRD-21A MemberAssignmentModal writes `is_granted`/`granted_by` to dropped columns (broken write) | High | Y | Fix Now | EVIDENCE_prd21a F-A |
 | SCOPE-3.F42 | PRD-21C entire PRD deferred (cross-ref Round 0 Deferred list) | Low | N | Deferred-Document | EVIDENCE_prd21c F-A |
 
-**Emission count: 42 SCOPE-3.** Upper end of FOUNDER_HANDOFF's "~35–40" target; consolidations above are as aggressive as Cross-PRD §5.2 rule permits while keeping severity-heterogeneous items (Beta-Y vs Beta-N, Deferred vs Fix-Next-Build) separate.
+**Emission count: 42 SCOPE-3 main-table findings + 1 Appendix-only (SCOPE-3.F39a moved to Deferred-to-Gate-4 Appendix per Amendment 3).** Main-table count remains 42 (F39 → F39b takes the main-table slot; F39a is Appendix-only, not counted in main §3 finding table).
 
-**Orchestrator flag for founder isolated review:** If founder wants tighter compression to exactly 35, the following are candidate folds:
-- F28+F29+F30 (three PRD-24 family findings) → single "PRD-24 family Build M supersession bundle" with F6 as header
-- F33+F34 (PRD-31 wire-up bundle + monetization unbuilt) → single "PRD-31 tier/monetization bundle"
-- F15+F16+F17 (three CLAUDE.md convention proposals) → single "CLAUDE.md convention proposals from Scope 3+8b adjudication"
-
-Founder to confirm compression preference during isolated DECISIONS.md review.
+Founder confirmed during isolated review (2026-04-21): **keep at 42 — do not compress further.** The candidate folds originally surfaced (F28+F29+F30 PRD-24 family, F33+F34 PRD-31 tier/monetization, F15+F16+F17 CLAUDE.md proposals) all lose necessary distinctions (per-addendum traceability, resolution-tag coherence, handoff specificity). "~35–40" in FOUNDER_HANDOFF was an estimate, not a directive. 42 with cleaner logic wins.
 
 ### Appendix C (Beta Readiness index) — Scope 3+8b additions
 
-**Expected entries: 17** (14 SCOPE-8b Beta-Y + 3 SCOPE-3 Beta-Y). Apply-phase worker appends to existing table at [AUDIT_REPORT_v1.md](../AUDIT_REPORT_v1.md) line 1325.
+**Expected entries: 16** (13 SCOPE-8b Beta-Y + 3 SCOPE-3 Beta-Y) — count reduced from 17 per Flag 1 verdict (F14 folded into F1). Apply-phase worker appends to existing table at [AUDIT_REPORT_v1.md](../AUDIT_REPORT_v1.md) line 1325.
 
 | Finding ID | Scope | Title | Beta Y source |
 |---|---|---|---|
-| SCOPE-8b.F1 | 3+8b | Authenticate-not-authorize (12+ surfaces) | Cross-tenant data leakage + paid-AI cost amplification |
+| SCOPE-8b.F1 | 3+8b | Authenticate-not-authorize (13 surfaces including PRD-21A Vault teen-filter) | Cross-tenant data leakage + paid-AI cost amplification + teen-visible cross-tier content |
 | SCOPE-8b.F2 | 3+8b | HITM PRD-21 communication_drafts | AI output persisted without review |
 | SCOPE-8b.F3 | 3+8b | HITM PRD-34 board_personas | Hallucinated personas amortize cross-family |
 | SCOPE-8b.F4 | 3+8b | Pattern 1D user-control enforcement (5 surfaces) | Trust-violation compounding |
@@ -1007,12 +1010,11 @@ Founder to confirm compression preference during isolated DECISIONS.md review.
 | SCOPE-8b.F11 | 3+8b | PRD-27 shift bifurcation | 2 live rows; Special Adult permission cascade |
 | SCOPE-8b.F12 | 3+8b | PRD-15 messaging safety (4 sub-surfaces) | Client-side-only safety semantics |
 | SCOPE-8b.F13 | 3+8b | PRD-31 server-side tier enforcement absent | 47 Edge Functions ungated |
-| SCOPE-8b.F14 | 3+8b | PRD-21A Vault teen-filter absent (teen subset) | Teen-visible cross-tier content |
 | SCOPE-3.F14 | 3+8b | PRD-28 first allowance_period row never created | Allowance non-operational at first-use |
 | SCOPE-3.F22 | 3+8b | Play shell Fun-tab 404 | (mild Y — 1-line fix) |
 | SCOPE-3.F41 | 3+8b | PRD-21A MemberAssignmentModal broken write | High — permissions don't persist |
 
-**Beta Readiness blocker delta from Scope 3+8b:** +17 entries to Appendix C.
+**Beta Readiness blocker delta from Scope 3+8b:** +16 entries to Appendix C (was +17 pre-Flag-1 verdict).
 
 ### Deferred-to-Gate-4 Appendix (not main §3 finding table)
 
@@ -1028,6 +1030,7 @@ Apply-phase worker emits as §3 Appendix or similar — NOT finding-table entrie
 | PRD-41 Runtime ethics enforcement | SCOPE-8a.F3 | (see Scope 8a) |
 | PRD-27 Caregiver Tools (NEW per Round 20) | PRD-27 mostly unbuilt; EVIDENCE_prd27 F-B collapsed | EVIDENCE_prd27 F-B |
 | PRD-29 BigPlans (NEW per Round 20) | PRD-29 entirely unbuilt; EVIDENCE_prd29 F-A collapsed | EVIDENCE_prd29 F-A |
+| PRD-19 Family Context & Relationships core infrastructure (NEW per Amendment 3) | PRD-19 mostly unbuilt (4 core tables absent, no UI entry); SCOPE-3.F39a Appendix-only | EVIDENCE_prd19 F-B |
 
 ### Cross-references to closed findings (cite, do not re-describe)
 
@@ -1056,8 +1059,18 @@ Per Round 19 and SYNTHESIS §9 note #5, three global-addenda process-hygiene obs
 
 ### Sign-off
 
-All 15 Decisions + 3 Pushbacks + 3 Post-Audit Recommendations + Round 0 amendment captured as Rounds 1–20. Emission rosters regenerated. Two orchestrator flags for founder isolated review:
-1. **SCOPE-8b.F14 identity** — PRD-21A teen-filter standalone vs. folded into F1 as 13th surface
-2. **SCOPE-3 compression** — 42 findings shown; candidate folds listed if founder wants tighter compression to exactly 35
+All 15 Decisions + 3 Pushbacks + 3 Post-Audit Recommendations + Round 0 amendment captured as Rounds 1–20. Emission rosters regenerated.
 
-Ready for isolated founder review. After approval, fresh session drafts apply-phase worker prompt per the established Phase 2 audit pattern.
+**Founder isolated review completed 2026-04-21** with 5 amendments + 2 flag verdicts applied:
+
+- **Amendment 1** — Split F17: retrospective PRD-22 `history_retention` footnote moved inside SCOPE-8b.F4's finding body (apply-phase instruction in Round 6); SCOPE-3.F17 now emits only the prospective Habit #9 convention proposal.
+- **Amendment 2** — SCOPE-8b.F11 sequencing dependency now embedded as explicit apply-phase instruction in Round 18 (both the Round note AND the finding body carry the sentence so the dependency surfaces in AUDIT_REPORT_v1.md).
+- **Amendment 3** — SCOPE-3.F39 split into F39a (PRD-19 core infrastructure unbuilt — moved to Deferred-to-Gate-4 Appendix, no main §3 finding-table emission) + F39b (PRD-19 fixable integration items — standalone SCOPE-3 Medium, Beta N, Fix Next Build).
+- **Amendment 4** — PRD-19 added to Round 20 Deferred-to-Gate-4 amendment table (third new row alongside PRD-27, PRD-29).
+- **Amendment 5** — Round 10 (Decision 7) Scope 4 scope-move flag stricken; Scope 4 closed 2026-04-20 / applied / archived; this finding stays in Scope 3+8b with read-only cross-reference only.
+- **Flag 1 verdict** — SCOPE-8b.F14 (PRD-21A Vault teen-filter) folded into SCOPE-8b.F1 as 13th contributing surface; same root cause + same `authorizeForFamily` helper class of fix + one build one helper one fix. SCOPE-8b count: 15 → 14 → **13 (final)**. Beta Readiness delta to Appendix C: +16 entries (was +17).
+- **Flag 2 verdict** — SCOPE-3 compression kept at 42 main-table findings; candidate folds all lose necessary distinctions; "~35–40" in FOUNDER_HANDOFF was estimate not directive.
+
+**Final emission counts:** 13 SCOPE-8b findings + 42 SCOPE-3 main-table findings + 1 SCOPE-3 Appendix-only entry (F39a) + 7 Deferred-to-Gate-4 Appendix entries.
+
+Ready for fresh session to draft apply-phase worker prompt per established Phase 2 audit pattern. Fresh session's 4 primary inputs: DECISIONS.md (this amended commit), FOUNDER_HANDOFF.md, SYNTHESIS.md, PLAN.md. If fresh session reaches for any of the 33 evidence files, that's a signal DECISIONS.md is under-documented and should be amended before apply-phase prompt drafts.
