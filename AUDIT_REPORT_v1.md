@@ -4,7 +4,7 @@
 > Audit window opened: 2026-04-18
 > Coordinated via: [claude/web-sync/AUDIT_PARALLEL_PLAN.md](claude/web-sync/AUDIT_PARALLEL_PLAN.md)
 > Gameplan: [MYAIM_GAMEPLAN_v2.2.md](MYAIM_GAMEPLAN_v2.2.md) Phase 2 (lines 284-351)
-> Status: **Stages A + B closed; Stage C Scope 2 COMPLETE — 70 findings emitted (F1–F70) across 9 domain batches; Scope 3+8b and Scope 4 pending**
+> Status: **Phase 2 COMPLETE — all 8 scopes closed 2026-04-21. 146 findings emitted across Scopes 1 (22), 2 (72), 3 (84), 4 (16), 5 (10), 8a (22), 8b (51). Stage D reporting-only deliverables landed: Scope 6 → [LILA_KNOWLEDGE_BACKLOG.md](LILA_KNOWLEDGE_BACKLOG.md) (47 entries); Scope 7 → [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md) (81-row baseline). Next: Phase 3 Triage per [MYAIM_GAMEPLAN_v2.2.md](MYAIM_GAMEPLAN_v2.2.md#L355).**
 
 ---
 
@@ -1931,11 +1931,21 @@ Integration surfaces that cannot be evaluated because one side of the seam is un
 
 ## 6 — Scope 6: LiLa content discrepancy (reporting-only)
 
-*Not yet started. Stage D. Output feeds `LILA_KNOWLEDGE_BACKLOG.md`, no fixes during audit.*
+**Status:** COMPLETE — Scope 6 audit pass 2026-04-20. Delivered to [LILA_KNOWLEDGE_BACKLOG.md](LILA_KNOWLEDGE_BACKLOG.md) per gameplan §322 directive ("List discrepancies. **Do not fix during audit.** Discrepancies inform Gate 4's rewrite."). 47 discrepancy entries across two source files: [src/lib/ai/help-patterns.ts](src/lib/ai/help-patterns.ts) (36 patterns) and [supabase/functions/_shared/feature-guide-knowledge.ts](supabase/functions/_shared/feature-guide-knowledge.ts) (8 page-knowledge entries + 13 use-case recipes). Ground truth cross-referenced against CLAUDE.md Conventions #1–#245, STUB_REGISTRY.md, WIRING_STATUS.md, claude/live_schema.md, and Scope 2 findings F1–F70.
+
+**Key shape of the backlog:** each entry carries a discrepancy type (stale-wiring, missing-coverage, drift-from-code, tier-misalignment, etc.), a suggested rewrite direction, and a reference to the Gate 4 work chunk it belongs in. No fix land during audit; this backlog is the spec the Gate 4 rewrite implements against.
+
+**Next action:** carried into Gate 4 per [MYAIM_GAMEPLAN_v2.2.md §Phase 7 LiLa Knowledge Batch](MYAIM_GAMEPLAN_v2.2.md#L539). No Phase 3 triage required for Scope 6 entries — they are pre-classified Defer-to-Gate-4 by audit design.
 
 ## 7 — Scope 7: Performance baseline
 
-*Not yet started. Stage D. Output feeds `PERFORMANCE_BASELINE.md`.*
+**Status:** COMPLETE — Scope 7 baseline capture 2026-04-21. Delivered to [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md) per gameplan §324–327 directive ("Record baseline so future optimization work can be measured"). 81 measurement rows across AI turn latency, query performance (`pg_stat_statements`), cron job run history, schema object sizes, and telemetry aggregates. All numbers pulled from production read-only: `ai_usage_tracking` (530 rows 2026-03-24 → 2026-04-19), `lila_messages`/`lila_conversations` (150/72 rows), `pg_stat_statements`, `cron.job_run_details`.
+
+**Key shape of the baseline:** small sample sizes because the platform is pre-beta with 2 families writing AI-call history. Numbers will shift materially once real beta load lands. Baseline documents comparison protocol at the bottom of the file — re-measure after any optimization work using the same methodology.
+
+**Key known gaps documented:** (a) load times not instrumented (no Vercel Analytics, no Web Vitals, no RUM); (b) synthetic load not captured (baseline reflects actual historical telemetry only); (c) SCOPE-4.F1 confound — MindSweep embedding-first is silently 100% Haiku, so its telemetry footprint is the pre-fix baseline, not the intended P2 state.
+
+**Next action:** no Phase 3 triage required — baseline is informational. Becomes the comparison target when SCOPE-4 Fix Now items execute (MindSweep P2 retrofit, Board of Directors context-assembler retrofit, Notepad/Smart List/Post-Meeting classifier embedding-first work).
 
 ---
 
@@ -1966,7 +1976,79 @@ All flagged by policy `65b2e05de574b379df5bd5a0` ("Secrets without validation ru
 
 ## Appendix B — Wizard Design Impact index
 
-*Populated as findings accumulate. Currently empty.*
+Populated 2026-04-21 by retrospective scan across all 146 findings. Index scope per [claude/web-sync/AUDIT_PARALLEL_PLAN.md](claude/web-sync/AUDIT_PARALLEL_PLAN.md) §"Audit findings → flow design": findings that affect **how a Universal Setup Wizard should be designed** — what steps it offers, what presets it exposes, what connections its ConnectionOffersPanel surfaces, or what data shapes its output must produce. Findings that merely touch wizard-adjacent code without affecting design are **not** indexed here.
+
+Tenise reads this index during Phase 3 review and carries relevant items into Claude.ai flow design sessions. Classification column records which wizard(s) each finding most directly informs.
+
+### Y-flagged inline (flagged at emission time)
+
+| Finding | Wizard(s) impacted | Impact summary |
+|---|---|---|
+| [SCOPE-5 primary](#—-scope-5-stub-registry-reconciliation) | All Tier 1 + Tier 2 | [STUDIO_TEMPLATE_INVENTORY.md](.claude/completed-builds/scope-5-evidence/STUDIO_TEMPLATE_INVENTORY.md) + [PHASE_B_TRACKER_INVENTORY.md](.claude/completed-builds/scope-5-evidence/PHASE_B_TRACKER_INVENTORY.md) become agenda material for wizard design sessions — list every seeded template + tracker variant each wizard should recognize as a preset. |
+| [SCOPE-8a.F8](#scope-8af8-humaninthemix-component-reuse-count--1--inconsistent-hitm-implementations) | Cross-cutting (all wizards) | `HumanInTheMix` shared component imported only 1x out of 22+ AI-output surfaces. Consolidate during wizard workstream so every wizard-produced AI output (preset framing, milestone copy, reward labels) passes through the same Edit/Approve/Regenerate/Reject UX. |
+
+### Indexed in Phase 3 scan (reflagging retrospectively)
+
+These findings were not Y-flagged at emission but affect wizard design at review time. Not a behavior change to the findings themselves — the remediation classification still happens in Phase 3 triage normally.
+
+#### Tally Wizard
+
+| Finding | Impact summary |
+|---|---|
+| [SCOPE-2.F30](#scope-2f30-prd-10-tracker-catalog-expansion--codify-17-canonical--4-extras) | Wizard preset set = 17 canonical tracker types + 4 post-PRD extras (`randomizer_spinner`, `privilege_status`, `log_learning`, `best_intention`). PRD-10 L18 says "19 types" but enum ships 17+4; wizard preset picker follows code, not PRD. |
+| [SCOPE-2.F31](#scope-2f31-prd-10-widget_templates-vs-widget_starter_configs-architectural-split) | Wizard reads `widget_starter_configs` (39 seeded rows), not the dormant `widget_templates` table. Preset picker queries the right table. |
+| [SCOPE-2.F63](#scope-2f63-prd-24-screen-features-unbuilt--5-viz-modes-ship-1-level-threshold-dormant-leaderboard-scaffolding-only) | Tally Wizard Step 5 "Pick a look" should expose **only the visualizations that actually render** (currently Counter-only for Play; other 4 viz modes are dormant columns). Wizard must not promise visualizations the runtime can't paint. |
+| [SCOPE-3.F9](#scope-3f9-prd-14-dashboard_widgetsis_included_in_ai-widget-toggle-is-no-op--drop-column--ui-toggle) + [SCOPE-4.F6](#scope-4f6-heartheartoff-ui-toggle-gaps-across-six-context-source-surfaces--hearts-everywhere) | Wizard final step "Is this tracker part of LiLa's knowledge?" → Heart toggle. F4.F6 founder directive "hearts should work anywhere/everywhere" means every wizard that lands context-source data wires the Heart toggle as a default step. |
+| [SCOPE-3.F23](#scope-3f23-prd-14-dashboard-polish-bundle-col_span--grid-sharing--todays-victories-widget) | DashboardDeployPicker (final step of Tally, Streak, etc.) needs `col_span` handling + grid-sharing awareness. If wizard deploys a widget the grid can't place correctly, first-use experience breaks. |
+
+#### Streak Wizard
+
+| Finding | Impact summary |
+|---|---|
+| [SCOPE-2.F63](#scope-2f63-prd-24-screen-features-unbuilt--5-viz-modes-ship-1-level-threshold-dormant-leaderboard-scaffolding-only) | `gamification_configs.streak_schedule_aware`, `streak_pause_enabled`, `streak_paused`, `streak_paused_at` are all dormant columns. Streak Wizard must not expose toggles for features that are schema-only and have no runtime consumer. Either build the consumers as part of the wizard workstream, or gate the toggles out. |
+| [SCOPE-3.F14](#scope-3f14-prd-28-first-allowance_periods-row-never-created-allowance-non-operational-at-first-use) | Streak Wizard "count toward allowance" connection depends on allowance being operational. First-period bootstrap must land before the wizard exposes the allowance connection, or the wizard needs to trigger bootstrap itself. |
+
+#### Opportunity Board Wizard
+
+| Finding | Impact summary |
+|---|---|
+| [SCOPE-3.F14](#scope-3f14-prd-28-first-allowance_periods-row-never-created-allowance-non-operational-at-first-use) | Same allowance-bootstrap dependency as Streak Wizard — OB's primary use case is earning, and earning is inert until the first `allowance_periods` row exists. |
+| [SCOPE-2.F21](#scope-2f21-prd-18-teen-experience-supersession--enhancement-addendum-enhancement-7--conventions-189197) | OB targets teens heavily; the teen-experience supersession affects how OB's earning rewards surface in the Independent shell. Wizard's teen-preview step should mirror the shipped Convention #189–197 teen UX. |
+
+#### Gamification Improvements (surgical, not rebuild)
+
+| Finding | Impact summary |
+|---|---|
+| [SCOPE-2.F38](#scope-2f38-prd-26-reveal-architecture-superseded-by-build-m--5-styles--2-per-segment) | PRD-26's 5 reveal styles never shipped; Build M ships 2 per-segment styles (`show_upfront`, `mystery_tap`). Gamification Improvements Wizard presents the 2 that exist, not the 5 from the PRD. |
+| [SCOPE-2.F59](#scope-2f59-prd-24-pipeline--settings-panel-superseded-by-build-m) | PRD-24 gamification pipeline + 8-section settings panel superseded by Build M's 11-step RPC + 6-section modal. Wizard baseline is Build M, not PRD-24 original. |
+| [SCOPE-2.F60a](#scope-2f60a-prd-24a-dashboard-backgrounds--sticker-book-pages-supersession) | `dashboard_backgrounds` superseded by `gamification_sticker_pages`. Wizard surfaces sticker pages, not dashboard backgrounds. |
+| [SCOPE-2.F60c](#scope-2f60c-prd-24a-themes--game-modes--game-modes-addendum-tables-on-active-roadmap) | 5 themes + 7 game modes + PRD-24A-Game-Modes-Addendum tables are roadmap, not shipped. Wizard currently ships 1 theme (Woodland Felt) — Tier 3/4 wizard expansion needed when other themes ship. |
+| [SCOPE-2.F61](#scope-2f61-prd-24b-reveal-library-needs-cross-feature-lego-wiring) | 4 CSS/SVG reveals + 4 micro-celebrations + StarChartAnimation + TreasureBoxIdle + ReadabilityGradient live at `/dev/gamification` only. AttachRevealSection (embedded wizard component) needs the wiring to ship before wizards expose reveal picks. |
+| [SCOPE-2.F62](#scope-2f62-prd-24b-color-reveal-needs-fuller-lego-connector-architecture) | Build M shipped 1:1 task-linked color reveal; PRD-24B original was achievement-source + Sequential/Gradual/Random strategies. Gamification Improvements Wizard exposes the Build M shape, with the fuller architecture as roadmap. |
+| [SCOPE-3.F8](#scope-3f8-reusable-animationvisual-primitive-library-intentionally-unassigned-to-production-consumers-legosurge-protector-architecture) | Lego/surge-protector architecture — 9+ primitives sit uncommitted to production consumers. Wizard workstream is the natural assignment point: ConnectionOffersPanel is where each primitive finds its production home. |
+| [SCOPE-3.F30](#scope-3f30-prd-24b-superseded-architectures-flat-reveal-type-library--reveal_animations-style_category--color-reveal--build-m-tally-counter--animation-primitives-demo-only) | Cross-refs F8/F61/F62. Wizard design must consume `reveal_animations.style_category` (33 themed variants), not PRD-24B's flat 8-ID library. |
+
+#### Cross-cutting (applies to every wizard with member assignment or context toggle)
+
+| Finding | Impact summary |
+|---|---|
+| [SCOPE-3.F41](#scope-3f41-prd-21a-memberassignmentmodal-writes-is_grantedgranted_by-to-dropped-columns-broken-write) | MemberAssignmentModal writes to dropped columns. Any wizard whose "Who is this for?" step ultimately writes a permission record (Vault tool assignment, tool_permissions surfaces) hits this bug. Fix before wizards land. |
+| [SCOPE-8b.F4](#scope-8bf4-documented-user-controlled-accountabilityprivacy-silently-unenforceable-5-surfaces) | 5 user-controlled accountability surfaces silently unenforced. Relevant to wizards: (1) `family_best_intentions.require_pin_to_tally` and (5) `family_best_intentions.is_included_in_ai` affect Best Intentions Wizard (Tier 2); (3) `analytics_opt_in` has no UI toggle — Settings Wizard (future) needs it. Wizards must not expose toggles that don't actually enforce. |
+
+#### Studio shelf preconditions (applies to every wizard — without a working Studio shelf, no wizard is reachable)
+
+| Finding | Impact summary |
+|---|---|
+| [SCOPE-5.F1](#scope-5f1-stub_registrymd-line-398-stale-system-list-auto-provision-backburnerideas) | Backburner/Ideas auto-provision registry staleness — wizard workstream should treat `auto_provision_member_resources` as the canonical onboarding anchor. If Studio shelf gates any wizard entry on a member resource that auto-provisions, that path must be eyes-on verified. |
+| Studio shelf broken click-flows (noted in [§ SCOPE-5 primary finding](#—-scope-5-stub-registry-reconciliation) resolution text) | Universal Setup Wizards workstream is the named remediation home for Studio shelf click-flow repairs. Wizard design sessions should define: which shelf tiles exist, which wizard each tile opens, and what happens when a tile points to a wizard that isn't built yet (PlannedExpansionCard vs "Coming Soon" vs hidden). |
+
+### Out of scope for this index
+
+The following finding categories touch wizard-adjacent code but do **not** affect wizard design and are not indexed:
+- LiLa Edge Function findings (SCOPE-4.F4, F5, F8, F9, F10) — wizards don't invoke LiLa Edge Functions directly
+- Shell routing / navigation parity findings (SCOPE-3.F22, F38) — orthogonal to wizard design
+- Compliance/safety findings (SCOPE-8a, SCOPE-8b.F1–F3, F5–F13) — blocking, but not shaping wizard steps
+- Cost pattern findings other than F6 (P1/P2/P3/P5/P7/P9) — runtime infrastructure, invisible to wizard design
 
 ## Appendix D — Cleanup Actions (preventative hygiene, not findings)
 
