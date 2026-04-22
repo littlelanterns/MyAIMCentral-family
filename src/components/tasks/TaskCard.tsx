@@ -37,6 +37,7 @@ import {
   Loader2,
   GraduationCap,
   ExternalLink,
+  EyeOff,
 } from 'lucide-react'
 import { Badge } from '@/components/shared'
 import { useTimerContext } from '@/features/timer'
@@ -45,6 +46,7 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCompletionExpander } from './TaskCompletionExpander'
 import { RoutineStepChecklist, isSectionActiveToday } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useArchiveTask } from '@/hooks/useTasks'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import type { Task } from '@/hooks/useTasks'
@@ -170,6 +172,18 @@ export function TaskCard({
   const [showExpander, setShowExpander] = useState(false)
   const [routineExpanded, setRoutineExpanded] = useState(false)
   const { data: currentMember } = useFamilyMember()
+  const archiveTask = useArchiveTask()
+
+  // "Remove from dashboard" — soft-deletes the task so it stops appearing on
+  // the assignee's dashboard. Completion history and allowance points already
+  // accrued remain in task_completions untouched. Additive, never punitive.
+  const handleRemoveFromDashboard = useCallback(() => {
+    const confirmText = task.task_type === 'routine'
+      ? `Remove "${task.title}" from the dashboard? Points already earned stay — the routine just stops appearing. The template stays so you can redeploy it later.`
+      : `Remove "${task.title}" from the dashboard? Points already earned stay — the task just stops appearing.`
+    if (!window.confirm(confirmText)) return
+    archiveTask.mutate(task.id)
+  }, [archiveTask, task.id, task.task_type, task.title])
 
   // Routine progress — compute today's step completion % for the progress ring
   const isRoutine = task.task_type === 'routine'
@@ -724,9 +738,12 @@ export function TaskCard({
                 onClick={() => handleMenuAction(() => onAssign(task))}
               />
             )}
-            {onEdit && (
-              <div style={{ borderTop: '1px solid var(--color-border)' }} />
-            )}
+            <div style={{ borderTop: '1px solid var(--color-border)' }} />
+            <ContextMenuItem
+              icon={<EyeOff size={14} />}
+              label="Remove from dashboard"
+              onClick={() => handleMenuAction(handleRemoveFromDashboard)}
+            />
             {onDelete && (
               <ContextMenuItem
                 icon={<Trash2 size={14} />}

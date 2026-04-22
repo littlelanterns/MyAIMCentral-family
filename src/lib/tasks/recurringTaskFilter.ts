@@ -25,6 +25,20 @@ import type { Task } from '@/types/tasks'
  */
 export function isRecurringTaskVisibleToday(task: Task, today?: Date): boolean {
   const now = today ?? new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+
+  // For routines, `tasks.due_date` is the "Run until" end date set in the
+  // TaskCreationModal "How Long Should This Run?" picker (not a deadline).
+  // When today is past the end date, the routine has ended — drop it off
+  // the dashboard. Completion history is preserved via `task_completions`
+  // and feeds allowance/gamification without the task staying visible.
+  // This applies whether or not the task has a recurrence_rule — many
+  // routines rely on per-section frequency and carry no RRULE on the task
+  // row itself.
+  if (task.task_type === 'routine' && task.due_date) {
+    const endDate = new Date(task.due_date + 'T23:59:59')
+    if (endDate < startOfToday) return false
+  }
 
   // No recurrence at all — always visible
   if (!task.recurrence_rule) {
