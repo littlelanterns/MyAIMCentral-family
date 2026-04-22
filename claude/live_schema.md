@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 169 rows
+### `view_as_sessions` — 171 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 81 rows
+### `view_as_feature_exclusions` — 83 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 551 rows
+### `ai_usage_tracking` — 552 rows
 
 | # | Column |
 |---|---|
@@ -623,7 +623,7 @@
 | 39 | `allowance_points` |
 | 40 | `homework_subject_ids` |
 
-### `task_template_sections` — 60 rows
+### `task_template_sections` — 52 rows
 
 | # | Column |
 |---|---|
@@ -638,7 +638,7 @@
 | 9 | `show_until_complete` |
 | 10 | `updated_at` |
 
-### `task_template_steps` — 238 rows
+### `task_template_steps` — 228 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 44 rows
+### `routine_step_completions` — 48 rows
 
 | # | Column |
 |---|---|

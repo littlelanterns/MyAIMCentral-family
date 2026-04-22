@@ -203,3 +203,94 @@ Fix: `ta_via_family` checks `member_id`/`family_member_id` against `family_membe
 ### W-4 — inherited behavior (not a regression from 100151)
 
 `ta_via_family` grants `FOR ALL` family-wide access on `task_assignments`, which means non-admin members can technically INSERT (T23) and DELETE (T26) rows on this join table. This is preserved exactly from the pre-existing `ta_via_task` policy in migration 000008 — 100151 changed only *how* the family scope is computed, not *who* can write. The meaningful gate lives on `tasks` itself, where children cannot UPDATE tasks they don't own (T10/T14/T28 all PASS). Founder-level decision for a follow-up pass: if non-admin members should be prevented from manipulating assignment rows independently, split `ta_via_family` into separate SELECT/INSERT/DELETE policies with admin-only writes.
+
+
+---
+
+## task_assignments split + routine uniqueness (2026-04-22)
+
+Migration `00000000100152_routine_dedupe_and_task_assignments_split.sql`. Two independent hardening passes: (A) partial unique index on `tasks` preventing duplicate active routine assignments per (template_id, assignee_id); (B) `ta_via_family` (the family-wide ALL policy from migration 100151) replaced with four per-command policies — ta_select / ta_insert / ta_update / ta_delete — closing W-4.
+
+New helper: `public.auth_is_admin_of(p_family_id uuid)` — SECURITY DEFINER, STABLE, returns TRUE when the caller is `primary_parent` or `additional_adult` in that family. Used by ta_insert, ta_update, ta_delete.
+
+### Test Roster
+- **Mom (Tenise):** user_id `7434224b` / fm_id `fcac562b` — primary_parent
+- **Dad (Jerrod):** user_id `44a07ad8` / fm_id `0aea47e9` — additional_adult
+- **Independent teen (Helam):** user_id `75a9aa25` / fm_id `b266cf06` — member/independent
+- **Independent teen (Miriam):** user_id `280fe726` / fm_id `3554dacd` — member/independent
+- **Guided child (Mosiah):** user_id `bfa887d0` / fm_id `476f5e1f` — member/guided
+- Special adult skipped — no active special_adult in OurFamily with a separate family_id context; deferred per founder direction (Special Adult dashboards not yet built).
+
+### Part A — task_assignments 4-way policy split
+
+#### Infrastructure verification
+
+| Check | Expected | Actual | Result |
+|-------|----------|--------|--------|
+| Policy count on task_assignments | 4 | 4 | PASS |
+| Policy names | ta_select, ta_insert, ta_update, ta_delete | ta_select, ta_insert, ta_update, ta_delete | PASS |
+| auth_is_admin_of function exists | prosecdef=true | prosecdef=true (SECURITY DEFINER) | PASS |
+
+#### SELECT — all family members read all family assignment rows
+
+| # | Role | Expected | Actual | Result |
+|---|------|----------|--------|--------|
+| T1 | Mom | 28 rows | 28 | PASS |
+| T2 | Dad | 28 rows | 28 | PASS |
+| T3 | Helam (independent teen) | 28 rows | 28 | PASS |
+| T4 | Mosiah (guided child) | 28 rows | 28 | PASS |
+
+#### INSERT — admins can assign anyone; non-admins self-only
+
+| # | Role | Operation | Expected | Actual | Result |
+|---|------|-----------|----------|--------|--------|
+| T6 | Mom | INSERT assignment for Miriam | Succeeds (admin) | id returned | PASS |
+| T7 | Dad | INSERT assignment for Mosiah | Succeeds (admin) | id returned | PASS |
+| T8 | Mosiah (guided) | INSERT self-assignment | Succeeds (self-add allowed) | id returned | PASS |
+| T9 | Mosiah (guided) | INSERT sibling (Helam) assignment | 42501 RLS violation | `ERROR 42501: new row violates row-level security policy` | PASS — W-4 FIXED |
+| T10 | Helam (independent teen) | INSERT self-assignment | Succeeds (self-add allowed) | id returned | PASS |
+| T17 | Helam (independent teen) | INSERT sibling (Mosiah) assignment | 42501 RLS violation | `ERROR 42501: new row violates row-level security policy` | PASS — W-4 FIXED |
+
+#### UPDATE — admins update anything; non-admins update own rows only
+
+| # | Role | Operation | Expected | Actual | Result |
+|---|------|-----------|----------|--------|--------|
+| T14 | Mosiah (guided) | UPDATE own is_active | Succeeds (self-edit) | id + is_active=false returned | PASS |
+| T15 | Helam (independent teen) | UPDATE Mosiah's assignment | 0 rows affected (silent RLS) | 0 rows | PASS |
+| T16 | Dad | UPDATE Mosiah's assignment | Succeeds (admin) | id returned | PASS |
+
+#### DELETE — admins only; no child removes any assignment row
+
+| # | Role | Operation | Expected | Actual | Result |
+|---|------|-----------|----------|--------|--------|
+| T11 | Mom | DELETE Mosiah's assignment | Succeeds (admin) | id returned | PASS |
+| T12 | Mosiah (guided) | DELETE own assignment | 0 rows affected (silent RLS) | 0 rows | PASS — DELETE blocked |
+| T13 | Helam (independent teen) | DELETE Mosiah's assignment | 0 rows affected (silent RLS) | 0 rows | PASS — DELETE blocked |
+
+Note on T12/T13: Postgres DELETE under RLS silently returns 0 rows rather than raising 42501 (unlike INSERT WITH CHECK which raises immediately). The row is not deleted — verified by confirming the assignment still exists after the transaction committed. Behavior is correct per Postgres RLS semantics.
+
+### Part B — Partial unique index `tasks_unique_active_routine_per_assignee`
+
+Index definition confirmed from `pg_indexes`:
+```
+CREATE UNIQUE INDEX tasks_unique_active_routine_per_assignee ON public.tasks
+  USING btree (template_id, assignee_id)
+  WHERE task_type = 'routine' AND archived_at IS NULL
+    AND template_id IS NOT NULL AND assignee_id IS NOT NULL
+```
+
+Test pair: Herringbone template (`91d92dc8`) + Mosiah (`476f5e1f`). One active routine row already exists (`4f696d03`).
+
+| # | Scenario | Expected | Actual | Result |
+|---|----------|----------|--------|--------|
+| T19 | Index exists in pg_indexes | Present | Present, correct WHERE clause | PASS |
+| T20 | INSERT duplicate active routine (same template + assignee) | 23505 unique_violation | `ERROR 23505: duplicate key value violates unique constraint "tasks_unique_active_routine_per_assignee"` | PASS |
+| T21 | Archive existing row, then INSERT same pair | Succeeds (archived exempt) | id returned | PASS |
+| T22 | INSERT same template, different assignee (Miriam) | Succeeds (different key) | id returned | PASS |
+| T23 | INSERT same assignee (Mosiah), different template (Kitchen Zone) | Succeeds (different key) | id returned | PASS |
+
+All T19–T23 via BEGIN/ROLLBACK — no permanent data written. T20 transaction rolled back on error (no orphan row created).
+
+### Summary
+
+**W-4 fully closed.** Guided children and independent teens can no longer INSERT sibling assignments (42501) or DELETE any assignment row (0-row silent block). Admins retain full INSERT/UPDATE/DELETE. Self-INSERT and self-UPDATE remain available to non-admins. Partial unique index prevents duplicate active routine rows at the database layer regardless of code path — 23505 on duplicate, exempt for archived rows, different template, or different assignee.

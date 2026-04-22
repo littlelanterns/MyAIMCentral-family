@@ -285,26 +285,40 @@ export async function createTaskFromData(
     // Rotation implies shared/any — one task rotates between assignees
     const mode = data.rotationEnabled ? 'any' : (data.assignMode ?? 'each')
 
-    // Dedupe check — if an identical task row was inserted in the last 10
-    // seconds (same family, same template_id, same assignee, same title,
-    // not archived), reuse instead of creating another. Catches the
-    // "Mosiah got 2 Herringbone rows 63 seconds apart" pattern where a
-    // slow save prompts the user to click Deploy again before the first
-    // insert's result was visible.
+    // Dedupe check — two overlapping defenses:
+    //
+    //   1. For ROUTINE tasks with a template: check for ANY active row
+    //      matching (family, template, assignee). Routines are unique
+    //      per-assignee by design (enforced hard by unique index
+    //      tasks_unique_active_routine_per_assignee, migration 100152).
+    //      If one already exists, silently reuse it — the user's intent
+    //      ("assign Mosiah this routine") is already satisfied.
+    //
+    //   2. For all other task types: 10-second window check against
+    //      (family, template, assignee, title). Catches rapid double-
+    //      submit where a slow save prompted the user to click Deploy
+    //      again before the first insert's result was visible.
     const dedupeWindow = new Date(Date.now() - 10_000).toISOString()
+    const isRoutineInsert = data.taskType === 'routine'
     async function findRecentDupe(assigneeId: string | null): Promise<string | null> {
       if (!routineTemplateId || !assigneeId) return null
-      const { data: dupeRow } = await supabase
+      let query = supabase
         .from('tasks')
         .select('id')
         .eq('family_id', familyId)
         .eq('template_id', routineTemplateId)
         .eq('assignee_id', assigneeId)
-        .eq('title', data.title)
         .is('archived_at', null)
-        .gte('created_at', dedupeWindow)
-        .limit(1)
-        .maybeSingle()
+
+      if (isRoutineInsert) {
+        // Routines: any active row means "already assigned." No time window.
+        query = query.eq('task_type', 'routine')
+      } else {
+        // Non-routines: title + 10s recency window.
+        query = query.eq('title', data.title).gte('created_at', dedupeWindow)
+      }
+
+      const { data: dupeRow } = await query.limit(1).maybeSingle()
       return (dupeRow?.id as string | undefined) ?? null
     }
 
@@ -317,7 +331,10 @@ export async function createTaskFromData(
         const assigneeId = resolveAssigneeId(a)
         const dupeId = await findRecentDupe(assigneeId)
         if (dupeId) {
-          console.warn(`[createTaskFromData] Reusing task ${dupeId} for assignee ${assigneeId} — 10s dedupe window hit.`)
+          const reason = isRoutineInsert
+            ? 'assignee already has this routine active'
+            : '10s dedupe window hit'
+          console.warn(`[createTaskFromData] Reusing task ${dupeId} for assignee ${assigneeId} — ${reason}.`)
           resultRows.push(dupeId)
         } else {
           inserts.push({
@@ -341,7 +358,10 @@ export async function createTaskFromData(
 
       const dupeId = await findRecentDupe(primaryId)
       if (dupeId) {
-        console.warn(`[createTaskFromData] Reusing task ${dupeId} — 10s dedupe window hit.`)
+        const reason = isRoutineInsert
+          ? 'assignee already has this routine active'
+          : '10s dedupe window hit'
+        console.warn(`[createTaskFromData] Reusing task ${dupeId} — ${reason}.`)
         result.taskIds = [dupeId]
         return result
       }
