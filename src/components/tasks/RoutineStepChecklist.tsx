@@ -589,8 +589,15 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
     }
   }
 
-  // Filter to sections active today (week completions used for show_until_complete)
-  const activeSections = sections.filter(s => isSectionActiveToday(s, completedStepIds, weekCompletedStepIds))
+  // Filter to sections active today (week completions used for show_until_complete).
+  // Also hide empty sections (0 steps) — they are either ghost rows left over
+  // from prior template edits or placeholders that never got populated, and
+  // they should never render as "Tuesday 0/0" stubs on a child's dashboard.
+  const activeSections = sections.filter(
+    s =>
+      s.steps.length > 0 &&
+      isSectionActiveToday(s, completedStepIds, weekCompletedStepIds),
+  )
   const showHeaders = !compact || activeSections.length > 1
 
   if (activeSections.length === 0) {
