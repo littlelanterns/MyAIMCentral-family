@@ -140,7 +140,6 @@ const SECTION_LABELS: Record<string, string> = {
   victories_summary: 'Victories Summary',
   countdowns: 'Countdowns',
   widget_grid: 'Widget Grid',
-  member_access: 'Member Access',
 }
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -393,15 +392,15 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
             collisionDetection={closestCenter}
             onDragEnd={handleSectionDragEnd}
           >
-            <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+            <SortableContext items={sectionOrder.filter((k) => SECTION_LABELS[k])} strategy={verticalListSortingStrategy}>
               <div className="space-y-1">
-                {sectionOrder.map((key) => {
+                {sectionOrder.filter((k) => SECTION_LABELS[k]).map((key) => {
                   const visible = sectionVisibility[key] ?? true
                   return (
                     <SortableSectionItem
                       key={key}
                       id={key}
-                      label={SECTION_LABELS[key] ?? key}
+                      label={SECTION_LABELS[key]}
                       visible={visible}
                       onToggle={() => toggleSectionVisibility(key)}
                     />

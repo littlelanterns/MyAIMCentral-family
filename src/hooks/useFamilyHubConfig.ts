@@ -38,7 +38,6 @@ export const HUB_SECTION_KEYS = [
   'victories_summary',
   'countdowns',
   'widget_grid',
-  'member_access',
 ] as const
 
 export type HubSectionKey = (typeof HUB_SECTION_KEYS)[number]

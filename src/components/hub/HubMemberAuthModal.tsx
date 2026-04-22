@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Lock, ArrowLeft, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -39,6 +40,7 @@ interface HubMemberAuthModalProps {
 }
 
 export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthModalProps) {
+  const navigate = useNavigate()
   const { startViewAs } = useViewAs()
   const { data: currentMember } = useFamilyMember()
   const { data: family } = useFamily()
@@ -70,10 +72,13 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
     if (!isOpen || !member || !currentMember || !family) return
     const authMethod = member.auth_method as string | null
     if (!authMethod || authMethod === 'none') {
-      startViewAs(member, currentMember.id, family.id)
-      onClose()
+      ;(async () => {
+        await startViewAs(member, currentMember.id, family.id)
+        onClose()
+        navigate('/dashboard')
+      })()
     }
-  }, [isOpen, member, currentMember, family, startViewAs, onClose])
+  }, [isOpen, member, currentMember, family, startViewAs, onClose, navigate])
 
   const startLockoutCountdown = useCallback((seconds: number) => {
     setIsLocked(true)
@@ -111,6 +116,7 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
       if (result.success) {
         await startViewAs(member, currentMember.id, family.id)
         onClose()
+        navigate('/dashboard')
         return
       }
 

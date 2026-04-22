@@ -33,7 +33,6 @@ import { HubCalendarSection } from './sections/HubCalendarSection'
 import { HubBestIntentionsSection } from './sections/HubBestIntentionsSection'
 import { HubCountdownsSection } from './sections/HubCountdownsSection'
 import { HubVictoriesSummarySection } from './sections/HubVictoriesSummarySection'
-import { HubMemberAccessSection } from './sections/HubMemberAccessSection'
 import { HubMemberAuthModal } from './HubMemberAuthModal'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
@@ -46,7 +45,6 @@ const SECTION_LABELS: Record<string, string> = {
   victories_summary: 'Victories Summary',
   countdowns: 'Countdowns',
   widget_grid: 'Widget Grid',
-  member_access: 'Member Access',
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,9 +124,6 @@ function HubSectionRenderer({
       return <HubVictoriesSummarySection />
     case 'widget_grid':
       return null // PRD-10 Hub widget deployment
-    case 'member_access':
-      if (context === 'tab') return null // Only in standalone mode
-      return <HubMemberAccessSection />
     default:
       return null
   }
