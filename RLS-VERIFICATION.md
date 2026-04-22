@@ -152,3 +152,54 @@ Migration `00000000100149_archive_context_items_privacy_rls.sql` applied to prod
 - SELECT-only scope — writes untouched, no CRUD lockouts introduced.
 
 **Pre-push audit of app-layer consumers** (38 `archive_context_items` references across `src/` and `supabase/functions/`): 4 fixed in S3.1-S3.3 (Edge Function sites wrapped with `applyPrivacyFilter`), 11 writes (unaffected by SELECT RLS), 1 pre-existing frontend read with correct conditional filter (`src/lib/ai/context-assembly.ts:218-228`), 12 reads without filter (now tightened invisibly by RLS — all are either mom-only features, non-mom accessing their own data where filtering is intended, or cosmetic count queries), 10 non-query references. Zero legitimate use cases require non-mom access to filtered rows. Defense-in-depth acts as belt-and-suspenders for the 12 unfiltered frontend reads.
+
+
+---
+
+## tasks + task_assignments recursion fix (2026-04-22)
+
+Migration `00000000100151_rls_tasks_task_assignments_recursion_fix.sql` replaces the `ta_via_task` policy on `public.task_assignments` — which caused `ERROR: infinite recursion detected in policy for relation "tasks"` on any UPDATE against `tasks` that tripped both sibling policies — with a non-recursive `ta_via_family` policy. Introduces `public.auth_family_ids()` SECURITY DEFINER helper (mirrors existing `get_my_family_id()` but returns SETOF).
+
+Root cause: `tasks.tasks_update_assigned_member` subquery on `task_assignments` triggered `ta_via_task` which subqueried `tasks`, which re-triggered `tasks_update_assigned_member`, and Postgres aborted. User impact: "Remove from dashboard" menu item silently failed; server-side archives failed; Playwright cleanup hit the same error.
+
+Fix: `ta_via_family` checks `member_id`/`family_member_id` against `family_members` + `auth_family_ids()` — never references `tasks`. Cycle broken.
+
+### Test Results — 2026-04-22
+
+| # | Role | Operation | Target | Expected | Actual | Result |
+|---|------|-----------|--------|----------|--------|--------|
+| 1 | Mom | UPDATE archived_at | Task assigned to Helam | Succeeds (primary_parent) | was_updated=true | PASS |
+| 2 | Mom | UPDATE archived_at | Own Morning Routine | Succeeds | was_updated=true | PASS |
+| 3 | Mom | SELECT tasks | Own family | 53 rows | 53 | PASS |
+| 4 | Mom | SELECT task_assignments | Own family | 27 rows | 27 | PASS |
+| 5 | Mom | SELECT task_assignments | Other family | 0 rows | 0 | PASS |
+| 6 | Dad | UPDATE archived_at | Task assigned to Helam | Blocked | was_updated=false | PASS |
+| 7 | Dad | SELECT tasks | Own family | 53 rows | 53 | PASS |
+| 8 | Dad | SELECT task_assignments | Own family | 27 rows | 27 | PASS |
+| 9 | Independent (Miriam) | UPDATE archived_at | Own task | Succeeds | was_updated=true | PASS |
+| 10 | Independent (Miriam) | UPDATE archived_at | Helam's task | Blocked | was_updated=false | PASS |
+| 11 | Independent | SELECT tasks | Own family | 53 rows | 53 | PASS |
+| 12 | Independent | SELECT task_assignments | Own | 2 rows | 2 | PASS |
+| 13 | Guided (Mosiah) | UPDATE archived_at | Own task | Succeeds | was_updated=true | PASS |
+| 14 | Guided | UPDATE archived_at | Helam's task | Blocked | was_updated=false | PASS |
+| 15 | Guided | SELECT tasks | Own family | 53 rows | 53 | PASS |
+| 16 | Guided | SELECT task_assignments | Own | 7 rows | 7 | PASS |
+| 17 | Special Adult (Amy) | SELECT tasks | Own family | 23 rows | 23 | PASS |
+| 18 | Special Adult | UPDATE archived_at | Sarah's task | Blocked | was_updated=false | PASS |
+| 19 | Special Adult | SELECT task_assignments | Own family | 0 rows | 0 | PASS |
+| 20 | Mom | UPDATE tasks | Another family | 0 rows | 0 | PASS |
+| 21 | Mom | SELECT tasks | Another family | 0 rows | 0 | PASS |
+| 22 | Mom | INSERT task_assignment | Own family | Succeeds | 1 row | PASS |
+| 23 | Guided (Mosiah) | INSERT task_assignment | Own family | Succeeds (W-4) | inserted | NOTE |
+| 24 | Sarah (other family) | INSERT task_assignment | OurFamily | 42501 RLS error | error 42501 | PASS |
+| 25 | Mom | DELETE task_assignment | Own family | Succeeds | gone | PASS |
+| 26 | Independent (Miriam) | DELETE task_assignment | Helam's assignment | Succeeds (W-4) | gone | NOTE |
+| 27 | Helam | UPDATE archived_at | Own Kitchen Zone | Succeeds | was_updated=true | PASS |
+| 28 | Independent (Miriam) | UPDATE | Mom's Morning Routine | Blocked | was_updated=false | PASS |
+| 29 | Anonymous | SELECT tasks | Any | 0 rows | 0 | PASS |
+
+**Verification:** All 29 tests behaved as expected. Canonical failing path (`UPDATE tasks SET archived_at = NOW()` as any role with assignee/primary_parent access) now succeeds without recursion error. Confirmed end-to-end by re-running `tests/e2e/features/routine-assign-mosiah-repro.spec.ts` — cleanup via supabase-js archive call now succeeds where it previously blew up.
+
+### W-4 — inherited behavior (not a regression from 100151)
+
+`ta_via_family` grants `FOR ALL` family-wide access on `task_assignments`, which means non-admin members can technically INSERT (T23) and DELETE (T26) rows on this join table. This is preserved exactly from the pre-existing `ta_via_task` policy in migration 000008 — 100151 changed only *how* the family scope is computed, not *who* can write. The meaningful gate lives on `tasks` itself, where children cannot UPDATE tasks they don't own (T10/T14/T28 all PASS). Founder-level decision for a follow-up pass: if non-admin members should be prevented from manipulating assignment rows independently, split `ta_via_family` into separate SELECT/INSERT/DELETE policies with admin-only writes.

@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-21
+> Auto-generated from live Supabase on 2026-04-22
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 143 rows
+### `view_as_sessions` — 169 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 58 rows
+### `view_as_feature_exclusions` — 81 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 533 rows
+### `ai_usage_tracking` — 551 rows
 
 | # | Column |
 |---|---|
@@ -623,7 +623,7 @@
 | 39 | `allowance_points` |
 | 40 | `homework_subject_ids` |
 
-### `task_template_sections` — 84 rows
+### `task_template_sections` — 60 rows
 
 | # | Column |
 |---|---|
@@ -638,7 +638,7 @@
 | 9 | `show_until_complete` |
 | 10 | `updated_at` |
 
-### `task_template_steps` — 250 rows
+### `task_template_steps` — 238 rows
 
 | # | Column |
 |---|---|
@@ -657,7 +657,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 75 rows
+### `tasks` — 77 rows
 
 | # | Column |
 |---|---|
@@ -736,7 +736,7 @@
 | 73 | `allowance_points` |
 | 74 | `homework_subject_ids` |
 
-### `task_assignments` — 26 rows
+### `task_assignments` — 28 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 21 rows
+### `routine_step_completions` — 44 rows
 
 | # | Column |
 |---|---|
@@ -1034,7 +1034,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 41 rows
+### `dashboard_widgets` — 45 rows
 
 | # | Column |
 |---|---|
@@ -1736,7 +1736,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2581,7 +2581,7 @@
 | 27 | `bonus_type` |
 | 28 | `bonus_flat_amount` |
 
-### `allowance_periods` — 4 rows
+### `allowance_periods` — 8 rows
 
 | # | Column |
 |---|---|
@@ -2611,7 +2611,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 50 rows
+### `beta_glitch_reports` — 56 rows
 
 | # | Column |
 |---|---|

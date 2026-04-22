@@ -125,7 +125,7 @@ export function PermissionHub() {
           'Four access levels: No Access, View, Contribute, Manage',
           'Changes take effect immediately — no need to save',
           'Special adults lose all access when their shift ends',
-          'Teens can see their own sharing status in their "What\'s Shared" panel',
+          'Independent family members can see their own sharing status in their "What\'s Shared" panel',
         ]}
       />
 
@@ -195,10 +195,10 @@ export function PermissionHub() {
             <section className="space-y-3">
               <h2 className="text-sm font-semibold uppercase tracking-wider flex items-center gap-2"
                   style={{ color: 'var(--color-text-secondary)' }}>
-                <Eye size={16} /> Teen Visibility
+                <Eye size={16} /> Independent Visibility
               </h2>
               <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                Teens see a "What's Shared" panel in their settings showing what you can see of their data.
+                Independent family members see a "What's Shared" panel in their settings showing what you can see of their data.
                 When you increase visibility, they're notified. When you decrease it, they're not.
               </p>
               {teens.map((teen) => (
@@ -264,8 +264,8 @@ function GlobalPermissionsSection({ familyId }: { familyId: string }) {
           </p>
           <div className="space-y-2">
             <GlobalToggleRow
-              label="Teens can message each other"
-              description="Allow independent teens to send direct messages to each other"
+              label="Independent members can message each other"
+              description="Allow independent family members to send direct messages to each other"
               familyId={familyId}
               settingKey="teens_can_message_peers"
             />

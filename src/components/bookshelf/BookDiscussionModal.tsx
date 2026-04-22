@@ -22,7 +22,7 @@ const DISCUSSION_TYPE_LABELS: Record<DiscussionType, string> = {
 const AUDIENCE_LABELS: Record<DiscussionAudience, string> = {
   personal: 'Personal',
   family: 'Family',
-  teen: 'Teen',
+  teen: 'Independent',
   spouse: 'Spouse',
   children: 'Children',
 }

@@ -122,39 +122,80 @@ export async function createTaskFromData(
       result.templateId = data.editingTemplateId
 
       // Update template title
-      await supabase.from('task_templates')
+      const { error: titleError } = await supabase.from('task_templates')
         .update({ title: data.title, template_name: data.title, description: data.description || null })
         .eq('id', data.editingTemplateId)
+      if (titleError) {
+        throw new Error(`[createTaskFromData] Failed to update template title: ${titleError.message}`)
+      }
 
-      // Delete old steps and sections (cascade: steps reference sections)
-      const { data: oldSections } = await supabase.from('task_template_sections')
+      // Delete old steps and sections (cascade: steps reference sections).
+      // CRITICAL: each delete must be verified — if a delete fails silently
+      // (RLS glitch, transient network error), the re-insert below will add
+      // new rows ON TOP of the old ones, producing the "4 copies of each
+      // section" pattern Tenise hit on the Herringbone template. Every
+      // failure here must throw and abort the whole save.
+      const { data: oldSections, error: loadError } = await supabase.from('task_template_sections')
         .select('id').eq('template_id', data.editingTemplateId)
+      if (loadError) {
+        throw new Error(`[createTaskFromData] Failed to load old sections: ${loadError.message}`)
+      }
       for (const sec of oldSections ?? []) {
-        await supabase.from('task_template_steps').delete().eq('section_id', sec.id)
+        const { error: stepDelErr } = await supabase.from('task_template_steps').delete().eq('section_id', sec.id)
+        if (stepDelErr) {
+          throw new Error(`[createTaskFromData] Failed to delete old steps for section ${sec.id}: ${stepDelErr.message}`)
+        }
       }
-      await supabase.from('task_template_sections').delete().eq('template_id', data.editingTemplateId)
+      const { error: secDelErr } = await supabase.from('task_template_sections').delete().eq('template_id', data.editingTemplateId)
+      if (secDelErr) {
+        throw new Error(`[createTaskFromData] Failed to delete old sections: ${secDelErr.message}`)
+      }
     } else {
-      // Creating new template
-      const { data: template, error: tmplError } = await supabase
+      // Creating new template — with a defensive dedupe check to prevent the
+      // "two identical templates 60 seconds apart" pattern Tenise hit on the
+      // Bathroom Cleaning template. If a template with the exact same
+      // family_id + title + creator was inserted in the last 10 seconds,
+      // reuse it instead of creating a second row. This window is short
+      // enough to catch rapid double-submit without blocking intentional
+      // duplicate-name creation (which takes longer than a 10-second retry).
+      const recentThreshold = new Date(Date.now() - 10_000).toISOString()
+      const { data: recentDupe } = await supabase
         .from('task_templates')
-        .insert({
-          family_id: familyId,
-          created_by: creatorId,
-          title: data.title,
-          template_name: data.title,
-          description: data.description || null,
-          task_type: 'routine',
-          template_type: 'routine',
-        })
         .select('id')
-        .single()
+        .eq('family_id', familyId)
+        .eq('created_by', creatorId)
+        .eq('template_name', data.title)
+        .eq('template_type', 'routine')
+        .is('archived_at', null)
+        .gte('created_at', recentThreshold)
+        .limit(1)
+        .maybeSingle()
 
-      if (tmplError) {
-        console.error('[createTaskFromData] Failed to create routine template:', tmplError)
-      }
+      if (recentDupe?.id) {
+        console.warn(`[createTaskFromData] Reusing template ${recentDupe.id} — identical insert within 10s dedupe window.`)
+        routineTemplateId = recentDupe.id
+      } else {
+        const { data: template, error: tmplError } = await supabase
+          .from('task_templates')
+          .insert({
+            family_id: familyId,
+            created_by: creatorId,
+            title: data.title,
+            template_name: data.title,
+            description: data.description || null,
+            task_type: 'routine',
+            template_type: 'routine',
+          })
+          .select('id')
+          .single()
 
-      if (!tmplError && template) {
-        routineTemplateId = template.id
+        if (tmplError) {
+          console.error('[createTaskFromData] Failed to create routine template:', tmplError)
+        }
+
+        if (!tmplError && template) {
+          routineTemplateId = template.id
+        }
       }
     }
 
@@ -244,20 +285,66 @@ export async function createTaskFromData(
     // Rotation implies shared/any — one task rotates between assignees
     const mode = data.rotationEnabled ? 'any' : (data.assignMode ?? 'each')
 
+    // Dedupe check — if an identical task row was inserted in the last 10
+    // seconds (same family, same template_id, same assignee, same title,
+    // not archived), reuse instead of creating another. Catches the
+    // "Mosiah got 2 Herringbone rows 63 seconds apart" pattern where a
+    // slow save prompts the user to click Deploy again before the first
+    // insert's result was visible.
+    const dedupeWindow = new Date(Date.now() - 10_000).toISOString()
+    async function findRecentDupe(assigneeId: string | null): Promise<string | null> {
+      if (!routineTemplateId || !assigneeId) return null
+      const { data: dupeRow } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('family_id', familyId)
+        .eq('template_id', routineTemplateId)
+        .eq('assignee_id', assigneeId)
+        .eq('title', data.title)
+        .is('archived_at', null)
+        .gte('created_at', dedupeWindow)
+        .limit(1)
+        .maybeSingle()
+      return (dupeRow?.id as string | undefined) ?? null
+    }
+
     if (assignees.length >= 2 && mode === 'each') {
-      const inserts = assignees.map(a => ({
-        ...taskInsertBase,
-        assignee_id: resolveAssigneeId(a),
-        is_shared: false,
-      }))
-      const { data: rows, error } = await supabase.from('tasks').insert(inserts).select('id')
-      if (error) {
-        console.error('Failed to create tasks:', error)
-        return result
+      // Per-assignee dedupe for the "each" mode — a redundant save would
+      // otherwise multiply every assignee's task row.
+      const resultRows: string[] = []
+      const inserts: Array<Record<string, unknown>> = []
+      for (const a of assignees) {
+        const assigneeId = resolveAssigneeId(a)
+        const dupeId = await findRecentDupe(assigneeId)
+        if (dupeId) {
+          console.warn(`[createTaskFromData] Reusing task ${dupeId} for assignee ${assigneeId} — 10s dedupe window hit.`)
+          resultRows.push(dupeId)
+        } else {
+          inserts.push({
+            ...taskInsertBase,
+            assignee_id: assigneeId,
+            is_shared: false,
+          })
+        }
       }
-      result.taskIds = (rows ?? []).map(r => r.id)
+      if (inserts.length > 0) {
+        const { data: rows, error } = await supabase.from('tasks').insert(inserts).select('id')
+        if (error) {
+          console.error('Failed to create tasks:', error)
+          return result
+        }
+        for (const r of rows ?? []) resultRows.push(r.id)
+      }
+      result.taskIds = resultRows
     } else {
       const primaryId = assignees.length > 0 ? resolveAssigneeId(assignees[0]) : null
+
+      const dupeId = await findRecentDupe(primaryId)
+      if (dupeId) {
+        console.warn(`[createTaskFromData] Reusing task ${dupeId} — 10s dedupe window hit.`)
+        result.taskIds = [dupeId]
+        return result
+      }
 
       const { data: newTask, error } = await supabase.from('tasks').insert({
         ...taskInsertBase,

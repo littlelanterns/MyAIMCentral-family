@@ -23,7 +23,7 @@ function relativeTime(dateStr: string): string {
 const AUDIENCE_SHORT: Record<string, string> = {
   personal: 'Personal',
   family: 'Family',
-  teen: 'Teen',
+  teen: 'Independent',
   spouse: 'Spouse',
   children: 'Children',
 }

@@ -19,7 +19,7 @@ function getModeLabel(
 ): string {
   if (dashboardMode === 'play') return 'Play'
   if (dashboardMode === 'guided') return 'Guided'
-  if (dashboardMode === 'independent') return 'Teen'
+  if (dashboardMode === 'independent') return 'Independent'
   if (dashboardMode === 'adult') return 'Adult'
   if (role === 'primary_parent') return 'Mom'
   if (role === 'additional_adult') return 'Adult'
