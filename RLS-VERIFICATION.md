@@ -294,3 +294,35 @@ All T19–T23 via BEGIN/ROLLBACK — no permanent data written. T20 transaction 
 ### Summary
 
 **W-4 fully closed.** Guided children and independent teens can no longer INSERT sibling assignments (42501) or DELETE any assignment row (0-row silent block). Admins retain full INSERT/UPDATE/DELETE. Self-INSERT and self-UPDATE remain available to non-admins. Partial unique index prevents duplicate active routine rows at the database layer regardless of code path — 23505 on duplicate, exempt for archived rows, different template, or different assignee.
+
+
+---
+
+## task_assignments — 2026-04-22 addendum: auth_is_admin_of() narrowed to primary_parent only
+
+Migration `00000000100153` narrowed `public.auth_is_admin_of(p_family_id uuid)` to return TRUE only when the caller holds `role = 'primary_parent'` in that family. Previously the function also returned TRUE for `additional_adult`, which gave Dad (Jerrod, role=additional_adult) unrestricted INSERT/UPDATE/DELETE on `task_assignments` via the admin predicate in ta_insert / ta_update / ta_delete policies.
+
+Per PRD-02: Dad's elevated access comes from `member_permissions` grants, NOT from his role. Dad is not automatically an admin of task assignment rows.
+
+### Re-verification — Dad (Jerrod) and Mom (Tenise)
+
+All tests run as BEGIN/ROLLBACK — no permanent data written.
+
+- **Dad fm_id:** `0aea47e9-e6fa-4300-b4a7-6da097c26f9e`
+- **Helam fm_id:** `b266cf06-d2b4-4c7b-a6bd-559224367005`
+- **Helam assignment used for UPDATE/DELETE tests:** `afce593d` (Helam's row)
+- **Dad's own assignment used for self-UPDATE test:** `03698fbf` (Dad's row)
+
+| # | Role | Operation | Target | Expected | Actual | Result |
+|---|------|-----------|--------|----------|--------|--------|
+| R1 | Dad | SELECT task_assignments | Own family | Succeeds (ta_select unchanged) | 28 rows | PASS |
+| R2 | Dad | INSERT assignment | Dad's own fm_id | Succeeds (non-admin self-add path) | id returned | PASS |
+| R3 | Dad | INSERT assignment | Helam's fm_id | BLOCKED (admin predicate fails; non-admin predicate fails — not self) | 42501 RLS error | PASS |
+| R4 | Dad | UPDATE assignment | Helam's row (`afce593d`) | BLOCKED (0 rows silent) | 0 rows | PASS |
+| R5 | Dad | UPDATE assignment | Dad's own row (`03698fbf`) | Succeeds (non-admin self-update path) | id returned | PASS |
+| R6 | Dad | DELETE assignment | Helam's row (`afce593d`) | BLOCKED (0 rows silent) | 0 rows | PASS |
+| R7 | Mom | INSERT assignment | Helam's fm_id | Succeeds (primary_parent = admin) | id returned | PASS |
+| R8 | Mom | UPDATE assignment | Helam's row (`afce593d`) | Succeeds (primary_parent = admin) | id returned | PASS |
+| R9 | Mom | DELETE assignment | Helam's row (`afce593d`) | Succeeds (primary_parent = admin) | id returned | PASS |
+
+**Result:** Helper narrowing behaves exactly as intended. Dad retains SELECT (read) and self-scoped INSERT/UPDATE but loses the admin INSERT-for-others, admin UPDATE, and admin DELETE paths. Mom's full admin access is unaffected. PRD-02 access model correctly enforced at the database layer.
