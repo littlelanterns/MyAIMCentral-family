@@ -1,9 +1,39 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v2 — applied founder Session 1 response 2026-04-21
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 by orchestrator after founder response
+> **Status:** DRAFT v3 — applied Composition Architecture delta + founder decisions 2026-04-22
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 11 Fix Now + 2 Fix Now (+compound) + 1 Fix Code + 74 Fix Next Build. 27 Beta Readiness blockers anchor the ordering (22 from Appendix C + 5 from 2026-04-21 founder additions). `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+> **Scope:** 183 rows total. Wave-assigned: 11 Fix Now + 2 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + existing Fix Next Build rows. 27 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+
+---
+
+## What changed from v2 → v3 (2026-04-22 Composition Architecture delta)
+
+- **SCOPE-3.F15 closed** (Intentional-Update-Doc → Closed/Resolved). Removed from waves.
+- **SCOPE-2.F27 scope expanded Low → Medium.** Still Fix Next Build, non-Beta. No wave placement change.
+- **24 new rows NEW-F..NEW-CC placed.** Summary below; details in worksheet.
+- **NEW-B updated:** drawer default = Assist (not Help). NEW-B wave placement unchanged (Wave 1 — Fix Now, Beta Y). Assist system-prompt enhancement + PRD-05 addendum added to NEW-B scope.
+- **NEW-K downgraded Beta Y → N.** Moved out of Beta blocker waves; now lives in the non-Beta Fix Next Build pool, but elevated priority per founder — ships as post-Gate-2 flagship, not Wave 3.
+- **8 CLAUDE.md conventions 249–256 landed** as pre-walkthrough commits (outcome-named wizards, save-and-return/Drafts/Customized, AI-fills-gaps, Bulk-AI-Add, NLC front-door, MindSweep composition detection, friction-first wizard design, tier externalization).
+
+### New-row wave placement
+
+Most NEW-F..NEW-CC rows are **non-Beta Fix Next Build** and live in the large unsequenced pool that dispatches whenever workers have capacity. Specific coordination callouts:
+
+| New row | Wave placement | Coordination |
+|---|---|---|
+| NEW-F, H, I, J, M, S, T, U, V, X, Y, Z, BB, CC | Non-Beta Fix Next Build pool | No hard sequencing; dispatch per worker availability |
+| NEW-G | Non-Beta Fix Next Build (High severity — elevate priority) | Touches PRD-09B + Convention 70 + studio-seed-templates.md. Coordinate with SCOPE-2.F27 (same PRD-09B amendment pass) |
+| NEW-K | Post-Gate-2 flagship (not wave-assigned in Gate 1 execution) | Depends on Gate 2 wizards landing first; becomes Phase 5 headline |
+| NEW-L | Non-Beta Fix Next Build pool | Audit-first row — inventory surfaces before dispatching implementation work |
+| NEW-N (is_milestone + Milestone Map) | Non-Beta Fix Next Build pool | **8-PRD addendum touch.** Assign one worker to own all 8 addenda to avoid cross-PRD drift |
+| NEW-O (tracking_tags) | Non-Beta Fix Next Build pool | **Every content-producing PRD + PRD-28B** — cross-cutting; assign one worker |
+| NEW-P (Reading Tracker) | Non-Beta Fix Next Build pool | PRD home decision (PRD-28 vs PRD-10) before dispatch |
+| NEW-Q (finished products expansion) | Non-Beta Fix Next Build pool | Cross-ref SCOPE-2.F22 PRD-19 reports; coordinate with PRD-28B scope |
+| NEW-R (Drafts + Customized Studio pages) | Non-Beta Fix Next Build pool | Studio Intelligence Addendum amendment; Convention 250 captures the rule |
+| NEW-W (counts_toward_allowance on Segments + dedup) | Non-Beta Fix Next Build pool | **Coordinate with SCOPE-3.F14 (Wave 1, Beta Y).** Allowance bootstrap + Segment counting are related; one worker owns both if possible |
+| NEW-AA (reveals as universal wrappers) | Non-Beta Fix Next Build pool | Coordinates with SCOPE-2.F61 + SCOPE-2.F62 (same PRD-24 family addendum) |
+| NEW-E (local-LLM stub) | Capture-only, no wave | Post-Session-2 doc authorship task |
 
 ---
 
