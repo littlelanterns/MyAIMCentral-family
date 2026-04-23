@@ -7,6 +7,14 @@
 
 ---
 
+## What changed from v10 → v11 (Session 2 close — Batch 6 final surface + Scope 4 pattern resolution)
+
+- **5 Scope 4 rows reclassified Intentional-Update-Doc → Fix Code.** Three-question test applied per Row 31 / Row 93 pattern. Reclassified: SCOPE-4.F10, F3, F6, F7, F9. Clean: SCOPE-4.F2 (only one where audit explicitly over-promises ai_patterns.md doc). Pattern now 7-for-8 across all Scope 4 Intentional-Update-Doc rows (F1+F5+F10+F3+F6+F7+F9 drift; F2 clean). Classifier systematically mis-coded Unintentional-Fix-Code at Scope 4.
+- **SCOPE-4.F7 folded into Wave 1B Board sprint.** Same `lila-board-of-directors/index.ts` file as F4 + F8a + F8b + 8a.F5 + 8b.F3. Moderator auto-interjection revoke ships in the consolidated sprint. PRD-34 amendment (sub-item c) bundled with F4's PRD-34 addendum requirement.
+- **Wave 1B Board sprint scope grew to 6 rows:** SCOPE-8a.F5 + SCOPE-4.F4 + SCOPE-8b.F3 + SCOPE-4.F8a + SCOPE-4.F8b + SCOPE-4.F7.
+- **Dispatch-time notes encoded for production-intersection rows:** SCOPE-3.F14 (Row 9) flagged for scope-vs-production-fix verification; NEW-W (Row 44) must implement dedup INSIDE `calculate_allowance_progress` RPC; SCOPE-3.F31 (Row 168) must check dead enum values against new RPC architecture.
+- **Distribution shift:** Intentional-Update-Doc 37→32 (-5), Fix Code 3→8 (+5).
+
 ## What changed from v9 → v10 (Session 2 Batch 6 first-20 recalibration)
 
 - **Batch 6 recalibration:** Path 1 accepted — high silent-approve rate is expected for Low Beta=N uniform-pattern rows. Modifications adopted: (i) mandatory batch-close spot-check at 183/183 (criterion g retrospective on final 20 silent-approved); (ii) mid-batch spot-check at ~row 141 (same criterion g retrospective on most recent 20); (iii) Scope 4 addition — ALL remaining Scope 4 rows with Proposed = Intentional-Update-Doc surface regardless of severity (Row 31 + Row 93 pattern = 2-for-2 drift evidence at Scope 4 / Intentional-Update-Doc intersection).
@@ -315,6 +323,7 @@ SCOPE-8a.F5 ~~> SCOPE-4.F4
 SCOPE-4.F4 ~~> SCOPE-8b.F3
 SCOPE-4.F4 ~~> SCOPE-4.F8a
 SCOPE-4.F4 ~~> SCOPE-4.F8b
+SCOPE-4.F4 ~~> SCOPE-4.F7   # v11 fold — moderator interjection revoke + PRD-34 amendment
 
 # Wave 1B → Wave 5
 SCOPE-4.F4 -> SCOPE-4.F5
