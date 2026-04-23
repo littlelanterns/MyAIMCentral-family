@@ -7,6 +7,13 @@
 
 ---
 
+## What changed from v8 → v9 (Session 2 Batch 5 close + 3 holds resolved)
+
+- **SCOPE-4.F5 reclassified Intentional-Update-Doc → Fix Code (Wave 5).** Row 31 three-question test returned gaps on all three: no intended-exclusion source doc, no over-promised doc to amend, no cost-model delta. Audit explicitly says "Unintentional-Fix-Code" with founder-approved scope 2026-04-20. Stays blocked by SCOPE-4.F4 W1B. Second reclassification of this pattern (first was SCOPE-4.F1 at Row 31).
+- **SCOPE-8a.F4 pulled W2-adjacent → Wave 1.** Architectural check confirmed F4 is independent of SCOPE-8b.F5 — F4 uses existing `detectCrisis` helper + removes "except Translator" exception. Same safety-critical W1 pull pattern as SCOPE-2.F40 (Row 59). Third W1-pull-for-safety-not-calendar-grouping decision this session.
+- **SCOPE-3.F38 Path B locked with ELEVATED priority-within-pool annotation.** Non-mom over-access confirmed (special_adult over-granted Family Overview + Family Hub per PRD-14C/D). Beta=N retained per audit (orphan surface, special_adult has no coordination-layer workflows). Fix Next Build stays. Elevation reason: UI-vs-PRD contradictions ossify if unfixed; future PerspectiveSwitcher work should build on corrected gating.
+- **NEW-AA worker scope grew to 4 rows** with SCOPE-3.F30 fold: NEW-AA + SCOPE-3.F30 + SCOPE-2.F61 + SCOPE-2.F62 (PRD-24B reveal-system universalization + library restructure + connector architecture).
+
 ## What changed from v7 → v8 (Session 2 Batch 5 rows 61-80 lock)
 
 - **PRD-24 family bundle resolved into 3 workers:**
@@ -282,10 +289,14 @@ SCOPE-3.F14 -> NEW-W
 # SCOPE-2.F1 → SCOPE-8a.F1 (W0 → W4 COPPA prerequisite, webhook-only scope)
 SCOPE-2.F1 -> SCOPE-8a.F1
 
-# PRD-24 family workers (v8) — NEW-AA bundled, F60c sequences after, F58 independent
+# PRD-24 family workers (v8+F30 fold) — NEW-AA bundled with 4 rows
 NEW-AA ~~> SCOPE-2.F61
 NEW-AA ~~> SCOPE-2.F62
+NEW-AA ~~> SCOPE-3.F30
 NEW-AA -> SCOPE-2.F60c
+
+# SCOPE-3.F2 W0 → SCOPE-3.F3 (same PRD-35 scheduler family)
+SCOPE-3.F2 -> SCOPE-3.F3
 
 # Wave 4 internal
 SCOPE-8a.F1 -> SCOPE-8a.F2
