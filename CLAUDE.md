@@ -622,3 +622,16 @@ These are patterns where a tool or technique appears to work but silently produc
 These conventions codify the rules from `Composition-Architecture-and-Assembly-Patterns.md` (Parts 1 and 2, authored 2026-04-21). The doc is the authoritative reference for primitives, properties, connectors, scope-of-state, supported compositions, downstream consumers, and assembly patterns. Conventions 249–256 lift the load-bearing rules into the persistent contract.
 
 249. **Wizards are named by outcome, not by tool type.** Every wizard entry on the Studio shelf describes what mom is accomplishing ("Shared Shopping List with Family," "Potty Chart for Ruthie," "School Day Routine"), not what database table the result lives in. A wizard named "Create a List" or "Add a Tracker" has failed naming review. See `Composition-Architecture-and-Assembly-Patterns.md` §2.1 for examples.
+
+250. **Save-and-return is universal across wizards. Drafts and Customized are first-class Studio pages.**
+
+    - Every wizard step is skippable with a sensible default.
+    - Every wizard exposes a persistent "Save & Come Back" action.
+    - Minimum requirement to save: **nothing**. A list can be saved untitled — placeholder names auto-generate ("Untitled Shared List").
+    - Saved skeletons live on the **Drafts** page in Studio (a named, visible page; not a hidden state). Clicking a draft re-opens the wizard at the last completed step.
+    - **Close-wizard UX:** explicit prompt "Save as a draft to come back to?" with [Yes, save as draft] / [No, discard] / [Keep working]. Default action (including dismiss-by-tap-outside) saves as draft. "No, discard" requires explicit confirmation.
+    - **Reopen UX:** when an entry point is invoked and a matching draft exists, prompt "We saved this from last time. Want to keep working, or start fresh?" Start-fresh does NOT discard — it saves the existing draft and opens a new blank wizard so mom never loses work.
+    - Deployment moves a draft from Drafts → **Customized** section of Studio.
+    - **Customized items remain editable.** Opening one re-launches its wizard pre-populated; changes do not move the item back to Drafts.
+
+    Data layer implication: all primitives created by wizards must support `is_draft` status. Drafts are not visible to other family members, do not count toward allowance, do not appear on kid dashboards, do not trigger reveals. See `Composition-Architecture-and-Assembly-Patterns.md` §2.2.
