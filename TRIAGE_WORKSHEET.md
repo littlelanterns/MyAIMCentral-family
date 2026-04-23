@@ -176,26 +176,26 @@
 | 125 | SCOPE-2.F26 | 2 | Low | N |  | Fix Next Build | **LOCKED** Fix Next Build (silent approve) — Habit task type wire-up, single PRD-09A |  |  | PRD-09A Habit task type unwired — 3-mode meta-type branching remediation |
 | 126 | SCOPE-2.F28 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — Settings PRD timeline; still deferred |  |  | PRD-17 numeric indicator preference deferred to Settings PRD |
 | 127 | SCOPE-2.F30 | 2 | Low | N | Y | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-10 tracker catalog codification |  |  | PRD-10 tracker catalog expansion — codify 17 canonical + 4 extras |
-| 128 | SCOPE-2.F31 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-10 `widget_templates` vs `widget_starter_configs` architectural split |
-| 129 | SCOPE-2.F32 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-14 `col_span` responsive-section feature unbuilt — will-be-built eventually |
-| 130 | SCOPE-2.F33 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-14B schema refactor documentation — 3 Convention-documented deliberate supersessions |
-| 131 | SCOPE-2.F35 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-14C Family Overview polish deferred — 4 UX polish items Post-MVP |
-| 132 | SCOPE-2.F37 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-25 + PRD-26 graduation flows unbuilt — Post-MVP |
-| 133 | SCOPE-2.F38 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-26 reveal architecture superseded by Build M — 5 styles → 2 per-segment |
-| 134 | SCOPE-2.F4 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-01 + PRD-04 legacy Hub columns on `families` table superseded by PRD-14D |
-| 135 | SCOPE-2.F41 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | WIRING_STATUS.md PRD-15 / PRD-16 post-build checklist drift |
-| 136 | SCOPE-2.F42 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-16 meeting_type enum 9→5 override per feature decision 2026-04-14 |
-| 137 | SCOPE-2.F44 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-16 Build P verification table drift — `GuidedThingsToTalkAboutSection` marked Stubbed but fully built |
-| 138 | SCOPE-2.F46 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-34 ThoughtSift `/thoughtsift` route removal — scope creep reverts |
-| 139 | SCOPE-2.F47 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-34 `board_personas` schema split missing — deferred until Channel D |
-| 140 | SCOPE-2.F5 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-02 shift-scheduling text superseded by `access_schedules` + `time_sessions` |
-| 141 | SCOPE-2.F51 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-22 minor screens deprioritized by founder — 4 amendments |
-| 142 | SCOPE-2.F52 | 2 | Low | N |  | Defer-to-Gate-4 |  |  | SCOPE-2.F9 | PRD-21A Optimize with LiLa stub — gated on F9 Optimizer build |
-| 143 | SCOPE-2.F53 | 2 | Low | N |  | Defer-to-Gate-4 |  |  | SCOPE-2.F9 | PRD-21A Deploy with LiLa skill stub — gated on F9 + External Tool Registry |
-| 144 | SCOPE-2.F54 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-21 skill-check mode missing for Cyrano + Higgins Say |
-| 145 | SCOPE-2.F55 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-21 Higgins display name seed registry drift |
-| 146 | SCOPE-2.F56 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-23 Cross-PRD Impact Addendum `bookshelf_principles` → `bookshelf_insights` rename drift |
-| 147 | SCOPE-2.F57 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-23 `SemanticSearchPanel` app-wide hook zero external consumers |
+| 128 | SCOPE-2.F31 | 2 | Low | N | Y | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-10 widget architecture doc pass |  |  | PRD-10 `widget_templates` vs `widget_starter_configs` architectural split |
+| 129 | SCOPE-2.F32 | 2 | Low | N |  | Fix Next Build | **LOCKED** Fix Next Build (silent approve) — col_span responsive build, single PRD-14 |  |  | PRD-14 `col_span` responsive-section feature unbuilt — will-be-built eventually |
+| 130 | SCOPE-2.F33 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-14B supersession doc pass |  |  | PRD-14B schema refactor documentation — 3 Convention-documented deliberate supersessions |
+| 131 | SCOPE-2.F35 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — Post-MVP polish, timeline |  |  | PRD-14C Family Overview polish deferred — 4 UX polish items Post-MVP |
+| 132 | SCOPE-2.F37 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — Post-MVP cross-PRD (PRD-25 + PRD-26); both deferred |  |  | PRD-25 + PRD-26 graduation flows unbuilt — Post-MVP |
+| 133 | SCOPE-2.F38 | 2 | Low | N | Y | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-26 Build M supersession doc pass |  |  | PRD-26 reveal architecture superseded by Build M — 5 styles → 2 per-segment |
+| 134 | SCOPE-2.F4 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc — **multi-PRD touch** (PRD-01 §L404-405 + PRD-04 §L666-682 both amended to reference PRD-14D `family_hub_configs`). Optional drop migration during Phase 3 triage. |  |  | PRD-01 + PRD-04 legacy Hub columns on `families` table superseded by PRD-14D |
+| 135 | SCOPE-2.F41 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — WIRING_STATUS.md single-doc checklist pass |  |  | WIRING_STATUS.md PRD-15 / PRD-16 post-build checklist drift |
+| 136 | SCOPE-2.F42 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-16 enum override doc pass |  |  | PRD-16 meeting_type enum 9→5 override per feature decision 2026-04-14 |
+| 137 | SCOPE-2.F44 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-16 Build P verification-table correction |  |  | PRD-16 Build P verification table drift — `GuidedThingsToTalkAboutSection` marked Stubbed but fully built |
+| 138 | SCOPE-2.F46 | 2 | Low | N |  | Fix Next Build | **LOCKED** Fix Next Build (silent approve) — PRD-34 scope-creep revert, single PRD |  |  | PRD-34 ThoughtSift `/thoughtsift` route removal — scope creep reverts |
+| 139 | SCOPE-2.F47 | 2 | Low | N |  | Fix Next Build | **LOCKED** Fix Next Build (silent approve) — PRD-34 board_personas schema split |  |  | PRD-34 `board_personas` schema split missing — deferred until Channel D |
+| 140 | SCOPE-2.F5 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-02 text cites Conventions #26 + #40 (cited, not amended) |  |  | PRD-02 shift-scheduling text superseded by `access_schedules` + `time_sessions` |
+| 141 | SCOPE-2.F51 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — PRD-22 minor screens, founder deprioritized |  |  | PRD-22 minor screens deprioritized by founder — 4 amendments |
+| 142 | SCOPE-2.F52 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — gated on SCOPE-2.F9 (Row 74 locked Defer) — consistent chain |  | SCOPE-2.F9 | PRD-21A Optimize with LiLa stub — gated on F9 Optimizer build |
+| 143 | SCOPE-2.F53 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — gated on SCOPE-2.F9 + External Tool Registry |  | SCOPE-2.F9 | PRD-21A Deploy with LiLa skill stub — gated on F9 + External Tool Registry |
+| 144 | SCOPE-2.F54 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — PRD-21 skill-check mode, timeline |  |  | PRD-21 skill-check mode missing for Cyrano + Higgins Say |
+| 145 | SCOPE-2.F55 | 2 | Low | N |  | Fix Next Build | **LOCKED** Fix Next Build (silent approve) — PRD-21 Higgins seed drift, single PRD |  |  | PRD-21 Higgins display name seed registry drift |
+| 146 | SCOPE-2.F56 | 2 | Low | N |  | Intentional-Update-Doc | **LOCKED** Intentional-Update-Doc (silent approve) — PRD-23 addendum rename drift |  |  | PRD-23 Cross-PRD Impact Addendum `bookshelf_principles` → `bookshelf_insights` rename drift |
+| 147 | SCOPE-2.F57 | 2 | Low | N |  | Defer-to-Gate-4 | **LOCKED** Defer-to-Gate-4 (silent approve) — PRD-23 SemanticSearchPanel zero consumers, deferred |  |  | PRD-23 `SemanticSearchPanel` app-wide hook zero external consumers |
 | 148 | SCOPE-2.F59 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-24 pipeline + settings panel superseded by Build M |
 | 149 | SCOPE-2.F6 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-03 theme count — code ships 46, spec + Convention #42 claim 38 |
 | 150 | SCOPE-2.F60a | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-24A dashboard backgrounds → Sticker Book pages supersession |
