@@ -635,3 +635,20 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     - **Customized items remain editable.** Opening one re-launches its wizard pre-populated; changes do not move the item back to Drafts.
 
     Data layer implication: all primitives created by wizards must support `is_draft` status. Drafts are not visible to other family members, do not count toward allowance, do not appear on kid dashboards, do not trigger reveals. See `Composition-Architecture-and-Assembly-Patterns.md` §2.2.
+
+251. **AI assistance is present at every creation surface.** Mom is never forced to map her mental model onto a schema.
+
+    - Every text field inside a wizard has a "Let AI help" option (Haiku proposes the structured value from mom's natural-language description).
+    - Every wizard tab has a "Let LiLa suggest" button that proposes defaults for remaining fields based on what mom has already filled in.
+    - Mom can say "describe the whole thing" at any wizard step; Haiku populates every relevant tab's fields. Mom reviews field-by-field.
+    - Every Haiku proposal is Human-in-the-Mix (Edit / Approve / Regenerate / Reject) before it persists.
+
+    See `Composition-Architecture-and-Assembly-Patterns.md` §2.4. Inside-wizard AI is distinct from the front-door Natural Language Composition entry point (Convention 253).
+
+252. **Bulk-AI-Add is universal. Deployed on every creation surface where multiple items can be added.**
+
+    - Mom pastes or voice-dictates; AI parses into structured items with field inference (store section for shopping, category for activities, price for compensation jobs).
+    - Every bulk-add output is Human-in-the-Mix before it persists.
+    - **If a new creation surface ships without bulk-AI-add, that is a bug, not a future enhancement.**
+
+    Deployment gap status: capability is built universally in the codebase but not deployed everywhere it should be. Deployment coverage tracked as a worksheet finding (NEW-L). See `Composition-Architecture-and-Assembly-Patterns.md` §2.5.
