@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { CheckCircle2, Circle, Clock, Star, ChevronDown, ChevronRight, Volume2 } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Star, ChevronDown, ChevronRight, Volume2, Repeat } from 'lucide-react'
 import { useTasks, useCompleteTask } from '@/hooks/useTasks'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
@@ -146,11 +146,12 @@ export function GuidedActiveTasksSection({
     return (
       <div key={task.id} className="space-y-0">
         <div
-          className="flex items-center gap-3 py-2.5 px-3 rounded-lg transition-all"
+          className="flex items-center gap-3 py-3 px-3 rounded-lg transition-all border"
           style={{
             backgroundColor: isCelebrating
               ? 'color-mix(in srgb, var(--color-accent-warm) 15%, var(--color-bg-card))'
-              : 'transparent',
+              : 'var(--color-bg-card)',
+            borderColor: 'var(--color-border)',
             transform: isCelebrating ? 'scale(1.02)' : 'scale(1)',
           }}
         >
@@ -184,6 +185,9 @@ export function GuidedActiveTasksSection({
             onClick={() => isRoutine && toggleRoutine(task.id)}
           >
             <div className="flex items-center gap-2">
+              {isRoutine && (
+                <Repeat size={14} className="shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
+              )}
               <span
                 className="text-sm truncate"
                 style={{ color: 'var(--color-text-primary)' }}
@@ -200,8 +204,22 @@ export function GuidedActiveTasksSection({
                 </button>
               )}
             </div>
+            {isRoutine && task.template_id && (
+              <GuidedRoutineSubtitle taskId={task.id} templateId={task.template_id} memberId={memberId} />
+            )}
+            {isRoutine && (
+              <span
+                className="inline-block mt-1.5 px-2 py-0.5 text-xs rounded-full"
+                style={{
+                  background: 'color-mix(in srgb, var(--color-text-secondary) 15%, transparent)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                Routine
+              </span>
+            )}
             {draw && (
-              <span className="text-xs truncate block" style={{ color: 'var(--color-text-secondary)' }}>
+              <span className="text-xs truncate block mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                 Today: {draw.itemName}
               </span>
             )}
@@ -461,15 +479,9 @@ export function GuidedActiveTasksSection({
 }
 
 /** Small progress ring for routine tasks in the Guided dashboard */
-function GuidedRoutineProgressRing({
-  taskId,
-  templateId,
-  memberId,
-}: {
-  taskId: string
-  templateId: string | null
-  memberId: string
-}) {
+// Shared hook: computes today's step progress for a routine task. Consumed by
+// both the progress ring and the "X/Y today" subtitle so the two never diverge.
+function useGuidedRoutineProgress(taskId: string, templateId: string | null, memberId: string) {
   const { data: sections } = useRoutineTemplateSteps(templateId ?? undefined)
   const { data: completions } = useRoutineStepCompletions(taskId, memberId)
   const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
@@ -480,6 +492,45 @@ function GuidedRoutineProgressRing({
   const todaySteps = activeSections.flatMap(s => s.steps)
   const done = todaySteps.filter(s => completedIds.has(s.id)).length
   const total = todaySteps.length
+
+  return { done, total }
+}
+
+// Small subtitle under the title showing "X/Y today ›" — matches the Independent
+// shell TaskCard routine subtitle so kids across shells read progress the same way.
+function GuidedRoutineSubtitle({
+  taskId,
+  templateId,
+  memberId,
+}: {
+  taskId: string
+  templateId: string | null
+  memberId: string
+}) {
+  const { done, total } = useGuidedRoutineProgress(taskId, templateId, memberId)
+  if (total === 0) return null
+  return (
+    <span
+      className="flex items-center gap-1 text-xs mt-0.5"
+      style={{ color: 'var(--color-text-secondary)' }}
+    >
+      <Repeat size={10} />
+      {done}/{total} today
+      <ChevronRight size={10} />
+    </span>
+  )
+}
+
+function GuidedRoutineProgressRing({
+  taskId,
+  templateId,
+  memberId,
+}: {
+  taskId: string
+  templateId: string | null
+  memberId: string
+}) {
+  const { done, total } = useGuidedRoutineProgress(taskId, templateId, memberId)
 
   const pct = total > 0 ? done / total : 0
   const r = 9
