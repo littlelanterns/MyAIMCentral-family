@@ -616,3 +616,9 @@ These are patterns where a tool or technique appears to work but silently produc
     **Invariant for detecting category from the registry:** Phase 3 Recon-1 (2026-04-21, `RECON_F8B_ASSEMBLER.md`) established that the category-1-vs-category-2 invariant reads from `lila_guided_modes.context_sources`: category-1 tools have non-empty `context_sources` arrays and MUST call `assembleContext()` from `_shared/context-assembler.ts`; category-2 tools declare `context_sources='{}'` (empty) and correctly do not use the shared assembler. A tool with populated `context_sources` that hand-rolls its own context queries is a defect, not a category divergence.
 
     **Implication for audit findings:** a tool not using `_shared/context-assembler.ts` is not automatically a defect. Check whether the tool is category (1) LiLa-powered (assembler bypass = defect) or category (2) utility (bypass = correct architecture per this convention).
+
+## Composition Architecture (Non-Negotiable)
+
+These conventions codify the rules from `Composition-Architecture-and-Assembly-Patterns.md` (Parts 1 and 2, authored 2026-04-21). The doc is the authoritative reference for primitives, properties, connectors, scope-of-state, supported compositions, downstream consumers, and assembly patterns. Conventions 249–256 lift the load-bearing rules into the persistent contract.
+
+249. **Wizards are named by outcome, not by tool type.** Every wizard entry on the Studio shelf describes what mom is accomplishing ("Shared Shopping List with Family," "Potty Chart for Ruthie," "School Day Routine"), not what database table the result lives in. A wizard named "Create a List" or "Add a Tracker" has failed naming review. See `Composition-Architecture-and-Assembly-Patterns.md` §2.1 for examples.
