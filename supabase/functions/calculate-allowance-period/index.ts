@@ -147,216 +147,52 @@ Deno.serve(async (req) => {
             }
           }
 
-          // 4. Count tasks in the allowance pool for this period
-          // Tasks that have counts_for_allowance = true AND are assigned to this child
-          // AND were created during or before this period (pro-rating)
-          const { data: poolTasks } = await supabase
+          // 4. Call the shared RPC for frequency-day-aware tally.
+          // Single source of truth — same math as the live widget (see
+          // migration 00000000100154_allowance_progress_rpc.sql).
+          const { data: progressRows, error: progressError } = await supabase
+            .rpc('calculate_allowance_progress', {
+              p_member_id: period.family_member_id,
+              p_period_start: period.period_start,
+              p_period_end: period.period_end,
+            })
+
+          if (progressError || !progressRows?.[0]) {
+            stats.errors.push(`period ${period.id}: progress rpc failed — ${progressError?.message ?? 'empty result'}`)
+            continue
+          }
+
+          const progress = progressRows[0]
+
+          // Count raw task rows for the display column total_tasks_assigned.
+          const { count: totalTasksAssignedCount } = await supabase
             .from('tasks')
-            .select('id, status, created_at, due_date, allowance_points, task_type')
+            .select('id', { count: 'exact', head: true })
             .eq('family_id', family.id)
             .eq('assignee_id', period.family_member_id)
             .eq('counts_for_allowance', true)
             .is('archived_at', null)
             .lte('created_at', period.period_end + 'T23:59:59Z')
 
-          const tasks = poolTasks ?? []
-
-          // Parse grace days
+          const completionPct = Number(progress.completion_percentage)
+          const calculatedAmount = Number(progress.calculated_amount)
+          const bonusApplied = Boolean(progress.bonus_applied)
+          const bonusAmount = Number(progress.bonus_amount)
+          const totalEarned = Number(progress.total_earned)
+          const effectiveAssigned = Math.round(Number(progress.effective_tasks_assigned))
+          const effectiveCompleted = Math.round(Number(progress.effective_tasks_completed))
           const graceDays: string[] = (period.grace_days as string[]) ?? []
-
-          // Filter tasks: exclude tasks whose due_date falls on a grace day
-          const graceDaySet = new Set(graceDays)
-          let totalAssigned = 0
-          let graceDayExcluded = 0
-          let completed = 0
-          let extraCredit = 0
-          let totalPoints = 0
-          let completedPoints = 0
-
-          // Period length in days (inclusive). Used for pro-rating.
-          const periodDays = Math.max(1,
-            Math.ceil((new Date(period.period_end).getTime() - new Date(period.period_start).getTime()) / (1000 * 60 * 60 * 24)) + 1
-          )
-
-          // Helper: how many days of the period a task was eligible for
-          // (from max(task_created_date, period_start) through period_end, inclusive,
-          // capped at periodDays). Used to pro-rate pool weight.
-          const daysActiveInPeriod = (taskCreatedAt: string): number => {
-            const taskCreatedDate = taskCreatedAt.slice(0, 10) // YYYY-MM-DD (UTC)
-            const effectiveStart = taskCreatedDate > period.period_start
-              ? taskCreatedDate
-              : period.period_start
-            if (effectiveStart > period.period_end) return 0
-            const startMs = new Date(effectiveStart + 'T00:00:00Z').getTime()
-            const endMs = new Date(period.period_end + 'T00:00:00Z').getTime()
-            const days = Math.ceil((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1
-            return Math.max(0, Math.min(days, periodDays))
-          }
-
-          // For routine tasks, pre-fetch step completion data for partial credit.
-          // total_possible scales with days_active so mid-week-added routines
-          // don't count as if they existed the whole week.
-          const routineTaskIds = tasks.filter(t => t.task_type === 'routine').map(t => t.id)
-          const routineStepData = new Map<string, { completed: number; total: number; daysActive: number }>()
-
-          if (routineTaskIds.length > 0) {
-            for (const routineId of routineTaskIds) {
-              const routineTaskRow = tasks.find(t => t.id === routineId)
-              if (!routineTaskRow) continue
-
-              const { data: routineTask } = await supabase
-                .from('tasks')
-                .select('template_id')
-                .eq('id', routineId)
-                .single()
-
-              if (!routineTask?.template_id) continue
-
-              const { count: totalSteps } = await supabase
-                .from('task_template_steps')
-                .select('id', { count: 'exact', head: true })
-                .in('section_id', (
-                  await supabase
-                    .from('task_template_sections')
-                    .select('id')
-                    .eq('template_id', routineTask.template_id)
-                ).data?.map((s: { id: string }) => s.id) ?? [])
-
-              const { count: completedSteps } = await supabase
-                .from('routine_step_completions')
-                .select('id', { count: 'exact', head: true })
-                .eq('task_id', routineId)
-                .eq('member_id', period.family_member_id)
-                .gte('period_date', period.period_start)
-                .lte('period_date', period.period_end)
-
-              const daysActive = daysActiveInPeriod(routineTaskRow.created_at)
-              const totalPossible = (totalSteps ?? 0) * daysActive
-              const actualCompleted = completedSteps ?? 0
-
-              routineStepData.set(routineId, {
-                completed: actualCompleted,
-                total: totalPossible,
-                daysActive,
-              })
-            }
-          }
-
-          for (const task of tasks) {
-            const isGraceDay = task.due_date && graceDaySet.has(task.due_date)
-
-            if (isGraceDay) {
-              graceDayExcluded++
-              continue
-            }
-
-            const weight = task.allowance_points ?? config.default_point_value
-            const daysActive = daysActiveInPeriod(task.created_at)
-            if (daysActive === 0) continue // created after period_end — skip entirely
-
-            // Pro-rated pool share: how much weight this task contributes to the
-            // denominator. A task that existed all 7 days contributes its full
-            // weight; a task added on day 5 contributes weight × (3/7).
-            const poolFraction = daysActive / periodDays
-            totalAssigned += poolFraction
-            totalPoints += weight * poolFraction
-
-            if (task.task_type === 'routine') {
-              // Routine: partial credit based on step completions. The
-              // step-completion denominator has already been scaled to
-              // days_active in routineStepData, so stepData.total reflects
-              // "steps the kid could actually have done this period."
-              const stepData = routineStepData.get(task.id)
-              if (stepData && stepData.total > 0) {
-                const fraction = Math.min(stepData.completed / stepData.total, 1)
-                // Numerator gets full credit when completed (not pro-rated).
-                completedPoints += weight * fraction
-                if (fraction >= 1) completed += poolFraction
-                else if (fraction > 0) completed += fraction * poolFraction
-              }
-              // If stepData.total === 0 (routine with no template steps), contribute 0.
-            } else if (task.status === 'completed') {
-              // Regular task completed: credit the full pool share toward the
-              // numerator. Partial-period tasks still get full credit for
-              // being done, while the matching denominator share is also
-              // pro-rated, so the math stays fair.
-              completed += poolFraction
-              completedPoints += weight * poolFraction
-
-              // Extra credit tasks (task_type='makeup') count separately
-              if (task.task_type === 'makeup') {
-                extraCredit++
-              }
-            }
-          }
-
-          // Internal (precise, fractional) effective counts — used for percentage math.
-          const effectiveAssignedRaw = totalAssigned
-          const effectiveCompletedRaw = Math.min(completed, totalAssigned) // cap at 100%
-
-          // Display counts (integer) — stored in allowance_periods.*_tasks_* columns
-          // which are INTEGER. Rounded only for display; the percentage below uses
-          // the precise fractional values so pro-rating is exact.
-          const effectiveAssigned = Math.round(effectiveAssignedRaw)
-          const effectiveCompleted = Math.round(effectiveCompletedRaw)
-
-          // Calculate completion percentage (uses precise fractional values)
-          let completionPct: number
-          if (effectiveAssignedRaw === 0) {
-            completionPct = 100 // zero tasks in pool = 100%
-          } else if (config.calculation_approach === 'points_weighted') {
-            completionPct = totalPoints > 0
-              ? Math.min((completedPoints / totalPoints) * 100, 100)
-              : 100
-          } else {
-            completionPct = Math.min((effectiveCompletedRaw / effectiveAssignedRaw) * 100, 100)
-          }
-
-          // Round to 2 decimal places
-          completionPct = Math.round(completionPct * 100) / 100
-
-          // Apply rounding to money
-          const baseAmount = Number(config.weekly_amount)
-          let calculatedAmount = baseAmount * (completionPct / 100)
-
-          // Apply minimum threshold
-          if (completionPct < config.minimum_threshold) {
-            calculatedAmount = 0
-          }
-
-          // Check bonus — supports both percentage and flat dollar modes
-          const bonusApplied = completionPct >= config.bonus_threshold
-          const bonusType = config.bonus_type ?? 'percentage'
-          const bonusAmount = bonusApplied
-            ? bonusType === 'flat'
-              ? Number(config.bonus_flat_amount ?? 0)
-              : baseAmount * ((config.bonus_percentage ?? 20) / 100)
-            : 0
-
-          let totalEarned = calculatedAmount + bonusAmount
-
-          // Apply rounding
-          switch (config.rounding_behavior) {
-            case 'round_up':
-              totalEarned = Math.ceil(totalEarned * 100) / 100
-              break
-            case 'round_down':
-              totalEarned = Math.floor(totalEarned * 100) / 100
-              break
-            default:
-              totalEarned = Math.round(totalEarned * 100) / 100
-          }
 
           // 5. Close the period
           await supabase
             .from('allowance_periods')
             .update({
               status: 'calculated',
-              total_tasks_assigned: tasks.length,
-              grace_day_tasks_excluded: graceDayExcluded,
+              total_tasks_assigned: totalTasksAssignedCount ?? 0,
+              grace_day_tasks_excluded: 0,
               effective_tasks_assigned: effectiveAssigned,
-              tasks_completed: completed,
-              extra_credit_completed: extraCredit,
+              tasks_completed: Number(progress.effective_tasks_completed),
+              extra_credit_completed: 0,
               effective_tasks_completed: effectiveCompleted,
               completion_percentage: completionPct,
               calculated_amount: calculatedAmount,
@@ -364,12 +200,13 @@ Deno.serve(async (req) => {
               bonus_amount: bonusAmount,
               total_earned: totalEarned,
               calculation_details: {
-                approach: config.calculation_approach,
-                total_points: totalPoints,
-                completed_points: completedPoints,
+                approach: progress.calculation_approach,
+                total_points: Number(progress.total_points),
+                completed_points: Number(progress.completed_points),
                 grace_days: graceDays,
-                minimum_threshold: config.minimum_threshold,
-                bonus_threshold: config.bonus_threshold,
+                minimum_threshold: Number(progress.minimum_threshold),
+                bonus_threshold: Number(progress.bonus_threshold),
+                rpc: 'calculate_allowance_progress',
               },
               calculated_at: now.toISOString(),
               closed_at: now.toISOString(),
@@ -451,7 +288,7 @@ Deno.serve(async (req) => {
                 transaction_type: 'allowance_earned',
                 amount: totalEarned,
                 balance_after: balanceAfterAllowance,
-                description: `Weekly allowance — ${completionPct}% of $${baseAmount.toFixed(2)}${bonusApplied ? ' + bonus' : ''}`,
+                description: `Weekly allowance — ${completionPct}% of $${Number(config.weekly_amount).toFixed(2)}${bonusApplied ? ' + bonus' : ''}`,
                 source_type: 'allowance_period',
                 source_reference_id: period.id,
                 metadata: {

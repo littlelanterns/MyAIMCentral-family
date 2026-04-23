@@ -143,6 +143,7 @@ export function useCreateTaskCompletion() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['task-completions', data.task_id] })
       queryClient.invalidateQueries({ queryKey: ['task-completions-member', data.member_id] })
+      queryClient.invalidateQueries({ queryKey: ['live-allowance-progress', data.member_id] })
     },
   })
 }
@@ -340,6 +341,9 @@ export function useCompleteRoutineStep() {
       queryClient.invalidateQueries({
         queryKey: ['routine-step-completions', data.task_id, data.member_id],
       })
+      queryClient.invalidateQueries({
+        queryKey: ['live-allowance-progress', data.member_id],
+      })
     },
   })
 }
@@ -379,6 +383,9 @@ export function useUncompleteRoutineStep() {
     onSuccess: ({ taskId, memberId }) => {
       queryClient.invalidateQueries({
         queryKey: ['routine-step-completions', taskId, memberId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['live-allowance-progress', memberId],
       })
     },
   })

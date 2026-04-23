@@ -251,6 +251,62 @@ export function useActivePeriod(memberId: string | undefined) {
   })
 }
 
+export interface LiveAllowanceProgress {
+  effective_tasks_assigned: number
+  effective_tasks_completed: number
+  completion_percentage: number
+  total_points: number
+  completed_points: number
+  base_amount: number
+  bonus_applied: boolean
+  bonus_amount: number
+  calculated_amount: number
+  total_earned: number
+  minimum_threshold: number
+  bonus_threshold: number
+  calculation_approach: string
+  rounding_behavior: string
+}
+
+export function useLiveAllowanceProgress(
+  memberId: string | undefined,
+  periodStart: string | undefined,
+  periodEnd: string | undefined,
+) {
+  return useQuery({
+    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd],
+    queryFn: async () => {
+      if (!memberId || !periodStart || !periodEnd) return null
+      const { data, error } = await supabase.rpc('calculate_allowance_progress', {
+        p_member_id: memberId,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+      })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) return null
+      return {
+        effective_tasks_assigned: Number(row.effective_tasks_assigned),
+        effective_tasks_completed: Number(row.effective_tasks_completed),
+        completion_percentage: Number(row.completion_percentage),
+        total_points: Number(row.total_points),
+        completed_points: Number(row.completed_points),
+        base_amount: Number(row.base_amount),
+        bonus_applied: Boolean(row.bonus_applied),
+        bonus_amount: Number(row.bonus_amount),
+        calculated_amount: Number(row.calculated_amount),
+        total_earned: Number(row.total_earned),
+        minimum_threshold: Number(row.minimum_threshold),
+        bonus_threshold: Number(row.bonus_threshold),
+        calculation_approach: String(row.calculation_approach),
+        rounding_behavior: String(row.rounding_behavior),
+      } as LiveAllowanceProgress
+    },
+    enabled: !!memberId && !!periodStart && !!periodEnd,
+    staleTime: 15_000,
+  })
+}
+
 export function usePeriodHistory(memberId: string | undefined) {
   return useQuery({
     queryKey: ['period-history', memberId],

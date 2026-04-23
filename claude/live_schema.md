@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-22
+> Auto-generated from live Supabase on 2026-04-23
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 171 rows
+### `view_as_sessions` — 181 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 83 rows
+### `view_as_feature_exclusions` — 92 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 552 rows
+### `ai_usage_tracking` — 553 rows
 
 | # | Column |
 |---|---|
@@ -497,7 +497,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 49 rows
+### `journal_entries` — 55 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 48 rows
+### `routine_step_completions` — 49 rows
 
 | # | Column |
 |---|---|
@@ -1736,7 +1736,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2452,7 +2452,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 133 rows
+### `activity_log_entries` — 139 rows
 
 | # | Column |
 |---|---|
@@ -2581,7 +2581,7 @@
 | 27 | `bonus_type` |
 | 28 | `bonus_flat_amount` |
 
-### `allowance_periods` — 8 rows
+### `allowance_periods` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2611,7 +2611,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 56 rows
+### `beta_glitch_reports` — 57 rows
 
 | # | Column |
 |---|---|
@@ -3277,7 +3277,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 44 rows
+### `reflection_responses` — 50 rows
 
 | # | Column |
 |---|---|

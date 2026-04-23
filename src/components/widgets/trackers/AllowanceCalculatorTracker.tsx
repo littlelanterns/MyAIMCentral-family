@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { Coins, TrendingUp } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
-import { useAllowanceConfig, useActivePeriod } from '@/hooks/useFinancial'
+import { useAllowanceConfig, useActivePeriod, useLiveAllowanceProgress } from '@/hooks/useFinancial'
 
 interface AllowanceConfig {
   base_amount?: number
@@ -49,6 +49,15 @@ export function AllowanceCalculatorTracker({
   const memberId = widget.assigned_member_id ?? widget.family_member_id
   const { data: realConfig } = useAllowanceConfig(memberId)
   const { data: activePeriod } = useActivePeriod(realConfig?.enabled ? memberId : undefined)
+  // Live frequency-day-aware tally for the current period. Recomputes on each
+  // routine_step_completion invalidation (see useTaskCompletions for the
+  // invalidation key). Until the period closes, these live values beat the
+  // stored columns on allowance_periods (which are only written at close).
+  const { data: liveProgress } = useLiveAllowanceProgress(
+    realConfig?.enabled ? memberId : undefined,
+    activePeriod?.period_start,
+    activePeriod?.period_end,
+  )
   const usePrd28Data = !!realConfig?.enabled && !!activePeriod
 
   // Fallback: existing dataPoints-based calculation (always computed to satisfy hook rules)
@@ -85,10 +94,15 @@ export function AllowanceCalculatorTracker({
   const formatDollars = (val: number) => `$${val.toFixed(2)}`
   const percentDisplay = Math.round(percentage * 100)
 
-  // PRD-28: When real allowance data exists, render from allowance_periods
+  // PRD-28: When real allowance data exists, render live progress if available,
+  // otherwise fall back to the stored period columns (used after the period has
+  // been closed by the calculate-allowance-period Edge Function).
   if (usePrd28Data) {
-    const prd28Earned = activePeriod.total_earned
-    const prd28Pct = Math.round(activePeriod.completion_percentage)
+    const prd28Earned = liveProgress?.total_earned ?? activePeriod.total_earned
+    const prd28Pct = Math.round(liveProgress?.completion_percentage ?? activePeriod.completion_percentage)
+    const prd28Assigned = Math.round(liveProgress?.effective_tasks_assigned ?? activePeriod.effective_tasks_assigned)
+    const prd28Completed = Math.round(liveProgress?.effective_tasks_completed ?? activePeriod.effective_tasks_completed)
+    const prd28BonusApplied = liveProgress?.bonus_applied ?? activePeriod.bonus_applied
     const childCanSee = realConfig.child_can_see_finances
     const isPlayWidget = widget.widget_config && (widget.widget_config as Record<string, unknown>).play_mode === true
 
@@ -113,8 +127,8 @@ export function AllowanceCalculatorTracker({
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>This Week</span>
         </div>
         <div className="flex items-baseline gap-1">
-          <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{activePeriod.effective_tasks_completed}</span>
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>/ {activePeriod.effective_tasks_assigned} tasks</span>
+          <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{prd28Completed}</span>
+          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>/ {prd28Assigned} tasks</span>
         </div>
         <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border-default)' }}>
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(prd28Pct, 100)}%`, background: 'var(--surface-primary)' }} />
@@ -131,7 +145,7 @@ export function AllowanceCalculatorTracker({
             </div>
           )}
         </div>
-        {activePeriod.bonus_applied && (
+        {prd28BonusApplied && (
           <div className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium" style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)', color: 'var(--color-accent)' }}>
             <TrendingUp size={12} />
             Bonus earned!
