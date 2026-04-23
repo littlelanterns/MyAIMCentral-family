@@ -2050,7 +2050,9 @@ The following finding categories touch wizard-adjacent code but do **not** affec
 - Compliance/safety findings (SCOPE-8a, SCOPE-8b.F1–F3, F5–F13) — blocking, but not shaping wizard steps
 - Cost pattern findings other than F6 (P1/P2/P3/P5/P7/P9) — runtime infrastructure, invisible to wizard design
 
-## Appendix D — Cleanup Actions (preventative hygiene, not findings)
+## Appendix D — Cleanup Actions (preventative hygiene, not findings) — HISTORICAL
+
+> **Historical record of Phase 2 audit hygiene actions.** Ongoing hygiene actions now live in [HYGIENE_LOG.md](HYGIENE_LOG.md) (established 2026-04-22 per Phase 3 Triage Three Decisions §Decision 2). This appendix is preserved as the Phase 2 audit-scope record; new hygiene actions append to HYGIENE_LOG.md, not here.
 
 Preventative hygiene actions taken during the audit that are NOT discrepancies. Logged here for audit-trail completeness; none of these are findings and none require founder decision.
 
