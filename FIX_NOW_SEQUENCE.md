@@ -7,6 +7,18 @@
 
 ---
 
+## What changed from v7 → v8 (Session 2 Batch 5 rows 61-80 lock)
+
+- **PRD-24 family bundle resolved into 3 workers:**
+  - **NEW-AA worker** = NEW-AA + SCOPE-2.F61 + SCOPE-2.F62 (3 rows, reveals as universal wrappers + connector architecture)
+  - **F60c worker** = separate, sequences AFTER NEW-AA (reads reveal-wrapper decisions as input); theme overlay + game mode progression
+  - **F58 worker** = separate, independent; PRD-24 reward economy only. ESCALATED-priority annotation adjudication deferred to worker dispatch (financial-correctness adjacency).
+- **SCOPE-2.F48 W0 confirmed, minimum-scope locked.** Approval-queue UI route + admin auth gate only. Do NOT expand to full PRD-32 during beta build. Dual-purpose prereq for SCOPE-8a.F1 (W4 COPPA) + SCOPE-4.F4 (W1B Board sprint).
+- **SCOPE-3.F2 W0 locked formally.** Prerequisite for SCOPE-8b.F11 (W2).
+- **Pending verification tasks for Session 2 close:**
+  - F68 upstream blocker (PRD-28B build-order) freshness re-check — confirm PRD-28B not reclassified forward since audit.
+  - F58 ESCALATED-priority annotation decision at worker dispatch.
+
 ## What changed from v6 → v7 (Session 2 Batch 5 first-20 lock)
 
 - **SCOPE-2.F40 pulled W2 → W1.** Not architecturally dependent on SCOPE-8b.F5 (F40 = notification-level DND filtering; F5 = message-level crisis detection; different pipeline layers). Safety-alert DND bypass is mom-first critical. Wave 1 placement per founder 2026-04-23.
@@ -269,6 +281,11 @@ SCOPE-3.F14 -> NEW-W
 
 # SCOPE-2.F1 → SCOPE-8a.F1 (W0 → W4 COPPA prerequisite, webhook-only scope)
 SCOPE-2.F1 -> SCOPE-8a.F1
+
+# PRD-24 family workers (v8) — NEW-AA bundled, F60c sequences after, F58 independent
+NEW-AA ~~> SCOPE-2.F61
+NEW-AA ~~> SCOPE-2.F62
+NEW-AA -> SCOPE-2.F60c
 
 # Wave 4 internal
 SCOPE-8a.F1 -> SCOPE-8a.F2
