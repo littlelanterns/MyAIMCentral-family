@@ -7,6 +7,20 @@
 
 ---
 
+## What changed from v5 → v6 (Session 2 silent batch + surfaced row sweep)
+
+- **PRD-09B bundled-worker scope grown to 8 rows:** NEW-G(b) + SCOPE-2.F27 + NEW-F + NEW-T + NEW-V + NEW-Y + NEW-I + NEW-X. Single worker, single reading pass over Composition Architecture doc + PRD-09B + CLAUDE.md. Formalizes four independent list-behavior properties (presentation_mode, is_browsable, is_opportunity, pick_n) + crossed-off grace period + linked list items connector + rotation memory + kid_can_skip + person-pick-spin + assignment mode. Fallback 4+4 split documented if dispatch prompt over-scoped: (a) F27 + NEW-G(b) + NEW-I + NEW-X, (b) NEW-F + NEW-T + NEW-V + NEW-Y.
+- **NEW-CC held out as separate follow-on worker.** Dispatches AFTER bundle lands so the composition matrix is derived from final property text, not concurrently drafted.
+- **NEW-H / NEW-L / NEW-Z** remain separate workers (different PRD homes / audit-first / not-a-09B-row).
+- **NEW-P HELD** pending founder PRD home decision (PRD-10 vs PRD-28; `homeschool_time_logs` precedent argues PRD-28).
+- **Worker dispatch prompt for bundled PRD-09B worker** must: list all 8 row IDs as combined scope; reference Composition Architecture doc §1.1, §1.2, §1.3, Composition I, draft notes 5, 20, 23, 25, 27, 28, 30, 31, 32, 33; name the four independent list-behavior properties explicitly; require coherent cross-references between properties.
+
+## What changed from v4 → v5 (Session 2 Batch 4 Row 28 lock)
+
+- **NEW-G split-locked.** Row 28 split into (a) Convention 70 text amendment = Fix Now fast commit (CLAUDE.md only, ~2-min exposure closure for parallel sessions reading stale convention); (b) full PRD-09B amendment + studio-seed-templates.md + 4-properties formalization = Fix Next Build, bundled w/ SCOPE-2.F27 under single worker.
+- **Draft-artifact re-review flagged:** `claude/feature-decisions/opportunity-list-unification-plan.md` written pre-correction — re-review against corrected framing when (a) lands.
+- **Worker dispatch prompt for (b)** must name both NEW-G + SCOPE-2.F27 as combined scope and reference Composition Architecture doc §1.1, §1.2, draft notes 5, 20, 23, 33.
+
 ## What changed from v3 → v4 (2026-04-22 Session 2 Batch 1 lock)
 
 - **SCOPE-8a.F3 sub-sequence encoded.** PRD-41 → PRD-20 → PRD-30 hard chain + SCOPE-2.F48 → PRD-30 prerequisite added to W1 internal ordering + adjacency list. Prevents parallel dispatch ambiguity at worker deploy time.
@@ -223,6 +237,21 @@ SCOPE-2.F48 -> SCOPE-4.F4
 PRD-41 -> PRD-20
 PRD-20 -> PRD-30
 SCOPE-2.F48 -> PRD-30
+
+# NEW-G split (v5)
+NEW-G(a) -> NEW-G(b)
+
+# PRD-09B 8-row bundle (v6) — all ~~> within the single bundled worker
+NEW-G(b) ~~> SCOPE-2.F27
+NEW-G(b) ~~> NEW-F
+NEW-G(b) ~~> NEW-T
+NEW-G(b) ~~> NEW-V
+NEW-G(b) ~~> NEW-Y
+NEW-G(b) ~~> NEW-I
+NEW-G(b) ~~> NEW-X
+
+# NEW-CC derives matrix AFTER bundle lands
+NEW-G(b) -> NEW-CC
 
 # Wave 4 internal
 SCOPE-8a.F1 -> SCOPE-8a.F2
