@@ -7,6 +7,14 @@
 
 ---
 
+## What changed from v6 → v7 (Session 2 Batch 5 first-20 lock)
+
+- **SCOPE-2.F40 pulled W2 → W1.** Not architecturally dependent on SCOPE-8b.F5 (F40 = notification-level DND filtering; F5 = message-level crisis detection; different pipeline layers). Safety-alert DND bypass is mom-first critical. Wave 1 placement per founder 2026-04-23.
+- **SCOPE-2.F39 split-locked** with NEW-G pattern: (a) Convention #141 text amendment = Fix Now fast commit pointing to 3-state observation/private model per PRD-15 spec; (b) PRD-15 messaging-visibility work = Fix Next Build. Edge: (a) → (b).
+- **SCOPE-2.F1 scope locked to webhook-only** (Wave 0 COPPA Stripe webhook prerequisite), NOT full PRD-31 monetization.
+- **NEW-W sequencing clarified:** SCOPE-3.F14 is hard pre-req (F14 W1 bootstrap lands first); NEW-W sequences AFTER F14, does NOT ship in F14 W1 commit. Stays Fix Next Build pool slot.
+- **NEW-N + NEW-O worker structure:** shared-language preamble authored first (defining `is_milestone` / `tracking_tags` semantics once), then PRDs amended to reference the preamble. Prevents 8 isolated redefinitions for NEW-N and cross-cutting drift for NEW-O.
+
 ## What changed from v5 → v6 (Session 2 silent batch + surfaced row sweep)
 
 - **PRD-09B bundled-worker scope grown to 8 rows:** NEW-G(b) + SCOPE-2.F27 + NEW-F + NEW-T + NEW-V + NEW-Y + NEW-I + NEW-X. Single worker, single reading pass over Composition Architecture doc + PRD-09B + CLAUDE.md. Formalizes four independent list-behavior properties (presentation_mode, is_browsable, is_opportunity, pick_n) + crossed-off grace period + linked list items connector + rotation memory + kid_can_skip + person-pick-spin + assignment mode. Fallback 4+4 split documented if dispatch prompt over-scoped: (a) F27 + NEW-G(b) + NEW-I + NEW-X, (b) NEW-F + NEW-T + NEW-V + NEW-Y.
@@ -252,6 +260,15 @@ NEW-G(b) ~~> NEW-X
 
 # NEW-CC derives matrix AFTER bundle lands
 NEW-G(b) -> NEW-CC
+
+# SCOPE-2.F39 split (v7, same pattern as NEW-G)
+SCOPE-2.F39(a) -> SCOPE-2.F39(b)
+
+# NEW-W sequencing (v7)
+SCOPE-3.F14 -> NEW-W
+
+# SCOPE-2.F1 → SCOPE-8a.F1 (W0 → W4 COPPA prerequisite, webhook-only scope)
+SCOPE-2.F1 -> SCOPE-8a.F1
 
 # Wave 4 internal
 SCOPE-8a.F1 -> SCOPE-8a.F2
