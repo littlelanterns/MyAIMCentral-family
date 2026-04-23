@@ -67,12 +67,11 @@ export function GuidedActiveTasksSection({
     preferences.guided_task_view_default
   )
   const [celebratingId, setCelebratingId] = useState<string | null>(null)
-  // Auto-expand all routines by default
-  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(() => {
-    const initial = new Set<string>()
-    tasks.filter(t => t.task_type === 'routine').forEach(t => initial.add(t.id))
-    return initial
-  })
+  // Routines render as collapsible task cards — same pattern as the Independent
+  // shell. Start collapsed; kid taps the card header to expand the step list.
+  // Prevents a 20+ step routine from dominating the whole dashboard before the
+  // kid has even scanned what they have to do today.
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(() => new Set<string>())
 
   const handleComplete = useCallback((taskId: string) => {
     setCelebratingId(taskId)
@@ -140,7 +139,7 @@ export function GuidedActiveTasksSection({
   const renderTask = (task: (typeof tasks)[0]) => {
     const isCelebrating = celebratingId === task.id
     const isRoutine = task.task_type === 'routine'
-    const isExpanded = expandedRoutines.has(task.id) || isRoutine // auto-expand routines
+    const isExpanded = expandedRoutines.has(task.id)
     const requiresApproval = task.require_approval
     const draw = taskDrawMap[task.id]
 
