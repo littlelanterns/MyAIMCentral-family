@@ -652,3 +652,28 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     - **If a new creation surface ships without bulk-AI-add, that is a bug, not a future enhancement.**
 
     Deployment gap status: capability is built universally in the codebase but not deployed everywhere it should be. Deployment coverage tracked as a worksheet finding (NEW-L). See `Composition-Architecture-and-Assembly-Patterns.md` §2.5.
+
+253. **Natural Language Composition is a first-class creation entry point.** Available everywhere a wizard is available.
+
+    Entry points:
+    - Studio primary entry — "Describe what you want" input alongside the outcome-named wizard catalog
+    - Universal fallback from any wizard — "Just describe it instead" button
+    - Conversational — LiLa Assist uses this flow on the backend
+    - Smart Notepad promotion — "make this into a real thing"
+
+    Flow: mom describes → Haiku parses and composes → pre-filled skeleton appears → mom reviews field-by-field (Accept / Edit / Replace / Defer) → mom fills in what AI couldn't infer → composition validation runs → mom saves.
+
+    **Haiku never auto-does:** assign anything to a kid, activate from draft to live, wire to allowance, include in AI context, apply `is_milestone` or `tracking_tags`. All require mom's explicit confirmation.
+
+    **Fallback when Haiku can't parse:**
+    > "Based on what I'm hearing — [restate mom's description] — these are some wizards that might be customized to fit that need. Want to try one of these, or describe it differently?"
+
+    Never "I don't understand." Always restate mom's words and offer a path forward.
+
+    See `Composition-Architecture-and-Assembly-Patterns.md` §2.9.
+
+254. **MindSweep Review & Route includes configuration-worthy detection.** When a brain-dump item describes a composition (not just a single artifact — "I need a potty chart for Ruthie" vs "buy milk"), the system proposes a Natural Language Composition flow and lands the resulting skeleton in Drafts.
+
+    Mom approves the proposal — she is never auto-routed into a wizard. MindSweep proposes, mom decides. Bridges capture-first behavior (brain-dump) with composition-first behavior (wizards) without forcing mom to choose a mode before she captures.
+
+    See `Composition-Architecture-and-Assembly-Patterns.md` §2.6.
