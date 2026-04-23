@@ -7,6 +7,12 @@
 
 ---
 
+## What changed from v3 → v4 (2026-04-22 Session 2 Batch 1 lock)
+
+- **SCOPE-8a.F3 sub-sequence encoded.** PRD-41 → PRD-20 → PRD-30 hard chain + SCOPE-2.F48 → PRD-30 prerequisite added to W1 internal ordering + adjacency list. Prevents parallel dispatch ambiguity at worker deploy time.
+
+---
+
 ## What changed from v2 → v3 (2026-04-22 Composition Architecture delta)
 
 - **SCOPE-3.F15 closed** (Intentional-Update-Doc → Closed/Resolved). Removed from waves.
@@ -76,7 +82,7 @@ These land immediately. No upstream blockers. Safe to dispatch as parallel worke
 
 | Finding | Scope | Sev | Beta | Proposed | Unblocks | Parallelizable with | Notes |
 |---|---|---|---|---|---|---|---|
-| SCOPE-8a.F3 | 8a | Blocking | Y | Fix Now | — | All Wave 1 non-8a | PRD-20 + PRD-30 + PRD-41 build. Largest scope in Wave 1. Founder decision Y on sub-build ordering. |
+| SCOPE-8a.F3 | 8a | Blocking | Y | Fix Now | — | All Wave 1 non-8a | PRD-20 + PRD-30 + PRD-41 build. Largest scope in Wave 1. **Sub-sequence encoded 2026-04-22 per founder:** PRD-41 (Platform AI Ethics / output validation) → PRD-20 (Safe Harbor) → PRD-30 (Safety Monitoring). PRD-41 is defense-in-depth foundation; PRD-20 depends on PRD-41 output validation; PRD-30 depends on PRD-20 data + SCOPE-2.F48 Admin Console (W0). PRD-30 lands late-W1 or early-W2. Workers MUST NOT parallel-dispatch the three — dependency chain is hard. |
 | SCOPE-8a.F6 | 8a | Blocking | Y | Fix Now | — | All Wave 1 | DailyCelebration HITM. ~1 file. |
 | SCOPE-8b.F7 | 8b | High | Y | Fix Now | — | All Wave 1 | `.ics` CHECK constraint. 1-line migration. |
 | SCOPE-3.F22 | 3 | Low | Y | Fix Now | — | All Wave 1 | Play shell /rewards route. 1-line fix. |
@@ -212,6 +218,11 @@ SCOPE-3.F2 -> SCOPE-8b.F11
 SCOPE-2.F1 -> SCOPE-8a.F1
 SCOPE-2.F48 -> SCOPE-8a.F1
 SCOPE-2.F48 -> SCOPE-4.F4
+
+# Wave 1 internal (SCOPE-8a.F3 sub-sequence)
+PRD-41 -> PRD-20
+PRD-20 -> PRD-30
+SCOPE-2.F48 -> PRD-30
 
 # Wave 4 internal
 SCOPE-8a.F1 -> SCOPE-8a.F2
