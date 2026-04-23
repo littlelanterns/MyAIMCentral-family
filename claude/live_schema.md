@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 181 rows
+### `view_as_sessions` — 184 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 92 rows
+### `view_as_feature_exclusions` — 95 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 553 rows
+### `ai_usage_tracking` — 554 rows
 
 | # | Column |
 |---|---|
@@ -1736,7 +1736,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 0 rows
+### `bookshelf_items` — 562 rows
 
 | # | Column |
 |---|---|

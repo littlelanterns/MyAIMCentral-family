@@ -100,21 +100,43 @@ export function AllowanceCalculatorTracker({
   if (usePrd28Data) {
     const prd28Earned = liveProgress?.total_earned ?? activePeriod.total_earned
     const prd28Pct = Math.round(liveProgress?.completion_percentage ?? activePeriod.completion_percentage)
-    const prd28Assigned = Math.round(liveProgress?.effective_tasks_assigned ?? activePeriod.effective_tasks_assigned)
-    const prd28Completed = Math.round(liveProgress?.effective_tasks_completed ?? activePeriod.effective_tasks_completed)
     const prd28BonusApplied = liveProgress?.bonus_applied ?? activePeriod.bonus_applied
-    const childCanSee = realConfig.child_can_see_finances
-    const isPlayWidget = widget.widget_config && (widget.widget_config as Record<string, unknown>).play_mode === true
+
+    // Display numerator/denominator: prefer raw step counts when routines
+    // exist (what kids actually check off), fall back to whole-task counts
+    // for pools with only non-routine tasks, fall back again to rounded
+    // pro-rated pool fractions when live progress hasn't resolved yet.
+    let displayCompleted: number
+    let displayAvailable: number
+    let displayNoun: string
+    if (liveProgress && liveProgress.raw_steps_available > 0) {
+      displayCompleted = liveProgress.raw_steps_completed + liveProgress.nonroutine_tasks_completed
+      displayAvailable = liveProgress.raw_steps_available + liveProgress.nonroutine_tasks_total
+      displayNoun = 'steps'
+    } else if (liveProgress && liveProgress.nonroutine_tasks_total > 0) {
+      displayCompleted = liveProgress.nonroutine_tasks_completed
+      displayAvailable = liveProgress.nonroutine_tasks_total
+      displayNoun = 'tasks'
+    } else {
+      displayCompleted = Math.round(liveProgress?.effective_tasks_completed ?? activePeriod.effective_tasks_completed)
+      displayAvailable = Math.round(liveProgress?.effective_tasks_assigned ?? activePeriod.effective_tasks_assigned)
+      displayNoun = 'tasks'
+    }
+
+    // Money visibility is a mom-controlled setting (`child_can_see_finances`
+    // on allowance_configs). Play shell previously hid money regardless; mom
+    // asked for this to be a single setting so kids can see what's going on.
+    const showMoney = realConfig.child_can_see_finances
 
     if (isCompact) {
       return (
         <div className="flex flex-col h-full items-center justify-center gap-1">
           <Coins size={20} style={{ color: 'var(--color-accent)' }} />
           <div className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            {childCanSee && !isPlayWidget ? formatDollars(Number(prd28Earned)) : `${prd28Pct}%`}
+            {showMoney ? formatDollars(Number(prd28Earned)) : `${prd28Pct}%`}
           </div>
           <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {childCanSee && !isPlayWidget ? `${prd28Pct}% done` : 'completion'}
+            {showMoney ? `${prd28Pct}% done` : 'completion'}
           </div>
         </div>
       )
@@ -127,8 +149,8 @@ export function AllowanceCalculatorTracker({
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>This Week</span>
         </div>
         <div className="flex items-baseline gap-1">
-          <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{prd28Completed}</span>
-          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>/ {prd28Assigned} tasks</span>
+          <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{displayCompleted}</span>
+          <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>/ {displayAvailable} {displayNoun}</span>
         </div>
         <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-border-default)' }}>
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(prd28Pct, 100)}%`, background: 'var(--surface-primary)' }} />
@@ -138,7 +160,7 @@ export function AllowanceCalculatorTracker({
             <span>Completion</span>
             <span style={{ color: 'var(--color-text-primary)' }}>{prd28Pct}%</span>
           </div>
-          {childCanSee && !isPlayWidget && (
+          {showMoney && (
             <div className="flex justify-between">
               <span>Earned</span>
               <span style={{ color: 'var(--color-text-primary)' }}>{formatDollars(Number(prd28Earned))}</span>
@@ -153,10 +175,10 @@ export function AllowanceCalculatorTracker({
         )}
         <div className="mt-auto flex items-baseline justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            {childCanSee && !isPlayWidget ? 'Earned' : 'Progress'}
+            {showMoney ? 'Earned' : 'Progress'}
           </span>
           <span className="text-xl font-bold" style={{ color: 'var(--color-accent)' }}>
-            {childCanSee && !isPlayWidget ? formatDollars(Number(prd28Earned)) : `${prd28Pct}%`}
+            {showMoney ? formatDollars(Number(prd28Earned)) : `${prd28Pct}%`}
           </span>
         </div>
       </div>

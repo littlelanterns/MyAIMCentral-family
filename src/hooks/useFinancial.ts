@@ -266,6 +266,10 @@ export interface LiveAllowanceProgress {
   bonus_threshold: number
   calculation_approach: string
   rounding_behavior: string
+  raw_steps_completed: number
+  raw_steps_available: number
+  nonroutine_tasks_total: number
+  nonroutine_tasks_completed: number
 }
 
 export function useLiveAllowanceProgress(
@@ -300,6 +304,10 @@ export function useLiveAllowanceProgress(
         bonus_threshold: Number(row.bonus_threshold),
         calculation_approach: String(row.calculation_approach),
         rounding_behavior: String(row.rounding_behavior),
+        raw_steps_completed: Number(row.raw_steps_completed ?? 0),
+        raw_steps_available: Number(row.raw_steps_available ?? 0),
+        nonroutine_tasks_total: Number(row.nonroutine_tasks_total ?? 0),
+        nonroutine_tasks_completed: Number(row.nonroutine_tasks_completed ?? 0),
       } as LiveAllowanceProgress
     },
     enabled: !!memberId && !!periodStart && !!periodEnd,
