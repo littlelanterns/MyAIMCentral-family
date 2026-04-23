@@ -677,3 +677,29 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     Mom approves the proposal — she is never auto-routed into a wizard. MindSweep proposes, mom decides. Bridges capture-first behavior (brain-dump) with composition-first behavior (wizards) without forcing mom to choose a mode before she captures.
 
     See `Composition-Architecture-and-Assembly-Patterns.md` §2.6.
+
+255. **Wizard design begins with friction mapping.** The first question when designing any wizard is not "what fields does this need?" — it is **"where would mom quit?"**
+
+    Every wizard passes friction-first design review by answering:
+    1. What's the outcome this wizard produces? (Name by outcome per Convention 249.)
+    2. What's the minimum viable skeleton mom could save in 60 seconds?
+    3. At what step would a real mom stop because a decision feels too hard?
+    4. Can that decision be deferred with a sensible default?
+    5. Can AI fill that decision if mom clicks "let me skip this"?
+    6. Is there a composition validation warning that catches misconfigurations later without blocking save now?
+    7. Can the composition be duplicated from another mom has already built?
+    8. Is bulk-AI-add deployed everywhere multiple items are added?
+    9. Does the wizard accept a Haiku-pre-populated entry state (from Convention 253), or only a blank start?
+
+    **A wizard that forces any non-minimum decision has failed design review.** A wizard that doesn't accept a Haiku-pre-populated entry state has failed design review. A wizard that doesn't deploy bulk-AI-add on multi-item fields has failed design review.
+
+    See `Composition-Architecture-and-Assembly-Patterns.md` §2.10.
+
+256. **Tier access is a configuration concern, not a feature concern.** Feature code references a canonical **tier-assignment chart**; feature logic does NOT hardcode tier names.
+
+    - Tier assignments live on a single source of truth (a chart / config file) that mom owns and can rearrange without touching feature code.
+    - When code needs to check tier access, it pulls from the chart.
+    - Hardcoding `tier === 'full_magic'` or similar in feature logic is forbidden.
+    - Related existing infrastructure: `feature_access_v2`, `feature_key_registry`, `useCanAccess()`, `<PermissionGate>`. The chart layers on top as the human-readable source of truth.
+
+    Implementation tracked as worksheet finding NEW-BB. See `Composition-Architecture-and-Assembly-Patterns.md` §1.7.
