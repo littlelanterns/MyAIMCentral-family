@@ -7,8 +7,8 @@
 
 ## Status
 
-- **Total rows:** 159
-- **Beta Readiness blockers:** 27 (22 from Appendix C + 5 from 2026-04-21 founder additions: SCOPE-4.F8a, NEW-A, NEW-B, NEW-C, NEW-D)
+- **Total rows:** 183
+- **Beta Readiness blockers:** 27 (22 from Appendix C + 5 from 2026-04-21 founder additions: SCOPE-4.F8a, NEW-A, NEW-B, NEW-C, NEW-D; NEW-K downgraded Y->N per founder 2026-04-22)
 - **Wizard-design-impacted (from Appendix B):** 21
 - **Founder-decision-required at emission:** 3 rows (SCOPE-8a.F1, F2, F3 — all Beta blockers)
 - **Pre-classified `Closed/Resolved` (no triage needed):** 4 (SCOPE-1.F3, F4, F5; SCOPE-5.F4)
@@ -19,14 +19,14 @@
 
 | Proposed class | Count |
 |---|---|
-| Fix Next Build | 74 |
-| Intentional-Update-Doc | 41 |
+| Fix Next Build | 98 |
+| Intentional-Update-Doc | 39 |
 | Defer-to-Gate-4 | 23 |
 | Fix Now | 11 |
-| Closed/Resolved | 4 |
+| Closed/Resolved | 5 |
 | Fix Now (+compound) | 2 |
+| Tech Debt | 2 |
 | Informational | 1 |
-| Tech Debt | 1 |
 | Fix Code | 1 |
 | Capture-only | 1 |
 
@@ -35,9 +35,9 @@
 | Severity | Count |
 |---|---|
 | Blocking | 6 |
-| High | 20 |
-| Medium | 55 |
-| Low | 78 |
+| High | 21 |
+| Medium | 71 |
+| Low | 85 |
 
 ---
 
@@ -56,7 +56,7 @@
 | 5 | SCOPE-8b.F1 | 8b | Blocking | Y |  | Fix Now (+compound) |  |  |  | Edge Functions authenticate but do not authorize (13 surfaces including cross-family Mediator Full Picture dat |
 | 6 | SCOPE-8b.F5 | 8b | Blocking | Y |  | Fix Now |  |  |  | Crisis Override missing in 3 Edge Functions (message-coach, auto-title-thread, bookshelf-discuss) |
 | 7 | NEW-A | BookShelf | High | Y |  | Fix Next Build |  |  |  | book_discuss vs book_discussion mode_key duplication audit (BookShelf) — canonical mode ID + deprecation + PRD-23 update — _Added 2026-04-21. Two distinct mode_keys same parent_mode + same system_prompt_key. Surface every reference across code/prompts/UI/Edge Fns/tests/migrations/seeds/PRDs. Identify canonical, deprecate duplicate, verify no UI silently launches wrong mode. Dispatch as focused single-worker Claude Code mini-audit. BookShelf instability during beta surfaces bugs to families._ |
-| 8 | NEW-B | LiLa UI | High | Y |  | Fix Now |  |  | Recon-2 complete (RECON_GENERAL_MODE_SURFACES.md); drawer default = Help per founder | Remove General mode from user-facing surfaces; preserve technical fallback; drawer default = Help (Recon-2 recommendation) — _Added 2026-04-21. Recon-2 (RECON_GENERAL_MODE_SURFACES.md) found 10 user-facing surfaces; recommends drawer default option (ii) = Help (existing pattern-matching + Haiku = near-zero cost). Remove drawer default, mode switcher entry, Lanterns Path CTAs, conversation history filter chip, MomShell indirect paths. Technical fallback for modal contracts stays. Cost abuse risk during beta = Y._ |
+| 8 | NEW-B | LiLa UI | High | Y |  | Fix Now |  |  | Recon-2 complete (RECON_GENERAL_MODE_SURFACES.md); drawer default = Help per founder | Remove General mode from user-facing surfaces; preserve technical fallback; drawer default = Assist (with routing-concierge system prompt enhancement) — _Updated 2026-04-22 per founder. Drawer default = Assist (teaching-how-the-app-works mode, Haiku) per ai_patterns.md canonical role. Recon-2 (RECON_GENERAL_MODE_SURFACES.md) found 10 user-facing General-mode surfaces; remove all (drawer default, mode switcher entry, Lanterns Path CTAs, conversation history filter chip, MomShell indirect paths). Technical fallback for modal contracts stays (general mode row stays in lila_guided_modes; PRD-05 Sitting LiLa spec preserved, hidden until local-LLM future per NEW-E). Assist system prompt enhancement: detect bug/broken/troubleshooting language -> redirect to Help. PRD-05 addendum required._ |
 | 9 | SCOPE-3.F14 | 3 | High | Y | Y | Fix Next Build |  |  |  | PRD-28 first allowance_periods row never created (allowance non-operational at first-use) |
 | 10 | SCOPE-3.F41 | 3 | High | Y | Y | Fix Now |  |  |  | PRD-21A MemberAssignmentModal writes `is_granted`/`granted_by` to dropped columns (broken write) |
 | 11 | SCOPE-4.F4 | 4 | High | Y |  | Fix Code |  |  | Convention 247, Convention 248 (landed 2026-04-21); needs PRD-34 addendum + PRD-32 approval queue | Board of Directors persona cache architecture defect — cross-family persona leak potential — _Reclassified 2026-04-21 per founder. AI classifier personal-vs-community routing; community-relevant routes to PRD-32 Admin Console approval queue; approved personas enter shared cache. PRD-34 addendum required._ |
@@ -76,138 +76,162 @@
 | 25 | NEW-D | LiLa prompts | Medium | Y |  | Fix Next Build |  |  |  | Faith Ethics + LiLa core guardrail coverage audit across all 43 lila_guided_modes system prompts — _Added 2026-04-21. Classic Looks-Fine-Failure at prompt-authoring layer. Verify every mode prompt embeds: processing partner framing, bridge-to-human, auto-reject categories (force/coercion/manipulation/shame/withholding), crisis override, faith context handling. Defense-in-depth with PRD-41 platform-wide output validation. Pair with NEW-C._ |
 | 26 | SCOPE-8a.F5 | 8a | Medium | Y |  | Fix Now (+compound) |  |  |  | Board of Directors content policy has fail-open defects |
 | 27 | SCOPE-3.F22 | 3 | Low | Y |  | Fix Now |  |  |  | Play shell "Fun" tab 404 (/rewards route missing) |
-| 28 | SCOPE-1.F3 | 1 | High | N |  | Closed/Resolved |  |  |  | AURI retroactive scan blocked on first-call OAuth in fresh session — RESOLVED 2026-04-18 |
-| 29 | SCOPE-1.F5 | 1 | High | N |  | Closed/Resolved |  |  |  | AURI retroactive scan — RESOLVED 2026-04-18 |
-| 30 | SCOPE-4.F1 | 4 | High | N |  | Intentional-Update-Doc |  |  |  | `archive_context_items` missing `embedding` column silently breaks MindSweep embedding-first classification en |
-| 31 | SCOPE-1.F1 | 1 | Medium | N |  | Intentional-Update-Doc |  |  |  | TOOL_HEALTH_REPORT_2026-04-16 F1 AURI recipe is wrong for Developer Edition |
-| 32 | SCOPE-1.F4 | 1 | Medium | N |  | Closed/Resolved |  |  |  | Convention 242 inverted mid-audit: mgrep-primary to grep-primary |
-| 33 | SCOPE-2.F1 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-31 tier monetization infrastructure unbuilt — _Reclassified 2026-04-21 — Wave 4 COPPA framework prerequisite (Stripe webhook). Moved out of Defer-to-Gate-4._ |
-| 34 | SCOPE-2.F11 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-05 context assembly architecture wrapping drift — 3-layer framework wraps 8 PRD concepts |
-| 35 | SCOPE-2.F19 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-11B Family Celebration unbuilt — STUB_REGISTRY L120 false-Wired claim |
-| 36 | SCOPE-2.F22 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-19 reports + aggregation pipeline unbuilt — near-term 2–3 month roadmap |
-| 37 | SCOPE-2.F29 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-17B MindSweep auto-seed contract unmet — group with halfway-state completion bucket |
-| 38 | SCOPE-2.F3 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-02 access-level picker missing — signature founding-family onboarding moment |
-| 39 | SCOPE-2.F34 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-14B AI intake unbuilt — near-term build priority per founder direction |
-| 40 | SCOPE-2.F36 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-25 Guided LiLa Tools unbuilt — active kid demand elevates priority |
-| 41 | SCOPE-2.F39 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-15 mom-visibility architecture — three-state observation/private model supersedes Convention #141 strict p |
-| 42 | SCOPE-2.F40 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-15 DND non-safety suppression unwired |
-| 43 | SCOPE-2.F43 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-16 notification enum additions missing from migration 100146 — `completeMeeting.ts` workaround mis-categor |
-| 44 | SCOPE-2.F45 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-21 AI Toolbox sidebar restoration |
-| 45 | SCOPE-2.F48 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-21B Admin Console unbuilt — beta-deferred per F1/F9/F19 pattern — _Reclassified 2026-04-21 — Wave 4 COPPA prerequisite + SCOPE-4.F4 approval-queue host. Dual-purpose dependency._ |
-| 46 | SCOPE-2.F49 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-21C Vault Engagement layer unbuilt — mom-only commenting privacy posture preserved |
-| 47 | SCOPE-2.F50 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-22 Settings overlay + embeds deferred — mom-should-not-lose-her-place UX |
-| 48 | SCOPE-2.F58 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-24 reward economy unbuilt — near-term lego-piece connector |
-| 49 | SCOPE-2.F60b | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-24A overlay engine deferred indefinitely — pause, maybe never |
-| 50 | SCOPE-2.F60c | 2 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24A themes + game modes + Game Modes Addendum tables on active roadmap |
-| 51 | SCOPE-2.F61 | 2 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24B reveal library needs cross-feature lego wiring |
-| 52 | SCOPE-2.F62 | 2 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24B Color Reveal needs fuller lego-connector architecture |
-| 53 | SCOPE-2.F66 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-27 Caregiver Tools unbuilt — Enhanced-tier flagship |
-| 54 | SCOPE-2.F67 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-29 BigPlans unbuilt — Enhanced-tier flagship |
-| 55 | SCOPE-2.F68 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-37 Family Feeds unbuilt — pair with PRD-28B build-order |
-| 56 | SCOPE-2.F69 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-38 Blog (Cookie Dough & Contingency Plans) unbuilt — pre-paid-launch prerequisite |
-| 57 | SCOPE-2.F9 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-05C LiLa Optimizer infrastructure unbuilt |
-| 58 | SCOPE-3.F1 | 3 | Medium | N |  | Fix Next Build |  |  |  | Source/enum discipline drift pattern (7+ columns freeform TEXT with missing CHECKs) |
-| 59 | SCOPE-3.F19 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-23 BookShelf 5 outbound handoffs partially built + cross-PRD addendum schema drift |
-| 60 | SCOPE-3.F2 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-35 schedule vocabulary drift (4 incompatible vocabularies + 2 RecurrenceDetails TS types) |
-| 61 | SCOPE-3.F20 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-25 Guided cross-feature integrations ship as UI-visible placeholders (consolidated PRD-25 bundle) |
-| 62 | SCOPE-3.F26 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-21 4 integration surfaces scaffolding only (Higgins Navigate skill save + AI Toolbox sidebar + Send via Me |
-| 63 | SCOPE-3.F27 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-22 infrastructure consumer gaps bundle |
-| 64 | SCOPE-3.F29 | 3 | Medium | N |  | Intentional-Update-Doc |  |  |  | PRD-24A overlay-engine architecture entirely superseded by Build M |
-| 65 | SCOPE-3.F3 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-35 scheduler output broken semantics (completion-dependent + alternating-weeks + buildTaskScheduleFields) |
-| 66 | SCOPE-3.F30 | 3 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24B superseded architectures: flat Reveal Type Library → reveal_animations style_category + Color-Reveal → |
-| 67 | SCOPE-3.F32 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-29 BigPlans surface-level drift: guided-mode taxonomy (4 addendum vs 5 seeded) + 5 BigPlans feature keys r |
-| 68 | SCOPE-3.F33 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-31 tier enforcement wire-up bundle (useCanAccess/PermissionGate adoption + permission_level_profiles + fea |
-| 69 | SCOPE-3.F34 | 3 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-31 monetization engine entirely unbuilt at server layer (Stripe webhook + tier enforcement cascade) |
-| 70 | SCOPE-3.F36 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-36 cross-PRD integration bundle (engine wired but cross-PRD integration dispatched to void + timer complet |
-| 71 | SCOPE-3.F37 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-17B mindsweep-sort 6 seams consolidated (seams 1, 2, 4, 7, 9, 12, 13, 14) |
-| 72 | SCOPE-3.F38 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-14D dashboard architecture gaps (Hub widget_grid section + PerspectiveSwitcher over-grants) |
-| 73 | SCOPE-3.F39 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-19 fixable integration items (lila-chat doesn't load private/relationship notes + family_context_interview |
-| 74 | SCOPE-3.F5 | 3 | Medium | N |  | Fix Next Build |  |  |  | Model-tier registry-vs-runtime drift — expanded to multi-provider `invokeAI()` helper architecture |
-| 75 | SCOPE-3.F6 | 3 | Medium | N |  | Intentional-Update-Doc |  |  |  | PRD-24 family Cross-PRD Impact Addenda pre-Build-M, never back-amended |
-| 76 | SCOPE-4.F5 | 4 | Medium | N |  | Intentional-Update-Doc |  |  | SCOPE-4.F4 | `board_personas.embedding` is intended product infrastructure for alternative-persona substitution, not orphan |
-| 77 | SCOPE-4.F8b | 4 | Medium | N |  | Fix Next Build |  |  | SCOPE-4.F4 (consolidated Board sprint) | Decision Guide + Board of Directors hand-roll context instead of calling assembleContext (Recon-1 verdict: LiLa-powered-but-bypassing) — _Recon-1 verdict 2026-04-21 (RECON_F8B_ASSEMBLER.md): LILA-POWERED-BUT-BYPASSING. Both tools have non-empty context_sources in lila_guided_modes, hand-roll context queries. Refactor to call assembleContext(); audit Perspective Shifter + Mediator in same pass. F8a folds into this sprint._ |
-| 78 | SCOPE-5.F2 | 5 | Medium | N |  | Defer-to-Gate-4 |  |  |  | live_schema.md missing widget_starter_configs table (surfaced during pilot) |
-| 79 | SCOPE-5.F4 | 5 | Medium | N | Y | Closed/Resolved |  |  |  | Scope 5 walk-through summary — 12 registry flips, 7 merges, 1 split, 3 hygiene adds, 1 commit applied |
-| 80 | SCOPE-8a.F4 | 8a | Medium | N |  | Fix Next Build |  |  |  | Translator LiLa Edge Function exempted from code-level crisis detection |
-| 81 | SCOPE-8a.F7 | 8a | Medium | N |  | Fix Next Build |  |  |  | MindSweep autopilot routes labeled `source='manual'` — audit-trail integrity defect |
-| 82 | SCOPE-8a.F8 | 8a | Medium | N | Y | Tech Debt |  |  |  | HumanInTheMix component reuse count = 1 — inconsistent HITM implementations |
-| 83 | NEW-E | Horizon | Low | N |  | Capture-only |  |  |  | LILA_FUTURE_LOCAL_LLM.md stub — small open-source on-device LLM for General/kid/privacy-sensitive chat (post-beta) — _Added 2026-04-21. Capture vision only — do not build, do not start design. Strategic value: privacy, zero-API-cost general chat, kid AI safety unlock, ESA positioning, offline resilience. Author post-Session-2 stub at LILA_FUTURE_LOCAL_LLM.md with routing logic, hardware floor, model candidates, guardrails, family-member-scoped constraints._ |
-| 84 | SCOPE-1.F2 | 1 | Low | N |  | Informational |  |  |  | tsc -b and npm run lint baseline at audit start |
-| 85 | SCOPE-1.F6 | 1 | Low | N |  | Intentional-Update-Doc |  |  |  | AURI Generic API Key regex false-positive on feature-key identifiers |
-| 86 | SCOPE-2.F10 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-05 downstream registry supersession — 15 modes spec'd, 43 modes shipped |
-| 87 | SCOPE-2.F12 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-05 Privacy Filtered folder category UI deferred to PRD-13 |
-| 88 | SCOPE-2.F13 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-05 opening messages missing for 35 of 43 guided modes |
-| 89 | SCOPE-2.F14 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-05 `buildFaithContext()` reads nonexistent schema field — likely dead code |
-| 90 | SCOPE-2.F15 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-05C `ai_usage_tracking` schema drift — live is generic platform-wide tracker |
-| 91 | SCOPE-2.F16 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-06 partner-share UI missing on Guiding Stars + Best Intentions |
-| 92 | SCOPE-2.F17 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-08 messaging supersession — 2-table spec vs 3-table PRD-15 architecture |
-| 93 | SCOPE-2.F18 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-08 per-child journal visibility UI missing |
-| 94 | SCOPE-2.F2 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-02 permission gate adoption low — pre-monetization prerequisite |
-| 95 | SCOPE-2.F20 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-18 mood triage supersession — Enhancement Addendum + Convention #25 removed default |
-| 96 | SCOPE-2.F21 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-18 teen experience supersession — Enhancement Addendum §Enhancement 7 + Conventions #189–197 |
-| 97 | SCOPE-2.F23 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-19 archive column drift — 5 + 3 addendum columns unbacked |
-| 98 | SCOPE-2.F24 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-09A `task_queue` legacy nomenclature — 10 stale occurrences in PRD text |
-| 99 | SCOPE-2.F25 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-09A prioritization views partial — 12 options ship (7 real + 5 stubs), ABCDE removed |
-| 100 | SCOPE-2.F26 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-09A Habit task type unwired — 3-mode meta-type branching remediation |
-| 101 | SCOPE-2.F27 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-09B list type catalog — codify 5 extras with documented use cases |
-| 102 | SCOPE-2.F28 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-17 numeric indicator preference deferred to Settings PRD |
-| 103 | SCOPE-2.F30 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-10 tracker catalog expansion — codify 17 canonical + 4 extras |
-| 104 | SCOPE-2.F31 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-10 `widget_templates` vs `widget_starter_configs` architectural split |
-| 105 | SCOPE-2.F32 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-14 `col_span` responsive-section feature unbuilt — will-be-built eventually |
-| 106 | SCOPE-2.F33 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-14B schema refactor documentation — 3 Convention-documented deliberate supersessions |
-| 107 | SCOPE-2.F35 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-14C Family Overview polish deferred — 4 UX polish items Post-MVP |
-| 108 | SCOPE-2.F37 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-25 + PRD-26 graduation flows unbuilt — Post-MVP |
-| 109 | SCOPE-2.F38 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-26 reveal architecture superseded by Build M — 5 styles → 2 per-segment |
-| 110 | SCOPE-2.F4 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-01 + PRD-04 legacy Hub columns on `families` table superseded by PRD-14D |
-| 111 | SCOPE-2.F41 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | WIRING_STATUS.md PRD-15 / PRD-16 post-build checklist drift |
-| 112 | SCOPE-2.F42 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-16 meeting_type enum 9→5 override per feature decision 2026-04-14 |
-| 113 | SCOPE-2.F44 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-16 Build P verification table drift — `GuidedThingsToTalkAboutSection` marked Stubbed but fully built |
-| 114 | SCOPE-2.F46 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-34 ThoughtSift `/thoughtsift` route removal — scope creep reverts |
-| 115 | SCOPE-2.F47 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-34 `board_personas` schema split missing — deferred until Channel D |
-| 116 | SCOPE-2.F5 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-02 shift-scheduling text superseded by `access_schedules` + `time_sessions` |
-| 117 | SCOPE-2.F51 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-22 minor screens deprioritized by founder — 4 amendments |
-| 118 | SCOPE-2.F52 | 2 | Low | N |  | Defer-to-Gate-4 |  |  | SCOPE-2.F9 | PRD-21A Optimize with LiLa stub — gated on F9 Optimizer build |
-| 119 | SCOPE-2.F53 | 2 | Low | N |  | Defer-to-Gate-4 |  |  | SCOPE-2.F9 | PRD-21A Deploy with LiLa skill stub — gated on F9 + External Tool Registry |
-| 120 | SCOPE-2.F54 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-21 skill-check mode missing for Cyrano + Higgins Say |
-| 121 | SCOPE-2.F55 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-21 Higgins display name seed registry drift |
-| 122 | SCOPE-2.F56 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-23 Cross-PRD Impact Addendum `bookshelf_principles` → `bookshelf_insights` rename drift |
-| 123 | SCOPE-2.F57 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-23 `SemanticSearchPanel` app-wide hook zero external consumers |
-| 124 | SCOPE-2.F59 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-24 pipeline + settings panel superseded by Build M |
-| 125 | SCOPE-2.F6 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-03 theme count — code ships 46, spec + Convention #42 claim 38 |
-| 126 | SCOPE-2.F60a | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-24A dashboard backgrounds → Sticker Book pages supersession |
-| 127 | SCOPE-2.F63 | 2 | Low | N | Y | Fix Next Build |  |  |  | PRD-24 screen features unbuilt — 5 viz modes ship 1, level threshold dormant, leaderboard scaffolding only |
-| 128 | SCOPE-2.F7 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-03 shared component inventory mismatch across PRD-03 / Convention #44 / STUB_REGISTRY |
-| 129 | SCOPE-2.F70 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-35 `access_schedules` field-name drift |
-| 130 | SCOPE-2.F8 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-04 `/hub/tv` PlannedExpansionCard stub — PRD-14E Post-MVP |
-| 131 | SCOPE-3.F10 | 3 | Low | N |  | Fix Next Build |  |  |  | Pattern 2H — Settings page missing nav entry points (4 PRD-22 cross-PRD entries + PRD-36 TimerConfigPanel + PR |
-| 132 | SCOPE-3.F11 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-24 useUncompleteTask stub comment stale post-Build-M |
-| 133 | SCOPE-3.F12 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-36 time_session_completed + time_session_modified events have zero listeners (wire to Build M gamification |
-| 134 | SCOPE-3.F13 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-29 addendum marks stub sockets as WIRED despite no writer code existing (WIRING_STATUS convention violatio |
-| 135 | SCOPE-3.F15 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | CLAUDE.md convention proposal: Lego Primitive Connector Documentation |
-| 136 | SCOPE-3.F16 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | CLAUDE.md convention proposal: AI Model Selection is Registry-Driven (`invokeAI()` helper) |
-| 137 | SCOPE-3.F17 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9, prospecti |
-| 138 | SCOPE-3.F18 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-08 Notepad→studio_queue orphan destinations + source tracking lost on direct destination writes |
-| 139 | SCOPE-3.F21 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-26 Build-M-superseded surfaces: Reveal Task Tile + Mom Message Card + section-key data-driven layout |
-| 140 | SCOPE-3.F23 | 3 | Low | N | Y | Fix Next Build |  |  |  | PRD-14 dashboard polish bundle (col_span + grid sharing + Today's Victories widget) |
-| 141 | SCOPE-3.F24 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-14B polish bundle: calendar-parse-event + calendar_event_create + duplicate calendar_color + getMemberColo |
-| 142 | SCOPE-3.F25 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-18 5 cross-feature wirings delivered as schema/type scaffolding (GIN index, rhythm_request enum, reflectio |
-| 143 | SCOPE-3.F28 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-24 integration edges schema/primitive-only |
-| 144 | SCOPE-3.F31 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-28 enum + compliance bundle (PRD-28B handoff + hourly + financial_approval dead enum values + homework app |
-| 145 | SCOPE-3.F35 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-34 ThoughtSift implementation drift bundle |
-| 146 | SCOPE-3.F4 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-35 convention surface unwired (calendar preview 2/3 consumers, weekStartDay, allowedFrequencies, _legacy_r |
-| 147 | SCOPE-3.F40 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-21A minor wire-up + vault_tool_sessions tracking + Optimizer integration server layer |
-| 148 | SCOPE-3.F42 | 3 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-21C entire PRD deferred (cross-ref Round 0 Deferred list) |
-| 149 | SCOPE-3.F7 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | Addendum self-reporting drift — 3 addenda assert completion facts code contradicts |
-| 150 | SCOPE-3.F8 | 3 | Low | N | Y | Intentional-Update-Doc |  |  |  | Reusable animation/visual primitive library intentionally unassigned to production consumers (Lego/surge-prote |
-| 151 | SCOPE-3.F9 | 3 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-14 `dashboard_widgets.is_included_in_ai` widget toggle is no-op — drop column + UI toggle |
-| 152 | SCOPE-4.F10 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | Notepad Review & Route + Smart List Import + Post-Meeting Review classifiers are Haiku-first with no embedding |
-| 153 | SCOPE-4.F2 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | pgmq `embedding_jobs` pipeline dormant; polling-consumer is the real architecture |
-| 154 | SCOPE-4.F3 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | `embed` pg_cron schedule undeclared in migrations |
-| 155 | SCOPE-4.F6 | 4 | Low | N | Y | Intentional-Update-Doc |  |  |  | Heart/HeartOff UI toggle gaps across six context-source surfaces — hearts everywhere |
-| 156 | SCOPE-4.F7 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | Board of Directors moderator interjection fires auto-default — revoke to opt-in-only |
-| 157 | SCOPE-4.F9 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | `lila-message-respond` omits `recentMessages` parameter in `assembleContext` call — sliding window shrinks to  |
-| 158 | SCOPE-5.F1 | 5 | Low | N | Y | Defer-to-Gate-4 |  |  |  | STUB_REGISTRY line 398 stale: Backburner/Ideas auto-provision is wired |
-| 159 | SCOPE-5.F3 | 5 | Low | N |  | Intentional-Update-Doc |  |  |  | Partition-size estimates in operation plan drifted by order of magnitude from actual partition contents |
+| 28 | NEW-G | Lists | High | N |  | Fix Next Build |  |  |  | Opportunity Board dissolves into Lists page; is_opportunity is list-level; Convention 70 amendment; Lists page primitive spec — _Severity BUMPED Medium->High 2026-04-22 per founder — Convention 70 contradicts schema, actively misleading Claude Code. Doc §1.1 + §1.2 + draft notes 5, 20, 23, 33. PRD-09B + Convention 70 + studio-seed-templates.md._ |
+| 29 | SCOPE-1.F3 | 1 | High | N |  | Closed/Resolved |  |  |  | AURI retroactive scan blocked on first-call OAuth in fresh session — RESOLVED 2026-04-18 |
+| 30 | SCOPE-1.F5 | 1 | High | N |  | Closed/Resolved |  |  |  | AURI retroactive scan — RESOLVED 2026-04-18 |
+| 31 | SCOPE-4.F1 | 4 | High | N |  | Intentional-Update-Doc |  |  |  | `archive_context_items` missing `embedding` column silently breaks MindSweep embedding-first classification en |
+| 32 | NEW-AA | Reveals | Medium | N |  | Fix Next Build |  |  |  | Reveals as universal presentation wrappers; reveal-as-task-presentation connector formalized across PRD-24 family — _Doc §1.3 + draft note 34. PRD-24/24A/24B addendum. Coordinates with SCOPE-2.F61 + SCOPE-2.F62._ |
+| 33 | NEW-BB | Tier | Medium | N |  | Fix Next Build |  |  |  | Tier-assignment chart as single source of truth; feature code references chart, never hardcodes tier names — _Doc §1.7 + draft note 35. Covered by Convention 256. Additive to existing tier infrastructure (feature_access_v2, feature_key_registry)._ |
+| 34 | NEW-CC | Documentation | Medium | N |  | Fix Next Build |  |  |  | Document the supported composition matrix (presentation_mode x is_opportunity x advancement_mode x draw_mode x pick_n); schema permits all combinations, no convention names them — _Added 2026-04-22 per founder context. CLAUDE.md convention + PRD-09B addendum + WIRING_STATUS.md composition matrix table. Converts doc §1.5 prose examples into formal reference._ |
+| 35 | NEW-H | Segments | Medium | N |  | Fix Next Build |  |  |  | Segment primitive: always-on-collapsible default OR scheduled; exists across all shells — _Doc §1.1 + draft note 6. PRD-25 + PRD-26 + PRD-09A amendments._ |
+| 36 | NEW-K | NLC | Medium | N |  | Fix Next Build |  |  |  | Natural Language Composition — first-class front-door entry point (Haiku compose, HITM approval) — _Doc §2.9 + draft note 11. Beta flag N per founder 2026-04-22 pragmatic read: beta cohort is invite-only/feedback-oriented; NLC depends on Gate 2 wizards; becomes post-Gate-2 flagship / Phase 5 headline, not beta blocker. PRD-05 + PRD-08 + Studio._ |
+| 37 | NEW-L | Cross-cut | Medium | N |  | Fix Next Build |  |  |  | Bulk-AI-Add deployment gap audit — inventory every creation surface; deploy where missing — _Doc §2.5 + draft note 12. Capability built universally; deployment coverage is the gap. Tracked by Convention 252._ |
+| 38 | NEW-N | Milestone | Medium | N |  | Fix Next Build |  |  |  | is_milestone property + Milestone Map surface (universal, Level 1 witnessed + Level 2 completion receipts) — _Doc §1.2 + §1.3 milestone-to-Milestone-Map connector + draft note 16. 8-PRD addenda: PRD-05, PRD-08, PRD-09A, PRD-09B, PRD-11, PRD-12A/B, PRD-37, PRD-28B._ |
+| 39 | NEW-O | Tracking | Medium | N |  | Fix Next Build |  |  |  | tracking_tags property + Finished Products composition pipeline — _Doc §1.2 + §1.7 + draft note 17. Cross-cutting — every content-producing PRD addendum + PRD-28B consumer spec._ |
+| 40 | NEW-P | Tracker | Medium | N |  | Fix Next Build |  |  |  | Reading Tracker primitive (separate from BookShelf; general reading log, all-role log entries) — _Doc §1.1 + draft note 18. PRD-28 or PRD-10 addendum._ |
+| 41 | NEW-Q | Products | Medium | N |  | Fix Next Build |  |  |  | Finished products inventory expansion (Homeschool Transcript, Year-End Memory Books, Child Growth Portrait, Family Vision Statement, etc.) — _Doc §1.7 + draft note 19. PRD-28B scope expansion; cross-ref SCOPE-2.F22._ |
+| 42 | NEW-R | Studio | Medium | N |  | Fix Next Build |  |  |  | Drafts + Customized as explicit Studio pages; Drafts->Customized deployment flow; Customized items remain editable — _Doc §1.1 + §2.2 + draft note 21. Studio Intelligence Addendum amendment. Convention 250 captures the rule; this row tracks the build._ |
+| 43 | NEW-T | Connectors | Medium | N |  | Fix Next Build |  |  |  | Linked list items connector (item-level, analogous to linked-routine-step) — _Doc §1.3 + draft note 25. PRD-09B amendment. Enables compositions like Ruthie Reading Time._ |
+| 44 | NEW-W | Allowance | Medium | N |  | Fix Next Build |  |  |  | counts_toward_allowance extended to Segments + dedup at calculation layer — _Doc §1.2 + draft note 29. PRD-28 amendment. Coordinate with SCOPE-3.F14 (already Beta Y allowance bootstrap)._ |
+| 45 | NEW-X | Assignment | Medium | N |  | Fix Next Build |  |  |  | Assignment mode (Shared / Per-person) formalized at all levels: single tasks, list items, list-level defaults, lists with rosters — _Doc §1.2 + draft note 30. PRD-09A + PRD-09B amendments._ |
+| 46 | NEW-Z | Dashboards | Medium | N |  | Fix Next Build |  |  |  | display_on_dashboard per-member + dashboard_display_mode (full/truncated/collapsed) properties on lists — _Doc §1.2 + draft note 32. PRD-09B + PRD-10 amendments._ |
+| 47 | SCOPE-1.F1 | 1 | Medium | N |  | Intentional-Update-Doc |  |  |  | TOOL_HEALTH_REPORT_2026-04-16 F1 AURI recipe is wrong for Developer Edition |
+| 48 | SCOPE-1.F4 | 1 | Medium | N |  | Closed/Resolved |  |  |  | Convention 242 inverted mid-audit: mgrep-primary to grep-primary |
+| 49 | SCOPE-2.F1 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-31 tier monetization infrastructure unbuilt — _Reclassified 2026-04-21 — Wave 4 COPPA framework prerequisite (Stripe webhook). Moved out of Defer-to-Gate-4._ |
+| 50 | SCOPE-2.F11 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-05 context assembly architecture wrapping drift — 3-layer framework wraps 8 PRD concepts |
+| 51 | SCOPE-2.F19 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-11B Family Celebration unbuilt — STUB_REGISTRY L120 false-Wired claim |
+| 52 | SCOPE-2.F22 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-19 reports + aggregation pipeline unbuilt — near-term 2–3 month roadmap |
+| 53 | SCOPE-2.F27 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-09B list type catalog — codify 5 extras with documented use cases — _Scope expanded 2026-04-22: was "codify 5 extras" — now "formalize 4 independent list-behavior properties (presentation_mode, is_browsable, is_opportunity, pick_n) + add maintenance/consequences/records list_types + Lists page primitive + Opportunity Board dissolves." Severity bumped Low->Medium. See Composition Architecture doc §1.1 + §1.2._ |
+| 54 | SCOPE-2.F29 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-17B MindSweep auto-seed contract unmet — group with halfway-state completion bucket |
+| 55 | SCOPE-2.F3 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-02 access-level picker missing — signature founding-family onboarding moment |
+| 56 | SCOPE-2.F34 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-14B AI intake unbuilt — near-term build priority per founder direction |
+| 57 | SCOPE-2.F36 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-25 Guided LiLa Tools unbuilt — active kid demand elevates priority |
+| 58 | SCOPE-2.F39 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-15 mom-visibility architecture — three-state observation/private model supersedes Convention #141 strict p |
+| 59 | SCOPE-2.F40 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-15 DND non-safety suppression unwired |
+| 60 | SCOPE-2.F43 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-16 notification enum additions missing from migration 100146 — `completeMeeting.ts` workaround mis-categor |
+| 61 | SCOPE-2.F45 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-21 AI Toolbox sidebar restoration |
+| 62 | SCOPE-2.F48 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-21B Admin Console unbuilt — beta-deferred per F1/F9/F19 pattern — _Reclassified 2026-04-21 — Wave 4 COPPA prerequisite + SCOPE-4.F4 approval-queue host. Dual-purpose dependency._ |
+| 63 | SCOPE-2.F49 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-21C Vault Engagement layer unbuilt — mom-only commenting privacy posture preserved |
+| 64 | SCOPE-2.F50 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-22 Settings overlay + embeds deferred — mom-should-not-lose-her-place UX |
+| 65 | SCOPE-2.F58 | 2 | Medium | N |  | Fix Next Build |  |  |  | PRD-24 reward economy unbuilt — near-term lego-piece connector |
+| 66 | SCOPE-2.F60b | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-24A overlay engine deferred indefinitely — pause, maybe never |
+| 67 | SCOPE-2.F60c | 2 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24A themes + game modes + Game Modes Addendum tables on active roadmap |
+| 68 | SCOPE-2.F61 | 2 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24B reveal library needs cross-feature lego wiring |
+| 69 | SCOPE-2.F62 | 2 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24B Color Reveal needs fuller lego-connector architecture |
+| 70 | SCOPE-2.F66 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-27 Caregiver Tools unbuilt — Enhanced-tier flagship |
+| 71 | SCOPE-2.F67 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-29 BigPlans unbuilt — Enhanced-tier flagship |
+| 72 | SCOPE-2.F68 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-37 Family Feeds unbuilt — pair with PRD-28B build-order |
+| 73 | SCOPE-2.F69 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-38 Blog (Cookie Dough & Contingency Plans) unbuilt — pre-paid-launch prerequisite |
+| 74 | SCOPE-2.F9 | 2 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-05C LiLa Optimizer infrastructure unbuilt |
+| 75 | SCOPE-3.F1 | 3 | Medium | N |  | Fix Next Build |  |  |  | Source/enum discipline drift pattern (7+ columns freeform TEXT with missing CHECKs) |
+| 76 | SCOPE-3.F19 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-23 BookShelf 5 outbound handoffs partially built + cross-PRD addendum schema drift |
+| 77 | SCOPE-3.F2 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-35 schedule vocabulary drift (4 incompatible vocabularies + 2 RecurrenceDetails TS types) |
+| 78 | SCOPE-3.F20 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-25 Guided cross-feature integrations ship as UI-visible placeholders (consolidated PRD-25 bundle) |
+| 79 | SCOPE-3.F26 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-21 4 integration surfaces scaffolding only (Higgins Navigate skill save + AI Toolbox sidebar + Send via Me |
+| 80 | SCOPE-3.F27 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-22 infrastructure consumer gaps bundle |
+| 81 | SCOPE-3.F29 | 3 | Medium | N |  | Intentional-Update-Doc |  |  |  | PRD-24A overlay-engine architecture entirely superseded by Build M |
+| 82 | SCOPE-3.F3 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-35 scheduler output broken semantics (completion-dependent + alternating-weeks + buildTaskScheduleFields) |
+| 83 | SCOPE-3.F30 | 3 | Medium | N | Y | Fix Next Build |  |  |  | PRD-24B superseded architectures: flat Reveal Type Library → reveal_animations style_category + Color-Reveal → |
+| 84 | SCOPE-3.F32 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-29 BigPlans surface-level drift: guided-mode taxonomy (4 addendum vs 5 seeded) + 5 BigPlans feature keys r |
+| 85 | SCOPE-3.F33 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-31 tier enforcement wire-up bundle (useCanAccess/PermissionGate adoption + permission_level_profiles + fea |
+| 86 | SCOPE-3.F34 | 3 | Medium | N |  | Defer-to-Gate-4 |  |  |  | PRD-31 monetization engine entirely unbuilt at server layer (Stripe webhook + tier enforcement cascade) |
+| 87 | SCOPE-3.F36 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-36 cross-PRD integration bundle (engine wired but cross-PRD integration dispatched to void + timer complet |
+| 88 | SCOPE-3.F37 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-17B mindsweep-sort 6 seams consolidated (seams 1, 2, 4, 7, 9, 12, 13, 14) |
+| 89 | SCOPE-3.F38 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-14D dashboard architecture gaps (Hub widget_grid section + PerspectiveSwitcher over-grants) |
+| 90 | SCOPE-3.F39 | 3 | Medium | N |  | Fix Next Build |  |  |  | PRD-19 fixable integration items (lila-chat doesn't load private/relationship notes + family_context_interview |
+| 91 | SCOPE-3.F5 | 3 | Medium | N |  | Fix Next Build |  |  |  | Model-tier registry-vs-runtime drift — expanded to multi-provider `invokeAI()` helper architecture |
+| 92 | SCOPE-3.F6 | 3 | Medium | N |  | Intentional-Update-Doc |  |  |  | PRD-24 family Cross-PRD Impact Addenda pre-Build-M, never back-amended |
+| 93 | SCOPE-4.F5 | 4 | Medium | N |  | Intentional-Update-Doc |  |  | SCOPE-4.F4 | `board_personas.embedding` is intended product infrastructure for alternative-persona substitution, not orphan |
+| 94 | SCOPE-4.F8b | 4 | Medium | N |  | Fix Next Build |  |  | SCOPE-4.F4 (consolidated Board sprint) | Decision Guide + Board of Directors hand-roll context instead of calling assembleContext (Recon-1 verdict: LiLa-powered-but-bypassing) — _Recon-1 verdict 2026-04-21 (RECON_F8B_ASSEMBLER.md): LILA-POWERED-BUT-BYPASSING. Both tools have non-empty context_sources in lila_guided_modes, hand-roll context queries. Refactor to call assembleContext(); audit Perspective Shifter + Mediator in same pass. F8a folds into this sprint._ |
+| 95 | SCOPE-5.F2 | 5 | Medium | N |  | Defer-to-Gate-4 |  |  |  | live_schema.md missing widget_starter_configs table (surfaced during pilot) |
+| 96 | SCOPE-5.F4 | 5 | Medium | N | Y | Closed/Resolved |  |  |  | Scope 5 walk-through summary — 12 registry flips, 7 merges, 1 split, 3 hygiene adds, 1 commit applied |
+| 97 | SCOPE-8a.F4 | 8a | Medium | N |  | Fix Next Build |  |  |  | Translator LiLa Edge Function exempted from code-level crisis detection |
+| 98 | SCOPE-8a.F7 | 8a | Medium | N |  | Fix Next Build |  |  |  | MindSweep autopilot routes labeled `source='manual'` — audit-trail integrity defect |
+| 99 | SCOPE-8a.F8 | 8a | Medium | N | Y | Tech Debt |  |  |  | HumanInTheMix component reuse count = 1 — inconsistent HITM implementations |
+| 100 | NEW-E | Horizon | Low | N |  | Capture-only |  |  |  | LILA_FUTURE_LOCAL_LLM.md stub — small open-source on-device LLM for General/kid/privacy-sensitive chat (post-beta) — _Added 2026-04-21. Capture vision only — do not build, do not start design. Strategic value: privacy, zero-API-cost general chat, kid AI safety unlock, ESA positioning, offline resilience. Author post-Session-2 stub at LILA_FUTURE_LOCAL_LLM.md with routing logic, hardware floor, model candidates, guardrails, family-member-scoped constraints._ |
+| 101 | NEW-F | Lists | Low | N |  | Fix Next Build |  |  |  | Crossed-off grace period property on lists (non-instant default) — _Doc §1.2 draft note 3. PRD-09B amendment._ |
+| 102 | NEW-I | Connectors | Low | N |  | Fix Next Build |  |  |  | Person-pick-spin per-deploy config (flow A person-first / flow B reward-first; skip-and-return) — _Doc §1.3 + draft note 8. PRD-09B + PRD-24._ |
+| 103 | NEW-J | BookShelf | Low | N |  | Fix Next Build |  |  |  | Book completion chain-next (auto-advance sequential OR surface browsable opportunity list) — _Doc §1.3 + draft note 9. PRD-23 amendment._ |
+| 104 | NEW-M | Tasks | Low | N |  | Fix Next Build |  |  |  | Task Breaker invocable post-assignment by kid (in addition to mom pre-assignment) — _Doc §1.3 nested-subtask pattern + draft note 13. PRD-09A amendment. Task Breaker as utility already covered by Convention 248._ |
+| 105 | NEW-S | Schema | Low | N |  | Tech Debt |  |  |  | Schema consolidation: decide canonical storage for sequential behavior (sequential_collections table vs lists with presentation_mode=sequential) — _Doc §1.1 + draft notes 24 + 26. Both storage locations valid for now; Claude Code must treat them identically behaviorally. Future schema cleanup._ |
+| 106 | NEW-U | Tasks | Low | N |  | Fix Next Build |  |  |  | Split require_evidence into independent require_photo + require_note properties — _Doc §1.2 + draft note 27. PRD-09A amendment._ |
+| 107 | NEW-V | Lists | Low | N |  | Fix Next Build |  |  |  | Rotation memory per-list / per-section / per-item with cooldown + frequency rules — _Doc §1.2 + draft note 28. PRD-09B amendment._ |
+| 108 | NEW-Y | Lists | Low | N |  | Fix Next Build |  |  |  | kid_can_skip per-list (or per-item) property — _Doc §1.2 + draft note 31. PRD-09B amendment._ |
+| 109 | SCOPE-1.F2 | 1 | Low | N |  | Informational |  |  |  | tsc -b and npm run lint baseline at audit start |
+| 110 | SCOPE-1.F6 | 1 | Low | N |  | Intentional-Update-Doc |  |  |  | AURI Generic API Key regex false-positive on feature-key identifiers |
+| 111 | SCOPE-2.F10 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-05 downstream registry supersession — 15 modes spec'd, 43 modes shipped |
+| 112 | SCOPE-2.F12 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-05 Privacy Filtered folder category UI deferred to PRD-13 |
+| 113 | SCOPE-2.F13 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-05 opening messages missing for 35 of 43 guided modes |
+| 114 | SCOPE-2.F14 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-05 `buildFaithContext()` reads nonexistent schema field — likely dead code |
+| 115 | SCOPE-2.F15 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-05C `ai_usage_tracking` schema drift — live is generic platform-wide tracker |
+| 116 | SCOPE-2.F16 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-06 partner-share UI missing on Guiding Stars + Best Intentions |
+| 117 | SCOPE-2.F17 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-08 messaging supersession — 2-table spec vs 3-table PRD-15 architecture |
+| 118 | SCOPE-2.F18 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-08 per-child journal visibility UI missing |
+| 119 | SCOPE-2.F2 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-02 permission gate adoption low — pre-monetization prerequisite |
+| 120 | SCOPE-2.F20 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-18 mood triage supersession — Enhancement Addendum + Convention #25 removed default |
+| 121 | SCOPE-2.F21 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-18 teen experience supersession — Enhancement Addendum §Enhancement 7 + Conventions #189–197 |
+| 122 | SCOPE-2.F23 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-19 archive column drift — 5 + 3 addendum columns unbacked |
+| 123 | SCOPE-2.F24 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-09A `task_queue` legacy nomenclature — 10 stale occurrences in PRD text |
+| 124 | SCOPE-2.F25 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-09A prioritization views partial — 12 options ship (7 real + 5 stubs), ABCDE removed |
+| 125 | SCOPE-2.F26 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-09A Habit task type unwired — 3-mode meta-type branching remediation |
+| 126 | SCOPE-2.F28 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-17 numeric indicator preference deferred to Settings PRD |
+| 127 | SCOPE-2.F30 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-10 tracker catalog expansion — codify 17 canonical + 4 extras |
+| 128 | SCOPE-2.F31 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-10 `widget_templates` vs `widget_starter_configs` architectural split |
+| 129 | SCOPE-2.F32 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-14 `col_span` responsive-section feature unbuilt — will-be-built eventually |
+| 130 | SCOPE-2.F33 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-14B schema refactor documentation — 3 Convention-documented deliberate supersessions |
+| 131 | SCOPE-2.F35 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-14C Family Overview polish deferred — 4 UX polish items Post-MVP |
+| 132 | SCOPE-2.F37 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-25 + PRD-26 graduation flows unbuilt — Post-MVP |
+| 133 | SCOPE-2.F38 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-26 reveal architecture superseded by Build M — 5 styles → 2 per-segment |
+| 134 | SCOPE-2.F4 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-01 + PRD-04 legacy Hub columns on `families` table superseded by PRD-14D |
+| 135 | SCOPE-2.F41 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | WIRING_STATUS.md PRD-15 / PRD-16 post-build checklist drift |
+| 136 | SCOPE-2.F42 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-16 meeting_type enum 9→5 override per feature decision 2026-04-14 |
+| 137 | SCOPE-2.F44 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-16 Build P verification table drift — `GuidedThingsToTalkAboutSection` marked Stubbed but fully built |
+| 138 | SCOPE-2.F46 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-34 ThoughtSift `/thoughtsift` route removal — scope creep reverts |
+| 139 | SCOPE-2.F47 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-34 `board_personas` schema split missing — deferred until Channel D |
+| 140 | SCOPE-2.F5 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-02 shift-scheduling text superseded by `access_schedules` + `time_sessions` |
+| 141 | SCOPE-2.F51 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-22 minor screens deprioritized by founder — 4 amendments |
+| 142 | SCOPE-2.F52 | 2 | Low | N |  | Defer-to-Gate-4 |  |  | SCOPE-2.F9 | PRD-21A Optimize with LiLa stub — gated on F9 Optimizer build |
+| 143 | SCOPE-2.F53 | 2 | Low | N |  | Defer-to-Gate-4 |  |  | SCOPE-2.F9 | PRD-21A Deploy with LiLa skill stub — gated on F9 + External Tool Registry |
+| 144 | SCOPE-2.F54 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-21 skill-check mode missing for Cyrano + Higgins Say |
+| 145 | SCOPE-2.F55 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-21 Higgins display name seed registry drift |
+| 146 | SCOPE-2.F56 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-23 Cross-PRD Impact Addendum `bookshelf_principles` → `bookshelf_insights` rename drift |
+| 147 | SCOPE-2.F57 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-23 `SemanticSearchPanel` app-wide hook zero external consumers |
+| 148 | SCOPE-2.F59 | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-24 pipeline + settings panel superseded by Build M |
+| 149 | SCOPE-2.F6 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-03 theme count — code ships 46, spec + Convention #42 claim 38 |
+| 150 | SCOPE-2.F60a | 2 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-24A dashboard backgrounds → Sticker Book pages supersession |
+| 151 | SCOPE-2.F63 | 2 | Low | N | Y | Fix Next Build |  |  |  | PRD-24 screen features unbuilt — 5 viz modes ship 1, level threshold dormant, leaderboard scaffolding only |
+| 152 | SCOPE-2.F7 | 2 | Low | N |  | Fix Next Build |  |  |  | PRD-03 shared component inventory mismatch across PRD-03 / Convention #44 / STUB_REGISTRY |
+| 153 | SCOPE-2.F70 | 2 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-35 `access_schedules` field-name drift |
+| 154 | SCOPE-2.F8 | 2 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-04 `/hub/tv` PlannedExpansionCard stub — PRD-14E Post-MVP |
+| 155 | SCOPE-3.F10 | 3 | Low | N |  | Fix Next Build |  |  |  | Pattern 2H — Settings page missing nav entry points (4 PRD-22 cross-PRD entries + PRD-36 TimerConfigPanel + PR |
+| 156 | SCOPE-3.F11 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-24 useUncompleteTask stub comment stale post-Build-M |
+| 157 | SCOPE-3.F12 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-36 time_session_completed + time_session_modified events have zero listeners (wire to Build M gamification |
+| 158 | SCOPE-3.F13 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | PRD-29 addendum marks stub sockets as WIRED despite no writer code existing (WIRING_STATUS convention violatio |
+| 159 | SCOPE-3.F15 | 3 | Low | N |  | Closed/Resolved |  |  |  | CLAUDE.md convention proposal: Lego Primitive Connector Documentation — _Closed 2026-04-22 per founder. The Composition Architecture doc (Parts 1+2) IS the Lego convention this finding proposed. Conventions 249-256 lifted the load-bearing rules into CLAUDE.md on the same date._ |
+| 160 | SCOPE-3.F16 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | CLAUDE.md convention proposal: AI Model Selection is Registry-Driven (`invokeAI()` helper) |
+| 161 | SCOPE-3.F17 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | CLAUDE.md addendum-writing habit proposal: consumer-missing vs never-built classification (Habit #9, prospecti |
+| 162 | SCOPE-3.F18 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-08 Notepad→studio_queue orphan destinations + source tracking lost on direct destination writes |
+| 163 | SCOPE-3.F21 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-26 Build-M-superseded surfaces: Reveal Task Tile + Mom Message Card + section-key data-driven layout |
+| 164 | SCOPE-3.F23 | 3 | Low | N | Y | Fix Next Build |  |  |  | PRD-14 dashboard polish bundle (col_span + grid sharing + Today's Victories widget) |
+| 165 | SCOPE-3.F24 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-14B polish bundle: calendar-parse-event + calendar_event_create + duplicate calendar_color + getMemberColo |
+| 166 | SCOPE-3.F25 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-18 5 cross-feature wirings delivered as schema/type scaffolding (GIN index, rhythm_request enum, reflectio |
+| 167 | SCOPE-3.F28 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-24 integration edges schema/primitive-only |
+| 168 | SCOPE-3.F31 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-28 enum + compliance bundle (PRD-28B handoff + hourly + financial_approval dead enum values + homework app |
+| 169 | SCOPE-3.F35 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-34 ThoughtSift implementation drift bundle |
+| 170 | SCOPE-3.F4 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-35 convention surface unwired (calendar preview 2/3 consumers, weekStartDay, allowedFrequencies, _legacy_r |
+| 171 | SCOPE-3.F40 | 3 | Low | N |  | Fix Next Build |  |  |  | PRD-21A minor wire-up + vault_tool_sessions tracking + Optimizer integration server layer |
+| 172 | SCOPE-3.F42 | 3 | Low | N |  | Defer-to-Gate-4 |  |  |  | PRD-21C entire PRD deferred (cross-ref Round 0 Deferred list) |
+| 173 | SCOPE-3.F7 | 3 | Low | N |  | Intentional-Update-Doc |  |  |  | Addendum self-reporting drift — 3 addenda assert completion facts code contradicts |
+| 174 | SCOPE-3.F8 | 3 | Low | N | Y | Intentional-Update-Doc |  |  |  | Reusable animation/visual primitive library intentionally unassigned to production consumers (Lego/surge-prote |
+| 175 | SCOPE-3.F9 | 3 | Low | N | Y | Intentional-Update-Doc |  |  |  | PRD-14 `dashboard_widgets.is_included_in_ai` widget toggle is no-op — drop column + UI toggle |
+| 176 | SCOPE-4.F10 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | Notepad Review & Route + Smart List Import + Post-Meeting Review classifiers are Haiku-first with no embedding |
+| 177 | SCOPE-4.F2 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | pgmq `embedding_jobs` pipeline dormant; polling-consumer is the real architecture |
+| 178 | SCOPE-4.F3 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | `embed` pg_cron schedule undeclared in migrations |
+| 179 | SCOPE-4.F6 | 4 | Low | N | Y | Intentional-Update-Doc |  |  |  | Heart/HeartOff UI toggle gaps across six context-source surfaces — hearts everywhere |
+| 180 | SCOPE-4.F7 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | Board of Directors moderator interjection fires auto-default — revoke to opt-in-only |
+| 181 | SCOPE-4.F9 | 4 | Low | N |  | Intentional-Update-Doc |  |  |  | `lila-message-respond` omits `recentMessages` parameter in `assembleContext` call — sliding window shrinks to  |
+| 182 | SCOPE-5.F1 | 5 | Low | N | Y | Defer-to-Gate-4 |  |  |  | STUB_REGISTRY line 398 stale: Backburner/Ideas auto-provision is wired |
+| 183 | SCOPE-5.F3 | 5 | Low | N |  | Intentional-Update-Doc |  |  |  | Partition-size estimates in operation plan drifted by order of magnitude from actual partition contents |
 
 ---
 
