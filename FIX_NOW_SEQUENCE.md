@@ -7,6 +7,11 @@
 
 ---
 
+## What changed from v9 → v10 (Session 2 Batch 6 first-20 recalibration)
+
+- **Batch 6 recalibration:** Path 1 accepted — high silent-approve rate is expected for Low Beta=N uniform-pattern rows. Modifications adopted: (i) mandatory batch-close spot-check at 183/183 (criterion g retrospective on final 20 silent-approved); (ii) mid-batch spot-check at ~row 141 (same criterion g retrospective on most recent 20); (iii) Scope 4 addition — ALL remaining Scope 4 rows with Proposed = Intentional-Update-Doc surface regardless of severity (Row 31 + Row 93 pattern = 2-for-2 drift evidence at Scope 4 / Intentional-Update-Doc intersection).
+- **SCOPE-2.F2 encoded with dependency + elevation.** Pre-monetization prerequisite; sequences after SCOPE-2.F1 (Wave 0 webhook-only) lands. Both F1 + F2 block full PRD-31 build (SCOPE-3.F34 Defer-to-Gate-4). F2 marked **ELEVATED priority-within-pool** (same pattern as SCOPE-3.F38 Row 89) — pre-monetization prerequisites should not sit indefinitely in general queue.
+
 ## What changed from v8 → v9 (Session 2 Batch 5 close + 3 holds resolved)
 
 - **SCOPE-4.F5 reclassified Intentional-Update-Doc → Fix Code (Wave 5).** Row 31 three-question test returned gaps on all three: no intended-exclusion source doc, no over-promised doc to amend, no cost-model delta. Audit explicitly says "Unintentional-Fix-Code" with founder-approved scope 2026-04-20. Stays blocked by SCOPE-4.F4 W1B. Second reclassification of this pattern (first was SCOPE-4.F1 at Row 31).
@@ -288,6 +293,10 @@ SCOPE-3.F14 -> NEW-W
 
 # SCOPE-2.F1 → SCOPE-8a.F1 (W0 → W4 COPPA prerequisite, webhook-only scope)
 SCOPE-2.F1 -> SCOPE-8a.F1
+
+# SCOPE-2.F2 pre-monetization prerequisite (v10) — sequences after F1 W0
+SCOPE-2.F1 -> SCOPE-2.F2
+SCOPE-2.F2 -> SCOPE-3.F34  # both F1 + F2 block full PRD-31 build
 
 # PRD-24 family workers (v8+F30 fold) — NEW-AA bundled with 4 rows
 NEW-AA ~~> SCOPE-2.F61
