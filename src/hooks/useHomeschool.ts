@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 import type {
   HomeschoolSubject,
   HomeschoolConfig,
@@ -247,11 +248,14 @@ export function useHomeschoolTimeLogs(
 }
 
 export function useDailySummary(memberId: string | undefined, date?: string) {
-  const targetDate = date ?? todayLocalIso()
+  // Row 184 NEW-DD Path 2: if caller doesn't pass an explicit date, use
+  // family-today (server-derived) instead of viewing-device-today.
+  const { data: familyToday } = useFamilyToday(memberId)
+  const targetDate = date ?? familyToday
   return useQuery({
     queryKey: ['homeschool-daily-summary', memberId, targetDate],
     queryFn: async (): Promise<Record<string, number>> => {
-      if (!memberId) return {}
+      if (!memberId || !targetDate) return {}
       const { data, error } = await supabase
         .from('homeschool_time_logs')
         .select('subject_id, minutes_logged')
@@ -266,7 +270,7 @@ export function useDailySummary(memberId: string | undefined, date?: string) {
       }
       return bySubject
     },
-    enabled: !!memberId,
+    enabled: !!memberId && !!targetDate,
   })
 }
 

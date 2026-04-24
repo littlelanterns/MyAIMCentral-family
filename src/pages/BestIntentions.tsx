@@ -40,7 +40,7 @@ function CelebrateButton({
   memberId: string
 }) {
   const logIteration = useLogIteration()
-  const { data: todayCount = 0 } = useTodaysIterations(intention.id)
+  const { data: todayCount = 0 } = useTodaysIterations(intention.id, memberId)
   const [sparkle, setSparkle] = useState<{ x: number; y: number } | null>(null)
   const lastTapRef = useRef(0)
   const btnRef = useRef<HTMLButtonElement>(null)

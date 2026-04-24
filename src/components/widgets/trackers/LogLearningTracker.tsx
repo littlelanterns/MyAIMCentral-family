@@ -7,7 +7,7 @@ import { BookOpen, Play } from 'lucide-react'
 import type { DashboardWidget } from '@/types/widgets'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useHomeschoolSubjects, useDailySummary, useWeeklySummary, useResolvedHomeschoolConfig } from '@/hooks/useHomeschool'
-import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { LogLearningModal } from '@/features/financial/LogLearningModal'
 
 interface LogLearningTrackerProps {
@@ -23,7 +23,9 @@ export function LogLearningTracker({ widget, isCompact }: LogLearningTrackerProp
   const familyId = currentMember?.family_id
 
   const { data: subjects } = useHomeschoolSubjects(familyId)
-  const { data: dailyBySubject } = useDailySummary(memberId, todayLocalIso())
+  // Row 184 NEW-DD Path 2: omit the explicit date so useDailySummary falls back
+  // to useFamilyToday internally (server-derived, cross-device-safe).
+  const { data: dailyBySubject } = useDailySummary(memberId)
   const { data: weeklyBySubject } = useWeeklySummary(memberId)
   const { resolved: config } = useResolvedHomeschoolConfig(familyId, memberId)
 
@@ -172,6 +174,8 @@ function UpcomingAssignments({ memberId }: { memberId: string | undefined }) {
   // Query tasks where counts_for_homework=true + assigned to this member + pending/in_progress + due today or later
   const { data: currentMember } = useFamilyMember()
   const familyId = currentMember?.family_id
+  // Row 184 NEW-DD Path 2: family-today (server-derived) for the due_date lower bound.
+  const { data: familyToday } = useFamilyToday(memberId)
 
   // Lightweight inline query — no dedicated hook needed for 3 items
   const [tasks, setTasks] = useState<Array<{ id: string; title: string; due_date: string | null }>>([])
@@ -179,7 +183,7 @@ function UpcomingAssignments({ memberId }: { memberId: string | undefined }) {
 
   // Load upcoming homework tasks on mount
   useState(() => {
-    if (!memberId || !familyId || loaded) return
+    if (!memberId || !familyId || !familyToday || loaded) return
     import('@/lib/supabase/client').then(({ supabase }) => {
       supabase
         .from('tasks')
@@ -189,7 +193,7 @@ function UpcomingAssignments({ memberId }: { memberId: string | undefined }) {
         .eq('counts_for_homework', true)
         .in('status', ['pending', 'in_progress'])
         .is('archived_at', null)
-        .gte('due_date', todayLocalIso())
+        .gte('due_date', familyToday)
         .order('due_date', { ascending: true })
         .limit(3)
         .then(({ data }) => {

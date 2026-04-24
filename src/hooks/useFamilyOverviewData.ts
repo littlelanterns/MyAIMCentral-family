@@ -5,21 +5,23 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamily } from './useFamily'
-import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 
-const today = () => todayLocalIso()
+// Row 184 NEW-DD Path 2: Family Overview queries use server-derived family-today
+// via useFamilyToday. Any member in `selectedMemberIds` resolves to the family's
+// timezone (all members share it), so we pick the first and query once per group.
 
 // ─── Today's events per member ──────────────────────────────────────────────
 
 export function useTodayEventsForMembers(memberIds: string[]) {
   const { data: family } = useFamily()
   const familyId = family?.id
-  const dateStr = today()
+  const { data: dateStr } = useFamilyToday(memberIds[0])
 
   return useQuery({
     queryKey: ['fo-events', familyId, dateStr, memberIds],
     queryFn: async () => {
-      if (!familyId || memberIds.length === 0) return []
+      if (!familyId || memberIds.length === 0 || !dateStr) return []
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*, event_attendees(family_member_id)')
@@ -30,7 +32,7 @@ export function useTodayEventsForMembers(memberIds: string[]) {
       if (error) throw error
       return data ?? []
     },
-    enabled: !!familyId && memberIds.length > 0,
+    enabled: !!familyId && memberIds.length > 0 && !!dateStr,
   })
 }
 
@@ -39,12 +41,12 @@ export function useTodayEventsForMembers(memberIds: string[]) {
 export function useTodayTasksForMembers(memberIds: string[]) {
   const { data: family } = useFamily()
   const familyId = family?.id
-  const dateStr = today()
+  const { data: dateStr } = useFamilyToday(memberIds[0])
 
   return useQuery({
     queryKey: ['fo-tasks', familyId, dateStr, memberIds],
     queryFn: async () => {
-      if (!familyId || memberIds.length === 0) return []
+      if (!familyId || memberIds.length === 0 || !dateStr) return []
       // Get tasks assigned to selected members, due today or with no due date and active
       const { data, error } = await supabase
         .from('tasks')
@@ -58,7 +60,7 @@ export function useTodayTasksForMembers(memberIds: string[]) {
       if (error) throw error
       return data ?? []
     },
-    enabled: !!familyId && memberIds.length > 0,
+    enabled: !!familyId && memberIds.length > 0 && !!dateStr,
   })
 }
 
@@ -105,12 +107,12 @@ export function useBestIntentionsForMembers(memberIds: string[]) {
 }
 
 export function useTodayIterationsForMembers(memberIds: string[]) {
-  const dateStr = today()
+  const { data: dateStr } = useFamilyToday(memberIds[0])
 
   return useQuery({
     queryKey: ['fo-iterations-today', memberIds, dateStr],
     queryFn: async () => {
-      if (memberIds.length === 0) return []
+      if (memberIds.length === 0 || !dateStr) return []
       const { data, error } = await supabase
         .from('intention_iterations')
         .select('intention_id, member_id')
@@ -119,7 +121,7 @@ export function useTodayIterationsForMembers(memberIds: string[]) {
       if (error) throw error
       return data ?? []
     },
-    enabled: memberIds.length > 0,
+    enabled: memberIds.length > 0 && !!dateStr,
   })
 }
 
@@ -147,12 +149,12 @@ export function useTrackersForMembers(familyId: string | undefined, memberIds: s
 // ─── Opportunity completions today ──────────────────────────────────────────
 
 export function useTodayOpportunityCompletions(familyId: string | undefined, memberIds: string[]) {
-  const dateStr = today()
+  const { data: dateStr } = useFamilyToday(memberIds[0])
 
   return useQuery({
     queryKey: ['fo-opportunities', familyId, memberIds, dateStr],
     queryFn: async () => {
-      if (!familyId || memberIds.length === 0) return []
+      if (!familyId || memberIds.length === 0 || !dateStr) return []
       // Tasks with opportunity types that were completed today
       const { data, error } = await supabase
         .from('tasks')
@@ -165,6 +167,6 @@ export function useTodayOpportunityCompletions(familyId: string | undefined, mem
       if (error) throw error
       return data ?? []
     },
-    enabled: !!familyId && memberIds.length > 0,
+    enabled: !!familyId && memberIds.length > 0 && !!dateStr,
   })
 }

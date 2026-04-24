@@ -111,7 +111,7 @@ function SortableIntentionRow({
   }
 
   const { data: member } = useFamilyMember()
-  const { data: todayCount = 0 } = useTodaysIterations(intention.id)
+  const { data: todayCount = 0 } = useTodaysIterations(intention.id, member?.id)
   const logIteration = useLogIteration()
 
   const [sparkle, setSparkle] = useState<{ x: number; y: number } | null>(null)

@@ -33,6 +33,7 @@ import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
 import { useGamificationTheme } from '@/hooks/useGamificationTheme'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
 import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
@@ -77,7 +78,10 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
   // Filter recurring tasks to only those scheduled for today, then to Play
   // types. Also drop completed tasks that weren't completed today so old
   // finished tasks don't linger on the Play dashboard.
-  const today = todayLocalIso()
+  // Row 184 NEW-DD Path 2: server-derived family-today — tablet clock drift
+  // was previously hiding kids' just-completed tasks from this filter.
+  const { data: todayFamily } = useFamilyToday(memberId)
+  const today = todayFamily ?? todayLocalIso()
   const playTasks = useMemo(
     () =>
       filterTasksForToday(allTasks)

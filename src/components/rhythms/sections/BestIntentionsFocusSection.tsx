@@ -50,6 +50,7 @@ export function BestIntentionsFocusSection({ familyId, memberId, count = 3 }: Pr
           <IntentionRow
             key={intention.id}
             intentionId={intention.id}
+            memberId={memberId}
             statement={intention.statement}
             color={intention.color}
             onTap={() =>
@@ -69,16 +70,18 @@ export function BestIntentionsFocusSection({ familyId, memberId, count = 3 }: Pr
 
 function IntentionRow({
   intentionId,
+  memberId,
   statement,
   color,
   onTap,
 }: {
   intentionId: string
+  memberId: string
   statement: string
   color: string | null
   onTap: () => void
 }) {
-  const { data: todaysCount = 0 } = useTodaysIterations(intentionId)
+  const { data: todaysCount = 0 } = useTodaysIterations(intentionId, memberId)
 
   return (
     <li>

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 
 /** Full AIMfM 44-color palette for intention color assignment */
 export const INTENTION_COLORS = MEMBER_COLORS.map((c) => c.hex)
@@ -105,14 +106,20 @@ export function useIntentionIterations(intentionId: string | undefined) {
   })
 }
 
-// Count iterations for a specific intention where day_date = today
-export function useTodaysIterations(intentionId: string | undefined) {
-  const today = todayLocalIso()
+// Count iterations for a specific intention where day_date = family-today.
+// Row 184 NEW-DD Path 2: `today` is now derived server-side via useFamilyToday
+// so a misconfigured viewer clock doesn't miss rows. memberId drives the
+// family-timezone lookup.
+export function useTodaysIterations(
+  intentionId: string | undefined,
+  memberId: string | undefined,
+) {
+  const { data: today } = useFamilyToday(memberId)
 
   return useQuery({
     queryKey: ['intention-iterations-today', intentionId, today],
     queryFn: async () => {
-      if (!intentionId) return 0
+      if (!intentionId || !today) return 0
 
       const { count, error } = await supabase
         .from('intention_iterations')
@@ -123,7 +130,7 @@ export function useTodaysIterations(intentionId: string | undefined) {
       if (error) throw error
       return count ?? 0
     },
-    enabled: !!intentionId,
+    enabled: !!intentionId && !!today,
   })
 }
 

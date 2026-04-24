@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -197,11 +198,12 @@ export function useArchivedPrompts(memberId: string | undefined) {
 }
 
 export function useTodaysResponses(familyId: string | undefined, memberId: string | undefined) {
-  const today = todayLocalIso()
+  // Row 184 NEW-DD Path 2: server-derived family-today.
+  const { data: today } = useFamilyToday(memberId)
   return useQuery({
     queryKey: ['reflection-responses-today', memberId, today],
     queryFn: async () => {
-      if (!familyId || !memberId) return []
+      if (!familyId || !memberId || !today) return []
       const { data, error } = await supabase
         .from('reflection_responses')
         .select('*')
@@ -210,7 +212,7 @@ export function useTodaysResponses(familyId: string | undefined, memberId: strin
       if (error) throw error
       return data as ReflectionResponse[]
     },
-    enabled: !!familyId && !!memberId,
+    enabled: !!familyId && !!memberId && !!today,
   })
 }
 
@@ -304,8 +306,9 @@ export function useSaveResponse() {
       return data as ReflectionResponse
     },
     onSuccess: (_data, vars) => {
-      const today = todayLocalIso()
-      qc.invalidateQueries({ queryKey: ['reflection-responses-today', vars.memberId, today] })
+      // Row 184 NEW-DD Path 2: invalidate by prefix so the family-today-keyed
+      // cache gets cleared regardless of which date string it holds.
+      qc.invalidateQueries({ queryKey: ['reflection-responses-today', vars.memberId] })
       qc.invalidateQueries({ queryKey: ['reflection-responses-past', vars.memberId] })
       qc.invalidateQueries({ queryKey: ['journal-entries', vars.memberId] })
     },
@@ -345,8 +348,9 @@ export function useUpdateResponse() {
       }
     },
     onSuccess: (_data, vars) => {
-      const today = todayLocalIso()
-      qc.invalidateQueries({ queryKey: ['reflection-responses-today', vars.memberId, today] })
+      // Row 184 NEW-DD Path 2: invalidate by prefix so the family-today-keyed
+      // cache gets cleared regardless of which date string it holds.
+      qc.invalidateQueries({ queryKey: ['reflection-responses-today', vars.memberId] })
       qc.invalidateQueries({ queryKey: ['reflection-responses-past', vars.memberId] })
       qc.invalidateQueries({ queryKey: ['journal-entries', vars.memberId] })
     },

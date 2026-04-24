@@ -185,7 +185,11 @@ export function HubBestIntentionsSection({
   const { data: family } = useFamily()
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const { data: intentions } = useFamilyBestIntentions(family?.id)
-  const { data: iterations } = useTodayFamilyIterations(family?.id)
+  // Row 184 NEW-DD Path 2: use the current member (if provided) or the first
+  // active family member for the timezone lookup — any member in the family
+  // resolves to the same family timezone.
+  const tzMemberId = _currentMemberId ?? (familyMembers ?? []).find(m => m.is_active)?.id
+  const { data: iterations } = useTodayFamilyIterations(family?.id, tzMemberId)
   const logTally = useLogFamilyIntentionTally()
 
   const [expandedIntentionId, setExpandedIntentionId] = useState<string | null>(null)

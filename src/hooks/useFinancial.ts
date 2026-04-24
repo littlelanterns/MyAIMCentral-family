@@ -2,7 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
+import { localIsoDaysFromToday } from '@/utils/dates'
+import { useFamilyToday, fetchFamilyToday } from './useFamilyToday'
 import type {
   AllowanceConfig,
   AllowanceConfigInput,
@@ -670,10 +671,13 @@ export function useCompletionPercentage(
   mode: 'allowance' | 'fallback',
   fallbackMode?: 'today' | 'this_week' | 'rolling_7' | 'this_month' | 'rolling_30',
 ) {
+  // Row 184 NEW-DD Path 2: family-today for date-range task filters so
+  // cross-device clock drift can't shift the counting window.
+  const { data: familyToday } = useFamilyToday(memberId)
   return useQuery({
-    queryKey: ['completion-percentage', memberId, mode, fallbackMode],
+    queryKey: ['completion-percentage', memberId, mode, fallbackMode, familyToday],
     queryFn: async () => {
-      if (!memberId) return 0
+      if (!memberId || !familyToday) return 0
 
       if (mode === 'allowance') {
         // Read from active allowance period
@@ -689,7 +693,7 @@ export function useCompletionPercentage(
       }
 
       // Fallback: raw task completion %
-      const today = todayLocalIso()
+      const today = familyToday
       let dateFrom: string
       switch (fallbackMode ?? 'this_week') {
         case 'today':
@@ -738,7 +742,7 @@ export function useCompletionPercentage(
       if (!assigned || assigned === 0) return 100 // zero tasks = 100%
       return Math.round(((completed ?? 0) / assigned) * 10000) / 100 // 2 decimal places
     },
-    enabled: !!memberId,
+    enabled: !!memberId && !!familyToday,
     refetchInterval: 30000, // refresh every 30s for real-time-ish updates
   })
 }
@@ -761,8 +765,14 @@ export function useStartAllowancePeriod() {
       weeklyAmount: number
       periodStartDay: string
     }) => {
-      const today = new Date()
-      const todayStr = todayLocalIso()
+      // Row 184 NEW-DD Path 2: server-derived family-today for period_start.
+      // Previously wrote the clicking device's local date, which drifted across
+      // a misconfigured clock and produced a period starting tomorrow.
+      const todayStr = await fetchFamilyToday(memberId)
+      // Parse back to a Date for day-of-week math (local-time safe because the
+      // string is YYYY-MM-DD and we reconstruct at noon).
+      const [ty, tm, td] = todayStr.split('-').map(Number)
+      const today = new Date(ty, tm - 1, td, 12, 0, 0)
 
       // Calculate end of this week based on period_start_day
       const dayMap: Record<string, number> = {

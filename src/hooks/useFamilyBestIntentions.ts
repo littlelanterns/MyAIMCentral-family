@@ -9,6 +9,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -178,13 +179,19 @@ export function useArchiveFamilyBestIntention() {
 
 // ─── Today's iterations (tallies) ───────────────────────────────────────────
 
-export function useTodayFamilyIterations(familyId: string | undefined) {
-  const today = todayLocalIso()
+// Row 184 NEW-DD Path 2: `memberId` drives server-side family-timezone lookup
+// via useFamilyToday so viewing-device clock misconfiguration doesn't hide rows.
+// Any valid family member id resolves to the family's timezone.
+export function useTodayFamilyIterations(
+  familyId: string | undefined,
+  memberId: string | undefined,
+) {
+  const { data: today } = useFamilyToday(memberId)
 
   return useQuery({
     queryKey: ['family-intention-iterations', familyId, today],
     queryFn: async () => {
-      if (!familyId) return []
+      if (!familyId || !today) return []
       const { data, error } = await supabase
         .from('family_intention_iterations')
         .select('*')
@@ -193,7 +200,7 @@ export function useTodayFamilyIterations(familyId: string | undefined) {
       if (error) throw error
       return (data ?? []) as FamilyIntentionIteration[]
     },
-    enabled: !!familyId,
+    enabled: !!familyId && !!today,
     refetchInterval: 30_000,
   })
 }

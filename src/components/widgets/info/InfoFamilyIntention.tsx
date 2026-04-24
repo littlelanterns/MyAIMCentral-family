@@ -20,7 +20,7 @@ export function InfoFamilyIntention({ widget: _widget, isCompact }: Props) {
   const { data: family } = useFamily()
   const { data: member } = useFamilyMember()
   const { data: intentions = [] } = useFamilyBestIntentions(family?.id)
-  const { data: todayIterations = [] } = useTodayFamilyIterations(family?.id)
+  const { data: todayIterations = [] } = useTodayFamilyIterations(family?.id, member?.id)
 
   const activeIntentions = intentions.filter((i) => i.is_active)
 

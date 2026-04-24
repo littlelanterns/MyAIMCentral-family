@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { DollarSign, Calendar, Plus, ChevronRight, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import {
   useFamilyFinancialSummary,
   useFamilyTransactions,
@@ -286,6 +287,7 @@ function WeeklyProgressCard({
                   periodStart={period.period_start as string}
                   periodEnd={period.period_end as string}
                   existingGraceDays={graceDays}
+                  memberId={summary.memberId}
                   onSelect={(date) => {
                     addGraceDay.mutate({ periodId: period.id, date })
                     setShowGracePicker(false)
@@ -322,15 +324,19 @@ function GraceDayGrid({
   periodStart,
   periodEnd,
   existingGraceDays,
+  memberId,
   onSelect,
 }: {
   periodStart: string
   periodEnd: string
   existingGraceDays: string[]
+  memberId: string | undefined
   onSelect: (date: string) => void
 }) {
   const days: { iso: string; label: string; isToday: boolean; isGrace: boolean }[] = []
-  const today = todayLocalIso()
+  // Row 184 NEW-DD Path 2: server-derived family-today for the "Today" marker.
+  const { data: todayFamily } = useFamilyToday(memberId)
+  const today = todayFamily ?? todayLocalIso()
   const start = new Date(periodStart + 'T12:00:00')
   const end = new Date(periodEnd + 'T12:00:00')
 
