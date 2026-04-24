@@ -69,7 +69,7 @@ LiLa has four visual states, each represented by a unique character art pose. Th
 | LiLa Help | "Happy to Help" | Open arms, welcoming | Customer support, troubleshooting, bug reporting |
 | LiLa Assist | "Your Guide" | Holding clipboard | Feature guidance, onboarding, tool recommendations |
 | LiLa Optimizer | "Smart AI" | Thinking, chin tap | Prompt optimization with family context (full spec in PRD-05C) |
-| Sitting LiLa | General / Resting | Meditative, glowing heart, stars | Drawer resting state, general conversation, smart routing to specialized modes |
+| Sitting LiLa | General / Resting *(architecture-only; not user-facing as of 2026-04-23, preserved for future local-LLM landing — see `LILA_FUTURE_LOCAL_LLM.md`)* | Meditative, glowing heart, stars | Reserved. Not surfaced to users. |
 
 All four share the same warm, encouraging brand voice. Each has a personality flavor described in the Mode Definitions section below.
 
@@ -322,6 +322,8 @@ Archives — Uploaded Content
 **Model:** Haiku (most guidance queries are straightforward; escalates to Sonnet for complex workflow recommendations)
 
 ### General Chat — Sitting LiLa
+
+> **⚠️ Architecture-only as of 2026-04-23.** This mode is no longer user-facing. It is preserved in this PRD as the architectural specification for the future local-LLM General LiLa landing (see `LILA_FUTURE_LOCAL_LLM.md`, NEW-E). The `general` row in `lila_guided_modes` remains in place for modal-contract compatibility. User-facing exposure is removed per PRD-05 Drawer Default and Routing Concierge Addendum (2026-04-23). Do not wire new UI surfaces to this mode until the local-LLM work is explicitly taken up.
 
 **Avatar:** Meditative sitting pose with glowing heart (sittinglila.png)
 **Personality:** The warmest, most versatile version. Conversational, thoughtful, unhurried. Happy to chat about anything — parenting, life, faith, ideas — while keeping her ears open for moments where a specialized tool would serve better.
