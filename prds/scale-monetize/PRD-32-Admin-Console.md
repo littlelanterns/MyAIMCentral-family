@@ -1366,4 +1366,104 @@ Storage buckets: `feedback-attachments`
 
 ---
 
+## Appended Section — Personas Tab (Wave 1B)
+
+> **Scope note:** This section extends PRD-32 with the Personas tab required by Wave 1B Board of Directors consolidated sprint. Other PRD-32 sections (System, Analytics, Feedback) remain at their previous build-order timeline. This section is minimum-scope: approval-queue UI route + admin auth gate. Full PRD-32 build continues per original plan.
+>
+> **Forward note — Platform Knowledge Promotion consolidation (post-beta / Gate-4 timeline).** The Personas tab built here is the first concrete instance of a broader admin pattern: user-surfaced content reviewed by an admin and promoted to a shared platform-wide knowledge layer. When BookShelf framework promotion is built (PRD-23 follow-on + Platform Intelligence Pipeline v2 Channel E admin UI), the intended consolidation is a parent tab — working name "Platform Knowledge Promotion" — with Personas and Book Knowledge as sub-sections. The three-tier architecture in Convention #258 generalizes to that parent pattern without schema changes; the consolidation is a UI / tab-registry refactor only. This is a directional note, not a commitment — scope and naming will be re-validated when Books promotion admin work is on the active wave.
+
+---
+
+### Tab Registry Addition
+
+| Tab Label | Route | Permission Required | Defined In |
+|---|---|---|---|
+| Personas | `/admin/personas` | `persona_admin` | This section |
+
+Added to the existing PRD-21B tab registry. No other tabs modified.
+
+---
+
+### Screen 13: Personas Tab — Approval Queue
+
+> **Depends on:** `platform_intelligence.persona_promotion_queue` (PRD-34 Persona Architecture Addendum §6).
+> **Consumes:** queue row payload per PRD-34 Addendum §6 contract.
+
+The Personas tab is where Tenise (and eventually other admins with `persona_admin` permission) reviews user-submitted personas that the ThoughtSift classifier has routed as community-relevant. Each queue row represents a persona a family created through Board of Directors that the system flagged as potentially valuable to other families — most commonly public figures, historical leaders, or well-sourced characters.
+
+The admin's job is to decide whether each queued persona should enter the shared approved-persona library (Tier 3), be refined before entering, be rejected, or be deferred for later decision.
+
+#### Key elements
+
+- **Sub-tab filter:** Pending (default), Approved, Rejected, All. Deferred rows hidden by default; appear when "Show stale" toggle is on.
+- **Search:** full-text on `requested_persona_name`.
+- **Category filter:** historical, literary, faith_leader, thinker, business, parenting, custom.
+- **Sort:** Newest (default), Oldest, Confidence (highest first).
+- **Stale toggle:** when on, includes rows older than 30 days in `pending` status.
+- **Row cards:** persona name, submission date, submitter email, category, classifier confidence, source reference count, public-figure signal indicator.
+
+#### Detail view
+
+Clicking **View Details** on a row expands inline with:
+- **Classifier reasoning** — one-line explanation of why the classifier routed this to community-relevant.
+- **Proposed personality profile** — the Sonnet-generated JSONB. Read-only in the detail view; editable when Refine is clicked.
+- **Source references** — the Sonnet-generated list of verifiable sources. Read-only in detail view; editable when Refine is clicked.
+- **Admin notes** — free-text field captured on any decision action.
+
+#### Four-button action set
+
+**Approve** → writes a new row to `platform_intelligence.board_personas`:
+- `persona_name` = queue row's `requested_persona_name`
+- `persona_type` = `'community_generated'`
+- `personality_profile`, `source_references`, `category`, `icon_emoji` = queue row's proposed values unchanged
+- `content_policy_status` = `'approved'`
+- `is_public` = true, `family_id` = NULL, `created_by` = NULL
+- `embedding` recomputed from approved values
+
+Queue row updates: `status='approved'`, `reviewer_id`, `decided_at`, `approved_persona_id`.
+
+The submitting family's original personal persona row remains unchanged in `public.board_personas` — they keep their personal version; the new Tier 3 row becomes visible to all other families.
+
+**Refine** → opens inline editor on `proposed_personality_profile` (JSONB editor) and `source_references` (array editor). Admin edits, then clicks Save & Approve. The approval flow runs with the refined values. Queue row status becomes `'refined_and_approved'`. Otherwise identical to Approve.
+
+**Reject** → queue row `status='rejected'`, with `reviewer_id`, `decided_at`, `admin_notes`. No `board_personas` row is written. The submitting family's personal persona row remains with them — Reject is a decision not to promote, not to strip the persona from the originator.
+
+**Defer** → queue row `status='deferred'`. Drops from default pending view. Can be reopened from the Deferred sub-tab or the "Show stale" view. No timeout.
+
+#### Stale-entry handling
+
+Default pending view shows rows where `status='pending'` and `created_at` is within the last 30 days. Rows older than 30 days are hidden by default with a "Show stale (30+ days)" toggle. This is a UI-only filter; no cron job, no status change, no schema fields.
+
+At Beta scale (Tenise as sole reviewer, expected low volume from first cohort with no under-13s), the manual-filter approach is sufficient. If the queue grows, upgrade to a scheduled sweep that moves old `pending` rows to `deferred` automatically — but that is Gate-4 timeline work, not beta-blocking.
+
+#### Data created/updated
+
+- `platform_intelligence.persona_promotion_queue` status updates on every action
+- `platform_intelligence.board_personas` INSERT on Approve or Refine-and-Approve
+- `admin_notes` on the queue row (all four actions)
+
+---
+
+### Stubs Created by This Section
+
+| Stub | Wires To | Future PRD |
+|---|---|---|
+| Admin activity log for Personas tab | Audit trail of Approve / Refine / Reject / Defer actions | Post-MVP (consolidates with existing admin activity log stub in base PRD-32) |
+| Bulk-approve for pending queue | Multi-select + batch approve for low-risk approvals | Post-MVP |
+| Similarity clustering view | "These 3 pending rows look similar — review together" | Post-MVP (uses existing `embedding` column on queue rows) |
+| Consolidation into Platform Knowledge Promotion parent tab | Merge Personas + Books (when built) + future content types into a single admin area | Post-beta / Gate-4 timeline |
+
+### Existing Stubs Wired by This Section
+
+| Stub | Created By | How It's Wired |
+|---|---|---|
+| "Board of Directors persona promotion queue admin UI" | SCOPE-4.F4 fix scope item (b) | Fully defined in Screen 13 above. Route: `/admin/personas`. Permission: `persona_admin`. |
+| `persona_admin` permission type | New in this section | Registered as `staff_permissions.permission_type` value. |
+
+---
+
+*End of Appended Section — Personas Tab*
+
+---
+
 *End of PRD-32*

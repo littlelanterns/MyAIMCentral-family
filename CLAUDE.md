@@ -276,7 +276,7 @@ This process exists because weeks of careful planning went into every PRD and ad
 96. **Mediator safety exception is mandatory.** Once triggered (fear, harm, coercive control, isolation, threats), `safety_triggered` flag is persisted to `lila_conversations.context_snapshot`. Checked from DB on every turn. Framework coaching does NOT resume in that session. Flag survives close/reopen.
 97. **Board of Directors `personal_custom` personas NEVER enter the platform intelligence pipeline.** `persona_type` check required before any pipeline write. Hard rule, no exceptions.
 98. **Perspective Shifter family-context lenses: synthesize context, never quote source items.** Privacy rule enforced in Edge Function code (`synthesizeFamilyContext()`), not just system prompt. Dual enforcement.
-99. **Persona caching (P8 pattern): always check `board_personas` by name (case-insensitive) before generating a new public persona.** One generation cost per persona, amortized across all future users.
+99. **Persona caching (P8 pattern): always check `board_personas` by name (case-insensitive) before generating a new public persona.** One generation cost per persona, amortized across all future users. **Amended 2026-04-23 per Convention #258:** the cache-lookup check must scope by `is_public=true AND family_id IS NULL AND content_policy_status='approved'` in the `platform_intelligence.board_personas` namespace. Personal personas (`public.board_personas`, `persona_type='personal_custom'`) are never cache candidates. See Convention #258 for the full three-tier architecture.
 100. **Prayer Seat = special `board_session_personas` record with `is_prayer_seat=true`.** No AI responses generated for this seat. Reflection questions generated FRESH per session by Sonnet using the user's specific situation — never canned.
 101. **Persona disclaimer shown exactly ONCE per session for non-personal personas.** Tracked via `disclaimer_shown` boolean on `board_sessions`. "AI interpretation of [Name]... not endorsed... read their actual work."
 102. **Content policy gate runs BEFORE persona generation.** Haiku pre-screen (separate call from Sonnet generation). Three outcomes: deity → Prayer Seat redirect, blocked figure → hard block, harmful description → prompt to revise. Applies to ALL persona types including `personal_custom`.
@@ -716,3 +716,19 @@ These conventions codify the rules from `claude/web-sync/Composition-Architectur
     - **(c) Pre-work gate:** before ANY work that touches dates, completion tracking, streaks, daily tallies, or filters/stores a "today" or "this week" value, read `claude/web-sync/CLIENT_DATE_AUDIT_2026-04-23.md` and verify migration 100157's trigger is still holding (run the verification query in the audit doc — should return 0 misaligned rows).
 
     **Reason:** silent cross-device data invisibility is mom-first critical — same severity class as crisis override (Convention #7) and HITM (Convention #4). Next new migration starts at `00000000100158_` (supersedes earlier handoff notes that said 100157).
+
+258. **Board of Directors persona architecture is three-tier: personal scoped / promotion queue / approved shared cache.** Amends Convention #99.
+
+    - **Personal scoped** — `public.board_personas` rows with `persona_type='personal_custom'`, `is_public=false`, `family_id IS NOT NULL`. RLS-isolated to the creating family. NEVER enters the shared cache regardless of content. NEVER enters the platform intelligence pipeline (per Convention #97).
+    - **Promotion queue** — `platform_intelligence.persona_promotion_queue` rows with `status='pending'`. Only personas classified as community-relevant by the multi-family-relevance classifier (PRD-34 Persona Architecture Addendum §5) enter here. Deity and blocked-figure personas are rejected upstream by the harm screen per Conventions #100–#102 and NEVER reach this queue. Admin review is required before any queue row becomes a shared-cache row.
+    - **Approved shared cache** — `platform_intelligence.board_personas` rows with `is_public=true`, `family_id IS NULL`, `content_policy_status='approved'`. ONLY the admin Approve / Refine-and-Approve path in PRD-32's Personas tab can write rows to this layer.
+
+    **Cache-lookup paths scope by all four Tier 3 predicates:** schema namespace (`platform_intelligence`) + `is_public=true` + `family_id IS NULL` + `content_policy_status='approved'`. Omitting any predicate is a defect, not a shortcut.
+
+    **Shared-cache entry criteria are governed at admin review** against the PRD-41 / LiLa Layer 2 auto-reject categories (force, coercion, manipulation, shame-based control, withholding affection). This convention does not redefine those categories — it governs which content reaches the shared cache.
+
+    **Convention #99 amended:** the cache-lookup check required by #99 must include all four Tier 3 predicates above. Name-only lookups are defects.
+
+    **Forward note:** When additional user-surfaced content types enter a shared-cache layer (BookShelf framework promotion via Platform Intelligence Pipeline v2 Channel E is the anticipated next instance), this three-tier pattern is expected to generalize. Either amend this convention or author a parent governance convention at that time; either path is acceptable as long as the three-tier rule is preserved.
+
+    See `prds/addenda/PRD-34-Persona-Architecture-Addendum.md` (full architecture spec), `prds/scale-monetize/PRD-32-Admin-Console.md` Screen 13 (admin review UI), `prds/addenda/PRD-32-Personas-Cross-PRD-Impact-Addendum.md` (cross-PRD impact).
