@@ -52,11 +52,8 @@ function AdminCheck({ children }: AdminGateProps) {
           </p>
           <Link
             to="/dashboard"
-            className="inline-block rounded-full px-5 py-2 font-medium"
-            style={{
-              backgroundColor: 'var(--surface-primary)',
-              color: 'var(--color-text-on-primary)',
-            }}
+            className="btn-primary inline-block rounded-full px-5 py-2 font-medium"
+            style={{ color: 'var(--color-btn-primary-text)' }}
           >
             Back to dashboard
           </Link>

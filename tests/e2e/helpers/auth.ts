@@ -159,3 +159,66 @@ export async function loginAsRiley(page: Page): Promise<void> {
     'riley'
   )
 }
+
+// ─── Admin-only test helper (SCOPE-2.F48) ────────────────────────────────────
+// DO NOT expand beyond admin-shell tests. This bypasses real Supabase auth
+// by writing a synthetic session to localStorage — it does NOT create an
+// auth.users row, and any DB call the test page makes with this session will
+// fail RLS. Use ONLY for tests that exercise the SUPER_ADMIN_EMAILS code path
+// in useIsAdmin (short-circuits before any DB query).
+
+const TEST_ALLOWED_SUPER_ADMIN_EMAILS = [
+  'tenisewertman@gmail.com',
+]
+
+export async function injectSuperAdminSession(
+  page: Page,
+  email: string
+): Promise<void> {
+  if (!TEST_ALLOWED_SUPER_ADMIN_EMAILS.includes(email)) {
+    throw new Error(
+      `injectSuperAdminSession: "${email}" not in test-safe allowlist. ` +
+        `Expand TEST_ALLOWED_SUPER_ADMIN_EMAILS in tests/e2e/helpers/auth.ts ` +
+        `only when you deliberately intend to bypass real auth for this email.`
+    )
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  const expiresAt = nowSeconds + 3600 // 1 hour
+
+  const syntheticSession = {
+    access_token: 'test-synthetic-access-token-admin-shell-spec',
+    refresh_token: 'test-synthetic-refresh-token-admin-shell-spec',
+    expires_at: expiresAt,
+    expires_in: 3600,
+    token_type: 'bearer',
+    type: 'access',
+    user: {
+      id: '00000000-0000-0000-0000-000000000000',
+      email,
+      aud: 'authenticated',
+      role: 'authenticated',
+      app_metadata: {},
+      user_metadata: {},
+      created_at: new Date(nowSeconds * 1000).toISOString(),
+    },
+  }
+
+  const storageKey = 'myaim-auth'
+  const storageValue = JSON.stringify(syntheticSession)
+
+  // Navigate to base URL so localStorage is scoped to the app origin.
+  await page.goto('/')
+
+  await page.evaluate(
+    ([key, value]) => {
+      localStorage.setItem(key, value)
+    },
+    [storageKey, storageValue]
+  )
+
+  // Reload so the Supabase client initializes with the injected session and
+  // fires INITIAL_SESSION → useAuth picks up the user.
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+}
