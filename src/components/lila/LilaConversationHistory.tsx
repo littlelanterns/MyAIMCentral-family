@@ -190,11 +190,6 @@ export function LilaConversationHistory({ onConversationSelect, onClose }: LilaC
             active={modeFilter === 'assist'}
             onClick={() => setModeFilter(modeFilter === 'assist' ? undefined : 'assist')}
           />
-          <FilterChip
-            label="General"
-            active={modeFilter === 'general'}
-            onClick={() => setModeFilter(modeFilter === 'general' ? undefined : 'general')}
-          />
         </div>
       )}
 

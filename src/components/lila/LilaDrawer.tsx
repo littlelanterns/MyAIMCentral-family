@@ -98,7 +98,7 @@ export function LilaDrawer({
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [currentMode, setCurrentMode] = useState(initialMode || 'general')
+  const [currentMode, setCurrentMode] = useState(initialMode || 'assist')
   const [contextSummary, setContextSummary] = useState('Loading context...')
   const [openingMessage, setOpeningMessage] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -209,10 +209,10 @@ export function LilaDrawer({
       conv = await createConversation.mutateAsync({
         family_id: family.id,
         member_id: member.id,
-        mode: ['general', 'help', 'assist', 'optimizer'].includes(currentMode)
-          ? (currentMode as 'general' | 'help' | 'assist' | 'optimizer')
-          : 'general',
-        guided_mode: currentMode !== 'general' ? currentMode : undefined,
+        mode: ['help', 'assist', 'optimizer'].includes(currentMode)
+          ? (currentMode as 'help' | 'assist' | 'optimizer')
+          : 'assist',
+        guided_mode: ['help', 'assist', 'optimizer'].includes(currentMode) ? undefined : currentMode,
         container_type: 'drawer',
         model_used: modelUsed,
         page_context: location.pathname,
@@ -584,7 +584,7 @@ export function LilaDrawer({
 
           {messages.map((msg, i) => {
             const isLatestAssistant = msg.role === 'assistant' && i === messages.length - 1 && !isStreaming
-            const isConversationalMode = ['help', 'assist', 'general', 'optimizer'].includes(currentMode)
+            const isConversationalMode = ['help', 'assist', 'optimizer'].includes(currentMode)
             return (
               <LilaMessageBubble
                 key={msg.id}

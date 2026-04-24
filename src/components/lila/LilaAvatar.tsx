@@ -67,8 +67,7 @@ export function getModeDisplayName(modeKey: string | null, guidedSubtype: string
     case 'help': return 'LiLa Help'
     case 'assist': return 'LiLa Assist'
     case 'optimizer': return 'LiLa Optimizer'
-    case 'general': return 'General Chat'
-    default: return modeKey || 'General Chat'
+    default: return modeKey || 'LiLa'
   }
 }
 

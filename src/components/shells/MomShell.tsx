@@ -39,7 +39,7 @@ interface MomShellProps {
 export function MomShell({ children }: MomShellProps) {
   const [activeConversation, setActiveConversation] = useState<LilaConversation | null>(null)
   const [_lilaVisible, setLilaVisible] = useState(true)
-  const [lilaMode, setLilaMode] = useState<string | undefined>(undefined)
+  const [lilaMode, setLilaMode] = useState<string | undefined>('assist')
   const [showHistory, setShowHistory] = useState(false)
   const [showContextSettings, setShowContextSettings] = useState(false)
   const [showExpandedModal, setShowExpandedModal] = useState(false)
