@@ -12,7 +12,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Send, Mic, Loader, Copy, FileText, Plus, UserMinus, Star, StarOff, Search, Users, ChevronRight, Brain } from 'lucide-react'
+import { X, Send, Mic, Loader, Copy, FileText, Plus, UserMinus, Star, StarOff, Search, Users, ChevronRight, Brain, RefreshCw, Check, Edit3 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
@@ -37,6 +37,30 @@ interface Persona {
   persona_type: string
   category: string | null
   is_public: boolean
+  /**
+   * Three-tier source marker per Convention #258 two-column polymorphism:
+   *   tier1 → board_session_personas.persona_id (personal_custom, public schema)
+   *   tier3 → board_session_personas.platform_persona_id (approved shared cache)
+   */
+  _source?: 'tier1' | 'tier3'
+}
+
+interface PersonalityProfile {
+  traits?: string[]
+  philosophies?: string[]
+  communication_style?: string
+  reasoning_patterns?: string
+  characteristic_language?: string[]
+  known_for?: string
+}
+
+interface PreviewState {
+  name: string
+  description: string
+  relationship: string
+  follow_up: string
+  profile: PersonalityProfile
+  classifier: { multi_family_relevance: string; confidence: number } | null
 }
 
 interface BoardOfDirectorsModalProps {
@@ -167,6 +191,13 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
   const [creatingPersona, setCreatingPersona] = useState(false)
   const [policyMessage, setPolicyMessage] = useState<string | null>(null)
 
+  // HITM gate (SCOPE-8a.F5): preview → review → commit cycle
+  const [preview, setPreview] = useState<PreviewState | null>(null)
+  const [reviewEditing, setReviewEditing] = useState(false)
+
+  // Moderator interjection opt-in toggle (SCOPE-4.F7). Default off.
+  const [moderatorEnabled, setModeratorEnabled] = useState(false)
+
   // Prayer seat state
   const [prayerQuestions, setPrayerQuestions] = useState<string[]>([])
 
@@ -181,24 +212,63 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
     isSupported: voiceSupported,
   } = useVoiceInput()
 
-  // ── Load personas and favorites ──────────────────────────
+  // ── Load personas from both tiers ─────────────────────────
+  // Convention #258: Tier-3 approved shared cache lives in
+  // platform_intelligence and is exposed via list_approved_personas RPC;
+  // Tier-1 personal_custom lives in public.board_personas, family-scoped by RLS.
 
   useEffect(() => {
-    supabase.from('board_personas')
-      .select('id, persona_name, personality_profile, persona_type, category, is_public')
-      .or('is_public.eq.true,persona_type.eq.system_preloaded')
-      .eq('content_policy_status', 'approved')
-      .order('usage_count', { ascending: false })
-      .then(({ data }) => { if (data) setAllPersonas(data as Persona[]) })
-  }, [])
+    if (!family) return
+    async function load() {
+      const [tier3, tier1] = await Promise.all([
+        supabase.rpc('list_approved_personas'),
+        supabase.from('board_personas')
+          .select('id, persona_name, personality_profile, persona_type, category, is_public')
+          .eq('family_id', family!.id),
+      ])
+      const merged: Persona[] = []
+      if (tier3.data) {
+        for (const p of tier3.data as Persona[]) merged.push({ ...p, _source: 'tier3' })
+      }
+      if (tier1.data) {
+        for (const p of tier1.data as Persona[]) merged.push({ ...p, _source: 'tier1' })
+      }
+      setAllPersonas(merged)
+    }
+    load().catch(err => console.error('Load personas failed:', err))
+  }, [family])
 
   useEffect(() => {
     if (!member) return
     supabase.from('persona_favorites')
-      .select('persona_id')
+      .select('persona_id, platform_persona_id')
       .eq('member_id', member.id)
-      .then(({ data }) => { if (data) setFavorites(data.map(f => f.persona_id)) })
+      .then(({ data }) => {
+        if (data) {
+          const favs: string[] = []
+          for (const row of data) {
+            if (row.persona_id) favs.push(row.persona_id)
+            if (row.platform_persona_id) favs.push(row.platform_persona_id)
+          }
+          setFavorites(favs)
+        }
+      })
   }, [member])
+
+  // Load moderator preference from family_members.preferences (SCOPE-4.F7)
+  useEffect(() => {
+    if (!member) return
+    const prefs = (member.preferences || {}) as Record<string, unknown>
+    setModeratorEnabled(prefs.moderator_interjections_enabled === true)
+  }, [member])
+
+  const toggleModerator = useCallback(async () => {
+    if (!member) return
+    const next = !moderatorEnabled
+    setModeratorEnabled(next)
+    const prefs = { ...(member.preferences as Record<string, unknown> || {}), moderator_interjections_enabled: next }
+    await supabase.from('family_members').update({ preferences: prefs }).eq('id', member.id)
+  }, [member, moderatorEnabled])
 
   // Static intro (replaces AI opening messages)
 
@@ -239,11 +309,17 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
     setSeatedPersonas(prev => [...prev, persona])
     setShowPersonaSelector(false)
 
-    // Persist to board_session_personas if session exists
+    // Dual-column write per Convention #258. Fallback for personas without
+    // _source marker: derive from persona_type.
+    const source: 'tier1' | 'tier3' = persona._source
+      ? persona._source
+      : persona.persona_type === 'personal_custom' ? 'tier1' : 'tier3'
+
     if (boardSessionId) {
       await supabase.from('board_session_personas').insert({
         board_session_id: boardSessionId,
-        persona_id: persona.id,
+        persona_id: source === 'tier1' ? persona.id : null,
+        platform_persona_id: source === 'tier3' ? persona.id : null,
         seat_order: seatedPersonas.length + 1,
       })
     }
@@ -255,7 +331,7 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
       await supabase.from('board_session_personas')
         .update({ removed_at: new Date().toISOString() })
         .eq('board_session_id', boardSessionId)
-        .eq('persona_id', personaId)
+        .or(`persona_id.eq.${personaId},platform_persona_id.eq.${personaId}`)
     }
   }, [boardSessionId])
 
@@ -263,79 +339,165 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
 
   const toggleFavorite = useCallback(async (personaId: string) => {
     if (!member) return
+    const existing = allPersonas.find(p => p.id === personaId)
+    const source: 'tier1' | 'tier3' = existing?._source
+      ? existing._source
+      : existing?.persona_type === 'personal_custom' ? 'tier1' : 'tier3'
+
     if (favorites.includes(personaId)) {
       setFavorites(prev => prev.filter(id => id !== personaId))
-      await supabase.from('persona_favorites').delete().eq('member_id', member.id).eq('persona_id', personaId)
+      await supabase.from('persona_favorites').delete().eq('member_id', member.id)
+        .or(`persona_id.eq.${personaId},platform_persona_id.eq.${personaId}`)
     } else {
       setFavorites(prev => [...prev, personaId])
-      await supabase.from('persona_favorites').insert({ member_id: member.id, persona_id: personaId })
+      await supabase.from('persona_favorites').insert({
+        member_id: member.id,
+        persona_id: source === 'tier1' ? personaId : null,
+        platform_persona_id: source === 'tier3' ? personaId : null,
+      })
     }
-  }, [member, favorites])
+  }, [member, favorites, allPersonas])
 
   // ── Create persona ───────────────────────────────────────
 
-  const handleCreatePersona = useCallback(async () => {
+  // SCOPE-8a.F5 HITM: preview → review → commit. generate_persona_preview
+  // does all pipeline steps but NO DB writes. Server returns phase:
+  //   silent_seat  → auto-seat existing Tier-3 persona
+  //   suggest      → show suggestion card (near-miss)
+  //   blocked      → show policy message (harm-screen rejected)
+  //   preview      → show review panel with Edit/Approve/Regenerate/Reject
+  const handleGeneratePreview = useCallback(async () => {
     if (!newName.trim() || !conversation || !member || !family) return
     setCreatingPersona(true)
     setPolicyMessage(null)
+    setPreview(null)
 
     try {
-      // Step 1: Content policy check (Haiku — always, for ALL persona types)
-      const policyResult = await callBoD(conversation.id, 'content_policy_check', {
-        name: newName.trim(),
-        description: newDescription.trim(),
-      })
-
-      if (policyResult.outcome === 'deity') {
-        setPolicyMessage(policyResult.message)
-        // Generate prayer seat questions
-        const situationText = messages.filter(m => m.role === 'user').map(m => m.content).join(' ')
-        const prayerResult = await callBoD(conversation.id, 'generate_prayer_seat', {
-          situation: situationText || 'a decision they are working through',
-          deity_name: policyResult.deityName || newName.trim(),
-        })
-        setPrayerQuestions(prayerResult.questions || [])
-        setCreatingPersona(false)
-        return
-      }
-
-      if (policyResult.outcome === 'blocked') {
-        setPolicyMessage(policyResult.message)
-        setCreatingPersona(false)
-        return
-      }
-
-      if (policyResult.outcome === 'harmful_description') {
-        setPolicyMessage(policyResult.message)
-        setCreatingPersona(false)
-        return
-      }
-
-      // Step 2: Generate persona (Sonnet)
-      const result = await callBoD(conversation.id, 'create_persona', {
+      const result = await callBoD(conversation.id, 'generate_persona_preview', {
         name: newName.trim(),
         description: newDescription.trim(),
         relationship: newRelationship || 'advisor',
-        follow_up: '', // Could add follow-up Q later
-        persona_type: 'personal_custom',
-        family_id: family.id,
-        member_id: member.id,
+        follow_up: '',
       })
 
-      if (result.persona) {
-        seatPersona(result.persona)
+      if (result.crisis) {
+        setPolicyMessage(result.response || 'If you are in crisis, please reach out to 988.')
+        return
+      }
+
+      if (result.phase === 'silent_seat' && result.persona) {
+        seatPersona({ ...result.persona, _source: 'tier3' })
         setShowCreatePersona(false)
-        setNewName('')
-        setNewDescription('')
-        setNewRelationship('')
+        setNewName(''); setNewDescription(''); setNewRelationship('')
+        return
+      }
+
+      if (result.phase === 'suggest' && result.suggestion) {
+        setPolicyMessage(
+          `We already have ${result.suggestion.persona_name} in the library. Seat them, or keep going to create a fresh version.`,
+        )
+        return
+      }
+
+      if (result.phase === 'blocked' && result.policy) {
+        const policy = result.policy as { outcome: string; message?: string; deityName?: string }
+        setPolicyMessage(policy.message || 'That request does not fit the platform.')
+        if (policy.outcome === 'deity') {
+          const situationText = messages.filter(m => m.role === 'user').map(m => m.content).join(' ')
+          const prayerResult = await callBoD(conversation.id, 'generate_prayer_seat', {
+            situation: situationText || 'a decision they are working through',
+            deity_name: policy.deityName || newName.trim(),
+          })
+          setPrayerQuestions(prayerResult.questions || [])
+        }
+        return
+      }
+
+      if (result.phase === 'preview' && result.profile) {
+        setPreview({
+          name: newName.trim(),
+          description: newDescription.trim(),
+          relationship: newRelationship || 'advisor',
+          follow_up: '',
+          profile: result.profile as PersonalityProfile,
+          classifier: result.classifier || null,
+        })
       }
     } catch (err) {
-      console.error('Create persona error:', err)
-      setPolicyMessage('Something went wrong creating this advisor. Please try again.')
+      console.error('Preview error:', err)
+      setPolicyMessage('Something went wrong drafting this advisor. Please try again.')
     } finally {
       setCreatingPersona(false)
     }
   }, [newName, newDescription, newRelationship, conversation, member, family, messages, seatPersona])
+
+  const handleRegeneratePreview = useCallback(async () => {
+    if (!preview || !conversation) return
+    setCreatingPersona(true)
+    try {
+      const result = await callBoD(conversation.id, 'regenerate_persona', {
+        name: preview.name,
+        description: preview.description,
+        relationship: preview.relationship,
+        follow_up: preview.follow_up,
+      })
+      if (result.crisis) {
+        setPolicyMessage(result.response || 'If you are in crisis, please reach out to 988.')
+        setPreview(null)
+        return
+      }
+      if (result.phase === 'preview' && result.profile) {
+        setPreview({ ...preview, profile: result.profile as PersonalityProfile })
+      }
+    } catch (err) {
+      console.error('Regenerate error:', err)
+      setPolicyMessage('Regeneration failed. Please try again.')
+    } finally {
+      setCreatingPersona(false)
+    }
+  }, [preview, conversation])
+
+  const handleCommitPersona = useCallback(async () => {
+    if (!preview || !conversation || !member || !family) return
+    setCreatingPersona(true)
+    try {
+      const result = await callBoD(conversation.id, 'commit_persona', {
+        name: preview.name,
+        description: preview.description,
+        relationship: preview.relationship,
+        follow_up: preview.follow_up,
+        profile: preview.profile,
+        classifier: preview.classifier,
+        family_id: family.id,
+        member_id: member.id,
+      })
+      if (result.crisis) {
+        setPolicyMessage(result.response || 'If you are in crisis, please reach out to 988.')
+        return
+      }
+      if (result.policy) {
+        setPolicyMessage(result.policy.message || 'That request does not fit the platform.')
+        return
+      }
+      if (result.persona) {
+        seatPersona({ ...result.persona, _source: 'tier1' })
+        setShowCreatePersona(false)
+        setPreview(null)
+        setReviewEditing(false)
+        setNewName(''); setNewDescription(''); setNewRelationship('')
+      }
+    } catch (err) {
+      console.error('Commit error:', err)
+      setPolicyMessage('Commit failed. Please try again.')
+    } finally {
+      setCreatingPersona(false)
+    }
+  }, [preview, conversation, member, family, seatPersona])
+
+  const handleRejectPreview = useCallback(() => {
+    setPreview(null)
+    setReviewEditing(false)
+  }, [])
 
   // ── Add prayer seat to board ─────────────────────────────
 
@@ -500,9 +662,16 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
             <Brain size={16} style={{ color: 'var(--color-text-secondary)' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>Board of Directors</span>
           </div>
-          <button onClick={onClose} disabled={isStreaming} className="p-1 disabled:opacity-50" style={{ color: 'var(--color-text-secondary)' }}>
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            {/* SCOPE-4.F7: moderator interjection opt-in toggle. Default off. */}
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--color-text-secondary)' }} title="When on, LiLa offers a brief synthesis between advisor rounds.">
+              <input type="checkbox" checked={moderatorEnabled} onChange={toggleModerator} className="accent-current" />
+              <span>LiLa synthesis</span>
+            </label>
+            <button onClick={onClose} disabled={isStreaming} className="p-1 disabled:opacity-50" style={{ color: 'var(--color-text-secondary)' }}>
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Board Assembly Bar */}
@@ -672,7 +841,48 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
                   </div>
                 )}
 
-                {!prayerQuestions.length && (
+                {/* HITM Review Panel (SCOPE-8a.F5) */}
+                {preview && !prayerQuestions.length && (
+                  <div className="space-y-3 rounded-lg p-3" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                        Review {preview.name}
+                      </h4>
+                      <button onClick={() => setReviewEditing(v => !v)} className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                        <Edit3 size={12} /> {reviewEditing ? 'Done editing' : 'Edit'}
+                      </button>
+                    </div>
+                    <p className="text-xs italic" style={{ color: 'var(--color-text-secondary)' }}>
+                      LiLa drafted this advisor. Review before seating — edit anything that doesn't sound right, regenerate for a different take, or approve to add them to your board.
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <PreviewField label="Known for" value={preview.profile.known_for || ''} editing={reviewEditing} onChange={(v) => setPreview(p => p ? { ...p, profile: { ...p.profile, known_for: v } } : p)} />
+                      <PreviewField label="Communication style" value={preview.profile.communication_style || ''} editing={reviewEditing} multiline onChange={(v) => setPreview(p => p ? { ...p, profile: { ...p.profile, communication_style: v } } : p)} />
+                      <PreviewField label="Reasoning patterns" value={preview.profile.reasoning_patterns || ''} editing={reviewEditing} multiline onChange={(v) => setPreview(p => p ? { ...p, profile: { ...p.profile, reasoning_patterns: v } } : p)} />
+                      <PreviewListField label="Traits" values={preview.profile.traits || []} editing={reviewEditing} onChange={(v) => setPreview(p => p ? { ...p, profile: { ...p.profile, traits: v } } : p)} />
+                      <PreviewListField label="Philosophies" values={preview.profile.philosophies || []} editing={reviewEditing} onChange={(v) => setPreview(p => p ? { ...p, profile: { ...p.profile, philosophies: v } } : p)} />
+                      <PreviewListField label="Characteristic language" values={preview.profile.characteristic_language || []} editing={reviewEditing} onChange={(v) => setPreview(p => p ? { ...p, profile: { ...p.profile, characteristic_language: v } } : p)} />
+                    </div>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <button onClick={handleCommitPersona} disabled={creatingPersona} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50" style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                        <Check size={12} /> Approve & Seat
+                      </button>
+                      <button onClick={handleRegeneratePreview} disabled={creatingPersona} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                        <RefreshCw size={12} /> Regenerate
+                      </button>
+                      <button onClick={handleRejectPreview} disabled={creatingPersona} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50" style={{ backgroundColor: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                        <X size={12} /> Reject
+                      </button>
+                    </div>
+                    {preview.classifier?.multi_family_relevance === 'yes' && (
+                      <p className="text-xs italic" style={{ color: 'var(--color-text-secondary)' }}>
+                        We'll also suggest this advisor for other families — a reviewer looks at it first before they see it.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!prayerQuestions.length && !preview && (
                   <>
                     <div>
                       <label className="block text-sm font-medium mb-1">Name</label>
@@ -681,7 +891,7 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
                     <div>
                       <label className="block text-sm font-medium mb-1">Who is this person to you?</label>
                       <div className="flex flex-wrap gap-1.5">
-                        {['My grandmother', 'A mentor', 'A pastor/spiritual leader', 'A friend', 'A fictional character', 'Other'].map(rel => (
+                        {['A historical/public figure', 'A fictional character', 'My grandmother', 'A mentor', 'A pastor/spiritual leader', 'A friend', 'Other'].map(rel => (
                           <button key={rel} onClick={() => setNewRelationship(rel)}
                             className="rounded-full px-2.5 py-1 text-xs font-medium"
                             style={{
@@ -697,11 +907,11 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
                       <label className="block text-sm font-medium mb-1">Describe them</label>
                       <textarea value={newDescription} onChange={e => setNewDescription(e.target.value)} rows={3} placeholder="How do they think, talk, and give advice? What matters most to them?" className="w-full rounded-lg border px-3 py-2 text-sm resize-none" style={{ backgroundColor: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }} />
                     </div>
-                    <button onClick={handleCreatePersona} disabled={!newName.trim() || creatingPersona}
+                    <button onClick={handleGeneratePreview} disabled={!newName.trim() || creatingPersona}
                       className="w-full rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
                       style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
                     >
-                      {creatingPersona ? <span className="flex items-center justify-center gap-2"><Loader size={14} className="animate-spin" /> Creating...</span> : 'Create Advisor'}
+                      {creatingPersona ? <span className="flex items-center justify-center gap-2"><Loader size={14} className="animate-spin" /> Drafting...</span> : 'Preview Advisor'}
                     </button>
                   </>
                 )}
@@ -831,3 +1041,55 @@ function PersonaRow({
     </div>
   )
 }
+
+// ── HITM Review helpers (SCOPE-8a.F5) ────────────────────────
+
+function PreviewField({
+  label, value, editing, multiline, onChange,
+}: { label: string; value: string; editing: boolean; multiline?: boolean; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-secondary)' }}>{label}</div>
+      {editing ? (
+        multiline ? (
+          <textarea value={value} onChange={e => onChange(e.target.value)} rows={2}
+            className="w-full rounded border px-2 py-1 text-sm resize-none"
+            style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }} />
+        ) : (
+          <input type="text" value={value} onChange={e => onChange(e.target.value)}
+            className="w-full rounded border px-2 py-1 text-sm"
+            style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }} />
+        )
+      ) : (
+        <div className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+          {value || <span style={{ color: 'var(--color-text-secondary)' }}>—</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PreviewListField({
+  label, values, editing, onChange,
+}: { label: string; values: string[]; editing: boolean; onChange: (v: string[]) => void }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-secondary)' }}>{label}</div>
+      {editing ? (
+        <textarea
+          value={values.join('\n')}
+          onChange={e => onChange(e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+          rows={Math.max(values.length, 2)}
+          placeholder="One per line"
+          className="w-full rounded border px-2 py-1 text-sm resize-none"
+          style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+        />
+      ) : (
+        <ul className="list-disc list-inside text-sm space-y-0.5" style={{ color: 'var(--color-text-primary)' }}>
+          {values.length > 0 ? values.map((v, i) => <li key={i}>{v}</li>) : <li style={{ color: 'var(--color-text-secondary)' }}>—</li>}
+        </ul>
+      )}
+    </div>
+  )
+}
+

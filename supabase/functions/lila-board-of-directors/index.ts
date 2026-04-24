@@ -45,6 +45,9 @@ const InputSchema = z.object({
   action: z.enum([
     'chat',
     'create_persona',
+    'generate_persona_preview',
+    'commit_persona',
+    'regenerate_persona',
     'generate_prayer_seat',
     'content_policy_check',
     'prescreen_persona',
@@ -554,6 +557,207 @@ Deno.serve(async (req) => {
       }
       const result = await contentPolicyCheck(name, description)
       return new Response(JSON.stringify(result), { headers: jsonHeaders })
+    }
+
+    // ── Action: Generate persona preview (HITM — no DB write) ────
+    // SCOPE-8a.F5: generates profile for mom's review without persisting.
+    // Mom reviews in UI, then calls commit_persona with the approved profile.
+    if (action === 'generate_persona_preview') {
+      const name = ((body.name as string) || '').trim()
+      const description = ((body.description as string) || '').trim()
+      const relationship = ((body.relationship as string) || 'advisor').trim()
+      const follow_up = ((body.follow_up as string) || '').trim()
+
+      if (!name) {
+        return new Response(JSON.stringify({ error: 'Missing name' }), { status: 400, headers: jsonHeaders })
+      }
+
+      const crisis = crisisCheckFields(name, description, follow_up, relationship)
+      if (crisis) {
+        return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      }
+
+      const prescreen = await prescreenApprovedPersonaMatch(name)
+      if (prescreen.match === 'silent' && prescreen.persona) {
+        return new Response(JSON.stringify({
+          phase: 'silent_seat',
+          persona: prescreen.persona,
+          source: 'tier3_cache',
+          prescreen: { match: 'silent', similarity: prescreen.similarity },
+        }), { headers: jsonHeaders })
+      }
+      if (prescreen.match === 'suggest' && prescreen.persona) {
+        return new Response(JSON.stringify({
+          phase: 'suggest',
+          suggestion: prescreen.persona,
+          source: 'tier3_near_miss',
+          prescreen: { match: 'suggest', similarity: prescreen.similarity },
+        }), { headers: jsonHeaders })
+      }
+
+      const policyResult = await contentPolicyCheck(name, description)
+      if (policyResult.outcome !== 'approved') {
+        return new Response(JSON.stringify({ phase: 'blocked', policy: policyResult }), { headers: jsonHeaders })
+      }
+
+      const classifier = await classifyRelevance(name, description, relationship, prescreen.match !== 'none')
+      const profile = await generatePersona(name, description, relationship, follow_up)
+
+      logAICost({
+        familyId: conv.family_id,
+        memberId: conv.member_id,
+        featureKey: 'lila_persona_preview',
+        model: MODEL_SONNET,
+        inputTokens: 500,
+        outputTokens: 1000,
+      })
+
+      return new Response(JSON.stringify({
+        phase: 'preview',
+        profile,
+        classifier: {
+          multi_family_relevance: classifier.multi_family_relevance,
+          confidence: classifier.confidence,
+        },
+        inputs: { name, description, relationship, follow_up },
+      }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Regenerate persona preview (HITM regenerate) ─
+    if (action === 'regenerate_persona') {
+      const name = ((body.name as string) || '').trim()
+      const description = ((body.description as string) || '').trim()
+      const relationship = ((body.relationship as string) || 'advisor').trim()
+      const follow_up = ((body.follow_up as string) || '').trim()
+
+      if (!name) {
+        return new Response(JSON.stringify({ error: 'Missing name' }), { status: 400, headers: jsonHeaders })
+      }
+      const crisis = crisisCheckFields(name, description, follow_up, relationship)
+      if (crisis) {
+        return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      }
+      const profile = await generatePersona(
+        name,
+        description,
+        relationship,
+        `${follow_up}\n\n[Please try a different approach — the previous version did not capture what was needed.]`,
+      )
+
+      logAICost({
+        familyId: conv.family_id,
+        memberId: conv.member_id,
+        featureKey: 'lila_persona_regenerate',
+        model: MODEL_SONNET,
+        inputTokens: 500,
+        outputTokens: 1000,
+      })
+
+      return new Response(JSON.stringify({ phase: 'preview', profile }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Commit persona (HITM approve — DB write) ─────
+    // Mom has reviewed (and possibly edited) the profile. Re-runs crisis gate
+    // and harm screen on the FINAL content, then writes Tier-1 + optional
+    // Tier-2 queue row.
+    if (action === 'commit_persona') {
+      const name = ((body.name as string) || '').trim()
+      const description = ((body.description as string) || '').trim()
+      const relationship = ((body.relationship as string) || 'advisor').trim()
+      const follow_up = ((body.follow_up as string) || '').trim()
+      const profile = body.profile as Record<string, unknown> | undefined
+      const classifierHint = body.classifier as { multi_family_relevance?: string; confidence?: number } | undefined
+      const family_id = body.family_id as string | undefined
+      const member_id = body.member_id as string | undefined
+
+      if (!name || !family_id || !member_id || !profile) {
+        return new Response(JSON.stringify({ error: 'Missing name/family_id/member_id/profile' }), { status: 400, headers: jsonHeaders })
+      }
+
+      const profileText = JSON.stringify(profile)
+      const crisis = crisisCheckFields(name, description, follow_up, relationship, profileText)
+      if (crisis) {
+        return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      }
+
+      const policyResult = await contentPolicyCheck(name, description)
+      if (policyResult.outcome !== 'approved') {
+        return new Response(JSON.stringify({ persona: null, policy: policyResult }), { headers: jsonHeaders })
+      }
+
+      let classifierMultiFamily: 'yes' | 'no'
+      let classifierConfidence = 0
+      let classifierSignals: ClassifierSignals = CLASSIFIER_FAIL_CLOSED.signals
+      let classifierReasoning = ''
+      if (classifierHint?.multi_family_relevance === 'yes' || classifierHint?.multi_family_relevance === 'no') {
+        classifierMultiFamily = classifierHint.multi_family_relevance
+        classifierConfidence = classifierHint.confidence ?? 0
+        classifierReasoning = '(hint from preview)'
+      } else {
+        const fresh = await classifyRelevance(name, description, relationship, false)
+        classifierMultiFamily = fresh.multi_family_relevance
+        classifierConfidence = fresh.confidence
+        classifierSignals = fresh.signals
+        classifierReasoning = fresh.reasoning
+      }
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('board_personas')
+        .insert({
+          persona_name: name,
+          persona_type: 'personal_custom',
+          personality_profile: profile,
+          source_references: [],
+          category: 'custom',
+          content_policy_status: 'approved',
+          is_public: false,
+          created_by: member_id,
+          family_id,
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        console.error('commit_persona Tier-1 insert error:', insertError.message)
+        return new Response(JSON.stringify({ error: 'Failed to create persona' }), { status: 500, headers: jsonHeaders })
+      }
+
+      let queueRowId: string | null = null
+      if (classifierMultiFamily === 'yes') {
+        const queueEmbedding = await embedText(`${name}\n${description}`)
+        const { data: queueRow, error: queueError } = await supabase
+          .schema('platform_intelligence')
+          .from('persona_promotion_queue')
+          .insert({
+            requested_persona_name: name,
+            submitted_by_family_id: family_id,
+            submitted_by_member_id: member_id,
+            promoted_from_personal_id: inserted.id,
+            proposed_personality_profile: profile,
+            source_references: [],
+            category: 'custom',
+            classifier_confidence: classifierConfidence,
+            classifier_signals: classifierSignals,
+            classifier_reasoning: classifierReasoning,
+            content_policy_pre_screen_status: 'passed',
+            embedding: queueEmbedding,
+            status: 'pending',
+          })
+          .select('id')
+          .single()
+        if (queueError) {
+          console.error('commit_persona queue insert (non-fatal):', queueError.message)
+        } else if (queueRow) {
+          queueRowId = queueRow.id
+        }
+      }
+
+      return new Response(JSON.stringify({
+        persona: inserted,
+        source: 'committed',
+        classifier: { multi_family_relevance: classifierMultiFamily, confidence: classifierConfidence },
+        queue_row_id: queueRowId,
+      }), { headers: jsonHeaders })
     }
 
     // ── Action: Create persona (three-tier flow) ─────────────
