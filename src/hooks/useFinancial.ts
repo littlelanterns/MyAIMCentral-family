@@ -271,6 +271,12 @@ export interface LiveAllowanceProgress {
   raw_steps_available: number
   nonroutine_tasks_total: number
   nonroutine_tasks_completed: number
+  // PRD-28 NEW-EE: Extra Credit tallies (migration 100166). Count of completed
+  // tasks where is_extra_credit=true plus their weighted numerator contribution.
+  // Extra-credit tasks are excluded from the denominator; counted only in the
+  // numerator when allowance_configs.extra_credit_enabled=true.
+  extra_credit_completed: number
+  extra_credit_weight_added: number
 }
 
 export function useLiveAllowanceProgress(
@@ -309,6 +315,8 @@ export function useLiveAllowanceProgress(
         raw_steps_available: Number(row.raw_steps_available ?? 0),
         nonroutine_tasks_total: Number(row.nonroutine_tasks_total ?? 0),
         nonroutine_tasks_completed: Number(row.nonroutine_tasks_completed ?? 0),
+        extra_credit_completed: Number(row.extra_credit_completed ?? 0),
+        extra_credit_weight_added: Number(row.extra_credit_weight_added ?? 0),
       } as LiveAllowanceProgress
     },
     enabled: !!memberId && !!periodStart && !!periodEnd,

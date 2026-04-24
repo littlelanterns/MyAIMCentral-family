@@ -102,6 +102,10 @@ export async function createTaskFromData(
     counts_for_gamification: data.countsForGamification ?? true,
     allowance_points: data.allowancePoints ?? null,
     homework_subject_ids: (data.homeworkSubjectIds?.length ?? 0) > 0 ? data.homeworkSubjectIds : [],
+    // PRD-28 NEW-EE: extra credit. Gated at the UI layer — extra_credit without
+    // allowance participation is meaningless, but we still write the raw value
+    // here so edits don't need dependent-field logic at this layer.
+    is_extra_credit: data.isExtraCredit ?? false,
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,

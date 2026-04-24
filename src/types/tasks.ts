@@ -212,6 +212,9 @@ export interface TaskTemplate {
   archived_at: string | null
   config: Record<string, unknown> | null   // legacy field from migration 008
   is_system: boolean
+  // PRD-28 NEW-EE: Extra Credit template flag. When true, tasks deployed from
+  // this template default to is_extra_credit=true. Mom can toggle per-task.
+  is_extra_credit: boolean
   created_at: string
   updated_at: string
 }
@@ -340,6 +343,11 @@ export interface Task {
   counts_for_gamification: boolean
   allowance_points: number | null
   homework_subject_ids: string[]
+  // PRD-28 NEW-EE: Extra Credit designation. When counts_for_allowance=true AND
+  // is_extra_credit=true, this task contributes to the numerator of allowance
+  // completion % but NOT the denominator. Capped at 100%. Gated by
+  // allowance_configs.extra_credit_enabled.
+  is_extra_credit: boolean
   // View framework metadata
   eisenhower_quadrant: EisenhowerQuadrant | null
   frog_rank: number | null

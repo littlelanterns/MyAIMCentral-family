@@ -124,6 +124,8 @@ export interface CreateTaskData {
   countsForHomework?: boolean
   countsForGamification?: boolean
   allowancePoints?: number | null
+  // PRD-28 NEW-EE: Extra credit designation (gated by countsForAllowance=true)
+  isExtraCredit?: boolean
   // PRD-28: Per-task subject assignment for auto time logging on completion
   homeworkSubjectIds?: string[]
   // Reward Reveals: attached celebration config
@@ -164,6 +166,7 @@ interface TaskCreationModalProps {
     countsForAllowance?: boolean
     countsForHomework?: boolean
     countsForGamification?: boolean
+    isExtraCredit?: boolean
     recurrenceRule?: string
     recurrenceDetails?: Record<string, unknown> | null
   } | null
@@ -220,6 +223,7 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
     countsForAllowance: false,
     countsForHomework: false,
     countsForGamification: true, // default checked — preserves current behavior
+    isExtraCredit: false, // NEW-EE: opt-in only, gated by countsForAllowance
     homeworkSubjectIds: [],
   }
 }
@@ -503,6 +507,7 @@ export function TaskCreationModal({
       if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
       if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
       if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
+      if (editTaskValues.isExtraCredit !== undefined) d.isExtraCredit = editTaskValues.isExtraCredit
     }
     // When deploying from an existing template, link (don't duplicate)
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
@@ -564,6 +569,7 @@ export function TaskCreationModal({
       if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
       if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
       if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
+      if (editTaskValues.isExtraCredit !== undefined) d.isExtraCredit = editTaskValues.isExtraCredit
     }
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
     setData(d)
@@ -1982,10 +1988,41 @@ export function TaskCreationModal({
             <input
               type="checkbox"
               checked={data.countsForAllowance ?? false}
-              onChange={(e) => update('countsForAllowance', e.target.checked)}
+              onChange={(e) => {
+                update('countsForAllowance', e.target.checked)
+                // NEW-EE: Extra credit requires allowance participation. Unticking
+                // allowance clears the extra-credit flag.
+                if (!e.target.checked) update('isExtraCredit', false)
+              }}
               style={{ accentColor: 'var(--color-btn-primary-bg)' }}
             />
             Count toward allowance pool
+          </label>
+          {/* PRD-28 NEW-EE: Extra Credit — gated by countsForAllowance. Disabled
+              visually when not applicable. Tooltip explains the constraint. */}
+          <label
+            title={data.countsForAllowance
+              ? 'When checked, this task counts toward the numerator of the allowance % but NOT the denominator. Capped at 100%. Enable Extra Credit per-child in allowance settings.'
+              : 'Turn on "Count toward allowance pool" first.'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              cursor: data.countsForAllowance ? 'pointer' : 'not-allowed',
+              fontSize: 'var(--font-size-sm)',
+              color: data.countsForAllowance ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+              marginLeft: '1.5rem',
+              opacity: data.countsForAllowance ? 1 : 0.6,
+            }}
+          >
+            <input
+              type="checkbox"
+              disabled={!data.countsForAllowance}
+              checked={data.isExtraCredit ?? false}
+              onChange={(e) => update('isExtraCredit', e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Extra credit task
           </label>
           {homeworkTrackingEnabled && (
             <>

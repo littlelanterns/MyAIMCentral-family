@@ -181,6 +181,11 @@ Deno.serve(async (req) => {
           const totalEarned = Number(progress.total_earned)
           const effectiveAssigned = Math.round(Number(progress.effective_tasks_assigned))
           const effectiveCompleted = Math.round(Number(progress.effective_tasks_completed))
+          // NEW-EE (migration 100166): RPC now returns extra_credit_completed
+          // as its own column. This call site previously hardcoded 0 on the
+          // update write. Null-coalesce to 0 so older RPC bodies still work.
+          const extraCreditCompleted = Math.round(Number(progress.extra_credit_completed ?? 0))
+          const extraCreditWeightAdded = Number(progress.extra_credit_weight_added ?? 0)
           const graceDays: string[] = (period.grace_days as string[]) ?? []
 
           // 5. Close the period
@@ -191,8 +196,11 @@ Deno.serve(async (req) => {
               total_tasks_assigned: totalTasksAssignedCount ?? 0,
               grace_day_tasks_excluded: 0,
               effective_tasks_assigned: effectiveAssigned,
-              tasks_completed: Number(progress.effective_tasks_completed),
-              extra_credit_completed: 0,
+              // tasks_completed now reports the REGULAR (non-extra-credit)
+              // completions portion only, matching the semantic split on the
+              // table (tasks_completed + extra_credit_completed = numerator).
+              tasks_completed: Math.max(0, effectiveCompleted - extraCreditCompleted),
+              extra_credit_completed: extraCreditCompleted,
               effective_tasks_completed: effectiveCompleted,
               completion_percentage: completionPct,
               calculated_amount: calculatedAmount,
@@ -206,6 +214,8 @@ Deno.serve(async (req) => {
                 grace_days: graceDays,
                 minimum_threshold: Number(progress.minimum_threshold),
                 bonus_threshold: Number(progress.bonus_threshold),
+                extra_credit_completed: extraCreditCompleted,
+                extra_credit_weight_added: extraCreditWeightAdded,
                 rpc: 'calculate_allowance_progress',
               },
               calculated_at: now.toISOString(),
