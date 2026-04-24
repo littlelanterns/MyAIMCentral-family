@@ -319,23 +319,41 @@ export function useRoutineStepCompletionsThisWeek(
   })
 }
 
+// Row 192 NEW-LL: idempotent toggle. UPSERT with ON CONFLICT DO NOTHING means
+// re-clicking an already-checked step is a silent no-op (no duplicate row, no
+// error). The onConflict target matches the partial UNIQUE INDEX created in
+// migration 100165 (step_id, family_member_id, period_date).
 export function useCompleteRoutineStep() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (completion: CreateRoutineStepCompletion) => {
+      // Defensive: ensure family_member_id is set so the partial UNIQUE index
+      // applies (the index is WHERE family_member_id IS NOT NULL).
+      const row = {
+        ...completion,
+        family_member_id: completion.member_id,
+      }
+
       const { data, error } = await supabase
         .from('routine_step_completions')
-        .insert({
-          instance_number: 1,
-          ...completion,
-          family_member_id: completion.member_id,
+        .upsert(row, {
+          onConflict: 'step_id,family_member_id,period_date',
+          ignoreDuplicates: true,
         })
         .select()
-        .single()
+        .maybeSingle()
 
       if (error) throw error
-      return data as RoutineStepCompletion
+      // data is null when ignoreDuplicates=true and the conflict was a hit.
+      // Return a minimal shape so onSuccess invalidations still fire correctly
+      // — the cache invalidation is the meaningful side effect either way.
+      return (data ?? {
+        task_id: completion.task_id,
+        step_id: completion.step_id,
+        member_id: completion.member_id,
+        period_date: completion.period_date,
+      }) as RoutineStepCompletion
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({
@@ -348,6 +366,11 @@ export function useCompleteRoutineStep() {
   })
 }
 
+// Row 192 NEW-LL: unchecking deletes ALL matching rows (no instance_number
+// filter). After migration 100165 there can only ever be one row per
+// (step_id, family_member_id, period_date), but the broader DELETE is
+// belt-and-suspenders against any pre-migration stragglers and against
+// race conditions during the migration window.
 export function useUncompleteRoutineStep() {
   const queryClient = useQueryClient()
 
@@ -356,17 +379,16 @@ export function useUncompleteRoutineStep() {
       taskId,
       stepId,
       memberId,
-      instanceNumber,
       periodDate,
     }: {
       taskId: string
       stepId: string
       memberId: string
+      /** @deprecated NEW-LL — instance_number filter dropped; kept on the type for caller compat */
       instanceNumber?: number
       periodDate?: string
     }) => {
       const date = periodDate ?? todayLocalIso()
-      const inst = instanceNumber ?? 1
 
       const { error } = await supabase
         .from('routine_step_completions')
@@ -375,7 +397,6 @@ export function useUncompleteRoutineStep() {
         .eq('step_id', stepId)
         .eq('member_id', memberId)
         .eq('period_date', date)
-        .eq('instance_number', inst)
 
       if (error) throw error
       return { taskId, memberId, periodDate: date }
