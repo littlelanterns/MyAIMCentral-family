@@ -18,6 +18,7 @@ export interface AdminTab {
  */
 export const ADMIN_TABS: AdminTab[] = [
   { label: 'Approvals', path: '/admin/approvals' },
+  { label: 'Personas', path: '/admin/personas', permissionType: 'persona_admin' },
 ]
 
 export function AdminLayout() {
@@ -65,13 +66,14 @@ export function AdminLayout() {
               key={tab.path}
               to={tab.path}
               role="tab"
-              className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors"
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  isActive ? 'btn-primary' : ''
+                }`
+              }
               style={({ isActive }) => ({
-                backgroundColor: isActive
-                  ? 'var(--surface-primary)'
-                  : 'transparent',
                 color: isActive
-                  ? 'var(--color-text-on-primary)'
+                  ? 'var(--color-btn-primary-text)'
                   : 'var(--theme-text-primary)',
                 border: isActive
                   ? '1px solid transparent'

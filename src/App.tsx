@@ -55,6 +55,7 @@ import { HubPage } from '@/pages/Hub'
 import { VaultBrowsePage, PersonalPromptLibraryPage } from '@/features/vault'
 import { AdminLayout } from '@/pages/admin/AdminLayout'
 import { ApprovalsPlaceholder } from '@/pages/admin/ApprovalsPlaceholder'
+import { PersonasAdminPage } from '@/pages/admin/PersonasAdminPage'
 import { AdminGate } from '@/components/AdminGate'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
@@ -184,6 +185,7 @@ function App() {
               <Route path="/admin" element={<AdminGate><AdminLayout /></AdminGate>}>
                 <Route index element={<Navigate to="approvals" replace />} />
                 <Route path="approvals" element={<ApprovalsPlaceholder />} />
+                <Route path="personas" element={<PersonasAdminPage />} />
               </Route>
 
               {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
