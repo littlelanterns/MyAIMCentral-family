@@ -1,11 +1,57 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v3 — applied Composition Architecture delta + founder decisions 2026-04-22
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3) by orchestrator
+> **Status:** DRAFT v14 — Phase 4 Wave 1 landing complete 2026-04-24
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 183 rows total. Wave-assigned: 11 Fix Now + 2 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + existing Fix Next Build rows. 27 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+> **Scope:** 184 rows total. Wave-assigned: 11 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + existing Fix Next Build rows. 28 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
 
 ---
+
+## What changed from v13 → v14 (Phase 4 Wave 1 landing complete 2026-04-24)
+
+**11 Wave 1 rows resolved in a single session (Phase 4 Phase A dispatch, 5 workers: A1 NEW-B, A2 Wave 1B Board sprint, A3 Tier 1 cluster, A4 Admin shell, A5 Playwright verification).**
+
+Resolved rows and authoritative commits:
+
+| Row | Finding | Worker | Commits |
+|---|---|---|---|
+| 8 | NEW-B (drawer default + General removal + routing concierge) | A1 | `5a52e80`, `1e25416`, `6c48021` |
+| 10 | SCOPE-3.F41 (MemberAssignmentModal column drift) | A3 | `ba68ebd` |
+| 11 | SCOPE-4.F4 (Board persona cache architecture) | A2 | `ab318e4`, `dab078d` |
+| 12 | SCOPE-4.F8a (privacy hard-constraint bypass) | A2 | `8a16889` |
+| 18 | SCOPE-8b.F3 (HITM gate on board_personas) | A2 | `0c8b5f4`, `6476646` |
+| 21 | SCOPE-8b.F7 (.ics CHECK constraint) | A3 | `1744969` |
+| 26 | SCOPE-8a.F5 (content policy fail-closed) | A2 | `dab078d` |
+| 27 | SCOPE-3.F22 (/rewards route) | A3 | `81e07bf` |
+| 62 | SCOPE-2.F48 (Admin Console shell) | A4, A5 | `d27b1c9`, `c7c516e` |
+| 94 | SCOPE-4.F8b (assembleContext refactor — Board scope only) | A2 | `8a16889` |
+| 180 | SCOPE-4.F7 (moderator opt-in) | A2 | `8a16889`, `0c8b5f4` |
+
+**Supporting commits (not wave-assigned rows):**
+- `4a533bd` — A4 Admin shell follow-up commit after initial `d27b1c9`
+- `abc42f4` — BUILD_STATUS timestamp auto-update
+- `b5c3b6f` — `live_schema.md` regeneration after migrations 100161 + 100162 applied
+
+**Migration ledger (Wave 1):**
+- 100159 — A1 Assist concierge opening_messages seed
+- 100160 — A3 calendar_events CHECK widen (attribution entangled — A3 authored, landed via A2's collision-resolution merge in `1744969`)
+- 100161 — A2 persona_architecture_rebuild (three-tier schema + RPCs + invariants)
+- 100162 — A2 list_approved_personas RPC
+
+**Migration collision guard:** next new migration ≥ `00000000100163_`.
+
+**Production verification 2026-04-24:** all 4 post-migration invariants pass (18 Tier-3 rows, 0 non-personal rows in `public.board_personas`, 0 promotion queue rows, Board `context_sources` widened to 5 sources).
+
+**Carryovers / known gaps:**
+- **Row 94 Decision Guide refactor deferred.** Board of Directors scope of F8b resolved via assembleContext refactor; Decision Guide needs the same treatment — add as Fix Next Build follow-up row.
+- **Row 180 PRD-34 moderator-behavior amendment deferred.** Code change landed; PRD text update belongs in Intentional-Update-Doc sweep.
+- **Row 18 PRD-34 §5 classifier deferred infrastructure polish.** Layer B Playwright multi-user E2E test (addendum §8) deferred per founder answer #5 during sprint dispatch — will be recorded in TECH_DEBT_REGISTER.md follow-up.
+- **A5 visual verification spec** `tests/e2e/features/admin-shell.spec.ts` authored but NOT executed against live app — founder to run `npx playwright test tests/e2e/features/admin-shell.spec.ts` (or manual /admin check) as post-landing confirmation.
+
+**Lessons from Phase 4 Phase A:**
+- **Parallel workers shared a worktree** during the session. Observed symptoms included stash-pop conflict markers in A2's files, A5's uncommitted work surviving despite apparent reverts (A2 explicitly unstaged them per commit message), A3/A2 commit SHA churn during collision resolution (migration 100160), and A2's final commit `6476646` landing only on local main until post-session push. **All Phase B+ dispatches MUST specify `isolation: "worktree"` in the Agent tool invocation.** The Agent tool supports this; not specifying it in Phase A cost review time and attribution clarity.
+- **Migration number coordination worked via race-to-commit-first** despite shared worktree. Three workers held reservations on 100159; A1 took it first, A3 took 100160, A2 took 100161+100162. No number collision shipped to origin.
+- **Worker self-reports about reverting files** (A5) and **attribution entanglement** (A3) were correct diagnostics. Parallel git operations (checkout, stash, rebase) in a shared worktree do produce the exact symptoms observed.
 
 ## What changed from v12 → v13 (NEW-DD Wave 1 remediation complete 2026-04-23)
 
