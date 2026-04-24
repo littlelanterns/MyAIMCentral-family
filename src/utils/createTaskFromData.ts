@@ -7,7 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
-import { todayLocalIso } from '@/utils/dates'
+import { fetchFamilyToday } from '@/hooks/useFamilyToday'
 
 interface FamilyMemberLike {
   id: string
@@ -65,7 +65,12 @@ export async function createTaskFromData(
 
   const result: CreateTaskResult = { taskIds: [], routineTemplateCreated: false, queueItemProcessed: false }
 
-  const scheduleFields = buildTaskScheduleFields(data)
+  // Row 184 NEW-DD Path 2: derive family-local "today" server-side so scheduled
+  // DATE writes (due_date, rotation last_rotated_at) don't depend on the
+  // clicking device's clock.
+  const familyToday = await fetchFamilyToday(creatorId)
+
+  const scheduleFields = buildTaskScheduleFields(data, familyToday)
 
   const taskBase = {
     family_id: familyId,
@@ -408,7 +413,7 @@ export async function createTaskFromData(
                 frequency: data.rotationFrequency ?? 'weekly',
                 members: memberIds,
                 current_index: 0,
-                last_rotated_at: todayLocalIso(),
+                last_rotated_at: familyToday,
               },
             },
           }).eq('id', newTask.id)

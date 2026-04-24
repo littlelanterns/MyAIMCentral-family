@@ -1,9 +1,15 @@
 // Bridges modal schedule UI state to database columns (due_date, recurrence_rule, recurrence_details).
 // Without this, schedule data collected in TaskCreationModal was silently discarded.
+//
+// `familyToday` is the family-timezone-derived "today" in YYYY-MM-DD, obtained by
+// the caller via `fetchFamilyToday(memberId)` from useFamilyToday. Row 184 NEW-DD
+// Path 2: due_date is not derived from a timestamp column (it's a scheduled future
+// date), so a server-side trigger cannot fix it — the client must write the
+// correct value. See Convention #257.
 
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { dayToRRule } from '@/components/scheduling/schedulerUtils'
-import { todayLocalIso, localIso } from '@/utils/dates'
+import { localIso } from '@/utils/dates'
 
 interface TaskScheduleFields {
   due_date: string | null
@@ -11,22 +17,27 @@ interface TaskScheduleFields {
   recurrence_details: Record<string, unknown> | null
 }
 
-export function buildTaskScheduleFields(data: CreateTaskData): TaskScheduleFields {
+export function buildTaskScheduleFields(
+  data: CreateTaskData,
+  familyToday: string,
+): TaskScheduleFields {
   if (data.scheduleMode === 'one_time' && data.dueDate) {
     return { due_date: data.dueDate, recurrence_rule: null, recurrence_details: null }
   }
 
   if (data.scheduleMode === 'daily') {
-    const today = todayLocalIso()
     return {
-      due_date: today,
+      due_date: familyToday,
       recurrence_rule: 'daily',
-      recurrence_details: { rrule: 'FREQ=DAILY', dtstart: today, schedule_type: 'recurring' },
+      recurrence_details: { rrule: 'FREQ=DAILY', dtstart: familyToday, schedule_type: 'recurring' },
     }
   }
 
   if (data.scheduleMode === 'weekly' && data.weeklyDays && data.weeklyDays.length > 0) {
-    const today = new Date()
+    // Week-arithmetic uses a Date object seeded from familyToday to keep day-of-week
+    // aligned to the family's calendar day, not the clicking device's day.
+    const [y, m, d] = familyToday.split('-').map(Number)
+    const today = new Date(y, m - 1, d)
     const todayDow = today.getDay()
     const sortedDays = [...data.weeklyDays].sort((a, b) => a - b)
     let nextDay = sortedDays.find(d => d >= todayDow)
@@ -45,7 +56,7 @@ export function buildTaskScheduleFields(data: CreateTaskData): TaskScheduleField
   }
 
   if (data.scheduleMode === 'custom' && data.schedule) {
-    const dueDate = data.schedule.dtstart ?? todayLocalIso()
+    const dueDate = data.schedule.dtstart ?? familyToday
     return {
       due_date: dueDate,
       recurrence_rule: 'custom',

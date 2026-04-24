@@ -57,6 +57,7 @@ import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
+import { fetchFamilyToday } from '@/hooks/useFamilyToday'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import { getMemberColor } from '@/lib/memberColors'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
@@ -245,8 +246,14 @@ export function TasksPage() {
   const handleEditTask = useCallback(
     async (data: CreateTaskData) => {
       if (!editingTask) return
+      if (!member?.id) {
+        console.error('Cannot edit task: member not loaded')
+        return
+      }
 
-      const scheduleFields = buildTaskScheduleFields(data)
+      // Row 184 NEW-DD Path 2: family-timezone-derived "today" for due_date writes.
+      const familyToday = await fetchFamilyToday(member.id)
+      const scheduleFields = buildTaskScheduleFields(data, familyToday)
 
       const { error } = await supabase
         .from('tasks')
@@ -344,7 +351,7 @@ export function TasksPage() {
       setEditingTask(null)
       setEditRoutineSections(undefined)
     },
-    [editingTask, queryClient]
+    [editingTask, member?.id, queryClient]
   )
 
   // ── Open task for editing (loads routine sections if applicable) ──
