@@ -149,12 +149,16 @@ Deno.serve(async (req) => {
 
           // 4. Call the shared RPC for frequency-day-aware tally.
           // Single source of truth — same math as the live widget (see
-          // migration 00000000100154_allowance_progress_rpc.sql).
+          // migration 00000000100154_allowance_progress_rpc.sql + 100166
+          // + 100167). NEW-GG: pass `period.grace_days` so denominator
+          // and numerator both respect marked grace days.
+          const gracePayload: string[] = (period.grace_days as string[]) ?? []
           const { data: progressRows, error: progressError } = await supabase
             .rpc('calculate_allowance_progress', {
               p_member_id: period.family_member_id,
               p_period_start: period.period_start,
               p_period_end: period.period_end,
+              p_grace_days: gracePayload.length > 0 ? gracePayload : null,
             })
 
           if (progressError || !progressRows?.[0]) {
@@ -188,13 +192,33 @@ Deno.serve(async (req) => {
           const extraCreditWeightAdded = Number(progress.extra_credit_weight_added ?? 0)
           const graceDays: string[] = (period.grace_days as string[]) ?? []
 
+          // NEW-GG audit: compute the `grace_day_tasks_excluded` display
+          // tally by calling the RPC a second time WITHOUT grace days and
+          // diffing the effective_tasks_assigned. Once per-period at close
+          // time; negligible cost. When no grace days are marked, skip.
+          let graceDayTasksExcluded = 0
+          if (graceDays.length > 0) {
+            const { data: noGraceRows } = await supabase
+              .rpc('calculate_allowance_progress', {
+                p_member_id: period.family_member_id,
+                p_period_start: period.period_start,
+                p_period_end: period.period_end,
+                p_grace_days: null,
+              })
+            const noGrace = noGraceRows?.[0]
+            if (noGrace) {
+              const noGraceAssigned = Math.round(Number(noGrace.effective_tasks_assigned))
+              graceDayTasksExcluded = Math.max(0, noGraceAssigned - effectiveAssigned)
+            }
+          }
+
           // 5. Close the period
           await supabase
             .from('allowance_periods')
             .update({
               status: 'calculated',
               total_tasks_assigned: totalTasksAssignedCount ?? 0,
-              grace_day_tasks_excluded: 0,
+              grace_day_tasks_excluded: graceDayTasksExcluded,
               effective_tasks_assigned: effectiveAssigned,
               // tasks_completed now reports the REGULAR (non-extra-credit)
               // completions portion only, matching the semantic split on the
