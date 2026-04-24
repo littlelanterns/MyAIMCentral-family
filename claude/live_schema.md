@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 211 rows
+### `view_as_sessions` — 215 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 117 rows
+### `view_as_feature_exclusions` — 121 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 564 rows
+### `ai_usage_tracking` — 569 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 103 rows
+### `routine_step_completions` — 128 rows
 
 | # | Column |
 |---|---|
@@ -840,7 +840,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 24 rows
+### `studio_queue` — 25 rows
 
 | # | Column |
 |---|---|
@@ -1128,7 +1128,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 34 rows
+### `calendar_events` — 37 rows
 
 | # | Column |
 |---|---|
@@ -2358,7 +2358,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 9 rows
+### `mindsweep_events` — 10 rows
 
 | # | Column |
 |---|---|
@@ -2376,7 +2376,7 @@
 | 12 | `processing_cost_cents` |
 | 13 | `created_at` |
 
-### `mindsweep_approval_patterns` — 20 rows
+### `mindsweep_approval_patterns` — 21 rows
 
 | # | Column |
 |---|---|
@@ -2611,7 +2611,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 57 rows
+### `beta_glitch_reports` — 58 rows
 
 | # | Column |
 |---|---|
