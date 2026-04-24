@@ -24,6 +24,7 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { embedText } from '../_shared/embedding.ts'
+import { assembleContext } from '../_shared/context-assembler.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -821,29 +822,38 @@ Deno.serve(async (req) => {
     }
     personas.sort((a, b) => (orderMap.get(a.id) || 0) - (orderMap.get(b.id) || 0))
 
-    // Load user context (guiding stars, self-knowledge)
-    // NOTE: This inline load is superseded in Commit 3 by assembleContext() per SCOPE-8a.F8b.
-    const { data: stars } = await supabase.from('guiding_stars')
-      .select('content').eq('family_id', conv.family_id).eq('member_id', conv.member_id)
-      .eq('is_included_in_ai', true).is('archived_at', null).limit(10)
-    const { data: intentions } = await supabase.from('best_intentions')
-      .select('statement').eq('family_id', conv.family_id).eq('member_id', conv.member_id)
-      .eq('is_included_in_ai', true).eq('is_active', true).is('archived_at', null).limit(10)
-    const { data: sk } = await supabase.from('self_knowledge')
-      .select('content, category').eq('family_id', conv.family_id).eq('member_id', conv.member_id)
-      .eq('is_included_in_ai', true).is('archived_at', null).limit(10)
-
-    let userContext = ''
-    if (stars?.length) userContext += 'Guiding Stars: ' + stars.map(s => s.content).join('; ') + '\n'
-    if (intentions?.length) userContext += 'Best Intentions: ' + intentions.map(i => i.statement).join('; ') + '\n'
-    if (sk?.length) userContext += 'Self-Knowledge: ' + sk.map(s => `[${s.category}] ${s.content}`).join('; ') + '\n'
-
-    // Load full conversation history
+    // Load full conversation history (needed by assembleContext for relevance detection)
     const { data: history } = await supabase.from('lila_messages')
       .select('role, content, metadata')
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: true })
       .limit(60)
+
+    // SCOPE-8a.F8b: Route context assembly through the shared assembler.
+    // Replaces inline stars/intentions/self_knowledge loading with the
+    // three-layer pipeline, which correctly applies:
+    //   - Three-tier is_included_in_ai toggles (person / folder / item)
+    //   - Role-asymmetric is_privacy_filtered hard constraint
+    //     (Convention #76 — mom sees everything, others excluded from
+    //     is_privacy_filtered=true rows via applyPrivacyFilter)
+    //   - Name detection + topic matching for relevance filtering
+    // Convention #247 + #248 category-1 invariant: Board's non-empty
+    // context_sources requires assembleContext() usage. Migration 100161
+    // widened context_sources to match the assembler's native sources.
+    const assembled = await assembleContext({
+      familyId: conv.family_id,
+      memberId: conv.member_id,
+      userMessage: content,
+      recentMessages: (history || []).slice(-4).map(m => ({ role: m.role, content: m.content })),
+      featureContext: 'Discussing with Board of Directors advisors',
+      alwaysIncludeMembers: [conv.member_id],
+    })
+
+    const userContext = [
+      assembled.familyRoster,
+      assembled.featureContext,
+      assembled.relevantContext,
+    ].filter(Boolean).join('\n')
 
     // If no personas seated, LiLa suggests board composition
     if (personas.length === 0) {
@@ -896,6 +906,27 @@ Deno.serve(async (req) => {
     // Track whether we need the disclaimer
     const needsDisclaimer = boardSession && !boardSession.disclaimer_shown &&
       personas.some(p => p.persona_type !== 'personal_custom')
+
+    // SCOPE-4.F7: moderator interjection opt-in. Default: OFF.
+    // Resolution order:
+    //   1. Per-conversation override: conv.context_snapshot.moderator_enabled (explicit boolean)
+    //   2. Per-user preference: family_members.preferences.moderator_interjections_enabled
+    //   3. Default: false
+    // Board of Directors respects the user's flow; Decision Guide is the tool
+    // for active facilitation (founder direction 2026-04-21, addendum §7 D6).
+    let moderatorEnabled = false
+    const convSnapshot = (conv.context_snapshot || {}) as Record<string, unknown>
+    if (typeof convSnapshot.moderator_enabled === 'boolean') {
+      moderatorEnabled = convSnapshot.moderator_enabled
+    } else {
+      const { data: memberPrefs } = await supabase
+        .from('family_members')
+        .select('preferences')
+        .eq('id', conv.member_id)
+        .maybeSingle()
+      const prefs = (memberPrefs?.preferences || {}) as Record<string, unknown>
+      moderatorEnabled = prefs.moderator_interjections_enabled === true
+    }
 
     const encoder = new TextEncoder()
     let totalInTok = 0, totalOutTok = 0
@@ -1017,36 +1048,40 @@ Deno.serve(async (req) => {
             }
           }
 
-          // LiLa moderator interjection (NOTE: opt-in gate lands in Commit 3 per SCOPE-4.F7)
-          const moderatorPrompt = buildModeratorPrompt(seatedNames, userContext)
-          const modMessages = [
-            { role: 'system' as const, content: moderatorPrompt },
-            ...historyMessages,
-            ...currentTurnResponses.map(r => ({ role: 'assistant' as const, content: r })),
-          ]
+          // LiLa moderator interjection — SCOPE-4.F7 opt-in gate.
+          // Default off; fires only when moderatorEnabled resolved true from
+          // per-conversation override or per-user preference.
+          if (moderatorEnabled) {
+            const moderatorPrompt = buildModeratorPrompt(seatedNames, userContext)
+            const modMessages = [
+              { role: 'system' as const, content: moderatorPrompt },
+              ...historyMessages,
+              ...currentTurnResponses.map(r => ({ role: 'assistant' as const, content: r })),
+            ]
 
-          const modRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - BoD Moderator' },
-            body: JSON.stringify({ model: MODEL_SONNET, messages: modMessages, stream: true, max_tokens: 512 }),
-          })
+            const modRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - BoD Moderator' },
+              body: JSON.stringify({ model: MODEL_SONNET, messages: modMessages, stream: true, max_tokens: 512 }),
+            })
 
-          if (modRes.ok && modRes.body) {
-            let modFull = ''
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'moderator_start' })}\n\n`))
-            const modReader = modRes.body.getReader()
-            const modDec = new TextDecoder()
-            let modBuf = ''
-            while (true) {
-              const { done, value } = await modReader.read(); if (done) break
-              modBuf += modDec.decode(value, { stream: true }); const lines = modBuf.split('\n'); modBuf = lines.pop() || ''
-              for (const line of lines) {
-                if (!line.startsWith('data: ')) continue; const d = line.slice(6).trim()
-                if (d === '[DONE]') continue
-                try { const p = JSON.parse(d); const c = p.choices?.[0]?.delta?.content || ''; if (c) { modFull += c; controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'chunk', content: c, source: 'lila' })}\n\n`)) } } catch { /* skip */ }
+            if (modRes.ok && modRes.body) {
+              let modFull = ''
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'moderator_start' })}\n\n`))
+              const modReader = modRes.body.getReader()
+              const modDec = new TextDecoder()
+              let modBuf = ''
+              while (true) {
+                const { done, value } = await modReader.read(); if (done) break
+                modBuf += modDec.decode(value, { stream: true }); const lines = modBuf.split('\n'); modBuf = lines.pop() || ''
+                for (const line of lines) {
+                  if (!line.startsWith('data: ')) continue; const d = line.slice(6).trim()
+                  if (d === '[DONE]') continue
+                  try { const p = JSON.parse(d); const c = p.choices?.[0]?.delta?.content || ''; if (c) { modFull += c; controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'chunk', content: c, source: 'lila' })}\n\n`)) } } catch { /* skip */ }
+                }
               }
+              await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: modFull, metadata: { mode: 'board_of_directors', source: 'lila_moderator' } })
             }
-            await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: modFull, metadata: { mode: 'board_of_directors', source: 'lila_moderator' } })
           }
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
