@@ -703,3 +703,16 @@ These conventions codify the rules from `claude/web-sync/Composition-Architectur
     - Related existing infrastructure: `feature_access_v2`, `feature_key_registry`, `useCanAccess()`, `<PermissionGate>`. The chart layers on top as the human-readable source of truth.
 
     Implementation tracked as worksheet finding NEW-BB. See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §1.7.
+
+257. **No new `todayLocalIso()` client-side writes to DATE columns; all "today" filters must use server-derived dates.** Discovered 2026-04-23: `todayLocalIso()` client-side writes to DATE columns silently land on the wrong day when any device clock or timezone is misconfigured. A kid checking off routine steps on a tablet set to UTC writes tomorrow's date; mom's "today" filter on her correctly-configured phone finds zero rows. The step checkmarks are literally invisible across devices.
+
+    **Partial fix landed 2026-04-23:** migration `00000000100157_routine_step_completions_period_date_trigger.sql` added a BEFORE INSERT OR UPDATE trigger deriving `period_date` from `completed_at AT TIME ZONE families.timezone` for `routine_step_completions` only, plus a one-shot SQL that realigned 31 existing misdated rows.
+
+    **Remaining scope:** 7 other vulnerable tables + 8 client-side filter sites. Tracked as worksheet Row 184 NEW-DD (Fix Now +compound, Wave 1, Beta=Y) awaiting hybrid Path 3 remediation (per-table triggers for writes + `family_today(member_id)` RPC for reads).
+
+    **Until remediation lands:**
+    - **(a) Writes:** no new `todayLocalIso()` client writes to DATE columns. New INSERT/UPDATE paths to any DATE column MUST derive the date server-side via a BEFORE INSERT OR UPDATE trigger using `completed_at AT TIME ZONE families.timezone` (migration 100157 pattern), OR inline server-side derivation in the write path.
+    - **(b) Reads:** new "today" filter queries MUST include server-side date derivation. Once `family_today(member_id)` RPC is built it becomes the canonical reader.
+    - **(c) Pre-work gate:** before ANY work that touches dates, completion tracking, streaks, daily tallies, or filters/stores a "today" or "this week" value, read `claude/web-sync/CLIENT_DATE_AUDIT_2026-04-23.md` and verify migration 100157's trigger is still holding (run the verification query in the audit doc — should return 0 misaligned rows).
+
+    **Reason:** silent cross-device data invisibility is mom-first critical — same severity class as crisis override (Convention #7) and HITM (Convention #4). Next new migration starts at `00000000100158_` (supersedes earlier handoff notes that said 100157).

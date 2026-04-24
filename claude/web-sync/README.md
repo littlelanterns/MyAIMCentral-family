@@ -35,6 +35,7 @@ Only **currently-active coordination or reference docs** that Claude.ai needs fo
 | `MYAIM_GAMEPLAN_v2.2.md` | Master gameplan — phase/gate structure, "what phase are we in" orientation | Gate 2 complete (then revisit for v2.3 cut) |
 | `Composition-Architecture-and-Assembly-Patterns.md` | Load-bearing architecture doc — source for Conventions 249-256 and worksheet rows NEW-F through NEW-CC; reference for Gate 2 wizard builds | Gate 2 complete |
 | `RECON_GENERAL_MODE_SURFACES.md` | Recon-2 inventory of 10 user-facing General-mode surfaces — blocks NEW-B execution; informs PRD-05 addendum | PRD-05 addendum lands + NEW-B Fix Now executes |
+| `CLIENT_DATE_AUDIT_2026-04-23.md` | Client-computed date bug class audit — 7 vulnerable tables + 8 filter sites; source doc for Convention 257 and worksheet Row 184 NEW-DD (Wave 1, Beta=Y) | NEW-DD remediation lands |
 
 ## Claude.ai sync config (one-time setup)
 

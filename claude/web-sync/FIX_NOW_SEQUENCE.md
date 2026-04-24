@@ -7,6 +7,31 @@
 
 ---
 
+## What changed from v11 → v12 (post-Session-2 NEW-DD addition 2026-04-23)
+
+**Post-audit finding added after Session 2 close:** Client-computed date bug class discovered 2026-04-23 (see `claude/web-sync/CLIENT_DATE_AUDIT_2026-04-23.md`). `todayLocalIso()` client writes to DATE columns silently misalign when device clocks/timezones are misconfigured, causing cross-device data invisibility (kid's routine step checkmarks invisible to mom on correctly-configured device). Partial fix landed same day for `routine_step_completions` only (migration 100157 — BEFORE INSERT OR UPDATE trigger + 31-row backfill).
+
+- **Worksheet Row 184 NEW-DD added** — Fix Now (+compound), Wave 1, Beta=Y, High severity. Remediation scope: 7 other vulnerable tables + 8 client-side filter sites via hybrid Path 3 (per-table triggers + `family_today(member_id)` RPC).
+- **Parallel-safe in Wave 1:** hybrid Path 3 is per-table independent. F14/NEW-W workers either consume NEW-DD framework if it lands first OR inline their own trigger following migration 100157 pattern.
+- **Standing rule published as Convention 257** — no new `todayLocalIso()` client writes to DATE columns; all "today" filters use server-derived dates. Fast-commit pattern (NEW-G / SCOPE-2.F39 analogue) — convention published immediately to prevent regression during any other Wave 1 dispatch.
+- **Dispatch-time notes updated on:** Row 9 SCOPE-3.F14 (allowance_periods DATE columns follow Convention 257), Row 44 NEW-W (allowance dedup DATE touches follow Convention 257).
+- **Migration collision guard:** next new migration starts at `00000000100158_` (supersedes prior `100157` references in handoff notes).
+- **Distribution:** Fix Now (+compound) 2 → 3; total rows 183 → 184; Beta Readiness blockers 27 → 28; High severity 21 → 22.
+
+### v12 adjacency list additions
+
+```
+# NEW-DD (v12) — Wave 1 date-class remediation
+# Parallel-safe with other Wave 1 rows. F14 + NEW-W either consume NEW-DD
+# framework if it lands first OR inline their own triggers (migration 100157
+# pattern).
+NEW-DD ~~> SCOPE-3.F14
+NEW-DD ~~> SCOPE-3.F41  # if F41 MemberAssignmentModal writes any DATE column
+NEW-DD ~~> NEW-W        # Fix Next Build, sequences after F14 anyway
+```
+
+---
+
 ## Session 2 audit-calibration note (captured 2026-04-23)
 
 **Scope 4 Intentional-Update-Doc rate-of-drift at audit-to-triage interface: 7/8 (87.5%).** Pattern: Phase 2 classifier read consistency-of-failure as consistency-of-intent, miscoding Unintentional-Fix-Code as Intentional-Update-Doc. The feature was consistently broken or unwired and the audit read the consistency as evidence of intentional design.
