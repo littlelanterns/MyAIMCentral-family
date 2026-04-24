@@ -61,6 +61,43 @@ export function localIsoDaysFromToday(offset: number): string {
   return localIso(d)
 }
 
+/**
+ * Add/subtract days from a given YYYY-MM-DD string. Pure string math in UTC —
+ * does NOT read the device clock — so it's safe to pass a server-derived date
+ * (e.g. from `family_today()` RPC / `fetchFamilyToday()`) and trust the offset.
+ *
+ * Convention #257: use this, not `localIsoDaysFromToday`, when the base date
+ * already came from the server. Examples: computing "7 days ago from family
+ * today" for a rolling window, or "first of this month from family today".
+ *
+ *   isoDaysFrom('2026-04-24', -7)   // '2026-04-17'
+ *   isoDaysFrom('2026-04-24',  0)   // '2026-04-24'
+ */
+export function isoDaysFrom(baseIso: string, offset: number): string {
+  const [y, m, d] = baseIso.split('-').map(Number)
+  const base = new Date(Date.UTC(y, m - 1, d))
+  base.setUTCDate(base.getUTCDate() + offset)
+  // Explicit UTC component formatting — the seed Date is UTC-constructed, so
+  // getUTC* returns the intended string. (The no-restricted-syntax rule blocks
+  // the .toISOString().slice(0, 10) idiom, which is there to stop accidental
+  // UTC-vs-local drift in local-today computations. This helper is explicitly
+  // UTC by design, so we avoid that idiom and format the UTC components.)
+  const yr = base.getUTCFullYear()
+  const mo = String(base.getUTCMonth() + 1).padStart(2, '0')
+  const da = String(base.getUTCDate()).padStart(2, '0')
+  return `${yr}-${mo}-${da}`
+}
+
+/**
+ * Day-of-week (0=Sunday..6=Saturday) for a given YYYY-MM-DD string, computed
+ * in UTC so the answer matches `EXTRACT(DOW FROM date)` in Postgres. Safe for
+ * server-derived dates — no device-clock read.
+ */
+export function isoDayOfWeek(baseIso: string): number {
+  const [y, m, d] = baseIso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+}
+
 // ─── Period helpers (week / month / quarter) ────────────────────────────────
 //
 // These mirror the algorithms used in `periodForRhythm()` in src/types/rhythms.ts

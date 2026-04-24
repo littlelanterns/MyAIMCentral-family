@@ -6,6 +6,8 @@ import { useMemo } from 'react'
 import { Coins, TrendingUp } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { useAllowanceConfig, useActivePeriod, useLiveAllowanceProgress } from '@/hooks/useFinancial'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
+import { isoDayOfWeek, isoDaysFrom } from '@/utils/dates'
 
 interface AllowanceConfig {
   base_amount?: number
@@ -16,22 +18,26 @@ interface AllowanceConfig {
   total_tasks_per_period?: number
 }
 
-function getPeriodStartDate(period: 'weekly' | 'biweekly' | 'monthly'): Date {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
+/**
+ * Returns the period-start ISO date (YYYY-MM-DD) anchored to a server-derived
+ * `todayIso`. Convention #257: no device-clock reads. Caller passes the family
+ * today string from `useFamilyToday(memberId)`.
+ */
+function getPeriodStartIso(
+  todayIso: string,
+  period: 'weekly' | 'biweekly' | 'monthly',
+): string {
   if (period === 'weekly') {
-    const day = start.getDay()
-    start.setDate(start.getDate() - day) // Sunday start
-  } else if (period === 'biweekly') {
-    const day = start.getDay()
-    start.setDate(start.getDate() - day - 7)
-  } else {
-    start.setDate(1) // First of month
+    const dow = isoDayOfWeek(todayIso) // 0=Sun..6=Sat → Sunday-start week
+    return isoDaysFrom(todayIso, -dow)
   }
-
-  start.setHours(0, 0, 0, 0)
-  return start
+  if (period === 'biweekly') {
+    const dow = isoDayOfWeek(todayIso)
+    return isoDaysFrom(todayIso, -dow - 7)
+  }
+  // monthly → first of this month
+  const [y, m] = todayIso.split('-')
+  return `${y}-${m}-01`
 }
 
 export function AllowanceCalculatorTracker({
@@ -49,6 +55,10 @@ export function AllowanceCalculatorTracker({
   const memberId = widget.assigned_member_id ?? widget.family_member_id
   const { data: realConfig } = useAllowanceConfig(memberId)
   const { data: activePeriod } = useActivePeriod(realConfig?.enabled ? memberId : undefined)
+  // Row 9 SCOPE-3.F14 / Convention #257: server-derived family today for the
+  // legacy-fallback code path below. Prop-drill into getPeriodStartIso so no
+  // client-clock read ever happens.
+  const { data: familyToday } = useFamilyToday(memberId)
   // Live frequency-day-aware tally for the current period. Recomputes on each
   // routine_step_completion invalidation (see useTaskCompletions for the
   // invalidation key). Until the period closes, these live values beat the
@@ -60,14 +70,19 @@ export function AllowanceCalculatorTracker({
   )
   const usePrd28Data = !!realConfig?.enabled && !!activePeriod
 
-  // Fallback: existing dataPoints-based calculation (always computed to satisfy hook rules)
+  // Fallback: existing dataPoints-based calculation (always computed to satisfy hook rules).
+  // Until familyToday resolves, fall back to an epoch-far-past cutoff so the
+  // memo returns stable values without causing a device-clock leak.
   const { completed, totalPossible, percentage, earnedAmount, bonusEarned } = useMemo(() => {
-    const periodStart = getPeriodStartDate(period)
+    const periodStartIso = familyToday
+      ? getPeriodStartIso(familyToday, period)
+      : '1970-01-01'
+    const periodStartMs = new Date(periodStartIso + 'T00:00:00Z').getTime()
 
-    // Filter data points for current period
+    // Filter data points for current period (TIMESTAMPTZ compare via UTC-ms).
     const periodPoints = dataPoints.filter(dp => {
       const dpDate = new Date(dp.recorded_at)
-      return dpDate >= periodStart
+      return dpDate.getTime() >= periodStartMs
     })
 
     const completedCount = periodPoints.filter(dp => dp.value === 1).length
@@ -89,7 +104,7 @@ export function AllowanceCalculatorTracker({
       earnedAmount: earned,
       bonusEarned: bonus,
     }
-  }, [dataPoints, period, baseAmount, bonusThreshold, bonusPercentage, config.total_tasks_per_period])
+  }, [dataPoints, period, baseAmount, bonusThreshold, bonusPercentage, config.total_tasks_per_period, familyToday])
 
   const formatDollars = (val: number) => `$${val.toFixed(2)}`
   const percentDisplay = Math.round(percentage * 100)

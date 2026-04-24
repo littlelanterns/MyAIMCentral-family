@@ -108,17 +108,28 @@ export function ChildAllowanceConfigPage() {
     setSaveTimer(timer)
   }, [form, family?.id, memberId, upsert, saveTimer])
 
-  // Start first period on initial save
+  // Start first period on initial save.
+  // Row 9 SCOPE-3.F14: guard against React strict-mode double-fire of the
+  // effect. Without !startPeriod.isPending, two back-to-back effect runs can
+  // both pass `!activePeriod` before the first mutation settles, producing
+  // two active rows. The partial unique index in migration 100163 is the
+  // DB-level safeguard; this guard keeps the UI from emitting the doomed
+  // second request in the first place.
   useEffect(() => {
-    if (config?.enabled && !activePeriod && family?.id && memberId) {
+    if (
+      config?.enabled &&
+      !activePeriod &&
+      !startPeriod.isPending &&
+      family?.id &&
+      memberId
+    ) {
       startPeriod.mutate({
         familyId: family.id,
         memberId,
         weeklyAmount: config.weekly_amount,
-        periodStartDay: config.period_start_day,
       })
     }
-  }, [config?.enabled, activePeriod, family?.id, memberId])
+  }, [config?.enabled, activePeriod, family?.id, memberId, startPeriod])
 
   if (isLoading) {
     return <div className="p-8 text-center" style={{ color: 'var(--color-text-secondary)' }}>Loading...</div>

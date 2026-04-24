@@ -302,9 +302,14 @@ Deno.serve(async (req) => {
             stats.transactions_created++
           }
 
-          // 7. Open next period
+          // 7. Open next period.
+          // Row 9 SCOPE-3.F14 / migration 100163: period_end is derived by the
+          // BEFORE INSERT trigger (period_start + 6 for subsequent periods).
+          // We send period_start explicitly so the trigger's "subsequent-period
+          // respect exactly" branch kicks in rather than its
+          // "fall-back-to-prior-row" branch, keeping the inductive schedule
+          // alignment crisp.
           const nextStart = addDays(period.period_end, 1)
-          const nextEnd = addDays(nextStart, 6) // 7-day period
 
           await supabase
             .from('allowance_periods')
@@ -312,7 +317,7 @@ Deno.serve(async (req) => {
               family_id: family.id,
               family_member_id: period.family_member_id,
               period_start: nextStart,
-              period_end: nextEnd,
+              // period_end intentionally omitted — trigger derives.
               status: 'active',
               base_amount: config.weekly_amount,
             })

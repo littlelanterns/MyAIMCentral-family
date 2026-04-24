@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { localIsoDaysFromToday } from '@/utils/dates'
+import { isoDayOfWeek, isoDaysFrom } from '@/utils/dates'
 import { useFamilyToday, fetchFamilyToday } from './useFamilyToday'
 import type {
   AllowanceConfig,
@@ -693,6 +693,10 @@ export function useCompletionPercentage(
       }
 
       // Fallback: raw task completion %
+      // Row 9 SCOPE-3.F14 / Convention #257: every date offset is computed
+      // from the server-derived `familyToday`, never from `new Date()` or
+      // `localIsoDaysFromToday`. A drifted device clock must not shift the
+      // allowance-adjacent completion window.
       const today = familyToday
       let dateFrom: string
       switch (fallbackMode ?? 'this_week') {
@@ -700,24 +704,27 @@ export function useCompletionPercentage(
           dateFrom = today
           break
         case 'this_week': {
-          const now = new Date()
-          const dayOfWeek = now.getDay()
-          dateFrom = localIsoDaysFromToday(-dayOfWeek)
+          // Sunday-start week: move back to the Sunday of the server-derived
+          // today. (DOW: 0=Sun..6=Sat; subtracting DOW lands on this week's
+          // Sunday.)
+          const dow = isoDayOfWeek(today)
+          dateFrom = isoDaysFrom(today, -dow)
           break
         }
         case 'rolling_7':
-          dateFrom = localIsoDaysFromToday(-7)
+          dateFrom = isoDaysFrom(today, -7)
           break
         case 'this_month': {
-          const d = new Date()
-          dateFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+          // First day of the month containing server-today.
+          const [y, m] = today.split('-')
+          dateFrom = `${y}-${m}-01`
           break
         }
         case 'rolling_30':
-          dateFrom = localIsoDaysFromToday(-30)
+          dateFrom = isoDaysFrom(today, -30)
           break
         default:
-          dateFrom = localIsoDaysFromToday(-7)
+          dateFrom = isoDaysFrom(today, -7)
       }
 
       // Count assigned vs completed tasks in date range
@@ -758,31 +765,22 @@ export function useStartAllowancePeriod() {
       familyId,
       memberId,
       weeklyAmount,
-      periodStartDay,
     }: {
       familyId: string
       memberId: string
       weeklyAmount: number
-      periodStartDay: string
+      /** @deprecated Kept for call-site compatibility; period_end now derives server-side. */
+      periodStartDay?: string
     }) => {
-      // Row 184 NEW-DD Path 2: server-derived family-today for period_start.
-      // Previously wrote the clicking device's local date, which drifted across
-      // a misconfigured clock and produced a period starting tomorrow.
+      // Row 9 SCOPE-3.F14 / Convention #257: period_start + period_end are both
+      // derived server-side by the BEFORE INSERT trigger on allowance_periods
+      // (migration 100163). Implements founder Option (b): first period runs
+      // today → day-before-next-configured-period_start_day (partial first
+      // week for mid-week enable); subsequent periods are full 7-day weeks
+      // aligned to period_start_day. We still send period_start = family_today
+      // as a belt-and-suspenders hint so any pre-trigger inspection shows the
+      // right value; the trigger will pass it through unchanged.
       const todayStr = await fetchFamilyToday(memberId)
-      // Parse back to a Date for day-of-week math (local-time safe because the
-      // string is YYYY-MM-DD and we reconstruct at noon).
-      const [ty, tm, td] = todayStr.split('-').map(Number)
-      const today = new Date(ty, tm - 1, td, 12, 0, 0)
-
-      // Calculate end of this week based on period_start_day
-      const dayMap: Record<string, number> = {
-        sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
-        thursday: 4, friday: 5, saturday: 6,
-      }
-      const startDayNum = dayMap[periodStartDay] ?? 0
-      const currentDay = today.getDay()
-      const daysUntilEnd = ((startDayNum - 1 - currentDay + 7) % 7) || 7
-      const periodEnd = localIsoDaysFromToday(daysUntilEnd)
 
       const { data, error } = await supabase
         .from('allowance_periods')
@@ -790,7 +788,8 @@ export function useStartAllowancePeriod() {
           family_id: familyId,
           family_member_id: memberId,
           period_start: todayStr,
-          period_end: periodEnd,
+          // period_end intentionally omitted — trigger derives from
+          // allowance_configs.period_start_day + first-period detection.
           status: 'active',
           base_amount: weeklyAmount,
         })
