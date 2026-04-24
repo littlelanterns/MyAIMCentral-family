@@ -18,6 +18,7 @@ import {
 } from '@/types/financial'
 import { getMemberColor } from '@/lib/memberColors'
 import { GraceDaysManager } from './GraceDaysManager'
+import { PreviewThisWeekPanel } from './PreviewThisWeekPanel'
 
 export function ChildAllowanceConfigPage() {
   const { memberId } = useParams<{ memberId: string }>()
@@ -504,6 +505,12 @@ export function ChildAllowanceConfigPage() {
           )}
         </div>
       </CollapsibleSection>
+
+      {/* NEW-FF: Preview This Week panel. PRD-28 L228. Renders at the bottom
+          of the config screen, expandable inline. */}
+      {memberId && (
+        <PreviewThisWeekPanel memberId={memberId} activePeriod={activePeriod} />
+      )}
     </div>
   )
 }
