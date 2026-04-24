@@ -1,11 +1,35 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v15 — Row 9 SCOPE-3.F14 B1a correctness floor landed 2026-04-24
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a) by orchestrator
+> **Status:** DRAFT v16 — V-A retroactive verification complete 2026-04-24
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
 > **Scope:** 189 rows total (184 + 5 B1b follow-up rows NEW-EE..NEW-II added by Worker B1a 2026-04-24). Wave-assigned: 11 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + 5 B1b follow-up rows + existing Fix Next Build rows. 32 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
 
 ---
+
+## What changed from v15 → v16 (V-A retroactive verification complete 2026-04-24)
+
+**10 Phase A Wave 1 rows now VERIFIED GREEN end-to-end against live MyAIMCentral + real Testworth data.** V-A worker ran 13 verification tasks across 9 deliverables; all PASS. Row 62 SCOPE-2.F48 was already verified by A5's `tests/e2e/features/admin-shell.spec.ts` at Phase A landing time — not re-verified by V-A.
+
+V-A verification deliverables merged to main via `b9e14eb` (merge commit, `--no-ff` preserving V-A SHAs):
+
+| Row | Finding | Deliverable |
+|---|---|---|
+| 8 | NEW-B | `tests/e2e/features/row-8-lila-drawer-default-mode.spec.ts` (4d51de6) |
+| 10 | SCOPE-3.F41 | `tests/e2e/features/row-10-tool-permissions-schema.spec.ts` (c5ff0c4) |
+| 11 | SCOPE-4.F4 | `tests/verification/row-11-persona-tiers.ts` (445fc1e) |
+| 12+94 | SCOPE-4.F8a/b | `tests/verification/row-12-board-privacy-filter.ts` (a2c32f8) |
+| 18 | SCOPE-8b.F3 | `tests/e2e/features/row-18-admin-personas-tab.spec.ts` + `tests/verification/row-18-promotion-queue-lifecycle.ts` (4d54be7) |
+| 21 | SCOPE-8b.F7 | `tests/verification/row-21-calendar-source-check.ts` (65c2919) |
+| 26 | SCOPE-8a.F5 | `tests/verification/row-26-content-policy-fail-closed.ts` (41c2509) |
+| 27 | SCOPE-3.F22 | `tests/e2e/features/row-27-play-rewards-route.spec.ts` (f1b5658) |
+| 180 | SCOPE-4.F7 | `tests/e2e/features/row-180-board-moderator-optin.spec.ts` + `tests/verification/row-180-moderator-optin-server-gate.ts` (c88a997) |
+
+**V-A deliberate limitations (founder-accepted):**
+- Row 180 — live moderator stream not exercised (Sonnet × N advisors × moderator ≈ $0.10/run). Static + UI + DB persistence covers the three contract layers.
+- Row 8 — required guide-overlay dismissal + dispatchEvent on switcher to bypass FeatureGuide pointer intercepts. Test-harness friction documented for pattern reuse.
+
+**All V-A deliverables now live in repo** alongside the code they verify — future regressions fail the E2E suite.
 
 ## What changed from v14 → v15 (Row 9 SCOPE-3.F14 B1a correctness floor 2026-04-24)
 
