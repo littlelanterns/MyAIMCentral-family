@@ -97,8 +97,7 @@ export function MemberAssignmentModal({ open, onClose, item }: Props) {
       family_id: family.id,
       member_id: memberId,
       mode_key: item.guided_mode_key || `vault_tool_${item.id.slice(0, 8)}`,
-      is_granted: true,
-      granted_by: currentMember.id,
+      is_enabled: true,
       source: 'vault',
       vault_item_id: item.id,
     }))
