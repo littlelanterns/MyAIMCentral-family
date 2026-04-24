@@ -2,6 +2,20 @@
 // Model: Sonnet (one call per advisor per user turn)
 // Streams each advisor response individually as it completes.
 // Each advisor call receives full history INCLUDING prior advisor responses from current turn.
+//
+// Three-tier persona architecture (Convention #258, addendum §1):
+//   Tier 1: public.board_personas (personal_custom, family-scoped)
+//   Tier 2: platform_intelligence.persona_promotion_queue (admin review)
+//   Tier 3: platform_intelligence.board_personas (approved shared cache)
+//
+// Persona creation flow:
+//   1. Crisis gate on ALL free-form fields (name + description) — Convention #7
+//   2. Exact-name Tier-3 lookup (cache hit = silent seat)
+//   3. Embedding pre-screen against Tier-3 (≥0.92 silent, 0.88–0.92 suggest) — addendum §4
+//   4. Content policy harm screen (Haiku, fail-closed) — SCOPE-8a.F8a
+//   5. Multi-family-relevance classifier (Haiku, fail-closed) — addendum §5
+//   6. Sonnet persona generation
+//   7. Write Tier-1 row; if classifier yes, also write queue row — addendum §§2, 6
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.23.8'
@@ -9,6 +23,7 @@ import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { embedText } from '../_shared/embedding.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -18,21 +33,48 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 const MODEL_SONNET = 'anthropic/claude-sonnet-4'
 const MODEL_HAIKU = 'anthropic/claude-haiku-4-5-20251001'
 
+const PRESCREEN_SILENT_THRESHOLD = 0.92
+const PRESCREEN_SUGGEST_THRESHOLD = 0.88
+
 // ── Zod input schema ────────────────────────────────────────
 
 const InputSchema = z.object({
   conversation_id: z.string().uuid(),
   content: z.string().optional(),
-  action: z.enum(['chat', 'create_persona', 'generate_prayer_seat', 'content_policy_check']).optional(),
+  action: z.enum([
+    'chat',
+    'create_persona',
+    'generate_prayer_seat',
+    'content_policy_check',
+    'prescreen_persona',
+    'approve_queued_persona',
+    'reject_queued_persona',
+    'defer_queued_persona',
+    'list_persona_promotion_queue',
+  ]).optional(),
   // Additional fields used by specific actions — validated inline
 }).passthrough()
 
-// ── Content Policy Gate (Haiku pre-screen) ──────────────────
+// ── Crisis gate (Convention #7 — global, runs before any routing) ──
+
+function crisisCheckFields(...fields: (string | undefined | null)[]): string | null {
+  for (const field of fields) {
+    if (field && detectCrisis(field)) return CRISIS_RESPONSE
+  }
+  return null
+}
+
+// ── Content Policy Gate (Haiku pre-screen, FAIL-CLOSED per SCOPE-8a.F8a) ─
 
 interface ContentPolicyResult {
   outcome: 'approved' | 'deity' | 'blocked' | 'harmful_description'
   message?: string
   deityName?: string
+}
+
+const CONTENT_POLICY_BLOCK_FAIL_CLOSED: ContentPolicyResult = {
+  outcome: 'blocked',
+  message: "We couldn't verify this request right now. Please try again in a moment.",
 }
 
 async function contentPolicyCheck(name: string, description: string): Promise<ContentPolicyResult> {
@@ -71,17 +113,28 @@ Otherwise (historical figures, literary characters, public figures, personal peo
         temperature: 0,
       }),
     })
-    if (!res.ok) return { outcome: 'approved' } // fail open on API error
+    // FAIL-CLOSED (SCOPE-8a.F8a): previously returned approved on HTTP error.
+    if (!res.ok) {
+      console.error('contentPolicyCheck HTTP error:', res.status)
+      return CONTENT_POLICY_BLOCK_FAIL_CLOSED
+    }
 
     const json = await res.json()
     const text = json.choices?.[0]?.message?.content?.trim() || ''
-    const parsed = JSON.parse(text)
+    let parsed: Record<string, unknown>
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      console.error('contentPolicyCheck JSON parse failed:', text.slice(0, 200))
+      return CONTENT_POLICY_BLOCK_FAIL_CLOSED
+    }
 
     if (parsed.outcome === 'deity') {
+      const deityName = (parsed.deity_name as string) || name
       return {
         outcome: 'deity',
-        deityName: parsed.deity_name || name,
-        message: `We don't create AI voices for ${parsed.deity_name || name}. Instead, I can create a Prayer Seat — a set of reflection questions you could bring to ${parsed.deity_name || name} in prayer. Would you like that?`,
+        deityName,
+        message: `We don't create AI voices for ${deityName}. Instead, I can create a Prayer Seat — a set of reflection questions you could bring to ${deityName} in prayer. Would you like that?`,
       }
     }
     if (parsed.outcome === 'blocked') {
@@ -96,9 +149,196 @@ Otherwise (historical figures, literary characters, public figures, personal peo
         message: 'Some elements in your description don\'t fit our platform. Could you describe how this person thinks and gives advice instead?',
       }
     }
-    return { outcome: 'approved' }
-  } catch {
-    return { outcome: 'approved' } // fail open
+    if (parsed.outcome === 'approved') {
+      return { outcome: 'approved' }
+    }
+    // Unknown outcome → fail-closed
+    console.error('contentPolicyCheck unknown outcome:', parsed.outcome)
+    return CONTENT_POLICY_BLOCK_FAIL_CLOSED
+  } catch (err) {
+    // FAIL-CLOSED (SCOPE-8a.F8a): previously returned approved on exception.
+    console.error('contentPolicyCheck threw:', err)
+    return CONTENT_POLICY_BLOCK_FAIL_CLOSED
+  }
+}
+
+// ── Multi-Family-Relevance Classifier (Haiku, fail-closed) ──
+// Addendum §5. Decides whether generated persona writes to Tier 1 only
+// or ALSO enters Tier 2 promotion queue.
+
+interface ClassifierSignals {
+  public_figure_verifiable: boolean
+  personal_attributes_detected: boolean
+  entity_resolved: boolean
+  user_chip_selection: string
+}
+
+interface ClassifierResult {
+  multi_family_relevance: 'yes' | 'no'
+  confidence: number
+  signals: ClassifierSignals
+  reasoning: string
+}
+
+const CLASSIFIER_FAIL_CLOSED: ClassifierResult = {
+  multi_family_relevance: 'no',
+  confidence: 0,
+  signals: {
+    public_figure_verifiable: false,
+    personal_attributes_detected: false,
+    entity_resolved: false,
+    user_chip_selection: 'unknown',
+  },
+  reasoning: 'Classifier unavailable — defaulted to personal-only per fail-closed rule.',
+}
+
+async function classifyRelevance(
+  name: string,
+  description: string,
+  relationship: string,
+  entityResolved: boolean,
+): Promise<ClassifierResult> {
+  const prompt = `You are classifying an AI persona request for multi-family relevance. Decide whether this persona is likely to be meaningful to multiple different families (community-relevant) or is specific to the one family that created it (personal-only).
+
+Signals to consider:
+1. Is the described person a real public figure with published works/speeches, or a fictional character from published work?
+2. Does the description contain PERSONAL attributes ("my grandmother", "my pastor", private anecdotes, "she always told me", relationships only this user has)?
+3. The user's self-described relationship chip: "${relationship}"
+4. Entity resolution hint from embedding lookup: ${entityResolved ? 'near-miss found — name likely resolves to an existing known figure' : 'no near-miss — name may not resolve to a known entity'}
+
+Name: "${name}"
+Description: "${description}"
+
+Explicit chip-based rules:
+- If relationship is "A historical/public figure" or "A fictional character I'm writing" → likely YES (community-relevant)
+- If relationship is "My grandmother", "A mentor", "A friend", "A pastor/spiritual leader" (personal) → likely NO (personal-only)
+
+Return EXACTLY this JSON shape (no other text):
+{"multi_family_relevance":"yes"|"no","confidence":0.0-1.0,"signals":{"public_figure_verifiable":bool,"personal_attributes_detected":bool,"entity_resolved":bool,"user_chip_selection":"${relationship}"},"reasoning":"one-line rationale"}`
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://myaimcentral.com',
+        'X-Title': 'MyAIM Central - Relevance Classifier',
+      },
+      body: JSON.stringify({
+        model: MODEL_HAIKU,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 250,
+        temperature: 0,
+      }),
+    })
+    if (!res.ok) {
+      console.error('classifyRelevance HTTP error:', res.status)
+      return CLASSIFIER_FAIL_CLOSED
+    }
+
+    const json = await res.json()
+    const text = json.choices?.[0]?.message?.content?.trim() || ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      console.error('classifyRelevance no JSON found:', text.slice(0, 200))
+      return CLASSIFIER_FAIL_CLOSED
+    }
+    let parsed: Record<string, unknown>
+    try {
+      parsed = JSON.parse(jsonMatch[0])
+    } catch {
+      return CLASSIFIER_FAIL_CLOSED
+    }
+
+    const relevance = parsed.multi_family_relevance
+    if (relevance !== 'yes' && relevance !== 'no') return CLASSIFIER_FAIL_CLOSED
+    const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0
+    // Low-confidence fail-closed: below 0.6 → force personal-only
+    if (relevance === 'yes' && confidence < 0.6) {
+      return {
+        multi_family_relevance: 'no',
+        confidence,
+        signals: (parsed.signals as ClassifierSignals) || CLASSIFIER_FAIL_CLOSED.signals,
+        reasoning: `Low confidence (${confidence}) — defaulted to personal-only.`,
+      }
+    }
+
+    return {
+      multi_family_relevance: relevance,
+      confidence,
+      signals: (parsed.signals as ClassifierSignals) || CLASSIFIER_FAIL_CLOSED.signals,
+      reasoning: (parsed.reasoning as string) || '',
+    }
+  } catch (err) {
+    console.error('classifyRelevance threw:', err)
+    return CLASSIFIER_FAIL_CLOSED
+  }
+}
+
+// ── Embedding Pre-Screen (addendum §4) ───────────────────────
+// Returns silent / suggest / none + matched persona when applicable.
+
+interface PrescreenResult {
+  match: 'silent' | 'suggest' | 'none'
+  persona?: {
+    id: string
+    persona_name: string
+    persona_type: string
+    personality_profile: Record<string, unknown>
+    category: string | null
+    icon_emoji: string | null
+  }
+  similarity?: number
+}
+
+async function prescreenApprovedPersonaMatch(name: string): Promise<PrescreenResult> {
+  // Exact-name match first (cheaper than embedding)
+  const { data: exact } = await supabase.rpc('lookup_approved_persona', { p_name: name })
+  if (exact && exact.length > 0) {
+    const row = exact[0] as Record<string, unknown>
+    return {
+      match: 'silent',
+      persona: {
+        id: row.id as string,
+        persona_name: row.persona_name as string,
+        persona_type: row.persona_type as string,
+        personality_profile: (row.personality_profile as Record<string, unknown>) || {},
+        category: (row.category as string) || null,
+        icon_emoji: (row.icon_emoji as string) || null,
+      },
+      similarity: 1.0,
+    }
+  }
+
+  // Embedding near-miss
+  const embedding = await embedText(name)
+  if (!embedding) return { match: 'none' } // pre-screen unavailable → skip, harm screen is the real gate
+
+  const { data: near, error } = await supabase.rpc('prescreen_approved_persona_by_embedding', {
+    p_embedding: embedding,
+    p_threshold: PRESCREEN_SUGGEST_THRESHOLD,
+  })
+  if (error) {
+    console.error('prescreen RPC error:', error.message)
+    return { match: 'none' }
+  }
+  if (!near || near.length === 0) return { match: 'none' }
+
+  const hit = near[0] as Record<string, unknown>
+  const similarity = Number(hit.similarity) || 0
+  const matchTier: 'silent' | 'suggest' = similarity >= PRESCREEN_SILENT_THRESHOLD ? 'silent' : 'suggest'
+  return {
+    match: matchTier,
+    similarity,
+    persona: {
+      id: hit.id as string,
+      persona_name: hit.persona_name as string,
+      persona_type: hit.persona_type as string,
+      personality_profile: (hit.personality_profile as Record<string, unknown>) || {},
+      category: (hit.category as string) || null,
+      icon_emoji: (hit.icon_emoji as string) || null,
+    },
   }
 }
 
@@ -291,61 +531,142 @@ Deno.serve(async (req) => {
     const { data: conv } = await supabase.from('lila_conversations').select('*').eq('id', conversation_id).single()
     if (!conv) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: jsonHeaders })
 
+    // ── Action: Prescreen persona (embedding + exact-name lookup) ──
+    if (action === 'prescreen_persona') {
+      const name = (body.name as string || '').trim()
+      if (!name) return new Response(JSON.stringify({ error: 'Missing name' }), { status: 400, headers: jsonHeaders })
+      const crisis = crisisCheckFields(name)
+      if (crisis) return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      const result = await prescreenApprovedPersonaMatch(name)
+      return new Response(JSON.stringify(result), { headers: jsonHeaders })
+    }
+
     // ── Action: Content policy check ─────────────────────────
     if (action === 'content_policy_check') {
       const name = body.name as string | undefined
       if (!name) return new Response(JSON.stringify({ error: 'Missing name' }), { status: 400, headers: jsonHeaders })
       const description = (body.description as string) || ''
+      // Crisis gate on free-form fields BEFORE content policy (Convention #7 global, adjustment #2)
+      const crisis = crisisCheckFields(name, description)
+      if (crisis) {
+        return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      }
       const result = await contentPolicyCheck(name, description)
       return new Response(JSON.stringify(result), { headers: jsonHeaders })
     }
 
-    // ── Action: Create persona ───────────────────────────────
+    // ── Action: Create persona (three-tier flow) ─────────────
     if (action === 'create_persona') {
-      const name = body.name as string | undefined
-      const description = (body.description as string) || ''
-      const relationship = (body.relationship as string) || 'advisor'
-      const follow_up = (body.follow_up as string) || ''
-      const persona_type = body.persona_type as string | undefined
+      const name = ((body.name as string) || '').trim()
+      const description = ((body.description as string) || '').trim()
+      const relationship = ((body.relationship as string) || 'advisor').trim()
+      const follow_up = ((body.follow_up as string) || '').trim()
       const family_id = body.family_id as string | undefined
       const member_id = body.member_id as string | undefined
 
-      // Persona caching: check by name (case-insensitive) before generating
-      const { data: existing } = await supabase
-        .from('board_personas')
-        .select('*')
-        .ilike('persona_name', name || '')
-        .eq('content_policy_status', 'approved')
-        .limit(1)
-
-      if (existing && existing.length > 0) {
-        return new Response(JSON.stringify({ persona: existing[0], cached: true }), { headers: jsonHeaders })
+      if (!name || !family_id || !member_id) {
+        return new Response(JSON.stringify({ error: 'Missing name/family_id/member_id' }), { status: 400, headers: jsonHeaders })
       }
 
-      // Generate personality profile via Sonnet
-      const profile = await generatePersona(name || '', description, relationship, follow_up)
+      // Step 1: Crisis gate on ALL free-form fields (Convention #7, adjustment #2)
+      const crisis = crisisCheckFields(name, description, follow_up, relationship)
+      if (crisis) {
+        return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      }
 
-      const isPersonal = persona_type === 'personal_custom'
-      const newPersona = {
+      // Step 2: Exact-name + embedding pre-screen against Tier 3 (addendum §4)
+      const prescreen = await prescreenApprovedPersonaMatch(name)
+      if (prescreen.match === 'silent' && prescreen.persona) {
+        // Silent seat: return the existing Tier-3 persona, UI auto-seats
+        return new Response(JSON.stringify({
+          persona: prescreen.persona,
+          source: 'tier3_cache',
+          prescreen: { match: 'silent', similarity: prescreen.similarity },
+        }), { headers: jsonHeaders })
+      }
+      if (prescreen.match === 'suggest' && prescreen.persona) {
+        // UI will show suggestion card — not auto-seated
+        return new Response(JSON.stringify({
+          persona: null,
+          suggestion: prescreen.persona,
+          source: 'tier3_near_miss',
+          prescreen: { match: 'suggest', similarity: prescreen.similarity },
+        }), { headers: jsonHeaders })
+      }
+
+      // Step 3: Content policy harm screen (fail-closed per SCOPE-8a.F8a)
+      const policyResult = await contentPolicyCheck(name, description)
+      if (policyResult.outcome !== 'approved') {
+        return new Response(JSON.stringify({
+          persona: null,
+          policy: policyResult,
+        }), { headers: jsonHeaders })
+      }
+
+      // Step 4: Multi-family-relevance classifier (addendum §5)
+      const classifier = await classifyRelevance(
+        name,
+        description,
+        relationship,
+        prescreen.match !== 'none', // entity_resolved = we got a near-miss below suggest threshold
+      )
+
+      // Step 5: Sonnet persona generation
+      const profile = await generatePersona(name, description, relationship, follow_up)
+
+      // Step 6: Write Tier-1 row (public.board_personas, personal_custom, family-scoped)
+      const tier1Row = {
         persona_name: name,
-        persona_type: isPersonal ? 'personal_custom' : 'community_generated',
+        persona_type: 'personal_custom' as const,
         personality_profile: profile,
         source_references: [],
-        category: isPersonal ? 'custom' : null,
-        content_policy_status: isPersonal ? 'approved' : 'pending_review',
-        is_public: false, // personal_custom: always false. community: false until moderated
+        category: 'custom' as const,
+        content_policy_status: 'approved' as const,
+        is_public: false,
         created_by: member_id,
-        family_id: isPersonal ? family_id : null,
+        family_id,
       }
 
       const { data: inserted, error: insertError } = await supabase
         .from('board_personas')
-        .insert(newPersona)
+        .insert(tier1Row)
         .select()
         .single()
 
       if (insertError) {
+        console.error('Tier-1 insert error:', insertError.message)
         return new Response(JSON.stringify({ error: 'Failed to create persona' }), { status: 500, headers: jsonHeaders })
+      }
+
+      // Step 7: If classifier says multi-family-relevance yes, also write queue row
+      let queueRowId: string | null = null
+      if (classifier.multi_family_relevance === 'yes') {
+        const queueEmbedding = await embedText(`${name}\n${description}`)
+        const { data: queueRow, error: queueError } = await supabase
+          .schema('platform_intelligence')
+          .from('persona_promotion_queue')
+          .insert({
+            requested_persona_name: name,
+            submitted_by_family_id: family_id,
+            submitted_by_member_id: member_id,
+            promoted_from_personal_id: inserted.id,
+            proposed_personality_profile: profile,
+            source_references: [],
+            category: 'custom',
+            classifier_confidence: classifier.confidence,
+            classifier_signals: classifier.signals,
+            classifier_reasoning: classifier.reasoning,
+            content_policy_pre_screen_status: 'passed',
+            embedding: queueEmbedding,
+            status: 'pending',
+          })
+          .select('id')
+          .single()
+        if (queueError) {
+          console.error('Queue insert error (non-fatal):', queueError.message)
+        } else if (queueRow) {
+          queueRowId = queueRow.id
+        }
       }
 
       // Log generation cost
@@ -358,21 +679,89 @@ Deno.serve(async (req) => {
         outputTokens: 1000,
       })
 
-      return new Response(JSON.stringify({ persona: inserted, cached: false }), { headers: jsonHeaders })
+      return new Response(JSON.stringify({
+        persona: inserted,
+        source: 'generated',
+        classifier: {
+          multi_family_relevance: classifier.multi_family_relevance,
+          confidence: classifier.confidence,
+        },
+        queue_row_id: queueRowId,
+      }), { headers: jsonHeaders })
     }
 
     // ── Action: Generate prayer seat ─────────────────────────
     if (action === 'generate_prayer_seat') {
       const situation = (body.situation as string) || 'a difficult decision'
       const deity_name = (body.deity_name as string) || 'God'
+      // Crisis gate on situation (user's actual content)
+      const crisis = crisisCheckFields(situation)
+      if (crisis) return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
       const questions = await generatePrayerQuestions(situation, deity_name)
       return new Response(JSON.stringify({ questions }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Admin — approve queued persona ───────────────
+    if (action === 'approve_queued_persona') {
+      const queue_id = body.queue_id as string | undefined
+      if (!queue_id) return new Response(JSON.stringify({ error: 'Missing queue_id' }), { status: 400, headers: jsonHeaders })
+      // Crisis gate on any admin-supplied refine content (adjustment #2)
+      const refinedProfile = body.refined_profile as Record<string, unknown> | undefined
+      const refinedProfileText = refinedProfile ? JSON.stringify(refinedProfile) : ''
+      const crisis = crisisCheckFields(refinedProfileText, body.admin_notes as string | undefined)
+      if (crisis) return new Response(JSON.stringify({ crisis: true, response: crisis }), { headers: jsonHeaders })
+      // Proxy to RPC (RPC enforces admin permission via SECURITY DEFINER + staff_permissions check)
+      const { data, error } = await supabase.rpc('approve_queued_persona', {
+        p_queue_id: queue_id,
+        p_refined_profile: refinedProfile ?? null,
+        p_refined_sources: (body.refined_sources as string[]) ?? null,
+        p_admin_notes: (body.admin_notes as string) ?? null,
+        p_was_refined: !!refinedProfile,
+      })
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 403, headers: jsonHeaders })
+      }
+      return new Response(JSON.stringify({ approved_persona_id: data }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Admin — reject queued persona ────────────────
+    if (action === 'reject_queued_persona') {
+      const queue_id = body.queue_id as string | undefined
+      const admin_notes = (body.admin_notes as string) || ''
+      if (!queue_id) return new Response(JSON.stringify({ error: 'Missing queue_id' }), { status: 400, headers: jsonHeaders })
+      const { error } = await supabase.rpc('reject_queued_persona', {
+        p_queue_id: queue_id,
+        p_admin_notes: admin_notes,
+      })
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 403, headers: jsonHeaders })
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Admin — defer queued persona ─────────────────
+    if (action === 'defer_queued_persona') {
+      const queue_id = body.queue_id as string | undefined
+      if (!queue_id) return new Response(JSON.stringify({ error: 'Missing queue_id' }), { status: 400, headers: jsonHeaders })
+      const { error } = await supabase.rpc('defer_queued_persona', { p_queue_id: queue_id })
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 403, headers: jsonHeaders })
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Admin — list promotion queue ─────────────────
+    if (action === 'list_persona_promotion_queue') {
+      const status = (body.status as string) || 'pending'
+      const hideStale = body.hide_stale !== false
+      const { data, error } = await supabase.rpc('list_persona_promotion_queue', {
+        p_status: status,
+        p_hide_stale: hideStale,
+      })
+      if (error) return new Response(JSON.stringify({ error: error.message }), { status: 403, headers: jsonHeaders })
+      return new Response(JSON.stringify({ rows: data || [] }), { headers: jsonHeaders })
     }
 
     // ── Action: Chat (default) — sequential multi-advisor ────
     if (!content) return new Response(JSON.stringify({ error: 'Missing content' }), { status: 400, headers: jsonHeaders })
 
-    // Crisis check
+    // Crisis check (global, Convention #7)
     if (detectCrisis(content)) {
       await supabase.from('lila_messages').insert([
         { conversation_id, role: 'user', content, metadata: {} },
@@ -394,29 +783,46 @@ Deno.serve(async (req) => {
       .eq('conversation_id', conversation_id)
       .single()
 
-    let seatedPersonas: Array<{ persona_id: string; seat_order: number; is_prayer_seat: boolean }> = []
+    let seatedPersonas: Array<{ persona_id: string | null; platform_persona_id: string | null; seat_order: number; is_prayer_seat: boolean }> = []
     if (boardSession) {
       const { data: seats } = await supabase
         .from('board_session_personas')
-        .select('persona_id, seat_order, is_prayer_seat')
+        .select('persona_id, platform_persona_id, seat_order, is_prayer_seat')
         .eq('board_session_id', boardSession.id)
         .is('removed_at', null)
         .order('seat_order', { ascending: true })
       seatedPersonas = seats || []
     }
 
-    // Load persona profiles
-    const personaIds = seatedPersonas.filter(s => !s.is_prayer_seat).map(s => s.persona_id)
+    // Load persona profiles from BOTH tiers (dual-column resolution per Convention #258)
+    const tier1Ids = seatedPersonas.filter(s => !s.is_prayer_seat && s.persona_id).map(s => s.persona_id!)
+    const tier3Ids = seatedPersonas.filter(s => !s.is_prayer_seat && s.platform_persona_id).map(s => s.platform_persona_id!)
     let personas: Array<{ id: string; persona_name: string; personality_profile: Record<string, unknown>; persona_type: string }> = []
-    if (personaIds.length > 0) {
-      const { data: personaData } = await supabase
+    if (tier1Ids.length > 0) {
+      const { data: t1 } = await supabase
         .from('board_personas')
         .select('id, persona_name, personality_profile, persona_type')
-        .in('id', personaIds)
-      personas = personaData || []
+        .in('id', tier1Ids)
+      personas.push(...(t1 || []))
     }
+    if (tier3Ids.length > 0) {
+      const { data: t3 } = await supabase
+        .schema('platform_intelligence')
+        .from('board_personas')
+        .select('id, persona_name, personality_profile, persona_type')
+        .in('id', tier3Ids)
+      personas.push(...(t3 || []))
+    }
+    // Preserve seat order
+    const orderMap = new Map<string, number>()
+    for (const s of seatedPersonas) {
+      if (s.persona_id) orderMap.set(s.persona_id, s.seat_order)
+      if (s.platform_persona_id) orderMap.set(s.platform_persona_id, s.seat_order)
+    }
+    personas.sort((a, b) => (orderMap.get(a.id) || 0) - (orderMap.get(b.id) || 0))
 
     // Load user context (guiding stars, self-knowledge)
+    // NOTE: This inline load is superseded in Commit 3 by assembleContext() per SCOPE-8a.F8b.
     const { data: stars } = await supabase.from('guiding_stars')
       .select('content').eq('family_id', conv.family_id).eq('member_id', conv.member_id)
       .eq('is_included_in_ai', true).is('archived_at', null).limit(10)
@@ -611,7 +1017,7 @@ Deno.serve(async (req) => {
             }
           }
 
-          // LiLa moderator interjection
+          // LiLa moderator interjection (NOTE: opt-in gate lands in Commit 3 per SCOPE-4.F7)
           const moderatorPrompt = buildModeratorPrompt(seatedNames, userContext)
           const modMessages = [
             { role: 'system' as const, content: moderatorPrompt },
@@ -637,7 +1043,7 @@ Deno.serve(async (req) => {
               for (const line of lines) {
                 if (!line.startsWith('data: ')) continue; const d = line.slice(6).trim()
                 if (d === '[DONE]') continue
-                try { const p = JSON.parse(d); const c = p.choices?.[0]?.delta?.content || ''; if (c) { modFull += c; controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'chunk', content: c, source: 'lila' })}\n\n`)) } } catch { /* skip */ }
+                try { const p = JSON.parse(d); const c = p.choices?.[0]?.delta?.content || ''; if (c) { modFull += c; controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'chunk', content: c, source: 'lila' })}\n\n`)) } } catch { /* skip */ }
               }
             }
             await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: modFull, metadata: { mode: 'board_of_directors', source: 'lila_moderator' } })
