@@ -66,14 +66,24 @@ WHERE id IN (SELECT id FROM ranked_legacy WHERE rn > 1);
 -- ──────────────────────────────────────────────────────────────────────────
 -- Step 2. UNIQUE INDEX guaranteeing one row per (step, member, day).
 --
--- Partial index excludes the legacy NULL-family_member_id path (which the
--- backfill above already deduplicated). All current writes set family_member_id
--- via useCompleteRoutineStep (mirrors completion.member_id into family_member_id).
+-- Non-partial index. PostgREST requires non-partial unique indexes (or a
+-- named UNIQUE constraint) to recognize ON CONFLICT specifications coming
+-- through the REST API. A partial index `WHERE family_member_id IS NOT NULL`
+-- enforces uniqueness at the DB level but is NOT picked up by PostgREST's
+-- conflict-target inference (error: "there is no unique or exclusion
+-- constraint matching the ON CONFLICT specification"). useCompleteRoutineStep
+-- uses .upsert(..., { onConflict: 'step_id,family_member_id,period_date',
+-- ignoreDuplicates: true }) and depends on PostgREST seeing this index.
+--
+-- Legacy NULL-family_member_id rows: PostgreSQL treats each NULL as DISTINCT
+-- in a UNIQUE index by default (NULLS DISTINCT, the standard SQL behavior),
+-- so multiple legacy rows where family_member_id IS NULL coexist without
+-- violating uniqueness. The cleanup CTE above already deduplicated those by
+-- (step_id, member_id, period_date) where family_member_id IS NULL.
 -- ──────────────────────────────────────────────────────────────────────────
 
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_rsc_step_member_date
-  ON public.routine_step_completions (step_id, family_member_id, period_date)
-  WHERE family_member_id IS NOT NULL;
+  ON public.routine_step_completions (step_id, family_member_id, period_date);
 
 -- ──────────────────────────────────────────────────────────────────────────
 -- Step 3. Drop the now-redundant non-unique 4-column index. The new UNIQUE
