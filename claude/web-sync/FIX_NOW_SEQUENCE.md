@@ -1,11 +1,38 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v16 — V-A retroactive verification complete 2026-04-24
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification) by orchestrator
+> **Status:** DRAFT v17 — Row 9 V-B1a verification complete + 3 new rows filed 2026-04-24
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 189 rows total (184 + 5 B1b follow-up rows NEW-EE..NEW-II added by Worker B1a 2026-04-24). Wave-assigned: 11 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + 5 B1b follow-up rows + existing Fix Next Build rows. 32 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+> **Scope:** 192 rows total (184 + 5 B1b follow-up rows NEW-EE..NEW-II added by Worker B1a 2026-04-24 + 3 new Fix Now rows NEW-JJ/NEW-KK/NEW-LL surfaced by Worker V-B1a 2026-04-24). Wave-assigned: 14 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + 5 B1b follow-up rows + existing Fix Next Build rows. 35 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
 
 ---
+
+## What changed from v16 → v17 (Row 9 V-B1a verification + 3 new rows 2026-04-24)
+
+**Row 9 SCOPE-3.F14 B1a VERIFIED GREEN.** Worker V-B1a ran 13 verification tasks against migrations 100163 + 100164 live in production. 12 PASS / 1 PARTIAL (deliberate — Task 7 adjacent E2E specs not executed to avoid mutating live testworth data during B1b wait; direct DB contract authoritatively covered by Tasks 1–5) / 0 FAIL. Live per-child RPC delta confirmed end-to-end:
+
+| Child | Active period | post-fix completed | B1a reported | match |
+|---|---|---|---|---|
+| Helam | 2026-04-19..2026-04-25 | 14 | 14 | ✓ |
+| Gideon | 2026-04-19..2026-04-25 | 22 | 22 | ✓ |
+| Miriam | 2026-04-19..2026-04-25 | 6 | 6 | ✓ |
+| Mosiah | 2026-04-19..2026-04-25 | 56 | 56 | ✓ |
+
+Row 9 still reads "awaiting B1b" because B1a was always scoped as 1 of 2 workers (correctness floor + PRD conformance). B1b (NEW-EE through NEW-II) unblocks the final Row 9 RESOLVED state.
+
+**3 new rows filed** from V-B1a's verification setup + Mosiah live-data anomaly investigation:
+
+| # | ID | Severity | Beta | Title |
+|---|---|---|---|---|
+| 190 | NEW-JJ | High | Y | `auth.admin.createUser` fails — blocks new family member creation |
+| 191 | NEW-KK | High | Y | `auto_provision_member_resources` trigger writes invalid `archive_folders.folder_type='family_member'`, CHECK rejects |
+| 192 | NEW-LL | High | Y | Routine step checkbox must be idempotent toggle, not accumulating click log |
+
+NEW-JJ + NEW-KK are probable shared root cause — both are trigger/constraint drift in the member-provisioning chain. Worth investigating together.
+
+NEW-LL closes the allowance-dedupe story at the write layer. Migration 100164 deduped at READ time (defensive). NEW-LL dedupes at WRITE time (root cause): checkbox state = single source of truth. Checked = exactly one row for `(step_id, family_member_id, period_date)`. Unchecked = zero rows. Historical duplicates: Mosiah 2026-04-24 had 17 raw rows for Zone 2 Herringbone (12 unique steps) + 20 raw rows for Bathroom (12 unique steps). A cleanup migration is part of NEW-LL's scope.
+
+**Beta blocker count: 32 → 35.** All 3 new rows are Beta=Y Fix Now.
 
 ## What changed from v15 → v16 (V-A retroactive verification complete 2026-04-24)
 
