@@ -15,7 +15,8 @@ import {
   streamLilaChat,
 } from '@/hooks/useLila'
 import type { LilaConversation } from '@/hooks/useLila'
-import { LilaMessageBubble } from './LilaMessageBubble'
+import { LilaMessageBubble, type RoutingHandoffTarget } from './LilaMessageBubble'
+import { useToolLauncher } from './ToolLauncherProvider'
 import { LilaModeSwitcher } from './LilaModeSwitcher'
 import { LilaAvatar, getAvatarKeyForMode, getModeDisplayName } from './LilaAvatar'
 import { LilaContextIndicator } from './LilaContextIndicator'
@@ -32,6 +33,11 @@ type DrawerState = 'collapsed' | 'peek' | 'full'
 interface LilaDrawerProps {
   conversation: LilaConversation | null
   onConversationCreated: (conv: LilaConversation) => void
+  /** Clear the active conversation — used by the Assist routing-concierge
+   *  auto-switch to start a fresh Help conversation after the switch.
+   *  Optional for backward-compat; when omitted, auto-switch still flips
+   *  currentMode but the next send will reuse the existing conversation. */
+  onClearConversation?: () => void
   onClose: () => void
   initialMode?: string
   onHistoryOpen?: () => void
@@ -48,6 +54,7 @@ interface LilaDrawerProps {
 export function LilaDrawer({
   conversation,
   onConversationCreated,
+  onClearConversation,
   onClose,
   initialMode,
   onHistoryOpen,
@@ -62,6 +69,7 @@ export function LilaDrawer({
   const renameConversation = useRenameConversation()
   const queryClient = useQueryClient()
   const location = useLocation()
+  const { openTool } = useToolLauncher()
 
   const {
     state: voiceState,
@@ -274,11 +282,20 @@ export function LilaDrawer({
       (chunk) => {
         setStreamingContent(prev => prev + chunk)
       },
-      () => {
+      (_full, metadata) => {
         setIsStreaming(false)
         setStreamingContent('')
         // Refetch messages from DB — edge function saved both user + assistant messages
         queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
+        // Routing-concierge auto-switch (PRD-05 addendum sec 4c). On Help
+        // auto-switch, the pre-scan already saved the reflection message;
+        // flip the drawer to Help mode and clear conversation so the next
+        // message starts fresh in Help.
+        const routing = (metadata as { routing?: { action?: string; target?: string } } | undefined)?.routing
+        if (routing?.action === 'auto_switch' && routing.target === 'help') {
+          setCurrentMode('help')
+          onClearConversation?.()
+        }
       },
       (error) => {
         console.error('LiLa chat error:', error)
@@ -332,6 +349,25 @@ export function LilaDrawer({
       queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
     },
     [conversation, queryClient],
+  )
+
+  /** Routing-concierge chip handler (PRD-05 addendum sec 4d). Called when
+   *  mom taps [Switch to X] / [Open X] / [Stay here] on a three-part handoff
+   *  message from Assist. Drawer modes flip currentMode; modal tools call
+   *  openTool. "Stay here" is a no-op — mom keeps chatting in Assist. */
+  const handleRoutingHandoff = useCallback(
+    (target: RoutingHandoffTarget | null) => {
+      if (!target) return // "Stay here"
+      if (target.verb === 'open') {
+        openTool(target.tool)
+        return
+      }
+      // verb === 'switch' — flip drawer mode and clear active conversation so
+      // the next send starts a fresh conversation in the target mode.
+      setCurrentMode(target.tool)
+      onClearConversation?.()
+    },
+    [openTool, onClearConversation],
   )
 
   const [pendingModeSwitch, setPendingModeSwitch] = useState<string | null>(null)
@@ -594,6 +630,7 @@ export function LilaDrawer({
                 hideHumanInTheMix={isConversationalMode}
                 onRegenerate={() => handleRegenerate(msg.id)}
                 onReject={() => handleReject(msg.id)}
+                onRoutingHandoff={handleRoutingHandoff}
               />
             )
           })}

@@ -10,6 +10,7 @@ import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { buildFeatureGuidePrompt } from '../_shared/feature-guide-knowledge.ts'
 import { assembleContext, type AssembledContext } from '../_shared/context-assembler.ts'
+import { detectRoutingIntent, buildHandoffResponseBody } from './routing-prescan.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -64,11 +65,50 @@ Your primary role is troubleshooting and support: login issues, billing, bugs, t
 But you also handle feature guidance seamlessly — if mom asks "how do I create a routine?" or "how do I set up my kid's dashboard," help her directly with step-by-step instructions. Name the exact pages, buttons, and settings. Don't tell her to switch modes — just help.
 Be patient, practical, and warm. Walk through steps one at a time. Ask "are you there?" or "ready for the next step?" before continuing.
 If the conversation shifts toward a bigger goal ("I want my kids to learn life skills before they leave home"), ask a clarifying question to understand what she's picturing before recommending a setup approach.`,
-  assist: `Mode: LiLa Assist — started from the "Your Guide" button.
-Your primary role is feature discovery and goal-based setup: helping mom figure out the best way to implement what she's imagining.
-When mom describes a goal, ask a warm clarifying question first — not a robotic A/B choice, but a genuine "tell me more about what you're picturing, give me some examples" conversation. Then recommend the right feature combination and walk her through setting it up step by step.
-You also handle troubleshooting seamlessly — if something isn't working, help fix it directly. Don't tell her to switch modes.
-Be enthusiastic, curious, and discovery-oriented. Name exact pages, buttons, and settings. Walk through steps one at a time. Ask "are you there?" or "ready for the next step?" before continuing.`,
+  assist: `## Mode: LiLa Assist — Your Guide AND Front-Door Concierge
+
+IDENTITY
+You are LiLa Assist — mom's guide for how the app works AND mom's front-door concierge for which LiLa tool she actually needs. You answer feature-guidance questions directly. When you notice a user's question belongs in another LiLa tool, you route them there.
+
+FEATURE-GUIDANCE WORK (your default job)
+When mom asks how to do something in MyAIM, help her directly. Name exact pages, buttons, and settings. Walk through steps one at a time. Ask "are you there?" or "ready for the next step?" before continuing. When mom describes a goal, ask a warm clarifying question first — not a robotic A/B choice, but a genuine "tell me more about what you're picturing, give me some examples" conversation. Then recommend the right feature combination and walk her through setting it up step by step.
+
+THE THREE-PART HANDOFF PATTERN (NON-NEGOTIABLE when routing)
+When you detect that a user's intent belongs in another LiLa tool, you always:
+  (a) Reflect — restate what you heard in a clean, short paraphrase.
+  (b) Name the tool and its purpose — in brand voice, in plain English, for this specific intent.
+  (c) Let the user choose — your response ends with chips [Switch to X] or [Open X] plus [Stay here].
+Reflection comes first, always. Never skip to chips. Format the chip line as a trailing line at the end of your message so the UI can parse it.
+
+AUTO-SWITCH ONLY FOR HELP
+For bug/broken/troubleshooting/login/billing language: you announce the switch and it happens — no chip, no choice. For every other destination (Higgins, Cyrano, Optimizer, ThoughtSift tools, Board of Directors), you ASK with the three-part pattern.
+
+NEVER ANSWER AS THE TARGET TOOL
+Your job is to route, not to perform the target tool's work. Do not draft a Cyrano-style love note yourself. Do not walk mom through a Decision Guide framework. Do not voice a Board of Directors advisor. Route her to the real tool.
+
+WHEN IN DOUBT, STAY IN ASSIST
+If you are not confident the user's intent belongs elsewhere, treat the message as a feature-guidance question and answer it directly. Do not force handoffs onto ambiguous questions.
+
+PROCESSING PARTNER, NOT COMPANION
+Warm, empathetic, appropriately boundaried. Bridge to human connection and professional help when appropriate. You never replace relationships.
+
+CRISIS OVERRIDE (ALWAYS RUNS FIRST)
+If a user's message contains crisis content (self-harm, abuse, immediate danger, harm to others), the global crisis-override response path takes priority over ANY routing logic. You do not route crisis content to Help or any other tool. Crisis invokes the crisis-override response BEFORE your routing logic runs.
+
+DEITIES AND SACRED FIGURES
+If a user asks a persona-shaped question that names a deity or sacred figure ("what would God say", "if Jesus were here", etc.), route the request to Board of Directors. Do not pre-filter deities yourself — Board of Directors owns the content-policy gate and Prayer Seat redirect.
+
+FAITH CONTEXT
+Follow the AIMfM Faith & Ethics Framework. Faith-aware when faith context is active and topic connects naturally. Never force.
+
+AUTO-REJECT CATEGORIES
+Do not generate responses that facilitate force, coercion, manipulation, shame-based control, or withholding affection. If a user's request is shaped by these patterns, respond with a gentle reframe rather than compliance.
+
+ROUTABLE DESTINATIONS
+The six routable destinations are: LiLa Help (auto-switch), Higgins, Cyrano, LiLa Optimizer, ThoughtSift sub-tools (Decision Guide, Perspective Shifter, Mediator, Translator), and Board of Directors. For ThoughtSift, always name the specific sub-tool (e.g., "Decision Guide"), never the "ThoughtSift" umbrella. For Board of Directors and ThoughtSift modal tools use "Open"; for drawer modes (Higgins, Cyrano, Optimizer, Help) use "Switch to".
+
+NOT ROUTABLE FROM ASSIST
+You do NOT route to: Safe Harbor (has its own light-touch detection), Archives write-back (happens via separate context-learning offers), Victory Recorder (happens via action chips on other LiLa messages), Smart Notepad (reached via "Edit in Notepad" chip, not Assist routing). Do not offer handoffs to any of these.`,
   optimizer: `Mode: LiLa Optimizer. Help optimize prompts for AI tools. Weave in family context to make prompts more specific and effective.`,
   meeting: `Mode: Meeting Facilitation — guiding a family meeting.
 You are facilitating a structured family conversation. Your role is to guide participants through the agenda sections provided in the MEETING CONTEXT below, weaving in any pending agenda items naturally.
@@ -361,6 +401,66 @@ Deno.serve(async (req) => {
       content,
       metadata: {},
     })
+
+    // Layer 1 — Assist-only routing-concierge keyword pre-scan
+    // (PRD-05 Drawer Default + Routing Concierge Addendum sec 4a/4b/4c/4d).
+    // Runs AFTER crisis detection (Convention #7 global crisis override
+    // short-circuits before this block executes). On a category hit, emits
+    // the three-part handoff SSE stream without calling the model. A miss
+    // falls through to Layer 2 (system-prompt instruction) below.
+    if (modeKey === 'assist') {
+      const intent = detectRoutingIntent(content)
+      if (intent.kind !== 'none') {
+        const handoffBody = buildHandoffResponseBody(intent)
+        const routingPayload = intent.kind === 'help'
+          ? { action: 'auto_switch' as const, target: 'help' as const, category: 'help' }
+          : {
+              action: 'ask' as const,
+              category: intent.category,
+              targets: intent.targets.map(t => ({
+                tool: t.tool,
+                label: t.label,
+                purpose: t.purpose,
+                verb: t.verb,
+              })),
+            }
+
+        // Save assistant message with routing metadata — client renders chips
+        // from metadata.routing.targets after query invalidation.
+        await supabase.from('lila_messages').insert({
+          conversation_id,
+          role: 'assistant',
+          content: handoffBody,
+          metadata: { source: 'routing_prescan', routing: routingPayload, mode: 'assist' },
+          token_count: 0,
+        })
+
+        // Update conversation message_count (user + assistant = +2)
+        const newCount = (conversation.message_count || 0) + 2
+        await supabase
+          .from('lila_conversations')
+          .update({ message_count: newCount })
+          .eq('id', conversation_id)
+
+        // Emit as SSE so the existing streamLilaChat client parser works
+        // unchanged. One chunk event carrying the body, one metadata event
+        // carrying the routing payload, then [DONE].
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'chunk', content: handoffBody })}\n\n`,
+            ))
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'metadata', routing: routingPayload })}\n\n`,
+            ))
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        })
+        return new Response(stream, { headers: sseHeaders })
+      }
+    }
 
     // Load conversation history (last 20 messages for context window management)
     const { data: history } = await supabase

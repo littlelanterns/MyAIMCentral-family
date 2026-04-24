@@ -170,6 +170,7 @@ export function MomShell({ children }: MomShellProps) {
           <LilaDrawer
             conversation={activeConversation}
             onConversationCreated={setActiveConversation}
+            onClearConversation={() => setActiveConversation(null)}
             onClose={() => setLilaVisible(false)}
             initialMode={lilaMode}
             onHistoryOpen={() => setShowHistory(true)}

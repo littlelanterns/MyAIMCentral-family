@@ -15,6 +15,13 @@ import type { LilaMessage } from '@/hooks/useLila'
  * The most recent assistant message shows HumanInTheMix controls.
  */
 
+export type RoutingHandoffTarget = {
+  tool: string
+  label: string
+  purpose: string
+  verb: 'switch' | 'open'
+}
+
 interface LilaMessageBubbleProps {
   message: LilaMessage
   avatarKey?: string
@@ -25,6 +32,10 @@ interface LilaMessageBubbleProps {
   hideHumanInTheMix?: boolean
   onRegenerate?: () => void
   onReject?: () => void
+  /** Called when a routing-handoff chip is tapped on an Assist message
+   *  carrying metadata.routing. Receives the chosen target or null for
+   *  "Stay here". Per PRD-05 Drawer Default + Routing Concierge Addendum. */
+  onRoutingHandoff?: (target: RoutingHandoffTarget | null) => void
 }
 
 export function LilaMessageBubble({
@@ -35,7 +46,13 @@ export function LilaMessageBubble({
   hideHumanInTheMix = false,
   onRegenerate,
   onReject,
+  onRoutingHandoff,
 }: LilaMessageBubbleProps) {
+  // Routing-handoff chips (PRD-05 addendum sec 4d). Assist pre-scan writes
+  // metadata.routing with action='ask' + targets[]. Auto-switch (action='help')
+  // is handled upstream in LilaDrawer via the stream metadata event — no chips.
+  const routing = (message.metadata as { routing?: { action?: string; targets?: RoutingHandoffTarget[] } } | null)?.routing
+  const askTargets = routing?.action === 'ask' ? (routing.targets ?? []) : []
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
   const isAssistant = message.role === 'assistant'
@@ -86,6 +103,37 @@ export function LilaMessageBubble({
             <span className="inline-block w-1.5 h-4 ml-0.5 animate-pulse" style={{ backgroundColor: 'var(--color-text-secondary)' }} />
           )}
         </div>
+
+        {/* Routing-handoff chips — Assist three-part pattern per PRD-05 addendum sec 4d */}
+        {isAssistant && !isStreaming && askTargets.length > 0 && onRoutingHandoff && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            {askTargets.map(target => (
+              <button
+                key={target.tool}
+                onClick={() => onRoutingHandoff(target)}
+                className="px-3 py-1 rounded-full text-xs font-medium hover:opacity-90 transition-opacity"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                  border: '1px solid var(--color-btn-primary-bg)',
+                }}
+              >
+                {target.label}
+              </button>
+            ))}
+            <button
+              onClick={() => onRoutingHandoff(null)}
+              className="px-3 py-1 rounded-full text-xs hover:opacity-80 transition-opacity"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              Stay here
+            </button>
+          </div>
+        )}
 
         {/* Action chips for assistant messages */}
         {isAssistant && !isStreaming && (
