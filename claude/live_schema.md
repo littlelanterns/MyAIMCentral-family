@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 226 rows
+### `view_as_sessions` — 229 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 129 rows
+### `view_as_feature_exclusions` — 132 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 150 rows
+### `routine_step_completions` — 152 rows
 
 | # | Column |
 |---|---|
@@ -1647,7 +1647,7 @@
 
 ## ThoughtSift (PRD-34)
 
-### `board_personas` — 18 rows
+### `board_personas` — 0 rows
 
 | # | Column |
 |---|---|
@@ -1690,6 +1690,7 @@
 | 5 | `is_prayer_seat` |
 | 6 | `seated_at` |
 | 7 | `removed_at` |
+| 8 | `platform_persona_id` |
 
 ### `persona_favorites` — 0 rows
 
@@ -1699,6 +1700,7 @@
 | 2 | `member_id` |
 | 3 | `persona_id` |
 | 4 | `created_at` |
+| 5 | `platform_persona_id` |
 
 ### `perspective_lenses` — 17 rows
 
@@ -3565,6 +3567,27 @@
 
 *Separate PostgreSQL schema — not queryable via PostgREST. Columns and row counts come from `information_schema`.*
 
+### `platform_intelligence.board_personas` — 18 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `persona_name` |
+| 3 | `persona_type` |
+| 4 | `personality_profile` |
+| 5 | `source_references` |
+| 6 | `bookshelf_enriched` |
+| 7 | `category` |
+| 8 | `icon_emoji` |
+| 9 | `content_policy_status` |
+| 10 | `is_public` |
+| 11 | `family_id` |
+| 12 | `created_by` |
+| 13 | `usage_count` |
+| 14 | `embedding` |
+| 15 | `created_at` |
+| 16 | `updated_at` |
+
 ### `platform_intelligence.book_chunks` — 56964 rows
 
 | # | Column |
@@ -3627,9 +3650,35 @@
 | 15 | `extraction_count` |
 | 16 | `discovered_sections` |
 
+### `platform_intelligence.persona_promotion_queue` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `requested_persona_name` |
+| 3 | `submitted_by_family_id` |
+| 4 | `submitted_by_member_id` |
+| 5 | `promoted_from_personal_id` |
+| 6 | `proposed_personality_profile` |
+| 7 | `source_references` |
+| 8 | `category` |
+| 9 | `icon_emoji` |
+| 10 | `classifier_confidence` |
+| 11 | `classifier_signals` |
+| 12 | `classifier_reasoning` |
+| 13 | `content_policy_pre_screen_status` |
+| 14 | `embedding` |
+| 15 | `status` |
+| 16 | `reviewer_id` |
+| 17 | `decided_at` |
+| 18 | `admin_notes` |
+| 19 | `approved_persona_id` |
+| 20 | `created_at` |
+| 21 | `updated_at` |
+
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 60 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 3 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 60 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
