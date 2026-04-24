@@ -52,6 +52,9 @@ import { PrivacyFilteredPage } from '@/pages/archives/PrivacyFilteredPage'
 import { ContextExportPage } from '@/pages/archives/ContextExportPage'
 import { HubPage } from '@/pages/Hub'
 import { VaultBrowsePage, PersonalPromptLibraryPage } from '@/features/vault'
+import { AdminLayout } from '@/pages/admin/AdminLayout'
+import { ApprovalsPlaceholder } from '@/pages/admin/ApprovalsPlaceholder'
+import { AdminGate } from '@/components/AdminGate'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -171,6 +174,14 @@ function App() {
               <Route path="/messages/thread/:threadId" element={<ProtectedRoute><MessagesThreadPage /></ProtectedRoute>} />
 
               <Route path="/meetings" element={<ProtectedRoute><MeetingsPage /></ProtectedRoute>} />
+
+              {/* Admin Console — SCOPE-2.F48 minimum-scope shell.
+                  AdminGate = AuthGuard + hardcoded-super-admin email OR
+                  staff_permissions row. No family-shell chrome per PRD-32. */}
+              <Route path="/admin" element={<AdminGate><AdminLayout /></AdminGate>}>
+                <Route index element={<Navigate to="approvals" replace />} />
+                <Route path="approvals" element={<ApprovalsPlaceholder />} />
+              </Route>
 
               {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
               <Route path="/safe-harbor" element={<ProtectedRoute><SafeHarborPage /></ProtectedRoute>} />
