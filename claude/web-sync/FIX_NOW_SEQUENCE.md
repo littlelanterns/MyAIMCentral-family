@@ -27,7 +27,7 @@
 - SCOPE-3.F14 dispatch-time note still valid — F14 worker now consumes the `family_today` RPC rather than inlining its own trigger.
 - NEW-W dispatch-time note still valid — dedup work consumes `calculate_allowance_progress` RPC + `family_today` semantics.
 
-**Open (optional):** post-apply verification query against production (audit-doc Section "Verification") — backfill handles row-drift inline, spot-check optional.
+**Production verification complete 2026-04-23:** all 7 tables return 0 misaligned rows. Trigger pattern holding end-to-end, backfill ran cleanly.
 
 ## What changed from v11 → v12 (post-Session-2 NEW-DD addition 2026-04-23)
 
