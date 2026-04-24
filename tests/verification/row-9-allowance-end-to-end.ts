@@ -630,34 +630,53 @@ async function scenarioH_bug1WeekdayFilter() {
 }
 
 async function scenarioI_bug2DuplicateDedupe() {
-  const name = '(i) Bug 2 fix — duplicate same-step same-day counts once'
+  const name = '(i) Bug 2 + NEW-LL — UNIQUE rejects dupes; RPC still dedupes (defense-in-depth)'
   try {
     const { taskId, stepIds, startDate, endDate } = await seedWeekdayRoutineForRpcTests()
 
-    // Monday (dow=1, IN frequency_days). Check Step A THREE times on Monday.
-    // Use 15:00 UTC ≈ 10 AM Central so the 100157 period_date trigger derives
-    // Monday in the family's timezone regardless of DST state.
+    // Monday (dow=1, IN frequency_days). Insert Step A on Monday — should succeed.
     const monday = startDate
-    for (let i = 0; i < 3; i++) {
-      await sb.from('routine_step_completions').insert({
-        task_id: taskId,
-        step_id: stepIds[0],
-        member_id: testMemberId,
-        family_member_id: testMemberId,
-        completed_at: new Date(monday + `T15:0${i}:00Z`).toISOString(),
-        period_date: monday,
-        instance_number: i,
-      })
+    const { error: firstErr } = await sb.from('routine_step_completions').insert({
+      task_id: taskId,
+      step_id: stepIds[0],
+      member_id: testMemberId,
+      family_member_id: testMemberId,
+      completed_at: new Date(monday + 'T15:00:00Z').toISOString(),
+      period_date: monday,
+    })
+    if (firstErr) return fail(name, `first insert unexpectedly failed: ${firstErr.message}`)
+
+    // Re-insert SAME (step_id, family_member_id, period_date) — UNIQUE index
+    // from migration 100165 must reject this. instance_number is no longer
+    // an escape valve.
+    const { error: dupeErr } = await sb.from('routine_step_completions').insert({
+      task_id: taskId,
+      step_id: stepIds[0],
+      member_id: testMemberId,
+      family_member_id: testMemberId,
+      completed_at: new Date(monday + 'T15:01:00Z').toISOString(),
+      period_date: monday,
+    })
+    if (!dupeErr) {
+      return fail(name, 'UNIQUE constraint did not reject duplicate (step_id, family_member_id, period_date) — migration 100165 may not be applied')
+    }
+    // Postgres unique-violation = SQLSTATE 23505. supabase-js surfaces this as code '23505'.
+    const isUniqueViolation = (dupeErr as { code?: string; message?: string }).code === '23505'
+      || /duplicate key value violates unique constraint/i.test(dupeErr.message ?? '')
+    if (!isUniqueViolation) {
+      return fail(name, `expected unique violation, got: ${dupeErr.message}`)
     }
 
+    // Confirm RPC dedupe still works correctly (one row → count of one) even
+    // though the UNIQUE makes it impossible for duplicates to exist any more.
+    // The RPC dedupe is now defense-in-depth; verifying it stays correct
+    // protects against a future migration accidentally dropping the index.
     const result = await callProgressRpc(startDate, endDate)
-
-    // Pre-fix (Bug 2) would have counted 3. Post-fix: 1 (DISTINCT step_id, period_date).
-    if (result.raw_steps_completed === 1) {
-      pass(name, `3 completions of same (step, day) → raw_steps_completed=${result.raw_steps_completed} (Bug 2 dedup correct)`)
-    } else {
-      fail(name, `expected raw_steps_completed=1, got ${result.raw_steps_completed}`)
+    if (result.raw_steps_completed !== 1) {
+      return fail(name, `expected raw_steps_completed=1, got ${result.raw_steps_completed}`)
     }
+
+    pass(name, `dupe (step, member, day) rejected by UNIQUE (sqlstate ${(dupeErr as { code?: string }).code ?? '?'}); RPC count=1 (dedup intact)`)
 
     await sb.from('routine_step_completions').delete().eq('task_id', taskId)
     await cleanupRpcScenarioTask(taskId)
