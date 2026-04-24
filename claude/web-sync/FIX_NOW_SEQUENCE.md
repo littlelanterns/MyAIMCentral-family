@@ -7,6 +7,28 @@
 
 ---
 
+## What changed from v12 → v13 (NEW-DD Wave 1 remediation complete 2026-04-23)
+
+**Row 184 NEW-DD RESOLVED.** Migration 100158 landed (commit 8b81d38 and follow-ons 134882d, 3c79b89, ba0ad35, 79fff78). Scope delivered as planned:
+- `family_today(p_member_id UUID)` RPC (SECURITY DEFINER, STABLE)
+- 6 BEFORE INSERT OR UPDATE triggers on `intention_iterations`, `family_intention_iterations`, `task_completions`, `homeschool_time_logs`, `victory_celebrations`, `reflection_responses`
+- Idempotent backfill with 1-day override window
+- `src/hooks/useFamilyToday.ts` hook + `fetchFamilyToday` helper
+- 2 write sites + 8+ read-filter sites migrated
+- E2E cross-device date regression test locks 4 invariants
+- `tsc -b` + `npm run prebuild` clean
+- `claude/live_schema.md` regenerated post-migration
+
+**Convention #257 compliance check:** zero new `todayLocalIso()` client writes to DATE columns introduced by this commit set (ESLint `no-restricted-syntax` rule enforced in prebuild).
+
+**Migration collision guard:** next new migration ≥ `00000000100159_`.
+
+**Coordination resolved:**
+- SCOPE-3.F14 dispatch-time note still valid — F14 worker now consumes the `family_today` RPC rather than inlining its own trigger.
+- NEW-W dispatch-time note still valid — dedup work consumes `calculate_allowance_progress` RPC + `family_today` semantics.
+
+**Open (optional):** post-apply verification query against production (audit-doc Section "Verification") — backfill handles row-drift inline, spot-check optional.
+
 ## What changed from v11 → v12 (post-Session-2 NEW-DD addition 2026-04-23)
 
 **Post-audit finding added after Session 2 close:** Client-computed date bug class discovered 2026-04-23 (see `claude/web-sync/CLIENT_DATE_AUDIT_2026-04-23.md`). `todayLocalIso()` client writes to DATE columns silently misalign when device clocks/timezones are misconfigured, causing cross-device data invisibility (kid's routine step checkmarks invisible to mom on correctly-configured device). Partial fix landed same day for `routine_step_completions` only (migration 100157 — BEFORE INSERT OR UPDATE trigger + 31-row backfill).
