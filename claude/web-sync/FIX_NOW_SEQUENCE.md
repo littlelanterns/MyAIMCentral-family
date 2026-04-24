@@ -1,11 +1,43 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v17 — Row 9 V-B1a verification complete + 3 new rows filed 2026-04-24
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL) by orchestrator
+> **Status:** DRAFT v18 — NEW-JJ + NEW-KK RESOLVED (shared root cause) 2026-04-24
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
 > **Scope:** 192 rows total (184 + 5 B1b follow-up rows NEW-EE..NEW-II added by Worker B1a 2026-04-24 + 3 new Fix Now rows NEW-JJ/NEW-KK/NEW-LL surfaced by Worker V-B1a 2026-04-24). Wave-assigned: 14 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + 5 B1b follow-up rows + existing Fix Next Build rows. 35 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
 
 ---
+
+## What changed from v17 → v18 (NEW-JJ + NEW-KK RESOLVED 2026-04-24)
+
+**Worker ONBOARD-1** confirmed the shared-root-cause hypothesis and shipped a single migration fix.
+
+**Root cause:** migration 100115 (Build M — Play Dashboard + Sticker Book) replaced `auto_provision_member_resources()` with a stale snapshot labeled "preserved verbatim from live production" that actually predates migration 100035. The stale snapshot:
+- wrote `folder_type='family_member'` — rejected by the CHECK constraint added in 100035 (allowed set: `member_root`, `family_overview`, `system_category`, `wishlist`, `custom`)
+- dropped the 7 system category subfolders (Preferences, Schedule & Activities, Personality & Traits, Interests & Hobbies, School & Learning, Health & Medical, General) required by Convention #77
+- dropped the wishlist folder required by Convention #77
+- dropped the `archive_member_settings` seed required by Convention #77
+
+**Chain of failure** (same trigger, different symptoms):
+```
+auth.admin.createUser
+  → on_auth_user_created
+    → handle_new_user()
+      → INSERT family_members
+        → auto_provision_member_resources()
+          → INSERT archive_folders (folder_type='family_member')
+            → CHECK REJECTS
+              → rollback to auth.users
+                → "Database error creating new user" (NEW-JJ)
+```
+NEW-KK was the direct trigger/CHECK conflict; NEW-JJ was the downstream auth rollback. Single fix resolves both.
+
+**Fix:** migration `00000000100165_restore_archive_provisioning_in_auto_provision_member_resources.sql` (commit `41106f3`) — restores 100035's full archive provisioning block while preserving every non-archive branch of 100115 verbatim (Build M gamification + Build N teen rhythm + Phase C/D rhythm seeding + dashboard_configs + Backburner/Ideas lists).
+
+**No backfill:** live production had 0 rows with invalid `folder_type` (CHECK blocks them) and all 18 existing members already had correct `member_root` folders (created under 100035's trigger before the 100115 regression).
+
+**Verification:** `tests/verification/new-jj-kk-onboarding.ts` (commit `4b086ff`) — service-role round-trip: `auth.admin.createUser` → auto-provisioning inspection → cleanup. **8 PASS / 0 FAIL locally.** Post-test live DB state verified unchanged.
+
+**Beta blocker count: 35 → 33.**
 
 ## What changed from v16 → v17 (Row 9 V-B1a verification + 3 new rows 2026-04-24)
 
