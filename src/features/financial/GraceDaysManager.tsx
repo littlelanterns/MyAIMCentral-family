@@ -4,7 +4,7 @@
 // in the period is a toggleable chip; tapping adds the date to
 // `allowance_periods.grace_days` (via useAddGraceDay), tapping again
 // removes it (via useRemoveGraceDay). The `calculate_allowance_progress`
-// RPC (migration 100167) consumes the array to shrink the denominator
+// RPC (migration 100172) consumes the array to shrink the denominator
 // and numerator on the routine branch.
 //
 // Scope per orchestrator 2026-04-24: live-period marking only. Retroactive

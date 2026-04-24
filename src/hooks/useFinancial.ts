@@ -271,7 +271,7 @@ export interface LiveAllowanceProgress {
   raw_steps_available: number
   nonroutine_tasks_total: number
   nonroutine_tasks_completed: number
-  // PRD-28 NEW-EE: Extra Credit tallies (migration 100166). Count of completed
+  // PRD-28 NEW-EE: Extra Credit tallies (migration 100171). Count of completed
   // tasks where is_extra_credit=true plus their weighted numerator contribution.
   // Extra-credit tasks are excluded from the denominator; counted only in the
   // numerator when allowance_configs.extra_credit_enabled=true.

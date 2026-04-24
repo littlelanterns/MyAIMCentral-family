@@ -10,11 +10,11 @@
 -- toggle per child) and `allowance_periods.extra_credit_completed INTEGER` (per-
 -- period tally), but there was no per-task designation mechanism. Adding
 -- `is_extra_credit BOOLEAN DEFAULT false NOT NULL` to tasks + task_templates closes
--- the gap. The RPC update in migration 100168 (B1b) + the UI toggle in
+-- the gap. The RPC update in migration 100171 (B1b) + the UI toggle in
 -- TaskCreationModal consume this column.
 --
 -- This migration is schema-only and idempotent. The RPC that consumes the column
--- lands separately (100168) so either can be reverted independently.
+-- lands separately (100171) so either can be reverted independently.
 --
 -- Default false preserves existing behavior — no existing task is extra credit
 -- unless mom explicitly toggles it after this lands.

@@ -149,8 +149,8 @@ Deno.serve(async (req) => {
 
           // 4. Call the shared RPC for frequency-day-aware tally.
           // Single source of truth — same math as the live widget (see
-          // migration 00000000100154_allowance_progress_rpc.sql + 100166
-          // + 100167). NEW-GG: pass `period.grace_days` so denominator
+          // migration 00000000100154_allowance_progress_rpc.sql + 100171
+          // + 100172). NEW-GG: pass `period.grace_days` so denominator
           // and numerator both respect marked grace days.
           const gracePayload: string[] = (period.grace_days as string[]) ?? []
           const { data: progressRows, error: progressError } = await supabase
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
           const totalEarned = Number(progress.total_earned)
           const effectiveAssigned = Math.round(Number(progress.effective_tasks_assigned))
           const effectiveCompleted = Math.round(Number(progress.effective_tasks_completed))
-          // NEW-EE (migration 100166): RPC now returns extra_credit_completed
+          // NEW-EE (migration 100171): RPC now returns extra_credit_completed
           // as its own column. This call site previously hardcoded 0 on the
           // update write. Null-coalesce to 0 so older RPC bodies still work.
           const extraCreditCompleted = Math.round(Number(progress.extra_credit_completed ?? 0))

@@ -1,50 +1,56 @@
--- Worker B1b / NEW-GG — calculate_allowance_progress consumes grace_days.
+-- Worker B1b / NEW-EE — calculate_allowance_progress adds Extra Credit separation.
 --
--- Gap: migrations 100154/100156/100164/100166 shipped the RPC with
--- allowance_configs.grace_days_enabled awareness but NEVER actually
--- consumed the per-period `allowance_periods.grace_days JSONB` array.
--- The Edge Function and the `useAddGraceDay` hook have always written
--- to that column, but the widget tally and the period-close math have
--- been silently ignoring it — meaning every grace-day mark today is a
--- no-op mathematically, even though it persists to the DB.
+-- Replaces the 18-column RPC from migration 100164 with a 20-column return
+-- signature that exposes extra-credit tallying separately from regular
+-- completion tallying. Both callers (useLiveAllowanceProgress in the live
+-- widget + the calculate-allowance-period Edge Function) are updated in
+-- the same B1b landing.
 --
--- Fix: add an optional `p_grace_days DATE[]` parameter to the RPC.
--- When NULL (back-compat for existing call sites that don't know about
--- the parameter), behavior is unchanged. When populated:
---   * Routine branch: each day in the period that is in the grace array
---     is skipped entirely — does not contribute to denominator or
---     numerator. Routine step denominator walk skips the day; numerator
---     completions on that day are excluded via WHERE clause.
---   * Non-routine branch: tasks whose `created_at::DATE` falls within
---     a grace day are NOT excluded — grace days shrink the denominator
---     on a per-day basis for routines (where a day = a discrete block
---     of steps) but do not retroactively unassign calendar tasks.
---     This matches the PRD-28 L977 rule: "All grace days → effective=0
---     → 100%" which only works if each grace day actually zeroes out
---     its contribution to the denominator.
---   * `grace_day_tasks_excluded` is reported as the total step count
---     skipped across all grace days (for display/audit).
+-- Signature change rationale (founder-approved 2026-04-24):
+--   allowance_periods.extra_credit_completed is a first-class table column
+--   per PRD-28 schema. Stuffing the counter into calculation_details JSONB
+--   would hide it from SQL consumers and create a table/RPC contract drift.
+--   The two new columns make the RPC match the table contract.
 --
--- 20-column signature preserved (same shape as migration 100166). The
--- new `grace_day_tasks_excluded` tally is written back to the period
--- via `calculate-allowance-period`'s existing column; no new return
--- columns required.
+-- New columns:
+--   extra_credit_completed   INTEGER  — count of completed tasks where
+--                                       tasks.is_extra_credit = true
+--   extra_credit_weight_added NUMERIC — weighted contribution to numerator
+--                                       (honors points_weighted approach)
 --
--- Callers updated in the same B1b landing:
--- - src/hooks/useFinancial.ts — `useLiveAllowanceProgress` passes the
---   active period's `grace_days` array through to the RPC.
--- - supabase/functions/calculate-allowance-period/index.ts — passes
---   `period.grace_days` through to the RPC call.
+-- Math (PRD-28 L979 authoritative):
+--   1. Extra-credit tasks are EXCLUDED from the denominator entirely.
+--      They do not shrink the denominator; they do not grow it.
+--   2. Regular tasks contribute to both denominator and numerator as before.
+--   3. Extra-credit completions ADD to the numerator only. In Dynamic
+--      approach they add fraction-weighted tallies; in Points-Weighted they
+--      add weight × pool_fraction to v_completed_points.
+--   4. Completion % is still capped at 100%. Extra credit restores toward
+--      100% but cannot push above it. Bonus threshold is evaluated against
+--      the capped percentage.
+--   5. Extra-credit counting respects allowance_configs.extra_credit_enabled.
+--      When disabled, is_extra_credit=true tasks are ignored entirely (not
+--      counted toward denominator as a fallback — they remain out-of-pool
+--      since they were never in the denominator).
 --
--- Preserves all corrections from migration 100164 (Bug 1 frequency-day-
--- aware tally + Bug 2 dedupe per step/day) AND from migration 100166
--- (Extra Credit separation).
+-- Non-routine extra-credit tasks only. Routines with is_extra_credit=true are
+-- not a spec pattern — routines are the "regular rhythm" of the week; extra
+-- credit is a discrete task mom designates ad-hoc. If a future PRD needs
+-- extra-credit routines, the RPC's routine branch gets the same treatment.
+--
+-- ── DROP-before-CREATE (Postgres signature change rule) ──
+-- CREATE OR REPLACE FUNCTION rejects any change to the RETURNS TABLE
+-- column list, even when arg list and name are unchanged. Going from
+-- the 100164 18-col body to this 20-col body is a return-type change,
+-- so the prior 3-arg form must be DROPped first. IF EXISTS keeps the
+-- migration idempotent against fresh DBs and replays.
+
+DROP FUNCTION IF EXISTS public.calculate_allowance_progress(UUID, DATE, DATE);
 
 CREATE OR REPLACE FUNCTION public.calculate_allowance_progress(
   p_member_id UUID,
   p_period_start DATE,
-  p_period_end DATE,
-  p_grace_days DATE[] DEFAULT NULL
+  p_period_end DATE
 )
 RETURNS TABLE (
   effective_tasks_assigned NUMERIC,
@@ -104,8 +110,6 @@ DECLARE
   v_nonroutine_completed INT := 0;
   v_extra_credit_completed INT := 0;
   v_extra_credit_weight NUMERIC := 0;
-  v_grace_enabled BOOLEAN;
-  v_grace_set DATE[];
 BEGIN
   SELECT family_id INTO v_member_family FROM family_members WHERE id = p_member_id;
   IF v_member_family IS NULL THEN
@@ -140,15 +144,6 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Grace-day set: only honored when the config master toggle is on AND
-  -- the caller passed an array. An empty-but-not-null array is treated
-  -- as "grace enabled, zero days marked" — not as NULL.
-  v_grace_enabled := COALESCE(v_config.grace_days_enabled, TRUE);
-  v_grace_set := CASE
-    WHEN v_grace_enabled AND p_grace_days IS NOT NULL THEN p_grace_days
-    ELSE ARRAY[]::DATE[]
-  END;
-
   v_period_days := (p_period_end - p_period_start) + 1;
   IF v_period_days < 1 THEN
     v_period_days := 1;
@@ -172,11 +167,17 @@ BEGIN
     v_pool_fraction := v_days_active::NUMERIC / v_period_days;
     v_weight := COALESCE(v_task.allowance_points, v_config.default_point_value, 1);
 
-    -- Extra-credit branch (migration 100166) — excluded from denominator,
-    -- counted in numerator only.
+    -- Extra-credit branch: excluded from denominator entirely. Only counted
+    -- in numerator on completion, and only when the child's config has
+    -- extra_credit_enabled = true. Routine-type extra credit is not a spec
+    -- pattern today — flag it for future consideration but treat as regular
+    -- non-routine for now (routine.is_extra_credit=true falls through to the
+    -- else branch and gets counted normally).
     IF v_task.is_extra_credit = TRUE
        AND v_task.task_type <> 'routine'
        AND COALESCE(v_config.extra_credit_enabled, FALSE) = TRUE THEN
+      -- NOT added to v_total_assigned (denominator excluded).
+      -- NOT added to v_total_points (denominator excluded).
       IF v_task.status = 'completed' THEN
         v_extra_credit_completed := v_extra_credit_completed + 1;
         v_extra_credit_weight := v_extra_credit_weight + (v_weight * v_pool_fraction);
@@ -194,14 +195,6 @@ BEGIN
       v_routine_total_possible := 0;
       v_day := v_effective_start;
       WHILE v_day <= p_period_end LOOP
-        -- Grace-day exclusion (NEW-GG): skip this day entirely. Does
-        -- not contribute to the possible step count; numerator filter
-        -- below also drops completions whose period_date is in the set.
-        IF v_day = ANY(v_grace_set) THEN
-          v_day := v_day + 1;
-          CONTINUE;
-        END IF;
-
         v_dow_str := EXTRACT(DOW FROM v_day)::INT::TEXT;
 
         SELECT COALESCE(SUM(
@@ -227,9 +220,6 @@ BEGIN
           AND rsc.member_id = p_member_id
           AND rsc.period_date BETWEEN v_effective_start AND p_period_end
           AND (EXTRACT(DOW FROM rsc.period_date)::INT::TEXT) = ANY(tts.frequency_days)
-          -- NEW-GG: grace-day exclusion on the numerator side, mirroring
-          -- the denominator walk above.
-          AND NOT (rsc.period_date = ANY(v_grace_set))
       ) dedup;
 
       v_raw_steps_available := v_raw_steps_available + v_routine_total_possible;
@@ -256,8 +246,6 @@ BEGIN
   END LOOP;
 
   IF v_total_assigned = 0 THEN
-    -- PRD-28 L977: "All grace days → effective_tasks_assigned = 0 → 100%"
-    -- and PRD-28 L975: "Zero tasks assigned → 100%." Same branch.
     v_completion_pct := 100;
   ELSIF COALESCE(v_config.calculation_approach, 'dynamic') = 'points_weighted' THEN
     v_completion_pct := CASE WHEN v_total_points > 0
@@ -318,50 +306,8 @@ BEGIN
 END;
 $$;
 
--- Back-compat overload: the 3-arg form delegates to the 4-arg form with
--- NULL grace days, so existing callers that haven't been updated (and
--- any external migrations that were already scheduled against the
--- 3-arg signature) keep working. Can be dropped in a later pass once
--- all callers have been migrated.
-DROP FUNCTION IF EXISTS public.calculate_allowance_progress(UUID, DATE, DATE);
-CREATE OR REPLACE FUNCTION public.calculate_allowance_progress(
-  p_member_id UUID,
-  p_period_start DATE,
-  p_period_end DATE
-)
-RETURNS TABLE (
-  effective_tasks_assigned NUMERIC,
-  effective_tasks_completed NUMERIC,
-  completion_percentage NUMERIC,
-  total_points NUMERIC,
-  completed_points NUMERIC,
-  base_amount NUMERIC,
-  bonus_applied BOOLEAN,
-  bonus_amount NUMERIC,
-  calculated_amount NUMERIC,
-  total_earned NUMERIC,
-  minimum_threshold INTEGER,
-  bonus_threshold INTEGER,
-  calculation_approach TEXT,
-  rounding_behavior TEXT,
-  raw_steps_completed INTEGER,
-  raw_steps_available INTEGER,
-  nonroutine_tasks_total INTEGER,
-  nonroutine_tasks_completed INTEGER,
-  extra_credit_completed INTEGER,
-  extra_credit_weight_added NUMERIC
-)
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT * FROM public.calculate_allowance_progress($1, $2, $3, NULL::DATE[]);
-$$;
-
 GRANT EXECUTE ON FUNCTION public.calculate_allowance_progress(UUID, DATE, DATE)
   TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.calculate_allowance_progress(UUID, DATE, DATE, DATE[])
-  TO authenticated, service_role;
 
-COMMENT ON FUNCTION public.calculate_allowance_progress(UUID, DATE, DATE, DATE[]) IS
-  'Worker B1b / NEW-GG. Live allowance tallying with optional grace_days shrinkage. When p_grace_days is populated AND allowance_configs.grace_days_enabled=true, each date in the array is excluded from the routine step denominator walk AND from the numerator completion filter. All grace days → effective_tasks_assigned=0 → 100% per PRD-28 L977. Preserves migration 100166 extra-credit separation. 20-column return signature unchanged from migration 100166.';
+COMMENT ON FUNCTION public.calculate_allowance_progress(UUID, DATE, DATE) IS
+  'Worker B1b / NEW-EE. Live allowance tallying with Extra Credit separation. Returns 20 columns (18 base + extra_credit_completed + extra_credit_weight_added). Extra-credit tasks excluded from denominator, counted in numerator only when extra_credit_enabled=true in config, capped at 100%. Replaces migration 100164 body; preserves all its corrections (frequency-day-aware tally + dedupe per step/day). Routine-type extra credit falls through to regular routine handling — spec pattern is non-routine tasks only.';
