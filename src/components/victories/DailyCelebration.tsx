@@ -4,7 +4,7 @@
 // NEVER shows incomplete tasks. Only victories. Never "X of Y".
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { X, ChevronLeft, ChevronRight, Star, CheckCircle, Share2 } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Star, CheckCircle, Share2, Pencil, Check, RefreshCw } from 'lucide-react'
 import { useVictories, useCreateVictory } from '@/hooks/useVictories'
 import { useVoicePreference } from '@/hooks/useVoicePreference'
 import { useSaveCelebration } from '@/hooks/useCelebrationArchive'
@@ -54,6 +54,15 @@ export function DailyCelebration({
   const [localVictories, setLocalVictories] = useState<Victory[]>([])
   const [sharedWithMom, setSharedWithMom] = useState(false)
   const [showSaveSparkle, setShowSaveSparkle] = useState(false)
+  // ─── HITM state (SCOPE-8a.F6) ────────────────────────────
+  // Narrative is shown to the child during the ceremony (ephemeral) but must
+  // not persist to victory_celebrations until explicitly approved. Reject
+  // clears the narrative; Regenerate re-calls the Edge Function. In Play
+  // shell, Edit is not exposed (read-only for the youngest members).
+  const [narrativeApproved, setNarrativeApproved] = useState(false)
+  const [narrativeRejected, setNarrativeRejected] = useState(false)
+  const [isEditingNarrative, setIsEditingNarrative] = useState(false)
+  const [narrativeDraft, setNarrativeDraft] = useState('')
 
   // Sync victories when loaded
   useEffect(() => {
@@ -90,6 +99,10 @@ export function DailyCelebration({
   async function generateNarrative() {
     if (localVictories.length === 0) return
     setNarrativeLoading(true)
+    // Clear any prior approval/rejection state for the new generation.
+    setNarrativeApproved(false)
+    setNarrativeRejected(false)
+    setIsEditingNarrative(false)
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) return
@@ -160,9 +173,54 @@ export function DailyCelebration({
     )
   }
 
+  // ─── HITM handlers (SCOPE-8a.F6) ──────────────────────────
+  // Convention #4: every AI output must pass through Edit / Approve /
+  // Regenerate / Reject before persisting. Narrative is ephemeral until
+  // narrativeApproved === true.
+  function handleApproveNarrative() {
+    setNarrativeApproved(true)
+    setNarrativeRejected(false)
+    setIsEditingNarrative(false)
+  }
+
+  function handleRegenerateNarrative() {
+    setNarrative(null)
+    setNarrativeApproved(false)
+    setNarrativeRejected(false)
+    setIsEditingNarrative(false)
+    generateNarrative()
+  }
+
+  function handleRejectNarrative() {
+    setNarrative(null)
+    setNarrativeApproved(false)
+    setNarrativeRejected(true)
+    setIsEditingNarrative(false)
+  }
+
+  function handleStartEditNarrative() {
+    setNarrativeDraft(narrative ?? '')
+    setIsEditingNarrative(true)
+  }
+
+  function handleSaveEditNarrative() {
+    const next = narrativeDraft.trim()
+    if (next.length === 0) return
+    setNarrative(next)
+    setNarrativeApproved(true)
+    setIsEditingNarrative(false)
+  }
+
+  function handleCancelEditNarrative() {
+    setNarrativeDraft('')
+    setIsEditingNarrative(false)
+  }
+
   // ─── Share with Mom ───────────────────────────────────────
   async function handleShareWithMom() {
     if (!narrative || sharedWithMom) return
+    // HITM gate: persistence requires explicit approval.
+    if (!narrativeApproved) return
     // Save celebration with shared flag
     saveCelebrationMutation.mutate({
       family_id: familyId,
@@ -179,8 +237,10 @@ export function DailyCelebration({
 
   // ─── Done ─────────────────────────────────────────────────
   function handleDone() {
-    // Save celebration if narrative exists and not already shared
-    if (narrative && !sharedWithMom) {
+    // HITM gate (SCOPE-8a.F6): narrative persists ONLY if the child explicitly
+    // approved it. Done without Approve = no save. Celebration itself still
+    // closes. Rejected narrative is already cleared so the guard would skip.
+    if (narrative && narrativeApproved && !sharedWithMom) {
       saveCelebrationMutation.mutate({
         family_id: familyId,
         family_member_id: memberId,
@@ -244,6 +304,10 @@ export function DailyCelebration({
             isLoading={isLoading}
             narrative={narrative}
             narrativeLoading={narrativeLoading}
+            narrativeApproved={narrativeApproved}
+            narrativeRejected={narrativeRejected}
+            isEditingNarrative={isEditingNarrative}
+            narrativeDraft={narrativeDraft}
             showRecordForm={showRecordForm}
             shell={shell}
             familyId={familyId}
@@ -251,6 +315,13 @@ export function DailyCelebration({
             minTouch={minTouch}
             onToggleRecord={() => setShowRecordForm(!showRecordForm)}
             onRecordVictory={handleRecordVictory}
+            onApproveNarrative={handleApproveNarrative}
+            onRegenerateNarrative={handleRegenerateNarrative}
+            onRejectNarrative={handleRejectNarrative}
+            onStartEditNarrative={handleStartEditNarrative}
+            onSaveEditNarrative={handleSaveEditNarrative}
+            onCancelEditNarrative={handleCancelEditNarrative}
+            onNarrativeDraftChange={setNarrativeDraft}
           />
         )}
 
@@ -258,6 +329,7 @@ export function DailyCelebration({
           <StepClose
             isPlay={isPlay}
             hasNarrative={!!narrative}
+            narrativeApproved={narrativeApproved}
             sharedWithMom={sharedWithMom}
             minTouch={minTouch}
             onShareWithMom={handleShareWithMom}
@@ -388,6 +460,10 @@ function StepVictories({
   isLoading,
   narrative,
   narrativeLoading,
+  narrativeApproved,
+  narrativeRejected,
+  isEditingNarrative,
+  narrativeDraft,
   showRecordForm,
   shell,
   familyId,
@@ -395,12 +471,23 @@ function StepVictories({
   minTouch,
   onToggleRecord,
   onRecordVictory,
+  onApproveNarrative,
+  onRegenerateNarrative,
+  onRejectNarrative,
+  onStartEditNarrative,
+  onSaveEditNarrative,
+  onCancelEditNarrative,
+  onNarrativeDraftChange,
 }: {
   victories: Victory[]
   isPlay: boolean
   isLoading: boolean
   narrative: string | null
   narrativeLoading: boolean
+  narrativeApproved: boolean
+  narrativeRejected: boolean
+  isEditingNarrative: boolean
+  narrativeDraft: string
   showRecordForm: boolean
   shell: 'guided' | 'play'
   familyId: string
@@ -408,6 +495,13 @@ function StepVictories({
   minTouch: number
   onToggleRecord: () => void
   onRecordVictory: (data: { description: string; lifeAreaTag: string | null; source: VictorySource }) => void
+  onApproveNarrative: () => void
+  onRegenerateNarrative: () => void
+  onRejectNarrative: () => void
+  onStartEditNarrative: () => void
+  onSaveEditNarrative: () => void
+  onCancelEditNarrative: () => void
+  onNarrativeDraftChange: (next: string) => void
 }) {
   if (isLoading) {
     return (
@@ -462,7 +556,7 @@ function StepVictories({
               : `${victories.length} ${victories.length === 1 ? 'victory' : 'victories'} today`}
           </div>
 
-          {/* Narrative callout */}
+          {/* Narrative callout — Human-in-the-Mix gated (SCOPE-8a.F6). */}
           {narrativeLoading && (
             <div
               className="text-center text-sm"
@@ -471,20 +565,65 @@ function StepVictories({
               Reflecting on your day...
             </div>
           )}
-          {narrative && (
+          {narrativeRejected && !narrativeLoading && (
             <div
-              className="rounded-xl p-4"
+              className="text-center text-sm"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              No written reflection today — your victories still count!
+            </div>
+          )}
+          {narrative && !narrativeRejected && (
+            <div
+              className="rounded-xl p-4 space-y-3"
               style={{
                 backgroundColor: 'color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) 8%, var(--color-bg-card))',
-                border: '1px solid color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) 25%, transparent)',
+                border: `1px solid color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) ${narrativeApproved ? 45 : 25}%, transparent)`,
               }}
             >
-              <p
-                className={`${isPlay ? 'text-base' : 'text-sm'} leading-relaxed`}
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {narrative}
-              </p>
+              {isEditingNarrative ? (
+                <textarea
+                  value={narrativeDraft}
+                  onChange={e => onNarrativeDraftChange(e.target.value)}
+                  rows={6}
+                  className={`w-full rounded-lg px-3 py-2 ${isPlay ? 'text-base' : 'text-sm'} leading-relaxed resize-y`}
+                  style={{
+                    background: 'var(--color-bg-primary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border-default)',
+                  }}
+                />
+              ) : (
+                <p
+                  className={`${isPlay ? 'text-base' : 'text-sm'} leading-relaxed`}
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  {narrative}
+                </p>
+              )}
+
+              {/* HITM action row — Edit/Approve/Regenerate/Reject. */}
+              {/* Play shell is read-only (no Edit). Guided shell exposes all 4. */}
+              <NarrativeHITM
+                isPlay={isPlay}
+                approved={narrativeApproved}
+                isEditing={isEditingNarrative}
+                onApprove={onApproveNarrative}
+                onRegenerate={onRegenerateNarrative}
+                onReject={onRejectNarrative}
+                onStartEdit={onStartEditNarrative}
+                onSaveEdit={onSaveEditNarrative}
+                onCancelEdit={onCancelEditNarrative}
+              />
+
+              {narrativeApproved && !isEditingNarrative && (
+                <p
+                  className="text-xs text-center"
+                  style={{ color: 'var(--color-sparkle-gold-dark, #B8942A)' }}
+                >
+                  {isPlay ? 'Saved when you tap Done!' : 'Ready to save on Done.'}
+                </p>
+              )}
             </div>
           )}
         </>
@@ -531,9 +670,125 @@ function StepVictories({
   )
 }
 
+// ─── Narrative HITM action row (SCOPE-8a.F6) ─────────────────
+// Shared by Guided + Play. Play shell is read-only (no Edit button).
+// Kid-friendly copy per founder: "Yes, I love it!" replaces adult "Approve."
+function NarrativeHITM({
+  isPlay,
+  approved,
+  isEditing,
+  onApprove,
+  onRegenerate,
+  onReject,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+}: {
+  isPlay: boolean
+  approved: boolean
+  isEditing: boolean
+  onApprove: () => void
+  onRegenerate: () => void
+  onReject: () => void
+  onStartEdit: () => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
+}) {
+  const btnClass = `flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-all ${isPlay ? 'text-base' : 'text-sm'}`
+
+  if (isEditing) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+        <button
+          onClick={onSaveEdit}
+          className={btnClass}
+          style={{
+            backgroundColor: 'var(--color-sparkle-gold, #D4AF37)',
+            color: '#fff',
+          }}
+        >
+          <Check size={isPlay ? 18 : 14} />
+          Save my edit
+        </button>
+        <button
+          onClick={onCancelEdit}
+          className={btnClass}
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          <X size={isPlay ? 18 : 14} />
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+      <button
+        onClick={onApprove}
+        disabled={approved}
+        className={btnClass}
+        style={{
+          backgroundColor: approved
+            ? 'color-mix(in srgb, var(--color-sparkle-gold, #D4AF37) 15%, var(--color-bg-card))'
+            : 'var(--color-sparkle-gold, #D4AF37)',
+          color: approved ? 'var(--color-sparkle-gold-dark, #B8942A)' : '#fff',
+          opacity: approved ? 0.85 : 1,
+        }}
+      >
+        <Check size={isPlay ? 18 : 14} />
+        {approved ? (isPlay ? 'Saved!' : 'Approved') : (isPlay ? 'Yes, I love it!' : 'Save my celebration!')}
+      </button>
+
+      {/* Edit — Guided only. Play shell is read-only for the youngest members. */}
+      {!isPlay && (
+        <button
+          onClick={onStartEdit}
+          className={btnClass}
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-primary)',
+          }}
+        >
+          <Pencil size={14} />
+          Edit
+        </button>
+      )}
+
+      <button
+        onClick={onRegenerate}
+        className={btnClass}
+        style={{
+          backgroundColor: 'var(--color-bg-secondary)',
+          color: 'var(--color-text-primary)',
+        }}
+      >
+        <RefreshCw size={isPlay ? 18 : 14} />
+        {isPlay ? 'Try another one' : 'Regenerate'}
+      </button>
+
+      <button
+        onClick={onReject}
+        className={btnClass}
+        style={{
+          backgroundColor: 'transparent',
+          color: 'var(--color-text-secondary)',
+        }}
+      >
+        <X size={isPlay ? 18 : 14} />
+        {isPlay ? 'No thanks' : 'Reject'}
+      </button>
+    </div>
+  )
+}
+
 function StepClose({
   isPlay,
   hasNarrative,
+  narrativeApproved,
   sharedWithMom,
   minTouch,
   onShareWithMom,
@@ -541,6 +796,7 @@ function StepClose({
 }: {
   isPlay: boolean
   hasNarrative: boolean
+  narrativeApproved: boolean
   sharedWithMom: boolean
   minTouch: number
   onShareWithMom: () => void
@@ -578,11 +834,12 @@ function StepClose({
       </p>
 
       <div className="space-y-3" style={{ animation: 'fadeSlideUp 0.5s ease-out 0.4s both' }}>
-        {/* Share with Mom — Guided only */}
+        {/* Share with Mom — Guided only. HITM gate (SCOPE-8a.F6): disabled
+            until the narrative is explicitly approved in Step 2. */}
         {!isPlay && hasNarrative && (
           <button
             onClick={onShareWithMom}
-            disabled={sharedWithMom}
+            disabled={sharedWithMom || !narrativeApproved}
             className={`w-full rounded-xl font-semibold flex items-center justify-center gap-2 py-3 transition-all`}
             style={{
               minHeight: minTouch,
@@ -591,7 +848,9 @@ function StepClose({
                 : 'var(--color-bg-secondary)',
               color: sharedWithMom ? 'var(--color-sparkle-gold, #D4AF37)' : 'var(--color-text-secondary)',
               border: `1.5px solid ${sharedWithMom ? 'var(--color-sparkle-gold, #D4AF37)' : 'var(--color-border)'}`,
+              opacity: !narrativeApproved && !sharedWithMom ? 0.5 : 1,
             }}
+            title={!narrativeApproved && !sharedWithMom ? 'Approve the celebration first' : undefined}
           >
             <Share2 size={18} />
             {sharedWithMom ? 'Shared with Mom!' : 'Share with Mom'}
