@@ -82,20 +82,23 @@ Deno.serve(async (req) => {
     for (const family of families) {
       const timezone = family.timezone || 'America/Chicago'
       let currentLocalHour: number
+      let currentLocalMinute: number
       try {
-        currentLocalHour = parseInt(
-          new Intl.DateTimeFormat('en-US', {
-            hour: 'numeric',
-            hour12: false,
-            timeZone: timezone,
-          }).format(now)
-        )
+        // NEW-II: capture both hour AND minute so per-child calculation_time
+        // gating can compute a minute-level window. Replaces the hard-coded
+        // `currentLocalHour !== 0` family-wide gate that ignored config.
+        const parts = new Intl.DateTimeFormat('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: timezone,
+        }).formatToParts(now)
+        currentLocalHour = parseInt(parts.find(p => p.type === 'hour')!.value)
+        currentLocalMinute = parseInt(parts.find(p => p.type === 'minute')!.value)
       } catch {
         continue
       }
-
-      if (currentLocalHour !== 0) continue
-      stats.families_at_midnight++
+      const currentMinutesOfDay = currentLocalHour * 60 + currentLocalMinute
 
       // Local date in YYYY-MM-DD
       const localDateStr = new Intl.DateTimeFormat('en-CA', {
@@ -104,6 +107,13 @@ Deno.serve(async (req) => {
         day: '2-digit',
         timeZone: timezone,
       }).format(now)
+
+      // NEW-II: family-wide hour 0 gate removed. Per-child gating moves
+      // inside the period loop after the config is loaded, so each child's
+      // configured calculation_time is honored. The existing
+      // `period_end < localDateStr` filter still ensures we never fire
+      // before the period has actually ended.
+      stats.families_at_midnight++ // legacy stat name kept; semantic now is "families considered this hour"
 
       // 3. Load active periods that have ended
       const { data: periods, error: periodsError } = await supabase
@@ -131,6 +141,52 @@ Deno.serve(async (req) => {
             .maybeSingle()
 
           if (!config?.enabled) continue
+
+          // NEW-II — calculation_time per-child precision.
+          //
+          // PRD-28 Screen 2 Section 7 (L214): calculation_time TIME NOT NULL
+          // DEFAULT '23:59:00' specifies WHEN end-of-period calculation
+          // runs. Pre-NEW-II, the function gated on `currentLocalHour === 0`
+          // (midnight family-local) regardless of config. For default 23:59
+          // that's ~10 minutes off but functionally equivalent; for any
+          // non-default value (e.g. 07:00) it was wrong by hours.
+          //
+          // New gate: cron runs hourly, so we fire when the current
+          // minutes-of-day falls in a 1-hour window starting at
+          // calculation_time. The window wraps midnight when calc_time is
+          // in the last hour of the day, which preserves the legacy default
+          // behavior (calc_time=23:59 → window covers 23:59 + the next
+          // 00:xx hour, and the existing `period_end < localDateStr` filter
+          // forces the firing to land on the day AFTER period_end).
+          //
+          // Examples (cron fires at HH:10 of each local hour):
+          // - calc_time=23:59 (= 1439 min): window = [1439, 1499 mod 1440)
+          //   = [1439, 1440) ∪ [0, 59). Cron at 23:10 local → 1390, NOT in
+          //   window. Cron at 00:10 next day → 10, IN window. period_end
+          //   < localDateStr (next day), so fires. ✓
+          // - calc_time=07:00 (= 420 min): window = [420, 480). Cron at
+          //   07:10 local → 430, IN window. Day after period_end fires. ✓
+          // - calc_time=18:30 (= 1110 min): window = [1110, 1170). Cron at
+          //   18:10 local → 1090, NOT in window. Cron at 19:10 → 1150, IN
+          //   window. (1-hour delay vs ideal 18:30; tolerated per spec.)
+          const calcTimeStr = (config.calculation_time as string) || '23:59:00'
+          const [calcHour, calcMin] = calcTimeStr.split(':').map(Number)
+          const calcMinutesOfDay = (calcHour * 60) + (calcMin || 0)
+          const windowEndExclusive = calcMinutesOfDay + 60
+          let inCalcTimeWindow: boolean
+          if (windowEndExclusive <= 1440) {
+            inCalcTimeWindow =
+              currentMinutesOfDay >= calcMinutesOfDay &&
+              currentMinutesOfDay < windowEndExclusive
+          } else {
+            // Wraparound: e.g. calc_time 23:59 means window spans into
+            // the next day's 00:xx hour.
+            const wrapEnd = windowEndExclusive % 1440
+            inCalcTimeWindow =
+              currentMinutesOfDay >= calcMinutesOfDay ||
+              currentMinutesOfDay < wrapEnd
+          }
+          if (!inCalcTimeWindow) continue
 
           // If makeup window is enabled and we're still in the window, skip
           if (config.makeup_window_enabled) {
