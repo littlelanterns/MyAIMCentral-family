@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 229 rows
+### `view_as_sessions` — 234 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 132 rows
+### `view_as_feature_exclusions` — 136 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 571 rows
+### `ai_usage_tracking` — 575 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 152 rows
+### `routine_step_completions` — 194 rows
 
 | # | Column |
 |---|---|
@@ -2162,7 +2162,7 @@
 | 3 | `vault_item_id` |
 | 4 | `created_at` |
 
-### `vault_user_progress` — 12 rows
+### `vault_user_progress` — 13 rows
 
 | # | Column |
 |---|---|
@@ -2176,7 +2176,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 224 rows
+### `vault_user_visits` — 228 rows
 
 | # | Column |
 |---|---|
@@ -2184,7 +2184,7 @@
 | 2 | `user_id` |
 | 3 | `visited_at` |
 
-### `vault_first_sightings` — 81 rows
+### `vault_first_sightings` — 82 rows
 
 | # | Column |
 |---|---|
@@ -2613,7 +2613,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 61 rows
+### `beta_glitch_reports` — 62 rows
 
 | # | Column |
 |---|---|
