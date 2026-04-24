@@ -1,9 +1,50 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v14 — Phase 4 Wave 1 landing complete 2026-04-24
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing) by orchestrator
+> **Status:** DRAFT v15 — Row 9 SCOPE-3.F14 B1a correctness floor landed 2026-04-24
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 184 rows total. Wave-assigned: 11 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + existing Fix Next Build rows. 28 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+> **Scope:** 189 rows total (184 + 5 B1b follow-up rows NEW-EE..NEW-II added by Worker B1a 2026-04-24). Wave-assigned: 11 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + 5 B1b follow-up rows + existing Fix Next Build rows. 32 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+
+---
+
+## What changed from v14 → v15 (Row 9 SCOPE-3.F14 B1a correctness floor 2026-04-24)
+
+**Row 9 B1a LANDED. Row 9 does NOT resolve until B1b lands.** Worker B1a shipped the allowance correctness floor per founder's two-worker split decision (B1a = correctness floor, B1b = PRD-28 conformance).
+
+**B1a deliverables:**
+- Migration `00000000100163_allowance_periods_date_trigger.sql` (commit `5bfe7ad`) — BEFORE INSERT OR UPDATE trigger deriving `period_start` + `period_end` server-side (Option (b) semantics: first period may be partial; subsequent periods are full 7-day aligned) + partial unique index preventing concurrent active periods + idempotent backfill.
+- Migration `00000000100164_calculate_allowance_progress_fix.sql` (commit `adc62b2`) — RPC body replaced with corrected numerator logic. **Bug 1 fix:** weekday filter now symmetric (numerator respects section.frequency_days). **Bug 2 fix:** DISTINCT on (step_id, period_date) dedupes check/uncheck/recheck cycles.
+- Frontend + Edge Function audit fixes (commit `ecd96ed`) — `useStartAllowancePeriod` trigger-derives `period_end`; `useCompletionPercentage` fallback uses `isoDaysFrom(familyToday)`; `ChildAllowanceConfig` effect gains `!startPeriod.isPending` guard; `AllowanceCalculatorTracker` legacy-fallback threads `familyToday`; `calculate-allowance-period` cron roll-over trigger-derives `period_end`.
+- Verification script (commit `aed10ff`) — `tests/verification/row-9-allowance-end-to-end.ts`, 10 scenarios covering bootstrap / trigger correction / backdated / double-bootstrap guard / cron roll-over / non-weekly raise / Bug 1 / Bug 2 / negative case. **10/10 pass locally.**
+
+**Production RPC delta spot-check (pre-fix buggy-numerator simulation vs post-100164 RPC):**
+
+| Child  | pre | post | delta |
+|--------|-----|------|-------|
+| Helam  | 14  | 14   | 0     |
+| Gideon | 37  | 22   | 15    |
+| Miriam | 6   | 6    | 0     |
+| Mosiah | 110 | 56   | 54    |
+
+Gideon's completion count was inflated by 41%, Mosiah's by 49%. Helam + Miriam unchanged (their completions are clean — all on-schedule and non-duplicated). Real money on the line.
+
+**B1b follow-up rows added (Worker B1a flagged during PRD-28 conformance walkthrough of Row 9):**
+
+| Row | ID | Gap |
+|---|---|---|
+| 185 | NEW-EE | PRD-28 Extra Credit mechanism stubbed in schema, not implemented |
+| 186 | NEW-FF | PRD-28 "Preview This Week" button missing from config screen |
+| 187 | NEW-GG | PRD-28 Grace Days — plumbing exists, no UI for mom to mark a day |
+| 188 | NEW-HH | PRD-28 unmark/rollback cascade unimplemented |
+| 189 | NEW-II | PRD-28 `calculation_time` ignored by cron (always fires at midnight) |
+
+**Migration collision guard:** next new migration ≥ `00000000100165_`.
+
+**Convention #257 compliance check:** zero new `todayLocalIso()` / `localIsoDaysFromToday` client writes to DATE columns introduced by this commit set. `isoDaysFrom(baseIso, offset)` + `isoDayOfWeek(baseIso)` added to `src/utils/dates.ts` as server-anchored helpers.
+
+**Coordination resolved:**
+- Row 184 NEW-DD → Row 9 B1a: B1a consumed the `family_today()` RPC from 100158 and extended the trigger family to cover `allowance_periods`.
+- Row 44 NEW-W still Fix Next Build pool — dedup work now lives IN the 100164 RPC (Bug 2 fix), so NEW-W's original scope is materially reduced to Segment-side counting; re-scope needed.
 
 ---
 
