@@ -388,7 +388,11 @@ export function useUncompleteTask() {
       memberId: string
       completionId?: string
     }) => {
-      // 1. Delete the specific completion record, or the most recent one
+      // 1. Capture the completion id BEFORE delete so NEW-HH can pass
+      //    it to the reversal RPC. The reversal RPC tolerates the
+      //    deleted-row case via fallback to the forward-transaction
+      //    family_id, but we still want the canonical id.
+      let resolvedCompletionId: string | null = completionId ?? null
       if (completionId) {
         await supabase.from('task_completions').delete().eq('id', completionId)
       } else {
@@ -400,6 +404,7 @@ export function useUncompleteTask() {
           .limit(1)
 
         if (completions && completions.length > 0) {
+          resolvedCompletionId = completions[0].id
           await supabase.from('task_completions').delete().eq('id', completions[0].id)
         }
       }
@@ -431,6 +436,33 @@ export function useUncompleteTask() {
           })
       }
 
+      // 4. NEW-HH — Allowance unmark cascade.
+      //    Reverse any prior opportunity_earned transaction for this
+      //    completion via append-only negative adjustment. RPC is
+      //    idempotent (DB-level partial unique index on metadata->>
+      //    'reversed_completion_id'). Fire-and-forget — failure does NOT
+      //    block the task unmark. RPC returns 'no_forward_transaction'
+      //    today since the forward write isn't built yet (Option A
+      //    scope per orchestrator 2026-04-24).
+      //    Allowance summary recount is NOT done here; the live widget
+      //    + Preview panel rely on calculate_allowance_progress which
+      //    recomputes against tasks + completions on every read.
+      if (resolvedCompletionId) {
+        supabase
+          .rpc('reverse_opportunity_earning', { p_completion_id: resolvedCompletionId })
+          .then(({ error: revError, data: revData }) => {
+            if (revError) {
+              console.warn('reverse_opportunity_earning failed:', revError.message)
+            } else if (revData?.[0]?.status === 'reversed') {
+              // Refresh the financial UI when an actual reversal landed.
+              queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })
+              queryClient.invalidateQueries({ queryKey: ['family-transactions'] })
+              queryClient.invalidateQueries({ queryKey: ['running-balance'] })
+              queryClient.invalidateQueries({ queryKey: ['family-financial-summary'] })
+            }
+          })
+      }
+
       // STUB: Reverse gamification reward/streak — wires when PRD-24 is built
       // When PRD-24 gamification is wired, this should:
       // - Reverse any points awarded for this completion
@@ -444,6 +476,11 @@ export function useUncompleteTask() {
         queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
         queryClient.invalidateQueries({ queryKey: ['task', data.id] })
         queryClient.invalidateQueries({ queryKey: ['task-completions', data.id] })
+        // NEW-HH: live allowance widget + Preview panel must recompute
+        // against the now-removed completion row. The RPC reads tasks +
+        // task_completions + routine_step_completions live, so simply
+        // invalidating the cache key is enough.
+        queryClient.invalidateQueries({ queryKey: ['live-allowance-progress'] })
       }
     },
   })
