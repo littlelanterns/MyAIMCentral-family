@@ -7,6 +7,17 @@
 
 ---
 
+## Session 2 audit-calibration note (captured 2026-04-23)
+
+**Scope 4 Intentional-Update-Doc rate-of-drift at audit-to-triage interface: 7/8 (87.5%).** Pattern: Phase 2 classifier read consistency-of-failure as consistency-of-intent, miscoding Unintentional-Fix-Code as Intentional-Update-Doc. The feature was consistently broken or unwired and the audit read the consistency as evidence of intentional design.
+
+Seven Scope 4 rows reclassified Intentional-Update-Doc → Fix Code during Session 2:
+SCOPE-4.F1 (Row 31, three-question test surfaced), SCOPE-4.F5 (Row 93, three-question test surfaced), SCOPE-4.F3, F6, F7, F9, F10 (all surfaced via Batch 6 mandatory-surface criterion for Scope 4 Intentional-Update-Doc).
+
+One Scope 4 row held clean: SCOPE-4.F2 (pgmq pipeline dormant) — only row where audit explicitly cites an over-promised source doc (`claude/ai_patterns.md` §Embedding Pipeline L222-251).
+
+**Future-audit calibration:** Scope 4 Intentional-Update-Doc proposals require source-doc citation as a default, not an exception. If a future Phase 2 pass processes Scope 4 findings, the classifier should default to Unintentional-Fix-Code unless a source doc can be cited that genuinely over-promises current behavior.
+
 ## What changed from v10 → v11 (Session 2 close — Batch 6 final surface + Scope 4 pattern resolution)
 
 - **5 Scope 4 rows reclassified Intentional-Update-Doc → Fix Code.** Three-question test applied per Row 31 / Row 93 pattern. Reclassified: SCOPE-4.F10, F3, F6, F7, F9. Clean: SCOPE-4.F2 (only one where audit explicitly over-promises ai_patterns.md doc). Pattern now 7-for-8 across all Scope 4 Intentional-Update-Doc rows (F1+F5+F10+F3+F6+F7+F9 drift; F2 clean). Classifier systematically mis-coded Unintentional-Fix-Code at Scope 4.
