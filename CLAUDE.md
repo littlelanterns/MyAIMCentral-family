@@ -529,7 +529,7 @@ These are patterns where a tool or technique appears to work but silently produc
 
 **7. Edge Functions invoked from cron with `sb_secret_...` keys fail when `verify_jwt` is enabled.** The new-style Supabase secret key format (`sb_secret_abc123...`) is NOT a JWT. Edge Functions deployed with default settings (`verify_jwt = true`) reject it at the gateway with `UNAUTHORIZED_INVALID_JWT_FORMAT` before the function code ever runs. Old-style JWT keys (`eyJ...`) slip past the gateway. Symptom: cron job fires successfully, `cron.job_run_details.status='succeeded'` (because `net.http_post` returned a response), but `net._http_response` shows `status_code=401`. Correct approach: deploy cron-invoked functions with `--no-verify-jwt` (or `config.toml` `verify_jwt = false`) — the function code still validates the service role bearer token. Diagnostic: `SELECT id, status_code, content::text FROM net._http_response ORDER BY id DESC LIMIT 10;` after manually invoking a job via `SELECT util.invoke_edge_function('fn-name');` — any 401 with `UNAUTHORIZED_INVALID_JWT_FORMAT` means redeploy with `--no-verify-jwt`.
 
-242. **Grep and Glob are the primary search tools; mgrep is reserved for semantic queries that literal matching cannot answer, and each use requires per-query founder approval.** Inverted 2026-04-18 after Scale-tier mgrep burn rate ($36.54 in 36 hours of audit use, projecting $300+/month for solo-founder workload) proved unsustainable and hit the spend limit mid-Stage-A of the Phase 2 audit. mgrep was downgraded from Scale tier to free tier and its convention status flipped from "required default" to "escape hatch for genuine semantic needs." Default workflow: reach for `Grep`/`Glob` first. If a lookup is genuinely cross-cutting and keyword-grep is missing it (e.g., "which PRDs reference this architectural pattern without naming it directly"), surface the query to the founder and request explicit per-query approval before invoking mgrep. If mgrep is unavailable for any reason, continue with `Grep`/`Glob` — it is no longer a tool-health halt condition. This convention will be re-evaluated post-audit based on how often semantic capability was genuinely needed vs. how often Grep/Glob was sufficient. Reference: `claude/LESSONS_LEARNED.md` → "Convention Cost Evaluation" pattern; AUDIT_REPORT_v1.md SCOPE-1.F4; `feedback_use_mgrep` memory entry.
+242. **Grep and Glob are the primary search tools; mgrep is reserved for semantic queries that literal matching cannot answer, and each use requires per-query founder approval.** Inverted 2026-04-18 after Scale-tier mgrep burn rate ($36.54 in 36 hours of audit use, projecting $300+/month for solo-founder workload) proved unsustainable and hit the spend limit mid-Stage-A of the Phase 2 audit. mgrep was downgraded from Scale tier to free tier and its convention status flipped from "required default" to "escape hatch for genuine semantic needs." Default workflow: reach for `Grep`/`Glob` first. If a lookup is genuinely cross-cutting and keyword-grep is missing it (e.g., "which PRDs reference this architectural pattern without naming it directly"), surface the query to the founder and request explicit per-query approval before invoking mgrep. If mgrep is unavailable for any reason, continue with `Grep`/`Glob` — it is no longer a tool-health halt condition. This convention will be re-evaluated post-audit based on how often semantic capability was genuinely needed vs. how often Grep/Glob was sufficient. Reference: `claude/LESSONS_LEARNED.md` → "Convention Cost Evaluation" pattern; claude/web-sync/AUDIT_REPORT_v1.md SCOPE-1.F4; `feedback_use_mgrep` memory entry.
 
 ## Privacy Guardrails (Non-Negotiable)
 
@@ -619,9 +619,9 @@ These are patterns where a tool or technique appears to work but silently produc
 
 ## Composition Architecture (Non-Negotiable)
 
-These conventions codify the rules from `Composition-Architecture-and-Assembly-Patterns.md` (Parts 1 and 2, authored 2026-04-21). The doc is the authoritative reference for primitives, properties, connectors, scope-of-state, supported compositions, downstream consumers, and assembly patterns. Conventions 249–256 lift the load-bearing rules into the persistent contract.
+These conventions codify the rules from `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` (Parts 1 and 2, authored 2026-04-21). The doc is the authoritative reference for primitives, properties, connectors, scope-of-state, supported compositions, downstream consumers, and assembly patterns. Conventions 249–256 lift the load-bearing rules into the persistent contract.
 
-249. **Wizards are named by outcome, not by tool type.** Every wizard entry on the Studio shelf describes what mom is accomplishing ("Shared Shopping List with Family," "Potty Chart for Ruthie," "School Day Routine"), not what database table the result lives in. A wizard named "Create a List" or "Add a Tracker" has failed naming review. See `Composition-Architecture-and-Assembly-Patterns.md` §2.1 for examples.
+249. **Wizards are named by outcome, not by tool type.** Every wizard entry on the Studio shelf describes what mom is accomplishing ("Shared Shopping List with Family," "Potty Chart for Ruthie," "School Day Routine"), not what database table the result lives in. A wizard named "Create a List" or "Add a Tracker" has failed naming review. See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.1 for examples.
 
 250. **Save-and-return is universal across wizards. Drafts and Customized are first-class Studio pages.**
 
@@ -634,7 +634,7 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     - Deployment moves a draft from Drafts → **Customized** section of Studio.
     - **Customized items remain editable.** Opening one re-launches its wizard pre-populated; changes do not move the item back to Drafts.
 
-    Data layer implication: all primitives created by wizards must support `is_draft` status. Drafts are not visible to other family members, do not count toward allowance, do not appear on kid dashboards, do not trigger reveals. See `Composition-Architecture-and-Assembly-Patterns.md` §2.2.
+    Data layer implication: all primitives created by wizards must support `is_draft` status. Drafts are not visible to other family members, do not count toward allowance, do not appear on kid dashboards, do not trigger reveals. See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.2.
 
 251. **AI assistance is present at every creation surface.** Mom is never forced to map her mental model onto a schema.
 
@@ -643,7 +643,7 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     - Mom can say "describe the whole thing" at any wizard step; Haiku populates every relevant tab's fields. Mom reviews field-by-field.
     - Every Haiku proposal is Human-in-the-Mix (Edit / Approve / Regenerate / Reject) before it persists.
 
-    See `Composition-Architecture-and-Assembly-Patterns.md` §2.4. Inside-wizard AI is distinct from the front-door Natural Language Composition entry point (Convention 253).
+    See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.4. Inside-wizard AI is distinct from the front-door Natural Language Composition entry point (Convention 253).
 
 252. **Bulk-AI-Add is universal. Deployed on every creation surface where multiple items can be added.**
 
@@ -651,7 +651,7 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     - Every bulk-add output is Human-in-the-Mix before it persists.
     - **If a new creation surface ships without bulk-AI-add, that is a bug, not a future enhancement.**
 
-    Deployment gap status: capability is built universally in the codebase but not deployed everywhere it should be. Deployment coverage tracked as a worksheet finding (NEW-L). See `Composition-Architecture-and-Assembly-Patterns.md` §2.5.
+    Deployment gap status: capability is built universally in the codebase but not deployed everywhere it should be. Deployment coverage tracked as a worksheet finding (NEW-L). See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.5.
 
 253. **Natural Language Composition is a first-class creation entry point.** Available everywhere a wizard is available.
 
@@ -670,13 +670,13 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
 
     Never "I don't understand." Always restate mom's words and offer a path forward.
 
-    See `Composition-Architecture-and-Assembly-Patterns.md` §2.9.
+    See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.9.
 
 254. **MindSweep Review & Route includes configuration-worthy detection.** When a brain-dump item describes a composition (not just a single artifact — "I need a potty chart for Ruthie" vs "buy milk"), the system proposes a Natural Language Composition flow and lands the resulting skeleton in Drafts.
 
     Mom approves the proposal — she is never auto-routed into a wizard. MindSweep proposes, mom decides. Bridges capture-first behavior (brain-dump) with composition-first behavior (wizards) without forcing mom to choose a mode before she captures.
 
-    See `Composition-Architecture-and-Assembly-Patterns.md` §2.6.
+    See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.6.
 
 255. **Wizard design begins with friction mapping.** The first question when designing any wizard is not "what fields does this need?" — it is **"where would mom quit?"**
 
@@ -693,7 +693,7 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
 
     **A wizard that forces any non-minimum decision has failed design review.** A wizard that doesn't accept a Haiku-pre-populated entry state has failed design review. A wizard that doesn't deploy bulk-AI-add on multi-item fields has failed design review.
 
-    See `Composition-Architecture-and-Assembly-Patterns.md` §2.10.
+    See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §2.10.
 
 256. **Tier access is a configuration concern, not a feature concern.** Feature code references a canonical **tier-assignment chart**; feature logic does NOT hardcode tier names.
 
@@ -702,4 +702,4 @@ These conventions codify the rules from `Composition-Architecture-and-Assembly-P
     - Hardcoding `tier === 'full_magic'` or similar in feature logic is forbidden.
     - Related existing infrastructure: `feature_access_v2`, `feature_key_registry`, `useCanAccess()`, `<PermissionGate>`. The chart layers on top as the human-readable source of truth.
 
-    Implementation tracked as worksheet finding NEW-BB. See `Composition-Architecture-and-Assembly-Patterns.md` §1.7.
+    Implementation tracked as worksheet finding NEW-BB. See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §1.7.

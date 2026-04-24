@@ -3,14 +3,14 @@
 > **Status:** DRAFT for founder review — 2026-04-22
 > **Purpose:** Apply the Composition Architecture & Assembly Patterns doc (Parts 1 and 2) to the Phase 3 Triage Worksheet. Identifies (a) existing findings the doc reinforces, (b) existing findings the doc resolves / reclassifies, (c) conflicts requiring founder approval before any Fix-Now ↔ Intentional-Update-Doc reclassification, (d) new findings the doc surfaces that need worksheet rows.
 > **Do NOT apply any changes until founder approves.** Worksheet untouched pending this review.
-> **Source:** [Composition-Architecture-and-Assembly-Patterns.md](Composition-Architecture-and-Assembly-Patterns.md) (893 lines, Parts 1 and 2 + 36 draft notes)
+> **Source:** [Composition-Architecture-and-Assembly-Patterns.md](claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md) (893 lines, Parts 1 and 2 + 36 draft notes)
 > **Scope constraint:** Part 3 (Wizard Library Taxonomy + Gate 2 priority reshape) is OUT OF SCOPE per brief. Do not derive Part 3 or reshape Gate 2.
 
 ---
 
 ## Brief ID discrepancy — needs resolution
 
-The brief says *"Apply the doc to SCOPE-2.F21 (Opportunity Board recon finding)"*. **SCOPE-2.F21 is actually "PRD-18 teen experience supersession"** — unrelated to Opportunity Board. No F-heading in AUDIT_REPORT_v1.md labels "Opportunity Board recon." The Opportunity Board references in the audit live in:
+The brief says *"Apply the doc to SCOPE-2.F21 (Opportunity Board recon finding)"*. **SCOPE-2.F21 is actually "PRD-18 teen experience supersession"** — unrelated to Opportunity Board. No F-heading in claude/web-sync/AUDIT_REPORT_v1.md labels "Opportunity Board recon." The Opportunity Board references in the audit live in:
 
 - Appendix B "Opportunity Board Wizard" section (a cross-reference, not a finding)
 - Line 2015 Appendix B row tying SCOPE-2.F21 to Opportunity Board Wizard teen-UX — that's where the F21↔Opportunity Board association likely came from
@@ -181,8 +181,8 @@ NEW-BB (tier-assignment chart as single source of truth) is **additive** — it 
 
 If Tenise approves Sections A–E as drafted, the orchestrator will:
 
-1. **Update TRIAGE_WORKSHEET.md** — apply scope notes from Section A; apply reclassifications from Section B; add 23 new rows from Section D; update counts; regenerate + commit.
-2. **Update FIX_NOW_SEQUENCE.md** — NEW-K (if Beta Y confirmed) joins Wave 1 or Wave 3; other NEW rows slot into "non-Beta Fix Next Build" pool; no existing wave structure changes.
+1. **Update claude/web-sync/TRIAGE_WORKSHEET.md** — apply scope notes from Section A; apply reclassifications from Section B; add 23 new rows from Section D; update counts; regenerate + commit.
+2. **Update claude/web-sync/FIX_NOW_SEQUENCE.md** — NEW-K (if Beta Y confirmed) joins Wave 1 or Wave 3; other NEW rows slot into "non-Beta Fix Next Build" pool; no existing wave structure changes.
 3. **Add CLAUDE.md conventions** (separate commits per founder guidance):
    - Outcome-named wizards convention (doc §2.1)
    - Save-and-return / Drafts / Customized convention (doc §2.2)

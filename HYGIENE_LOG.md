@@ -6,7 +6,7 @@
 >
 > **Format.** One row per action. Columns: Date · Action · Reason · Session/commit reference.
 >
-> **Rationale for a separate log** (not `TECH_DEBT_REGISTER.md`, not `AUDIT_REPORT_v1.md` Appendix D, not `LESSONS_LEARNED.md`):
+> **Rationale for a separate log** (not `TECH_DEBT_REGISTER.md`, not `claude/web-sync/AUDIT_REPORT_v1.md` Appendix D, not `LESSONS_LEARNED.md`):
 > - Tech debt = "thing we know is imperfect, logged for later fix." Hygiene = "preventative cleanup already done."
 > - Appendix D is historical to the Phase 2 audit scope; this log is the ongoing surface.
 > - Lessons Learned captures patterns + rules; Hygiene Log captures single-point actions.
@@ -37,6 +37,6 @@ No founder approval required — Claude Code appends autonomously during any bui
 
 ## Cross-references
 
-- Appendix D of `AUDIT_REPORT_v1.md` is the historical record of Phase 2 hygiene. Entries there are not migrated here; this log starts at 2026-04-18 with the mgrep uninstall as the seed entry (single shared entry preserved in both locations for continuity).
+- Appendix D of `claude/web-sync/AUDIT_REPORT_v1.md` is the historical record of Phase 2 hygiene. Entries there are not migrated here; this log starts at 2026-04-18 with the mgrep uninstall as the seed entry (single shared entry preserved in both locations for continuity).
 - `TECH_DEBT_REGISTER.md` (authored post-Phase-3 Session-2) is the companion log for deferred-fix items. Hygiene actions are already done; tech-debt items are not yet done.
 - `claude/LESSONS_LEARNED.md` captures patterns + rules that prevent classes of failure. Hygiene actions are single-point preventative moves; Lessons Learned is the durable rule layer.

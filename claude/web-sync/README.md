@@ -29,6 +29,12 @@ Only **currently-active coordination or reference docs** that Claude.ai needs fo
 | File | Purpose | Active through |
 |---|---|---|
 | `AUDIT_PARALLEL_PLAN.md` | Coordinates Phase 2 audit (Claude Code) with wizard user-flow design (Claude.ai) | Gate 1 exit + Phase 5 Zod/simplify completion |
+| `TRIAGE_WORKSHEET.md` | Phase 3 Triage locked worksheet (183/183 classifications) | Gate 1 exit (Phase 4 dispatches consume it, Phase 5 references it) |
+| `FIX_NOW_SEQUENCE.md` | Wave execution DAG (v11) for Phase 4 Fix Now + Beta=Y resolution | Gate 1 exit |
+| `AUDIT_REPORT_v1.md` | Phase 2 audit report — 146 findings + 24 deltas across 7 scopes | Gate 1 exit (source for every triage row) |
+| `MYAIM_GAMEPLAN_v2.2.md` | Master gameplan — phase/gate structure, "what phase are we in" orientation | Gate 2 complete (then revisit for v2.3 cut) |
+| `Composition-Architecture-and-Assembly-Patterns.md` | Load-bearing architecture doc — source for Conventions 249-256 and worksheet rows NEW-F through NEW-CC; reference for Gate 2 wizard builds | Gate 2 complete |
+| `RECON_GENERAL_MODE_SURFACES.md` | Recon-2 inventory of 10 user-facing General-mode surfaces — blocks NEW-B execution; informs PRD-05 addendum | PRD-05 addendum lands + NEW-B Fix Now executes |
 
 ## Claude.ai sync config (one-time setup)
 
