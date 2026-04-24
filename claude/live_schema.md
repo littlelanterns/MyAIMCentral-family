@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 234 rows
+### `view_as_sessions` — 240 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 136 rows
+### `view_as_feature_exclusions` — 140 rows
 
 | # | Column |
 |---|---|
@@ -290,7 +290,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 72 rows
+### `lila_conversations` — 73 rows
 
 | # | Column |
 |---|---|
@@ -315,7 +315,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 150 rows
+### `lila_messages` — 152 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 575 rows
+### `ai_usage_tracking` — 576 rows
 
 | # | Column |
 |---|---|
@@ -777,7 +777,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 194 rows
+### `routine_step_completions` — 185 rows
 
 | # | Column |
 |---|---|
@@ -1738,7 +1738,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2162,7 +2162,7 @@
 | 3 | `vault_item_id` |
 | 4 | `created_at` |
 
-### `vault_user_progress` — 13 rows
+### `vault_user_progress` — 14 rows
 
 | # | Column |
 |---|---|
@@ -2176,7 +2176,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 228 rows
+### `vault_user_visits` — 229 rows
 
 | # | Column |
 |---|---|

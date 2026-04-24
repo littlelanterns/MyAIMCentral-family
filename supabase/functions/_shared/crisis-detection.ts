@@ -1,5 +1,6 @@
 // Shared crisis keyword detection for lila-* Edge Functions.
-// Used by all relationship tools and ThoughtSift tools (except Translator).
+// Used by every lila-* Edge Function that accepts user content. Convention #7:
+// crisis override is global — Translator is NOT exempt (SCOPE-8a.F4 fix).
 
 export const CRISIS_KEYWORDS = [
   'suicide',

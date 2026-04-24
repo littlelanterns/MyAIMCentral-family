@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -68,6 +69,20 @@ Deno.serve(async (req) => {
       .single()
     if (!conv) {
       return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: jsonHeaders })
+    }
+
+    // Crisis override (SCOPE-8a.F4 + Convention #7 — global, Translator is NOT
+    // exempt). Must run BEFORE the AI fetch and BEFORE the user message save,
+    // matching the lila-decision-guide pattern.
+    if (detectCrisis(content)) {
+      await supabase.from('lila_messages').insert([
+        { conversation_id, role: 'user', content, metadata: { tone, mode: 'translator' } },
+        { conversation_id, role: 'assistant', content: CRISIS_RESPONSE, metadata: { source: 'crisis_override', mode: 'translator' } },
+      ])
+      return new Response(
+        JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
     }
 
     // Save user message
