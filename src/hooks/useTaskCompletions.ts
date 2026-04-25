@@ -33,6 +33,77 @@ async function rollGamificationForCompletion(
   }
 }
 
+// NEW-NN — Opportunity earning forward write. Same contract as the
+// copy in useTasks.ts. See that file for the full docstring. Mirror
+// kept here to avoid circular imports between the two completion-site
+// hooks. Idempotency enforced DB-level by partial unique index
+// uq_financial_transactions_forward_per_completion (migration 100174).
+async function awardOpportunityEarning(completionId: string): Promise<void> {
+  try {
+    const { data: completion } = await supabase
+      .from('task_completions')
+      .select('id, task_id, family_member_id, tasks!inner(id, title, task_type, family_id)')
+      .eq('id', completionId)
+      .single()
+    if (!completion) return
+
+    const task = (completion.tasks as unknown) as {
+      id: string
+      title: string
+      task_type: string
+      family_id: string
+    }
+    if (!task.task_type || !task.task_type.startsWith('opportunity_')) return
+
+    const { data: rewards } = await supabase
+      .from('task_rewards')
+      .select('reward_type, reward_value')
+      .eq('task_id', task.id)
+      .limit(1)
+    const reward = rewards?.[0]
+    if (!reward || reward.reward_type !== 'money') return
+
+    const rewardValue = (reward.reward_value ?? {}) as { amount?: number | string }
+    const amount =
+      typeof rewardValue.amount === 'number'
+        ? rewardValue.amount
+        : typeof rewardValue.amount === 'string' && rewardValue.amount.trim() !== ''
+          ? Number(rewardValue.amount)
+          : NaN
+    if (Number.isNaN(amount) || amount <= 0) return
+
+    const { data: balanceData } = await supabase.rpc('calculate_running_balance', {
+      p_member_id: completion.family_member_id,
+    })
+    const newBalance = Number(balanceData ?? 0) + amount
+
+    const { error: insertErr } = await supabase
+      .from('financial_transactions')
+      .insert({
+        family_id: task.family_id,
+        family_member_id: completion.family_member_id,
+        transaction_type: 'opportunity_earned',
+        amount,
+        balance_after: newBalance,
+        description: `Job: ${task.title}`,
+        source_type: 'task_completion',
+        source_reference_id: completionId,
+        category: task.title,
+        metadata: {
+          task_id: task.id,
+          task_type: task.task_type,
+          reward_type: 'money',
+        },
+      })
+    // Swallow duplicate-violation — idempotent by design.
+    if (insertErr && insertErr.code !== '23505') {
+      console.warn('[opportunity-earning] insert failed:', insertErr)
+    }
+  } catch (err) {
+    console.warn('[opportunity-earning] threw:', err)
+  }
+}
+
 // ============================================================
 // useTaskCompletions — completions for a single task
 // ============================================================
@@ -193,6 +264,9 @@ export function useApproveCompletion() {
       // Idempotent via awarded_source_id if this path is ever re-fired.
       const gamificationResult = await rollGamificationForCompletion(completionId)
 
+      // NEW-NN — opportunity earning forward write at approval time.
+      await awardOpportunityEarning(completionId)
+
       return { ...data, gamificationResult }
     },
     onSuccess: (data) => {
@@ -204,6 +278,14 @@ export function useApproveCompletion() {
         queryClient.invalidateQueries({ queryKey: ['family-member'] })
         queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
       }
+
+      // NEW-NN: refresh financial caches after approval. Broadcast-
+      // invalidate since this site doesn't know the task_type; cheap
+      // no-ops when no subscriber is mounted.
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['family-transactions', data.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['running-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['family-financial-summary', data.family_id] })
     },
   })
 }

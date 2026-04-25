@@ -2,7 +2,7 @@
 // 8 collapsible sections. All 3 approaches. Dual nav path.
 
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eye, EyeOff, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -19,6 +19,7 @@ import {
 import { getMemberColor } from '@/lib/memberColors'
 import { GraceDaysManager } from './GraceDaysManager'
 import { PreviewThisWeekPanel } from './PreviewThisWeekPanel'
+import { BulkConfigureAllowanceModal } from './BulkConfigureAllowanceModal'
 
 export function ChildAllowanceConfigPage() {
   const { memberId } = useParams<{ memberId: string }>()
@@ -37,6 +38,7 @@ export function ChildAllowanceConfigPage() {
   // Local form state — debounced auto-save
   const [form, setForm] = useState<Partial<AllowanceConfigInput>>({})
   const [saveTimer, setSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   // Initialize form from config
   useEffect(() => {
@@ -373,6 +375,59 @@ export function ChildAllowanceConfigPage() {
               disabled={!(form.grace_days_enabled ?? true)}
             />
           )}
+          {/* NEW-RR: when mom has grace days enabled but no active period
+              exists (edge case — config save succeeded but period insert
+              failed, or mom just enabled a disabled config), the toggle
+              appears on but there's nothing to mark. Surface an inline
+              empty-state with a manual "Start period now" CTA instead of
+              showing the toggle with no picker below it. */}
+          {!activePeriod && (form.grace_days_enabled ?? true) && (
+            <div
+              data-testid="grace-days-no-period-empty"
+              style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--vibe-radius-input, 8px)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px dashed var(--color-border-default, var(--color-border))',
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              <div style={{ marginBottom: '0.5rem' }}>
+                Grace days are turned on, but no active allowance period
+                exists yet. Tap below to start one now, then come back to
+                mark grace days.
+              </div>
+              <button
+                type="button"
+                disabled={startPeriod.isPending}
+                onClick={() => {
+                  if (family?.id && memberId && form.weekly_amount != null) {
+                    startPeriod.mutate({
+                      familyId: family.id,
+                      memberId,
+                      weeklyAmount: form.weekly_amount,
+                    })
+                  }
+                }}
+                data-testid="grace-days-start-period"
+                style={{
+                  padding: '0.375rem 0.875rem',
+                  borderRadius: 'var(--vibe-radius-input, 6px)',
+                  background: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-text-on-primary)',
+                  border: 'none',
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 500,
+                  cursor: startPeriod.isPending ? 'not-allowed' : 'pointer',
+                  opacity: startPeriod.isPending ? 0.6 : 1,
+                }}
+              >
+                {startPeriod.isPending ? 'Starting…' : 'Start period now'}
+              </button>
+            </div>
+          )}
           <ToggleRow
             label="Makeup Window"
             description="Extra time after the period ends to complete missed tasks"
@@ -510,6 +565,34 @@ export function ChildAllowanceConfigPage() {
           of the config screen, expandable inline. */}
       {memberId && (
         <PreviewThisWeekPanel memberId={memberId} activePeriod={activePeriod} />
+      )}
+
+      {/* Path X secondary entry: mom is already focused on this kid but
+          wants to "while I'm at it, also apply the same thing to the
+          others". Bulk modal opens with this kid pre-selected. */}
+      {family?.id && (members.filter(m => m.role === 'member' && m.is_active).length > 1) && (
+        <>
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            data-testid="open-bulk-configure-from-child"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--color-btn-primary-bg)',
+              border: '1px dashed var(--color-btn-primary-bg)',
+            }}
+          >
+            <Users size={16} />
+            Apply to other kids too…
+          </button>
+          <BulkConfigureAllowanceModal
+            familyId={family.id}
+            isOpen={bulkOpen}
+            onClose={() => setBulkOpen(false)}
+            initialMemberIds={memberId ? [memberId] : []}
+          />
+        </>
       )}
     </div>
   )

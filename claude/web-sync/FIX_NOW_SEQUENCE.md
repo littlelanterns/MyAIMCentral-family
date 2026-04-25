@@ -1,9 +1,42 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v18 — NEW-JJ + NEW-KK RESOLVED (shared root cause) 2026-04-24
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165) by orchestrator
+> **Status:** DRAFT v19 — Worker ALLOWANCE-COMPLETE comprehensive allowance landing 2026-04-24
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165, v19 Worker ALLOWANCE-COMPLETE 7-row landing) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 192 rows total (184 + 5 B1b follow-up rows NEW-EE..NEW-II added by Worker B1a 2026-04-24 + 3 new Fix Now rows NEW-JJ/NEW-KK/NEW-LL surfaced by Worker V-B1a 2026-04-24). Wave-assigned: 14 Fix Now + 3 Fix Now (+compound) + 1 Fix Code + 24 new Fix Next Build rows (NEW-F..NEW-CC) + 5 B1b follow-up rows + existing Fix Next Build rows. 35 Beta Readiness blockers anchor the ordering. `Defer-to-Gate-4`, `Tech Debt`, `Intentional-Update-Doc`, `Closed/Resolved`, `Informational`, `Capture-only` rows omitted from waves but called out when they appear as upstream blockers.
+> **Scope:** 204 rows total (was 196; v19 adds NEW-RR/SS/TT/UU/VV/WW/XX/YY = 8 rows filed by Worker ALLOWANCE-COMPLETE). 4 prior rows resolved in same session: NEW-NN, NEW-OO, NEW-QQ (partial), and the bug-row NEW-UU was first filed and immediately resolved. Beta Readiness blocker count: 26 (NEW-NN closed; NEW-WW added).
+
+---
+
+## What changed from v18 → v19 (Worker ALLOWANCE-COMPLETE 2026-04-24)
+
+**Worker ALLOWANCE-COMPLETE** delivered a comprehensive allowance-and-payment landing covering 7 rows in one worker session.
+
+**Resolved:**
+- **NEW-NN** (PRD-28 opportunity forward financial_transactions write) — migration 100174 partial unique idempotency index + shared `awardOpportunityEarning()` helper wired into 3 completion sites + `createTaskFromData` reward persistence. Verification 8/8 PASS. Beta blocker cleared. Founder can now ship her "Work Around the House Opportunities" list with real money attached.
+- **NEW-UU** (allowance widget grace-days bug — `useLiveAllowanceProgress` missing 4th arg) — discovered in Phase 1 audit, filed and resolved in same session via 1-line widget fix. Verification 4/4 PASS confirming routine denominator shrinks correctly with grace days passed.
+- **NEW-RR** (grace-days no-period UX edge case) — inline empty-state + "Start period now" CTA when toggle on but no active period.
+- **Path X (generalized NEW-SS)** — full Bulk Configure modal covering schedule, bonus, grace, makeup/extra credit + grace-day fan-out marking. Verification 4/4 PASS.
+- **NEW-TT** (per-day grace mode picker — Skip vs Keep credit) — migration 100175 RPC overhaul to JSONB with per-entry mode + visual chip redesign with tappable swap icon. Verification 5/5 PASS confirming founder flagship math (baseline=80%, full_exclude=83.33%, numerator_keep=93.33%).
+- **NEW-OO** (allowance widget Today/Period toggle) — segmented toggle in widget header.
+- **NEW-QQ partial** (allowance_points UI exposure) — numeric "Weight (points)" input in TaskCreationModal under "Count toward allowance pool". Full points-as-primitive flagship deferred to NEW-YY (categorization sub-feature folded in).
+
+**Newly filed (8 rows):**
+- **NEW-RR** (Allowance, Low, N) — RESOLVED same session
+- **NEW-SS** (Allowance, High, Y) — RESOLVED same session as Path X
+- **NEW-TT** (Allowance, High, Y) — RESOLVED same session
+- **NEW-UU** (Allowance, High, Y) — RESOLVED same session (bug discovered + fixed)
+- **NEW-VV** (Allowance, High, Y) — Fix Next Build, Bulk Configure refinements (per-row overrides + grace mode in bulk picker)
+- **NEW-WW** (Lists/Tasks, High, Y) — Fix Next Build, Beta blocker — per-line-item reward picker on opportunity lists AND single tasks (shared `<OpportunityRewardPicker>` component covers both surfaces)
+- **NEW-XX** (Allowance/Trackers, Medium, Y) — Fix Next Build, money-source differentiator on widget (allowance vs job earnings vs adjustments)
+- **NEW-YY** (Composition Architecture, Medium, N) — Fix Next Build, points categorization (separate pools so reading points don't redeem against chore rewards)
+
+**Migrations applied (this session, both production):**
+- 100174 — `uq_financial_transactions_forward_per_completion` partial unique index
+- 100175 — `calculate_allowance_progress` 4-arg JSONB form for per-day grace mode
+
+**Production data audit pre + post landing:** clean. 0 financial_transactions rows ever (founder hasn't started using opportunity flow yet — confirmed safe additive landing). 4 active allowance periods unchanged. Existing 2 grace-day arrays (Gideon + Mosiah, bare strings of YYYY-MM-DD) continue to work as full_exclude per back-compat in migration 100175.
+
+**B1b regression check:** 9/9 PASS — no regressions from migration 100175.
 
 ---
 

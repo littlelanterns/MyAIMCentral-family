@@ -280,6 +280,36 @@ export async function createTaskFromData(
     return result
   }
 
+  // ── Step 1.5: Build optional task_rewards payload from the reward form block ──
+  //
+  // NEW-NN forward-write contract: for opportunity tasks to pay out on
+  // completion, a task_rewards row must exist alongside the task so the
+  // completion-site hook can look up the dollar amount. Without this
+  // persistence step, data.reward.rewardType + data.reward.rewardAmount
+  // captured by TaskCreationModal were thrown away on save and mom's
+  // opportunity completions produced no payment.
+  //
+  // Mirror of useOpportunityLists.ts line 194-203 (the list-claim path
+  // already writes task_rewards correctly).
+  type RewardShape = {
+    rewardType?: string
+    rewardAmount?: string | number
+  }
+  const rewardBlock = (data.reward ?? {}) as RewardShape
+  const rewardType = rewardBlock.rewardType
+  const rewardAmountRaw = rewardBlock.rewardAmount
+  const rewardAmountNum =
+    typeof rewardAmountRaw === 'number'
+      ? rewardAmountRaw
+      : typeof rewardAmountRaw === 'string' && rewardAmountRaw.trim() !== ''
+        ? Number(rewardAmountRaw)
+        : null
+  const shouldPersistReward =
+    !!rewardType &&
+    rewardType !== 'none' &&
+    rewardAmountNum !== null &&
+    !Number.isNaN(rewardAmountNum)
+
   // ── Step 2: Create task row(s) with template_id (skip if templateOnly) ──
   if (!(data.templateOnly && data.taskType === 'routine')) {
     // Add template_id to the task if we created one
@@ -424,6 +454,28 @@ export async function createTaskFromData(
           if (rotErr) console.error('Failed to write rotation config:', rotErr)
         }
       }
+    }
+  }
+
+  // ── Step 3: Persist task_rewards row(s) if the form captured a reward ──
+  //
+  // NEW-NN: TaskCreationModal exposes rewardType + rewardAmount in the reward
+  // form block, but those values were previously never persisted. Without a
+  // task_rewards row on the task, the completion-site forward-write hook has
+  // nothing to read when it tries to emit an opportunity_earned transaction.
+  // Mirror of useOpportunityLists.ts line 194-203 (the claim-from-list path).
+  // One task_rewards row per task, keyed on task_id.
+  if (shouldPersistReward && result.taskIds.length > 0) {
+    const rewardInserts = result.taskIds.map(taskId => ({
+      task_id: taskId,
+      reward_type: rewardType,
+      reward_value: { amount: rewardAmountNum },
+    }))
+    const { error: rewardError } = await supabase.from('task_rewards').insert(rewardInserts)
+    if (rewardError) {
+      // Non-fatal: the task still exists and is usable. Log so the founder
+      // can see if reward persistence is silently failing; don't throw.
+      console.error('[createTaskFromData] Failed to persist task_rewards:', rewardError.message)
     }
   }
 
