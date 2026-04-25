@@ -35,9 +35,13 @@ import {
   useAllowanceConfigs,
   useBulkUpsertAllowanceConfig,
   useAddGraceDay,
+  type GraceDayEntry,
+  type GraceDayMode,
+  normalizeGraceDayEntry,
 } from '@/hooks/useFinancial'
 import { supabase } from '@/lib/supabase/client'
 import { getMemberColor } from '@/lib/memberColors'
+import { GraceDayCalendar } from './GraceDayCalendar'
 import type {
   AllowanceConfigInput,
   BonusType,
@@ -45,6 +49,11 @@ import type {
   RoundingBehavior,
 } from '@/types/financial'
 import { PERIOD_START_DAY_LABELS } from '@/types/financial'
+
+interface BulkGraceDraft {
+  date: string
+  mode: GraceDayMode
+}
 
 interface BulkConfigureAllowanceModalProps {
   familyId: string
@@ -75,10 +84,11 @@ interface BulkForm {
   makeup_window_enabled: ApplyableField<boolean>
   makeup_window_days: ApplyableField<number>
   extra_credit_enabled: ApplyableField<boolean>
-  // Grace day marking (per-period, fan-out). Multi-date per founder
-  // 2026-04-25 — single-date version forced one save per day, painful
-  // with 4+ kids × 3+ grace days.
-  grace_days_to_mark: ApplyableField<string[]>
+  // Grace day marking (per-period, fan-out). Calendar picker version
+  // (GRACE-CALENDAR 2026-04-25): draft state holds {date, mode} pairs
+  // so mom can mark Skip vs Keep credit per-day in the bulk modal,
+  // matching the per-child surface.
+  grace_days_to_mark: ApplyableField<BulkGraceDraft[]>
 }
 
 const DEFAULT_FORM: BulkForm = {
@@ -93,7 +103,7 @@ const DEFAULT_FORM: BulkForm = {
   makeup_window_enabled: { applied: false, value: false },
   makeup_window_days: { applied: false, value: 2 },
   extra_credit_enabled: { applied: false, value: false },
-  grace_days_to_mark: { applied: false, value: [''] },
+  grace_days_to_mark: { applied: false, value: [] },
 }
 
 export function BulkConfigureAllowanceModal({
@@ -119,6 +129,43 @@ export function BulkConfigureAllowanceModal({
   )
   const [form, setForm] = useState<BulkForm>(DEFAULT_FORM)
   const [submitting, setSubmitting] = useState(false)
+
+  // Reference period for the calendar — pick the active period of the
+  // first selected kid (any of them works since all 4 founder kids share
+  // a Sun→Sat period today; if mom expands to staggered periods, this
+  // picks the widest-range one for safety).
+  const [referencePeriod, setReferencePeriod] = useState<{
+    period_start: string
+    period_end: string
+  } | null>(null)
+  useMemo(() => {
+    if (selectedIds.size === 0) {
+      setReferencePeriod(null)
+      return
+    }
+    // Fire async fetch outside useMemo (intentional — useMemo here is
+    // a side-effect dispatcher, not a memoizer; cheap fan-out, only
+    // re-runs when selection changes).
+    void (async () => {
+      const firstId = Array.from(selectedIds)[0]
+      const { data: period } = await supabase
+        .from('allowance_periods')
+        .select('period_start, period_end')
+        .eq('family_member_id', firstId)
+        .in('status', ['active', 'makeup_window'])
+        .order('period_start', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (period) {
+        setReferencePeriod({
+          period_start: period.period_start as string,
+          period_end: period.period_end as string,
+        })
+      } else {
+        setReferencePeriod(null)
+      }
+    })()
+  }, [selectedIds])
   const [submitResult, setSubmitResult] = useState<{
     configSuccess: number
     configFailed: number
@@ -215,11 +262,15 @@ export function BulkConfigureAllowanceModal({
     // Each member's active period is looked up; if none exists, the mark
     // is skipped for that member (surfaced as a fail in the result).
     if (form.grace_days_to_mark.applied) {
-      // Filter out empty rows from the [+ Add another] picker; dedupe.
-      const dates = Array.from(
-        new Set(form.grace_days_to_mark.value.filter(d => d && d.trim() !== '')),
-      )
-      if (dates.length > 0) {
+      // Dedupe by date (last mode wins if mom toggled the same date twice
+      // — the calendar shouldn't allow this but defend against it anyway).
+      const draftMap = new Map<string, GraceDayMode>()
+      for (const draft of form.grace_days_to_mark.value) {
+        if (draft.date) draftMap.set(draft.date, draft.mode)
+      }
+      const drafts = Array.from(draftMap.entries()).map(([date, mode]) => ({ date, mode }))
+
+      if (drafts.length > 0) {
         for (const memberId of selectedIds) {
           // Look up each member's active period ONCE, then fan out across all
           // selected dates. Avoids N×D round trips when picking 5 days for 4 kids.
@@ -233,19 +284,23 @@ export function BulkConfigureAllowanceModal({
             .maybeSingle()
 
           if (!period) {
-            result.graceFailed += dates.length
+            result.graceFailed += drafts.length
             const member = members.find(m => m.id === memberId)
             result.errors.push(`no active period for ${member?.display_name ?? memberId}`)
             continue
           }
 
-          for (const date of dates) {
+          for (const draft of drafts) {
             try {
-              await addGraceDay.mutateAsync({ periodId: period.id, date })
+              await addGraceDay.mutateAsync({
+                periodId: period.id,
+                date: draft.date,
+                mode: draft.mode,
+              })
               result.graceSuccess++
             } catch (err) {
               result.graceFailed++
-              result.errors.push(`grace mark failed for ${date}: ${err instanceof Error ? err.message : 'unknown'}`)
+              result.errors.push(`grace mark failed for ${draft.date}: ${err instanceof Error ? err.message : 'unknown'}`)
             }
           }
         }
@@ -553,75 +608,55 @@ export function BulkConfigureAllowanceModal({
               />
             </ApplyRow>
             <ApplyRow
-              label="Mark these dates as grace days"
+              label="Mark grace days"
               applied={form.grace_days_to_mark.applied}
               onApplyChange={v => updateField('grace_days_to_mark', { applied: v })}
-              helperText="Fan-out mark. Must be within each selected kid's active period. Add as many days as you need."
+              helperText="Tap days to cycle Skip → Keep credit → Unmarked. Fan-outs across each selected kid's active period on Save."
             >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
-                {form.grace_days_to_mark.value.map((date, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={e => {
-                        const next = form.grace_days_to_mark.value.slice()
-                        next[idx] = e.target.value
-                        updateField('grace_days_to_mark', { value: next })
-                      }}
-                      data-testid={`grace-day-pick-${idx}`}
-                      style={inputStyle}
-                    />
-                    {form.grace_days_to_mark.value.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = form.grace_days_to_mark.value.filter((_, i) => i !== idx)
-                          updateField('grace_days_to_mark', {
-                            value: next.length > 0 ? next : [''],
-                          })
-                        }}
-                        aria-label={`Remove date ${idx + 1}`}
-                        data-testid={`grace-day-remove-${idx}`}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: 'var(--vibe-radius-input, 6px)',
-                          background: 'transparent',
-                          color: 'var(--color-text-muted)',
-                          border: '1px solid var(--color-border-default, var(--color-border))',
-                          fontSize: 'var(--font-size-xs)',
-                          cursor: 'pointer',
-                          lineHeight: 1,
-                        }}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    updateField('grace_days_to_mark', {
-                      value: [...form.grace_days_to_mark.value, ''],
-                    })
-                  }}
-                  data-testid="grace-day-add-another"
-                  style={{
-                    padding: '0.25rem 0.625rem',
-                    borderRadius: 'var(--vibe-radius-input, 6px)',
-                    background: 'transparent',
-                    color: 'var(--color-btn-primary-bg)',
-                    border: '1px dashed var(--color-btn-primary-bg)',
-                    fontSize: 'var(--font-size-xs)',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                  }}
-                >
-                  + Add another date
-                </button>
-              </div>
+              {/* The ApplyRow's children render alongside the label; for
+                  the calendar we want it BELOW the row instead. Render
+                  null here and the calendar drops in just under via the
+                  conditional block. */}
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                {form.grace_days_to_mark.value.length === 0
+                  ? 'no days marked'
+                  : `${form.grace_days_to_mark.value.length} day${form.grace_days_to_mark.value.length === 1 ? '' : 's'} marked`}
+              </span>
             </ApplyRow>
+            {form.grace_days_to_mark.applied && (
+              <div style={{ marginTop: '-0.25rem', paddingLeft: '1.625rem' }}>
+                {referencePeriod ? (
+                  <GraceDayCalendar
+                    periodStart={referencePeriod.period_start}
+                    periodEnd={referencePeriod.period_end}
+                    graceDays={form.grace_days_to_mark.value as GraceDayEntry[]}
+                    onChange={(next) => {
+                      // Calendar gives us full new state; convert to BulkGraceDraft[]
+                      const drafts: BulkGraceDraft[] = next.map(entry => {
+                        const norm = normalizeGraceDayEntry(entry)
+                        return { date: norm.date, mode: norm.mode }
+                      })
+                      updateField('grace_days_to_mark', { value: drafts })
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      background: 'var(--color-bg-secondary)',
+                      border: '1px dashed var(--color-border-default, var(--color-border))',
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'var(--color-text-muted)',
+                    }}
+                  >
+                    {selectedIds.size === 0
+                      ? 'Pick at least one kid above to load the calendar.'
+                      : 'No active period for the first selected kid — calendar unavailable.'}
+                  </div>
+                )}
+              </div>
+            )}
           </Section>
 
           {/* Makeup + Extra Credit */}
