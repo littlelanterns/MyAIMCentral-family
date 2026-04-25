@@ -1,13 +1,15 @@
 // PRD-28 Screen 1: Allowance & Finances Settings (All Children)
 // Entry: Settings → Allowance & Finances
 
-import { ArrowLeft, Plus, Settings } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Plus, Settings, Users } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useAllowanceConfigs, useRunningBalance } from '@/hooks/useFinancial'
 import { getMemberColor } from '@/lib/memberColors'
 import { CALCULATION_APPROACH_LABELS } from '@/types/financial'
+import { BulkConfigureAllowanceModal } from './BulkConfigureAllowanceModal'
 
 export function AllowanceSettingsPage() {
   const { data: family } = useFamily()
@@ -15,6 +17,7 @@ export function AllowanceSettingsPage() {
   const members = membersData ?? []
   const { data: configs } = useAllowanceConfigs(family?.id)
   const navigate = useNavigate()
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   // Filter to children only (role = 'member')
   const children = members.filter(m => m.role === 'member' && m.is_active)
@@ -41,6 +44,24 @@ export function AllowanceSettingsPage() {
           </p>
         </div>
       </div>
+
+      {/* Bulk Configure entry (Path X) */}
+      {children.length > 1 && (
+        <button
+          type="button"
+          onClick={() => setBulkOpen(true)}
+          data-testid="open-bulk-configure"
+          className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+            color: 'var(--color-btn-primary-bg)',
+            border: '1px dashed var(--color-btn-primary-bg)',
+          }}
+        >
+          <Users size={16} />
+          Bulk Configure — set multiple kids at once
+        </button>
+      )}
 
       {/* Child Cards */}
       <div className="space-y-3">
@@ -79,6 +100,15 @@ export function AllowanceSettingsPage() {
 
       {/* Family Financial Summary */}
       <FamilyFinancialSummary familyId={family?.id} />
+
+      {/* Bulk Configure modal */}
+      {family?.id && (
+        <BulkConfigureAllowanceModal
+          familyId={family.id}
+          isOpen={bulkOpen}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 // 8 collapsible sections. All 3 approaches. Dual nav path.
 
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eye, EyeOff, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -19,6 +19,7 @@ import {
 import { getMemberColor } from '@/lib/memberColors'
 import { GraceDaysManager } from './GraceDaysManager'
 import { PreviewThisWeekPanel } from './PreviewThisWeekPanel'
+import { BulkConfigureAllowanceModal } from './BulkConfigureAllowanceModal'
 
 export function ChildAllowanceConfigPage() {
   const { memberId } = useParams<{ memberId: string }>()
@@ -37,6 +38,7 @@ export function ChildAllowanceConfigPage() {
   // Local form state — debounced auto-save
   const [form, setForm] = useState<Partial<AllowanceConfigInput>>({})
   const [saveTimer, setSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   // Initialize form from config
   useEffect(() => {
@@ -563,6 +565,34 @@ export function ChildAllowanceConfigPage() {
           of the config screen, expandable inline. */}
       {memberId && (
         <PreviewThisWeekPanel memberId={memberId} activePeriod={activePeriod} />
+      )}
+
+      {/* Path X secondary entry: mom is already focused on this kid but
+          wants to "while I'm at it, also apply the same thing to the
+          others". Bulk modal opens with this kid pre-selected. */}
+      {family?.id && (members.filter(m => m.role === 'member' && m.is_active).length > 1) && (
+        <>
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            data-testid="open-bulk-configure-from-child"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--color-btn-primary-bg)',
+              border: '1px dashed var(--color-btn-primary-bg)',
+            }}
+          >
+            <Users size={16} />
+            Apply to other kids too…
+          </button>
+          <BulkConfigureAllowanceModal
+            familyId={family.id}
+            isOpen={bulkOpen}
+            onClose={() => setBulkOpen(false)}
+            initialMemberIds={memberId ? [memberId] : []}
+          />
+        </>
       )}
     </div>
   )

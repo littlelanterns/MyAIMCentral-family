@@ -73,6 +73,43 @@ export function useUpsertAllowanceConfig() {
   })
 }
 
+/**
+ * NEW-SS (Path X) — bulk upsert allowance_configs for multiple members in
+ * one round trip. Each member's row is merged by `family_member_id`.
+ *
+ * The Phase 1 audit confirmed:
+ *   - RLS on allowance_configs checks family_id only, not per-child whitelist,
+ *     so the primary_parent can write to all children's configs atomically.
+ *   - No per-member dependent validation (all validations are local to a row).
+ *
+ * Callers pass an array of fully-formed `AllowanceConfigInput` rows. Missing
+ * fields fall back to Postgres defaults on insert, and to existing values
+ * on update (.upsert preserves columns not in the input shape).
+ */
+export function useBulkUpsertAllowanceConfig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (inputs: AllowanceConfigInput[]) => {
+      if (inputs.length === 0) return [] as AllowanceConfig[]
+      const { data, error } = await supabase
+        .from('allowance_configs')
+        .upsert(inputs, { onConflict: 'family_member_id' })
+        .select()
+      if (error) throw error
+      return (data ?? []) as AllowanceConfig[]
+    },
+    onSuccess: (rows) => {
+      for (const row of rows) {
+        qc.invalidateQueries({ queryKey: ['allowance-config', row.family_member_id] })
+      }
+      if (rows.length > 0) {
+        qc.invalidateQueries({ queryKey: ['allowance-configs', rows[0].family_id] })
+      }
+      qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
+    },
+  })
+}
+
 // ============================================================
 // Financial Transactions
 // ============================================================
