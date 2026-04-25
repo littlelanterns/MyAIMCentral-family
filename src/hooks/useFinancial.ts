@@ -271,21 +271,35 @@ export interface LiveAllowanceProgress {
   raw_steps_available: number
   nonroutine_tasks_total: number
   nonroutine_tasks_completed: number
+  // PRD-28 NEW-EE: Extra Credit tallies (migration 100171). Count of completed
+  // tasks where is_extra_credit=true plus their weighted numerator contribution.
+  // Extra-credit tasks are excluded from the denominator; counted only in the
+  // numerator when allowance_configs.extra_credit_enabled=true.
+  extra_credit_completed: number
+  extra_credit_weight_added: number
 }
 
 export function useLiveAllowanceProgress(
   memberId: string | undefined,
   periodStart: string | undefined,
   periodEnd: string | undefined,
+  /**
+   * NEW-GG: pass the active period's `grace_days` JSONB array. When provided
+   * AND the child's config has grace_days_enabled=true, the RPC shrinks the
+   * routine step denominator + numerator by any date in the array. Omit (or
+   * pass undefined/empty array) for the previous behavior.
+   */
+  graceDays?: string[],
 ) {
   return useQuery({
-    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd],
+    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd, graceDays?.slice().sort().join(',') ?? ''],
     queryFn: async () => {
       if (!memberId || !periodStart || !periodEnd) return null
       const { data, error } = await supabase.rpc('calculate_allowance_progress', {
         p_member_id: memberId,
         p_period_start: periodStart,
         p_period_end: periodEnd,
+        p_grace_days: (graceDays && graceDays.length > 0) ? graceDays : null,
       })
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
@@ -309,6 +323,8 @@ export function useLiveAllowanceProgress(
         raw_steps_available: Number(row.raw_steps_available ?? 0),
         nonroutine_tasks_total: Number(row.nonroutine_tasks_total ?? 0),
         nonroutine_tasks_completed: Number(row.nonroutine_tasks_completed ?? 0),
+        extra_credit_completed: Number(row.extra_credit_completed ?? 0),
+        extra_credit_weight_added: Number(row.extra_credit_weight_added ?? 0),
       } as LiveAllowanceProgress
     },
     enabled: !!memberId && !!periodStart && !!periodEnd,
@@ -365,6 +381,45 @@ export function useAddGraceDay() {
       qc.invalidateQueries({ queryKey: ['active-period', data.family_member_id] })
       qc.invalidateQueries({ queryKey: ['period-history', data.family_member_id] })
       qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
+      // NEW-GG: invalidate live progress so the widget + Preview panel
+      // recompute against the new grace-days array.
+      qc.invalidateQueries({ queryKey: ['live-allowance-progress'] })
+    },
+  })
+}
+
+/**
+ * NEW-GG — inverse of useAddGraceDay. Removes a single date from the
+ * period's grace_days array. No-op if the date isn't in the array.
+ */
+export function useRemoveGraceDay() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ periodId, date }: { periodId: string; date: string }) => {
+      const { data: period, error: readError } = await supabase
+        .from('allowance_periods')
+        .select('grace_days, family_member_id')
+        .eq('id', periodId)
+        .single()
+      if (readError) throw readError
+
+      const currentDays = (period.grace_days as string[]) ?? []
+      if (!currentDays.includes(date)) return period // already absent
+
+      const nextDays = currentDays.filter(d => d !== date)
+      const { error } = await supabase
+        .from('allowance_periods')
+        .update({ grace_days: nextDays })
+        .eq('id', periodId)
+      if (error) throw error
+
+      return { ...period, grace_days: nextDays }
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['active-period', data.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['period-history', data.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
+      qc.invalidateQueries({ queryKey: ['live-allowance-progress'] })
     },
   })
 }

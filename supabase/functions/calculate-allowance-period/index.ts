@@ -82,20 +82,23 @@ Deno.serve(async (req) => {
     for (const family of families) {
       const timezone = family.timezone || 'America/Chicago'
       let currentLocalHour: number
+      let currentLocalMinute: number
       try {
-        currentLocalHour = parseInt(
-          new Intl.DateTimeFormat('en-US', {
-            hour: 'numeric',
-            hour12: false,
-            timeZone: timezone,
-          }).format(now)
-        )
+        // NEW-II: capture both hour AND minute so per-child calculation_time
+        // gating can compute a minute-level window. Replaces the hard-coded
+        // `currentLocalHour !== 0` family-wide gate that ignored config.
+        const parts = new Intl.DateTimeFormat('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: timezone,
+        }).formatToParts(now)
+        currentLocalHour = parseInt(parts.find(p => p.type === 'hour')!.value)
+        currentLocalMinute = parseInt(parts.find(p => p.type === 'minute')!.value)
       } catch {
         continue
       }
-
-      if (currentLocalHour !== 0) continue
-      stats.families_at_midnight++
+      const currentMinutesOfDay = currentLocalHour * 60 + currentLocalMinute
 
       // Local date in YYYY-MM-DD
       const localDateStr = new Intl.DateTimeFormat('en-CA', {
@@ -104,6 +107,13 @@ Deno.serve(async (req) => {
         day: '2-digit',
         timeZone: timezone,
       }).format(now)
+
+      // NEW-II: family-wide hour 0 gate removed. Per-child gating moves
+      // inside the period loop after the config is loaded, so each child's
+      // configured calculation_time is honored. The existing
+      // `period_end < localDateStr` filter still ensures we never fire
+      // before the period has actually ended.
+      stats.families_at_midnight++ // legacy stat name kept; semantic now is "families considered this hour"
 
       // 3. Load active periods that have ended
       const { data: periods, error: periodsError } = await supabase
@@ -132,6 +142,52 @@ Deno.serve(async (req) => {
 
           if (!config?.enabled) continue
 
+          // NEW-II — calculation_time per-child precision.
+          //
+          // PRD-28 Screen 2 Section 7 (L214): calculation_time TIME NOT NULL
+          // DEFAULT '23:59:00' specifies WHEN end-of-period calculation
+          // runs. Pre-NEW-II, the function gated on `currentLocalHour === 0`
+          // (midnight family-local) regardless of config. For default 23:59
+          // that's ~10 minutes off but functionally equivalent; for any
+          // non-default value (e.g. 07:00) it was wrong by hours.
+          //
+          // New gate: cron runs hourly, so we fire when the current
+          // minutes-of-day falls in a 1-hour window starting at
+          // calculation_time. The window wraps midnight when calc_time is
+          // in the last hour of the day, which preserves the legacy default
+          // behavior (calc_time=23:59 → window covers 23:59 + the next
+          // 00:xx hour, and the existing `period_end < localDateStr` filter
+          // forces the firing to land on the day AFTER period_end).
+          //
+          // Examples (cron fires at HH:10 of each local hour):
+          // - calc_time=23:59 (= 1439 min): window = [1439, 1499 mod 1440)
+          //   = [1439, 1440) ∪ [0, 59). Cron at 23:10 local → 1390, NOT in
+          //   window. Cron at 00:10 next day → 10, IN window. period_end
+          //   < localDateStr (next day), so fires. ✓
+          // - calc_time=07:00 (= 420 min): window = [420, 480). Cron at
+          //   07:10 local → 430, IN window. Day after period_end fires. ✓
+          // - calc_time=18:30 (= 1110 min): window = [1110, 1170). Cron at
+          //   18:10 local → 1090, NOT in window. Cron at 19:10 → 1150, IN
+          //   window. (1-hour delay vs ideal 18:30; tolerated per spec.)
+          const calcTimeStr = (config.calculation_time as string) || '23:59:00'
+          const [calcHour, calcMin] = calcTimeStr.split(':').map(Number)
+          const calcMinutesOfDay = (calcHour * 60) + (calcMin || 0)
+          const windowEndExclusive = calcMinutesOfDay + 60
+          let inCalcTimeWindow: boolean
+          if (windowEndExclusive <= 1440) {
+            inCalcTimeWindow =
+              currentMinutesOfDay >= calcMinutesOfDay &&
+              currentMinutesOfDay < windowEndExclusive
+          } else {
+            // Wraparound: e.g. calc_time 23:59 means window spans into
+            // the next day's 00:xx hour.
+            const wrapEnd = windowEndExclusive % 1440
+            inCalcTimeWindow =
+              currentMinutesOfDay >= calcMinutesOfDay ||
+              currentMinutesOfDay < wrapEnd
+          }
+          if (!inCalcTimeWindow) continue
+
           // If makeup window is enabled and we're still in the window, skip
           if (config.makeup_window_enabled) {
             const windowEnd = addDays(period.period_end, config.makeup_window_days)
@@ -149,12 +205,16 @@ Deno.serve(async (req) => {
 
           // 4. Call the shared RPC for frequency-day-aware tally.
           // Single source of truth — same math as the live widget (see
-          // migration 00000000100154_allowance_progress_rpc.sql).
+          // migration 00000000100154_allowance_progress_rpc.sql + 100171
+          // + 100172). NEW-GG: pass `period.grace_days` so denominator
+          // and numerator both respect marked grace days.
+          const gracePayload: string[] = (period.grace_days as string[]) ?? []
           const { data: progressRows, error: progressError } = await supabase
             .rpc('calculate_allowance_progress', {
               p_member_id: period.family_member_id,
               p_period_start: period.period_start,
               p_period_end: period.period_end,
+              p_grace_days: gracePayload.length > 0 ? gracePayload : null,
             })
 
           if (progressError || !progressRows?.[0]) {
@@ -181,7 +241,32 @@ Deno.serve(async (req) => {
           const totalEarned = Number(progress.total_earned)
           const effectiveAssigned = Math.round(Number(progress.effective_tasks_assigned))
           const effectiveCompleted = Math.round(Number(progress.effective_tasks_completed))
+          // NEW-EE (migration 100171): RPC now returns extra_credit_completed
+          // as its own column. This call site previously hardcoded 0 on the
+          // update write. Null-coalesce to 0 so older RPC bodies still work.
+          const extraCreditCompleted = Math.round(Number(progress.extra_credit_completed ?? 0))
+          const extraCreditWeightAdded = Number(progress.extra_credit_weight_added ?? 0)
           const graceDays: string[] = (period.grace_days as string[]) ?? []
+
+          // NEW-GG audit: compute the `grace_day_tasks_excluded` display
+          // tally by calling the RPC a second time WITHOUT grace days and
+          // diffing the effective_tasks_assigned. Once per-period at close
+          // time; negligible cost. When no grace days are marked, skip.
+          let graceDayTasksExcluded = 0
+          if (graceDays.length > 0) {
+            const { data: noGraceRows } = await supabase
+              .rpc('calculate_allowance_progress', {
+                p_member_id: period.family_member_id,
+                p_period_start: period.period_start,
+                p_period_end: period.period_end,
+                p_grace_days: null,
+              })
+            const noGrace = noGraceRows?.[0]
+            if (noGrace) {
+              const noGraceAssigned = Math.round(Number(noGrace.effective_tasks_assigned))
+              graceDayTasksExcluded = Math.max(0, noGraceAssigned - effectiveAssigned)
+            }
+          }
 
           // 5. Close the period
           await supabase
@@ -189,10 +274,13 @@ Deno.serve(async (req) => {
             .update({
               status: 'calculated',
               total_tasks_assigned: totalTasksAssignedCount ?? 0,
-              grace_day_tasks_excluded: 0,
+              grace_day_tasks_excluded: graceDayTasksExcluded,
               effective_tasks_assigned: effectiveAssigned,
-              tasks_completed: Number(progress.effective_tasks_completed),
-              extra_credit_completed: 0,
+              // tasks_completed now reports the REGULAR (non-extra-credit)
+              // completions portion only, matching the semantic split on the
+              // table (tasks_completed + extra_credit_completed = numerator).
+              tasks_completed: Math.max(0, effectiveCompleted - extraCreditCompleted),
+              extra_credit_completed: extraCreditCompleted,
               effective_tasks_completed: effectiveCompleted,
               completion_percentage: completionPct,
               calculated_amount: calculatedAmount,
@@ -206,6 +294,8 @@ Deno.serve(async (req) => {
                 grace_days: graceDays,
                 minimum_threshold: Number(progress.minimum_threshold),
                 bonus_threshold: Number(progress.bonus_threshold),
+                extra_credit_completed: extraCreditCompleted,
+                extra_credit_weight_added: extraCreditWeightAdded,
                 rpc: 'calculate_allowance_progress',
               },
               calculated_at: now.toISOString(),

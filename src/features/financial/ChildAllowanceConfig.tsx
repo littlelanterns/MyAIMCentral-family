@@ -17,6 +17,8 @@ import {
   type RoundingBehavior,
 } from '@/types/financial'
 import { getMemberColor } from '@/lib/memberColors'
+import { GraceDaysManager } from './GraceDaysManager'
+import { PreviewThisWeekPanel } from './PreviewThisWeekPanel'
 
 export function ChildAllowanceConfigPage() {
   const { memberId } = useParams<{ memberId: string }>()
@@ -359,6 +361,18 @@ export function ChildAllowanceConfigPage() {
             value={form.grace_days_enabled ?? true}
             onChange={v => autoSave({ grace_days_enabled: v })}
           />
+          {/* NEW-GG: live-period day-picker. Only renders when there is an
+              active period. Retroactive marking on past periods is filed as
+              follow-up NEW-MM per orchestrator 2026-04-24. */}
+          {activePeriod && (
+            <GraceDaysManager
+              periodId={activePeriod.id}
+              periodStart={activePeriod.period_start}
+              periodEnd={activePeriod.period_end}
+              graceDays={(activePeriod.grace_days as string[]) ?? []}
+              disabled={!(form.grace_days_enabled ?? true)}
+            />
+          )}
           <ToggleRow
             label="Makeup Window"
             description="Extra time after the period ends to complete missed tasks"
@@ -491,6 +505,12 @@ export function ChildAllowanceConfigPage() {
           )}
         </div>
       </CollapsibleSection>
+
+      {/* NEW-FF: Preview This Week panel. PRD-28 L228. Renders at the bottom
+          of the config screen, expandable inline. */}
+      {memberId && (
+        <PreviewThisWeekPanel memberId={memberId} activePeriod={activePeriod} />
+      )}
     </div>
   )
 }
