@@ -373,6 +373,59 @@ export function ChildAllowanceConfigPage() {
               disabled={!(form.grace_days_enabled ?? true)}
             />
           )}
+          {/* NEW-RR: when mom has grace days enabled but no active period
+              exists (edge case — config save succeeded but period insert
+              failed, or mom just enabled a disabled config), the toggle
+              appears on but there's nothing to mark. Surface an inline
+              empty-state with a manual "Start period now" CTA instead of
+              showing the toggle with no picker below it. */}
+          {!activePeriod && (form.grace_days_enabled ?? true) && (
+            <div
+              data-testid="grace-days-no-period-empty"
+              style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--vibe-radius-input, 8px)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px dashed var(--color-border-default, var(--color-border))',
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              <div style={{ marginBottom: '0.5rem' }}>
+                Grace days are turned on, but no active allowance period
+                exists yet. Tap below to start one now, then come back to
+                mark grace days.
+              </div>
+              <button
+                type="button"
+                disabled={startPeriod.isPending}
+                onClick={() => {
+                  if (family?.id && memberId && form.weekly_amount != null) {
+                    startPeriod.mutate({
+                      familyId: family.id,
+                      memberId,
+                      weeklyAmount: form.weekly_amount,
+                    })
+                  }
+                }}
+                data-testid="grace-days-start-period"
+                style={{
+                  padding: '0.375rem 0.875rem',
+                  borderRadius: 'var(--vibe-radius-input, 6px)',
+                  background: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-text-on-primary)',
+                  border: 'none',
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 500,
+                  cursor: startPeriod.isPending ? 'not-allowed' : 'pointer',
+                  opacity: startPeriod.isPending ? 0.6 : 1,
+                }}
+              >
+                {startPeriod.isPending ? 'Starting…' : 'Start period now'}
+              </button>
+            </div>
+          )}
           <ToggleRow
             label="Makeup Window"
             description="Extra time after the period ends to complete missed tasks"
