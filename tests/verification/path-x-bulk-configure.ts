@@ -217,6 +217,54 @@ async function main() {
       }
     }
 
+    // PX-5: multi-date fan-out (2026-04-25 founder addendum) — modal now
+    // accepts an array of dates so mom can mark several days for several
+    // kids in one save instead of one save per day.
+    {
+      const name = 'PX-5: multi-date fan-out writes M dates × N kids in one round'
+      const dates = ['2026-04-21', '2026-04-22', '2026-04-23']
+      // Reset both kids' grace_days first so the test is deterministic.
+      await sb
+        .from('allowance_periods')
+        .update({ grace_days: [] })
+        .in('family_member_id', [kid1, kid2])
+
+      let success = 0
+      let failed = 0
+      for (const kidId of [kid1, kid2]) {
+        const { data: period } = await sb
+          .from('allowance_periods')
+          .select('id, grace_days')
+          .eq('family_member_id', kidId)
+          .eq('status', 'active')
+          .single()
+        if (!period) {
+          failed += dates.length
+          continue
+        }
+        // Simulate the multi-date inner loop in handleSave.
+        let current = (period.grace_days as string[]) ?? []
+        for (const d of dates) {
+          if (!current.includes(d)) {
+            current = [...current, d]
+            const { error } = await sb
+              .from('allowance_periods')
+              .update({ grace_days: current })
+              .eq('id', period.id)
+            if (error) failed++
+            else success++
+          } else {
+            success++
+          }
+        }
+      }
+      if (success === 6 && failed === 0) {
+        pass(name, `marked ${dates.length} dates × 2 kids = 6 writes (got ${success}/${success + failed})`)
+      } else {
+        fail(name, `expected 6 successes, 0 fails; got success=${success} failed=${failed}`)
+      }
+    }
+
     // PX-4: Missing active period surfaces as graceFailed — kid3 has no period
     {
       const name = 'PX-4: no-period kid surfaces graceFailed gracefully'

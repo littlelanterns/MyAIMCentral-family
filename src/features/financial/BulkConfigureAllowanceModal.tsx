@@ -75,8 +75,10 @@ interface BulkForm {
   makeup_window_enabled: ApplyableField<boolean>
   makeup_window_days: ApplyableField<number>
   extra_credit_enabled: ApplyableField<boolean>
-  // Grace day marking (per-period, fan-out)
-  grace_day_to_mark: ApplyableField<string>
+  // Grace day marking (per-period, fan-out). Multi-date per founder
+  // 2026-04-25 — single-date version forced one save per day, painful
+  // with 4+ kids × 3+ grace days.
+  grace_days_to_mark: ApplyableField<string[]>
 }
 
 const DEFAULT_FORM: BulkForm = {
@@ -91,7 +93,7 @@ const DEFAULT_FORM: BulkForm = {
   makeup_window_enabled: { applied: false, value: false },
   makeup_window_days: { applied: false, value: 2 },
   extra_credit_enabled: { applied: false, value: false },
-  grace_day_to_mark: { applied: false, value: '' },
+  grace_days_to_mark: { applied: false, value: [''] },
 }
 
 export function BulkConfigureAllowanceModal({
@@ -212,12 +214,15 @@ export function BulkConfigureAllowanceModal({
     // Part 2: grace day marking — fan-out per-member addGraceDay call.
     // Each member's active period is looked up; if none exists, the mark
     // is skipped for that member (surfaced as a fail in the result).
-    if (form.grace_day_to_mark.applied && form.grace_day_to_mark.value) {
-      const date = form.grace_day_to_mark.value
-      for (const memberId of selectedIds) {
-        try {
-          // Inline lookup of active period — the useActivePeriod hook is
-          // per-member, so in a loop we fetch directly.
+    if (form.grace_days_to_mark.applied) {
+      // Filter out empty rows from the [+ Add another] picker; dedupe.
+      const dates = Array.from(
+        new Set(form.grace_days_to_mark.value.filter(d => d && d.trim() !== '')),
+      )
+      if (dates.length > 0) {
+        for (const memberId of selectedIds) {
+          // Look up each member's active period ONCE, then fan out across all
+          // selected dates. Avoids N×D round trips when picking 5 days for 4 kids.
           const { data: period } = await supabase
             .from('allowance_periods')
             .select('id')
@@ -228,17 +233,21 @@ export function BulkConfigureAllowanceModal({
             .maybeSingle()
 
           if (!period) {
-            result.graceFailed++
+            result.graceFailed += dates.length
             const member = members.find(m => m.id === memberId)
             result.errors.push(`no active period for ${member?.display_name ?? memberId}`)
             continue
           }
 
-          await addGraceDay.mutateAsync({ periodId: period.id, date })
-          result.graceSuccess++
-        } catch (err) {
-          result.graceFailed++
-          result.errors.push(`grace mark failed: ${err instanceof Error ? err.message : 'unknown'}`)
+          for (const date of dates) {
+            try {
+              await addGraceDay.mutateAsync({ periodId: period.id, date })
+              result.graceSuccess++
+            } catch (err) {
+              result.graceFailed++
+              result.errors.push(`grace mark failed for ${date}: ${err instanceof Error ? err.message : 'unknown'}`)
+            }
+          }
         }
       }
     }
@@ -544,17 +553,74 @@ export function BulkConfigureAllowanceModal({
               />
             </ApplyRow>
             <ApplyRow
-              label="Mark this date as a grace day"
-              applied={form.grace_day_to_mark.applied}
-              onApplyChange={v => updateField('grace_day_to_mark', { applied: v })}
-              helperText="Fan-out mark. Must be within each selected kid's active period."
+              label="Mark these dates as grace days"
+              applied={form.grace_days_to_mark.applied}
+              onApplyChange={v => updateField('grace_days_to_mark', { applied: v })}
+              helperText="Fan-out mark. Must be within each selected kid's active period. Add as many days as you need."
             >
-              <input
-                type="date"
-                value={form.grace_day_to_mark.value}
-                onChange={e => updateField('grace_day_to_mark', { value: e.target.value })}
-                style={inputStyle}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
+                {form.grace_days_to_mark.value.map((date, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={e => {
+                        const next = form.grace_days_to_mark.value.slice()
+                        next[idx] = e.target.value
+                        updateField('grace_days_to_mark', { value: next })
+                      }}
+                      data-testid={`grace-day-pick-${idx}`}
+                      style={inputStyle}
+                    />
+                    {form.grace_days_to_mark.value.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = form.grace_days_to_mark.value.filter((_, i) => i !== idx)
+                          updateField('grace_days_to_mark', {
+                            value: next.length > 0 ? next : [''],
+                          })
+                        }}
+                        aria-label={`Remove date ${idx + 1}`}
+                        data-testid={`grace-day-remove-${idx}`}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: 'var(--vibe-radius-input, 6px)',
+                          background: 'transparent',
+                          color: 'var(--color-text-muted)',
+                          border: '1px solid var(--color-border-default, var(--color-border))',
+                          fontSize: 'var(--font-size-xs)',
+                          cursor: 'pointer',
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateField('grace_days_to_mark', {
+                      value: [...form.grace_days_to_mark.value, ''],
+                    })
+                  }}
+                  data-testid="grace-day-add-another"
+                  style={{
+                    padding: '0.25rem 0.625rem',
+                    borderRadius: 'var(--vibe-radius-input, 6px)',
+                    background: 'transparent',
+                    color: 'var(--color-btn-primary-bg)',
+                    border: '1px dashed var(--color-btn-primary-bg)',
+                    fontSize: 'var(--font-size-xs)',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Add another date
+                </button>
+              </div>
             </ApplyRow>
           </Section>
 
