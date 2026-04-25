@@ -131,6 +131,7 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
       const start = new Date(period.period_start + 'T12:00:00Z')
       const end = new Date(period.period_end + 'T12:00:00Z')
       for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+        // eslint-disable-next-line no-restricted-syntax -- d is explicitly UTC-constructed via 'T12:00:00Z' + setUTCDate; UTC slice is correct here
         const iso = d.toISOString().slice(0, 10)
         const dow = d.getUTCDay()
         const dowStr = String(dow)

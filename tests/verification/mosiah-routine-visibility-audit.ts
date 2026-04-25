@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { config as loadEnv } from 'dotenv'
+import { todayLocalIso } from '@/utils/dates'
 loadEnv({ path: '.env.local' })
 const sb = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -8,7 +9,7 @@ const sb = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SER
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 async function main() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocalIso()
   const dowToday = new Date(today + 'T12:00:00Z').getUTCDay()
   console.log(`\n=== MOSIAH ROUTINE VISIBILITY AUDIT — today is ${today} (${DAYS[dowToday]}) ===\n`)
 
@@ -60,6 +61,7 @@ async function main() {
     const start = new Date(period.period_start + 'T12:00:00Z')
     const end = new Date(period.period_end + 'T12:00:00Z')
     for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      // eslint-disable-next-line no-restricted-syntax -- d is explicitly UTC-constructed via 'T12:00:00Z' + setUTCDate; UTC slice is correct here
       const iso = d.toISOString().slice(0, 10)
       const dow = d.getUTCDay()
       const isFuture = iso > today

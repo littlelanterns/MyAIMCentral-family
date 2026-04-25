@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { config as loadEnv } from 'dotenv'
+import { todayLocalIso } from '@/utils/dates'
 loadEnv({ path: '.env.local' })
 const sb = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
 async function main() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayLocalIso()
   console.log(`\n=== HELAM TODAY AUDIT (${today}) ===\n`)
 
   const { data: helam } = await sb
