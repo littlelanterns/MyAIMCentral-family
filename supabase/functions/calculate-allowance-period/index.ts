@@ -205,10 +205,16 @@ Deno.serve(async (req) => {
 
           // 4. Call the shared RPC for frequency-day-aware tally.
           // Single source of truth — same math as the live widget (see
-          // migration 00000000100154_allowance_progress_rpc.sql + 100171
-          // + 100172). NEW-GG: pass `period.grace_days` so denominator
-          // and numerator both respect marked grace days.
-          const gracePayload: string[] = (period.grace_days as string[]) ?? []
+          // migration 100154 + 100171 + 100172 + 100175).
+          // NEW-GG: pass `period.grace_days` so denominator and numerator
+          // both respect marked grace days.
+          // NEW-TT (100175): grace_days is now JSONB (string[] or
+          // {date,mode}[]); pass through as-is. Bare strings are read as
+          // mode='full_exclude' for back-compat with pre-NEW-TT data.
+          // deno-lint-ignore no-explicit-any
+          const gracePayload: any[] = Array.isArray(period.grace_days)
+            ? (period.grace_days as unknown[])
+            : []
           const { data: progressRows, error: progressError } = await supabase
             .rpc('calculate_allowance_progress', {
               p_member_id: period.family_member_id,
@@ -246,7 +252,13 @@ Deno.serve(async (req) => {
           // update write. Null-coalesce to 0 so older RPC bodies still work.
           const extraCreditCompleted = Math.round(Number(progress.extra_credit_completed ?? 0))
           const extraCreditWeightAdded = Number(progress.extra_credit_weight_added ?? 0)
-          const graceDays: string[] = (period.grace_days as string[]) ?? []
+          // NEW-TT: grace_days entries can be string OR {date,mode}.
+          // For the `calculation_details.grace_days` audit field below,
+          // we keep the raw JSONB shape (mom can inspect the audit blob
+          // and see modes if she's curious).
+          const graceDays: unknown[] = Array.isArray(period.grace_days)
+            ? (period.grace_days as unknown[])
+            : []
 
           // NEW-GG audit: compute the `grace_day_tasks_excluded` display
           // tally by calling the RPC a second time WITHOUT grace days and

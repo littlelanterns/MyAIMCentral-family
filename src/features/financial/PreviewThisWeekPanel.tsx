@@ -13,6 +13,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { useLiveAllowanceProgress } from '@/hooks/useFinancial'
+import type { GraceDayEntry } from '@/hooks/useFinancial'
 import { useQueryClient } from '@tanstack/react-query'
 import type { AllowancePeriod } from '@/types/financial'
 
@@ -25,7 +26,10 @@ export function PreviewThisWeekPanel({ memberId, activePeriod }: PreviewThisWeek
   const [open, setOpen] = useState(false)
   const qc = useQueryClient()
 
-  const graceDays = (activePeriod?.grace_days as string[]) ?? []
+  // NEW-TT: grace_days is now JSONB array of either bare strings (legacy)
+  // or { date, mode } objects. The hook accepts both shapes and the RPC
+  // honors mode per-entry.
+  const graceDays = (activePeriod?.grace_days as GraceDayEntry[]) ?? []
   const {
     data: progress,
     isFetching,

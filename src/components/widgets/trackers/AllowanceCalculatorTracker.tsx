@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { Coins, TrendingUp } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { useAllowanceConfig, useActivePeriod, useLiveAllowanceProgress } from '@/hooks/useFinancial'
+import type { GraceDayEntry } from '@/hooks/useFinancial'
 import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { isoDayOfWeek, isoDaysFrom } from '@/utils/dates'
 
@@ -80,10 +81,11 @@ export function AllowanceCalculatorTracker({
   // the invalidation key). Until the period closes, these live values
   // beat the stored columns on allowance_periods.
   //
-  // NEW-UU (2026-04-24): 4th arg `graceDays` MUST be passed. Omitting it
-  // makes useLiveAllowanceProgress send p_grace_days=null to the RPC so
-  // any marked grace days have zero widget effect.
-  const gracePayload = (activePeriod?.grace_days as string[] | undefined) ?? undefined
+  // NEW-UU (2026-04-24): 4th arg `graceDays` MUST be passed.
+  // NEW-TT (2026-04-24): now JSONB-typed (string[] OR {date,mode}[]).
+  // The hook + RPC accept both shapes; bare strings are treated as
+  // mode='full_exclude' for back-compat with already-marked production data.
+  const gracePayload = (activePeriod?.grace_days as GraceDayEntry[] | undefined) ?? undefined
   // Today view uses a 1-day window starting at familyToday. Period view
   // uses the full active-period window. Both pass grace_days — for a
   // today window that happens to be a grace day, the RPC correctly

@@ -316,26 +316,58 @@ export interface LiveAllowanceProgress {
   extra_credit_weight_added: number
 }
 
+/**
+ * NEW-TT (2026-04-24): per-day grace day shape. Each entry is either a
+ * legacy bare string YYYY-MM-DD (treated as `full_exclude` mode by the
+ * RPC for back-compat) OR an object `{ date, mode }`.
+ *
+ * full_exclude: skip day on BOTH numerator + denominator (current behavior)
+ * numerator_keep: skip day on DENOMINATOR only; numerator preserved
+ */
+export type GraceDayMode = 'full_exclude' | 'numerator_keep'
+export type GraceDayEntry = string | { date: string; mode: GraceDayMode }
+
+/** Normalize either legacy string-form or object-form into object form. */
+export function normalizeGraceDayEntry(
+  entry: GraceDayEntry,
+): { date: string; mode: GraceDayMode } {
+  if (typeof entry === 'string') return { date: entry, mode: 'full_exclude' }
+  return { date: entry.date, mode: entry.mode ?? 'full_exclude' }
+}
+
+/** Cache-key-stable serializer for a grace-days array. */
+function serializeGraceDays(entries: GraceDayEntry[] | undefined): string {
+  if (!entries || entries.length === 0) return ''
+  return entries
+    .map(normalizeGraceDayEntry)
+    .map(e => `${e.date}:${e.mode}`)
+    .sort()
+    .join(',')
+}
+
 export function useLiveAllowanceProgress(
   memberId: string | undefined,
   periodStart: string | undefined,
   periodEnd: string | undefined,
   /**
-   * NEW-GG: pass the active period's `grace_days` JSONB array. When provided
-   * AND the child's config has grace_days_enabled=true, the RPC shrinks the
-   * routine step denominator + numerator by any date in the array. Omit (or
-   * pass undefined/empty array) for the previous behavior.
+   * NEW-GG → NEW-TT: when provided AND the child's config has
+   * grace_days_enabled=true, the RPC consumes per-entry mode to decide
+   * whether to shrink BOTH (full_exclude) or denominator-only
+   * (numerator_keep). Plain string entries are treated as full_exclude
+   * for back-compat with existing data.
    */
-  graceDays?: string[],
+  graceDays?: GraceDayEntry[],
 ) {
   return useQuery({
-    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd, graceDays?.slice().sort().join(',') ?? ''],
+    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd, serializeGraceDays(graceDays)],
     queryFn: async () => {
       if (!memberId || !periodStart || !periodEnd) return null
       const { data, error } = await supabase.rpc('calculate_allowance_progress', {
         p_member_id: memberId,
         p_period_start: periodStart,
         p_period_end: periodEnd,
+        // RPC accepts JSONB. Send the raw array as-is — back-compat
+        // string entries are interpreted as full_exclude server-side.
         p_grace_days: (graceDays && graceDays.length > 0) ? graceDays : null,
       })
       if (error) throw error
@@ -391,11 +423,26 @@ export function usePeriodHistory(memberId: string | undefined) {
 // Grace Days
 // ============================================================
 
+/**
+ * NEW-GG → NEW-TT (2026-04-24): mark a date as a grace day on a period.
+ * Caller can pass a `mode` ('full_exclude' default | 'numerator_keep')
+ * to control how the RPC treats this day. Existing legacy string entries
+ * in the array are preserved (RPC reads them as full_exclude); only the
+ * NEW entry uses the object form. If the date already exists in either
+ * form, this is a no-op.
+ *
+ * To CHANGE the mode of an already-marked day, pass `mode` with the
+ * date — the function detects an existing entry and rewrites it with
+ * the new mode in place.
+ */
 export function useAddGraceDay() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ periodId, date }: { periodId: string; date: string }) => {
-      // Read current grace_days, append the new date
+    mutationFn: async ({
+      periodId,
+      date,
+      mode = 'full_exclude',
+    }: { periodId: string; date: string; mode?: GraceDayMode }) => {
       const { data: period, error: readError } = await supabase
         .from('allowance_periods')
         .select('grace_days, family_member_id')
@@ -403,31 +450,49 @@ export function useAddGraceDay() {
         .single()
       if (readError) throw readError
 
-      const currentDays = (period.grace_days as string[]) ?? []
-      if (currentDays.includes(date)) return period // already marked
+      const current = (period.grace_days as GraceDayEntry[]) ?? []
+      // Find existing entry for this date (could be string or object).
+      const existingIdx = current.findIndex(entry => {
+        const norm = normalizeGraceDayEntry(entry)
+        return norm.date === date
+      })
+
+      let next: GraceDayEntry[]
+      if (existingIdx === -1) {
+        // New mark — append in object form so the mode is explicit.
+        next = [...current, { date, mode }]
+      } else {
+        const existingNorm = normalizeGraceDayEntry(current[existingIdx])
+        if (existingNorm.mode === mode) {
+          // Same date + same mode = no-op.
+          return period
+        }
+        // Mode change — rewrite that slot.
+        next = current.slice()
+        next[existingIdx] = { date, mode }
+      }
 
       const { error } = await supabase
         .from('allowance_periods')
-        .update({ grace_days: [...currentDays, date] })
+        .update({ grace_days: next })
         .eq('id', periodId)
       if (error) throw error
 
-      return { ...period, grace_days: [...currentDays, date] }
+      return { ...period, grace_days: next }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['active-period', data.family_member_id] })
       qc.invalidateQueries({ queryKey: ['period-history', data.family_member_id] })
       qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
-      // NEW-GG: invalidate live progress so the widget + Preview panel
-      // recompute against the new grace-days array.
       qc.invalidateQueries({ queryKey: ['live-allowance-progress'] })
     },
   })
 }
 
 /**
- * NEW-GG — inverse of useAddGraceDay. Removes a single date from the
- * period's grace_days array. No-op if the date isn't in the array.
+ * NEW-GG — inverse of useAddGraceDay. Removes any entry (string OR
+ * object form) matching the given date from the period's grace_days
+ * array. No-op if absent.
  */
 export function useRemoveGraceDay() {
   const qc = useQueryClient()
@@ -440,17 +505,20 @@ export function useRemoveGraceDay() {
         .single()
       if (readError) throw readError
 
-      const currentDays = (period.grace_days as string[]) ?? []
-      if (!currentDays.includes(date)) return period // already absent
+      const current = (period.grace_days as GraceDayEntry[]) ?? []
+      const next = current.filter(entry => {
+        const norm = normalizeGraceDayEntry(entry)
+        return norm.date !== date
+      })
+      if (next.length === current.length) return period // nothing to remove
 
-      const nextDays = currentDays.filter(d => d !== date)
       const { error } = await supabase
         .from('allowance_periods')
-        .update({ grace_days: nextDays })
+        .update({ grace_days: next })
         .eq('id', periodId)
       if (error) throw error
 
-      return { ...period, grace_days: nextDays }
+      return { ...period, grace_days: next }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['active-period', data.family_member_id] })
