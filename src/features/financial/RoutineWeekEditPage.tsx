@@ -26,6 +26,7 @@
 import { useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamilyToday } from '@/hooks/useFamilyToday'
@@ -60,6 +61,7 @@ export function RoutineWeekEditPage() {
 
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
+  const queryClient = useQueryClient()
 
   if (isLoading || !today) {
     return (
@@ -107,30 +109,44 @@ export function RoutineWeekEditPage() {
     )
   }
 
-  const handleToggle = (
+  const refreshWeekView = () => {
+    // The shared completion hooks don't know about this page's query key.
+    // Invalidate it ourselves after every write so the new state lands.
+    queryClient.invalidateQueries({ queryKey: ['routine-week-view', memberId] })
+  }
+
+  const handleToggle = async (
     cell: RoutineWeekDayCell,
     step: RoutineWeekDayCell['steps'][number],
     dayIso: string,
   ) => {
     if (!memberId) return
-    if (step.is_checked && step.completion_id) {
-      uncompleteStep.mutate({
-        taskId: cell.task_id,
-        stepId: step.step_id,
-        memberId,
-        periodDate: dayIso,
-      })
-    } else {
-      // Set completed_at to noon UTC on the requested day so the
-      // migration 100157 trigger derives period_date = dayIso in any
-      // standard timezone (no edge-case wraparound).
-      completeStep.mutate({
-        task_id: cell.task_id,
-        step_id: step.step_id,
-        member_id: memberId,
-        period_date: dayIso, // overridden by trigger; passing for type contract
-        completed_at: `${dayIso}T12:00:00Z`,
-      })
+    try {
+      if (step.is_checked && step.completion_id) {
+        await uncompleteStep.mutateAsync({
+          taskId: cell.task_id,
+          stepId: step.step_id,
+          memberId,
+          periodDate: dayIso,
+        })
+      } else {
+        // Set completed_at to noon UTC on the requested day so the
+        // migration 100157 trigger derives period_date = dayIso in any
+        // standard timezone (no edge-case wraparound).
+        await completeStep.mutateAsync({
+          task_id: cell.task_id,
+          step_id: step.step_id,
+          member_id: memberId,
+          period_date: dayIso, // overridden by trigger; passing for type contract
+          completed_at: `${dayIso}T12:00:00Z`,
+        })
+      }
+      refreshWeekView()
+    } catch (err) {
+      console.error('[RoutineWeekEditPage] toggle failed:', err)
+      // Refresh anyway so display reflects DB truth (in case the write
+      // partially succeeded then the read failed, etc.).
+      refreshWeekView()
     }
   }
 
