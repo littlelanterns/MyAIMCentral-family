@@ -175,7 +175,7 @@ async function eeRpcSignature() {
   if (cfgErr || !cfg) { fail(name, `cfg insert failed: ${cfgErr?.message}`); return }
   createdConfigIds.push((cfg as { id: string }).id)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date())
   const periodStart = isoDaysFrom(today, -3)
   const periodEnd = isoDaysFrom(today, 3)
 
@@ -205,7 +205,7 @@ async function eeRpcSignature() {
 
 async function eeMath() {
   const name = 'EE-3: extra-credit task excluded from denominator, counted in numerator'
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date())
   const periodStart = isoDaysFrom(today, -1)
   const periodEnd = isoDaysFrom(today, 5)
 
@@ -276,7 +276,7 @@ async function eeConfigGate() {
     .update({ extra_credit_enabled: false })
     .eq('family_member_id', testMemberId)
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date())
   const periodStart = isoDaysFrom(today, -1)
   const periodEnd = isoDaysFrom(today, 5)
   const { data, error } = await sb.rpc('calculate_allowance_progress', {
@@ -303,7 +303,7 @@ async function eeConfigGate() {
 
 async function ggAllGraceDays() {
   const name = 'GG-1: p_grace_days param consumed; all-grace → 100%'
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date())
   const periodStart = isoDaysFrom(today, -1)
   const periodEnd = isoDaysFrom(today, 5)
 
@@ -335,7 +335,7 @@ async function ggAllGraceDays() {
 
 async function ggSingleGraceDay() {
   const name = 'GG-2: single grace day accepted by RPC'
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date())
   const periodStart = isoDaysFrom(today, -1)
   const periodEnd = isoDaysFrom(today, 5)
   const oneDay = [today]

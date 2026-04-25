@@ -41,6 +41,7 @@ export function GraceDaysManager({
     const end = new Date(Date.UTC(eY, eM - 1, eD))
     const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      // eslint-disable-next-line no-restricted-syntax -- d is explicitly UTC-constructed via Date.UTC + setUTCDate; UTC slice is correct here
       const iso = d.toISOString().slice(0, 10)
       out.push({
         iso,
