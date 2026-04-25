@@ -384,8 +384,10 @@ async function hhReversalRoundtrip() {
 
   // Synthesize a forward opportunity_earned transaction. Need a fake
   // completion id that exists OR doesn't matter — RPC tolerates the
-  // deleted-completion case via fallback to forward.family_id.
-  const fakeCompletionId = `${testStamp.toString(16).padStart(8, '0')}-0000-0000-0000-000000000001`
+  // deleted-completion case via fallback to forward.family_id. Use
+  // crypto.randomUUID so the harness produces a real UUIDv4 instead
+  // of a hand-rolled string Postgres rejects.
+  const fakeCompletionId = crypto.randomUUID()
 
   // Create the forward row
   const { data: fwd, error: fwdErr } = await sb
