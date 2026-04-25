@@ -58,6 +58,147 @@ async function rollGamificationForCompletion(
 }
 
 // ============================================================
+// NEW-NN — Opportunity earning forward write
+// ============================================================
+//
+// Shared helper invoked from every task-completion site. Reads the
+// task's task_rewards row; if it exists and is type='money' on an
+// opportunity task, inserts a forward `opportunity_earned` transaction
+// linked to the completion (`source_reference_id=completion.id`).
+//
+// Contract (mirrors the reverse RPC in migration 100173):
+//   transaction_type = 'opportunity_earned'
+//   source_type      = 'task_completion'
+//   source_reference_id = completion.id    ← canonical back-link
+//
+// Idempotency: enforced by a DB-level partial unique index
+// (migration 100174). A retry on the same completion hits a
+// duplicate-violation which we swallow (same pattern as the
+// gamification pipeline's awarded_source_id safety net).
+//
+// NEVER throws. Failure is logged + returned as null; the task is
+// still considered complete. Same additive-not-load-bearing contract
+// as gamification (Convention #199).
+//
+// Applies ONLY to opportunity_* task_types. Non-opportunity tasks with
+// a money reward (extremely rare, but possible) are skipped — money
+// flow on routine/simple tasks happens via the allowance_earned cron
+// path, not this hook.
+interface OpportunityEarningResult {
+  status:
+    | 'awarded'
+    | 'already_awarded'
+    | 'no_reward'
+    | 'not_opportunity'
+    | 'not_money'
+    | 'error'
+  transaction_id: string | null
+  amount: number
+}
+
+async function awardOpportunityEarning(
+  completionId: string,
+): Promise<OpportunityEarningResult | null> {
+  try {
+    // 1. Load completion + task shape (task_type + title + family link).
+    const { data: completion, error: compErr } = await supabase
+      .from('task_completions')
+      .select('id, task_id, family_member_id, tasks!inner(id, title, task_type, family_id)')
+      .eq('id', completionId)
+      .single()
+    if (compErr || !completion) {
+      return { status: 'error', transaction_id: null, amount: 0 }
+    }
+
+    // The PostgREST shape for the inner-join is an object (not array)
+    // when the FK is non-null, which it always is for task_completions.
+    const task = (completion.tasks as unknown) as {
+      id: string
+      title: string
+      task_type: string
+      family_id: string
+    }
+
+    if (!task.task_type || !task.task_type.startsWith('opportunity_')) {
+      return { status: 'not_opportunity', transaction_id: null, amount: 0 }
+    }
+
+    // 2. Load the task_rewards row. Zero rows = silent skip (no money
+    //    configured on this task). Multiple rows (shouldn't happen — one
+    //    per task_id by design): take the first.
+    const { data: rewards } = await supabase
+      .from('task_rewards')
+      .select('reward_type, reward_value')
+      .eq('task_id', task.id)
+      .limit(1)
+
+    const reward = rewards?.[0]
+    if (!reward) {
+      return { status: 'no_reward', transaction_id: null, amount: 0 }
+    }
+    if (reward.reward_type !== 'money') {
+      return { status: 'not_money', transaction_id: null, amount: 0 }
+    }
+
+    const rewardValue = (reward.reward_value ?? {}) as { amount?: number | string }
+    const amount =
+      typeof rewardValue.amount === 'number'
+        ? rewardValue.amount
+        : typeof rewardValue.amount === 'string' && rewardValue.amount.trim() !== ''
+          ? Number(rewardValue.amount)
+          : NaN
+    if (Number.isNaN(amount) || amount <= 0) {
+      return { status: 'no_reward', transaction_id: null, amount: 0 }
+    }
+
+    // 3. Compute the new balance via the shared running-balance RPC.
+    const { data: balanceData } = await supabase.rpc('calculate_running_balance', {
+      p_member_id: completion.family_member_id,
+    })
+    const currentBalance = Number(balanceData ?? 0)
+    const newBalance = currentBalance + amount
+
+    // 4. INSERT the forward transaction. The DB partial unique index
+    //    (migration 100174) guarantees one per completion — a second
+    //    insert returns error code '23505' which we treat as
+    //    already-awarded (idempotent).
+    const { data: tx, error: insertErr } = await supabase
+      .from('financial_transactions')
+      .insert({
+        family_id: task.family_id,
+        family_member_id: completion.family_member_id,
+        transaction_type: 'opportunity_earned',
+        amount,
+        balance_after: newBalance,
+        description: `Job: ${task.title}`,
+        source_type: 'task_completion',
+        source_reference_id: completionId,
+        category: task.title,
+        metadata: {
+          task_id: task.id,
+          task_type: task.task_type,
+          reward_type: 'money',
+        },
+      })
+      .select('id')
+      .single()
+
+    if (insertErr) {
+      if (insertErr.code === '23505') {
+        return { status: 'already_awarded', transaction_id: null, amount }
+      }
+      console.warn('[opportunity-earning] insert failed:', insertErr)
+      return { status: 'error', transaction_id: null, amount: 0 }
+    }
+
+    return { status: 'awarded', transaction_id: tx?.id ?? null, amount }
+  } catch (err) {
+    console.warn('[opportunity-earning] threw:', err)
+    return null
+  }
+}
+
+// ============================================================
 // Shared helper: fetch task IDs where a member has a task_assignment
 // ============================================================
 
@@ -304,6 +445,18 @@ export function useCompleteTask() {
         gamificationResult = await rollGamificationForCompletion(completion.id)
       }
 
+      // 3b. NEW-NN — Opportunity earning forward write.
+      // Same no-approval gate as gamification. If mom requires approval
+      // the money flow is deferred to useApproveTaskCompletion /
+      // useApproveCompletion. Fire-and-forget from the caller's
+      // perspective — the helper never throws, logs internally, and
+      // returns null on error. The DB partial unique index
+      // (migration 100174) enforces at-most-one forward row per
+      // completion id.
+      if (!requireApproval) {
+        await awardOpportunityEarning(completion.id)
+      }
+
       // 4. PRD-28: Auto-create homeschool_time_logs when a homework-flagged task
       // with assigned subjects is completed (not pending approval).
       // Additive, non-blocking — failure does NOT prevent the task from being complete.
@@ -346,6 +499,18 @@ export function useCompleteTask() {
         const completerId = completion.family_member_id ?? completion.member_id
         queryClient.invalidateQueries({ queryKey: ['homeschool-daily-summary', completerId] })
         queryClient.invalidateQueries({ queryKey: ['homeschool-weekly-summary', completerId] })
+      }
+
+      // NEW-NN: invalidate financial caches when an opportunity task
+      // just completed. The helper is fire-and-forget so we don't know
+      // from this site whether a forward write actually landed, but the
+      // invalidations are cheap no-ops when no subscriber is mounted.
+      if (task.task_type && task.task_type.startsWith('opportunity_')) {
+        const completerId = completion.family_member_id ?? completion.member_id
+        queryClient.invalidateQueries({ queryKey: ['financial-transactions', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['family-transactions', task.family_id] })
+        queryClient.invalidateQueries({ queryKey: ['running-balance', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['family-financial-summary', task.family_id] })
       }
 
       // Sub-phase C: refresh gamification-dependent queries when the
@@ -865,6 +1030,11 @@ export function useApproveTaskCompletion() {
       // RPC is idempotency-safe via member_creature_collection.awarded_source_id.
       const gamificationResult = await rollGamificationForCompletion(completionId)
 
+      // 3b. NEW-NN — Opportunity earning forward write, fired at
+      // approval time for require_approval=true flows. Idempotent via
+      // DB partial unique index (migration 100174).
+      await awardOpportunityEarning(completionId)
+
       return { ...data, gamificationResult }
     },
     onSuccess: (data) => {
@@ -875,6 +1045,14 @@ export function useApproveTaskCompletion() {
         queryClient.invalidateQueries({ queryKey: ['family-member'] })
         queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
       }
+
+      // NEW-NN: refresh financial caches after approval path too.
+      // Broadcast-invalidate since this site doesn't carry the completer
+      // id or task_type; subscribers are cheap no-ops.
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['family-transactions', data.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['running-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['family-financial-summary', data.family_id] })
     },
   })
 }
