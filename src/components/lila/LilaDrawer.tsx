@@ -126,11 +126,20 @@ export function LilaDrawer({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
-  // Update mode from initialMode prop
+  // Update mode from initialMode prop.
+  // Only auto-expand the drawer when the user CHANGES the mode (e.g. picks
+  // a different tool from QuickTasks). On initial mount, sync the mode but
+  // leave the drawer in its default 'collapsed' state — otherwise A1's
+  // NEW-B change (MomShell defaults lilaMode to 'assist' instead of
+  // undefined) would auto-open the drawer on every dashboard load.
+  const initialModeMounted = useRef(false)
   useEffect(() => {
-    if (initialMode) {
-      setCurrentMode(initialMode)
+    if (!initialMode) return
+    setCurrentMode(initialMode)
+    if (initialModeMounted.current) {
       setDrawerState('peek')
+    } else {
+      initialModeMounted.current = true
     }
   }, [initialMode])
 
