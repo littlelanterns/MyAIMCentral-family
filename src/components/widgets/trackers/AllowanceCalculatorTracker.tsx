@@ -63,10 +63,19 @@ export function AllowanceCalculatorTracker({
   // routine_step_completion invalidation (see useTaskCompletions for the
   // invalidation key). Until the period closes, these live values beat the
   // stored columns on allowance_periods (which are only written at close).
+  //
+  // NEW-UU (2026-04-24): 4th arg `graceDays` MUST be passed. Omitting it
+  // makes useLiveAllowanceProgress send p_grace_days=null to the RPC, so
+  // any days mom marks in GraceDaysManager have zero effect on the widget
+  // math (the UI write persists, but the read doesn't consume it).
+  // PreviewThisWeekPanel always passed it — this widget did not, producing
+  // the "marked grace days change nothing" bug surfaced 2026-04-24.
+  const gracePayload = (activePeriod?.grace_days as string[] | undefined) ?? undefined
   const { data: liveProgress } = useLiveAllowanceProgress(
     realConfig?.enabled ? memberId : undefined,
     activePeriod?.period_start,
     activePeriod?.period_end,
+    gracePayload,
   )
   const usePrd28Data = !!realConfig?.enabled && !!activePeriod
 
