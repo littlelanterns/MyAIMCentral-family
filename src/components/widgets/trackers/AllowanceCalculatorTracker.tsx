@@ -171,7 +171,12 @@ export function AllowanceCalculatorTracker({
     // Money visibility is a mom-controlled setting (`child_can_see_finances`
     // on allowance_configs). Play shell previously hid money regardless; mom
     // asked for this to be a single setting so kids can see what's going on.
-    const showMoney = realConfig.child_can_see_finances
+    //
+    // 2026-04-25 founder decision: in Today view, show ONLY the percentage
+    // — the previous "Earned" line in Today mode was projecting today's %
+    // onto the full weekly base ($17 × 30% = $5.10), which overstated the
+    // day. Week view continues to show the running week-to-date $ payout.
+    const showMoney = realConfig.child_can_see_finances && viewMode === 'period'
 
     if (isCompact) {
       return (
@@ -181,7 +186,7 @@ export function AllowanceCalculatorTracker({
             {showMoney ? formatDollars(Number(prd28Earned)) : `${prd28Pct}%`}
           </div>
           <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            {showMoney ? `${prd28Pct}% done` : 'completion'}
+            {showMoney ? `${prd28Pct}% done` : viewMode === 'today' ? 'today' : 'completion'}
           </div>
         </div>
       )
@@ -257,7 +262,10 @@ export function AllowanceCalculatorTracker({
             </div>
           )}
         </div>
-        {prd28BonusApplied && (
+        {/* Bonus indicator is only meaningful for the full-period calc.
+            In Today view it would project today's % onto bonus threshold,
+            which is the same overstatement problem as the dollar line. */}
+        {prd28BonusApplied && viewMode === 'period' && (
           <div className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium" style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)', color: 'var(--color-accent)' }}>
             <TrendingUp size={12} />
             Bonus earned!
