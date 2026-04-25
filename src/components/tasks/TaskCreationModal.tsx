@@ -1998,6 +1998,67 @@ export function TaskCreationModal({
             />
             Count toward allowance pool
           </label>
+          {/* PRD-28 NEW-QQ partial (2026-04-24): allowance_points per-task
+              override for the Points-Weighted calculation approach. Field
+              was already supported end-to-end (tasks.allowance_points column
+              since 100134, type carries through to createTaskFromData at
+              line 103) but no UI ever exposed it. Visible only when this
+              task counts toward allowance AND mom knows Points-Weighted is
+              enabled for the assignee. Defaults to null (falls back to the
+              config's default_point_value on the RPC side). */}
+          {data.countsForAllowance && (
+            <div
+              style={{
+                marginLeft: '1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: 'var(--font-size-sm)',
+              }}
+            >
+              <label
+                htmlFor="allowance-points-input"
+                title="Per-task weight override for the Points-Weighted allowance approach. Leave blank to use the child's default point value (set in their allowance config). Heavier chores = higher numbers; easy chores = 1-2 points. Ignored if the child isn't on Points-Weighted."
+                style={{
+                  color: 'var(--color-text-primary)',
+                  cursor: 'help',
+                }}
+              >
+                Weight (points)
+              </label>
+              <input
+                id="allowance-points-input"
+                type="number"
+                min={1}
+                max={100}
+                step={1}
+                placeholder="use default"
+                data-testid="allowance-points-input"
+                value={data.allowancePoints ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  update('allowancePoints', raw === '' ? null : Number(raw))
+                }}
+                style={{
+                  width: '5rem',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: 'var(--vibe-radius-input, 6px)',
+                  border: '1px solid var(--color-border-default, var(--color-border))',
+                  background: 'var(--color-bg-card)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm)',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 'var(--font-size-xs)',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                (Points-Weighted only — blank uses the child's default)
+              </span>
+            </div>
+          )}
           {/* PRD-28 NEW-EE: Extra Credit — gated by countsForAllowance. Disabled
               visually when not applicable. Tooltip explains the constraint. */}
           <label
