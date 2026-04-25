@@ -320,6 +320,9 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
           <span style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)' }}>
             times
           </span>
+          <span style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-tertiary, var(--color-text-secondary))', fontStyle: 'italic', marginLeft: 'auto' }}>
+            (separate checkboxes; set to 1 for one check-off)
+          </span>
         </div>
       )}
 
@@ -382,6 +385,9 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
                 instances
               </span>
             </label>
+            <span style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-tertiary, var(--color-text-secondary))', fontStyle: 'italic' }}>
+              How many separate checkboxes for this step. Leave at 1 if the note covers it.
+            </span>
           </div>
         </div>
       )}
