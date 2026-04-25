@@ -462,6 +462,14 @@ export type CreateRoutineStepCompletion = {
   instance_number?: number
   period_date: string
   photo_url?: string | null
+  /**
+   * Optional explicit completed_at. The migration 100157 trigger derives
+   * period_date from completed_at in the family's timezone, so passing an
+   * explicit completed_at lets mom credit a past-day check (e.g., kid
+   * finished just after midnight). When omitted, the column defaults to
+   * NOW() and the trigger maps it to today's local date.
+   */
+  completed_at?: string
 }
 
 // ============================================================

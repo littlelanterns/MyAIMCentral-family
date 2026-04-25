@@ -40,6 +40,7 @@ import { BookShelfPage } from '@/pages/BookShelfPage'
 import { MindSweepCapture } from '@/pages/MindSweepCapture'
 import { AllowanceSettingsPage } from '@/features/financial/AllowanceSettingsPage'
 import { ChildAllowanceConfigPage } from '@/features/financial/ChildAllowanceConfig'
+import { RoutineWeekEditPage } from '@/features/financial/RoutineWeekEditPage'
 import { TransactionHistoryPage } from '@/features/financial/TransactionHistory'
 import { HomeworkSettingsPage } from '@/features/financial/HomeworkSettingsPage'
 import { GamificationSettingsPage } from '@/pages/GamificationSettingsPage'
@@ -159,6 +160,7 @@ function App() {
               {/* PRD-28: Allowance & Financial routes */}
               <Route path="/settings/allowance" element={<ProtectedRoute><AllowanceSettingsPage /></ProtectedRoute>} />
               <Route path="/settings/allowance/:memberId" element={<ProtectedRoute><ChildAllowanceConfigPage /></ProtectedRoute>} />
+              <Route path="/settings/allowance/:memberId/history" element={<ProtectedRoute><RoutineWeekEditPage /></ProtectedRoute>} />
               {/* PRD-28: Homework tracking route */}
               <Route path="/settings/homework" element={<ProtectedRoute><HomeworkSettingsPage /></ProtectedRoute>} />
               {/* PRD-24/PRD-26: Gamification settings */}

@@ -567,6 +567,22 @@ export function ChildAllowanceConfigPage() {
         <PreviewThisWeekPanel memberId={memberId} activePeriod={activePeriod} />
       )}
 
+      {/* ALLOWANCE-EDIT-WEEK (2026-04-25): "see full week" page entry. */}
+      {memberId && activePeriod && (
+        <Link
+          to={`/settings/allowance/${memberId}/history`}
+          data-testid="open-week-edit-page"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border-default, var(--color-border))',
+          }}
+        >
+          Edit past days for {member?.display_name ?? 'this child'} →
+        </Link>
+      )}
+
       {/* Path X secondary entry: mom is already focused on this kid but
           wants to "while I'm at it, also apply the same thing to the
           others". Bulk modal opens with this kid pre-selected. */}
