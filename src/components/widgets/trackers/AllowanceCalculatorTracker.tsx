@@ -2,7 +2,7 @@
 // Visual variants: summary_card, fixed_task_grid, dynamic_category_rings, points_list
 // Calculates earned allowance based on task completion percentage
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Coins, TrendingUp } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { useAllowanceConfig, useActivePeriod, useLiveAllowanceProgress } from '@/hooks/useFinancial'
@@ -16,6 +16,11 @@ interface AllowanceConfig {
   bonus_threshold?: number
   bonus_percentage?: number
   total_tasks_per_period?: number
+  // NEW-OO (2026-04-24): optional persisted view mode. When present,
+  // overrides the default starting state. Mom configures via the widget
+  // edit surface (future polish); for now, the tap-toggle handles the
+  // in-session swap and localState preserves it across remounts.
+  view_mode?: 'period' | 'today'
 }
 
 /**
@@ -59,22 +64,36 @@ export function AllowanceCalculatorTracker({
   // legacy-fallback code path below. Prop-drill into getPeriodStartIso so no
   // client-clock read ever happens.
   const { data: familyToday } = useFamilyToday(memberId)
-  // Live frequency-day-aware tally for the current period. Recomputes on each
-  // routine_step_completion invalidation (see useTaskCompletions for the
-  // invalidation key). Until the period closes, these live values beat the
-  // stored columns on allowance_periods (which are only written at close).
+
+  // NEW-OO (2026-04-24): Today vs Period toggle. Single view at a time.
+  // Default: 'period' (weekly tally — matches pre-OO behavior). When mom
+  // taps to 'today', we narrow the RPC window to familyToday..familyToday
+  // so she sees what kid completed today vs "how much of the week is
+  // done." Persisted only in component state for now — no widget_config
+  // write on tap. An explicit config lever can land later if founder
+  // wants a default override per widget.
+  const [viewMode, setViewMode] = useState<'period' | 'today'>(
+    config.view_mode ?? 'period',
+  )
+  // Live frequency-day-aware tally for the current window. Recomputes on
+  // each routine_step_completion invalidation (see useTaskCompletions for
+  // the invalidation key). Until the period closes, these live values
+  // beat the stored columns on allowance_periods.
   //
   // NEW-UU (2026-04-24): 4th arg `graceDays` MUST be passed. Omitting it
-  // makes useLiveAllowanceProgress send p_grace_days=null to the RPC, so
-  // any days mom marks in GraceDaysManager have zero effect on the widget
-  // math (the UI write persists, but the read doesn't consume it).
-  // PreviewThisWeekPanel always passed it — this widget did not, producing
-  // the "marked grace days change nothing" bug surfaced 2026-04-24.
+  // makes useLiveAllowanceProgress send p_grace_days=null to the RPC so
+  // any marked grace days have zero widget effect.
   const gracePayload = (activePeriod?.grace_days as string[] | undefined) ?? undefined
+  // Today view uses a 1-day window starting at familyToday. Period view
+  // uses the full active-period window. Both pass grace_days — for a
+  // today window that happens to be a grace day, the RPC correctly
+  // returns 0/0 → 100% per PRD-28 L977 semantics.
+  const rpcStart = viewMode === 'today' ? (familyToday ?? activePeriod?.period_start) : activePeriod?.period_start
+  const rpcEnd = viewMode === 'today' ? (familyToday ?? activePeriod?.period_end) : activePeriod?.period_end
   const { data: liveProgress } = useLiveAllowanceProgress(
     realConfig?.enabled ? memberId : undefined,
-    activePeriod?.period_start,
-    activePeriod?.period_end,
+    rpcStart,
+    rpcEnd,
     gracePayload,
   )
   const usePrd28Data = !!realConfig?.enabled && !!activePeriod
@@ -168,9 +187,54 @@ export function AllowanceCalculatorTracker({
 
     return (
       <div className="flex flex-col h-full gap-3">
-        <div className="flex items-center gap-2">
-          <Coins size={18} style={{ color: 'var(--color-accent)' }} />
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>This Week</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Coins size={18} style={{ color: 'var(--color-accent)' }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+              {viewMode === 'today' ? 'Today' : 'This Week'}
+            </span>
+          </div>
+          {/* NEW-OO: Today/Period segmented toggle. Two positions, single
+              view at a time. */}
+          <div
+            role="group"
+            aria-label="Allowance view toggle"
+            data-testid="allowance-view-toggle"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'var(--color-bg-secondary)',
+              borderRadius: '999px',
+              padding: '2px',
+              border: '1px solid var(--color-border-default, var(--color-border))',
+            }}
+          >
+            {(['today', 'period'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                data-testid={`allowance-view-toggle-${mode}`}
+                onClick={() => setViewMode(mode)}
+                aria-pressed={viewMode === mode}
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: viewMode === mode ? 'var(--color-btn-primary-bg)' : 'transparent',
+                  color:
+                    viewMode === mode
+                      ? 'var(--color-text-on-primary)'
+                      : 'var(--color-text-secondary)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {mode === 'today' ? 'Today' : 'Week'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-baseline gap-1">
           <span className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{displayCompleted}</span>
