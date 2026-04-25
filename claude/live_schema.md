@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-24
+> Auto-generated from live Supabase on 2026-04-25
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -622,6 +622,7 @@
 | 38 | `counts_for_gamification` |
 | 39 | `allowance_points` |
 | 40 | `homework_subject_ids` |
+| 41 | `is_extra_credit` |
 
 ### `task_template_sections` — 52 rows
 
@@ -735,6 +736,7 @@
 | 72 | `counts_for_gamification` |
 | 73 | `allowance_points` |
 | 74 | `homework_subject_ids` |
+| 75 | `is_extra_credit` |
 
 ### `task_assignments` — 28 rows
 
@@ -1738,7 +1740,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 0 rows
+### `bookshelf_items` — 562 rows
 
 | # | Column |
 |---|---|
