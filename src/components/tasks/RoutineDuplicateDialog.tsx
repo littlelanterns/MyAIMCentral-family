@@ -22,6 +22,8 @@ import type { TaskTemplateStep, LinkedSourceType } from '@/types/tasks'
 // and-deploy dialog and the new clone-as-template dialog
 // (RoutineDuplicateTemplateDialog) call it.
 import { cloneRoutineTemplate } from '@/lib/templates/cloneRoutineTemplate'
+// Worker ROUTINE-PROPAGATION (c6): post-duplicate success toast.
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 
 interface RoutineDuplicateDialogProps {
   isOpen: boolean
@@ -73,6 +75,7 @@ export function RoutineDuplicateDialog({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickerForStepId, setPickerForStepId] = useState<string | null>(null)
+  const routingToast = useRoutingToast()
 
   // Find linked steps that need resolution
   const linkedSteps = useMemo<LinkedStepResolution[]>(() => {
@@ -171,6 +174,15 @@ export function RoutineDuplicateDialog({
       })
 
       if (taskError) throw taskError
+
+      // Worker ROUTINE-PROPAGATION (c6): post-duplicate success toast.
+      // Names the assignee.
+      const targetName =
+        activeMembers.find(m => m.id === targetMemberId)?.display_name ??
+        'family member'
+      routingToast.show({
+        message: `Duplicated to ${targetName}.`,
+      })
 
       onDuplicated?.()
       onClose()

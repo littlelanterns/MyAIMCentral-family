@@ -23,6 +23,8 @@ import { ModalV2 } from '@/components/shared/ModalV2'
 import { Button } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { cloneRoutineTemplate } from '@/lib/templates/cloneRoutineTemplate'
+// Worker ROUTINE-PROPAGATION (c6): post-clone success toast.
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 
 export interface RoutineDuplicateTemplateDialogProps {
   isOpen: boolean
@@ -49,6 +51,7 @@ export function RoutineDuplicateTemplateDialog({
   const [newName, setNewName] = useState(`${sourceTemplateName} (copy)`)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const routingToast = useRoutingToast()
 
   async function handleSave() {
     const trimmed = newName.trim()
@@ -64,6 +67,11 @@ export function RoutineDuplicateTemplateDialog({
         newTitle: trimmed,
         familyId,
         createdBy,
+      })
+      // Worker ROUTINE-PROPAGATION (c6): post-clone success toast.
+      // Anti-panic UX — confirm what landed and where.
+      routingToast.show({
+        message: `Duplicated as "${trimmed}" — open from My Customized to edit.`,
       })
       onDuplicated?.(result.newTemplateId)
       onClose()

@@ -58,9 +58,15 @@ import {
 import {
   getActiveTemplateDeployments,
   distinctAssigneeNames,
+  formatNameList,
   type ActiveDeployment,
 } from '@/lib/templates/getActiveTemplateDeployments'
 import { MasterTemplateEditConfirmationModal } from '@/components/templates/MasterTemplateEditConfirmationModal'
+// Worker ROUTINE-PROPAGATION (c6): post-save success toasts. Reuses
+// the existing RoutingToastProvider — no new toast infrastructure.
+// Anti-panic UX: every routine-template save path now confirms what
+// actually happened so mom doesn't have to wonder.
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import { fetchFamilyToday } from '@/hooks/useFamilyToday'
 import { supabase } from '@/lib/supabase/client'
 
@@ -684,6 +690,17 @@ export function TaskCreationModal({
   const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
     setData((d) => ({ ...d, [key]: val }))
 
+  // Worker ROUTINE-PROPAGATION (c6): toast helper. Wraps useRoutingToast
+  // so save sites can call showToast(message) without remembering the
+  // {message, onDismiss} shape.
+  const routingToast = useRoutingToast()
+  const showToast = useCallback(
+    (message: string) => {
+      routingToast.show({ message })
+    },
+    [routingToast],
+  )
+
   const handleSave = useCallback(async () => {
     if (!data.title.trim()) return
     setLoading(true)
@@ -803,6 +820,38 @@ export function TaskCreationModal({
       }
 
       await onSave(finalData)
+
+      // Worker ROUTINE-PROPAGATION (c6): post-save toast. Anti-panic
+      // UX — never silently succeed. Variants by save context:
+      //   - master template edit, 0 deployments: "Template saved."
+      //   - deploy from Studio template: "Routine assigned to [Names]."
+      //   - new routine save: "Routine created." / "Routine assigned to [Names]."
+      //   - any other task type: "Task saved."
+      // (1+ deployment edit path emits its own toast via handleEditConfirm.)
+      if (finalData.taskType === 'routine') {
+        if (editingTemplateId) {
+          showToast('Template saved.')
+        } else {
+          const assigneeIds = finalData.wholeFamily
+            ? familyMembers.filter(m => m.is_active).map(m => m.id)
+            : finalData.assignments
+                .map(a => a.memberId)
+                .filter((id): id is string => !!id)
+          const names = assigneeIds
+            .map(id => familyMembers.find(m => m.id === id)?.display_name)
+            .filter((n): n is string => !!n)
+          if (names.length > 0) {
+            showToast(`Routine assigned to ${formatNameList(names)}.`)
+          } else {
+            showToast('Routine saved to Studio.')
+          }
+        }
+      } else if (finalData.templateOnly) {
+        showToast('Template saved.')
+      } else {
+        showToast('Task saved.')
+      }
+
       if (batchMode === 'sequential' && batchItems && batchIndex < batchItems.length - 1) {
         setBatchIndex((i) => i + 1)
       } else {
@@ -829,6 +878,7 @@ export function TaskCreationModal({
     currentMember?.family_id,
     familyMembers,
     iconAutoSuggestions,
+    showToast,
   ])
 
   const handleSaveToStudio = useCallback(async () => {
@@ -861,11 +911,15 @@ export function TaskCreationModal({
       }
 
       await onSave(finalData)
+      // Worker ROUTINE-PROPAGATION (c6): Save-to-Studio toast for the
+      // 0-deployments path. Master-edit-with-deployments path emits
+      // its own toast via handleEditConfirm.
+      showToast('Template saved.')
       onClose()
     } finally {
       setLoading(false)
     }
-  }, [data, onSave, onClose, editingTemplateId])
+  }, [data, onSave, onClose, editingTemplateId, showToast])
 
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
@@ -2504,6 +2558,18 @@ export function TaskCreationModal({
     setLoading(true)
     try {
       await onSave(stash.pendingFinalData)
+      // Worker ROUTINE-PROPAGATION (c6): post-confirm toast naming
+      // every affected family member. "Saved — updated 3 active
+      // routines: Ruthie, Mosiah, and Gideon."
+      const names = distinctAssigneeNames(stash.deployments)
+      const count = names.length
+      const routineWord = count === 1 ? 'routine' : 'routines'
+      const nameList = formatNameList(names)
+      showToast(
+        nameList
+          ? `Saved — updated ${count} active ${routineWord}: ${nameList}.`
+          : `Saved — updated ${count} active ${routineWord}.`,
+      )
       setEditConfirmState(null)
       if (
         batchMode === 'sequential' &&
@@ -2517,7 +2583,7 @@ export function TaskCreationModal({
     } finally {
       setLoading(false)
     }
-  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex])
+  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex, showToast])
 
   const handleEditCancel = useCallback(() => {
     setEditConfirmState(null)
@@ -2566,6 +2632,17 @@ export function TaskCreationModal({
             }
           }
           await onSave(stash.pendingFinalData)
+          // Worker ROUTINE-PROPAGATION (c6): replace-then-save toast.
+          // Names the assignee whose existing deployment was replaced.
+          const replacedNames = Array.from(
+            new Set(stash.candidates.map(c => c.assigneeDisplayName)),
+          )
+          const replacedNameList = formatNameList(replacedNames)
+          showToast(
+            replacedNameList
+              ? `Replaced previous deployment for ${replacedNameList}.`
+              : 'Routine saved.',
+          )
           setOverlapState(null)
           if (
             batchMode === 'sequential' &&
@@ -2581,7 +2658,7 @@ export function TaskCreationModal({
         }
       }
     },
-    [overlapState, onSave, onClose, batchMode, batchItems, batchIndex],
+    [overlapState, onSave, onClose, batchMode, batchItems, batchIndex, showToast],
   )
 
   // ─── Render ─────────────────────────────────────────────────
