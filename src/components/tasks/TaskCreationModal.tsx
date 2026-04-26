@@ -16,7 +16,7 @@ import {
   FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
   CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw,
 } from 'lucide-react'
-import { Button, ModalV2, Tooltip } from '@/components/shared'
+import { Button, ModalV2, Toggle, Tooltip } from '@/components/shared'
 import { UniversalScheduler } from '@/components/scheduling'
 import { getMemberColor } from '@/lib/memberColors'
 import { RoutineSectionEditor } from './RoutineSectionEditor'
@@ -87,6 +87,15 @@ export interface CreateTaskData {
   newListItems?: string[]
   /** Due date for one-time tasks (YYYY-MM-DD) */
   dueDate?: string
+  /**
+   * Worker ROUTINE-PROPAGATION (c2, founder D2): scheduled start date for
+   * routines. When set, the deployed task's recurrence_details.dtstart is
+   * written to this value so recurringTaskFilter hides the routine until
+   * the date arrives. When undefined, buildTaskScheduleFields falls back
+   * to familyToday (today in the family's timezone) so the routine is
+   * active immediately.
+   */
+  startDate?: string
   /** Quick schedule mode selected in the modal */
   scheduleMode?: 'one_time' | 'daily' | 'weekly' | 'custom'
   /** Weekday numbers for weekly recurrence (0=Sun, 1=Mon, ..., 6=Sat) */
@@ -169,6 +178,10 @@ interface TaskCreationModalProps {
     isExtraCredit?: boolean
     recurrenceRule?: string
     recurrenceDetails?: Record<string, unknown> | null
+    /** Worker ROUTINE-PROPAGATION (c2): hydrate the "Schedule to start later"
+     *  toggle from an existing task. Read by callers from
+     *  recurrence_details.dtstart on the live tasks row. */
+    startDate?: string
   } | null
   /** When deploying from Studio, pass the source template ID to link (not duplicate) */
   deployFromTemplateId?: string | null
@@ -502,6 +515,10 @@ export function TaskCreationModal({
       if (editTaskValues.lifeAreaTag) d.lifeAreaTag = editTaskValues.lifeAreaTag
       if (editTaskValues.durationEstimate) d.durationEstimate = editTaskValues.durationEstimate
       if (editTaskValues.dueDate) d.dueDate = editTaskValues.dueDate
+      // Worker ROUTINE-PROPAGATION (c2): hydrate startDate from existing
+      // recurrence_details.dtstart so editing a scheduled-to-start-later
+      // routine preserves the start date.
+      if (editTaskValues.startDate) d.startDate = editTaskValues.startDate
       if (editTaskValues.requireApproval !== undefined) d.reward.requireApproval = editTaskValues.requireApproval
       if (editTaskValues.victoryFlagged !== undefined) d.reward.flagAsVictory = editTaskValues.victoryFlagged
       if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
@@ -528,6 +545,12 @@ export function TaskCreationModal({
 
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'quick' | 'full'>(initialMode ?? 'full')
+  // Worker ROUTINE-PROPAGATION (c2): "Schedule to start later" toggle
+  // for routines. Off by default (silent default = today). When on,
+  // reveals the date picker and writes data.startDate.
+  const [enableStartLater, setEnableStartLater] = useState<boolean>(
+    !!editTaskValues?.startDate,
+  )
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time')
   const [quickDays, setQuickDays] = useState<number[]>([])
   const [quickDate, setQuickDate] = useState('')
@@ -564,6 +587,10 @@ export function TaskCreationModal({
       if (editTaskValues.lifeAreaTag) d.lifeAreaTag = editTaskValues.lifeAreaTag
       if (editTaskValues.durationEstimate) d.durationEstimate = editTaskValues.durationEstimate
       if (editTaskValues.dueDate) d.dueDate = editTaskValues.dueDate
+      // Worker ROUTINE-PROPAGATION (c2): hydrate startDate from existing
+      // recurrence_details.dtstart so editing a scheduled-to-start-later
+      // routine preserves the start date.
+      if (editTaskValues.startDate) d.startDate = editTaskValues.startDate
       if (editTaskValues.requireApproval !== undefined) d.reward.requireApproval = editTaskValues.requireApproval
       if (editTaskValues.victoryFlagged !== undefined) d.reward.flagAsVictory = editTaskValues.victoryFlagged
       if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
@@ -632,6 +659,13 @@ export function TaskCreationModal({
         dueDate: data.taskType === 'routine'
           ? data.dueDate || undefined
           : scheduleMode === 'one_time' ? quickDate || undefined : undefined,
+        // Worker ROUTINE-PROPAGATION (c2): when "Schedule to start later"
+        // is OFF, leave startDate undefined so buildTaskScheduleFields
+        // silently falls back to familyToday (today in family timezone).
+        // When ON, write the picked date so dtstart is persisted.
+        startDate: data.taskType === 'routine' && enableStartLater
+          ? data.startDate || undefined
+          : undefined,
         weeklyDays: scheduleMode === 'weekly' ? quickDays : undefined,
         // Use mom's manual pick, or fall back to the top auto-suggestion
         iconAssetKey: assigneeIsPlayMember
@@ -662,6 +696,7 @@ export function TaskCreationModal({
     quickDays,
     assigneeIsPlayMember,
     selectedIcon,
+    enableStartLater,
   ])
 
   const handleSaveToStudio = useCallback(async () => {
@@ -1777,6 +1812,53 @@ export function TaskCreationModal({
           <HelperText>
             Each section above already controls which days its steps appear. This sets when the whole routine starts and stops.
           </HelperText>
+
+          {/* Worker ROUTINE-PROPAGATION (c2, founder D2):
+              "Schedule to start later" toggle. Off by default — routine
+              starts today silently. On — reveals date picker; routine is
+              scheduled but hidden from the dashboard until that date.
+              Hidden when editing master template — start dates only
+              apply to deployed task rows, not the master. */}
+          {!editingTemplateId && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+              marginTop: '0.5rem',
+              marginBottom: '0.75rem',
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid var(--color-border)',
+            }}>
+              <Toggle
+                checked={enableStartLater}
+                onChange={(checked) => {
+                  setEnableStartLater(checked)
+                  if (!checked) update('startDate', undefined)
+                }}
+                label="Schedule to start later"
+                size="sm"
+              />
+              {enableStartLater && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingLeft: '2.5rem' }}>
+                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+                    Starts on
+                  </span>
+                  <input
+                    type="date"
+                    value={data.startDate || ''}
+                    onChange={(e) => update('startDate', e.target.value || undefined)}
+                    style={{ ...inputStyle, flex: 1, maxWidth: '180px' }}
+                  />
+                </div>
+              )}
+              {enableStartLater && (
+                <HelperText>
+                  Routine appears on the dashboard starting on this date. Until then it stays scheduled but out of sight.
+                </HelperText>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', cursor: 'pointer' }}>

@@ -21,6 +21,23 @@ export function buildTaskScheduleFields(
   data: CreateTaskData,
   familyToday: string,
 ): TaskScheduleFields {
+  // Worker ROUTINE-PROPAGATION (c2, founder D1+D2): routines persist
+  // recurrence_details.dtstart on the JSONB so recurringTaskFilter can
+  // gate visibility against today. dtstart is the canonical start date
+  // for both per-section-frequency routines (no rrule) and any future
+  // RRULE routines that flow through this branch. Default = familyToday
+  // (today in the family's timezone) so legacy callers and the toggle-
+  // off path silently land on today. data.dueDate, when set, is the
+  // "Run until" end date — preserved unchanged on the task row.
+  if (data.taskType === 'routine') {
+    const dtstart = data.startDate || familyToday
+    return {
+      due_date: data.dueDate || null,
+      recurrence_rule: null,
+      recurrence_details: { dtstart, schedule_type: 'recurring' },
+    }
+  }
+
   if (data.scheduleMode === 'one_time' && data.dueDate) {
     return { due_date: data.dueDate, recurrence_rule: null, recurrence_details: null }
   }
