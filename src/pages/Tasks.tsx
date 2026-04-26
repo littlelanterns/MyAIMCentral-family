@@ -58,6 +58,7 @@ import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 import { fetchFamilyToday } from '@/hooks/useFamilyToday'
+import { serializeRoutineSectionsForRpc } from '@/lib/templates/serializeRoutineSectionsForRpc'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import { getMemberColor } from '@/lib/memberColors'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
@@ -255,7 +256,8 @@ export function TasksPage() {
       const familyToday = await fetchFamilyToday(member.id)
       const scheduleFields = buildTaskScheduleFields(data, familyToday)
 
-      const { error } = await supabase
+      // Update the deployment task row (snapshot fields per Convention #259).
+      const { error: taskUpdateError } = await supabase
         .from('tasks')
         .update({
           title: data.title,
@@ -274,80 +276,36 @@ export function TasksPage() {
         })
         .eq('id', editingTask.id)
 
-      if (error) {
-        console.error('Failed to update task:', error)
-        return
+      if (taskUpdateError) {
+        // Worker ROUTINE-SAVE-FIX (c3): throw so TaskCreationModal's
+        // catch block (c2) surfaces the failure via error toast. The
+        // previous `console.error + return` pattern silently dropped
+        // the failure on the floor.
+        throw new Error(`Failed to update task: ${taskUpdateError.message}`)
       }
 
-      // Update routine template sections if editing a routine with an existing template
+      // Update routine template sections via the atomic RPC (migration
+      // 100178). Replaces the previous non-transactional rewrite chain
+      // that diverged from createTaskFromData and silently swallowed
+      // FK errors. Now both call sites share the same RPC; partial
+      // commits are impossible.
       if (data.editingTemplateId && data.routineSections?.length) {
-        // Delete old sections/steps
-        const { data: oldSections } = await supabase
-          .from('task_template_sections')
-          .select('id')
-          .eq('template_id', data.editingTemplateId)
-        for (const sec of oldSections ?? []) {
-          await supabase.from('task_template_steps').delete().eq('section_id', sec.id)
-        }
-        await supabase.from('task_template_sections').delete().eq('template_id', data.editingTemplateId)
-
-        // Update template title
-        await supabase.from('task_templates')
-          .update({ title: data.title, template_name: data.title })
-          .eq('id', data.editingTemplateId)
-
-        // Rewrite sections and steps
-        for (const section of data.routineSections) {
-          let frequencyRule = section.frequency as string
-          let frequencyDays: number[] | null = null
-          if (section.frequency === 'custom') {
-            frequencyDays = section.customDays
-          } else if (section.frequency === 'mwf') {
-            frequencyRule = 'custom'
-            frequencyDays = [1, 3, 5]
-          } else if (section.frequency === 't_th') {
-            frequencyRule = 'custom'
-            frequencyDays = [2, 4]
-          }
-
-          const { data: sectionRow, error: secError } = await supabase
-            .from('task_template_sections')
-            .insert({
-              template_id: data.editingTemplateId,
-              title: section.name,
-              section_name: section.name,
-              frequency_rule: frequencyRule,
-              frequency_days: frequencyDays,
-              show_until_complete: section.showUntilComplete,
-              sort_order: section.sort_order,
-            })
-            .select('id')
-            .single()
-
-          if (!secError && sectionRow) {
-            const stepInserts = section.steps.map(step => ({
-              section_id: sectionRow.id,
-              title: step.title,
-              step_name: step.title,
-              step_notes: step.notes || null,
-              instance_count: step.instanceCount,
-              require_photo: step.requirePhoto,
-              sort_order: step.sort_order,
-              step_type: step.step_type ?? 'static',
-              linked_source_id: step.linked_source_id ?? null,
-              linked_source_type: step.linked_source_type ?? null,
-              display_name_override: step.display_name_override ?? null,
-            }))
-            if (stepInserts.length > 0) {
-              await supabase.from('task_template_steps').insert(stepInserts)
-            }
-          }
+        const rpcSections = serializeRoutineSectionsForRpc(data.routineSections)
+        const { error: rpcError } = await supabase.rpc('update_routine_template_atomic', {
+          p_template_id: data.editingTemplateId,
+          p_title: data.title,
+          p_description: data.description || null,
+          p_sections: rpcSections,
+        })
+        if (rpcError) {
+          throw new Error(`Atomic template rewrite failed: ${rpcError.message}`)
         }
       }
 
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['calendar'] })
       queryClient.invalidateQueries({ queryKey: ['task_templates_customized'] })
+      queryClient.invalidateQueries({ queryKey: ['routine-template-steps'] })
       setEditingTask(null)
       setEditRoutineSections(undefined)
     },

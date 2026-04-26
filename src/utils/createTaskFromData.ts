@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 import { fetchFamilyToday } from '@/hooks/useFamilyToday'
+import { serializeRoutineSectionsForRpc } from '@/lib/templates/serializeRoutineSectionsForRpc'
 
 interface FamilyMemberLike {
   id: string
@@ -124,41 +125,32 @@ export async function createTaskFromData(
     result.routineTemplateCreated = false
     result.templateId = data.deployFromTemplateId
   } else if (hasSections) {
-    // Editing existing template: delete old sections/steps, then rewrite
+    // Editing existing template: delegate the multi-step rewrite to a
+    // single atomic RPC (migration 100178) so partial commits are
+    // impossible. Replaces the previous non-transactional UPDATE +
+    // DELETE-steps + DELETE-sections + INSERT-sections + INSERT-steps
+    // chain. The RPC also handles the section+step INSERT, so we skip
+    // the shared INSERT loop below for the editing path.
     if (data.editingTemplateId) {
       routineTemplateId = data.editingTemplateId
       result.routineTemplateCreated = true
       result.templateId = data.editingTemplateId
 
-      // Update template title
-      const { error: titleError } = await supabase.from('task_templates')
-        .update({ title: data.title, template_name: data.title, description: data.description || null })
-        .eq('id', data.editingTemplateId)
-      if (titleError) {
-        throw new Error(`[createTaskFromData] Failed to update template title: ${titleError.message}`)
+      const rpcSections = serializeRoutineSectionsForRpc(data.routineSections!)
+
+      const { error: rpcError } = await supabase.rpc('update_routine_template_atomic', {
+        p_template_id: data.editingTemplateId,
+        p_title: data.title,
+        p_description: data.description || null,
+        p_sections: rpcSections,
+      })
+      if (rpcError) {
+        throw new Error(`[createTaskFromData] Atomic template rewrite failed: ${rpcError.message}`)
       }
 
-      // Delete old steps and sections (cascade: steps reference sections).
-      // CRITICAL: each delete must be verified — if a delete fails silently
-      // (RLS glitch, transient network error), the re-insert below will add
-      // new rows ON TOP of the old ones, producing the "4 copies of each
-      // section" pattern Tenise hit on the Herringbone template. Every
-      // failure here must throw and abort the whole save.
-      const { data: oldSections, error: loadError } = await supabase.from('task_template_sections')
-        .select('id').eq('template_id', data.editingTemplateId)
-      if (loadError) {
-        throw new Error(`[createTaskFromData] Failed to load old sections: ${loadError.message}`)
-      }
-      for (const sec of oldSections ?? []) {
-        const { error: stepDelErr } = await supabase.from('task_template_steps').delete().eq('section_id', sec.id)
-        if (stepDelErr) {
-          throw new Error(`[createTaskFromData] Failed to delete old steps for section ${sec.id}: ${stepDelErr.message}`)
-        }
-      }
-      const { error: secDelErr } = await supabase.from('task_template_sections').delete().eq('template_id', data.editingTemplateId)
-      if (secDelErr) {
-        throw new Error(`[createTaskFromData] Failed to delete old sections: ${secDelErr.message}`)
-      }
+      // Atomic path is complete — fall through to task-row creation
+      // (Step 2). The shared section/step INSERT loop below is skipped
+      // for this branch via the `editingHandled` guard.
     } else {
       // Creating new template — with a defensive dedupe check to prevent the
       // "two identical templates 60 seconds apart" pattern Tenise hit on the
@@ -208,7 +200,10 @@ export async function createTaskFromData(
       }
     }
 
-    if (routineTemplateId) {
+    // Skip the shared INSERT loop when the editingTemplateId branch
+    // already handled section+step persistence via the atomic RPC.
+    const editingHandled = !!data.editingTemplateId
+    if (routineTemplateId && !editingHandled) {
       result.routineTemplateCreated = true
       result.templateId = routineTemplateId
       for (const section of data.routineSections!) {
