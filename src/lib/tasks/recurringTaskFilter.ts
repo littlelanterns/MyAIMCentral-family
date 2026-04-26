@@ -40,7 +40,23 @@ export function isRecurringTaskVisibleToday(task: Task, today?: Date): boolean {
     if (endDate < startOfToday) return false
   }
 
-  // No recurrence at all — always visible
+  // Advance-start gating (Worker ROUTINE-PROPAGATION, D1):
+  // recurrence_details.dtstart is the start date for both RRULE-driven
+  // routines AND per-section-frequency routines. When dtstart is in the
+  // future, the routine is scheduled but not yet active — hide from
+  // today's dashboard. Same dtstart on JSONB whether or not an RRULE
+  // string is present. Applies to is_shared=true routines too — every
+  // assignee's view honors the same dtstart on the shared task row.
+  const advanceDetails = task.recurrence_details as Record<string, unknown> | null
+  if (advanceDetails && typeof advanceDetails.dtstart === 'string') {
+    const dtstart = advanceDetails.dtstart as string
+    const dtstartDate = new Date(dtstart.includes('T') ? dtstart : dtstart + 'T00:00:00')
+    if (dtstartDate > new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)) {
+      return false
+    }
+  }
+
+  // No recurrence at all — always visible (after advance-start check above)
   if (!task.recurrence_rule) {
     return true
   }
