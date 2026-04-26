@@ -47,6 +47,7 @@ import { TaskCompletionExpander } from './TaskCompletionExpander'
 import { RoutineStepChecklist, isSectionActiveToday } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useArchiveTask } from '@/hooks/useTasks'
+import { ScheduledStartBadge } from '@/components/templates/ScheduledStartBadge'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import type { Task } from '@/hooks/useTasks'
@@ -469,6 +470,19 @@ export function TaskCard({
             >
               {task.title}
             </p>
+            {/* Worker ROUTINE-PROPAGATION (c5): "Scheduled to start"
+                badge — renders only when recurrence_details.dtstart is
+                in the future. ScheduledStartBadge returns null otherwise. */}
+            {isRoutine && (
+              <ScheduledStartBadge
+                dtstart={
+                  (task.recurrence_details as Record<string, unknown> | null)
+                    ?.dtstart as string | undefined
+                }
+                size="compact"
+                className="mt-1"
+              />
+            )}
           </div>
 
           {/* Routine step indicator — clickable to expand checklist */}

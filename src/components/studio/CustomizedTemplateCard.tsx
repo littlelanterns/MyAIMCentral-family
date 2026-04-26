@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import { Calendar, Users, Unlink, Copy, Archive, Edit2, Play, MoreHorizontal } from 'lucide-react'
 import type { StudioTemplateType } from './StudioTemplateCard'
+import { ScheduledStartBadge } from '@/components/templates/ScheduledStartBadge'
 
 export interface CustomizedTemplate {
   id: string
@@ -22,6 +23,14 @@ export interface CustomizedTemplate {
   activeDeployments: number
   lastDeployedAt: string | null
   createdAt: string
+  /**
+   * Worker ROUTINE-PROPAGATION (c5): earliest future dtstart across
+   * active deployments of this template. NULL when no future-scheduled
+   * deployments exist. Drives the "Scheduled to start" badge in the
+   * card header so mom sees at a glance which routines are queued
+   * but not yet active.
+   */
+  nextScheduledStart?: string | null
 }
 
 interface CustomizedTemplateCardProps {
@@ -121,16 +130,25 @@ export function CustomizedTemplateCard({
           >
             {template.name}
           </p>
-          <span
-            className="inline-flex items-center mt-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-            style={{
-              backgroundColor: 'var(--color-bg-secondary)',
-              color: 'var(--color-text-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            {TYPE_LABELS[template.templateType] ?? template.templateType}
-          </span>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              {TYPE_LABELS[template.templateType] ?? template.templateType}
+            </span>
+            {/* Worker ROUTINE-PROPAGATION (c5): "Scheduled to start"
+                badge when ANY active deployment of this template has a
+                future dtstart. Returns null otherwise. */}
+            <ScheduledStartBadge
+              dtstart={template.nextScheduledStart}
+              size="full"
+            />
+          </div>
         </div>
 
         {/* Overflow menu */}

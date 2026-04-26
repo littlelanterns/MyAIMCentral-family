@@ -97,6 +97,38 @@ function useCustomizedTemplates(familyId: string | undefined) {
         return []
       }
 
+      // Worker ROUTINE-PROPAGATION (c5): pull active deployments per
+      // template so we can compute the earliest future dtstart for the
+      // "Scheduled to start" badge. Single round-trip — fetch all
+      // active routine tasks for this family that reference any of
+      // these templates, then group by template_id.
+      const templateIds = (data ?? []).map(r => r.id as string)
+      const dtstartByTemplateId = new Map<string, string | null>()
+      if (templateIds.length > 0) {
+        const { data: tasks } = await supabase
+          .from('tasks')
+          .select('template_id, recurrence_details, status, archived_at')
+          .in('template_id', templateIds)
+          .eq('task_type', 'routine')
+          .is('archived_at', null)
+
+        const today = new Date()
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+        for (const t of tasks ?? []) {
+          if (!t.template_id) continue
+          if (t.status === 'completed' || t.status === 'cancelled') continue
+          const details = t.recurrence_details as Record<string, unknown> | null
+          const dtstart = (details?.dtstart as string | undefined)?.slice(0, 10)
+          if (!dtstart || dtstart <= todayStr) continue
+          // Track earliest future dtstart per template so the badge
+          // says when the next scheduled deployment kicks in.
+          const existing = dtstartByTemplateId.get(t.template_id as string)
+          if (!existing || dtstart < existing) {
+            dtstartByTemplateId.set(t.template_id as string, dtstart)
+          }
+        }
+      }
+
       return (data ?? []).map((row) => {
         const config = (row.config ?? {}) as Record<string, unknown>
         const templateType = mapDbTypeToStudioType(row.task_type as string)
@@ -108,6 +140,7 @@ function useCustomizedTemplates(familyId: string | undefined) {
           activeDeployments: (config.active_deployments as number) ?? 0,
           lastDeployedAt: (config.last_deployed_at as string) ?? null,
           createdAt: row.created_at as string,
+          nextScheduledStart: dtstartByTemplateId.get(row.id as string) ?? null,
         }
       })
     },
