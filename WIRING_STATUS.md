@@ -61,6 +61,17 @@
 | Lists template propagation | List templates have NO deployment wiring | Stub | NEW-ZZ (worksheet row 205, 2026-04-25). Decisions doc: `claude/feature-decisions/Lists-Template-Deploy-Decisions-Needed.md`. Deferred to Worker 4 LISTS-TEMPLATE-DEPLOY. |
 | Shared routines (is_shared=true) completion UX | Anyone-can-complete + completer-color rendering + allowance credit to actual completer | Stub | Deferred to Worker 2 SHARED-ROUTINES per founder D6 Thread 3. Handoff: `claude/feature-decisions/Shared-Assignment-Model-Worker-Handoff.md`. Worker 1 audited is_shared=true rows pass advance-start + overlap detection cleanly. |
 
+## Routine Save Reliability (Worker ROUTINE-SAVE-FIX, 2026-04-26)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| `routine_step_completions.step_id` ON DELETE SET NULL | Migration 100177 brings the FK into compliance with Convention #259. Step deletion no longer fails when completions reference it; orphaned completions retain `step_id=NULL`. | **Wired** | c1. All consumer call sites (`TaskCard`, `RoutineStepChecklist`, `GuidedActiveTasksSection`) filter NULLs out of their `Set<string>` so orphans never produce false-positive checkmarks on live steps. `RoutineStepCompletion.step_id` widened to `string \| null`. |
+| Save-handler error toast | `TaskCreationModal.handleSave`, `handleSaveToStudio`, and `handleEditConfirm` all wrap `onSave` in try/catch. On reject: `console.error('Routine save failed:', err)` + error-variant toast ("Couldn't save changes. Please try again or contact support.") + modal stays open. | **Wired** | c2. Replaces silent try/finally that swallowed every save throw. |
+| `UndoToast` error variant | `variant: 'success' \| 'error'` on `UndoToast` and `RoutingToastProvider`. Error variant uses error-token border, AlertTriangle icon, role='alert' / aria-live='assertive', 10s default dwell (vs 5s for success). | **Wired** | c2. All existing call sites preserved by default `variant='success'`. |
+| `update_routine_template_atomic` RPC | Migration 100178 adds a SECURITY DEFINER function that performs the entire routine-template rewrite (UPDATE template + DELETE old sections/steps + INSERT new sections/steps) inside a single transaction. RLS check inside enforces caller's family ownership. Returns `{section_count, step_count}` jsonb. | **Wired** | c3. Eliminates partial-commit risk that motivated the silent-save bug. |
+| Single rewrite path across call sites | `createTaskFromData.ts` editingTemplateId branch and `Tasks.tsx:handleEditTask` both call the RPC. Frequency-rule normalization (mwf, t_th, custom day sort/dedupe) lives in `src/lib/templates/serializeRoutineSectionsForRpc.ts` so the SQL stays simple and the mapping is unit-testable. | **Wired** | c3. Replaces two divergent inline rewrite chains that diverged on error handling (one threw, one swallowed). |
+| Routine edit error surfacing | `Tasks.tsx:handleEditTask` now throws on UPDATE-tasks failure (was `console.error + return`) and on RPC failure. The c2 catch block in `TaskCreationModal` surfaces both via the error toast. | **Wired** | c3. Mom always sees what happened — no more silent saves. |
+
 ## Sequential Collections (PRD-09A/09B Studio Intelligence Phase 1)
 
 | Capability | Entry Point | Status | Notes |
