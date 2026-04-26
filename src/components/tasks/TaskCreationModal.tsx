@@ -39,6 +39,20 @@ import { BulkAddWithAI } from '@/components/shared/BulkAddWithAI'
 import type { ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
+// Worker ROUTINE-PROPAGATION (c2.5, founder D5): pre-check overlap
+// against existing routine deployments before save. The DB trigger
+// is the backstop; this is the warm UI path so mom never sees a raw
+// 23-class Postgres error.
+import {
+  detectRoutineOverlap,
+  type RoutineOverlapCandidate,
+} from '@/lib/templates/detectRoutineOverlap'
+import {
+  RoutineOverlapResolutionModal,
+  type RoutineOverlapChoice,
+} from '@/components/templates/RoutineOverlapResolutionModal'
+import { fetchFamilyToday } from '@/hooks/useFamilyToday'
+import { supabase } from '@/lib/supabase/client'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -551,6 +565,17 @@ export function TaskCreationModal({
   const [enableStartLater, setEnableStartLater] = useState<boolean>(
     !!editTaskValues?.startDate,
   )
+  // Worker ROUTINE-PROPAGATION (c2.5): overlap modal state. When the
+  // pre-check finds existing deployments overlapping the proposed
+  // dates, we stash the resolved finalData and the candidates list,
+  // then render the resolution modal. On user choice we either archive
+  // the existing rows + proceed, or abort.
+  const [overlapState, setOverlapState] = useState<{
+    candidates: RoutineOverlapCandidate[]
+    pendingFinalData: CreateTaskData
+    proposedDtstart: string
+    proposedEndDate: string | null
+  } | null>(null)
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time')
   const [quickDays, setQuickDays] = useState<number[]>([])
   const [quickDate, setQuickDate] = useState('')
@@ -675,6 +700,64 @@ export function TaskCreationModal({
           ? (selectedIcon?.variant ?? iconAutoSuggestions[0]?.variant ?? null)
           : null,
       }
+
+      // Worker ROUTINE-PROPAGATION (c2.5, founder D5): pre-check
+      // overlap with existing routine deployments BEFORE handing off
+      // to the consuming page's onSave. Skip when:
+      //   - not a routine (overlap rule is routine-specific)
+      //   - editing master template (templateOnly path doesn't insert
+      //     a task row)
+      //   - editing an existing deployment via editingTemplateId path
+      //     (the existing tasks row IS the row being updated; the
+      //     trigger excludes it via TG_OP UPDATE check)
+      //   - no family_id available (e.g. modal opened without auth)
+      //   - no assignees picked (no rows to insert anyway)
+      if (
+        finalData.taskType === 'routine' &&
+        !finalData.templateOnly &&
+        !editingTemplateId &&
+        currentMember?.family_id
+      ) {
+        const proposedAssigneeIds = finalData.wholeFamily
+          ? familyMembers.filter(m => m.is_active).map(m => m.id)
+          : finalData.assignments
+              .map(a => a.memberId)
+              .filter((id): id is string => !!id)
+
+        const targetTemplateId =
+          finalData.deployFromTemplateId ?? finalData.editingTemplateId ?? null
+
+        if (proposedAssigneeIds.length > 0 && targetTemplateId) {
+          const proposedDtstart = finalData.startDate
+            ? finalData.startDate
+            : await fetchFamilyToday(currentMember.id)
+          const proposedEndDate = finalData.dueDate || null
+
+          const candidates = await detectRoutineOverlap(supabase, {
+            familyId: currentMember.family_id,
+            templateId: targetTemplateId,
+            assigneeIds: proposedAssigneeIds,
+            newDtstart: proposedDtstart,
+            newEndDate: proposedEndDate,
+          })
+
+          if (candidates.length > 0) {
+            // Stash and surface the resolution modal. handleSave returns
+            // here; the modal's onResolve callback will re-enter the
+            // save path with the appropriate side effect (archive
+            // existing for 'replace', or abort for 'cancel'/'adjust').
+            setOverlapState({
+              candidates,
+              pendingFinalData: finalData,
+              proposedDtstart,
+              proposedEndDate,
+            })
+            setLoading(false)
+            return
+          }
+        }
+      }
+
       await onSave(finalData)
       if (batchMode === 'sequential' && batchItems && batchIndex < batchItems.length - 1) {
         setBatchIndex((i) => i + 1)
@@ -2344,9 +2427,71 @@ export function TaskCreationModal({
     </div>
   )
 
+  // ─── Overlap resolution handler ─────────────────────────────
+  // Worker ROUTINE-PROPAGATION (c2.5, founder D5): when mom picks one
+  // of the three options in the resolution modal, apply the side
+  // effect (archive existing or noop) and then re-enter the save path
+  // with the stashed finalData.
+  const handleOverlapResolve = useCallback(
+    async (choice: RoutineOverlapChoice) => {
+      const stash = overlapState
+      if (!stash) return
+
+      if (choice.kind === 'cancel' || choice.kind === 'adjust') {
+        // Both close the modal but leave TaskCreationModal open so mom
+        // can think or adjust the date pickers. No save.
+        setOverlapState(null)
+        return
+      }
+
+      if (choice.kind === 'replace') {
+        // Archive every existing overlapping deployment (one row per
+        // candidate, may be multiple if mom is deploying to several
+        // family members and each had an overlap), then proceed with
+        // the original save.
+        setLoading(true)
+        try {
+          const idsToArchive = Array.from(
+            new Set(stash.candidates.map(c => c.existingTaskId)),
+          )
+          if (idsToArchive.length > 0) {
+            const { error: archiveError } = await supabase
+              .from('tasks')
+              .update({ archived_at: new Date().toISOString() })
+              .in('id', idsToArchive)
+            if (archiveError) {
+              console.error(
+                '[TaskCreationModal] Failed to archive overlapping deployments:',
+                archiveError,
+              )
+              setOverlapState(null)
+              setLoading(false)
+              return
+            }
+          }
+          await onSave(stash.pendingFinalData)
+          setOverlapState(null)
+          if (
+            batchMode === 'sequential' &&
+            batchItems &&
+            batchIndex < batchItems.length - 1
+          ) {
+            setBatchIndex(i => i + 1)
+          } else {
+            onClose()
+          }
+        } finally {
+          setLoading(false)
+        }
+      }
+    },
+    [overlapState, onSave, onClose, batchMode, batchItems, batchIndex],
+  )
+
   // ─── Render ─────────────────────────────────────────────────
 
   return (
+    <>
     <ModalV2
       id={editMode ? 'task-edit' : 'task-create'}
       isOpen={isOpen}
@@ -2411,5 +2556,21 @@ export function TaskCreationModal({
         </div>
       )}
     </ModalV2>
+
+    {/* Worker ROUTINE-PROPAGATION (c2.5): routine overlap resolution.
+        Renders as a sibling to the main modal so it floats above when
+        the pre-check finds an overlap. */}
+    {overlapState && (
+      <RoutineOverlapResolutionModal
+        isOpen={!!overlapState}
+        onClose={() => setOverlapState(null)}
+        candidates={overlapState.candidates}
+        proposedDtstart={overlapState.proposedDtstart}
+        proposedEndDate={overlapState.proposedEndDate}
+        templateName={overlapState.pendingFinalData.title}
+        onResolve={handleOverlapResolve}
+      />
+    )}
+    </>
   )
 }
