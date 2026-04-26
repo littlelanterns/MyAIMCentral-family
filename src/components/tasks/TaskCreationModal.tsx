@@ -51,6 +51,16 @@ import {
   RoutineOverlapResolutionModal,
   type RoutineOverlapChoice,
 } from '@/components/templates/RoutineOverlapResolutionModal'
+// Worker ROUTINE-PROPAGATION (c3, founder D3): master-template edit
+// confirmation. When mom saves an edit to a routine template that is
+// currently deployed to N family members, surface the count + names
+// so she knows exactly who is affected. Past completions stay as-is.
+import {
+  getActiveTemplateDeployments,
+  distinctAssigneeNames,
+  type ActiveDeployment,
+} from '@/lib/templates/getActiveTemplateDeployments'
+import { MasterTemplateEditConfirmationModal } from '@/components/templates/MasterTemplateEditConfirmationModal'
 import { fetchFamilyToday } from '@/hooks/useFamilyToday'
 import { supabase } from '@/lib/supabase/client'
 
@@ -576,6 +586,13 @@ export function TaskCreationModal({
     proposedDtstart: string
     proposedEndDate: string | null
   } | null>(null)
+  // Worker ROUTINE-PROPAGATION (c3): master-template edit confirmation
+  // state. Holds the deployments list + the pending finalData while
+  // the modal is up.
+  const [editConfirmState, setEditConfirmState] = useState<{
+    deployments: ActiveDeployment[]
+    pendingFinalData: CreateTaskData
+  } | null>(null)
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time')
   const [quickDays, setQuickDays] = useState<number[]>([])
   const [quickDate, setQuickDate] = useState('')
@@ -701,6 +718,33 @@ export function TaskCreationModal({
           : null,
       }
 
+      // Worker ROUTINE-PROPAGATION (c3, founder D3): when mom is editing
+      // an existing master template (editingTemplateId set), pre-check
+      // active deployments. If 1+ are affected, surface the
+      // confirmation modal naming each family member before saving.
+      // Past completions are preserved (keyed by step_id) so we just
+      // need mom's eyes-on confirmation that propagating is intended.
+      if (
+        editingTemplateId &&
+        finalData.taskType === 'routine' &&
+        finalData.routineSections &&
+        finalData.routineSections.length > 0
+      ) {
+        const deployments = await getActiveTemplateDeployments(
+          supabase,
+          editingTemplateId,
+        )
+        if (deployments.length > 0) {
+          setEditConfirmState({
+            deployments,
+            pendingFinalData: finalData,
+          })
+          setLoading(false)
+          return
+        }
+        // 0 deployments — fall through to normal save (toast added in c6)
+      }
+
       // Worker ROUTINE-PROPAGATION (c2.5, founder D5): pre-check
       // overlap with existing routine deployments BEFORE handing off
       // to the consuming page's onSave. Skip when:
@@ -780,6 +824,11 @@ export function TaskCreationModal({
     assigneeIsPlayMember,
     selectedIcon,
     enableStartLater,
+    editingTemplateId,
+    currentMember?.id,
+    currentMember?.family_id,
+    familyMembers,
+    iconAutoSuggestions,
   ])
 
   const handleSaveToStudio = useCallback(async () => {
@@ -792,12 +841,31 @@ export function TaskCreationModal({
         templateOnly: true,
         editingTemplateId: editingTemplateId ?? undefined,
       }
+
+      // Worker ROUTINE-PROPAGATION (c3): Save to Studio also propagates
+      // master-template structural edits to active deployments. Same
+      // confirmation modal as the regular save path.
+      if (editingTemplateId) {
+        const deployments = await getActiveTemplateDeployments(
+          supabase,
+          editingTemplateId,
+        )
+        if (deployments.length > 0) {
+          setEditConfirmState({
+            deployments,
+            pendingFinalData: finalData,
+          })
+          setLoading(false)
+          return
+        }
+      }
+
       await onSave(finalData)
       onClose()
     } finally {
       setLoading(false)
     }
-  }, [data, onSave, onClose])
+  }, [data, onSave, onClose, editingTemplateId])
 
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
@@ -2427,6 +2495,34 @@ export function TaskCreationModal({
     </div>
   )
 
+  // ─── Master-template edit confirmation handler (c3) ─────────
+  // When mom confirms the edit, archive the modal state and re-enter
+  // the save path with the stashed finalData. Cancel just closes.
+  const handleEditConfirm = useCallback(async () => {
+    const stash = editConfirmState
+    if (!stash) return
+    setLoading(true)
+    try {
+      await onSave(stash.pendingFinalData)
+      setEditConfirmState(null)
+      if (
+        batchMode === 'sequential' &&
+        batchItems &&
+        batchIndex < batchItems.length - 1
+      ) {
+        setBatchIndex(i => i + 1)
+      } else {
+        onClose()
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex])
+
+  const handleEditCancel = useCallback(() => {
+    setEditConfirmState(null)
+  }, [])
+
   // ─── Overlap resolution handler ─────────────────────────────
   // Worker ROUTINE-PROPAGATION (c2.5, founder D5): when mom picks one
   // of the three options in the resolution modal, apply the side
@@ -2569,6 +2665,21 @@ export function TaskCreationModal({
         proposedEndDate={overlapState.proposedEndDate}
         templateName={overlapState.pendingFinalData.title}
         onResolve={handleOverlapResolve}
+      />
+    )}
+
+    {/* Worker ROUTINE-PROPAGATION (c3): master-template edit
+        confirmation. Fires when mom edits a routine template that has
+        active deployments. */}
+    {editConfirmState && (
+      <MasterTemplateEditConfirmationModal
+        isOpen={!!editConfirmState}
+        onClose={handleEditCancel}
+        affectedNames={distinctAssigneeNames(editConfirmState.deployments)}
+        affectedCount={distinctAssigneeNames(editConfirmState.deployments).length}
+        templateName={editConfirmState.pendingFinalData.title}
+        onConfirm={handleEditConfirm}
+        onCancel={handleEditCancel}
       />
     )}
     </>
