@@ -38,8 +38,28 @@
 | [Customize] Trackers/Widgets | WidgetPicker + WidgetConfiguration | **Wired** | PRD-10 Phase A |
 | My Customized: Deploy | TaskCreationModal | **Wired** | Opens modal from template |
 | My Customized: Edit | TaskCreationModal | **Wired** | Opens modal for editing |
-| My Customized: Duplicate | Supabase insert | **Wired** | Creates copy in DB |
+| My Customized: Duplicate | RoutineDuplicateChooserDialog → RoutineDuplicateTemplateDialog \| RoutineDuplicateDialog | **Wired** | Worker ROUTINE-PROPAGATION (2026-04-25, c4): single duplicate entry point per Convention #255. Chooser asks "What would you like to do?" → "Copy and Customize" (independent template, lands in My Customized) or "Assign Additional Member" (existing deploy flow). Non-routines keep shallow-copy path. |
 | My Customized: Archive | Supabase soft delete | **Wired** | Sets archived_at |
+
+## Routine Deployment & Propagation (Worker ROUTINE-PROPAGATION, 2026-04-25)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| "Schedule to start later" toggle | Toggle in TaskCreationModal routine SectionCard, off by default; on reveals date picker | **Wired** | c2. Persists to `recurrence_details.dtstart` JSONB. Toggle-off silently writes `familyToday` (Convention #257 compliant via `fetchFamilyToday`). |
+| Advance-start gating on dashboard | `recurringTaskFilter` hides routines whose `recurrence_details.dtstart` is in the future | **Wired** | c1. Both RRULE and per-section-frequency code paths covered. |
+| Master-template edit confirmation | When mom edits a master with 1+ active deployments, modal names every affected family member ("This will update 3 active routines: Ruthie, Mosiah, and Gideon.") | **Wired** | c3. `MasterTemplateEditConfirmationModal`. Pre-check fires from both `handleSave` and `handleSaveToStudio`. 0-deployment path silent (toast only). |
+| Overlap detection — backstop | Postgres trigger `prevent_overlapping_routine_assignments` raises `exclusion_violation` on overlap | **Wired** | c2.5. Migration 100176. Replaces strict unique index `tasks_unique_active_routine_per_assignee` from migration 100152. |
+| Overlap detection — application warm path | `detectRoutineOverlap` pre-checks before insert; `RoutineOverlapResolutionModal` surfaces when found | **Wired** | c2.5. Three options: Replace / Keep both, adjust dates / Cancel. "Open existing routine" deep link. |
+| Date-range overlap rule | `(existing.dtstart <= new.end_date) AND (existing.end_date >= new.dtstart)` with NULL end_date = +infinity | **Wired** | c2.5. Pure predicate `dateRangesOverlap` exported separately for cross-feature reuse. |
+| Sequential non-overlapping deployments | Same template, same assignee, non-overlapping date ranges allowed | **Wired** | c2.5 founder D5 rescope. Summer routine + fall routine for same kid both legitimate. |
+| "Scheduled to start" badge on Studio | `ScheduledStartBadge` size=full next to type pill on My Customized cards when ANY active deployment has future dtstart | **Wired** | c5. `useCustomizedTemplates` query computes earliest future dtstart per template. |
+| "Scheduled to start" badge on Tasks page | `ScheduledStartBadge` size=compact below task title in TaskCard for routines with future dtstart | **Wired** | c5. Theme tokens only. |
+| Post-save toasts | RoutingToastProvider success toast on every routine-template save path | **Wired** | c6. Five distinct variants. Anti-panic UX. |
+| Master-template propagation contract | `task_template_sections` and `task_template_steps` propagate live via `template_id` join. Task-level fields snapshot. Past `routine_step_completions` survive structural edits. | **Wired** | c8. Convention #259 added to CLAUDE.md. |
+| Shared `cloneRoutineTemplate` utility | `src/lib/templates/cloneRoutineTemplate.ts` — pure deep-clone, no task row insert. Reused by `RoutineDuplicateDialog` (clone-and-deploy) and `RoutineDuplicateTemplateDialog` (clone-only). | **Wired** | c4. Founder D6 Thread 1 — utilities live under `src/lib/templates/` for cross-feature reuse by future Workers 2/3/4. |
+| Shared template UI under `src/components/templates/` | ScheduledStartBadge, MasterTemplateEditConfirmationModal, RoutineOverlapResolutionModal, RoutineDuplicateChooserDialog, RoutineDuplicateTemplateDialog | **Wired** | c2.5/c3/c4/c5. Cross-feature reuse-ready. |
+| Lists template propagation | List templates have NO deployment wiring | Stub | NEW-ZZ (worksheet row 205, 2026-04-25). Decisions doc: `claude/feature-decisions/Lists-Template-Deploy-Decisions-Needed.md`. Deferred to Worker 4 LISTS-TEMPLATE-DEPLOY. |
+| Shared routines (is_shared=true) completion UX | Anyone-can-complete + completer-color rendering + allowance credit to actual completer | Stub | Deferred to Worker 2 SHARED-ROUTINES per founder D6 Thread 3. Handoff: `claude/feature-decisions/Shared-Assignment-Model-Worker-Handoff.md`. Worker 1 audited is_shared=true rows pass advance-start + overlap detection cleanly. |
 
 ## Sequential Collections (PRD-09A/09B Studio Intelligence Phase 1)
 

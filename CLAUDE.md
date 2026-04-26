@@ -732,3 +732,24 @@ These conventions codify the rules from `claude/web-sync/Composition-Architectur
     **Forward note:** When additional user-surfaced content types enter a shared-cache layer (BookShelf framework promotion via Platform Intelligence Pipeline v2 Channel E is the anticipated next instance), this three-tier pattern is expected to generalize. Either amend this convention or author a parent governance convention at that time; either path is acceptable as long as the three-tier rule is preserved.
 
     See `prds/addenda/PRD-34-Persona-Architecture-Addendum.md` (full architecture spec), `prds/scale-monetize/PRD-32-Admin-Console.md` Screen 13 (admin review UI), `prds/addenda/PRD-32-Personas-Cross-PRD-Impact-Addendum.md` (cross-PRD impact).
+
+259. **Master template edits propagate live; deployed task fields snapshot.** Filed 2026-04-25 by Worker ROUTINE-PROPAGATION (Worker 1) at founder request as part of the c8 ask. Establishes the canonical contract for routine-template propagation so future workers (SHARED-ROUTINES, SHARED-LISTS, LISTS-TEMPLATE-DEPLOY, etc.) inherit a clear rule.
+
+    **The contract:**
+
+    - **Master template structural fields PROPAGATE LIVE to every active deployment** via `template_id` join. Specifically: every column on `task_template_sections` and `task_template_steps`. Reads happen at render time via `useRoutineTemplateSteps(templateId)` (5-minute staleTime in TanStack Query). Edit a section's frequency, step's notes, or step's `instance_count` on the master, and every active deployment reflects the change after the next cache invalidation.
+    - **Task-level fields SNAPSHOT on the deployed `tasks` row at deploy time and do NOT propagate.** Specifically: `tasks.title`, `tasks.description`, `tasks.due_date` (the "Run until" end date), `tasks.recurrence_details.dtstart` (the start date), `tasks.assignee_id`. These belong to the deployment, not the master.
+    - **Past `routine_step_completions` survive structural edits** because they key on `step_id` (FK to `task_template_steps`). When a step is deleted, the completion rows orphan but stay readable in audit views. When a step is added, it shows up empty for past dates with no retroactive completion claimed.
+
+    **Why this matters:**
+
+    - **Confirmation modal copy reflects the contract.** When mom edits a master and 1+ deployments exist, the `MasterTemplateEditConfirmationModal` says "This will update [N] active routines: [Names]." Past completions stay as-is — only future routine days reflect the change. The modal copy works precisely because past completions are stable across structural edits.
+    - **Duplicate flows are deep-clones, not links.** `cloneRoutineTemplate` creates a fully independent template + sections + steps. Edits to the original do NOT flow to the duplicate. This is intentional: mom often duplicates so she can diverge.
+    - **`task_template_steps.linked_source_id` is the one exception.** A linked step's source content (sequential, randomizer, recurring task) is read live from the source — that's a separate live-binding contract per PRD-09A/09B Linked Steps Mastery & Practice Advancement Addendum. The propagation contract above governs the routine template structure; the linked-step contract governs the source content within a linked step. Both are live.
+
+    **What this implies for future work:**
+
+    - **Lists template deploy** (when Worker 4 LISTS-TEMPLATE-DEPLOY ships): founder must decide D-L1 (snapshot vs live binding for `default_items`). If chosen as live binding, the same propagation contract above applies. See `claude/feature-decisions/Lists-Template-Deploy-Decisions-Needed.md`.
+    - **Shared routines** (when Worker 2 SHARED-ROUTINES ships): `is_shared=true` tasks still propagate via `template_id` because the contract is template-level, not assignee-level. Master edit propagates to every assignee's view simultaneously. Confirmed by Worker 1 audit during c1 + c2.5 verification — see `claude/feature-decisions/Shared-Assignment-Model-Worker-Handoff.md`.
+
+    **Reference:** `claude/feature-decisions/PRD-09A-Routine-Propagation-Advance-Scheduling.md` (Worker 1 verification table), `src/hooks/useRoutineTemplateSteps.ts` (the live-binding query), `src/utils/createTaskFromData.ts` lines 128–161 (the master-template edit path that implements the propagation behavior).

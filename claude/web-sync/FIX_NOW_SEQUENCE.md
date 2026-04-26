@@ -1,9 +1,33 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v19 — Worker ALLOWANCE-COMPLETE comprehensive allowance landing 2026-04-24
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165, v19 Worker ALLOWANCE-COMPLETE 7-row landing) by orchestrator
+> **Status:** DRAFT v20 — Worker ROUTINE-PROPAGATION shipped routine deployment + propagation 2026-04-25
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165, v19 Worker ALLOWANCE-COMPLETE 7-row landing, **v20 Worker ROUTINE-PROPAGATION 7-row routine landing + lists deferral**) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 204 rows total (was 196; v19 adds NEW-RR/SS/TT/UU/VV/WW/XX/YY = 8 rows filed by Worker ALLOWANCE-COMPLETE). 4 prior rows resolved in same session: NEW-NN, NEW-OO, NEW-QQ (partial), and the bug-row NEW-UU was first filed and immediately resolved. Beta Readiness blocker count: 26 (NEW-NN closed; NEW-WW added).
+> **Scope:** 205 rows total (v20 adds NEW-ZZ Lists template propagation gap, filed by Worker ROUTINE-PROPAGATION 2026-04-25). v20 lands 7 founder-flagged routine deployment + propagation pieces (advance-start gating, "Schedule to start later" toggle, master-template edit confirmation, duplicate-and-rename chooser flow, scheduled-to-start badge, post-save toasts, overlap detection per founder D5 rescope). Beta Readiness blocker count: 26 unchanged from v19 (this worker's pieces were not previously filed as worksheet rows — direct founder dispatch).
+
+---
+
+## What changed from v19 → v20 (Worker ROUTINE-PROPAGATION 2026-04-25)
+
+**Worker ROUTINE-PROPAGATION** delivered the comprehensive routine deployment + propagation landing the founder dispatched as a 7-piece bundle on 2026-04-25.
+
+**Shipped (8 commits, c1 through c8):**
+- **c1 — Advance-start gating in `recurringTaskFilter`** — RRULE and per-section-frequency code paths both honor `recurrence_details.dtstart`. is_shared=true rows audited (PASS). 12/12 vitest.
+- **c2 — "Schedule to start later" toggle + dtstart persistence** — Toggle from `@/components/shared` in routine SectionCard, off by default. `buildTaskScheduleFields` adds routine branch always emitting dtstart (familyToday default per Convention #257). 7/7 vitest.
+- **c2.5 — Overlap detection (founder D5 rescope)** — Migration 100176: drops strict unique index `tasks_unique_active_routine_per_assignee` (from 100152), replaces with `prevent_overlapping_routine_assignments` trigger. New `detectRoutineOverlap` utility + `RoutineOverlapResolutionModal` (Replace / Keep both adjust dates / Cancel + "Open existing routine" deep link). 15/15 vitest.
+- **c3 — Master-template edit confirmation modal** — `MasterTemplateEditConfirmationModal` with count + Oxford-comma name list. Pre-check fires from both `handleSave` and `handleSaveToStudio`. 0-deployment path silent. 15/15 vitest.
+- **c4 — Studio chooser dialog + Copy and Customize flow** — Single duplicate entry point per Convention #255. `RoutineDuplicateChooserDialog` + `RoutineDuplicateTemplateDialog` + shared `cloneRoutineTemplate` utility. 7/7 vitest.
+- **c5 — "Scheduled to start" badge** — `ScheduledStartBadge` component (full + compact sizes) wired into both Tasks page (TaskCard) and Studio My Customized cards. 8/8 vitest.
+- **c6 — Post-save toasts across all template save paths** — Reuses RoutingToastProvider. 5 distinct variants. Anti-panic UX.
+- **c7 — Lists template deploy deferral** — Worksheet row 205 NEW-ZZ filed. `Lists-Template-Deploy-Decisions-Needed.md` decisions doc captures the 6 questions a future Worker 4 needs answered before dispatch.
+- **c8 — Docs landing** — Feature decision file with verification table (38 requirements, 37 Wired, 1 Stubbed, 0 Missing). `Shared-Assignment-Model-Worker-Handoff.md` dispatch doc for Workers 2/3. CLAUDE.md Convention #259 (master template propagation contract). WIRING_STATUS + this FIX_NOW_SEQUENCE update.
+
+**Newly filed (1 row):**
+- **NEW-ZZ** (Lists / Templates, High, Y) — Fix Next Build, Beta blocker — list templates have NO deployment wiring, `lists.template_id` never written, `default_items` never read. Decisions doc filed for Worker 4 LISTS-TEMPLATE-DEPLOY dispatch.
+
+**Cumulative test coverage:** 64/64 vitest pass across c1-c5 vitest suites.
+
+**Migration:** 100176 authored, not yet applied to production. Application code is forward-compatible — `detectRoutineOverlap` works regardless of trigger state.
 
 ---
 
