@@ -693,10 +693,20 @@ export function TaskCreationModal({
   // Worker ROUTINE-PROPAGATION (c6): toast helper. Wraps useRoutingToast
   // so save sites can call showToast(message) without remembering the
   // {message, onDismiss} shape.
+  //
+  // Worker ROUTINE-SAVE-FIX (c2): added showErrorToast for the catch
+  // blocks below. Error toasts use the 'error' variant (red border,
+  // alert icon, 10s dwell time) so mom has time to read what went wrong.
   const routingToast = useRoutingToast()
   const showToast = useCallback(
     (message: string) => {
       routingToast.show({ message })
+    },
+    [routingToast],
+  )
+  const showErrorToast = useCallback(
+    (message: string) => {
+      routingToast.show({ message, variant: 'error' })
     },
     [routingToast],
   )
@@ -857,6 +867,13 @@ export function TaskCreationModal({
       } else {
         onClose()
       }
+    } catch (err) {
+      // Worker ROUTINE-SAVE-FIX (c2): surface save failures so mom isn't
+      // left wondering whether her edits saved. Modal stays open — her
+      // edits are preserved in component state — so she can retry or
+      // copy her changes elsewhere before closing.
+      console.error('Routine save failed:', err)
+      showErrorToast("Couldn't save changes. Please try again or contact support.")
     } finally {
       setLoading(false)
     }
@@ -879,6 +896,7 @@ export function TaskCreationModal({
     familyMembers,
     iconAutoSuggestions,
     showToast,
+    showErrorToast,
   ])
 
   const handleSaveToStudio = useCallback(async () => {
@@ -916,10 +934,16 @@ export function TaskCreationModal({
       // its own toast via handleEditConfirm.
       showToast('Template saved.')
       onClose()
+    } catch (err) {
+      // Worker ROUTINE-SAVE-FIX (c2): same contract as handleSave —
+      // surface the error and keep the modal open so mom can retry
+      // without losing her work.
+      console.error('Routine save failed:', err)
+      showErrorToast("Couldn't save changes. Please try again or contact support.")
     } finally {
       setLoading(false)
     }
-  }, [data, onSave, onClose, editingTemplateId, showToast])
+  }, [data, onSave, onClose, editingTemplateId, showToast, showErrorToast])
 
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
@@ -2580,10 +2604,17 @@ export function TaskCreationModal({
       } else {
         onClose()
       }
+    } catch (err) {
+      // Worker ROUTINE-SAVE-FIX (c2): post-confirm save failure. Keep
+      // editConfirmState as-is so mom can either retry the modal Update
+      // button OR cancel out and adjust her edits — either path stays
+      // discoverable instead of vanishing silently.
+      console.error('Routine save failed:', err)
+      showErrorToast("Couldn't save changes. Please try again or contact support.")
     } finally {
       setLoading(false)
     }
-  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex, showToast])
+  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex, showToast, showErrorToast])
 
   const handleEditCancel = useCallback(() => {
     setEditConfirmState(null)

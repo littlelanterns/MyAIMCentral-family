@@ -17,6 +17,13 @@ interface RoutingToastState {
   destinationPath?: string
   onUndo?: () => void
   onAlsoSendTo?: () => void
+  /**
+   * Toast variant. 'success' (default) preserves existing call-site
+   * styling. 'error' switches to error tokens, swaps in the alert icon,
+   * and gives mom 10s to read instead of 5s. See UndoToast for full
+   * variant behavior (Worker ROUTINE-SAVE-FIX c2).
+   */
+  variant?: 'success' | 'error'
 }
 
 interface RoutingToastContextValue {
@@ -46,6 +53,7 @@ export function RoutingToastProvider({ children }: { children: ReactNode }) {
         <UndoToast
           message={toast.message}
           destinationPath={toast.destinationPath}
+          variant={toast.variant}
           onUndo={toast.onUndo ? () => {
             toast.onUndo!()
             setToast(null)
