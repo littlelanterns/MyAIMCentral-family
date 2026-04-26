@@ -17,6 +17,11 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { LinkedSourcePicker } from '@/components/tasks/sequential/LinkedSourcePicker'
 import { supabase } from '@/lib/supabase/client'
 import type { TaskTemplateStep, LinkedSourceType } from '@/types/tasks'
+// Worker ROUTINE-PROPAGATION (c4, founder D6 Thread 1): deep-clone is
+// now a shared primitive under src/lib/templates/. Both this clone-
+// and-deploy dialog and the new clone-as-template dialog
+// (RoutineDuplicateTemplateDialog) call it.
+import { cloneRoutineTemplate } from '@/lib/templates/cloneRoutineTemplate'
 
 interface RoutineDuplicateDialogProps {
   isOpen: boolean
@@ -124,74 +129,41 @@ export function RoutineDuplicateDialog({
     setError(null)
 
     try {
-      // 1. Create new template
-      const { data: newTemplate, error: tplError } = await supabase
-        .from('task_templates')
-        .insert({
-          family_id: familyId,
-          created_by: createdBy,
-          title: `${templateName} (copy)`,
-          task_type: 'routine',
-          template_type: 'routine',
-          is_system: false,
-        })
-        .select('id')
-        .single()
-
-      if (tplError) throw tplError
-
-      // 2. Copy sections
-      for (const section of sections) {
-        const { data: newSection, error: secError } = await supabase
-          .from('task_template_sections')
-          .insert({
-            template_id: newTemplate.id,
-            title: section.title,
-            section_name: section.title,
-            frequency_rule: section.frequency_rule,
-            frequency_days: section.frequency_days,
-            sort_order: section.sort_order,
-          })
-          .select('id')
-          .single()
-
-        if (secError) throw secError
-
-        // 3. Copy steps with linked source resolution
-        if (section.steps.length > 0) {
-          const stepInserts = section.steps.map((step: TaskTemplateStep) => {
-            const resolution = getResolution(step.id)
+      // Build linkedStepResolutions only for steps mom actually changed
+      // — preserves the existing behavior where unchanged linked steps
+      // share progress with the source.
+      const resolutions = sections
+        .flatMap(sec =>
+          sec.steps.map((step: TaskTemplateStep) => {
+            const r = getResolution(step.id)
+            if (!r) return null
+            // Skip when mom did not actually change the source.
+            if (r.resolvedSourceId === r.originalSourceId) return null
             return {
-              section_id: newSection.id,
-              title: step.title,
-              step_name: step.title,
-              step_notes: step.step_notes,
-              instance_count: step.instance_count ?? 1,
-              require_photo: step.require_photo ?? false,
-              sort_order: step.sort_order,
-              step_type: step.step_type ?? 'static',
-              linked_source_id: resolution?.resolvedSourceId ?? step.linked_source_id ?? null,
-              linked_source_type: resolution?.resolvedSourceType ?? step.linked_source_type ?? null,
-              display_name_override: resolution?.resolvedSourceName !== step.title
-                ? resolution?.resolvedSourceName ?? step.display_name_override
-                : step.display_name_override ?? null,
+              sourceStepId: step.id,
+              resolvedSourceId: r.resolvedSourceId,
+              resolvedSourceType: r.resolvedSourceType,
+              resolvedSourceName: r.resolvedSourceName,
             }
-          })
+          }),
+        )
+        .filter((r): r is NonNullable<typeof r> => r !== null)
 
-          const { error: stepsError } = await supabase
-            .from('task_template_steps')
-            .insert(stepInserts)
+      // 1. Deep-clone the template via the shared utility.
+      const cloned = await cloneRoutineTemplate(supabase, {
+        sourceTemplateId: templateId,
+        newTitle: `${templateName} (copy)`,
+        familyId,
+        createdBy,
+        linkedStepResolutions: resolutions,
+      })
 
-          if (stepsError) throw stepsError
-        }
-      }
-
-      // 4. Create the task itself assigned to the target member
+      // 2. Create the task itself assigned to the target member.
       const { error: taskError } = await supabase.from('tasks').insert({
         family_id: familyId,
         created_by: createdBy,
         assignee_id: targetMemberId,
-        template_id: newTemplate.id,
+        template_id: cloned.newTemplateId,
         title: `${templateName} (copy)`,
         task_type: 'routine',
         status: 'pending',

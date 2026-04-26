@@ -29,6 +29,13 @@ import { CustomizedTemplateCard } from '@/components/studio/CustomizedTemplateCa
 import type { StudioTemplate } from '@/components/studio/StudioTemplateCard'
 import type { CustomizedTemplate } from '@/components/studio/CustomizedTemplateCard'
 import { RoutineDuplicateDialog } from '@/components/tasks/RoutineDuplicateDialog'
+// Worker ROUTINE-PROPAGATION (c4, founder D4 + D6 Thread 1):
+//   - Chooser dialog: single duplicate entry point (per Convention #255)
+//     "What would you like to do?" → Copy and Customize | Assign Additional Member
+//   - Template-only duplicate dialog: independent deep-clone of master,
+//     lands in My Customized for editing before assigning.
+import { RoutineDuplicateChooserDialog } from '@/components/templates/RoutineDuplicateChooserDialog'
+import { RoutineDuplicateTemplateDialog } from '@/components/templates/RoutineDuplicateTemplateDialog'
 import type { TabItem } from '@/components/shared'
 import {
   TASK_TEMPLATES_BLANK,
@@ -200,8 +207,15 @@ export function StudioPage() {
   // Build J: Reading List template opens SequentialCreatorModal with mastery + duration tracking presets
   const [sequentialTemplateId, setSequentialTemplateId] = useState<string | null>(null)
 
-  // Routine duplication dialog state
+  // Routine duplication dialog state — used by the existing
+  // clone-and-deploy flow (RoutineDuplicateDialog).
   const [duplicateRoutine, setDuplicateRoutine] = useState<{ id: string; name: string } | null>(null)
+  // Worker ROUTINE-PROPAGATION (c4, founder D4): chooser + clone-as-
+  // template state. The chooser fires first; based on mom's choice we
+  // open either RoutineDuplicateTemplateDialog (Copy and Customize) or
+  // the existing RoutineDuplicateDialog (Assign Additional Member).
+  const [duplicateChooser, setDuplicateChooser] = useState<{ id: string; name: string } | null>(null)
+  const [duplicateAsTemplate, setDuplicateAsTemplate] = useState<{ id: string; name: string } | null>(null)
 
   // GuidedFormAssignModal state
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
@@ -791,8 +805,11 @@ export function StudioPage() {
                   }}
                   onDuplicate={(t) => {
                     if (t.templateType === 'routine') {
-                      // Routines get the deep-copy dialog with linked step resolution
-                      setDuplicateRoutine({ id: t.id, name: t.name })
+                      // Worker ROUTINE-PROPAGATION (c4, founder D4):
+                      // open the chooser dialog first. Based on mom's
+                      // choice we open either the clone-as-template
+                      // dialog or the existing clone-and-deploy dialog.
+                      setDuplicateChooser({ id: t.id, name: t.name })
                     } else {
                       // Non-routines: shallow copy (template row only)
                       supabase.from('task_templates').insert({
@@ -909,7 +926,47 @@ export function StudioPage() {
         />
       )}
 
-      {/* ── Routine Duplicate Dialog ────────────────────────────── */}
+      {/* ── Routine Duplicate Chooser (c4, founder D4) ─────────── */}
+      {/* Single duplicate entry point per Convention #255. Mom picks:
+          Copy and Customize → RoutineDuplicateTemplateDialog
+          Assign Additional Member → RoutineDuplicateDialog (existing) */}
+      {duplicateChooser && (
+        <RoutineDuplicateChooserDialog
+          isOpen={true}
+          onClose={() => setDuplicateChooser(null)}
+          templateName={duplicateChooser.name}
+          onChoice={(choice) => {
+            const stash = duplicateChooser
+            setDuplicateChooser(null)
+            if (!stash) return
+            if (choice === 'copy_template') {
+              setDuplicateAsTemplate(stash)
+            } else if (choice === 'assign_member') {
+              setDuplicateRoutine(stash)
+            }
+          }}
+        />
+      )}
+
+      {/* ── Routine Duplicate as Template (c4, "Copy and Customize") ── */}
+      {duplicateAsTemplate && (
+        <RoutineDuplicateTemplateDialog
+          isOpen={true}
+          onClose={() => setDuplicateAsTemplate(null)}
+          sourceTemplateId={duplicateAsTemplate.id}
+          sourceTemplateName={duplicateAsTemplate.name}
+          familyId={family?.id ?? ''}
+          createdBy={member?.id ?? ''}
+          onDuplicated={() => {
+            setDuplicateAsTemplate(null)
+            queryClient.invalidateQueries({
+              queryKey: ['task_templates_customized', family?.id],
+            })
+          }}
+        />
+      )}
+
+      {/* ── Routine Duplicate Dialog ("Assign Additional Member") ─── */}
       {duplicateRoutine && (
         <RoutineDuplicateDialog
           isOpen={true}
