@@ -200,8 +200,14 @@ export function TaskCard({
   )
   const routineProgress = (() => {
     if (!isRoutine || !routineSections?.length) return { completed: 0, total: 0 }
-    const completedIds = new Set((routineCompletions ?? []).map(c => c.step_id))
-    const weekIds = new Set((routineWeekCompletions ?? []).map(c => c.step_id))
+    // Migration 100177: step_id is nullable on orphaned completions. Filter
+    // NULLs so Set<string>.has() against live step IDs stays sound.
+    const completedIds = new Set(
+      (routineCompletions ?? []).map(c => c.step_id).filter((id): id is string => id !== null),
+    )
+    const weekIds = new Set(
+      (routineWeekCompletions ?? []).map(c => c.step_id).filter((id): id is string => id !== null),
+    )
     const activeSections = routineSections.filter(s => isSectionActiveToday(s, completedIds, weekIds))
     const todaySteps = activeSections.flatMap(s => s.steps)
     const done = todaySteps.filter(s => completedIds.has(s.id)).length

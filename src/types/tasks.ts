@@ -445,7 +445,15 @@ export type CreateTaskCompletion = {
 export interface RoutineStepCompletion {
   id: string
   task_id: string
-  step_id: string
+  /**
+   * NULL when the underlying task_template_steps row was deleted (Convention #259 +
+   * migration 100177 ON DELETE SET NULL). Audit-trail completions retain the row
+   * but lose their step linkage. Consumers that build Set<string> membership
+   * checks against live step IDs are inherently safe — a NULL never matches a
+   * real step.id. Aggregations grouped by step should filter `WHERE step_id IS
+   * NOT NULL`.
+   */
+  step_id: string | null
   member_id: string                // legacy
   family_member_id: string | null  // PRD-09A name
   instance_number: number

@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-25
+> Auto-generated from live Supabase on 2026-04-26
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 246 rows
+### `view_as_sessions` — 287 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 145 rows
+### `view_as_feature_exclusions` — 183 rows
 
 | # | Column |
 |---|---|
@@ -290,7 +290,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 73 rows
+### `lila_conversations` — 74 rows
 
 | # | Column |
 |---|---|
@@ -315,7 +315,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 152 rows
+### `lila_messages` — 156 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 578 rows
+### `ai_usage_tracking` — 590 rows
 
 | # | Column |
 |---|---|
@@ -432,7 +432,7 @@
 | 18 | `sort_order` |
 | 19 | `archived_at` |
 
-### `best_intentions` — 12 rows
+### `best_intentions` — 11 rows
 
 | # | Column |
 |---|---|
@@ -460,7 +460,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 46 rows
+### `intention_iterations` — 31 rows
 
 | # | Column |
 |---|---|
@@ -658,7 +658,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 77 rows
+### `tasks` — 81 rows
 
 | # | Column |
 |---|---|
@@ -779,7 +779,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 198 rows
+### `routine_step_completions` — 280 rows
 
 | # | Column |
 |---|---|
@@ -1303,7 +1303,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 12 rows
+### `victories` — 13 rows
 
 | # | Column |
 |---|---|
@@ -1740,7 +1740,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2164,7 +2164,7 @@
 | 3 | `vault_item_id` |
 | 4 | `created_at` |
 
-### `vault_user_progress` — 14 rows
+### `vault_user_progress` — 15 rows
 
 | # | Column |
 |---|---|
@@ -2178,7 +2178,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 229 rows
+### `vault_user_visits` — 231 rows
 
 | # | Column |
 |---|---|
@@ -2186,7 +2186,7 @@
 | 2 | `user_id` |
 | 3 | `visited_at` |
 
-### `vault_first_sightings` — 82 rows
+### `vault_first_sightings` — 99 rows
 
 | # | Column |
 |---|---|
@@ -2456,7 +2456,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 140 rows
+### `activity_log_entries` — 141 rows
 
 | # | Column |
 |---|---|
@@ -2585,7 +2585,7 @@
 | 27 | `bonus_type` |
 | 28 | `bonus_flat_amount` |
 
-### `allowance_periods` — 6 rows
+### `allowance_periods` — 10 rows
 
 | # | Column |
 |---|---|
@@ -2615,7 +2615,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 62 rows
+### `beta_glitch_reports` — 65 rows
 
 | # | Column |
 |---|---|
@@ -2800,7 +2800,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 0 rows
+### `financial_transactions` — 4 rows
 
 | # | Column |
 |---|---|
@@ -3264,7 +3264,7 @@
 | 10 | `practice_count` |
 | 11 | `created_at` |
 
-### `reflection_prompts` — 192 rows
+### `reflection_prompts` — 256 rows
 
 | # | Column |
 |---|---|

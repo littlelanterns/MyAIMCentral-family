@@ -486,8 +486,14 @@ function useGuidedRoutineProgress(taskId: string, templateId: string | null, mem
   const { data: completions } = useRoutineStepCompletions(taskId, memberId)
   const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
 
-  const completedIds = new Set((completions ?? []).map(c => c.step_id))
-  const weekIds = new Set((weekCompletions ?? []).map(c => c.step_id))
+  // Migration 100177: step_id is nullable on orphaned completions. Filter
+  // NULLs so Set<string>.has() against live step IDs stays sound.
+  const completedIds = new Set(
+    (completions ?? []).map(c => c.step_id).filter((id): id is string => id !== null),
+  )
+  const weekIds = new Set(
+    (weekCompletions ?? []).map(c => c.step_id).filter((id): id is string => id !== null),
+  )
   const activeSections = (sections ?? []).filter(s => isSectionActiveToday(s, completedIds, weekIds))
   const todaySteps = activeSections.flatMap(s => s.steps)
   const done = todaySteps.filter(s => completedIds.has(s.id)).length

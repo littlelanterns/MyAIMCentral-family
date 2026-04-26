@@ -555,14 +555,21 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
     )
   }
 
-  // Today's completions — used for rendering checkmarks on steps
+  // Today's completions — used for rendering checkmarks on steps.
+  // Migration 100177 (Convention #259): step_id is NULL on completions whose
+  // step was deleted by a structural template edit. Filter NULLs out so the
+  // Set<string> contract holds — orphan completions can't match any live step.
   const completedStepIds = new Set(
-    (completions ?? []).map(c => c.step_id),
+    (completions ?? [])
+      .map(c => c.step_id)
+      .filter((id): id is string => id !== null),
   )
   // Week completions — used by isSectionActiveToday to determine if a
   // show_until_complete section has been finished this week (Mon→today)
   const weekCompletedStepIds = new Set(
-    (weekCompletions ?? []).map(c => c.step_id),
+    (weekCompletions ?? [])
+      .map(c => c.step_id)
+      .filter((id): id is string => id !== null),
   )
 
   async function handleToggleStep(stepId: string, isCurrentlyCompleted: boolean) {
