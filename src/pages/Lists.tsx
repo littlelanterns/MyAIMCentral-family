@@ -51,6 +51,8 @@ import {
 } from '@/components/tasks/sequential/SequentialCollectionView'
 import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
 import { useSequentialCollections } from '@/hooks/useSequentialCollections'
+import { isDateActive, type SchedulerOutput } from '@/components/scheduling'
+import { todayLocalIso } from '@/utils/dates'
 
 // ── Victory mode selector ──────────────────────────────────
 const VICTORY_MODE_OPTIONS: { value: VictoryMode; label: string; description: string }[] = [
@@ -650,17 +652,35 @@ export function ListsPage() {
           {filtered.map(list => {
             const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
             const Icon = cfg.icon
+            const scheduleActive = list.schedule_config
+              ? isDateActive(list.schedule_config as unknown as SchedulerOutput, todayLocalIso())
+              : false
             return (
               <button
                 key={list.id}
                 onClick={() => setSelectedListId(list.id)}
-                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square"
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square relative"
                 style={{
                   backgroundColor: 'var(--color-bg-card)',
                   border: '1px solid var(--color-border)',
                   boxShadow: '2px 3px 8px rgba(0, 0, 0, 0.06)',
                 }}
               >
+                {list.schedule_config && (
+                  <span
+                    className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-medium"
+                    style={{
+                      background: scheduleActive
+                        ? 'color-mix(in srgb, var(--color-success, #4caf50) 15%, transparent)'
+                        : 'color-mix(in srgb, var(--color-text-secondary) 12%, transparent)',
+                      color: scheduleActive
+                        ? 'var(--color-success, #4caf50)'
+                        : 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {scheduleActive ? 'Active today' : 'Scheduled'}
+                  </span>
+                )}
                 <Icon size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
                 <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
                 <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
@@ -704,6 +724,9 @@ export function ListsPage() {
           {filtered.map(list => {
             const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
             const Icon = cfg.icon
+            const scheduleActive = list.schedule_config
+              ? isDateActive(list.schedule_config as unknown as SchedulerOutput, todayLocalIso())
+              : false
             return (
               <button
                 key={list.id}
@@ -713,7 +736,24 @@ export function ListsPage() {
               >
                 <Icon size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
+                    {list.schedule_config && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[9px] font-medium flex-shrink-0"
+                        style={{
+                          background: scheduleActive
+                            ? 'color-mix(in srgb, var(--color-success, #4caf50) 15%, transparent)'
+                            : 'color-mix(in srgb, var(--color-text-secondary) 12%, transparent)',
+                          color: scheduleActive
+                            ? 'var(--color-success, #4caf50)'
+                            : 'var(--color-text-secondary)',
+                        }}
+                      >
+                        {scheduleActive ? 'Active today' : 'Scheduled'}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                     {cfg.label} {list.is_shared ? ' · Shared' : ''}
                   </p>

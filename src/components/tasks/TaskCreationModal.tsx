@@ -17,7 +17,7 @@ import {
   CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw,
 } from 'lucide-react'
 import { Button, ModalV2, Toggle, Tooltip } from '@/components/shared'
-import { UniversalScheduler } from '@/components/scheduling'
+import { UniversalScheduler, PickDatesAssigneeEditor } from '@/components/scheduling'
 import { getMemberColor } from '@/lib/memberColors'
 import { RoutineSectionEditor } from './RoutineSectionEditor'
 import { TaskBreaker } from './TaskBreaker'
@@ -2194,6 +2194,40 @@ export function TaskCreationModal({
                 showTimeDefault={false}
                 compactMode
               />
+              {data.schedule?.schedule_type === 'painted' && (() => {
+                const selectedIds = data.wholeFamily
+                  ? assignableMembers.map(m => m.id)
+                  : data.assignments.map(a => a.memberId).filter((id): id is string => !!id)
+                const selectedMembers = assignableMembers.filter(m => selectedIds.includes(m.id))
+                if (selectedMembers.length < 2 || !data.schedule?.rdates?.length) return null
+                return (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <PickDatesAssigneeEditor
+                      paintedDates={data.schedule.rdates}
+                      assigneeMap={data.schedule.assignee_map ?? {}}
+                      members={selectedMembers}
+                      instantiationMode={data.schedule.instantiation_mode ?? 'per_assignee_instance'}
+                      dispatch={(action) => {
+                        const schedule = data.schedule
+                        if (!schedule) return
+                        if (action.type === 'SET_INSTANTIATION_MODE') {
+                          update('schedule', { ...schedule, instantiation_mode: action.mode })
+                        } else if (action.type === 'SET_ASSIGNEE_MAP') {
+                          update('schedule', { ...schedule, assignee_map: Object.keys(action.map).length > 0 ? action.map : null })
+                        } else if (action.type === 'SET_DATE_ASSIGNEES') {
+                          const newMap = { ...(schedule.assignee_map ?? {}) }
+                          if (action.memberIds.length === 0) {
+                            delete newMap[action.date]
+                          } else {
+                            newMap[action.date] = action.memberIds
+                          }
+                          update('schedule', { ...schedule, assignee_map: Object.keys(newMap).length > 0 ? newMap : null })
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              })()}
               <HelperText>For complex schedules like "every other Wednesday" or "first Monday of each month"</HelperText>
             </div>
           )}

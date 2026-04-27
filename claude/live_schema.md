@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 288 rows
+### `view_as_sessions` — 293 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 184 rows
+### `view_as_feature_exclusions` — 187 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 590 rows
+### `ai_usage_tracking` — 594 rows
 
 | # | Column |
 |---|---|
@@ -658,7 +658,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 81 rows
+### `tasks` — 85 rows
 
 | # | Column |
 |---|---|
@@ -738,7 +738,7 @@
 | 74 | `homework_subject_ids` |
 | 75 | `is_extra_credit` |
 
-### `task_assignments` — 28 rows
+### `task_assignments` — 33 rows
 
 | # | Column |
 |---|---|
@@ -907,6 +907,7 @@
 | 36 | `default_reward_amount` |
 | 37 | `default_claim_lock_duration` |
 | 38 | `default_claim_lock_unit` |
+| 39 | `schedule_config` |
 
 ### `list_items` — 116 rows
 
@@ -2756,6 +2757,20 @@
 | 13 | `source` |
 | 14 | `created_at` |
 
+### `deed_firings` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `source_type` |
+| 5 | `source_id` |
+| 6 | `fired_at` |
+| 7 | `metadata` |
+| 8 | `idempotency_key` |
+| 9 | `created_at` |
+
 ### `earned_prizes` — 0 rows
 
 | # | Column |
@@ -3680,7 +3695,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 60 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 61 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

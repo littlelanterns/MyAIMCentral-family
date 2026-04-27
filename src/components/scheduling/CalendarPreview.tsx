@@ -77,6 +77,12 @@ export function CalendarPreview({ output, dispatch }: CalendarPreviewProps) {
 
   function handleDayClick(date: Date) {
     const iso = toISODate(date)
+
+    if (output.schedule_type === 'painted') {
+      dispatch({ type: 'TOGGLE_PAINTED_DATE', date: iso })
+      return
+    }
+
     const isHighlighted = highlightedDates.has(iso) && !exdateSet.has(iso)
     const isRdate = rdateSet.has(iso)
 

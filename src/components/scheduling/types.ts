@@ -22,11 +22,19 @@ export interface SchedulerOutput {
   /** IANA timezone identifier */
   timezone: string
   /** Schedule type discriminator */
-  schedule_type: 'fixed' | 'completion_dependent' | 'custody'
+  schedule_type: 'fixed' | 'completion_dependent' | 'custody' | 'painted'
   /** Completion-dependent config (only when schedule_type = 'completion_dependent') */
   completion_dependent: CompletionDependentConfig | null
   /** Custody pattern config (only when schedule_type = 'custody') */
   custody_pattern: CustodyPatternConfig | null
+  /** Per-date assignee map. Keys are ISO date strings, values are arrays of family_member_id UUIDs. */
+  assignee_map?: Record<string, string[]> | null
+  /** Time-of-day window start (HH:MM, family timezone). When set, deed firing happens at this time. */
+  active_start_time?: string | null
+  /** Time-of-day window end (HH:MM, family timezone). */
+  active_end_time?: string | null
+  /** Instantiation mode for multi-assignee schedules. */
+  instantiation_mode?: 'per_assignee_instance' | 'shared_anyone_completes' | null
 }
 
 export interface CompletionDependentConfig {
@@ -51,7 +59,7 @@ export interface CustodyPatternConfig {
 
 // ─── Component Props ────────────────────────────────────────────────────
 
-export type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+export type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | 'pick_dates'
 
 export interface UniversalSchedulerProps {
   /** Current value (RRULE JSONB) */
@@ -125,6 +133,13 @@ export interface SchedulerState {
   completionWindowStart: number
   completionWindowEnd: number
   completionAnchor: string
+  // Pick Dates (painted calendar)
+  paintedDates: string[]
+  assigneeMap: Record<string, string[]>
+  activeStartTime: string
+  activeEndTime: string
+  showTimeWindow: boolean
+  instantiationMode: 'per_assignee_instance' | 'shared_anyone_completes'
   // Time
   showTime: boolean
   time: string
@@ -184,6 +199,14 @@ export type SchedulerAction =
   | { type: 'ADD_RDATE'; date: string }
   | { type: 'REMOVE_RDATE'; date: string }
   | { type: 'TOGGLE_SCHOOL_YEAR_ONLY' }
+  | { type: 'TOGGLE_PAINTED_DATE'; date: string }
+  | { type: 'SET_PAINTED_DATES'; dates: string[] }
+  | { type: 'SET_ASSIGNEE_MAP'; map: Record<string, string[]> }
+  | { type: 'SET_DATE_ASSIGNEES'; date: string; memberIds: string[] }
+  | { type: 'SET_ACTIVE_START_TIME'; time: string }
+  | { type: 'SET_ACTIVE_END_TIME'; time: string }
+  | { type: 'TOGGLE_TIME_WINDOW' }
+  | { type: 'SET_INSTANTIATION_MODE'; mode: 'per_assignee_instance' | 'shared_anyone_completes' }
   | { type: 'LOAD_FROM_OUTPUT'; output: SchedulerOutput }
 
 // ─── Constants ──────────────────────────────────────────────────────────

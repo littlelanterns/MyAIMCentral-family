@@ -70,6 +70,7 @@ export interface List {
   default_reward_amount: number | null
   default_claim_lock_duration: number | null
   default_claim_lock_unit: ClaimLockUnit | null
+  schedule_config: Record<string, unknown> | null
   created_at: string
   updated_at: string
 }

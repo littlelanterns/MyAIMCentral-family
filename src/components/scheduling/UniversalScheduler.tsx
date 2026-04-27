@@ -26,6 +26,7 @@ import {
 import { useSchedulerState } from './useSchedulerState'
 import { WeekdayCircles } from './WeekdayCircles'
 import { CalendarPreview } from './CalendarPreview'
+import { PickDatesCalendar } from './PickDatesCalendar'
 
 export function UniversalScheduler({
   value,
@@ -48,7 +49,7 @@ export function UniversalScheduler({
   }
 
   // Determine which radio is selected based on state
-  type FreqOption = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+  type FreqOption = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom' | 'pick_dates'
   const activeOption: FreqOption = state.advancedMode ? 'custom' :
     (state.frequency === 'custom' ? 'custom' : state.frequency as FreqOption)
 
@@ -63,7 +64,7 @@ export function UniversalScheduler({
     }
   }
 
-  const isRepeating = activeOption !== 'one_time'
+  const isRepeating = activeOption !== 'one_time' && activeOption !== 'pick_dates'
 
   // Radio option definitions
   const radioOptions: { key: FreqOption; label: string; desc: string }[] = compactMode
@@ -74,6 +75,7 @@ export function UniversalScheduler({
         { key: 'monthly', label: 'Monthly', desc: '' },
         { key: 'yearly', label: 'Yearly', desc: '' },
         { key: 'custom', label: 'Custom', desc: '' },
+        { key: 'pick_dates', label: 'Pick Dates', desc: '' },
       ]
     : [
         { key: 'one_time', label: 'One-Time', desc: 'Something that needs to happen once' },
@@ -82,6 +84,7 @@ export function UniversalScheduler({
         { key: 'monthly', label: 'Monthly', desc: 'Repeats each month' },
         { key: 'yearly', label: 'Yearly', desc: 'Repeats once a year' },
         { key: 'custom', label: 'Custom', desc: 'Build your own schedule' },
+        { key: 'pick_dates', label: 'Pick Dates', desc: 'Tap specific dates on a calendar' },
       ]
 
   return (
@@ -235,6 +238,67 @@ export function UniversalScheduler({
                       <Clock size={14} style={{ color: 'var(--color-text-secondary)' }} />
                       <input type="time" value={state.time} onChange={(e) => dispatch({ type: 'SET_TIME', time: e.target.value })} className="px-3 py-1.5 rounded-lg text-sm outline-none" style={inputStyle} />
                     </div>
+                  )}
+                </div>
+              )}
+
+              {activeOption === opt.key && opt.key === 'pick_dates' && (
+                <div className="pl-8 pb-2 space-y-3">
+                  <PickDatesCalendar
+                    paintedDates={state.paintedDates}
+                    dispatch={dispatch}
+                    weekStartDay={weekStartDay}
+                  />
+                  {/* Time-of-day window */}
+                  {state.showTimeWindow ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div
+                          className="text-xs font-medium uppercase tracking-wider"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          Active window
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => dispatch({ type: 'TOGGLE_TIME_WINDOW' })}
+                          className="text-xs"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          remove
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>From</span>
+                        <input
+                          type="time"
+                          value={state.activeStartTime}
+                          onChange={(e) => dispatch({ type: 'SET_ACTIVE_START_TIME', time: e.target.value })}
+                          className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                          style={inputStyle}
+                        />
+                        <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>to</span>
+                        <input
+                          type="time"
+                          value={state.activeEndTime}
+                          onChange={(e) => dispatch({ type: 'SET_ACTIVE_END_TIME', time: e.target.value })}
+                          className="px-3 py-1.5 rounded-lg text-sm outline-none"
+                          style={inputStyle}
+                        />
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                        This schedule is only active during this time window on painted dates.
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => dispatch({ type: 'TOGGLE_TIME_WINDOW' })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
+                      style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}
+                    >
+                      <Clock size={14} /> Add time window
+                    </button>
                   )}
                 </div>
               )}

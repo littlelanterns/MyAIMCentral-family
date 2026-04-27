@@ -48,6 +48,12 @@ export function createInitialState(showTimeDefault: boolean): SchedulerState {
     completionWindowStart: 25,
     completionWindowEnd: 35,
     completionAnchor: todayISO(),
+    paintedDates: [],
+    assigneeMap: {},
+    activeStartTime: '09:00',
+    activeEndTime: '17:00',
+    showTimeWindow: false,
+    instantiationMode: 'per_assignee_instance',
     showTime: showTimeDefault,
     time: '09:00',
     untilMode: 'ongoing',
@@ -171,6 +177,37 @@ function schedulerReducer(state: SchedulerState, action: SchedulerAction): Sched
       return { ...state, rdates: state.rdates.includes(action.date) ? state.rdates : [...state.rdates, action.date].sort() }
     case 'REMOVE_RDATE':
       return { ...state, rdates: state.rdates.filter(d => d !== action.date) }
+    case 'TOGGLE_PAINTED_DATE': {
+      const dates = state.paintedDates.includes(action.date)
+        ? state.paintedDates.filter(d => d !== action.date)
+        : [...state.paintedDates, action.date].sort()
+      const newMap = { ...state.assigneeMap }
+      if (!dates.includes(action.date)) {
+        delete newMap[action.date]
+      }
+      return { ...state, paintedDates: dates, assigneeMap: newMap }
+    }
+    case 'SET_PAINTED_DATES':
+      return { ...state, paintedDates: [...action.dates].sort() }
+    case 'SET_ASSIGNEE_MAP':
+      return { ...state, assigneeMap: action.map }
+    case 'SET_DATE_ASSIGNEES': {
+      const map = { ...state.assigneeMap }
+      if (action.memberIds.length === 0) {
+        delete map[action.date]
+      } else {
+        map[action.date] = action.memberIds
+      }
+      return { ...state, assigneeMap: map }
+    }
+    case 'SET_ACTIVE_START_TIME':
+      return { ...state, activeStartTime: action.time }
+    case 'SET_ACTIVE_END_TIME':
+      return { ...state, activeEndTime: action.time }
+    case 'TOGGLE_TIME_WINDOW':
+      return { ...state, showTimeWindow: !state.showTimeWindow }
+    case 'SET_INSTANTIATION_MODE':
+      return { ...state, instantiationMode: action.mode }
     case 'TOGGLE_SCHOOL_YEAR_ONLY':
       return { ...state, schoolYearOnly: !state.schoolYearOnly }
     case 'LOAD_FROM_OUTPUT': {

@@ -27,6 +27,28 @@ function todayISO(): string {
 // ── Build SchedulerOutput from internal state ───────────────────────────
 
 export function buildOutput(state: SchedulerState, timezone: string): SchedulerOutput {
+  // Pick Dates (painted calendar)
+  if (state.frequency === 'pick_dates') {
+    const sortedDates = [...state.paintedDates].sort()
+    const hasAssignees = Object.keys(state.assigneeMap).length > 0
+    return {
+      rrule: null,
+      dtstart: sortedDates[0] || todayISO(),
+      until: state.untilMode === 'date' && state.untilDate ? state.untilDate : null,
+      count: null,
+      exdates: state.exdates,
+      rdates: sortedDates,
+      timezone,
+      schedule_type: 'painted',
+      completion_dependent: null,
+      custody_pattern: null,
+      assignee_map: hasAssignees ? state.assigneeMap : null,
+      active_start_time: state.showTimeWindow ? state.activeStartTime : null,
+      active_end_time: state.showTimeWindow ? state.activeEndTime : null,
+      instantiation_mode: state.instantiationMode,
+    }
+  }
+
   // Completion-dependent
   if (state.advancedMode === 'completion_dependent') {
     return {
@@ -197,6 +219,10 @@ export function generatePreviewInstances(
   rangeStart: Date,
   rangeEnd: Date,
 ): Date[] {
+  if (output.schedule_type === 'painted') {
+    return generatePaintedInstances(output, rangeStart, rangeEnd)
+  }
+
   if (output.schedule_type === 'custody') {
     return generateCustodyInstances(output, rangeStart, rangeEnd)
   }
@@ -237,6 +263,24 @@ export function generatePreviewInstances(
   } catch {
     return []
   }
+}
+
+function generatePaintedInstances(
+  output: SchedulerOutput,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Date[] {
+  const dates: Date[] = []
+  for (const rd of output.rdates) {
+    const d = new Date(rd + 'T00:00:00')
+    if (d >= rangeStart && d <= rangeEnd) {
+      dates.push(d)
+    }
+  }
+  return dates.filter(d => {
+    const iso = toISODate(d)
+    return !output.exdates.includes(iso)
+  })
 }
 
 function generateCustodyInstances(
@@ -310,6 +354,21 @@ function generateCompletionDependentInstances(
   return dates
 }
 
+/** Check if a specific date is active in a SchedulerOutput. Works for all schedule types. */
+export function isDateActive(output: SchedulerOutput, dateIso: string): boolean {
+  if (output.exdates.includes(dateIso)) return false
+
+  if (output.schedule_type === 'painted') {
+    return output.rdates.includes(dateIso)
+  }
+
+  const target = new Date(dateIso + 'T00:00:00')
+  const rangeEnd = new Date(target)
+  rangeEnd.setHours(23, 59, 59, 999)
+  const instances = generatePreviewInstances(output, target, rangeEnd)
+  return instances.length > 0
+}
+
 function addInterval(date: Date, interval: number, unit: string): Date {
   const d = new Date(date)
   switch (unit) {
@@ -323,6 +382,21 @@ function addInterval(date: Date, interval: number, unit: string): Date {
 // ── Parse SchedulerOutput back into SchedulerState ──────────────────────
 
 export function outputToState(output: SchedulerOutput): Partial<SchedulerState> {
+  if (output.schedule_type === 'painted') {
+    return {
+      frequency: 'pick_dates',
+      paintedDates: [...output.rdates].sort(),
+      assigneeMap: output.assignee_map ?? {},
+      activeStartTime: output.active_start_time ?? '09:00',
+      activeEndTime: output.active_end_time ?? '17:00',
+      showTimeWindow: output.active_start_time != null,
+      instantiationMode: output.instantiation_mode ?? 'per_assignee_instance',
+      exdates: output.exdates,
+      untilMode: output.until ? 'date' : 'ongoing',
+      untilDate: output.until ?? '',
+    }
+  }
+
   if (output.schedule_type === 'completion_dependent' && output.completion_dependent) {
     const cd = output.completion_dependent
     return {
