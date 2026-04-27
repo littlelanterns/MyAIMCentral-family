@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-26
+> Auto-generated from live Supabase on 2026-04-27
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 287 rows
+### `view_as_sessions` — 288 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 183 rows
+### `view_as_feature_exclusions` — 184 rows
 
 | # | Column |
 |---|---|
@@ -779,7 +779,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 280 rows
+### `routine_step_completions` — 286 rows
 
 | # | Column |
 |---|---|
