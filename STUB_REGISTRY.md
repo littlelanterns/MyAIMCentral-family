@@ -351,6 +351,15 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | ICS export from RRULE strings | PRD-35 | — | 📌 Post-MVP | — |
 | LiLa schedule extraction cards | PRD-35 | PRD-08 | ⏳ Unwired (MVP) | Phase 09 |
 | LiLa conversational schedule builder | PRD-35 | PRD-05 | ⏳ Unwired (MVP) | Phase 06 |
+| Pick Dates painted-calendar mode | Worker 5 | Worker 5 | ✅ Wired | Worker 5 |
+| deed_firings table (connector event log) | Worker 5 | Worker 5 | ✅ Wired | Worker 5 |
+| Painted-day deed firing (cron + Edge Function) | Worker 5 | Worker 5 | ✅ Wired | Worker 5 |
+| lists.schedule_config attachment | Worker 5 | Worker 5 | ✅ Wired | Worker 5 |
+| "Active today" badge on list cards | Worker 5 | Worker 5 | ✅ Wired | Worker 5 |
+| Per-date assignee editor | Worker 5 | Worker 5 | ✅ Wired | Worker 5 |
+| Contract evaluation of deed firings | Worker 5 | Phase 3 | ⏳ Unwired (MVP) | Phase 3 |
+| List visibility gating by schedule | Worker 5 | Phase 3 | ⏳ Unwired (MVP) | Phase 3 |
+| Convert-to-recurrence pattern detection | Worker 5 | — | 📌 Post-MVP | — |
 | Universal Timer UI (all 4 modes) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
 | Floating timer bubble (all 5 shells) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |
 | 5 visual timer styles (SVG/CSS) | PRD-36 | PRD-36 | ✅ Wired | Phase 05 |

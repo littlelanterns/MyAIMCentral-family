@@ -10,17 +10,17 @@ No builds are currently in flight. No code should be written without starting th
 
 ### Last signed-off builds
 
+- **Worker 5 — Painter / Universal Scheduler Upgrade** (2026-04-27) — 8 sub-tasks complete, 0 missing. Pick Dates painted-calendar mode, deed_firings table, per-date assignee editor, time-of-day windows, fire-painted-schedules Edge Function, Active today badge. Verification in `claude/feature-decisions/Worker-5-Painter-Universal-Scheduler-Upgrade.md`.
 - **Build P — PRD-16 Meetings** (2026-04-16) — 127 requirements verified: 114 wired, 13 stubbed, 0 missing. Verification table in `claude/feature-decisions/PRD-16-Meetings.md`.
 - **Build M — PRD-24 + PRD-26 Play Dashboard + Sticker Book + Configurable Earning Strategies** (formalized 2026-04-16, originally recorded 2026-04-13) — 42 wired, 12 stubbed, 0 missing. Verification tables in `claude/feature-decisions/PRD-24-PRD-26-Play-Dashboard-Sticker-Book.md` and `claude/feature-decisions/PRD-24-PRD-26-Configurable-Earning-Strategies.md`.
 - **Build O — PRD-28 Tracking, Allowance & Financial** (2026-04-13) — archived in `.claude/completed-builds/2026-04/build-o-prd-28-tracking.md`.
 - **Phase 1b — PRD-23 BookShelf Platform Migration** (2026-04-13) — archived in `.claude/completed-builds/2026-04/phase-1b-prd-23-bookshelf-platform-migration.md`.
-- **Build N — PRD-18 Phase D Independent Teen Tailored Rhythm** (2026-04-07) — archived in `.claude/completed-builds/2026-04/build-n-prd-18-phase-d-teen-rhythm.md`.
 
 ### Full archive
 
 The complete set of signed-off builds and their pre-build summaries lives in `.claude/completed-builds/`, organized by month:
 
-- `.claude/completed-builds/2026-04/` — 15 build files covering Builds C through P plus Phase 1b
+- `.claude/completed-builds/2026-04/` — 16 build files covering Builds C through P, Phase 1b, and Worker 5
 - `.claude/completed-builds/README.md` — chronological completion ledger + index of all archived build files
 
 Search `.claude/completed-builds/` via mgrep when you need to recall the full pre-build summary, decisions, or stubs for a historical build. The feature-decision files in `claude/feature-decisions/` remain the authoritative post-verification record per build.
@@ -32,6 +32,10 @@ Search `.claude/completed-builds/` via mgrep when you need to recall the full pr
 When a new build begins per `claude/PRE_BUILD_PROCESS.md`:
 
 1. Create a new file in this folder: `.claude/rules/current-builds/<build-identity>.md` (e.g. `PRD-30-safety-monitoring.md`). Do not add YAML frontmatter.
-2. Populate it with the full pre-build summary: PRD path, addenda read, feature decision file, dependencies, build scope, stubs, key decisions, open questions.
+2. Populate it with the full pre-build summary: PRD path, addenda read, feature decision file, dependencies, build scope, stubs, key decisions, open questions. If the build touches any UI, include a `## Mom-UI Verification` section with this table template — populate it during the build at each inter-worker checkpoint (Checkpoint 2) and finalize at Checkpoint 5:
+   ```
+   | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
+   |---------|-----------------|---------------|---------------|---------------|----------|-----------|
+   ```
 3. Optionally delete `IDLE.md` while the build is active (it'll be re-created on sign-off), OR leave it in place — the recursive auto-load will surface both.
 4. On sign-off, move the build file from `.claude/rules/current-builds/` to `.claude/completed-builds/YYYY-MM/`, update `.claude/completed-builds/README.md`, and restore/update `IDLE.md` if no other builds remain active.

@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-04-06 (Studio Intelligence Phase 1).
+> Updated each build session. Last updated: 2026-04-27 (Worker 5 — Painter / Universal Scheduler Upgrade).
 
 ## RoutingStrip Destinations
 
@@ -205,6 +205,24 @@
 | Default by list type | randomizer → 'item_completed', everything else → 'none' | **Wired** | Frontend default in useCreateList |
 | Celebration banner | "All done! Victory recorded!" on list completion | **Wired** | Auto-dismisses after 4 seconds |
 | victory_flagged column | Per-item boolean on list_items, default false | **Wired** | Migration 100102 |
+
+## Painted Calendar / Pick Dates (Worker 5, 2026-04-27)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| "Pick Dates" frequency option | New radio option in UniversalScheduler alongside One-time/Daily/Weekly/Monthly/Yearly/Custom. Tap dates on a calendar grid. | **Wired** | Produces `schedule_type='painted'` SchedulerOutput with explicit `rdates`. |
+| Per-date assignee mapping | When 2+ members assigned and Pick Dates active, each painted date gets member-color pill assignee buttons. | **Wired** | `PickDatesAssigneeEditor` component. `assignee_map` on SchedulerOutput. |
+| Instantiation mode selector | "Each kid does their own" vs "Shared — anyone completes" segmented control. | **Wired** | `instantiation_mode` on SchedulerOutput. |
+| Time-of-day window | Optional "Active from [time] to [time]" on painted schedules. | **Wired** | `active_start_time` / `active_end_time` on SchedulerOutput. |
+| deed_firings table | Connector architecture event log. Stores `scheduled_occurrence_active` firings. | **Wired** | Migration 100180. Phase 3 inherits + adds contract evaluation. |
+| Painted-day deed firing | Hourly Edge Function (`fire-painted-schedules`, cron :20) writes deed firings when painted days arrive per family timezone. | **Wired** | Idempotent via unique key. Convention #246 compliant. |
+| lists.schedule_config | JSONB column for attaching painted/recurring schedules to lists. | **Wired** | Migration 100181. NULL = always active. |
+| "Active today" badge on list cards | Display-only pill on Lists page grid/list views when a list has a schedule attached. Green "Active today" or gray "Scheduled". | **Wired** | No filtering/hiding — Phase 3 scope. |
+| CalendarPreview painted mode | CalendarPreview day-click toggles painted dates (not RDATE/EXDATE) when `schedule_type='painted'`. | **Wired** | |
+| `isDateActive()` helper | Checks if a specific date is active in any SchedulerOutput. Works for all schedule types. | **Wired** | Exported from `@/components/scheduling`. |
+| Contract evaluation of deed firings | Phase 3 reads deed_firings and evaluates contracts → godmother dispatch | Stub | Phase 3 scope |
+| List visibility gating by schedule | Lists hidden/filtered based on schedule active state | Stub | Phase 3 scope |
+| Convert-to-recurrence detection | Detect weekly patterns in painted dates and offer RRULE conversion | Stub | Optional polish pass |
 
 ## Known Issues / TODO
 

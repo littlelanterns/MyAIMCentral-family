@@ -15,6 +15,7 @@
 
 | Build | PRD | Signed off | File |
 |---|---|---|---|
+| Worker 5 | PRD-35 + Connector Architecture — Painter / Universal Scheduler Upgrade | 2026-04-27 | [worker-5-painter-universal-scheduler-upgrade.md](2026-04/worker-5-painter-universal-scheduler-upgrade.md) |
 | Build P | PRD-16 Meetings | 2026-04-16 | [build-p-prd-16-meetings.md](2026-04/build-p-prd-16-meetings.md) |
 | Build M | PRD-24 + PRD-26 Play Dashboard + Sticker Book + Configurable Earning Strategies | 2026-04-16 (formalized; recorded 2026-04-13) | [build-m-prd-24-26-play-dashboard.md](2026-04/build-m-prd-24-26-play-dashboard.md) |
 | Build O | PRD-28 Tracking, Allowance & Financial | 2026-04-13 | [build-o-prd-28-tracking.md](2026-04/build-o-prd-28-tracking.md) |
