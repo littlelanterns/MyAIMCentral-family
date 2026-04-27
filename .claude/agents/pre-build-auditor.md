@@ -87,6 +87,18 @@ Output a structured summary with these sections:
 
 ### Estimated Migration Files
 - [list migration files needed with brief description]
+
+### Mom-UI Surfaces
+
+This build will touch the following mom-facing surfaces. Each must be verified at desktop (≥1024px), tablet (~768px), and mobile (≤640px) in every shell mom encounters.
+
+- [Surface name] — shells: [Mom, Independent, etc.] — new/modification
+- [Surface name] — shells: [list] — new/modification
+
+Backend-only deliverables (no UI verification needed):
+- [list, or "none"]
+
+This list becomes the checklist for Checkpoint 5's Mom-UI Verification Table.
 ```
 
 ## Rules

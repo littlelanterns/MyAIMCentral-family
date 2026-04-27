@@ -116,6 +116,8 @@ Fill in every section:
 - Every addendum file read (list them all — if you read it, list it)
 - Feature decision file path
 - Complete pre-build summary covering all subsections
+- **Mom-UI Surfaces** — enumerate every mom-facing surface this build will touch, which shells mom encounters it from, and whether it's new or a modification. Format: `[Surface] — shells: [list], new/modification`. For backend-only builds: "No mom-UI surfaces affected." This list becomes the Checkpoint 5 Mom-UI Verification checklist (see `claude/orchestration/Verifier-Checkpoint-Schedule.md`).
+- If the build touches UI, include a `## Mom-UI Verification` section with the table template. Populate during the build at each inter-worker checkpoint.
 
 ---
 

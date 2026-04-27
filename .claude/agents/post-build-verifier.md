@@ -84,7 +84,45 @@ Use Grep and Glob to search for:
 
 ### Stubbed Items (confirm with founder)
 [List all Stubbed items with justification]
+
+### Mom-UI Verification
+
+| Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
+|---------|-----------------|---------------|---------------|---------------|----------|-----------|
+| [page] | ✅/⚠️/❌ | ✅/⚠️/❌ | ✅/⚠️/❌ | [shells] | [evidence] | [date] |
+
+Every row must be ✅ in every device column for the build to close.
+Backend-only builds: note "No UI surfaces affected."
 ```
+
+## Bundle Mode (Feature-Session & Bug-Fix Builds)
+
+For non-PRD builds (invoked via `/feature-session` or `/bug-triage-merge` → `/feature-session`), adapt verification:
+
+### Input
+The user will say "verify this feature session" or "run post-build verification for the [surface] build."
+
+### Instead of PRD requirements, verify:
+1. **Founder-flagged bugs** — each as Fixed / Stubbed / Not-Fixed
+2. **Audit rows touched** — each as Status-Updated / Stale
+3. **New gaps surfaced** — each as Addressed / Stubbed / Open
+
+### Output format:
+```markdown
+## Post-Build Verification: [Surface] Feature Session
+
+| # | Item | Type | Status | Evidence | Notes |
+|---|------|------|--------|----------|-------|
+| 1 | [description] | Bug/Audit/Gap | Fixed/Updated/Addressed | [file:line] | [notes] |
+
+### Summary
+- Bugs: X fixed, Y stubbed, Z not-fixed
+- Audit rows: X updated, Y stale
+- New gaps: X addressed, Y stubbed, Z open
+```
+
+Zero Not-Fixed / Open items required before close-out.
+The Mom-UI Verification Table (above) applies identically to bundle-mode builds.
 
 ## Rules
 

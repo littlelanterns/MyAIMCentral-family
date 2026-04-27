@@ -1,0 +1,47 @@
+#!/usr/bin/env sh
+#
+# Pre-push hook — MyAIM Central
+#
+# Orchestration Checkpoint 4: verifies state file hygiene before push.
+#
+# Checks:
+# - No uncommitted changes to orchestration state files
+#
+# Override: git push --no-verify
+#
+# Why this matters: State files track build progress, decisions, and context.
+# Pushing code without committing state updates means the next session starts
+# with stale context — it won't know what was built, what's left, or what
+# was decided.
+#
+# Part of the orchestration layer.
+# See claude/orchestration/Verifier-Checkpoint-Schedule.md (Checkpoint 4).
+
+set -e
+
+DIRTY=""
+for f in BUILD_STATUS.md STUB_REGISTRY.md WIRING_STATUS.md .claude/state/CURRENT.md .claude/state/HISTORY.md; do
+  if [ -f "$f" ] && [ -n "$(git status --porcelain -- "$f" 2>/dev/null)" ]; then
+    DIRTY="$DIRTY $f"
+  fi
+done
+
+if [ -n "$DIRTY" ]; then
+  echo ""
+  echo "⚠️  PRE-PUSH CHECK — Uncommitted state file changes"
+  echo ""
+  echo "  Modified:$DIRTY"
+  echo ""
+  echo "  Why this matters: State files track build progress and decisions."
+  echo "  Pushing without committing them means the next session starts"
+  echo "  with stale context — it won't know what was built or decided."
+  echo ""
+  echo "  Fix: git add <files> && git commit -m 'chore: update state files'"
+  echo "  Then retry the push."
+  echo ""
+  echo "  Override: git push --no-verify"
+  echo ""
+  exit 1
+fi
+
+exit 0
