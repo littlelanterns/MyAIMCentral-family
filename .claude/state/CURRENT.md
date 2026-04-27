@@ -1,7 +1,10 @@
 # Current State — As of 2026-04-27
 
 ## Active build
-Daily Progress Marking (PRD-09A addendum) — dispatch prompt generated, pending founder review before fresh-session paste
+Daily Progress Marking (PRD-09A addendum) — dispatch prompt ready, pending fresh session
+
+## Dispatch prompt
+`claude/web-sync/Daily-Progress-Marking-Dispatch-Prompt.md` — paste into fresh Claude Code session
 
 ## Paused build
 Workers 2+3 — Shared Routines + Shared Lists (COMBINED)
@@ -13,11 +16,8 @@ Workers 2+3 — Shared Routines + Shared Lists (COMBINED)
 ## Last completed
 Worker 5 — Painter / Universal Scheduler Upgrade (2026-04-27, commits 3f0b802 + 6775e09)
 
-## Conductor session
-Closing after founder approves dispatch prompt. Orchestration artifacts:
-- `claude/orchestration/Daily-Progress-Marking-Pre-Build-Notes.md` — pre-build Q&A + scope decisions
-- `claude/web-sync/Worker-5-Painter-Dispatch-Prompt.md` — Worker 5 dispatch (completed)
-- `claude/web-sync/Connector-Build-Sequence-Orientation.md` — orientation prompt (reusable)
+## Previous conductor session closed
+2026-04-27 — see HISTORY.md for full observations
 
 ## Open queues
 - Beta glitch reports: check via `/bug-reports` or query `beta_glitch_reports`
