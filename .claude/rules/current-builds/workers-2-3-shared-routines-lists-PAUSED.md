@@ -57,10 +57,25 @@ Routine deploy modal, list deploy modal, routine settings, list settings, kid-fa
 - List claim semantics discovery: existing task_claims, kanban_status, claim-to-task bridge documented
 - Recommendation: ship sharing for advancement_mode='complete' lists; practice/mastery list buttons are separate scope
 
+## Daily Progress Marking shipped — forward-compat (2026-04-28)
+
+The detour shipped. Here's what Workers 2+3 inherits:
+
+- **`tasks.track_progress`** exists (BOOLEAN NOT NULL DEFAULT false). Long Term Task type sets it to true.
+- **`tasks.in_progress_member_id`** exists (UUID NULL, FK with ON DELETE SET NULL). Soft-claim holder.
+- **"Worked on this today" UI** exists on TaskCard (standard), TaskCardGuided, TaskCardPlay. Rendered when `track_progress=true`.
+- **`practice_log`** accepts `source_type` values: `'task'` and `'routine_step'` (in addition to Build J's `'sequential_task'` and `'randomizer_item'`).
+- **Soft-claim semantics:** first practicer holds the claim. For SHARED tasks (Workers 2+3 scope), this relaxes to "any active practicer" — the sharing mode needs to allow multiple holders, not clear the first one. See addendum §9 and active build file "Workers 2+3 Inheritance Note."
+- **`resolveTrackingProperties()`** at `src/lib/tasks/resolveTrackingProperties.ts` — single-source-of-truth helper for track property inheritance. Call from any new task-generation path.
+- **`checkSoftClaimAuthorization()` and `checkSoftClaimCrossClaim()`** at `src/lib/tasks/softClaim.ts` — ready for Workers 2+3 to extend with multi-holder awareness.
+- **Sequential collection create/restart** propagates `track_progress`. See `useSequentialCollections.ts` lines 173 and 424.
+- **Opportunity claim (Path A)** already inherits `track_progress` from list item → list default and pre-sets `in_progress_member_id = claimer`.
+- **CLAUDE.md conventions 260-265** added. Convention 262 (DnD wrapper prop drilling) is especially relevant — any new TaskCard prop must be threaded through SortableTaskItem + all 7 view components.
+
 ## Resume instructions
 
-When Daily Progress Marking detour completes:
-1. Verify addendum §8 forward-compat held (no scope changes needed)
+When ready to resume:
+1. Verify addendum §9 forward-compat held (check soft-claim + practice_log + track_progress all present)
 2. Surface to founder: "Workers 2+3 ready to resume?"
 3. On approval, generate dispatch prompt incorporating all preserved decisions above
 4. Add "Cross-Sibling Edit Authority" convention to CLAUDE.md

@@ -459,6 +459,19 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Notification auto-dismiss on queue processing | PRD-17 | — | ⏳ Unwired (MVP) | Needs notification system |
 | Gamification reward/streak reversal on unmark | PRD-09A/PRD-24 | — | ⏳ Unwired (MVP) | Needs PRD-24 |
 
+## Daily Progress Marking Stubs (PRD-09A Addendum — 2026-04-28)
+
+| Stub | Created By | Wired By | Status | Notes |
+|------|-----------|----------|--------|-------|
+| Inactivity-based auto-unclaim | PRD-09A Addendum §4.4 | — | ⏳ Unwired (MVP) | Schema tracks last session date via practice_log. No UI for mom-configurable timeout. `in_progress_member_id` cleared on completion; future: clear after N days of inactivity. |
+| Cross-task time aggregation reports | PRD-09A Addendum §1.4 | — | 📌 Unwired (Post-MVP) | Per-task aggregation is wired. Cross-task/cross-kid analytics deferred to PRD-28B compliance reporting. |
+| Path H — LiLa-suggested task track toggles | PRD-09A Addendum §6.3 | — | ⏳ Unwired (MVP) | LiLa task-suggestion acceptance surface should expose track property toggles. Existing default behavior preserved (false/false). |
+| Path I — Plan/goal decomposition track toggles | PRD-09A Addendum §6.3 | — | ⏳ Unwired (MVP) | BigPlans, LifeLantern, Guiding Stars, Best Intentions task generation surfaces should expose track toggles. |
+| Path J — Other capture surface track toggles | PRD-09A Addendum §6.3 | — | ⏳ Unwired (MVP) | Voice-parse, cookbook-scan, AI Vault tools. Default false/false preserved. |
+| Path K — RoutineDuplicateDialog track inheritance | PRD-09A Addendum §6.6 | — | ⏳ Unwired (MVP) | Routine deploy copy should inherit track_progress from source task. Unlisted path found during pre-build. |
+| Path L — RandomizerSpinnerTracker track inheritance | PRD-09A Addendum §6.6 | — | ⏳ Unwired (MVP) | Randomizer widget draw → task should inherit from list item. Unlisted path found during pre-build. |
+| Session history detail view | PRD-09A Addendum §3.4 | — | ⏳ Unwired (MVP) | `useTaskPracticeSessions` hook exists. Aggregation subtitle is tappable (state wired). Expansion/modal rendering the per-session list (date + duration + who) not yet built. |
+
 ## ThoughtSift Stubs (PRD-34)
 
 | Stub | Created By | Wired By | Status | Build Phase |

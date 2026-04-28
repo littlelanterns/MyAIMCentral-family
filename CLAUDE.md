@@ -753,3 +753,17 @@ These conventions codify the rules from `claude/web-sync/Composition-Architectur
     - **Shared routines** (when Worker 2 SHARED-ROUTINES ships): `is_shared=true` tasks still propagate via `template_id` because the contract is template-level, not assignee-level. Master edit propagates to every assignee's view simultaneously. Confirmed by Worker 1 audit during c1 + c2.5 verification — see `claude/feature-decisions/Shared-Assignment-Model-Worker-Handoff.md`.
 
     **Reference:** `claude/feature-decisions/PRD-09A-Routine-Propagation-Advance-Scheduling.md` (Worker 1 verification table), `src/hooks/useRoutineTemplateSteps.ts` (the live-binding query), `src/utils/createTaskFromData.ts` lines 128–161 (the master-template edit path that implements the propagation behavior).
+
+## Daily Progress Marking (PRD-09A Addendum — 2026-04-28)
+
+260. **Long Term Task is a Task Type, not an Advanced toggle.** When a feature represents a fundamentally different kind of task (multi-day, daily-progress, optional duration, soft-claim, aggregation), it deserves a first-class option in the Task Type picker — not a buried checkbox in Advanced settings. The Long Term Task tile in `TASK_TYPES_GRID` sets `track_progress=true` and `track_duration=true` by default. The DB `task_type` stays `'task'`; the distinction is tracked via `track_progress` boolean. Secondary checkboxes in Rewards & Tracking remain for fine-tuning (e.g. keep progress, turn off duration).
+
+261. **Cache invalidation must cover all aggregation query keys.** Any mutation that updates data consumed by an aggregation query must invalidate ALL related query keys — not just the parent entity's key. The `useLogPractice` 'task' branch must invalidate `['task-practice-aggregation', taskId]` and `['task-practice-sessions', taskId]` in addition to `['tasks', familyId]`. Forgetting aggregation keys causes stale UI where the write succeeds but the display never updates.
+
+262. **DnD wrapper prop drilling for TaskCard.** Any new prop added to `TaskCard` that should appear on the dashboard MUST be threaded through: (a) `DashboardTasksSection` → `ViewRenderer` → `commonProps`, (b) all 7 view components (`SimpleListView`, `EisenhowerView`, `EatTheFrogView`, `NowNextOptionalView`, `ByCategoryView`, `OneFiveThreeView`, `KanbanView`), AND (c) the `SortableTaskItem` DnD wrapper inside `SimpleListView` — both its props interface AND its call site. Missing the call site (the `<SortableTaskItem ... />` JSX) while adding to the interface causes the prop to exist in the type system but never reach the rendered `TaskCard`.
+
+263. **`tasks.track_progress` enables daily-progress marking.** When true, tasks render "Worked on this today" button alongside "Done." Practice sessions log to `practice_log` with `source_type='task'`. Aggregation subtitle shows session count + total duration. `tasks.track_duration` is independent — when true, completion or daily-progress action prompts for duration via `DurationPromptModal`.
+
+264. **`practice_log.source_type` accepts 4 values:** `'sequential_task'`, `'randomizer_item'` (Build J), `'task'`, `'routine_step'` (this build). DB CHECK constraint extended in migration 100183.
+
+265. **Soft-claim on track-progress tasks.** First practicer becomes implicit "in-progress" holder via `tasks.in_progress_member_id` (column-based, not row-count-based). Completion requires mom, task creator, or the holder. Siblings get a warning ("Someone's already working on this"), not a hard block. "Ask Mom" fires a real `family_requests` row with `source='task_soft_claim'`.
