@@ -129,6 +129,8 @@ export function useLogPractice() {
           .eq('id', params.sourceId)
 
         queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
+        queryClient.invalidateQueries({ queryKey: ['task-practice-aggregation', params.sourceId] })
+        queryClient.invalidateQueries({ queryKey: ['task-practice-sessions', params.sourceId] })
       } else if (params.sourceType === 'routine_step') {
         // Routine step: practice_log row already written above.
         // The routine_step_completions write is handled by the caller

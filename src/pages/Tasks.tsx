@@ -37,6 +37,7 @@ import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureI
 import { useTasks, useArchiveTask, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
 import { useApproveMasterySubmission, useRejectMasterySubmission, useSubmitMastery, useLogPractice } from '@/hooks/usePractice'
 import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
+import { useRoutingToast } from '@/components/shared'
 import { SoftClaimCrossClaimModal, SoftClaimDoneBlockedModal } from '@/components/tasks/SoftClaimWarningModal'
 import { checkSoftClaimAuthorization, checkSoftClaimCrossClaim } from '@/lib/tasks/softClaim'
 import { useCreateRequest } from '@/hooks/useRequests'
@@ -156,6 +157,7 @@ export function TasksPage() {
   // Daily Progress Marking: "Worked on this today" state
   const [durationPromptTask, setDurationPromptTask] = useState<Task | null>(null)
   const logPractice = useLogPractice()
+  const routingToast = useRoutingToast()
 
   // Soft-claim modal state
   const [crossClaimTask, setCrossClaimTask] = useState<{ task: Task; holderName: string | null } | null>(null)
@@ -285,9 +287,11 @@ export function TasksPage() {
         sourceType: 'task',
         sourceId: task.id,
         durationMinutes: null,
+      }, {
+        onSuccess: () => routingToast.show({ message: `Session logged for "${task.title}"` }),
       })
     }
-  }, [member?.id, family?.id, logPractice, resolveHolderName])
+  }, [member?.id, family?.id, logPractice, resolveHolderName, routingToast])
 
   const toggleWithSoftClaim = useCallback(
     (task: Task, origin?: { x: number; y: number }, extras?: { completionNote?: string | null; photoUrl?: string | null }) => {
@@ -329,15 +333,21 @@ export function TasksPage() {
 
   const handleDurationSubmit = useCallback((durationMinutes: number | null) => {
     if (!durationPromptTask || !member?.id || !family?.id) return
+    const taskTitle = durationPromptTask.title
     logPractice.mutate({
       familyId: family.id,
       familyMemberId: member.id,
       sourceType: 'task',
       sourceId: durationPromptTask.id,
       durationMinutes,
+    }, {
+      onSuccess: () => {
+        const durationText = durationMinutes ? ` (${durationMinutes >= 60 ? `${Math.round(durationMinutes / 60)} hr` : `${durationMinutes} min`})` : ''
+        routingToast.show({ message: `Session logged for "${taskTitle}"${durationText}` })
+      },
     })
     setDurationPromptTask(null)
-  }, [durationPromptTask, member?.id, family?.id, logPractice])
+  }, [durationPromptTask, member?.id, family?.id, logPractice, routingToast])
 
   // ── Edit existing task ──
   const handleEditTask = useCallback(

@@ -12,6 +12,7 @@ import { FeatureGuide } from '@/components/shared'
 import { useTasks, type Task } from '@/hooks/useTasks'
 import { useLogPractice } from '@/hooks/usePractice'
 import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
+import { useRoutingToast } from '@/components/shared'
 import { LogOut, Users } from 'lucide-react'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { usePendingCounts } from '@/hooks/usePendingCounts'
@@ -828,6 +829,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 function MemberTasksSection({ familyId, memberId }: { familyId: string; memberId: string }) {
   const { data: tasks = [] } = useTasks(familyId, { assigneeId: memberId })
   const logPractice = useLogPractice()
+  const routingToast = useRoutingToast()
   const [durationTask, setDurationTask] = useState<Task | null>(null)
 
   const handleWorkedOnThis = useCallback((task: Task) => {
@@ -840,9 +842,11 @@ function MemberTasksSection({ familyId, memberId }: { familyId: string; memberId
         sourceType: 'task',
         sourceId: task.id,
         durationMinutes: null,
+      }, {
+        onSuccess: () => routingToast.show({ message: `Session logged for "${task.title}"` }),
       })
     }
-  }, [familyId, memberId, logPractice])
+  }, [familyId, memberId, logPractice, routingToast])
 
   return (
     <>
@@ -857,12 +861,18 @@ function MemberTasksSection({ familyId, memberId }: { familyId: string; memberId
         onClose={() => setDurationTask(null)}
         onSubmit={(mins) => {
           if (!durationTask) return
+          const taskTitle = durationTask.title
           logPractice.mutate({
             familyId,
             familyMemberId: memberId,
             sourceType: 'task',
             sourceId: durationTask.id,
             durationMinutes: mins,
+          }, {
+            onSuccess: () => {
+              const durationText = mins ? ` (${mins >= 60 ? `${Math.round(mins / 60)} hr` : `${mins} min`})` : ''
+              routingToast.show({ message: `Session logged for "${taskTitle}"${durationText}` })
+            },
           })
           setDurationTask(null)
         }}
