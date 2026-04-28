@@ -23,6 +23,7 @@ interface EatTheFrogViewProps {
   onFocusTimer?: (task: Task) => void
   onBreakItDown?: (task: Task) => void
   onDelete?: (task: Task) => void
+  onWorkedOnThis?: (task: Task) => void
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
   isCompleting?: (taskId: string) => boolean
 }
@@ -34,6 +35,7 @@ export function EatTheFrogView({
   onFocusTimer,
   onBreakItDown,
   onDelete,
+  onWorkedOnThis,
   onUpdateTask,
   isCompleting,
 }: EatTheFrogViewProps) {
@@ -97,6 +99,7 @@ export function EatTheFrogView({
               onFocusTimer={onFocusTimer}
               onBreakItDown={onBreakItDown}
               onDelete={onDelete}
+              onWorkedOnThis={frog.track_progress && onWorkedOnThis ? () => onWorkedOnThis(frog) : undefined}
             />
           </div>
         </div>
@@ -126,6 +129,7 @@ export function EatTheFrogView({
                     onFocusTimer={onFocusTimer}
                     onBreakItDown={onBreakItDown}
                     onDelete={onDelete}
+                    onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                     compact
                   />
                 </div>

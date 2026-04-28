@@ -292,14 +292,8 @@ const TASK_TYPES_GRID: {
   { key: 'routine', label: 'Routine', description: 'Multi-step checklist — paste a schedule and AI sorts it by day', icon: RotateCcw },
   { key: 'opportunity' as TaskType, label: 'Opportunity', description: 'Optional — earn rewards, no pressure', icon: Star },
   { key: 'habit', label: 'Habit', description: 'Track consistency over time', icon: TrendingUp },
+  { key: 'list' as TaskType, label: 'List', description: 'Assign a checklist or ordered series of items', icon: ListChecks },
 ]
-
-const LIST_TYPE = {
-  key: 'list' as TaskType,
-  label: 'List',
-  description: 'Assign a checklist or ordered series of items',
-  icon: ListChecks,
-}
 
 const LIST_DELIVERY_MODES = [
   { key: 'checklist' as const, label: 'Checklist', description: 'Assign as one task with a checklist (all items visible, check off as you go)' },
@@ -1397,53 +1391,6 @@ export function TaskCreationModal({
             )
           })}
         </div>
-        {/* List — full-width 5th button */}
-        {(() => {
-          const active = data.taskType === LIST_TYPE.key
-          const LIcon = LIST_TYPE.icon
-          return (
-            <button
-              type="button"
-              onClick={() => setData((d) => ({
-                ...d,
-                taskType: LIST_TYPE.key,
-                incompleteAction: 'auto_reschedule',
-              }))}
-              className="btn-inline"
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: `1.5px solid ${active ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                borderRadius: 'var(--vibe-radius-input, 8px)',
-                background: active
-                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))'
-                  : 'var(--color-bg-card)',
-                cursor: 'pointer',
-                textAlign: 'left',
-                marginBottom: '0.5rem',
-              }}
-            >
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '0.375rem',
-                color: active ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
-                fontWeight: 600,
-                fontSize: 'var(--font-size-sm)',
-                marginBottom: '0.25rem',
-              }}>
-                <LIcon size={14} />
-                {LIST_TYPE.label}
-              </div>
-              <div style={{
-                color: 'var(--color-text-secondary)',
-                fontSize: 'var(--font-size-xs)',
-                lineHeight: 1.3,
-              }}>
-                {LIST_TYPE.description}
-              </div>
-            </button>
-          )
-        })()}
-
         {/* Opportunity sub-type selector — inline expansion when Opportunity selected */}
         {data.taskType === 'opportunity' && (
           <div

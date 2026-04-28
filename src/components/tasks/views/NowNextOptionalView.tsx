@@ -25,6 +25,7 @@ interface NowNextOptionalViewProps {
   onFocusTimer?: (task: Task) => void
   onBreakItDown?: (task: Task) => void
   onDelete?: (task: Task) => void
+  onWorkedOnThis?: (task: Task) => void
   isCompleting?: (taskId: string) => boolean
   shell?: ShellType
 }
@@ -58,6 +59,7 @@ export function NowNextOptionalView({
   onFocusTimer,
   onBreakItDown,
   onDelete,
+  onWorkedOnThis,
   isCompleting,
   shell = 'mom',
 }: NowNextOptionalViewProps) {
@@ -124,6 +126,7 @@ export function NowNextOptionalView({
                   task={task}
                   isCompleting={isCompleting?.(task.id)}
                   onToggle={onToggle}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                 />
               ) : (
                 <TaskCard
@@ -135,6 +138,7 @@ export function NowNextOptionalView({
                   onFocusTimer={onFocusTimer}
                   onBreakItDown={onBreakItDown}
                   onDelete={onDelete}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                 />
               )
             )}
@@ -170,6 +174,7 @@ export function NowNextOptionalView({
                   onFocusTimer={onFocusTimer}
                   onBreakItDown={onBreakItDown}
                   onDelete={onDelete}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                   compact
                 />
               ))}
@@ -202,6 +207,7 @@ export function NowNextOptionalView({
                   task={task}
                   isCompleting={isCompleting?.(task.id)}
                   onToggle={onToggle}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                 />
               ) : (
                 <TaskCard
@@ -211,6 +217,7 @@ export function NowNextOptionalView({
                   onToggle={onToggle}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                   compact
                 />
               )

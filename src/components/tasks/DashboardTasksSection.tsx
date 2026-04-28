@@ -237,6 +237,7 @@ export function DashboardTasksSection({
             isCompleting={isCompleting}
             onUpdateTask={onUpdateTask}
             onEdit={setEditingTask}
+            onWorkedOnThis={onWorkedOnThis}
             shell={shell}
             isPlanned={PLANNED_VIEWS.has(activeView)}
             taskDrawMap={taskDrawMap}
@@ -298,6 +299,7 @@ interface ViewRendererProps {
   isCompleting: (taskId: string) => boolean
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
   onEdit?: (task: Task) => void
+  onWorkedOnThis?: (task: Task) => void
   shell: string
   isPlanned?: boolean
   taskDrawMap?: Record<string, import('@/hooks/useTaskRandomizerDraws').TaskRandomizerDraw>
@@ -310,6 +312,7 @@ function ViewRenderer({
   isCompleting,
   onUpdateTask,
   onEdit,
+  onWorkedOnThis,
   shell,
   isPlanned,
   taskDrawMap,
@@ -325,6 +328,7 @@ function ViewRenderer({
     onUpdateTask,
     onEdit,
     taskDrawMap,
+    onWorkedOnThis,
   }
 
   switch (viewKey) {

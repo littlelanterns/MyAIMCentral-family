@@ -19,6 +19,7 @@ interface ByCategoryViewProps {
   onBreakItDown?: (task: Task) => void
   onAssign?: (task: Task) => void
   onDelete?: (task: Task) => void
+  onWorkedOnThis?: (task: Task) => void
   isCompleting?: (taskId: string) => boolean
 }
 
@@ -68,6 +69,7 @@ export function ByCategoryView({
   onBreakItDown,
   onAssign,
   onDelete,
+  onWorkedOnThis,
   isCompleting,
 }: ByCategoryViewProps) {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
@@ -171,6 +173,7 @@ export function ByCategoryView({
                     onBreakItDown={onBreakItDown}
                     onAssign={onAssign}
                     onDelete={onDelete}
+                    onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                     compact
                   />
                 ))}

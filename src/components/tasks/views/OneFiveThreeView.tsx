@@ -25,6 +25,7 @@ interface OneFiveThreeViewProps {
   onFocusTimer?: (task: Task) => void
   onBreakItDown?: (task: Task) => void
   onDelete?: (task: Task) => void
+  onWorkedOnThis?: (task: Task) => void
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
   isCompleting?: (taskId: string) => boolean
 }
@@ -60,6 +61,7 @@ export function OneFiveThreeView({
   onFocusTimer,
   onBreakItDown,
   onDelete,
+  onWorkedOnThis,
   onUpdateTask,
   isCompleting,
 }: OneFiveThreeViewProps) {
@@ -152,6 +154,7 @@ export function OneFiveThreeView({
                   onFocusTimer={onFocusTimer}
                   onBreakItDown={onBreakItDown}
                   onDelete={onDelete}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                   compact
                 />
               ))}
@@ -209,6 +212,7 @@ export function OneFiveThreeView({
                   onToggle={onToggle}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
                   compact
                 />
               ))}

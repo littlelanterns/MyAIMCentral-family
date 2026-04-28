@@ -24,6 +24,7 @@ interface EisenhowerViewProps {
   onFocusTimer?: (task: Task) => void
   onBreakItDown?: (task: Task) => void
   onDelete?: (task: Task) => void
+  onWorkedOnThis?: (task: Task) => void
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
   isCompleting?: (taskId: string) => boolean
 }
@@ -66,6 +67,7 @@ export function EisenhowerView({
   onFocusTimer: _onFocusTimer,
   onBreakItDown: _onBreakItDown,
   onDelete: _onDelete,
+  onWorkedOnThis: _onWorkedOnThis,
   onUpdateTask,
   isCompleting,
 }: EisenhowerViewProps) {

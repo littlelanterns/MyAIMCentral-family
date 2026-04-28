@@ -37,6 +37,7 @@ interface SimpleListViewProps {
   onDelete?: (task: Task) => void
   isCompleting?: (taskId: string) => boolean
   taskDrawMap?: Record<string, { itemName: string }>
+  onWorkedOnThis?: (task: Task) => void
 }
 
 export function SimpleListView({
@@ -49,6 +50,7 @@ export function SimpleListView({
   onDelete,
   isCompleting,
   taskDrawMap,
+  onWorkedOnThis,
 }: SimpleListViewProps) {
   const updateViewMetadata = useUpdateTaskViewMetadata()
 
@@ -197,6 +199,7 @@ export function SimpleListView({
               onToggle={onToggle}
               onEdit={onEdit}
               onDelete={onDelete}
+              onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
             />
           ))}
         </div>
@@ -219,6 +222,7 @@ interface SortableTaskItemProps {
   onAssign?: (task: Task) => void
   onDelete?: (task: Task) => void
   drawSubtitle?: string | null
+  onWorkedOnThis?: (task: Task) => void
 }
 
 function SortableTaskItem({
@@ -231,6 +235,7 @@ function SortableTaskItem({
   onAssign,
   onDelete,
   drawSubtitle,
+  onWorkedOnThis,
 }: SortableTaskItemProps) {
   const {
     attributes,
@@ -265,6 +270,7 @@ function SortableTaskItem({
         onDelete={onDelete}
         dragHandleProps={dragHandleProps}
         drawSubtitle={drawSubtitle}
+        onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
       />
     </div>
   )
