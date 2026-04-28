@@ -35,7 +35,11 @@ import {
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
 import { useTasks, useArchiveTask, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
-import { useApproveMasterySubmission, useRejectMasterySubmission, useSubmitMastery } from '@/hooks/usePractice'
+import { useApproveMasterySubmission, useRejectMasterySubmission, useSubmitMastery, useLogPractice } from '@/hooks/usePractice'
+import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
+import { SoftClaimCrossClaimModal, SoftClaimDoneBlockedModal } from '@/components/tasks/SoftClaimWarningModal'
+import { checkSoftClaimAuthorization, checkSoftClaimCrossClaim } from '@/lib/tasks/softClaim'
+import { useCreateRequest } from '@/hooks/useRequests'
 import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySubmissionModal'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -148,6 +152,15 @@ export function TasksPage() {
   const [masterySubmissionTask, setMasterySubmissionTask] = useState<Task | null>(null)
   const submitMastery = useSubmitMastery()
   const archiveTask = useArchiveTask()
+
+  // Daily Progress Marking: "Worked on this today" state
+  const [durationPromptTask, setDurationPromptTask] = useState<Task | null>(null)
+  const logPractice = useLogPractice()
+
+  // Soft-claim modal state
+  const [crossClaimTask, setCrossClaimTask] = useState<{ task: Task; holderName: string | null } | null>(null)
+  const [doneBlockedTask, setDoneBlockedTask] = useState<{ task: Task; holderName: string | null } | null>(null)
+  const createRequest = useCreateRequest()
   const [confirmDeleteTask, setConfirmDeleteTask] = useState<Task | null>(null)
   // PRD-28: makeup work URL params (?new=1&type=makeup&assignee=X)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -242,6 +255,89 @@ export function TasksPage() {
     },
     [family?.id, member?.id, familyMembers, queryClient]
   )
+
+  // ── Daily Progress Marking: "Worked on this today" ──
+  const resolveHolderName = useCallback((holderId: string | null) => {
+    if (!holderId || !familyMembers) return null
+    return familyMembers.find(m => m.id === holderId)?.display_name ?? null
+  }, [familyMembers])
+
+  const handleWorkedOnThis = useCallback((task: Task) => {
+    if (!member?.id || !family?.id) return
+
+    const crossClaim = checkSoftClaimCrossClaim({
+      taskInProgressMemberId: task.in_progress_member_id,
+      callerId: member.id,
+      holderDisplayName: resolveHolderName(task.in_progress_member_id),
+    })
+
+    if (crossClaim.isCrossClaim) {
+      setCrossClaimTask({ task, holderName: crossClaim.holderName })
+      return
+    }
+
+    if (task.track_duration) {
+      setDurationPromptTask(task)
+    } else {
+      logPractice.mutate({
+        familyId: family.id,
+        familyMemberId: member.id,
+        sourceType: 'task',
+        sourceId: task.id,
+        durationMinutes: null,
+      })
+    }
+  }, [member?.id, family?.id, logPractice, resolveHolderName])
+
+  const toggleWithSoftClaim = useCallback(
+    (task: Task, origin?: { x: number; y: number }, extras?: { completionNote?: string | null; photoUrl?: string | null }) => {
+      if (task.track_progress && task.status !== 'completed' && member?.id) {
+        const result = checkSoftClaimAuthorization({
+          taskTrackProgress: true,
+          taskInProgressMemberId: task.in_progress_member_id,
+          taskCreatedBy: task.created_by,
+          callerId: member.id,
+          callerIsPrimaryParent: member.role === 'primary_parent',
+          holderDisplayName: resolveHolderName(task.in_progress_member_id),
+        })
+        if (!result.allowed) {
+          setDoneBlockedTask({ task, holderName: result.holderName })
+          return
+        }
+      }
+      toggle(task, origin, extras)
+    },
+    [toggle, member?.id, member?.role, resolveHolderName],
+  )
+
+  const handleCrossClaimProceed = useCallback(() => {
+    if (!crossClaimTask || !member?.id || !family?.id) return
+    const task = crossClaimTask.task
+    setCrossClaimTask(null)
+    if (task.track_duration) {
+      setDurationPromptTask(task)
+    } else {
+      logPractice.mutate({
+        familyId: family.id,
+        familyMemberId: member.id,
+        sourceType: 'task',
+        sourceId: task.id,
+        durationMinutes: null,
+      })
+    }
+  }, [crossClaimTask, member?.id, family?.id, logPractice])
+
+  const handleDurationSubmit = useCallback((durationMinutes: number | null) => {
+    if (!durationPromptTask || !member?.id || !family?.id) return
+    logPractice.mutate({
+      familyId: family.id,
+      familyMemberId: member.id,
+      sourceType: 'task',
+      sourceId: durationPromptTask.id,
+      durationMinutes,
+    })
+    setDurationPromptTask(null)
+  }, [durationPromptTask, member?.id, family?.id, logPractice])
 
   // ── Edit existing task ──
   const handleEditTask = useCallback(
@@ -709,7 +805,7 @@ export function TasksPage() {
         ) : activeTab === 'queue' ? (
           <QueueTab queueItems={queueItems} />
         ) : activeTab === 'opportunities' ? (
-          <OpportunitiesTab tasks={displayTasks} onToggle={toggle} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} familyId={family?.id} memberId={activeMember?.id} createdBy={member?.id} />
+          <OpportunitiesTab tasks={displayTasks} onToggle={toggleWithSoftClaim} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} familyId={family?.id} memberId={activeMember?.id} createdBy={member?.id} />
         ) : activeTab === 'sequential' ? (
           family?.id ? (
             <SequentialCollectionView
@@ -752,12 +848,13 @@ export function TasksPage() {
         ) : (
           <TaskList
             tasks={displayTasks}
-            onToggle={toggle}
+            onToggle={toggleWithSoftClaim}
             isCompleting={isCompleting}
             showType={activeTab === 'my_tasks'}
             onEditTask={openEditTask}
             onDelete={setConfirmDeleteTask}
             onSubmitMastery={(task) => setMasterySubmissionTask(task)}
+            onWorkedOnThis={handleWorkedOnThis}
             segmentMemberId={activeTab === 'my_tasks' ? activeMember?.id : undefined}
           />
         )}
@@ -808,6 +905,49 @@ export function TasksPage() {
         />
       )}
 
+      {/* Daily Progress Marking: Duration prompt */}
+      <DurationPromptModal
+        isOpen={!!durationPromptTask}
+        onClose={() => setDurationPromptTask(null)}
+        onSubmit={handleDurationSubmit}
+        taskTitle={durationPromptTask?.title}
+      />
+
+      {/* Soft-claim warning modals */}
+      <SoftClaimCrossClaimModal
+        isOpen={!!crossClaimTask}
+        onClose={() => setCrossClaimTask(null)}
+        onProceed={handleCrossClaimProceed}
+        holderName={crossClaimTask?.holderName ?? null}
+      />
+      <SoftClaimDoneBlockedModal
+        isOpen={!!doneBlockedTask}
+        onClose={() => setDoneBlockedTask(null)}
+        onAskMom={() => {
+          if (doneBlockedTask && family?.id && activeMember?.id) {
+            const primaryParent = familyMembers?.find(m => m.role === 'primary_parent')
+            if (primaryParent) {
+              createRequest.mutate({
+                familyId: family.id,
+                senderId: activeMember.id,
+                senderName: activeMember.display_name,
+                data: {
+                  title: `Can I mark "${doneBlockedTask.task.title}" as done?`,
+                  recipient_member_id: primaryParent.id,
+                  details: doneBlockedTask.holderName
+                    ? `${doneBlockedTask.holderName} has been working on this. I'd like to mark it complete.`
+                    : undefined,
+                  source: 'task_soft_claim',
+                  source_reference_id: doneBlockedTask.task.id,
+                },
+              })
+            }
+          }
+          setDoneBlockedTask(null)
+        }}
+        holderName={doneBlockedTask?.holderName ?? null}
+      />
+
       {/* TaskCreationModal — Edit */}
       {editingTask && (
         <TaskCreationModal
@@ -827,6 +967,8 @@ export function TasksPage() {
             dueDate: editingTask.due_date ?? undefined,
             requireApproval: editingTask.require_approval ?? undefined,
             victoryFlagged: editingTask.victory_flagged ?? undefined,
+            trackProgress: editingTask.track_progress ?? undefined,
+            trackDuration: editingTask.track_duration ?? undefined,
             countsForAllowance: editingTask.counts_for_allowance ?? undefined,
             countsForHomework: editingTask.counts_for_homework ?? undefined,
             countsForGamification: editingTask.counts_for_gamification ?? undefined,
@@ -927,11 +1069,13 @@ interface TaskListProps {
   onDelete?: (task: Task) => void
   /** Build J: open mastery submission modal for a sequential mastery task */
   onSubmitMastery?: (task: Task) => void
+  /** Daily Progress Marking: "Worked on this today" handler */
+  onWorkedOnThis?: (task: Task) => void
   /** Build M Phase 5: member ID for segment grouping */
   segmentMemberId?: string
 }
 
-function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onDelete, onSubmitMastery, segmentMemberId }: TaskListProps) {
+function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onDelete, onSubmitMastery, onWorkedOnThis, segmentMemberId }: TaskListProps) {
   const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
   const qc = useQueryClient()
@@ -1037,6 +1181,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         onEdit={onEditTask ? (t) => onEditTask(t) : undefined}
         onDelete={onDelete}
         onSubmitMastery={onSubmitMastery}
+        onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
         drawSubtitle={draw?.itemName ?? null}
         assigneeName={assignee?.name ?? null}
         assigneeColor={assignee?.color ?? null}

@@ -9,6 +9,7 @@ import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
 import { fetchFamilyToday } from '@/hooks/useFamilyToday'
 import { serializeRoutineSectionsForRpc } from '@/lib/templates/serializeRoutineSectionsForRpc'
+import { resolveTrackingProperties } from '@/lib/tasks/resolveTrackingProperties'
 
 interface FamilyMemberLike {
   id: string
@@ -73,6 +74,25 @@ export async function createTaskFromData(
 
   const scheduleFields = buildTaskScheduleFields(data, familyToday)
 
+  // Path C inheritance: when task originates from a promoted list item and mom
+  // didn't explicitly set track properties, inherit from the source list item.
+  let inheritedTracking = { track_progress: data.trackProgress ?? false, track_duration: data.trackDuration ?? false }
+  if (data.source === 'list_promoted' && data.sourceReferenceId && data.trackProgress === undefined) {
+    const { data: sourceItem } = await supabase
+      .from('list_items')
+      .select('track_progress, track_duration, list_id')
+      .eq('id', data.sourceReferenceId)
+      .maybeSingle()
+    if (sourceItem) {
+      const { data: sourceList } = await supabase
+        .from('lists')
+        .select('default_track_progress, default_track_duration')
+        .eq('id', sourceItem.list_id)
+        .maybeSingle()
+      inheritedTracking = resolveTrackingProperties(sourceItem, sourceList)
+    }
+  }
+
   const taskBase = {
     family_id: familyId,
     created_by: creatorId,
@@ -107,6 +127,9 @@ export async function createTaskFromData(
     // allowance participation is meaningless, but we still write the raw value
     // here so edits don't need dependent-field logic at this layer.
     is_extra_credit: data.isExtraCredit ?? false,
+    // Daily Progress Marking (PRD-09A Addendum)
+    track_progress: inheritedTracking.track_progress,
+    track_duration: inheritedTracking.track_duration,
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,
@@ -497,6 +520,8 @@ export async function createTaskFromData(
       sort_order: st.sortOrder ?? idx + 1,
       source: 'manual' as const,
       life_area_tag: taskBase.life_area_tag,
+      track_progress: taskBase.track_progress,
+      track_duration: taskBase.track_duration,
     }))
 
     const { error: subtaskError } = await supabase.from('tasks').insert(subtaskInserts)

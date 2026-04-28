@@ -48,6 +48,8 @@ interface InputRow {
   /** True once the user has explicitly confirmed or dismissed the match. */
   matchResolved: boolean
   focusSelected: boolean
+  trackProgress: boolean
+  trackDuration: boolean
 }
 
 const DEFAULT_ROW_COUNT = 3
@@ -88,7 +90,9 @@ export function EveningTomorrowCaptureSection({ familyId, memberId }: Props) {
       matchedTaskId: null,
       matchedTaskTitle: null,
       matchResolved: false,
-      focusSelected: true, // default all to focus until overflow triggers
+      focusSelected: true,
+      trackProgress: false,
+      trackDuration: false,
     }))
   )
 
@@ -109,6 +113,8 @@ export function EveningTomorrowCaptureSection({ familyId, memberId }: Props) {
         matchedTaskTitle: r.matchedTaskTitle,
         focusSelected: r.focusSelected,
         promptVariantIndex: promptIndex,
+        trackProgress: r.trackProgress,
+        trackDuration: r.trackDuration,
       }))
     // stagePriorityItems is a stable ref-backed callback; we convert
     // the StagedPriorityItem shape to the RhythmPriorityItem shape
@@ -218,6 +224,8 @@ export function EveningTomorrowCaptureSection({ familyId, memberId }: Props) {
         matchedTaskTitle: null,
         matchResolved: false,
         focusSelected: true,
+        trackProgress: false,
+        trackDuration: false,
       },
     ])
   }
@@ -235,6 +243,8 @@ export function EveningTomorrowCaptureSection({ familyId, memberId }: Props) {
             matchedTaskTitle: null,
             matchResolved: false,
             focusSelected: true,
+            trackProgress: false,
+            trackDuration: false,
           },
         ]
       }
@@ -367,6 +377,12 @@ export function EveningTomorrowCaptureSection({ familyId, memberId }: Props) {
               onDismissMatch={() => dismissMatch(idx)}
               onTogglePick={() => togglePick(idx)}
               onRemove={() => removeRow(idx)}
+              onToggleTrackProgress={() => {
+                setRows(prev => prev.map((r, i) => i === idx ? { ...r, trackProgress: !r.trackProgress } : r))
+              }}
+              onToggleTrackDuration={() => {
+                setRows(prev => prev.map((r, i) => i === idx ? { ...r, trackDuration: !r.trackDuration } : r))
+              }}
             />
           </li>
         ))}
@@ -419,6 +435,8 @@ interface RowEditorProps {
   onDismissMatch: () => void
   onTogglePick: () => void
   onRemove: () => void
+  onToggleTrackProgress: () => void
+  onToggleTrackDuration: () => void
 }
 
 function RowEditor({
@@ -427,6 +445,8 @@ function RowEditor({
   onTextChange,
   onConfirmMatch,
   onDismissMatch,
+  onToggleTrackProgress,
+  onToggleTrackDuration,
   onTogglePick,
   onRemove,
 }: RowEditorProps) {
@@ -529,6 +549,30 @@ function RowEditor({
               No, create new
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Track toggles — visible when row has text */}
+      {row.text.trim().length > 0 && (
+        <div className="flex items-center gap-3 ml-2">
+          <label className="flex items-center gap-1 text-[11px] cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+            <input
+              type="checkbox"
+              checked={row.trackProgress}
+              onChange={onToggleTrackProgress}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Multi-day
+          </label>
+          <label className="flex items-center gap-1 text-[11px] cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+            <input
+              type="checkbox"
+              checked={row.trackDuration}
+              onChange={onToggleTrackDuration}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Track time
+          </label>
         </div>
       )}
     </div>

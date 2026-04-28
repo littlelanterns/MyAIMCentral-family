@@ -47,6 +47,8 @@ import { TaskCompletionExpander } from './TaskCompletionExpander'
 import { RoutineStepChecklist, isSectionActiveToday } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useArchiveTask } from '@/hooks/useTasks'
+import { useTaskPracticeAggregation } from '@/hooks/usePractice'
+import { formatPracticeAggregation } from '@/lib/tasks/formatPracticeAggregation'
 import { ScheduledStartBadge } from '@/components/templates/ScheduledStartBadge'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
@@ -104,6 +106,8 @@ export interface TaskCardProps {
   onLogPractice?: (task: Task) => void
   /** Build J: open the mastery submission modal */
   onSubmitMastery?: (task: Task) => void
+  /** Daily Progress Marking: "Worked on this today" action. Caller handles duration prompt + practice_log write. */
+  onWorkedOnThis?: (task: Task) => void
   /** Today's randomizer draw subtitle (e.g. drawn activity name) */
   drawSubtitle?: string | null
   /** Assignee display name — shown as small colored pill on task card */
@@ -164,6 +168,7 @@ export function TaskCard({
   dragHandleProps,
   onLogPractice: _onLogPractice,
   onSubmitMastery,
+  onWorkedOnThis,
   drawSubtitle,
   assigneeName,
   assigneeColor,
@@ -172,8 +177,17 @@ export function TaskCard({
   const [isPressed, _setIsPressed] = useState(false)
   const [showExpander, setShowExpander] = useState(false)
   const [routineExpanded, setRoutineExpanded] = useState(false)
+  const [showSessionHistory, setShowSessionHistory] = useState(false)
   const { data: currentMember } = useFamilyMember()
   const archiveTask = useArchiveTask()
+
+  const isTrackProgress = task.track_progress && task.status !== 'completed'
+  const { data: practiceAgg } = useTaskPracticeAggregation(
+    task.track_progress ? task.id : undefined,
+  )
+  const aggText = practiceAgg
+    ? formatPracticeAggregation(practiceAgg.totalSessions, task.track_duration ? practiceAgg.totalDurationMinutes : null)
+    : ''
 
   // "Remove from dashboard" — soft-deletes the task so it stops appearing on
   // the assignee's dashboard. Completion history and allowance points already
@@ -563,6 +577,37 @@ export function TaskCard({
               <ExternalLink size={10} />
               Open resource
             </a>
+          )}
+
+          {/* Daily Progress Marking: aggregation subtitle + "Worked on this today" button */}
+          {isTrackProgress && (
+            <div className="mt-1 space-y-1">
+              {aggText && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowSessionHistory(!showSessionHistory) }}
+                  className="text-[11px] font-medium transition-colors hover:underline"
+                  style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                >
+                  {aggText}
+                </button>
+              )}
+              {onWorkedOnThis && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onWorkedOnThis(task) }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))',
+                    color: 'var(--color-btn-primary-bg)',
+                    border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)',
+                  }}
+                >
+                  <Play size={12} />
+                  Worked on this today
+                </button>
+              )}
+            </div>
           )}
 
           {/* Description snippet */}
@@ -1020,64 +1065,122 @@ export function TaskCardGuided({
   task,
   isCompleting = false,
   onToggle,
-}: Pick<TaskCardProps, 'task' | 'isCompleting' | 'onToggle'>) {
+  onWorkedOnThis,
+}: Pick<TaskCardProps, 'task' | 'isCompleting' | 'onToggle' | 'onWorkedOnThis'>) {
   const isCompleted = task.status === 'completed'
+  const isTrackProgress = task.track_progress && !isCompleted
+
+  const { data: practiceAgg } = useTaskPracticeAggregation(
+    task.track_progress ? task.id : undefined,
+  )
+  const aggText = practiceAgg
+    ? formatPracticeAggregation(practiceAgg.totalSessions, task.track_duration ? practiceAgg.totalDurationMinutes : null)
+    : ''
 
   return (
-    <button
-      onClick={(e) => {
-        if (isCompleting) return
-        const rect = e.currentTarget.getBoundingClientRect()
-        onToggle(task, {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        })
-      }}
-      disabled={isCompleting}
-      className="w-full flex items-center gap-4 rounded-xl text-left transition-all"
-      style={{
-        padding: '1rem',
-        backgroundColor: isCompleted
-          ? 'color-mix(in srgb, var(--color-success, #22c55e) 10%, var(--color-bg-card))'
-          : 'var(--color-bg-card)',
-        border: isCompleted
-          ? '1.5px solid var(--color-success, #22c55e)'
-          : '1.5px solid var(--color-border)',
-        borderRadius: 'var(--vibe-radius-card, 0.75rem)',
-        minHeight: 'var(--touch-target-min, 48px)',
-        opacity: isCompleting ? 0.6 : 1,
-        cursor: isCompleting ? 'wait' : 'pointer',
-      }}
-    >
-      {/* Big checkbox */}
-      <span
+    <div>
+      <button
+        onClick={(e) => {
+          if (isCompleting || isTrackProgress) return
+          const rect = e.currentTarget.getBoundingClientRect()
+          onToggle(task, {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          })
+        }}
+        disabled={isCompleting}
+        className="w-full flex items-center gap-4 rounded-xl text-left transition-all"
         style={{
-          color: isCompleted ? 'var(--color-success, #22c55e)' : 'var(--color-text-secondary)',
-          flexShrink: 0,
+          padding: '1rem',
+          backgroundColor: isCompleted
+            ? 'color-mix(in srgb, var(--color-success, #22c55e) 10%, var(--color-bg-card))'
+            : 'var(--color-bg-card)',
+          border: isCompleted
+            ? '1.5px solid var(--color-success, #22c55e)'
+            : '1.5px solid var(--color-border)',
+          borderRadius: isTrackProgress ? 'var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem) 0 0' : 'var(--vibe-radius-card, 0.75rem)',
+          minHeight: 'var(--touch-target-min, 48px)',
+          opacity: isCompleting ? 0.6 : 1,
+          cursor: isCompleting ? 'wait' : 'pointer',
         }}
       >
-        {isCompleted ? <CheckCircle2 size={28} /> : <Circle size={28} />}
-      </span>
+        <span
+          style={{
+            color: isCompleted ? 'var(--color-success, #22c55e)' : 'var(--color-text-secondary)',
+            flexShrink: 0,
+          }}
+        >
+          {isCompleted ? <CheckCircle2 size={28} /> : <Circle size={28} />}
+        </span>
 
-      {/* Text */}
-      <span
-        className="font-medium"
-        style={{
-          fontSize: '1rem',
-          color: isCompleted ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
-          textDecoration: isCompleted ? 'line-through' : 'none',
-        }}
-      >
-        {task.title}
-      </span>
+        <div className="flex-1 min-w-0">
+          <span
+            className="font-medium"
+            style={{
+              fontSize: '1rem',
+              color: isCompleted ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+              textDecoration: isCompleted ? 'line-through' : 'none',
+            }}
+          >
+            {task.title}
+          </span>
+          {aggText && (
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+              {aggText}
+            </p>
+          )}
+        </div>
 
-      {!isCompleted && (
-        <ChevronRight
-          size={16}
-          className="ml-auto shrink-0"
-          style={{ color: 'var(--color-text-secondary)' }}
-        />
+        {!isCompleted && !isTrackProgress && (
+          <ChevronRight
+            size={16}
+            className="ml-auto shrink-0"
+            style={{ color: 'var(--color-text-secondary)' }}
+          />
+        )}
+      </button>
+
+      {isTrackProgress && onWorkedOnThis && (
+        <div
+          className="flex items-center gap-2 px-4 py-2 rounded-b-xl"
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            borderLeft: '1.5px solid var(--color-border)',
+            borderRight: '1.5px solid var(--color-border)',
+            borderBottom: '1.5px solid var(--color-border)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => onWorkedOnThis(task)}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-card))',
+              color: 'var(--color-btn-primary-bg)',
+              border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)',
+              minHeight: 'var(--touch-target-min, 48px)',
+            }}
+          >
+            <Play size={14} />
+            Worked on this today
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              onToggle(task, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+            }}
+            className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            style={{
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+              minHeight: 'var(--touch-target-min, 48px)',
+            }}
+          >
+            Done
+          </button>
+        </div>
       )}
-    </button>
+    </div>
   )
 }

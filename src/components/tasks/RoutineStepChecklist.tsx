@@ -28,28 +28,40 @@ import {
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
 import { todayLocalIso } from '@/utils/dates'
+import { useLogPractice } from '@/hooks/usePractice'
+import { useFamily } from '@/hooks/useFamily'
+import { DurationPromptModal } from './DurationPromptModal'
 import type { TaskTemplateStep } from '@/types/tasks'
+
+interface LinkedSourceTracking {
+  trackProgress: boolean
+  trackDuration: boolean
+}
 
 // ─── Linked content resolvers ───────────────────────────────
 
-function LinkedSequentialContent({ sourceId }: { sourceId: string }) {
-  // Lazy-import to avoid circular deps — inline query
+function LinkedSequentialContent({ sourceId, onTrackingResolved }: { sourceId: string; onTrackingResolved?: (t: LinkedSourceTracking) => void }) {
   const [data, setData] = useState<{ title: string; resourceUrl?: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   if (!loaded) {
     setLoaded(true)
-    // Fire once — query the active sequential item
     import('@/lib/supabase/client').then(({ supabase }) => {
       supabase
         .from('tasks')
-        .select('title, resource_url')
+        .select('title, resource_url, track_progress, track_duration')
         .eq('sequential_collection_id', sourceId)
         .eq('sequential_is_active', true)
         .limit(1)
         .single()
         .then(({ data: row }) => {
-          if (row) setData({ title: row.title, resourceUrl: row.resource_url ?? undefined })
+          if (row) {
+            setData({ title: row.title, resourceUrl: row.resource_url ?? undefined })
+            onTrackingResolved?.({
+              trackProgress: row.track_progress ?? false,
+              trackDuration: row.track_duration ?? false,
+            })
+          }
         })
     })
   }
@@ -164,6 +176,7 @@ function StepRow({
   isCompleted,
   onToggle,
   toggling,
+  onTrackingResolved,
 }: {
   step: TaskTemplateStep
   taskId: string
@@ -171,6 +184,7 @@ function StepRow({
   isCompleted: boolean
   onToggle: () => void
   toggling: boolean
+  onTrackingResolved?: (stepId: string, t: LinkedSourceTracking) => void
 }) {
   const isLinked = step.step_type !== 'static' && step.step_type != null
   const displayName = step.display_name_override || step.title
@@ -212,7 +226,10 @@ function StepRow({
         {isLinked && !isCompleted && (
           <div className="mt-0.5 ml-0.5">
             {step.step_type === 'linked_sequential' && step.linked_source_id && (
-              <LinkedSequentialContent sourceId={step.linked_source_id} />
+              <LinkedSequentialContent
+                sourceId={step.linked_source_id}
+                onTrackingResolved={onTrackingResolved ? (t) => onTrackingResolved(step.id, t) : undefined}
+              />
             )}
             {step.step_type === 'linked_randomizer' && step.linked_source_id && (
               <LinkedRandomizerContent sourceId={step.linked_source_id} memberId={memberId} />
@@ -238,6 +255,7 @@ function SectionGroup({
   togglingStepId,
   canEdit,
   onStepsChanged,
+  onTrackingResolved,
 }: {
   section: RoutineSection
   taskId: string
@@ -247,6 +265,7 @@ function SectionGroup({
   togglingStepId: string | null
   canEdit: boolean
   onStepsChanged: () => void
+  onTrackingResolved?: (stepId: string, t: LinkedSourceTracking) => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -357,6 +376,7 @@ function SectionGroup({
               isCompleted={completedStepIds.has(step.id)}
               onToggle={() => onToggleStep(step.id, completedStepIds.has(step.id))}
               toggling={togglingStepId === step.id}
+              onTrackingResolved={onTrackingResolved}
             />
           ))}
         </div>
@@ -531,7 +551,11 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
   const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
+  const logPractice = useLogPractice()
+  const { data: family } = useFamily()
   const [togglingStepId, setTogglingStepId] = useState<string | null>(null)
+  const [stepTrackingMap, setStepTrackingMap] = useState<Record<string, LinkedSourceTracking>>({})
+  const [durationPromptStepId, setDurationPromptStepId] = useState<string | null>(null)
   const { data: currentMember } = useFamilyMember()
   const queryClient = useQueryClient()
   const canEdit = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
@@ -588,12 +612,43 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
           member_id: memberId,
           period_date: todayLocalIso(),
         })
+
+        // Daily Progress Marking: for linked steps, also write to practice_log.
+        if (family?.id) {
+          const step = (sections ?? []).flatMap(s => s.steps).find(s => s.id === stepId)
+          if (step && step.step_type !== 'static' && step.linked_source_id) {
+            const tracking = stepTrackingMap[stepId]
+            if (tracking?.trackDuration) {
+              setDurationPromptStepId(stepId)
+            } else {
+              logPractice.mutate({
+                familyId: family.id,
+                familyMemberId: memberId,
+                sourceType: 'routine_step',
+                sourceId: stepId,
+                durationMinutes: null,
+              })
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to toggle step:', err)
     } finally {
       setTogglingStepId(null)
     }
+  }
+
+  function handleDurationSubmit(durationMinutes: number | null) {
+    if (!durationPromptStepId || !family?.id) return
+    logPractice.mutate({
+      familyId: family.id,
+      familyMemberId: memberId,
+      sourceType: 'routine_step',
+      sourceId: durationPromptStepId,
+      durationMinutes,
+    })
+    setDurationPromptStepId(null)
   }
 
   // Filter to sections active today (week completions used for show_until_complete).
@@ -629,6 +684,7 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
             togglingStepId={togglingStepId}
             canEdit={!!canEdit}
             onStepsChanged={refreshSteps}
+            onTrackingResolved={(stepId, t) => setStepTrackingMap(prev => ({ ...prev, [stepId]: t }))}
           />
         ) : (
           // Single section, compact mode — just render steps without header
@@ -642,11 +698,19 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
                 isCompleted={completedStepIds.has(step.id)}
                 onToggle={() => handleToggleStep(step.id, completedStepIds.has(step.id))}
                 toggling={togglingStepId === step.id}
+                onTrackingResolved={(stepId, t) => setStepTrackingMap(prev => ({ ...prev, [stepId]: t }))}
               />
             ))}
           </div>
         )
       ))}
+
+      {/* Daily Progress Marking: duration prompt for linked steps */}
+      <DurationPromptModal
+        isOpen={!!durationPromptStepId}
+        onClose={() => setDurationPromptStepId(null)}
+        onSubmit={handleDurationSubmit}
+      />
     </div>
   )
 }

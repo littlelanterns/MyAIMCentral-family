@@ -9,7 +9,9 @@ import { PerspectiveSwitcher } from '@/components/shells/PerspectiveSwitcher'
 import type { DashboardView } from '@/components/shells/PerspectiveSwitcher'
 import { DashboardTasksSection } from '@/components/tasks/DashboardTasksSection'
 import { FeatureGuide } from '@/components/shared'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, type Task } from '@/hooks/useTasks'
+import { useLogPractice } from '@/hooks/usePractice'
+import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
 import { LogOut, Users } from 'lucide-react'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { usePendingCounts } from '@/hooks/usePendingCounts'
@@ -825,12 +827,48 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 
 function MemberTasksSection({ familyId, memberId }: { familyId: string; memberId: string }) {
   const { data: tasks = [] } = useTasks(familyId, { assigneeId: memberId })
+  const logPractice = useLogPractice()
+  const [durationTask, setDurationTask] = useState<Task | null>(null)
+
+  const handleWorkedOnThis = useCallback((task: Task) => {
+    if (task.track_duration) {
+      setDurationTask(task)
+    } else {
+      logPractice.mutate({
+        familyId,
+        familyMemberId: memberId,
+        sourceType: 'task',
+        sourceId: task.id,
+        durationMinutes: null,
+      })
+    }
+  }, [familyId, memberId, logPractice])
+
   return (
-    <DashboardTasksSection
-      tasks={tasks}
-      familyId={familyId}
-      memberId={memberId}
-    />
+    <>
+      <DashboardTasksSection
+        tasks={tasks}
+        familyId={familyId}
+        memberId={memberId}
+        onWorkedOnThis={handleWorkedOnThis}
+      />
+      <DurationPromptModal
+        isOpen={!!durationTask}
+        onClose={() => setDurationTask(null)}
+        onSubmit={(mins) => {
+          if (!durationTask) return
+          logPractice.mutate({
+            familyId,
+            familyMemberId: memberId,
+            sourceType: 'task',
+            sourceId: durationTask.id,
+            durationMinutes: mins,
+          })
+          setDurationTask(null)
+        }}
+        taskTitle={durationTask?.title}
+      />
+    </>
   )
 }
 

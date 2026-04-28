@@ -44,6 +44,7 @@ import { useApproveMasterySubmission, useRejectMasterySubmission } from '@/hooks
 import { BulkAddWithFrequency } from '@/components/lists/BulkAddWithFrequency'
 import { ReferenceListView } from '@/components/lists/ReferenceListView'
 import { OpportunitySettingsPanel } from '@/components/lists/OpportunitySettingsPanel'
+import { TrackingDefaultsPanel } from '@/components/lists/TrackingDefaultsPanel'
 import { SmartImportModal } from '@/components/lists/SmartImportModal'
 import { ListImageImportModal } from '@/components/lists/ListImageImportModal'
 import {
@@ -1082,6 +1083,14 @@ function RandomizerDetailView({
             />
           )}
 
+          {/* Daily Progress Marking — list-level tracking defaults */}
+          <TrackingDefaultsPanel
+            defaultTrackProgress={list.default_track_progress ?? false}
+            defaultTrackDuration={list.default_track_duration ?? false}
+            onDefaultTrackProgressChange={(v) => updateList.mutate({ id: list.id, default_track_progress: v })}
+            onDefaultTrackDurationChange={(v) => updateList.mutate({ id: list.id, default_track_duration: v })}
+          />
+
           {/* Per-item frequency rules */}
           <div
             className="rounded-lg p-3 space-y-2"
@@ -1781,6 +1790,41 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               Cancel
             </button>
           </div>
+          {/* Per-item tracking overrides */}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <label className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+              Progress:
+              <select
+                value={item.track_progress === null ? '' : item.track_progress ? 'on' : 'off'}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? null : e.target.value === 'on'
+                  updateItem.mutate({ id: item.id, listId, track_progress: val })
+                }}
+                className="px-1 py-0.5 rounded text-[11px]"
+                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+              >
+                <option value="">Use list default</option>
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+              Duration:
+              <select
+                value={item.track_duration === null || item.track_duration === undefined ? '' : item.track_duration ? 'on' : 'off'}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? null : e.target.value === 'on'
+                  updateItem.mutate({ id: item.id, listId, track_duration: val })
+                }}
+                className="px-1 py-0.5 rounded text-[11px]"
+                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+              >
+                <option value="">Use list default</option>
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
+            </label>
+          </div>
         </div>
       )
     }
@@ -2332,6 +2376,14 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               onDefaultRequireApprovalChange={(v) => updateList.mutate({ id: listId, default_require_approval: v })}
             />
           )}
+
+          {/* Daily Progress Marking — list-level tracking defaults */}
+          <TrackingDefaultsPanel
+            defaultTrackProgress={list.default_track_progress ?? false}
+            defaultTrackDuration={list.default_track_duration ?? false}
+            onDefaultTrackProgressChange={(v) => updateList.mutate({ id: listId, default_track_progress: v })}
+            onDefaultTrackDurationChange={(v) => updateList.mutate({ id: listId, default_track_duration: v })}
+          />
         </div>
       )}
 

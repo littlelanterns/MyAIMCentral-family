@@ -183,6 +183,8 @@ export function MindSweepLiteSection({
         destination_detail: i.destination_detail,
         recipient_member_id: i.recipient_member_id,
         recipient_name: i.recipient_name,
+        trackProgress: i.trackProgress,
+        trackDuration: i.trackDuration,
       }))
     stageMindSweepItems(toStage)
   }, [items, stageMindSweepItems])
@@ -252,6 +254,8 @@ export function MindSweepLiteSection({
           destination_detail: r.destination_detail ?? null,
           recipient_member_id,
           recipient_name,
+          trackProgress: false,
+          trackDuration: false,
         }
       })
       setItems(prev => [...prev, ...newItems])
@@ -276,6 +280,8 @@ export function MindSweepLiteSection({
         text: '',
         disposition: 'task',
         classifier_suggested: 'task',
+        trackProgress: false,
+        trackDuration: false,
       },
     ])
     setNextKey(k => k + 1)
@@ -592,6 +598,30 @@ export function MindSweepLiteSection({
                         </option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {/* Track toggles — only for task disposition */}
+                {item.disposition === 'task' && (
+                  <div className="flex items-center gap-3 mt-1 pl-1">
+                    <label className="flex items-center gap-1 text-[11px] cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={item.trackProgress ?? false}
+                        onChange={() => setItems(prev => prev.map(i => i.key === item.key ? { ...i, trackProgress: !i.trackProgress } : i))}
+                        style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                      />
+                      Multi-day
+                    </label>
+                    <label className="flex items-center gap-1 text-[11px] cursor-pointer" style={{ color: 'var(--color-text-secondary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={item.trackDuration ?? false}
+                        onChange={() => setItems(prev => prev.map(i => i.key === item.key ? { ...i, trackDuration: !i.trackDuration } : i))}
+                        style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                      />
+                      Track time
+                    </label>
                   </div>
                 )}
               </li>

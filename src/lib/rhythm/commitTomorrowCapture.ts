@@ -39,6 +39,8 @@ export interface StagedPriorityItem {
   matchedTaskTitle: string | null
   focusSelected: boolean
   promptVariantIndex: number
+  trackProgress?: boolean
+  trackDuration?: boolean
 }
 
 export interface CommitTomorrowCaptureParams {
@@ -99,6 +101,8 @@ export async function commitTomorrowCapture({
       priority: 'now' as const,
       source: 'rhythm_priority' as const,
       sort_order: idx,
+      track_progress: item.trackProgress ?? false,
+      track_duration: item.trackDuration ?? false,
     }))
 
     const { data: inserted, error } = await supabase

@@ -45,6 +45,8 @@ interface DashboardTasksSectionProps {
   /** Whether section starts expanded (default: true) */
   defaultExpanded?: boolean
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
+  /** Daily Progress Marking: "Worked on this today" handler */
+  onWorkedOnThis?: (task: Task) => void
 }
 
 export function DashboardTasksSection({
@@ -53,6 +55,7 @@ export function DashboardTasksSection({
   familyId,
   defaultExpanded = true,
   onUpdateTask,
+  onWorkedOnThis,
 }: DashboardTasksSectionProps) {
   const { shell } = useShell()
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
@@ -101,7 +104,7 @@ export function DashboardTasksSection({
 
         {/* Play header */}
         <div className="flex items-center gap-2 px-1">
-          <span style={{ fontSize: 20 }}>✅</span>
+          <CheckSquare size={20} style={{ color: 'var(--color-success, #22c55e)' }} />
           <span className="font-bold text-base" style={{ color: 'var(--color-text-heading)' }}>
             My Tasks ({activeTasks.length})
           </span>
@@ -116,6 +119,7 @@ export function DashboardTasksSection({
               isCompleting={isCompleting(task.id)}
               onToggle={toggle}
               colorIndex={i}
+              onWorkedOnThis={task.track_progress ? onWorkedOnThis : undefined}
             />
           ))}
         </div>
@@ -162,6 +166,7 @@ export function DashboardTasksSection({
                 task={task}
                 isCompleting={isCompleting(task.id)}
                 onToggle={toggle}
+                onWorkedOnThis={task.track_progress ? onWorkedOnThis : undefined}
               />
             ))}
           </div>
@@ -274,6 +279,8 @@ export function DashboardTasksSection({
             dueDate: editingTask.due_date ?? undefined,
             requireApproval: editingTask.require_approval ?? undefined,
             victoryFlagged: editingTask.victory_flagged ?? undefined,
+            trackProgress: editingTask.track_progress ?? undefined,
+            trackDuration: editingTask.track_duration ?? undefined,
             countsForAllowance: editingTask.counts_for_allowance ?? undefined,
             countsForHomework: editingTask.counts_for_homework ?? undefined,
             countsForGamification: editingTask.counts_for_gamification ?? undefined,

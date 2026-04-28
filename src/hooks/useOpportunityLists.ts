@@ -176,7 +176,9 @@ export function useClaimOpportunityItem() {
           practice_target: listItem.practice_target,
           require_mastery_approval: listItem.require_mastery_approval ?? false,
           require_mastery_evidence: listItem.require_mastery_evidence ?? false,
-          track_duration: listItem.track_duration ?? false,
+          track_duration: listItem.track_duration ?? list.default_track_duration ?? false,
+          track_progress: listItem.track_progress ?? list.default_track_progress ?? false,
+          in_progress_member_id: (listItem.track_progress ?? list.default_track_progress ?? false) ? memberId : null,
           // Opportunity fields
           max_completions: subtype === 'one_time' ? 1 : (listItem.max_instances ?? null),
           claim_lock_duration: listItem.claim_lock_duration ?? list.default_claim_lock_duration ?? null,

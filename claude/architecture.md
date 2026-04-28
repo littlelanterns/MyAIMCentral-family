@@ -11,7 +11,7 @@
 | Embeddings | OpenAI text-embedding-3-small |
 | Hosting | Vercel |
 | Styling | Tailwind CSS + CSS custom properties for theming |
-| Icons | Lucide React (no emoji in adult interfaces; emoji in Play shell only) |
+| Icons | Lucide React (no emoji anywhere in the app, including Play shell) |
 | Scheduling | rrule.js (RFC 5545) |
 | Payments | Stripe |
 
@@ -27,7 +27,7 @@ The app renders different layouts based on the active member's role. Each shell 
 | **Adult Shell** | Other adults | Similar to Mom but scoped permissions (no family management, no teen access controls) |
 | **Independent Shell** | Teens | Age-appropriate features, cleaner UI |
 | **Guided Shell** | Younger children | Simplified, prompted interactions, parent-configured |
-| **Play Shell** | Youngest members | Visual, sticker-based, emoji-friendly, gamification-forward |
+| **Play Shell** | Youngest members | Visual, sticker-based, icon-library-driven, gamification-forward |
 
 ### Shell Component Tree
 

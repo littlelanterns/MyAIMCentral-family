@@ -43,7 +43,7 @@ The platform supports five family member roles (Mom, Dad/Additional Adult, Speci
 - **AI Models:** Claude Sonnet via OpenRouter (primary), Haiku (lightweight), OpenAI text-embedding-3-small (embeddings)
 - **Hosting:** Vercel
 - **Styling:** Tailwind CSS + CSS custom properties for theming
-- **Icons:** Lucide React (no emoji in adult interfaces; emoji only in Play shell)
+- **Icons:** Lucide React (no emoji anywhere in the app, including Play shell — icon library replaces emoji across all shells)
 - **Scheduling:** rrule.js (RFC 5545)
 - **Payments:** Stripe
 - **Extensions:** pgvector, pgmq, pg_net, pg_cron
@@ -208,7 +208,7 @@ This process exists because weeks of careful planning went into every PRD and ad
 48. **BottomNav is shell-aware.** Mom/Adult/Independent: Home, Tasks, Journal, Notepad, More. Guided/Play have their own nav (BottomNav returns null). More menu has ⓘ info toggle for descriptions.
 49. **QuickTasks strip** is a horizontal scrollable pill bar at the top of Mom/Adult/Independent shells. Collapsible (persists to localStorage). Default items: Add Task, Journal, Quick Note, Victory, Calendar, MindSweep. "Quick Note" opens the Notepad drawer via bridge context.
 50. **PerspectiveSwitcher** is a segmented control on the dashboard page only (mom only). Three views: My Dashboard, Family Overview, Family Hub. Caller owns the state.
-51. **Play shell** uses pure emoji nav (🏠✅⭐🎮), parent-locked Settings button, prominent "Celebrate!" button, 56px touch targets.
+51. **Play shell** uses icon-based nav (Lucide icons, no emoji), parent-locked Settings button, prominent "Celebrate!" button, 56px touch targets.
 52. **Guided shell** shows personalized greeting header with member name + date. 48px touch targets. No sidebar on mobile.
 53. **Settings is NOT in the sidebar.** Access only via floating gear icon in top-right of each shell.
 54. **NotepadDrawer** is available in Mom, Adult, and Independent shells (wrapped with NotepadProvider). Not available in Guided (lightweight version future) or Play.

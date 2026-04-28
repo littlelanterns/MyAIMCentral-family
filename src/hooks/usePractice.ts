@@ -105,7 +105,36 @@ export function useLogPractice() {
 
       let autoAdvanced = false
 
-      if (params.sourceType === 'sequential_task') {
+      if (params.sourceType === 'task') {
+        // Standalone task: set soft-claim + kanban status, no advancement logic
+        const taskUpdate: Record<string, unknown> = {
+          kanban_status: 'in_progress',
+        }
+        // Set soft-claim on first practice (don't overwrite if already claimed)
+        const { data: task, error: taskFetchErr } = await supabase
+          .from('tasks')
+          .select('id, family_id, in_progress_member_id')
+          .eq('id', params.sourceId)
+          .single()
+
+        if (taskFetchErr || !task) throw taskFetchErr ?? new Error('Task not found')
+
+        if (!task.in_progress_member_id) {
+          taskUpdate.in_progress_member_id = params.familyMemberId
+        }
+
+        await supabase
+          .from('tasks')
+          .update(taskUpdate)
+          .eq('id', params.sourceId)
+
+        queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
+      } else if (params.sourceType === 'routine_step') {
+        // Routine step: practice_log row already written above.
+        // The routine_step_completions write is handled by the caller
+        // (RoutineStepChecklist) — useLogPractice only owns the practice_log side.
+        // No additional state changes needed here.
+      } else if (params.sourceType === 'sequential_task') {
         // Sequential: dual-write to task_completions + increment practice_count
         const { data: task, error: taskFetchErr } = await supabase
           .from('tasks')
@@ -698,6 +727,85 @@ export function useMemberPracticeLog(memberId: string | undefined, periodDate?: 
       return (data ?? []) as PracticeLog[]
     },
     enabled: !!memberId,
+  })
+}
+
+// ─── useTaskPracticeAggregation ───────────────────────────────────
+// Aggregates practice sessions for a single task (source_type='task').
+// Returns session count, total duration, first/last session dates.
+// ───────────────────────────────────────────────────────────────────
+
+export interface TaskPracticeAggregation {
+  totalSessions: number
+  totalDurationMinutes: number | null
+  firstSessionDate: string | null
+  lastSessionDate: string | null
+}
+
+export function useTaskPracticeAggregation(taskId: string | undefined) {
+  return useQuery({
+    queryKey: ['task-practice-aggregation', taskId],
+    queryFn: async (): Promise<TaskPracticeAggregation> => {
+      if (!taskId) {
+        return { totalSessions: 0, totalDurationMinutes: null, firstSessionDate: null, lastSessionDate: null }
+      }
+
+      const { data, error } = await supabase
+        .from('practice_log')
+        .select('id, duration_minutes, period_date')
+        .eq('source_type', 'task')
+        .eq('source_id', taskId)
+        .order('period_date', { ascending: true })
+
+      if (error) throw error
+      const rows = data ?? []
+
+      if (rows.length === 0) {
+        return { totalSessions: 0, totalDurationMinutes: null, firstSessionDate: null, lastSessionDate: null }
+      }
+
+      let totalMinutes: number | null = null
+      for (const row of rows) {
+        if (row.duration_minutes != null) {
+          totalMinutes = (totalMinutes ?? 0) + row.duration_minutes
+        }
+      }
+
+      return {
+        totalSessions: rows.length,
+        totalDurationMinutes: totalMinutes,
+        firstSessionDate: rows[0].period_date,
+        lastSessionDate: rows[rows.length - 1].period_date,
+      }
+    },
+    enabled: !!taskId,
+    staleTime: 30_000,
+  })
+}
+
+// ─── useTaskPracticeSessions ──────────────────────────────────────
+// Full session history for a task — used by the session history
+// expansion view. Returns individual rows ordered newest first.
+// ───────────────────────────────────────────────────────────────────
+
+export function useTaskPracticeSessions(taskId: string | undefined) {
+  return useQuery({
+    queryKey: ['task-practice-sessions', taskId],
+    queryFn: async () => {
+      if (!taskId) return []
+
+      const { data, error } = await supabase
+        .from('practice_log')
+        .select('id, family_member_id, duration_minutes, period_date, created_at')
+        .eq('source_type', 'task')
+        .eq('source_id', taskId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: !!taskId,
+    staleTime: 30_000,
   })
 }
 

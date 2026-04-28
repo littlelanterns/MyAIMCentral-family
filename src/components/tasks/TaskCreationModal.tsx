@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
-  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw,
+  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw, CalendarClock,
 } from 'lucide-react'
 import { Button, ModalV2, Toggle, Tooltip } from '@/components/shared'
 import { UniversalScheduler, PickDatesAssigneeEditor } from '@/components/scheduling'
@@ -165,6 +165,9 @@ export interface CreateTaskData {
   allowancePoints?: number | null
   // PRD-28 NEW-EE: Extra credit designation (gated by countsForAllowance=true)
   isExtraCredit?: boolean
+  // Daily Progress Marking (PRD-09A Addendum)
+  trackProgress?: boolean
+  trackDuration?: boolean
   // PRD-28: Per-task subject assignment for auto time logging on completion
   homeworkSubjectIds?: string[]
   // Reward Reveals: attached celebration config
@@ -202,6 +205,8 @@ interface TaskCreationModalProps {
     dueDate?: string
     requireApproval?: boolean
     victoryFlagged?: boolean
+    trackProgress?: boolean
+    trackDuration?: boolean
     countsForAllowance?: boolean
     countsForHomework?: boolean
     countsForGamification?: boolean
@@ -262,6 +267,9 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
     saveAsTemplate: false,
     templateName: '',
     sourceQueueItemId: queueItem?.id,
+    // Daily Progress Marking (PRD-09A Addendum): both off by default
+    trackProgress: false,
+    trackDuration: false,
     // PRD-28: default tracking flags
     countsForAllowance: false,
     countsForHomework: false,
@@ -274,12 +282,13 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
 // ─── Constants ───────────────────────────────────────────────
 
 const TASK_TYPES_GRID: {
-  key: TaskType
+  key: TaskType | 'long_term'
   label: string
   description: string
   icon: React.ComponentType<{ size: number }>
 }[] = [
   { key: 'task', label: 'Task', description: 'One-time or recurring responsibility', icon: CheckSquare },
+  { key: 'long_term' as TaskType, label: 'Long Term Task', description: "Multi-day work where each day's effort matters — track sessions, optionally track time", icon: CalendarClock },
   { key: 'routine', label: 'Routine', description: 'Multi-step checklist — paste a schedule and AI sorts it by day', icon: RotateCcw },
   { key: 'opportunity' as TaskType, label: 'Opportunity', description: 'Optional — earn rewards, no pressure', icon: Star },
   { key: 'habit', label: 'Habit', description: 'Track consistency over time', icon: TrendingUp },
@@ -551,6 +560,8 @@ export function TaskCreationModal({
       if (editTaskValues.startDate) d.startDate = editTaskValues.startDate
       if (editTaskValues.requireApproval !== undefined) d.reward.requireApproval = editTaskValues.requireApproval
       if (editTaskValues.victoryFlagged !== undefined) d.reward.flagAsVictory = editTaskValues.victoryFlagged
+      if (editTaskValues.trackProgress !== undefined) d.trackProgress = editTaskValues.trackProgress
+      if (editTaskValues.trackDuration !== undefined) d.trackDuration = editTaskValues.trackDuration
       if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
       if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
       if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
@@ -641,6 +652,8 @@ export function TaskCreationModal({
       if (editTaskValues.startDate) d.startDate = editTaskValues.startDate
       if (editTaskValues.requireApproval !== undefined) d.reward.requireApproval = editTaskValues.requireApproval
       if (editTaskValues.victoryFlagged !== undefined) d.reward.flagAsVictory = editTaskValues.victoryFlagged
+      if (editTaskValues.trackProgress !== undefined) d.trackProgress = editTaskValues.trackProgress
+      if (editTaskValues.trackDuration !== undefined) d.trackDuration = editTaskValues.trackDuration
       if (editTaskValues.countsForAllowance !== undefined) d.countsForAllowance = editTaskValues.countsForAllowance
       if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
       if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
@@ -1324,17 +1337,24 @@ export function TaskCreationModal({
         {/* 2x2 toggle grid + full-width List row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
           {TASK_TYPES_GRID.map((tt) => {
-            const active = data.taskType === tt.key
+            const active = tt.key === 'long_term'
+              ? data.taskType === 'task' && data.trackProgress === true
+              : tt.key === 'task'
+              ? data.taskType === 'task' && !data.trackProgress
+              : data.taskType === tt.key
             const TypeIcon = tt.icon
             return (
               <button
                 key={tt.key}
                 type="button"
                 onClick={() => {
+                  const dbType = tt.key === 'long_term' ? 'task' : tt.key
                   setData((d) => ({
                     ...d,
-                    taskType: tt.key,
+                    taskType: dbType as TaskType,
                     incompleteAction: tt.key === 'routine' ? 'fresh_reset' : 'auto_reschedule',
+                    trackProgress: tt.key === 'long_term' ? true : (tt.key === 'task' ? false : d.trackProgress),
+                    trackDuration: tt.key === 'long_term' ? true : (tt.key === 'task' ? false : d.trackDuration),
                   }))
                   // Auto-scroll to the routine section editor when Routine is selected.
                   // Delay enough for React to render the section editor before scrolling.
@@ -2326,6 +2346,28 @@ export function TaskCreationModal({
               style={{ accentColor: 'var(--color-btn-primary-bg)' }}
             />
             Flag completion as a Victory
+          </label>
+
+          {/* Daily Progress Marking (PRD-09A Addendum) — secondary overrides.
+              Primary control is the Long Term Task type picker. These let mom
+              fine-tune (e.g. keep progress tracking but turn off duration). */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.trackProgress ?? false}
+              onChange={(e) => update('trackProgress', e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Track daily progress (multi-day)
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={data.trackDuration ?? false}
+              onChange={(e) => update('trackDuration', e.target.checked)}
+              style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+            />
+            Track time spent
           </label>
 
           {/* PRD-28: Task-level tracking flags */}

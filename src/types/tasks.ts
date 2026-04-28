@@ -327,6 +327,8 @@ export interface Task {
   require_mastery_approval: boolean
   require_mastery_evidence: boolean
   track_duration: boolean
+  track_progress: boolean
+  in_progress_member_id: string | null
   resource_url: string | null
   // PRD-24+PRD-26 Build M Sub-phase A — Play task tile icon (soft reference)
   // Lookup at render time against (category='visual_schedule', feature_key, variant)
@@ -641,7 +643,7 @@ export interface TaskViewSection {
 // ============================================================
 
 export type PracticeType = 'practice' | 'mastery_submit'
-export type PracticeSourceType = 'sequential_task' | 'randomizer_item'
+export type PracticeSourceType = 'sequential_task' | 'randomizer_item' | 'task' | 'routine_step'
 export type DrawMode = 'focused' | 'buffet' | 'surprise'
 export type DrawSource = 'manual' | 'auto_surprise'
 export type RandomizerDrawStatus = 'active' | 'completed' | 'mastered' | 'released' | 'submitted'

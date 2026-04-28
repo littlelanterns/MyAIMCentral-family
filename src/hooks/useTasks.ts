@@ -237,11 +237,11 @@ export function useTasks(familyId: string | undefined, filters?: TaskFilters) {
 
       if (filters?.assigneeId) {
         const sharedTaskIds = await fetchSharedTaskIds(filters.assigneeId)
+        const orClauses = [`assignee_id.eq.${filters.assigneeId}`, `in_progress_member_id.eq.${filters.assigneeId}`]
         if (sharedTaskIds.length > 0) {
-          query = query.or(`assignee_id.eq.${filters.assigneeId},id.in.(${sharedTaskIds.join(',')})`)
-        } else {
-          query = query.eq('assignee_id', filters.assigneeId)
+          orClauses.push(`id.in.(${sharedTaskIds.join(',')})`)
         }
+        query = query.or(orClauses.join(','))
       }
 
       if (filters?.taskType) {

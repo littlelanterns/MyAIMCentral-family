@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-27
+> Auto-generated from live Supabase on 2026-04-28
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 293 rows
+### `view_as_sessions` — 295 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 187 rows
+### `view_as_feature_exclusions` — 189 rows
 
 | # | Column |
 |---|---|
@@ -223,7 +223,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 196 rows
+### `feature_key_registry` — 200 rows
 
 | # | Column |
 |---|---|
@@ -234,7 +234,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 330 rows
+### `feature_access_v2` — 350 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 594 rows
+### `ai_usage_tracking` — 595 rows
 
 | # | Column |
 |---|---|
@@ -737,6 +737,8 @@
 | 73 | `allowance_points` |
 | 74 | `homework_subject_ids` |
 | 75 | `is_extra_credit` |
+| 76 | `track_progress` |
+| 77 | `in_progress_member_id` |
 
 ### `task_assignments` — 33 rows
 
@@ -779,7 +781,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 286 rows
+### `routine_step_completions` — 328 rows
 
 | # | Column |
 |---|---|
@@ -908,6 +910,7 @@
 | 37 | `default_claim_lock_duration` |
 | 38 | `default_claim_lock_unit` |
 | 39 | `schedule_config` |
+| 40 | `default_track_progress` |
 
 ### `list_items` — 116 rows
 
@@ -966,6 +969,7 @@
 | 51 | `reward_type` |
 | 52 | `claim_lock_duration` |
 | 53 | `claim_lock_unit` |
+| 54 | `track_progress` |
 
 ### `list_shares` — 1 rows
 
@@ -2031,7 +2035,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `bookshelf_user_state` — 49 rows
+### `bookshelf_user_state` — 53 rows
 
 | # | Column |
 |---|---|
@@ -2457,7 +2461,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 141 rows
+### `activity_log_entries` — 142 rows
 
 | # | Column |
 |---|---|
@@ -3384,7 +3388,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 14 rows
+### `rhythm_completions` — 15 rows
 
 | # | Column |
 |---|---|
@@ -3619,7 +3623,7 @@
 | 8 | `tokens_count` |
 | 9 | `created_at` |
 
-### `platform_intelligence.book_extractions` — 89921 rows
+### `platform_intelligence.book_extractions` — 89966 rows
 
 | # | Column |
 |---|---|

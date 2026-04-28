@@ -68,6 +68,8 @@ export interface StagedMindSweepLiteItem {
   recipient_member_id?: string | null
   /** Display name for UI rendering of the recipient chip. */
   recipient_name?: string | null
+  trackProgress?: boolean
+  trackDuration?: boolean
 }
 
 export interface CommitMindSweepLiteParams {
@@ -180,6 +182,8 @@ async function routeItem(
           status: 'pending',
           priority: 'next',
           source: 'rhythm_mindsweep_lite',
+          track_progress: item.trackProgress ?? false,
+          track_duration: item.trackDuration ?? false,
         })
         .select('id')
         .single()

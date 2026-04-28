@@ -170,6 +170,7 @@ export function useCreateSequentialCollection() {
           require_mastery_approval: item.require_mastery_approval ?? defaultRequireApproval,
           require_mastery_evidence: item.require_mastery_evidence ?? defaultRequireEvidence,
           track_duration: item.track_duration ?? defaultTrackDuration,
+          track_progress: false,
         }
       })
 
@@ -341,7 +342,7 @@ export function useRedeploySequentialCollection() {
       // Build J: carry resource_url + advancement config into redeploys.
       const { data: sourceTasks, error: taskError } = await supabase
         .from('tasks')
-        .select('title, description, sequential_position, life_area_tag, resource_url, advancement_mode, practice_target, require_mastery_approval, require_mastery_evidence, track_duration')
+        .select('title, description, sequential_position, life_area_tag, resource_url, advancement_mode, practice_target, require_mastery_approval, require_mastery_evidence, track_duration, track_progress')
         .eq('sequential_collection_id', collectionId)
         .order('sequential_position')
 
@@ -388,6 +389,7 @@ export function useRedeploySequentialCollection() {
         require_mastery_approval: boolean
         require_mastery_evidence: boolean
         track_duration: boolean
+        track_progress: boolean
       }>).map((t, index) => ({
         family_id: familyId,
         created_by: createdBy,
@@ -420,6 +422,7 @@ export function useRedeploySequentialCollection() {
         require_mastery_approval: t.require_mastery_approval,
         require_mastery_evidence: t.require_mastery_evidence,
         track_duration: t.track_duration,
+        track_progress: t.track_progress ?? false,
       }))
 
       const { data: newTasks, error: insertError } = await supabase

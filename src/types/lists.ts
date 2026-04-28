@@ -63,6 +63,7 @@ export interface List {
   default_require_approval: boolean | null
   default_require_evidence: boolean | null
   default_track_duration: boolean | null
+  default_track_progress: boolean | null
   // Opportunity-List Unification — any list can be an opportunity board
   is_opportunity: boolean
   default_opportunity_subtype: OpportunitySubtype | null
@@ -123,7 +124,8 @@ export interface ListItem {
   mastery_approved_at: string | null
   require_mastery_approval: boolean
   require_mastery_evidence: boolean
-  track_duration: boolean
+  track_duration: boolean | null         // NULL = inherit from list default (nullable as of migration 100184)
+  track_progress: boolean | null       // NULL = inherit from list default
   // Opportunity-List Unification
   opportunity_subtype: OpportunitySubtype | null
   reward_type: OpportunityRewardType | null

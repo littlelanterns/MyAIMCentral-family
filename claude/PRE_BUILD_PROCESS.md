@@ -332,9 +332,9 @@ any horizontal collection.
 ---
 
 EMOJI RULE
-No Unicode emoji in Mom, Adult, or Independent shell
-components. Use Lucide icons only. Emoji permitted ONLY
-in Play shell components and gamification components.
+No Unicode emoji anywhere in the app, including Play shell
+and gamification components. Use Lucide React icons and the
+icon library across all shells. No exceptions.
 
 ---
 
