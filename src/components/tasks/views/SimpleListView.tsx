@@ -176,6 +176,7 @@ export function SimpleListView({
                 onAssign={onAssign}
                 onDelete={onDelete}
                 drawSubtitle={taskDrawMap?.[task.id]?.itemName ?? null}
+                onWorkedOnThis={task.track_progress && onWorkedOnThis ? () => onWorkedOnThis(task) : undefined}
               />
             ))}
           </div>
