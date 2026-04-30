@@ -14,6 +14,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { List, ListItem, OpportunitySubtype } from '@/types/lists'
 import { todayLocalIso } from '@/utils/dates'
+import { resolveTrackingProperties } from '@/lib/tasks/resolveTrackingProperties'
+import { resolveRewardProperties } from '@/lib/tasks/resolveRewardProperties'
+import { resolveAllowanceProperties } from '@/lib/tasks/resolveAllowanceProperties'
+import { resolveHomeworkProperties } from '@/lib/tasks/resolveHomeworkProperties'
+import { resolveCategorizationProperties } from '@/lib/tasks/resolveCategorizationProperties'
+import { resolveAccessProperties } from '@/lib/tasks/resolveAccessProperties'
 
 // ============================================================
 // useOpportunityLists — all opportunity-flagged lists for a family
@@ -154,9 +160,25 @@ export function useClaimOpportunityItem() {
       }
       const taskType = taskTypeMap[subtype as OpportunitySubtype] ?? 'task'
 
-      // ── 3. Build reward fields ─────────────────────────────
-      const rewardType = listItem.reward_type ?? list.default_reward_type
-      const rewardAmount = listItem.reward_amount ?? list.default_reward_amount
+      // ── 3. Resolve capabilities via universal resolvers ────
+      const tracking = resolveTrackingProperties(listItem, {
+        default_track_progress: list.default_track_progress,
+        default_track_duration: list.default_track_duration,
+      })
+      const reward = resolveRewardProperties(listItem, {
+        default_reward_type: list.default_reward_type,
+        default_reward_amount: list.default_reward_amount,
+        victory_mode: list.victory_mode,
+      })
+      const allowance = resolveAllowanceProperties()
+      const homework = resolveHomeworkProperties()
+      const categorization = resolveCategorizationProperties(
+        { life_area_tags: listItem.life_area_tags },
+      )
+      const access = resolveAccessProperties(
+        { is_shared: list.is_shared },
+        { instantiation_mode: list.instantiation_mode, collaboration_mode: list.collaboration_mode },
+      )
 
       // ── 4. Create the task ─────────────────────────────────
       const { data: task, error: taskError } = await supabase
@@ -171,22 +193,37 @@ export function useClaimOpportunityItem() {
           status: 'in_progress',
           source: 'opportunity_list_claim',
           source_reference_id: listItem.id,
-          // Carry forward advancement/mastery from list item
+          // Advancement/mastery from list item
           advancement_mode: listItem.advancement_mode ?? 'complete',
           practice_target: listItem.practice_target,
           require_mastery_approval: listItem.require_mastery_approval ?? false,
           require_mastery_evidence: listItem.require_mastery_evidence ?? false,
-          track_duration: listItem.track_duration ?? list.default_track_duration ?? false,
-          track_progress: listItem.track_progress ?? list.default_track_progress ?? false,
-          in_progress_member_id: (listItem.track_progress ?? list.default_track_progress ?? false) ? memberId : null,
+          // Tracking (via resolver)
+          ...tracking,
+          in_progress_member_id: tracking.track_progress ? memberId : null,
           // Opportunity fields
           max_completions: subtype === 'one_time' ? 1 : (listItem.max_instances ?? null),
           claim_lock_duration: listItem.claim_lock_duration ?? list.default_claim_lock_duration ?? null,
           claim_lock_unit: listItem.claim_lock_unit ?? list.default_claim_lock_unit ?? null,
-          // Reward info via points_override (for gamification pipeline)
-          points_override: rewardType === 'points' && rewardAmount ? rewardAmount : null,
-          // Resource URL if available
+          // Reward (via resolver)
+          points_override: reward.points_override,
+          victory_flagged: reward.victory_flagged,
+          // Resource URL
           resource_url: listItem.resource_url ?? null,
+          // Categorization (via resolver)
+          life_area_tags: categorization.life_area_tags,
+          icon_asset_key: categorization.icon_asset_key,
+          icon_variant: categorization.icon_variant,
+          // Allowance/homework (via resolver — defaults to false for list-sourced tasks)
+          counts_for_allowance: allowance.counts_for_allowance,
+          allowance_points: allowance.allowance_points,
+          is_extra_credit: allowance.is_extra_credit,
+          counts_for_homework: homework.counts_for_homework,
+          homework_subject_ids: homework.homework_subject_ids,
+          // Access/sharing (via resolver)
+          is_shared: access.is_shared,
+          instantiation_mode: access.instantiation_mode,
+          collaboration_mode: access.collaboration_mode,
         })
         .select('id')
         .single()
@@ -194,13 +231,13 @@ export function useClaimOpportunityItem() {
       if (taskError) throw taskError
 
       // ── 5. Create task_rewards record if reward configured ─
-      if (rewardType && rewardAmount) {
+      if (reward.reward_type && reward.reward_amount) {
         await supabase
           .from('task_rewards')
           .insert({
             task_id: task.id,
-            reward_type: rewardType,
-            reward_value: { amount: rewardAmount },
+            reward_type: reward.reward_type,
+            reward_value: { amount: reward.reward_amount },
           })
       }
 

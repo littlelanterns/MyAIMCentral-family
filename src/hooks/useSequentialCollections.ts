@@ -7,6 +7,12 @@ import type {
   CreateSequentialCollection,
   Task,
 } from '@/types/tasks'
+import { resolveTrackingProperties } from '@/lib/tasks/resolveTrackingProperties'
+import { resolveRewardProperties } from '@/lib/tasks/resolveRewardProperties'
+import { resolveAllowanceProperties } from '@/lib/tasks/resolveAllowanceProperties'
+import { resolveHomeworkProperties } from '@/lib/tasks/resolveHomeworkProperties'
+import { resolveCategorizationProperties } from '@/lib/tasks/resolveCategorizationProperties'
+import { resolveAccessProperties } from '@/lib/tasks/resolveAccessProperties'
 
 // ============================================================
 // useSequentialCollections — list all sequential collections for a family
@@ -134,9 +140,30 @@ export function useCreateSequentialCollection() {
 
       const col = newCollection as SequentialCollection
 
-      // 2. Create individual task records for each item
+      // 2. Create individual task records for each item (via universal resolvers)
+      const collectionDefaults = {
+        default_track_progress: false,
+        default_track_duration: defaultTrackDuration,
+        default_reward_type: null,
+        default_reward_amount: null,
+        reward_per_item_type: collection.reward_per_item_type ?? null,
+        reward_per_item_amount: collection.reward_per_item_amount ?? null,
+        life_area_tags: collection.life_area_tags ?? (collection.life_area_tag ? [collection.life_area_tag] : []),
+        life_area_tag: collection.life_area_tag ?? null,
+      }
+
       const taskInserts = items.map((item, index) => {
         const itemAdvancement = item.advancement_mode ?? defaultAdvancement
+        const tracking = resolveTrackingProperties(item, {
+          default_track_progress: collectionDefaults.default_track_progress,
+          default_track_duration: collectionDefaults.default_track_duration,
+        })
+        const reward = resolveRewardProperties(undefined, collectionDefaults)
+        const allowance = resolveAllowanceProperties()
+        const homework = resolveHomeworkProperties()
+        const categorization = resolveCategorizationProperties(undefined, collectionDefaults)
+        const access = resolveAccessProperties()
+
         return {
           family_id: col.family_id,
           created_by: createdBy,
@@ -150,28 +177,40 @@ export function useCreateSequentialCollection() {
           sequential_collection_id: col.id,
           sequential_position: index,
           sequential_is_active: index < (collection.active_count ?? 1),
-          life_area_tag: collection.life_area_tag ?? null,
-          life_area_tags: collection.life_area_tags ?? (collection.life_area_tag ? [collection.life_area_tag] : []),
           focus_time_seconds: 0,
           sort_order: index,
           big_rock: false,
-          is_shared: false,
           incomplete_action: 'fresh_reset' as const,
           require_approval: false,
-          victory_flagged: false,
           time_tracking_enabled: false,
           kanban_status: 'to_do' as const,
-          // Build J: URLs live in resource_url (dedicated column), not image_url
           resource_url: item.resource_url ?? null,
-          // Build J: advancement inheritance (collection defaults, optional per-item override)
+          // Advancement (collection defaults, optional per-item override)
           advancement_mode: itemAdvancement,
           practice_target: item.practice_target ?? (itemAdvancement === 'practice_count' ? defaultPracticeTarget : null),
           practice_count: 0,
           mastery_status: itemAdvancement === 'mastery' ? 'practicing' : null,
           require_mastery_approval: item.require_mastery_approval ?? defaultRequireApproval,
           require_mastery_evidence: item.require_mastery_evidence ?? defaultRequireEvidence,
-          track_duration: item.track_duration ?? defaultTrackDuration,
-          track_progress: false,
+          // Tracking (via resolver — fixes hardcoded track_progress: false)
+          ...tracking,
+          // Reward (via resolver — wires reward_per_item inheritance)
+          points_override: reward.points_override,
+          victory_flagged: reward.victory_flagged,
+          // Categorization (via resolver)
+          life_area_tags: categorization.life_area_tags,
+          icon_asset_key: categorization.icon_asset_key,
+          icon_variant: categorization.icon_variant,
+          // Allowance/homework (via resolver — defaults false for sequential items)
+          counts_for_allowance: allowance.counts_for_allowance,
+          allowance_points: allowance.allowance_points,
+          is_extra_credit: allowance.is_extra_credit,
+          counts_for_homework: homework.counts_for_homework,
+          homework_subject_ids: homework.homework_subject_ids,
+          // Access/sharing (via resolver)
+          is_shared: access.is_shared,
+          instantiation_mode: access.instantiation_mode,
+          collaboration_mode: access.collaboration_mode,
         }
       })
 
@@ -340,10 +379,10 @@ export function useRedeploySequentialCollection() {
       const col = collection as SequentialCollection
 
       // Fetch all tasks from the collection as a template.
-      // Build J: carry resource_url + advancement config into redeploys.
+      // Carry ALL capability fields into redeploys (universal parity).
       const { data: sourceTasks, error: taskError } = await supabase
         .from('tasks')
-        .select('title, description, sequential_position, life_area_tag, resource_url, advancement_mode, practice_target, require_mastery_approval, require_mastery_evidence, track_duration, track_progress')
+        .select('title, description, sequential_position, life_area_tag, life_area_tags, resource_url, advancement_mode, practice_target, require_mastery_approval, require_mastery_evidence, track_duration, track_progress, victory_flagged, points_override, counts_for_allowance, allowance_points, is_extra_credit, counts_for_homework, homework_subject_ids, icon_asset_key, icon_variant, is_shared, instantiation_mode, collaboration_mode')
         .eq('sequential_collection_id', collectionId)
         .order('sequential_position')
 
@@ -379,12 +418,20 @@ export function useRedeploySequentialCollection() {
       if (newCollError) throw newCollError
       const newCol = newCollection as SequentialCollection
 
-      // Create tasks for the new assignee
+      // Create tasks for the new assignee (via universal resolvers)
+      const restartDefaults = {
+        reward_per_item_type: newCol.reward_per_item_type,
+        reward_per_item_amount: newCol.reward_per_item_amount,
+        life_area_tags: newCol.life_area_tags ?? (newCol.life_area_tag ? [newCol.life_area_tag] : []),
+        life_area_tag: newCol.life_area_tag,
+      }
+
       const taskInserts = (sourceTasks as Array<{
         title: string
         description: string | null
         sequential_position: number
         life_area_tag: string | null
+        life_area_tags: string[]
         resource_url: string | null
         advancement_mode: 'complete' | 'practice_count' | 'mastery'
         practice_target: number | null
@@ -392,41 +439,71 @@ export function useRedeploySequentialCollection() {
         require_mastery_evidence: boolean
         track_duration: boolean
         track_progress: boolean
-      }>).map((t, index) => ({
-        family_id: familyId,
-        created_by: createdBy,
-        assignee_id: newAssigneeId,
-        title: t.title,
-        description: t.description,
-        task_type: 'sequential' as const,
-        status: 'pending' as const,
-        source: 'template_deployed' as const,
-        source_reference_id: newCol.id,
-        sequential_collection_id: newCol.id,
-        sequential_position: t.sequential_position,
-        sequential_is_active: index < col.active_count,
-        life_area_tag: t.life_area_tag,
-        life_area_tags: t.life_area_tag ? [t.life_area_tag] : [],
-        resource_url: t.resource_url,
-        focus_time_seconds: 0,
-        sort_order: t.sequential_position,
-        big_rock: false,
-        is_shared: false,
-        incomplete_action: 'fresh_reset' as const,
-        require_approval: false,
-        victory_flagged: false,
-        time_tracking_enabled: false,
-        kanban_status: 'to_do' as const,
-        // Build J: fresh progress on the new student, but inherit item advancement config
-        advancement_mode: t.advancement_mode,
-        practice_target: t.practice_target,
-        practice_count: 0,
-        mastery_status: t.advancement_mode === 'mastery' ? 'practicing' : null,
-        require_mastery_approval: t.require_mastery_approval,
-        require_mastery_evidence: t.require_mastery_evidence,
-        track_duration: t.track_duration,
-        track_progress: t.track_progress ?? false,
-      }))
+        victory_flagged: boolean
+        points_override: number | null
+        counts_for_allowance: boolean
+        allowance_points: number | null
+        is_extra_credit: boolean
+        counts_for_homework: boolean
+        homework_subject_ids: string[]
+        icon_asset_key: string | null
+        icon_variant: string | null
+        is_shared: boolean
+        instantiation_mode: string | null
+        collaboration_mode: string | null
+      }>).map((t, index) => {
+        const tracking = resolveTrackingProperties(t)
+        const reward = resolveRewardProperties(t, restartDefaults)
+        const allowance = resolveAllowanceProperties(t)
+        const homework = resolveHomeworkProperties(t)
+        const categorization = resolveCategorizationProperties(t, restartDefaults)
+        const access = resolveAccessProperties(t)
+
+        return {
+          family_id: familyId,
+          created_by: createdBy,
+          assignee_id: newAssigneeId,
+          title: t.title,
+          description: t.description,
+          task_type: 'sequential' as const,
+          status: 'pending' as const,
+          source: 'template_deployed' as const,
+          source_reference_id: newCol.id,
+          sequential_collection_id: newCol.id,
+          sequential_position: t.sequential_position,
+          sequential_is_active: index < col.active_count,
+          resource_url: t.resource_url,
+          focus_time_seconds: 0,
+          sort_order: t.sequential_position,
+          big_rock: false,
+          incomplete_action: 'fresh_reset' as const,
+          require_approval: false,
+          time_tracking_enabled: false,
+          kanban_status: 'to_do' as const,
+          // Fresh progress on the new student, but inherit item advancement config
+          advancement_mode: t.advancement_mode,
+          practice_target: t.practice_target,
+          practice_count: 0,
+          mastery_status: t.advancement_mode === 'mastery' ? 'practicing' : null,
+          require_mastery_approval: t.require_mastery_approval,
+          require_mastery_evidence: t.require_mastery_evidence,
+          // All capabilities via resolvers (carry forward from source tasks)
+          ...tracking,
+          points_override: reward.points_override,
+          victory_flagged: reward.victory_flagged,
+          life_area_tags: categorization.life_area_tags,
+          icon_asset_key: categorization.icon_asset_key,
+          icon_variant: categorization.icon_variant,
+          counts_for_allowance: allowance.counts_for_allowance,
+          allowance_points: allowance.allowance_points,
+          is_extra_credit: allowance.is_extra_credit,
+          counts_for_homework: homework.counts_for_homework,
+          homework_subject_ids: homework.homework_subject_ids,
+          is_shared: access.is_shared,
+          instantiation_mode: access.instantiation_mode,
+          collaboration_mode: access.collaboration_mode,
+        }
+      })
 
       const { data: newTasks, error: insertError } = await supabase
         .from('tasks')
