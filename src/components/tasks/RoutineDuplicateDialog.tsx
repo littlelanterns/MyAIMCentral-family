@@ -17,6 +17,10 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { LinkedSourcePicker } from '@/components/tasks/sequential/LinkedSourcePicker'
 import { supabase } from '@/lib/supabase/client'
 import type { TaskTemplateStep, LinkedSourceType } from '@/types/tasks'
+import { resolveAllowanceProperties } from '@/lib/tasks/resolveAllowanceProperties'
+import { resolveHomeworkProperties } from '@/lib/tasks/resolveHomeworkProperties'
+import { resolveCategorizationProperties } from '@/lib/tasks/resolveCategorizationProperties'
+import { resolveRewardProperties } from '@/lib/tasks/resolveRewardProperties'
 // Worker ROUTINE-PROPAGATION (c4, founder D6 Thread 1): deep-clone is
 // now a shared primitive under src/lib/templates/. Both this clone-
 // and-deploy dialog and the new clone-as-template dialog
@@ -161,8 +165,20 @@ export function RoutineDuplicateDialog({
         linkedStepResolutions: resolutions,
       })
 
-      // 2. Create the task itself assigned to the target member.
-      const { error: taskError } = await supabase.from('tasks').insert({
+      // 2. Read the source template's capability fields for snapshot.
+      const { data: tmpl } = await supabase
+        .from('task_templates')
+        .select('life_area_tag, life_area_tags, require_approval, incomplete_action, image_url, counts_for_allowance, counts_for_homework, counts_for_gamification, allowance_points, homework_subject_ids, is_extra_credit, default_reward_type, default_reward_amount')
+        .eq('id', templateId)
+        .single()
+
+      const allowance = resolveAllowanceProperties(tmpl)
+      const homework = resolveHomeworkProperties(tmpl)
+      const categorization = resolveCategorizationProperties(tmpl)
+      const reward = resolveRewardProperties(null, tmpl)
+
+      // 3. Create the task with full capability snapshot at deploy time.
+      const { data: newTask, error: taskError } = await supabase.from('tasks').insert({
         family_id: familyId,
         created_by: createdBy,
         assignee_id: targetMemberId,
@@ -171,9 +187,29 @@ export function RoutineDuplicateDialog({
         task_type: 'routine',
         status: 'pending',
         source: 'template_deployed',
-      })
+        require_approval: tmpl?.require_approval ?? false,
+        incomplete_action: tmpl?.incomplete_action ?? 'fresh_reset',
+        victory_flagged: reward.victory_flagged,
+        counts_for_allowance: allowance.counts_for_allowance,
+        allowance_points: allowance.allowance_points,
+        is_extra_credit: allowance.is_extra_credit,
+        counts_for_homework: homework.counts_for_homework,
+        homework_subject_ids: homework.homework_subject_ids,
+        counts_for_gamification: tmpl?.counts_for_gamification ?? true,
+        life_area_tag: tmpl?.life_area_tag ?? null,
+        life_area_tags: categorization.life_area_tags,
+        points_override: reward.points_override,
+      }).select('id').single()
 
       if (taskError) throw taskError
+
+      if (newTask && reward.reward_type && reward.reward_amount != null) {
+        await supabase.from('task_rewards').insert({
+          task_id: newTask.id,
+          reward_type: reward.reward_type,
+          reward_value: { amount: reward.reward_amount },
+        })
+      }
 
       // Worker ROUTINE-PROPAGATION (c6): post-duplicate success toast.
       // Names the assignee.

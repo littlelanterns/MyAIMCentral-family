@@ -66,10 +66,10 @@ export function TaskBreakerModalFromHorizon({
     setError(null)
 
     try {
-      // Load the parent task to inherit due_date
+      // Load the parent task to inherit due_date, tracking, categorization
       const { data: parent, error: parentError } = await supabase
         .from('tasks')
-        .select('due_date, life_area_tag')
+        .select('due_date, life_area_tag, life_area_tags, track_progress, track_duration')
         .eq('id', parentTaskId)
         .single()
 
@@ -85,7 +85,7 @@ export function TaskBreakerModalFromHorizon({
 
       if (parentUpdateError) throw parentUpdateError
 
-      // Insert child tasks
+      // Insert child tasks — inherit tracking + categorization from parent (DQ1: subtasks inherit tracking, not counting/crediting)
       const rows = subtasks.map((subtask, idx) => ({
         family_id: familyId,
         created_by: memberId,
@@ -97,6 +97,9 @@ export function TaskBreakerModalFromHorizon({
         parent_task_id: parentTaskId,
         due_date: parent?.due_date ?? null,
         life_area_tag: lifeAreaTag ?? parent?.life_area_tag ?? null,
+        life_area_tags: parent?.life_area_tags?.length ? parent.life_area_tags : (lifeAreaTag ? [lifeAreaTag] : (parent?.life_area_tag ? [parent.life_area_tag] : [])),
+        track_progress: parent?.track_progress ?? false,
+        track_duration: parent?.track_duration ?? false,
         source: 'goal_decomposition' as const,
         sort_order: subtask.sortOrder ?? idx,
       }))

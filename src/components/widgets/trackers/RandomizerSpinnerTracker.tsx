@@ -20,6 +20,11 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { TrackerProps } from './TrackerProps'
+import { resolveTrackingProperties } from '@/lib/tasks/resolveTrackingProperties'
+import { resolveRewardProperties } from '@/lib/tasks/resolveRewardProperties'
+import { resolveAllowanceProperties } from '@/lib/tasks/resolveAllowanceProperties'
+import { resolveHomeworkProperties } from '@/lib/tasks/resolveHomeworkProperties'
+import { resolveCategorizationProperties } from '@/lib/tasks/resolveCategorizationProperties'
 
 interface SpinnerConfig {
   linked_list_id?: string
@@ -34,6 +39,17 @@ interface ListItem {
   is_repeatable: boolean
   is_available: boolean
   reward_amount: number | null
+  reward_type: string | null
+  resource_url: string | null
+  track_progress: boolean | null
+  track_duration: boolean | null
+  advancement_mode: string | null
+  practice_target: number | null
+  require_mastery_approval: boolean
+  require_mastery_evidence: boolean
+  victory_flagged: boolean
+  opportunity_subtype: string | null
+  life_area_tags: string[]
 }
 
 export function RandomizerSpinnerTracker({ widget, dataPoints, onRecordData, isCompact }: TrackerProps) {
@@ -58,12 +74,12 @@ export function RandomizerSpinnerTracker({ widget, dataPoints, onRecordData, isC
       if (!linkedListId) return null
       const { data: list } = await supabase
         .from('lists')
-        .select('id, title')
+        .select('id, title, default_track_progress, default_track_duration, default_reward_type, default_reward_amount, default_advancement_mode, default_practice_target, default_require_approval, default_require_evidence, counts_for_allowance, counts_for_homework, counts_for_gamification, victory_mode, life_area_tags')
         .eq('id', linkedListId)
         .single()
       const { data: items } = await supabase
         .from('list_items')
-        .select('id, content, notes, category, is_repeatable, is_available, reward_amount')
+        .select('id, content, notes, category, is_repeatable, is_available, reward_amount, reward_type, resource_url, track_progress, track_duration, advancement_mode, practice_target, require_mastery_approval, require_mastery_evidence, victory_flagged, opportunity_subtype, life_area_tags')
         .eq('list_id', linkedListId)
         .order('sort_order')
       return { list, items: (items ?? []) as ListItem[] }
@@ -103,7 +119,14 @@ export function RandomizerSpinnerTracker({ widget, dataPoints, onRecordData, isC
     if (!result || !selectedMemberId || !familyId) return
     setAssigning(true)
     try {
-      await supabase.from('tasks').insert({
+      const list = listData?.list
+      const tracking = resolveTrackingProperties(result, list)
+      const reward = resolveRewardProperties(result, list)
+      const allowance = resolveAllowanceProperties(null, list)
+      const homework = resolveHomeworkProperties(null, list)
+      const categorization = resolveCategorizationProperties(result, list)
+
+      const { data: newTask } = await supabase.from('tasks').insert({
         family_id: familyId,
         created_by: widget.family_member_id,
         assignee_id: selectedMemberId,
@@ -113,7 +136,32 @@ export function RandomizerSpinnerTracker({ widget, dataPoints, onRecordData, isC
         status: 'pending',
         source: 'randomizer_draw',
         source_reference_id: result.id,
-      })
+        resource_url: result.resource_url ?? null,
+        track_progress: tracking.track_progress,
+        track_duration: tracking.track_duration,
+        in_progress_member_id: tracking.track_progress ? selectedMemberId : null,
+        advancement_mode: result.advancement_mode ?? 'complete',
+        practice_target: result.practice_target,
+        require_mastery_approval: result.require_mastery_approval,
+        require_mastery_evidence: result.require_mastery_evidence,
+        victory_flagged: reward.victory_flagged,
+        points_override: reward.points_override,
+        counts_for_allowance: allowance.counts_for_allowance,
+        allowance_points: allowance.allowance_points,
+        is_extra_credit: allowance.is_extra_credit,
+        counts_for_homework: homework.counts_for_homework,
+        homework_subject_ids: homework.homework_subject_ids,
+        counts_for_gamification: list?.counts_for_gamification ?? true,
+        life_area_tags: categorization.life_area_tags,
+      }).select('id').single()
+
+      if (newTask && reward.reward_type && reward.reward_amount != null) {
+        await supabase.from('task_rewards').insert({
+          task_id: newTask.id,
+          reward_type: reward.reward_type,
+          reward_value: { amount: reward.reward_amount },
+        })
+      }
 
       // Mark non-repeatable items as unavailable
       if (!result.is_repeatable) {
