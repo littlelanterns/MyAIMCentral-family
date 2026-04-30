@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-28
+> Auto-generated from live Supabase on 2026-04-30
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 295 rows
+### `view_as_sessions` — 308 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 189 rows
+### `view_as_feature_exclusions` — 202 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 595 rows
+### `ai_usage_tracking` — 600 rows
 
 | # | Column |
 |---|---|
@@ -623,6 +623,7 @@
 | 39 | `allowance_points` |
 | 40 | `homework_subject_ids` |
 | 41 | `is_extra_credit` |
+| 42 | `life_area_tags` |
 
 ### `task_template_sections` — 52 rows
 
@@ -658,7 +659,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 85 rows
+### `tasks` — 94 rows
 
 | # | Column |
 |---|---|
@@ -739,8 +740,11 @@
 | 75 | `is_extra_credit` |
 | 76 | `track_progress` |
 | 77 | `in_progress_member_id` |
+| 78 | `instantiation_mode` |
+| 79 | `collaboration_mode` |
+| 80 | `life_area_tags` |
 
-### `task_assignments` — 33 rows
+### `task_assignments` — 35 rows
 
 | # | Column |
 |---|---|
@@ -757,7 +761,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 33 rows
+### `task_completions` — 34 rows
 
 | # | Column |
 |---|---|
@@ -781,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 328 rows
+### `routine_step_completions` — 448 rows
 
 | # | Column |
 |---|---|
@@ -818,6 +822,7 @@
 | 17 | `default_require_approval` |
 | 18 | `default_require_evidence` |
 | 19 | `default_track_duration` |
+| 20 | `life_area_tags` |
 
 ### `task_claims` — 0 rows
 
@@ -911,6 +916,8 @@
 | 38 | `default_claim_lock_unit` |
 | 39 | `schedule_config` |
 | 40 | `default_track_progress` |
+| 41 | `instantiation_mode` |
+| 42 | `collaboration_mode` |
 
 ### `list_items` — 116 rows
 
@@ -933,7 +940,7 @@
 | 15 | `item_name` |
 | 16 | `checked_by` |
 | 17 | `checked_at` |
-| 18 | `url` |
+| 18 | `resource_url` |
 | 19 | `quantity` |
 | 20 | `quantity_unit` |
 | 21 | `price` |
@@ -970,6 +977,7 @@
 | 52 | `claim_lock_duration` |
 | 53 | `claim_lock_unit` |
 | 54 | `track_progress` |
+| 55 | `life_area_tags` |
 
 ### `list_shares` — 1 rows
 
@@ -1041,7 +1049,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 45 rows
+### `dashboard_widgets` — 46 rows
 
 | # | Column |
 |---|---|
@@ -1208,7 +1216,7 @@
 | 8 | `sort_order` |
 | 9 | `created_at` |
 
-### `calendar_settings` — 2 rows
+### `calendar_settings` — 3 rows
 
 | # | Column |
 |---|---|
@@ -1334,6 +1342,7 @@
 | 20 | `archived_at` |
 | 21 | `created_at` |
 | 22 | `updated_at` |
+| 23 | `life_area_tags` |
 
 ### `victory_celebrations` — 0 rows
 
@@ -1745,7 +1754,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2035,7 +2044,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `bookshelf_user_state` — 53 rows
+### `bookshelf_user_state` — 62 rows
 
 | # | Column |
 |---|---|
@@ -2183,7 +2192,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 231 rows
+### `vault_user_visits` — 232 rows
 
 | # | Column |
 |---|---|
@@ -2191,7 +2200,7 @@
 | 2 | `user_id` |
 | 3 | `visited_at` |
 
-### `vault_first_sightings` — 99 rows
+### `vault_first_sightings` — 100 rows
 
 | # | Column |
 |---|---|
@@ -2461,7 +2470,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 142 rows
+### `activity_log_entries` — 148 rows
 
 | # | Column |
 |---|---|
@@ -3235,7 +3244,7 @@
 | 7 | `sort_order` |
 | 8 | `created_at` |
 
-### `practice_log` — 0 rows
+### `practice_log` — 10 rows
 
 | # | Column |
 |---|---|
@@ -3388,7 +3397,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 15 rows
+### `rhythm_completions` — 16 rows
 
 | # | Column |
 |---|---|
