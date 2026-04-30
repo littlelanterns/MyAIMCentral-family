@@ -1034,7 +1034,7 @@ async function seedLists() {
     return
   }
 
-  async function createList(ownerId: string, title: string, listType: string, items: { content: string; checked: boolean; section_name?: string; notes?: string; url?: string; price?: number; quantity?: string }[]) {
+  async function createList(ownerId: string, title: string, listType: string, items: { content: string; checked: boolean; section_name?: string; notes?: string; resource_url?: string; price?: number; quantity?: string }[]) {
     const { data: list, error } = await supabase.from('lists').insert({
       family_id: familyId, owner_id: ownerId, title, list_type: listType,
     }).select('id').single()
@@ -1048,7 +1048,7 @@ async function seedLists() {
     const listItems = items.map((item, i) => ({
       list_id: list.id, content: item.content, checked: item.checked,
       sort_order: i, section_name: item.section_name ?? null,
-      notes: item.notes ?? null, url: item.url ?? null,
+      notes: item.notes ?? null, resource_url: item.resource_url ?? null,
       price: item.price ?? null, quantity: item.quantity ?? null,
     }))
     const { error: itemErr } = await supabase.from('list_items').insert(listItems)

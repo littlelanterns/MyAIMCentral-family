@@ -33,7 +33,7 @@ export interface SchedulerOutput {
   active_start_time?: string | null
   /** Time-of-day window end (HH:MM, family timezone). */
   active_end_time?: string | null
-  /** Instantiation mode for multi-assignee schedules. */
+  /** @deprecated Promoted to top-level column on tasks/lists. Kept temporarily for serialization compat. */
   instantiation_mode?: 'per_assignee_instance' | 'shared_anyone_completes' | null
 }
 

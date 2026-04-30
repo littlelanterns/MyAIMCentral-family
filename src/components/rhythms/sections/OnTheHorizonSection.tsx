@@ -81,7 +81,7 @@ export function OnTheHorizonSection({ familyId, memberId, config }: Props) {
       // ─── Tasks ───
       const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
-        .select('id, title, description, due_date, status, task_breaker_level, life_area_tag, parent_task_id')
+        .select('id, title, description, due_date, status, task_breaker_level, life_area_tag, life_area_tags, parent_task_id')
         .eq('family_id', familyId)
         .eq('assignee_id', memberId)
         .in('status', ['pending', 'in_progress'])
@@ -155,7 +155,7 @@ export function OnTheHorizonSection({ familyId, memberId, config }: Props) {
           description: t.description,
           date: t.due_date as string,
           daysUntil: daysBetween(today, t.due_date as string),
-          lifeAreaTag: t.life_area_tag,
+          lifeAreaTag: ((t as any).life_area_tags as string[] | undefined)?.[0] ?? t.life_area_tag,
           hasSubtasks:
             taskIdsWithSubtasks.has(t.id) || !!t.task_breaker_level,
         }))

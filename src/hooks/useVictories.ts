@@ -73,7 +73,7 @@ export function useVictories(memberId: string | undefined, filters: VictoryFilte
 
       // Life area filter (multi-select)
       if (filters.lifeAreaTags && filters.lifeAreaTags.length > 0) {
-        query = query.in('life_area_tag', filters.lifeAreaTags)
+        query = query.overlaps('life_area_tags', filters.lifeAreaTags)
       }
 
       // Special filter: only victories connected to GS or BI
@@ -156,11 +156,10 @@ export function useLifeAreaBreakdown(memberId: string | undefined, period: Victo
 
       let query = supabase
         .from('victories')
-        .select('life_area_tag')
+        .select('life_area_tag, life_area_tags')
         .eq('family_id', familyId)
         .eq('family_member_id', memberId)
         .is('archived_at', null)
-        .not('life_area_tag', 'is', null)
 
       const range = getPeriodRange(period)
       if (range) {
@@ -170,11 +169,14 @@ export function useLifeAreaBreakdown(memberId: string | undefined, period: Victo
       const { data, error } = await query
       if (error) throw error
 
-      // Count by tag, sorted by frequency
+      // Count by tag, sorted by frequency — prefer life_area_tags array, fall back to life_area_tag
       const counts: Record<string, number> = {}
       for (const row of data ?? []) {
-        const tag = (row as { life_area_tag: string }).life_area_tag
-        counts[tag] = (counts[tag] || 0) + 1
+        const r = row as { life_area_tag: string | null; life_area_tags: string[] | null }
+        const tags = (r.life_area_tags && r.life_area_tags.length > 0) ? r.life_area_tags : (r.life_area_tag ? [r.life_area_tag] : [])
+        for (const tag of tags) {
+          counts[tag] = (counts[tag] || 0) + 1
+        }
       }
 
       return Object.entries(counts)
@@ -190,13 +192,15 @@ export function useCreateVictory() {
 
   return useMutation({
     mutationFn: async (input: CreateVictory) => {
+      const tag = input.life_area_tag ?? null
       const { data, error } = await supabase
         .from('victories')
         .insert({
           family_id: input.family_id,
           family_member_id: input.family_member_id,
           description: input.description,
-          life_area_tag: input.life_area_tag ?? null,
+          life_area_tag: tag,
+          life_area_tags: input.life_area_tags ?? (tag ? [tag] : []),
           custom_tags: input.custom_tags ?? [],
           source: input.source ?? 'manual',
           source_reference_id: input.source_reference_id ?? null,

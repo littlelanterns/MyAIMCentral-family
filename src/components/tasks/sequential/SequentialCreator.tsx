@@ -33,7 +33,7 @@ export interface SequentialCreateDefaults {
 export interface SequentialCreateItem {
   title: string
   description?: string | null
-  url?: string | null
+  resource_url?: string | null
   advancement_mode?: AdvancementMode
   practice_target?: number | null
   require_mastery_approval?: boolean
@@ -288,7 +288,7 @@ export function SequentialCreator({
             const enriched: SequentialCreateItem[] = incoming.map(item => ({
               title: item.title,
               description: item.notes ?? null,
-              url: item.url ?? null,
+              resource_url: item.resource_url ?? null,
               advancement_mode: item.suggested_advancement_mode,
               practice_target: item.suggested_practice_target,
               require_mastery_approval: item.suggested_require_approval ?? undefined,

@@ -45,6 +45,8 @@ interface PaintedSource {
   source_table: 'tasks' | 'lists'
   schedule: ScheduleConfig
   assignee_id?: string | null
+  /** Top-level column value (migration 100187). Preferred over JSONB sub-field. */
+  column_instantiation_mode?: string | null
 }
 
 interface ProcessingStats {
@@ -151,6 +153,9 @@ Deno.serve(async (req) => {
         for (const memberId of assigneeIds) {
           const idempotencyKey = `scheduled_occurrence_active:${src.id}:${memberId ?? 'family'}:${localDateStr}`
 
+          // Prefer top-level column (migration 100187), fall back to JSONB sub-field for pre-migration data
+          const resolvedInstantiationMode = src.column_instantiation_mode ?? schedule.instantiation_mode ?? null
+
           const { error: insertError } = await supabase
             .from('deed_firings')
             .insert({
@@ -165,7 +170,7 @@ Deno.serve(async (req) => {
                 source_table: src.source_table,
                 active_start_time: schedule.active_start_time ?? null,
                 active_end_time: schedule.active_end_time ?? null,
-                instantiation_mode: schedule.instantiation_mode ?? null,
+                instantiation_mode: resolvedInstantiationMode,
                 schedule_type: 'painted',
               },
             })
@@ -198,9 +203,10 @@ async function loadPaintedSources(
 ): Promise<PaintedSource[]> {
   const sources: PaintedSource[] = []
 
+  // Select top-level instantiation_mode column (migration 100187) alongside JSONB schedule data
   const { data: tasks } = await supabase
     .from('tasks')
-    .select('id, family_id, assignee_id, recurrence_details')
+    .select('id, family_id, assignee_id, recurrence_details, instantiation_mode')
     .eq('family_id', familyId)
     .is('archived_at', null)
     .not('recurrence_details', 'is', null)
@@ -215,6 +221,7 @@ async function loadPaintedSources(
           source_table: 'tasks',
           schedule: rd,
           assignee_id: task.assignee_id,
+          column_instantiation_mode: (task as Record<string, unknown>).instantiation_mode as string | null ?? null,
         })
       }
     }
@@ -222,7 +229,7 @@ async function loadPaintedSources(
 
   const { data: lists } = await supabase
     .from('lists')
-    .select('id, family_id, schedule_config')
+    .select('id, family_id, schedule_config, instantiation_mode')
     .eq('family_id', familyId)
     .is('archived_at', null)
     .not('schedule_config', 'is', null)
@@ -237,6 +244,7 @@ async function loadPaintedSources(
           source_table: 'lists',
           schedule: sc,
           assignee_id: null,
+          column_instantiation_mode: (list as Record<string, unknown>).instantiation_mode as string | null ?? null,
         })
       }
     }

@@ -685,13 +685,13 @@ export function TaskCard({
             )}
 
             {/* Life area tag */}
-            {task.life_area_tag && (
+            {(task.life_area_tags?.[0] ?? task.life_area_tag) && (
               <span
                 className="flex items-center gap-0.5 text-xs"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
                 <Tag size={11} />
-                {task.life_area_tag.replace(/_/g, ' ')}
+                {(task.life_area_tags?.[0] ?? task.life_area_tag)!.replace(/_/g, ' ')}
               </span>
             )}
           </div>

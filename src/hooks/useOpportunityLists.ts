@@ -186,7 +186,7 @@ export function useClaimOpportunityItem() {
           // Reward info via points_override (for gamification pipeline)
           points_override: rewardType === 'points' && rewardAmount ? rewardAmount : null,
           // Resource URL if available
-          resource_url: listItem.url ?? null,
+          resource_url: listItem.resource_url ?? null,
         })
         .select('id')
         .single()

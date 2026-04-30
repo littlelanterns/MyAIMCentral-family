@@ -87,7 +87,7 @@ export function ByCategoryView({
   const grouped = new Map<string, Task[]>()
 
   for (const task of tasks) {
-    const key = task.life_area_tag ?? 'uncategorized'
+    const key = task.life_area_tags?.[0] ?? task.life_area_tag ?? 'uncategorized'
     if (!grouped.has(key)) grouped.set(key, [])
     grouped.get(key)!.push(task)
   }

@@ -49,7 +49,7 @@ export function usePlayTaskIcons(tasks: Task[]): PlayTaskIconMap {
         const key = `${task.icon_asset_key}::${variant}`
         explicit.set(key, { feature_key: task.icon_asset_key, variant })
       } else {
-        const tags = extractTaskIconTags(task.title, task.life_area_tag)
+        const tags = extractTaskIconTags(task.title, task.life_area_tags?.[0] ?? task.life_area_tag)
         if (tags.length > 0) {
           autoTags[task.id] = tags
         }

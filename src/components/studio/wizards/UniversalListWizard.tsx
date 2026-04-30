@@ -51,7 +51,7 @@ interface ListWizardItem {
   price?: string
   quantity?: string
   priority?: string
-  url?: string
+  resource_url?: string
   notes?: string
 }
 
@@ -242,7 +242,7 @@ export function UniversalListWizard({
           price: item.price != null ? String(item.price) : undefined,
           quantity: item.quantity != null ? String(item.quantity) : undefined,
           priority: item.priority as string | undefined,
-          url: item.url as string | undefined,
+          resource_url: (item.url ?? item.resource_url) as string | undefined,
           notes: item.notes as string | undefined,
         }))
         // Extract unique sections from parsed items

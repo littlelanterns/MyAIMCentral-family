@@ -72,7 +72,7 @@ async function loadInnerWorkings(memberId: string, familyId: string) {
 async function loadVictories(victoryIds: string[]) {
   const { data } = await supabase
     .from('victories')
-    .select('description, importance, life_area_tag, source, custom_tags, created_at')
+    .select('description, importance, life_area_tag, life_area_tags, source, custom_tags, created_at')
     .in('id', victoryIds)
     .order('created_at', { ascending: true })
   return data ?? []
@@ -250,7 +250,8 @@ Deno.serve(async (req) => {
     const victorySummary = victories.map((v, i) => {
       const parts = [`${i + 1}. ${v.description}`]
       if (v.importance && v.importance !== 'standard') parts.push(`[${v.importance}]`)
-      if (v.life_area_tag) parts.push(`(${v.life_area_tag})`)
+      const vTag = v.life_area_tags?.[0] ?? v.life_area_tag
+      if (vTag) parts.push(`(${vTag})`)
       return parts.join(' ')
     }).join('\n')
 

@@ -93,7 +93,7 @@ export function useCreateSequentialCollection() {
       items: Array<{
         title: string
         description?: string | null
-        url?: string | null
+        resource_url?: string | null
         // Build J: optional per-item advancement overrides (otherwise inherit collection defaults)
         advancement_mode?: 'complete' | 'practice_count' | 'mastery'
         practice_target?: number | null
@@ -151,6 +151,7 @@ export function useCreateSequentialCollection() {
           sequential_position: index,
           sequential_is_active: index < (collection.active_count ?? 1),
           life_area_tag: collection.life_area_tag ?? null,
+          life_area_tags: collection.life_area_tags ?? (collection.life_area_tag ? [collection.life_area_tag] : []),
           focus_time_seconds: 0,
           sort_order: index,
           big_rock: false,
@@ -161,7 +162,7 @@ export function useCreateSequentialCollection() {
           time_tracking_enabled: false,
           kanban_status: 'to_do' as const,
           // Build J: URLs live in resource_url (dedicated column), not image_url
-          resource_url: item.url ?? null,
+          resource_url: item.resource_url ?? null,
           // Build J: advancement inheritance (collection defaults, optional per-item override)
           advancement_mode: itemAdvancement,
           practice_target: item.practice_target ?? (itemAdvancement === 'practice_count' ? defaultPracticeTarget : null),
@@ -361,6 +362,7 @@ export function useRedeploySequentialCollection() {
           active_count: col.active_count,
           promotion_timing: col.promotion_timing,
           life_area_tag: col.life_area_tag,
+          life_area_tags: col.life_area_tags ?? (col.life_area_tag ? [col.life_area_tag] : []),
           reward_per_item_type: col.reward_per_item_type,
           reward_per_item_amount: col.reward_per_item_amount,
           default_advancement_mode: col.default_advancement_mode ?? 'complete',
@@ -404,6 +406,7 @@ export function useRedeploySequentialCollection() {
         sequential_position: t.sequential_position,
         sequential_is_active: index < col.active_count,
         life_area_tag: t.life_area_tag,
+        life_area_tags: t.life_area_tag ? [t.life_area_tag] : [],
         resource_url: t.resource_url,
         focus_time_seconds: 0,
         sort_order: t.sequential_position,

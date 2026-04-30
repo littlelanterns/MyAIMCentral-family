@@ -16,7 +16,7 @@ interface VictoryDetailProps {
 export function VictoryDetail({ victory, onClose, isMom, currentMemberId }: VictoryDetailProps) {
   const [description, setDescription] = useState(victory.description)
   const [celebrationText, setCelebrationText] = useState(victory.celebration_text || '')
-  const [lifeAreaTag, setLifeAreaTag] = useState(victory.life_area_tag || '')
+  const [lifeAreaTag, setLifeAreaTag] = useState(victory.life_area_tags?.[0] ?? victory.life_area_tag ?? '')
   const [importance, setImportance] = useState<VictoryImportance>(victory.importance)
   const [momsPickNote, setMomsPickNote] = useState(victory.moms_pick_note || '')
   const [editing, setEditing] = useState(false)
@@ -41,6 +41,7 @@ export function VictoryDetail({ victory, onClose, isMom, currentMemberId }: Vict
         description,
         celebration_text: celebrationText || null,
         life_area_tag: lifeAreaTag || null,
+        life_area_tags: lifeAreaTag ? [lifeAreaTag] : [],
         importance,
       },
     })
@@ -270,7 +271,7 @@ export function VictoryDetail({ victory, onClose, isMom, currentMemberId }: Vict
                   background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
                   color: 'var(--color-accent)',
                 }}>
-                {victory.life_area_tag || 'None'}
+                {victory.life_area_tags?.[0] ?? victory.life_area_tag ?? 'None'}
               </span>
             )}
           </div>

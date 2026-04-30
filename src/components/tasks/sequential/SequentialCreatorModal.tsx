@@ -77,6 +77,7 @@ export function SequentialCreatorModal({
           active_count: data.activeCount,
           promotion_timing: data.promotionTiming,
           life_area_tag: (data.lifeAreaTag as any) ?? null,
+          life_area_tags: (data.lifeAreaTag ? [data.lifeAreaTag] : []) as any,
           reward_per_item_type: null,
           reward_per_item_amount: null,
           // Build J: advancement defaults flow through from the creator form

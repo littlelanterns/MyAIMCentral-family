@@ -369,6 +369,7 @@ export function TasksPage() {
           title: data.title,
           description: data.description || null,
           life_area_tag: data.lifeAreaTag || null,
+          life_area_tags: data.lifeAreaTag ? [data.lifeAreaTag] : [],
           duration_estimate: data.durationEstimate || null,
           incomplete_action: data.incompleteAction,
           require_approval: data.reward?.requireApproval ?? false,
@@ -972,7 +973,7 @@ export function TasksPage() {
           editingTemplateId={editingTask.template_id ?? undefined}
           editTaskValues={{
             incompleteAction: editingTask.incomplete_action ?? undefined,
-            lifeAreaTag: editingTask.life_area_tag ?? undefined,
+            lifeAreaTag: editingTask.life_area_tags?.[0] ?? editingTask.life_area_tag ?? undefined,
             durationEstimate: editingTask.duration_estimate ?? undefined,
             dueDate: editingTask.due_date ?? undefined,
             requireApproval: editingTask.require_approval ?? undefined,

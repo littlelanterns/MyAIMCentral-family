@@ -283,9 +283,9 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
               <CheckCircle2 size={14} style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }} />
             )}
           </div>
-          {collection.life_area_tag && (
+          {(collection.life_area_tags?.[0] ?? collection.life_area_tag) && (
             <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {collection.life_area_tag}
+              {collection.life_area_tags?.[0] ?? collection.life_area_tag}
             </span>
           )}
         </div>

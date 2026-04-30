@@ -76,6 +76,7 @@ export function VictorySuggestions({
       family_member_id: memberId,
       description: suggestion.description,
       life_area_tag: suggestion.life_area_tag,
+      life_area_tags: suggestion.life_area_tag ? [suggestion.life_area_tag] : [],
       member_type: memberType,
       importance: 'standard',
       guiding_star_id: suggestion.guiding_star_id,

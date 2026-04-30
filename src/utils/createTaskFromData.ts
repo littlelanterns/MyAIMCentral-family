@@ -106,6 +106,7 @@ export async function createTaskFromData(
     recurrence_rule: scheduleFields.recurrence_rule,
     recurrence_details: scheduleFields.recurrence_details,
     life_area_tag: data.lifeAreaTag || null,
+    life_area_tags: data.lifeAreaTag ? [data.lifeAreaTag] : [],
     duration_estimate: data.durationEstimate || null,
     incomplete_action: data.incompleteAction,
     require_approval: data.reward?.requireApproval ?? false,
@@ -130,6 +131,10 @@ export async function createTaskFromData(
     // Daily Progress Marking (PRD-09A Addendum)
     track_progress: inheritedTracking.track_progress,
     track_duration: inheritedTracking.track_duration,
+    // Parity: instantiation_mode promoted from JSONB sub-field to top-level column (migration 100187).
+    // Extract from SchedulerOutput at save time so the column is always populated for painted schedules.
+    instantiation_mode: data.schedule?.instantiation_mode ?? null,
+    collaboration_mode: null as string | null,
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,
@@ -520,6 +525,7 @@ export async function createTaskFromData(
       sort_order: st.sortOrder ?? idx + 1,
       source: 'manual' as const,
       life_area_tag: taskBase.life_area_tag,
+      life_area_tags: taskBase.life_area_tags ?? (taskBase.life_area_tag ? [taskBase.life_area_tag] : []),
       track_progress: taskBase.track_progress,
       track_duration: taskBase.track_duration,
     }))

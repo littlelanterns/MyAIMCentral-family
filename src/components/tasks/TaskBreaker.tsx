@@ -136,6 +136,7 @@ export function TaskBreaker({ taskTitle, taskDescription, lifeAreaTag, existingI
             dashboard_mode: m.dashboard_mode,
           })),
           life_area_tag: lifeAreaTag || undefined,
+          life_area_tags: lifeAreaTag ? [lifeAreaTag] : undefined,
           active_task_count_by_member: activeTaskCounts,
           family_id: member?.family_id,
           member_id: member?.id,

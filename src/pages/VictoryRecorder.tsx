@@ -356,13 +356,13 @@ export function VictoryRecorder() {
                     {v.description}
                   </p>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {v.life_area_tag && (
+                    {(v.life_area_tags?.[0] ?? v.life_area_tag) && (
                       <span className="text-xs px-2 py-0.5 rounded-full"
                         style={{
                           background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
                           color: 'var(--color-accent)',
                         }}>
-                        {v.life_area_tag}
+                        {v.life_area_tags?.[0] ?? v.life_area_tag}
                       </span>
                     )}
                     <span className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -420,13 +420,13 @@ export function VictoryRecorder() {
                         {v.description}
                       </p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        {v.life_area_tag && (
+                        {(v.life_area_tags?.[0] ?? v.life_area_tag) && (
                           <span className="text-xs px-2 py-0.5 rounded-full"
                             style={{
                               background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
                               color: 'var(--color-accent)',
                             }}>
-                            {v.life_area_tag}
+                            {v.life_area_tags?.[0] ?? v.life_area_tag}
                           </span>
                         )}
                         <span className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-tertiary)' }}>

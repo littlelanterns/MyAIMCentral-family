@@ -58,6 +58,7 @@ const InputSchema = z.object({
   detail_level: z.enum(['quick', 'detailed', 'granular']),
   family_members: z.array(FamilyMemberSchema).optional(),
   life_area_tag: z.string().optional(),
+  life_area_tags: z.array(z.string()).optional(),
   active_task_count_by_member: z.record(z.string(), z.number()).optional(),
   family_id: z.string().uuid().optional(),
   member_id: z.string().uuid().optional(),
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
 
     const {
       task_title, task_description, detail_level,
-      family_members, life_area_tag, active_task_count_by_member,
+      family_members, life_area_tag, life_area_tags, active_task_count_by_member,
       family_id, member_id,
       image_base64, image_mime_type,
     } = parsed.data
@@ -98,8 +99,10 @@ Deno.serve(async (req) => {
     }
     parts.push(`Detail level: ${detail_level}`)
 
-    if (life_area_tag) {
-      parts.push(`Life area: ${life_area_tag}`)
+    // Prefer life_area_tags array, fall back to life_area_tag for backward compat
+    const effectiveTag = life_area_tags?.[0] ?? life_area_tag
+    if (effectiveTag) {
+      parts.push(`Life area: ${effectiveTag}`)
     }
 
     if (hasImage) {

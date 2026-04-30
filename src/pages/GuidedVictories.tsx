@@ -153,7 +153,7 @@ export function GuidedVictories() {
                   {v.description}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  {v.life_area_tag && (
+                  {(v.life_area_tags?.[0] ?? v.life_area_tag) && (
                     <span
                       className="text-xs px-2 py-0.5 rounded-full"
                       style={{
@@ -161,7 +161,7 @@ export function GuidedVictories() {
                         color: 'var(--color-text-secondary)',
                       }}
                     >
-                      {v.life_area_tag}
+                      {v.life_area_tags?.[0] ?? v.life_area_tag}
                     </span>
                   )}
                   <span

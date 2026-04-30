@@ -72,6 +72,8 @@ export interface List {
   default_claim_lock_duration: number | null
   default_claim_lock_unit: ClaimLockUnit | null
   schedule_config: Record<string, unknown> | null
+  instantiation_mode: string | null
+  collaboration_mode: string | null
   created_at: string
   updated_at: string
 }
@@ -86,7 +88,7 @@ export interface ListItem {
   checked_at: string | null
   section_name: string | null
   notes: string | null
-  url: string | null
+  resource_url: string | null
   quantity: number | null
   quantity_unit: string | null
   price: number | null
@@ -131,6 +133,7 @@ export interface ListItem {
   reward_type: OpportunityRewardType | null
   claim_lock_duration: number | null
   claim_lock_unit: ClaimLockUnit | null
+  life_area_tags: string[]
   created_at: string
   updated_at: string
 }
@@ -175,7 +178,7 @@ export interface ListTemplateItem {
   priority?: string
   category?: string
   is_repeatable?: boolean
-  url?: string
+  resource_url?: string
 }
 
 export interface GuidedFormResponse {
@@ -231,7 +234,7 @@ export type CreateList = Pick<List, 'family_id' | 'owner_id' | 'title' | 'list_t
 export type CreateListItem = Pick<ListItem, 'list_id' | 'content'> & {
   section_name?: string
   notes?: string
-  url?: string
+  resource_url?: string
   quantity?: number
   quantity_unit?: string
   price?: number

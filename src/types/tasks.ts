@@ -195,6 +195,7 @@ export interface TaskTemplate {
   description: string | null
   duration_estimate: DurationEstimate | null
   life_area_tag: LifeAreaTag | null
+  life_area_tags: LifeAreaTag[]
   default_reward_type: string | null
   default_reward_amount: number | null
   default_bonus_threshold: number
@@ -284,6 +285,7 @@ export interface Task {
   due_date: string | null
   due_time: string | null
   life_area_tag: LifeAreaTag | null
+  life_area_tags: LifeAreaTag[]
   points_override: number | null
   related_plan_id: string | null
   source: TaskSource
@@ -302,6 +304,8 @@ export interface Task {
   claim_lock_unit: ClaimLockUnit | null
   // Config
   is_shared: boolean
+  instantiation_mode: string | null
+  collaboration_mode: string | null
   incomplete_action: IncompleteAction
   require_approval: boolean
   duration_estimate: DurationEstimate | null
@@ -497,6 +501,7 @@ export interface SequentialCollection {
   active_count: number
   promotion_timing: SequentialPromotion
   life_area_tag: LifeAreaTag | null
+  life_area_tags: LifeAreaTag[]
   reward_per_item_type: string | null
   reward_per_item_amount: number | null
   // PRD-09A/09B Linked Steps (Build J) — collection-level advancement defaults

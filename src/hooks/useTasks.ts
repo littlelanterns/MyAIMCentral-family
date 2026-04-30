@@ -261,7 +261,7 @@ export function useTasks(familyId: string | undefined, filters?: TaskFilters) {
       }
 
       if (filters?.lifeAreaTag) {
-        query = query.eq('life_area_tag', filters.lifeAreaTag)
+        query = query.contains('life_area_tags', [filters.lifeAreaTag])
       }
 
       if (filters?.archived === true) {
@@ -823,8 +823,9 @@ function buildTasksByView(tasks: Task[], viewType: TaskViewType): TasksByView {
       const byTag: Record<string, Task[]> = {}
       const noTag: Task[] = []
       for (const task of tasks) {
-        if (task.life_area_tag) {
-          byTag[task.life_area_tag] = [...(byTag[task.life_area_tag] ?? []), task]
+        const tag = task.life_area_tags?.[0] ?? task.life_area_tag
+        if (tag) {
+          byTag[tag] = [...(byTag[tag] ?? []), task]
         } else {
           noTag.push(task)
         }

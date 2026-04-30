@@ -2930,9 +2930,9 @@ function ListItemRow({
               x{item.quantity} {item.quantity_unit ?? ''}
             </span>
           )}
-          {isWishlist && item.url && (
+          {isWishlist && item.resource_url && (
             <a
-              href={item.url}
+              href={item.resource_url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs flex items-center gap-0.5 hover:underline"

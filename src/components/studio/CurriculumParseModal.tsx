@@ -34,7 +34,7 @@ import type { AdvancementMode } from '@/types/tasks'
 export interface CurriculumParseItem {
   title: string
   notes: string | null
-  url: string | null
+  resource_url: string | null
   is_required: boolean
   suggested_advancement_mode: AdvancementMode
   suggested_practice_target: number | null
@@ -135,7 +135,11 @@ export function CurriculumParseModal({
         return
       }
 
-      setItems(data.items as CurriculumParseItem[])
+      // Edge Function returns `url`; map to `resource_url` to match renamed column
+      setItems((data.items as Array<Record<string, unknown>>).map(raw => ({
+        ...raw,
+        resource_url: (raw.url as string | null) ?? (raw.resource_url as string | null) ?? null,
+      })) as CurriculumParseItem[])
       setMetadata((data.detected_metadata as CurriculumParseMetadata | null) ?? null)
       setStep('review')
     } catch (err) {
@@ -372,13 +376,13 @@ Or a badge requirement list, lesson plan, TOC, etc.`}
                     )}
 
                     {/* URL — shown when AI detected one; editable */}
-                    {item.url && (
+                    {item.resource_url && (
                       <div className="flex items-center gap-1.5">
                         <ExternalLink size={11} style={{ color: 'var(--color-btn-primary-bg)' }} />
                         <input
                           type="url"
-                          value={item.url}
-                          onChange={e => updateItem(idx, { url: e.target.value })}
+                          value={item.resource_url}
+                          onChange={e => updateItem(idx, { resource_url: e.target.value })}
                           placeholder="https://..."
                           className="flex-1 px-2 py-1 rounded text-xs"
                           style={{

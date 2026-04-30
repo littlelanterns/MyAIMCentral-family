@@ -43,6 +43,7 @@ export interface Victory {
   description: string
   celebration_text: string | null
   life_area_tag: string | null
+  life_area_tags: string[]
   custom_tags: string[]
   source: VictorySource
   source_reference_id: string | null
@@ -66,6 +67,7 @@ export interface CreateVictory {
   family_member_id: string
   description: string
   life_area_tag?: string | null
+  life_area_tags?: string[]
   custom_tags?: string[]
   source?: VictorySource
   source_reference_id?: string | null
@@ -79,6 +81,7 @@ export interface UpdateVictory {
   description?: string
   celebration_text?: string | null
   life_area_tag?: string | null
+  life_area_tags?: string[]
   custom_tags?: string[]
   importance?: VictoryImportance
   guiding_star_id?: string | null
