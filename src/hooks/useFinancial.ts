@@ -887,7 +887,15 @@ export function useCompletionPercentage(
           dateFrom = isoDaysFrom(today, -7)
       }
 
-      // Count assigned vs completed tasks in date range
+      // Count assigned vs completed tasks in date range.
+      //
+      // V8 actual-completer fix: the ASSIGNED count still uses assignee_id
+      // as the primary signal (task_assignments-based widening would require
+      // a JOIN that supabase-js HEAD counts can't express cleanly, and this
+      // fallback path only fires when allowance is disabled — shared task
+      // assignment via task_assignments is rare without allowance). The
+      // COMPLETED count now uses task_completions.family_member_id so
+      // credit goes to the actual completer, not the primary assignee.
       const { count: assigned } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
@@ -897,14 +905,16 @@ export function useCompletionPercentage(
         .is('archived_at', null)
         .in('status', ['pending', 'in_progress', 'completed', 'pending_approval'])
 
+      // V8 FIX: Query task_completions for actual completer credit instead
+      // of tasks.status = 'completed' filtered by assignee_id.
       const { count: completed } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('assignee_id', memberId)
-        .gte('due_date', dateFrom)
-        .lte('due_date', today)
-        .is('archived_at', null)
-        .eq('status', 'completed')
+        .from('task_completions')
+        .select('*, tasks!inner(due_date, archived_at, counts_for_allowance)', { count: 'exact', head: true })
+        .eq('family_member_id', memberId)
+        .gte('tasks.due_date', dateFrom)
+        .lte('tasks.due_date', today)
+        .is('tasks.archived_at', null)
+        .not('approval_status', 'eq', 'rejected')
 
       if (!assigned || assigned === 0) return 100 // zero tasks = 100%
       return Math.round(((completed ?? 0) / assigned) * 10000) / 100 // 2 decimal places

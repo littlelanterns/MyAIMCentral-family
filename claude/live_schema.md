@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 448 rows
+### `routine_step_completions` — 466 rows
 
 | # | Column |
 |---|---|
@@ -2470,7 +2470,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 148 rows
+### `activity_log_entries` — 149 rows
 
 | # | Column |
 |---|---|
@@ -3397,7 +3397,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 16 rows
+### `rhythm_completions` — 17 rows
 
 | # | Column |
 |---|---|
