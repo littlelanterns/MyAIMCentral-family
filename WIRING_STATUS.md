@@ -224,6 +224,16 @@
 | List visibility gating by schedule | Lists hidden/filtered based on schedule active state | Stub | Phase 3 scope |
 | Convert-to-recurrence detection | Detect weekly patterns in painted dates and offer RRULE conversion | Stub | Optional polish pass |
 
+## Universal Capability Parity — Stage 2 (2026-04-30)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Victory on task completion | `useCompleteTask` creates `victories` row when `task.victory_flagged=true` via `createVictoryForCompletion` | **Wired** | 4 paths: useCompleteTask, useApproveTaskCompletion, useApproveCompletion, useApproveMasterySubmission |
+| Shared routine completion attribution | Routine step completion uses member-color badges + "done by [Name]" text. `SharedWithHeader` shows shared assignment indicator. | **Wired** | `routine_step_completions.member_id` credits actual completer |
+| Shared list completion attribution | List item check uses `checked_by` for member-color display | **Wired** | Member color rendered via `useMemberColor` |
+| Soft-claim visibility on task cards | "In progress by [Name]" badge on `track_progress=true` tasks with `in_progress_member_id` set | **Wired** | Opportunity items show per-item attribute badges (reward, claim lock, advancement) |
+| Allowance actual-completer pipeline | RPC uses `task_completions.family_member_id` (not `tasks.assignee_id`). Edge Function display count includes `task_assignments`. | **Wired** | Stage 1 migration 100190 + Stage 2 Edge Function fix |
+
 ## Known Issues / TODO
 
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)

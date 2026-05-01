@@ -557,13 +557,21 @@ Five pre-existing items that were in the codebase before the STUB_REGISTRY conve
 | Safe Harbor placeholder UI + ViewAs exclusion (`src/pages/placeholder/index.tsx:53`, `src/App.tsx:176`, `src/lib/permissions/ViewAsProvider.tsx:46` `PRIVACY_EXCLUSIONS = ['safe_harbor']` constant) | PRD-04 / PRD-02 | PRD-20 | ⏳ Unwired (MVP) | PRD-20 Safe Harbor frontend — placeholder component and ViewAs exclusion are in place so PRD-20 can slot into existing routing and privacy infrastructure without retrofit. |
 | `_requestingMemberId` parameter in `supabase/functions/_shared/relationship-context.ts:261` (caller at line 189 passes a real `memberId` value but the function ignores it) | Phase 0.25 recon | Phase 0.26 Session 3 | ✅ Wired | Phase 0.26 Session 3 (2026-04-17) — Underscore dropped, parameter renamed to `requestingMemberId`. App-layer role-asymmetric filtering applied at 4 sites via new `applyPrivacyFilter` + `isPrimaryParent` helpers in `supabase/functions/_shared/privacy-filter.ts` (commits `6760ad1`, `7fe5ffa`, `7cd034e`). Database-level RESTRICTIVE RLS policy on `archive_context_items` enforces the rule as defense-in-depth (migration `00000000100149`, commit `a11a456`). Behavioral verification deferred — production has zero `is_privacy_filtered=true` rows; correctness asserted by inspection (commit `75f0161`). |
 
+## Universal Capability Parity Stubs (Stage 2 — 2026-04-30)
+
+| Stub | Created By | Wired By | Status | Notes |
+|------|-----------|----------|--------|-------|
+| `require_note` on `task_template_steps` | Stage 2 Parity audit (Task 3) | — | ⏳ Unwired (MVP) | Per-step "require a note on completion" toggle. Column does not exist in schema. Would need migration + step editor UI + completion-time enforcement. No PRD assigned. |
+
+---
+
 ## Summary
 
 | Status | Count |
 |--------|-------|
 | ✅ Wired | ~85 |
 | 🔗 Partially Wired | ~7 |
-| ⏳ Unwired (MVP) | ~44 |
+| ⏳ Unwired (MVP) | ~45 |
 | 📌 Post-MVP | ~79 |
 | ❌ Superseded | ~3 |
-| **Total** | ~218 |
+| **Total** | ~219 |
