@@ -36,6 +36,7 @@ import { RoutineDuplicateDialog } from '@/components/tasks/RoutineDuplicateDialo
 //     lands in My Customized for editing before assigning.
 import { RoutineDuplicateChooserDialog } from '@/components/templates/RoutineDuplicateChooserDialog'
 import { RoutineDuplicateTemplateDialog } from '@/components/templates/RoutineDuplicateTemplateDialog'
+import { ListDuplicateDialog } from '@/components/templates/ListDuplicateDialog'
 import type { TabItem } from '@/components/shared'
 import {
   TASK_TEMPLATES_BLANK,
@@ -129,7 +130,7 @@ function useCustomizedTemplates(familyId: string | undefined) {
         }
       }
 
-      return (data ?? []).map((row) => {
+      const taskResults: CustomizedTemplate[] = (data ?? []).map((row) => {
         const config = (row.config ?? {}) as Record<string, unknown>
         const templateType = mapDbTypeToStudioType(row.task_type as string)
         return {
@@ -143,6 +144,37 @@ function useCustomizedTemplates(familyId: string | undefined) {
           nextScheduledStart: dtstartByTemplateId.get(row.id as string) ?? null,
         }
       })
+
+      const { data: listTpls } = await supabase
+        .from('list_templates')
+        .select('id, title, list_type, usage_count, last_deployed_at, created_at')
+        .eq('family_id', familyId)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+
+      const listResults: CustomizedTemplate[] = (listTpls ?? []).map((row) => {
+        const listTypeMap: Record<string, string> = {
+          shopping: 'list_shopping',
+          wishlist: 'list_wishlist',
+          packing: 'list_packing',
+          expenses: 'list_expenses',
+          todo: 'list_todo',
+          custom: 'list_custom',
+          randomizer: 'randomizer',
+        }
+        return {
+          id: row.id as string,
+          name: (row.title as string) || 'Untitled List Template',
+          templateType: (listTypeMap[row.list_type as string] ?? 'list_custom') as CustomizedTemplate['templateType'],
+          assignedTo: [],
+          activeDeployments: (row.usage_count as number) ?? 0,
+          lastDeployedAt: row.last_deployed_at as string | null,
+          createdAt: row.created_at as string,
+          nextScheduledStart: null,
+        }
+      })
+
+      return [...taskResults, ...listResults]
     },
     enabled: !!familyId,
   })
@@ -185,6 +217,23 @@ function studioTypeToTaskType(t: StudioTemplate['templateType']): string | null 
   if (t === 'sequential') return 'sequential'
   if (t.startsWith('guided_form')) return 'guided_form'
   return null // list types handled separately
+}
+
+function isListTemplateType(t: string): boolean {
+  return t.startsWith('list_') || t === 'randomizer'
+}
+
+function listTemplateTypeToListType(t: string): string {
+  const map: Record<string, string> = {
+    list_shopping: 'shopping',
+    list_wishlist: 'wishlist',
+    list_packing: 'packing',
+    list_expenses: 'expenses',
+    list_todo: 'todo',
+    list_custom: 'custom',
+    randomizer: 'randomizer',
+  }
+  return map[t] ?? 'custom'
 }
 
 // ─────────────────────────────────────────────
@@ -249,6 +298,7 @@ export function StudioPage() {
   // the existing RoutineDuplicateDialog (Assign Additional Member).
   const [duplicateChooser, setDuplicateChooser] = useState<{ id: string; name: string } | null>(null)
   const [duplicateAsTemplate, setDuplicateAsTemplate] = useState<{ id: string; name: string } | null>(null)
+  const [duplicateListTemplate, setDuplicateListTemplate] = useState<{ id: string; name: string } | null>(null)
 
   // GuidedFormAssignModal state
   const [guidedFormModalOpen, setGuidedFormModalOpen] = useState(false)
@@ -457,7 +507,25 @@ export function StudioPage() {
         randomizer: 'randomizer',
       }
       const listType = listTypeMap[template.templateType] ?? 'custom'
-      navigate(`/lists?create=${listType}`)
+      if (template.isExample) {
+        supabase
+          .from('list_templates')
+          .select('id')
+          .eq('title', template.name)
+          .eq('is_example', true)
+          .is('family_id', null)
+          .limit(1)
+          .single()
+          .then(({ data: dbTpl }) => {
+            if (dbTpl?.id) {
+              navigate(`/lists?create=${listType}&template=${dbTpl.id}`)
+            } else {
+              navigate(`/lists?create=${listType}`)
+            }
+          })
+      } else {
+        navigate(`/lists?create=${listType}`)
+      }
       return
     }
 
@@ -816,8 +884,13 @@ export function StudioPage() {
                   key={tpl.id}
                   template={tpl}
                   onDeploy={(t) => {
-                    setEditingTemplateId(null) // Deploy = create new task from template, don't edit the template
-                    setDeployFromTemplateId(t.id) // Link new task to existing template — no duplicate
+                    if (isListTemplateType(t.templateType)) {
+                      const listType = listTemplateTypeToListType(t.templateType)
+                      navigate(`/lists?create=${listType}&template=${t.id}`)
+                      return
+                    }
+                    setEditingTemplateId(null)
+                    setDeployFromTemplateId(t.id)
                     if (t.templateType === 'routine') {
                       loadRoutineTemplate(t.id, t.name)
                     } else {
@@ -827,7 +900,12 @@ export function StudioPage() {
                     }
                   }}
                   onEdit={(t) => {
-                    setEditingTemplateId(t.id) // Edit = update existing template
+                    if (isListTemplateType(t.templateType)) {
+                      const listType = listTemplateTypeToListType(t.templateType)
+                      navigate(`/lists?create=${listType}&template=${t.id}`)
+                      return
+                    }
+                    setEditingTemplateId(t.id)
                     if (t.templateType === 'routine') {
                       loadRoutineTemplate(t.id, t.name)
                     } else {
@@ -837,14 +915,13 @@ export function StudioPage() {
                     }
                   }}
                   onDuplicate={(t) => {
+                    if (isListTemplateType(t.templateType)) {
+                      setDuplicateListTemplate({ id: t.id, name: t.name })
+                      return
+                    }
                     if (t.templateType === 'routine') {
-                      // Worker ROUTINE-PROPAGATION (c4, founder D4):
-                      // open the chooser dialog first. Based on mom's
-                      // choice we open either the clone-as-template
-                      // dialog or the existing clone-and-deploy dialog.
                       setDuplicateChooser({ id: t.id, name: t.name })
                     } else {
-                      // Non-routines: shallow copy (template row only)
                       supabase.from('task_templates').insert({
                         family_id: family?.id,
                         created_by: member?.id,
@@ -857,6 +934,14 @@ export function StudioPage() {
                     }
                   }}
                   onArchive={async (t) => {
+                    if (isListTemplateType(t.templateType)) {
+                      await supabase
+                        .from('list_templates')
+                        .update({ archived_at: new Date().toISOString() })
+                        .eq('id', t.id)
+                      queryClient.invalidateQueries({ queryKey: ['task_templates_customized', family?.id] })
+                      return
+                    }
                     await supabase
                       .from('task_templates')
                       .update({ archived_at: new Date().toISOString() })
@@ -1011,6 +1096,24 @@ export function StudioPage() {
           onDuplicated={() => {
             setDuplicateRoutine(null)
             window.location.reload()
+          }}
+        />
+      )}
+
+      {/* ── List Duplicate Dialog ───���──────────────────────────── */}
+      {duplicateListTemplate && (
+        <ListDuplicateDialog
+          isOpen={true}
+          onClose={() => setDuplicateListTemplate(null)}
+          sourceTemplateId={duplicateListTemplate.id}
+          sourceTemplateName={duplicateListTemplate.name}
+          familyId={family?.id ?? ''}
+          createdBy={member?.id ?? ''}
+          onDuplicated={() => {
+            setDuplicateListTemplate(null)
+            queryClient.invalidateQueries({
+              queryKey: ['task_templates_customized', family?.id],
+            })
           }}
         />
       )}

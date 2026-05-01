@@ -181,6 +181,8 @@ export function ListsPage() {
   const [selectedSequentialId, setSelectedSequentialId] = useState<string | null>(null)
   const [createType, setCreateType] = useState<ListType | null>(null)
   const [createTitle, setCreateTitle] = useState('')
+  // Template hydration — when creating from a DB template
+  const [createFromTemplateId, setCreateFromTemplateId] = useState<string | null>(null)
   // Sequential creation modal (replaces the broken TaskCreationModal sequential path)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   // Smart Import modal — AI sorts pasted items into correct lists
@@ -190,12 +192,24 @@ export function ListsPage() {
   // Image Import modal — OCR → items
   const [imageImportOpen, setImageImportOpen] = useState(false)
 
-  // Handle ?create=<type> URL param from Studio navigation
+  // Handle ?create=<type>&template=<id> URL params from Studio navigation
   useEffect(() => {
     const createParam = searchParams.get('create')
+    const templateParam = searchParams.get('template')
     if (createParam) {
       setCreateType(createParam as ListType)
       setShowCreate(true)
+      if (templateParam) {
+        setCreateFromTemplateId(templateParam)
+        supabase
+          .from('list_templates')
+          .select('title')
+          .eq('id', templateParam)
+          .single()
+          .then(({ data: tpl }) => {
+            if (tpl?.title) setCreateTitle(tpl.title as string)
+          })
+      }
       setSearchParams({}, { replace: true })
     }
   }, [])
@@ -243,14 +257,30 @@ export function ListsPage() {
 
   async function handleCreate() {
     if (!member || !family || !createTitle.trim() || !createType) return
+
+    let templateItems: import('@/types/lists').ListTemplateItem[] | undefined
+    if (createFromTemplateId) {
+      const { data: tpl } = await supabase
+        .from('list_templates')
+        .select('default_items')
+        .eq('id', createFromTemplateId)
+        .single()
+      if (tpl?.default_items) {
+        templateItems = tpl.default_items as import('@/types/lists').ListTemplateItem[]
+      }
+    }
+
     const result = await createList.mutateAsync({
       family_id: family.id,
       owner_id: member.id,
       title: createTitle.trim(),
       list_type: createType,
+      template_id: createFromTemplateId ?? undefined,
+      default_items: templateItems,
     })
     setCreateTitle('')
     setCreateType(null)
+    setCreateFromTemplateId(null)
     setShowCreate(false)
     setSelectedListId(result.id)
   }
@@ -474,6 +504,11 @@ export function ListsPage() {
               <p className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
                 New {TYPE_CONFIG[createType]?.label ?? 'List'}
               </p>
+              {createFromTemplateId && (
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  Creating from template — items will be pre-filled.
+                </p>
+              )}
               <input
                 type="text"
                 placeholder="List name"
@@ -485,7 +520,7 @@ export function ListsPage() {
                 style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
               />
               <div className="flex gap-2 justify-end">
-                <button onClick={() => { setCreateType(null); setShowCreate(false) }} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
+                <button onClick={() => { setCreateType(null); setCreateFromTemplateId(null); setShowCreate(false) }} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
                 <button
                   onClick={handleCreate}
                   disabled={!createTitle.trim()}

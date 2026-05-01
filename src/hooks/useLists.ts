@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type {
-  List, ListItem, ListShare, ListTemplate, ListType, VictoryMode,
+  List, ListItem, ListShare, ListTemplate, ListTemplateItem, ListType, VictoryMode,
 } from '@/types/lists'
 
 // Re-export types for backward compatibility
@@ -61,23 +61,73 @@ export function useCreateList() {
       list_type: ListType
       tags?: string[]
       victory_mode?: VictoryMode
+      template_id?: string
+      default_items?: ListTemplateItem[]
     }) => {
-      const { victory_mode, ...rest } = list
+      const { victory_mode, template_id, default_items, ...rest } = list
       const { data, error } = await supabase
         .from('lists')
         .insert({
           ...rest,
           tags: list.tags ?? [],
           victory_mode: victory_mode ?? getDefaultVictoryMode(list.list_type),
+          template_id: template_id ?? null,
         })
         .select()
         .single()
 
       if (error) throw error
-      return data as List
+      const newList = data as List
+
+      if (default_items && default_items.length > 0) {
+        const itemRows = default_items
+          .filter(item => !item.is_section_header)
+          .map((item, idx) => ({
+            list_id: newList.id,
+            content: item.item_name,
+            section_name: item.section_name ?? null,
+            notes: item.notes ?? null,
+            quantity: item.quantity ?? null,
+            quantity_unit: item.quantity_unit ?? null,
+            price: item.price ?? null,
+            priority: item.priority ?? null,
+            category: item.category ?? null,
+            is_repeatable: item.is_repeatable ?? false,
+            resource_url: item.resource_url ?? (item as unknown as Record<string, unknown>).url as string ?? null,
+            sort_order: idx,
+          }))
+        if (itemRows.length > 0) {
+          const { error: itemErr } = await supabase
+            .from('list_items')
+            .insert(itemRows)
+          if (itemErr) console.warn('Failed to hydrate template items:', itemErr.message)
+        }
+      }
+
+      if (template_id) {
+        supabase
+          .from('list_templates')
+          .select('usage_count')
+          .eq('id', template_id)
+          .single()
+          .then(({ data: tpl }) => {
+            supabase
+              .from('list_templates')
+              .update({
+                usage_count: ((tpl?.usage_count as number) ?? 0) + 1,
+                last_deployed_at: new Date().toISOString(),
+              })
+              .eq('id', template_id)
+              .then(() => {})
+          })
+      }
+
+      return newList
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['lists', data.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['list-items', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['list-templates'] })
     },
   })
 }
@@ -435,9 +485,16 @@ export function useSaveListAsTemplate() {
           title: `${title} (Template)`,
           list_type: listType,
           default_items: items.map((i) => ({
-            content: i.content || i.item_name || '',
-            section_name: i.section_name || null,
-            notes: i.notes || null,
+            item_name: i.content || i.item_name || '',
+            section_name: i.section_name || undefined,
+            notes: i.notes || undefined,
+            quantity: i.quantity ?? undefined,
+            quantity_unit: i.quantity_unit || undefined,
+            price: i.price ?? undefined,
+            priority: i.priority || undefined,
+            category: i.category || undefined,
+            is_repeatable: i.is_repeatable || undefined,
+            resource_url: i.resource_url || undefined,
           })),
           is_system: false,
         })
