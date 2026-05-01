@@ -231,7 +231,10 @@ Deno.serve(async (req) => {
           const progress = progressRows[0]
 
           // Count raw task rows for the display column total_tasks_assigned.
-          const { count: totalTasksAssignedCount } = await supabase
+          // Must include tasks assigned via task_assignments (shared tasks),
+          // not only tasks.assignee_id. Two queries + deduplicate since
+          // supabase-js HEAD counts can't express OR-across-tables.
+          const { count: primaryCount } = await supabase
             .from('tasks')
             .select('id', { count: 'exact', head: true })
             .eq('family_id', family.id)
@@ -239,6 +242,18 @@ Deno.serve(async (req) => {
             .eq('counts_for_allowance', true)
             .is('archived_at', null)
             .lte('created_at', period.period_end + 'T23:59:59Z')
+
+          const { count: additionalCount } = await supabase
+            .from('task_assignments')
+            .select('task_id, tasks!inner(family_id, counts_for_allowance, archived_at, created_at, assignee_id)', { count: 'exact', head: true })
+            .eq('member_id', period.family_member_id)
+            .eq('tasks.family_id', family.id)
+            .eq('tasks.counts_for_allowance', true)
+            .is('tasks.archived_at', null)
+            .lte('tasks.created_at', period.period_end + 'T23:59:59Z')
+            .neq('tasks.assignee_id', period.family_member_id)
+
+          const totalTasksAssignedCount = (primaryCount ?? 0) + (additionalCount ?? 0)
 
           const completionPct = Number(progress.completion_percentage)
           const calculatedAmount = Number(progress.calculated_amount)
