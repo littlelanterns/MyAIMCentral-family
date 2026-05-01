@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase/client'
 import type { Task } from '@/hooks/useTasks'
 import { useActedBy } from '@/hooks/useActedBy'
 import { todayLocalIso } from '@/utils/dates'
+import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
 
 interface UseTaskCompletionOptions {
   memberId: string
@@ -103,9 +104,12 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
       // STUB: wires to PRD-24 gamification reward transaction
       // When PRD-24 is built, call award_task_reward(task.id, memberId) here
 
-      // Step 4: Create victory if victory_flagged (stub — PRD-11)
-      // STUB: wires to PRD-11 Victory Recorder
-      // if (task.victory_flagged) { create_victory({ source: 'task_completion', source_reference_id: task.id }) }
+      // Step 4: Create victory if victory_flagged (fire and forget)
+      createVictoryForCompletion({
+        task: { id: task.id, title: task.title, victory_flagged: task.victory_flagged, is_shared: task.is_shared, family_id: familyId, life_area_tags: task.life_area_tags },
+        completerId: memberId,
+        familyId,
+      })
 
       // Step 5: Activity log entry (fire and forget)
       const isRoutine = task.task_type === 'routine'
@@ -149,6 +153,8 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
       queryClient.invalidateQueries({ queryKey: ['task-completions'] })
+      queryClient.invalidateQueries({ queryKey: ['victories', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['victory-count', memberId] })
     },
   })
 

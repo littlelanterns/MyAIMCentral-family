@@ -11,6 +11,7 @@ import type {
   CreateRoutineStepCompletion,
 } from '@/types/tasks'
 import type { GamificationResult } from '@/types/gamification'
+import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
 
 // Build M Sub-phase C — gamification pipeline invocation
 // Same contract as the copy in useTasks.ts: never throws, logs on failure,
@@ -255,7 +256,7 @@ export function useApproveCompletion() {
           completed_at: new Date().toISOString(),
         })
         .eq('id', taskId)
-        .select('id, family_id')
+        .select('id, family_id, title, victory_flagged, is_shared, life_area_tags')
         .single()
 
       if (taskError) throw taskError
@@ -267,12 +268,31 @@ export function useApproveCompletion() {
       // NEW-NN — opportunity earning forward write at approval time.
       await awardOpportunityEarning(completionId)
 
+      // Victory creation for flagged tasks (fire and forget).
+      const { data: compRow } = await supabase
+        .from('task_completions')
+        .select('family_member_id')
+        .eq('id', completionId)
+        .single()
+      if (compRow?.family_member_id) {
+        createVictoryForCompletion({
+          task: { id: data.id, title: data.title, victory_flagged: data.victory_flagged, is_shared: data.is_shared, family_id: data.family_id, life_area_tags: data.life_area_tags },
+          completerId: compRow.family_member_id,
+          familyId: data.family_id,
+        })
+      }
+
       return { ...data, gamificationResult }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['task-completions', data.id] })
       queryClient.invalidateQueries({ queryKey: ['pending-approvals', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
+
+      if (data.victory_flagged) {
+        queryClient.invalidateQueries({ queryKey: ['victories'] })
+        queryClient.invalidateQueries({ queryKey: ['victory-count'] })
+      }
 
       if (data.gamificationResult && !data.gamificationResult.error) {
         queryClient.invalidateQueries({ queryKey: ['family-member'] })

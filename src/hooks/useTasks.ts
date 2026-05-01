@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
 import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
+import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
 import type {
   Task,
   CreateTask,
@@ -457,7 +458,16 @@ export function useCompleteTask() {
         await awardOpportunityEarning(completion.id)
       }
 
-      // 4. PRD-28: Auto-create homeschool_time_logs when a homework-flagged task
+      // 4a. Victory creation for flagged tasks (fire and forget)
+      if (!requireApproval) {
+        createVictoryForCompletion({
+          task: { id: taskId, title: updatedTask.title, victory_flagged: updatedTask.victory_flagged, is_shared: updatedTask.is_shared, family_id: updatedTask.family_id, life_area_tags: updatedTask.life_area_tags },
+          completerId: memberId,
+          familyId: updatedTask.family_id,
+        })
+      }
+
+      // 4b. PRD-28: Auto-create homeschool_time_logs when a homework-flagged task
       // with assigned subjects is completed (not pending approval).
       // Additive, non-blocking — failure does NOT prevent the task from being complete.
       if (!requireApproval && updatedTask.counts_for_homework && updatedTask.homework_subject_ids?.length > 0) {
@@ -493,6 +503,12 @@ export function useCompleteTask() {
       queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', task.id] })
       queryClient.invalidateQueries({ queryKey: ['task-completions', task.id] })
+
+      if (task.victory_flagged) {
+        const completerId = completion.family_member_id ?? completion.member_id
+        queryClient.invalidateQueries({ queryKey: ['victories', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['victory-count', completerId] })
+      }
 
       // PRD-28: invalidate homework summaries when homework time logged
       if (task.counts_for_homework && task.homework_subject_ids?.length > 0) {
@@ -1020,7 +1036,7 @@ export function useApproveTaskCompletion() {
           completed_at: new Date().toISOString(),
         })
         .eq('id', taskId)
-        .select('id, family_id')
+        .select('id, family_id, title, victory_flagged, is_shared, life_area_tags')
         .single()
 
       if (taskError) throw taskError
@@ -1036,11 +1052,31 @@ export function useApproveTaskCompletion() {
       // DB partial unique index (migration 100174).
       await awardOpportunityEarning(completionId)
 
+      // 3c. Victory creation for flagged tasks (fire and forget).
+      // Look up the completer from the completion record.
+      const { data: compRow } = await supabase
+        .from('task_completions')
+        .select('family_member_id')
+        .eq('id', completionId)
+        .single()
+      if (compRow?.family_member_id) {
+        createVictoryForCompletion({
+          task: { id: data.id, title: data.title, victory_flagged: data.victory_flagged, is_shared: data.is_shared, family_id: data.family_id, life_area_tags: data.life_area_tags },
+          completerId: compRow.family_member_id,
+          familyId: data.family_id,
+        })
+      }
+
       return { ...data, gamificationResult }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', data.id] })
+
+      if (data.victory_flagged) {
+        queryClient.invalidateQueries({ queryKey: ['victories'] })
+        queryClient.invalidateQueries({ queryKey: ['victory-count'] })
+      }
 
       if (data.gamificationResult && !data.gamificationResult.error) {
         queryClient.invalidateQueries({ queryKey: ['family-member'] })
