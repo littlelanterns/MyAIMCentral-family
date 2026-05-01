@@ -60,7 +60,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 25 | PRD-21A | AI Vault Browse & Content Delivery | Phase 06, 23 | **Complete** | 2026-03-25 |
 | 26 | PRD-21C | AI Vault Engagement & Community | Phase 25 | Pending |
 | 27 | PRD-22 | Settings | Phase 04, 16 | Pending |
-| 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | **Complete** | 2026-04-13 |
+| 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | **Complete** — BookShelf Fix Session 2026-05-01: 8 bug reports fixed (study guide flashing, Morning Rhythm links, FAB z-index, View As, search layout, task handoff bug, send-to-notepad/messages), 6 audit items cleared (crisis override, mode dedup, Heart indicator, addendum drift, outbound handoffs). Migrations 100194-100195. | 2026-05-01 |
 | 29 | PRD-24, PRD-24A, PRD-24B | Gamification | Phase 10, 12 | **Complete** | 2026-04-16 |
 | 30 | PRD-25, PRD-26 | Guided & Play Dashboards | Phase 14, 29 | Pending |
 | 31 | PRD-27 | Caregiver Tools | Phase 02, 05 | Pending |

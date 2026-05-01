@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-05-01 (Universal Capability Parity — Stage 3).
+> Updated each build session. Last updated: 2026-05-01 (BookShelf Fix Session).
 
 ## RoutingStrip Destinations
 
@@ -250,8 +250,31 @@
 | LiLa drawer default closed | `MomShell.tsx` `_lilaVisible` defaults to `false` instead of `true`. | **Wired** | UX fix. |
 | FeatureGuide disabled | `FEATURE_GUIDES_DISABLED = true` constant guards render + effect. | **Wired** | Temporary. Flip to `false` to re-enable. |
 
+## BookShelf Fix Session (2026-05-01)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Optimistic extraction item mutations | `useExtractionItemActions` updates local state via `updateItemLocally` instead of full refetch. Scroll position preserved. | **Wired** | Worker 1. Heart was already optimistic; note/delete/send-to now match. |
+| Reading position persistence | `useBookReadingPosition` hook saves scroll + tab to `bookshelf_member_settings.reading_positions` JSONB (debounced 2s). Restores on mount. | **Wired** | Worker 1. Migration 100194. |
+| Study Guide flash fix | `StudyGuideLibrary` keeps existing data visible during background refresh instead of resetting to empty. | **Wired** | Worker 2. 3 reports (Apr 3, Apr 3, Apr 26). |
+| Study Guide generation feedback | Phase-based progress, "View Study Guide" button on success, zero-items explanation, specific error messages. | **Wired** | Worker 2. |
+| Study Guide View As scoping | `audienceKey` uses `effectiveMember.id` via `useViewAs()` instead of always using mom's ID. | **Wired** | Worker 2. |
+| Study Guide error handling | `count_extractions_by_audience` RPC call has try/catch with retry button UI. | **Wired** | Worker 2. |
+| Morning Rhythm book links | `MorningInsightSection` links to `/bookshelf?book_library=ID`. `BookShelfPage` + `ExtractionBrowser` resolve `book_library_id` → `bookshelf_item_id`. | **Wired** | Worker 3. Was navigating to non-existent route → black page. |
+| GlitchReporterFAB z-index | Inline `zIndex: 9990` + `pointerEvents: 'auto'` on FAB. | **Wired** | Worker 3. |
+| Crisis Override in bookshelf-discuss | `detectCrisis()` check before AI call in `bookshelf-discuss` Edge Function. | **Wired** | Worker 4. Triage row 6 (SCOPE-8b.F5). |
+| Mode key dedup book_discuss | `book_discussion` deactivated, `book_discuss` canonical. Migration 100195. | **Wired** | Worker 4. Triage row 7 (NEW-A). |
+| Heart/HeartOff LiLa indicator | BookShelfLibrary shows Heart + context level label based on `bookKnowledgeAccess` setting. | **Wired** | Worker 4. Triage row 179. |
+| BookShelf → Tasks handoff | `handleTaskSave` now calls `createTaskFromData` + `handleMarkSentToTasks`. Was silently broken (empty handler). | **Wired** | Worker 5. Triage row 76 (SCOPE-3.F19 partial). |
+| BookShelf → Notepad | `sendToNotepad` creates `notepad_tabs` with `source_type='bookshelf'`. | **Wired** | Worker 5. Feature request (Apr 9 report). |
+| BookShelf → Messages | `sendToMessages` routes to `studio_queue` with `destination='message'`. | Stub | Worker 5. Actual delivery is PRD-15 scope. |
+| BookShelf → Widgets | — | Stub | PRD-10 dependency. |
+| BookShelf → BigPlans | — | Stub | PRD-29 dependency. |
+
 ## Known Issues / TODO
 
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)
 - Guided Form child fill view + mom review flow not tested end-to-end
 - Quick Create "Send Request" falls back to Notepad until PRD-15 is built
+- Silver Chair study guide: if `book_library_id` is NULL, needs one-row DB fix from Supabase dashboard
+- Crisis Override still missing in `message-coach` and `auto-title-thread` Edge Functions (separate ticket, not BookShelf scope)
