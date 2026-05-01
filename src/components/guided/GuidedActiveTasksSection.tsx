@@ -264,6 +264,7 @@ export function GuidedActiveTasksSection({
               templateId={task.template_id}
               memberId={memberId}
               compact
+              isShared={task.is_shared}
             />
           </div>
         )}

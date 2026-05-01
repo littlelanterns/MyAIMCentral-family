@@ -12,18 +12,20 @@
  * useUncompleteRoutineStep from useTaskCompletions.ts.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   Check, Layers, Shuffle, Link2, ExternalLink, ChevronDown, ChevronRight,
-  Pencil, Plus, Trash2,
+  Pencil, Plus, Trash2, Camera,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useRoutineTemplateSteps, type RoutineSection } from '@/hooks/useRoutineTemplateSteps'
 import {
   useRoutineStepCompletions,
   useRoutineStepCompletionsThisWeek,
+  useSharedRoutineStepCompletions,
+  useSharedRoutineStepCompletionsThisWeek,
   useCompleteRoutineStep,
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
@@ -31,6 +33,9 @@ import { todayLocalIso } from '@/utils/dates'
 import { useLogPractice } from '@/hooks/usePractice'
 import { useFamily } from '@/hooks/useFamily'
 import { DurationPromptModal } from './DurationPromptModal'
+import { SharedWithHeader } from '@/components/shared/SharedWithHeader'
+import { getMemberColor } from '@/lib/memberColors'
+import { LinkifyText } from '@/utils/LinkifyText'
 import type { TaskTemplateStep } from '@/types/tasks'
 
 interface LinkedSourceTracking {
@@ -96,7 +101,7 @@ function LinkedSequentialContent({ sourceId, onTrackingResolved }: { sourceId: s
 }
 
 function LinkedRandomizerContent({ sourceId, memberId }: { sourceId: string; memberId: string }) {
-  const [data, setData] = useState<{ itemName: string } | null>(null)
+  const [data, setData] = useState<{ itemName: string; resourceUrl?: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   if (!loaded) {
@@ -105,7 +110,7 @@ function LinkedRandomizerContent({ sourceId, memberId }: { sourceId: string; mem
       const today = todayLocalIso()
       supabase
         .from('randomizer_draws')
-        .select('list_items!inner(content)')
+        .select('list_items!inner(content, resource_url)')
         .eq('list_id', sourceId)
         .eq('family_member_id', memberId)
         .eq('routine_instance_date', today)
@@ -113,8 +118,8 @@ function LinkedRandomizerContent({ sourceId, memberId }: { sourceId: string; mem
         .limit(1)
         .single()
         .then(({ data: row }) => {
-          const content = (row as unknown as { list_items: { content: string } })?.list_items?.content
-          if (content) setData({ itemName: content })
+          const item = (row as unknown as { list_items: { content: string; resource_url: string | null } })?.list_items
+          if (item?.content) setData({ itemName: item.content, resourceUrl: item.resource_url ?? undefined })
         })
     })
   }
@@ -133,12 +138,23 @@ function LinkedRandomizerContent({ sourceId, memberId }: { sourceId: string; mem
       <span className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
         {data.itemName}
       </span>
+      {data.resourceUrl && (
+        <a
+          href={data.resourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0"
+          onClick={e => e.stopPropagation()}
+        >
+          <ExternalLink size={10} style={{ color: 'var(--color-text-secondary)' }} />
+        </a>
+      )}
     </div>
   )
 }
 
 function LinkedTaskContent({ sourceId }: { sourceId: string }) {
-  const [data, setData] = useState<{ title: string; status: string } | null>(null)
+  const [data, setData] = useState<{ title: string; status: string; resourceUrl?: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   if (!loaded) {
@@ -146,11 +162,11 @@ function LinkedTaskContent({ sourceId }: { sourceId: string }) {
     import('@/lib/supabase/client').then(({ supabase }) => {
       supabase
         .from('tasks')
-        .select('title, status')
+        .select('title, status, resource_url')
         .eq('id', sourceId)
         .single()
         .then(({ data: row }) => {
-          if (row) setData({ title: row.title, status: row.status })
+          if (row) setData({ title: row.title, status: row.status, resourceUrl: row.resource_url ?? undefined })
         })
     })
   }
@@ -163,11 +179,62 @@ function LinkedTaskContent({ sourceId }: { sourceId: string }) {
       <span className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
         {data.title}
       </span>
+      {data.resourceUrl && (
+        <a
+          href={data.resourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0"
+          onClick={e => e.stopPropagation()}
+        >
+          <ExternalLink size={10} style={{ color: 'var(--color-text-secondary)' }} />
+        </a>
+      )}
     </div>
   )
 }
 
 // ─── Step Row ───────────────────────────────────────────────
+
+interface StepCompleterInfo {
+  memberId: string
+  memberName: string
+  memberColor: string
+}
+
+function InstanceCheckbox({
+  checked,
+  onToggle,
+  disabled,
+  borderColor,
+  bgColor,
+  checkColor,
+}: {
+  checked: boolean
+  onToggle: () => void
+  disabled: boolean
+  borderColor: string
+  bgColor: string
+  checkColor: string
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      className="shrink-0 flex items-center justify-center rounded transition-colors"
+      style={{
+        width: '18px',
+        height: '18px',
+        border: `1.5px solid ${checked ? borderColor : 'var(--color-border)'}`,
+        backgroundColor: checked ? bgColor : 'transparent',
+        minHeight: 'unset',
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      {checked && <Check size={12} style={{ color: checkColor }} />}
+    </button>
+  )
+}
 
 function StepRow({
   step,
@@ -177,6 +244,10 @@ function StepRow({
   onToggle,
   toggling,
   onTrackingResolved,
+  completedByOther,
+  readOnly,
+  completedInstances,
+  onToggleInstance,
 }: {
   step: TaskTemplateStep
   taskId: string
@@ -185,45 +256,154 @@ function StepRow({
   onToggle: () => void
   toggling: boolean
   onTrackingResolved?: (stepId: string, t: LinkedSourceTracking) => void
+  completedByOther?: StepCompleterInfo | null
+  readOnly?: boolean
+  completedInstances?: Set<number>
+  onToggleInstance?: (instanceNumber: number, isCompleted: boolean) => void
 }) {
   const isLinked = step.step_type !== 'static' && step.step_type != null
   const displayName = step.display_name_override || step.title
+  const isDisabled = toggling || readOnly
+  const instanceCount = step.instance_count ?? 1
+  const isMultiInstance = instanceCount > 1
+
+  const checkboxBorderColor = completedByOther
+    ? completedByOther.memberColor
+    : isCompleted
+      ? 'var(--color-btn-primary-bg)'
+      : 'var(--color-border)'
+
+  const checkboxBgColor = completedByOther
+    ? 'color-mix(in srgb, ' + completedByOther.memberColor + ' 15%, transparent)'
+    : isCompleted
+      ? 'var(--color-btn-primary-bg)'
+      : 'transparent'
+
+  const doneCount = completedInstances?.size ?? 0
+  const allInstancesDone = doneCount >= instanceCount
 
   return (
     <div
       className="flex items-start gap-2 py-1.5 group"
       style={{ opacity: toggling ? 0.5 : 1 }}
     >
-      {/* Checkbox */}
-      <button
-        onClick={onToggle}
-        disabled={toggling}
-        className="shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
-        style={{
-          width: '18px',
-          height: '18px',
-          border: `1.5px solid ${isCompleted ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-          backgroundColor: isCompleted ? 'var(--color-btn-primary-bg)' : 'transparent',
-          minHeight: 'unset',
-        }}
-      >
-        {isCompleted && <Check size={12} style={{ color: 'var(--color-btn-primary-text)' }} />}
-      </button>
-
-      <div className="flex-1 min-w-0">
-        {/* Step title */}
-        <span
-          className="text-xs leading-snug"
+      {/* Checkbox — single instance (default) */}
+      {!isMultiInstance && (
+        <button
+          onClick={onToggle}
+          disabled={isDisabled}
+          className="shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
           style={{
-            color: isCompleted ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
-            textDecoration: isCompleted ? 'line-through' : 'none',
+            width: '18px',
+            height: '18px',
+            border: `1.5px solid ${checkboxBorderColor}`,
+            backgroundColor: checkboxBgColor,
+            minHeight: 'unset',
+            cursor: isDisabled ? 'default' : 'pointer',
           }}
         >
-          {displayName}
-        </span>
+          {(isCompleted || completedByOther) && (
+            <Check
+              size={12}
+              style={{
+                color: completedByOther
+                  ? completedByOther.memberColor
+                  : 'var(--color-btn-primary-text)',
+              }}
+            />
+          )}
+        </button>
+      )}
+
+      <div className="flex-1 min-w-0">
+        {/* Step title + require_photo + completer attribution */}
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span
+            className="text-xs leading-snug"
+            style={{
+              color: (isCompleted || completedByOther || allInstancesDone) ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+              textDecoration: (isCompleted || completedByOther || allInstancesDone) ? 'line-through' : 'none',
+            }}
+          >
+            {displayName}
+          </span>
+          {step.require_photo && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] leading-none"
+              style={{ color: 'var(--color-text-secondary)' }}
+              title="Add a photo"
+            >
+              <Camera size={10} />
+              <span className="hidden sm:inline">Add a photo</span>
+            </span>
+          )}
+          {completedByOther && (
+            <span
+              className="text-[10px] leading-none"
+              style={{ color: completedByOther.memberColor }}
+            >
+              done by {completedByOther.memberName}
+            </span>
+          )}
+        </div>
+
+        {/* step_notes */}
+        {step.step_notes && (
+          <div
+            className="text-xs italic mt-0.5"
+            style={{ color: 'var(--color-text-secondary)', opacity: 0.8 }}
+          >
+            <LinkifyText text={step.step_notes} />
+          </div>
+        )}
+
+        {/* Multi-instance checkboxes */}
+        {isMultiInstance && onToggleInstance && (
+          <div className="flex items-center gap-1 mt-1">
+            {instanceCount <= 5 ? (
+              Array.from({ length: instanceCount }, (_, i) => i + 1).map(n => (
+                <InstanceCheckbox
+                  key={n}
+                  checked={completedInstances?.has(n) ?? false}
+                  onToggle={() => onToggleInstance(n, completedInstances?.has(n) ?? false)}
+                  disabled={!!isDisabled}
+                  borderColor="var(--color-btn-primary-bg)"
+                  bgColor="var(--color-btn-primary-bg)"
+                  checkColor="var(--color-btn-primary-text)"
+                />
+              ))
+            ) : (
+              <>
+                <InstanceCheckbox
+                  checked={doneCount > 0}
+                  onToggle={() => {
+                    if (allInstancesDone) {
+                      for (let n = instanceCount; n >= 1; n--) {
+                        if (completedInstances?.has(n)) onToggleInstance(n, true)
+                      }
+                    } else {
+                      const next = doneCount + 1
+                      onToggleInstance(next, false)
+                    }
+                  }}
+                  disabled={!!isDisabled}
+                  borderColor="var(--color-btn-primary-bg)"
+                  bgColor={allInstancesDone ? 'var(--color-btn-primary-bg)' : 'color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)'}
+                  checkColor="var(--color-btn-primary-text)"
+                />
+                <span
+                  className="text-[10px] font-medium"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {doneCount}/{instanceCount}
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Linked content — shows the active item from the source */}
-        {isLinked && !isCompleted && (
+        {isLinked && !isCompleted && !completedByOther && (
           <div className="mt-0.5 ml-0.5">
             {step.step_type === 'linked_sequential' && step.linked_source_id && (
               <LinkedSequentialContent
@@ -256,6 +436,10 @@ function SectionGroup({
   canEdit,
   onStepsChanged,
   onTrackingResolved,
+  stepCompleterMap,
+  isMom,
+  instancesByStep,
+  onToggleInstance,
 }: {
   section: RoutineSection
   taskId: string
@@ -266,6 +450,10 @@ function SectionGroup({
   canEdit: boolean
   onStepsChanged: () => void
   onTrackingResolved?: (stepId: string, t: LinkedSourceTracking) => void
+  stepCompleterMap?: Map<string, StepCompleterInfo>
+  isMom?: boolean
+  instancesByStep?: Map<string, Set<number>>
+  onToggleInstance?: (stepId: string, instanceNumber: number, isCompleted: boolean) => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -367,18 +555,28 @@ function SectionGroup({
 
       {expanded && !editing && (
         <div className="pl-1">
-          {section.steps.map(step => (
-            <StepRow
-              key={step.id}
-              step={step}
-              taskId={taskId}
-              memberId={memberId}
-              isCompleted={completedStepIds.has(step.id)}
-              onToggle={() => onToggleStep(step.id, completedStepIds.has(step.id))}
-              toggling={togglingStepId === step.id}
-              onTrackingResolved={onTrackingResolved}
-            />
-          ))}
+          {section.steps.map(step => {
+            const otherCompleter = stepCompleterMap?.get(step.id)
+            const myCompletion = completedStepIds.has(step.id)
+            const isReadOnly = !!otherCompleter && !isMom
+
+            return (
+              <StepRow
+                key={step.id}
+                step={step}
+                taskId={taskId}
+                memberId={memberId}
+                isCompleted={myCompletion && !otherCompleter}
+                onToggle={() => onToggleStep(step.id, myCompletion || !!otherCompleter)}
+                toggling={togglingStepId === step.id}
+                onTrackingResolved={onTrackingResolved}
+                completedByOther={otherCompleter}
+                readOnly={isReadOnly}
+                completedInstances={instancesByStep?.get(step.id)}
+                onToggleInstance={onToggleInstance ? (n, done) => onToggleInstance(step.id, n, done) : undefined}
+              />
+            )
+          })}
         </div>
       )}
 
@@ -537,18 +735,45 @@ export function isSectionActiveToday(
 
 // ─── Main Component ─────────────────────────────────────────
 
+function useTaskAssignees(taskId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['task-assignees', taskId],
+    queryFn: async () => {
+      if (!taskId) return []
+      const { data, error } = await supabase
+        .from('task_assignments')
+        .select('family_member_id, family_members!inner(id, display_name, assigned_color, member_color)')
+        .eq('task_id', taskId)
+        .eq('is_active', true)
+      if (error) throw error
+      return (data ?? []).map(row => {
+        const fm = row.family_members as unknown as {
+          id: string; display_name: string; assigned_color: string | null; member_color: string | null
+        }
+        return fm
+      })
+    },
+    enabled: !!taskId && enabled,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 interface RoutineStepChecklistProps {
   taskId: string
   templateId: string
   memberId: string
-  /** Compact mode hides section headers when there's only one section */
   compact?: boolean
+  isShared?: boolean
 }
 
-export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: RoutineStepChecklistProps) {
+export function RoutineStepChecklist({ taskId, templateId, memberId, compact, isShared }: RoutineStepChecklistProps) {
+  const shared = isShared ?? false
   const { data: sections, isLoading } = useRoutineTemplateSteps(templateId)
   const { data: completions } = useRoutineStepCompletions(taskId, memberId)
   const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
+  const { data: sharedCompletions } = useSharedRoutineStepCompletions(taskId, shared)
+  const { data: sharedWeekCompletions } = useSharedRoutineStepCompletionsThisWeek(taskId, shared)
+  const { data: assignees } = useTaskAssignees(taskId, shared)
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
   const logPractice = useLogPractice()
@@ -559,9 +784,28 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
   const { data: currentMember } = useFamilyMember()
   const queryClient = useQueryClient()
   const canEdit = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
+  const isMom = currentMember?.role === 'primary_parent'
   const refreshSteps = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['routine-template-steps', templateId] })
   }, [queryClient, templateId])
+
+  const stepCompleterMap = useMemo(() => {
+    if (!shared || !sharedCompletions) return undefined
+    const map = new Map<string, StepCompleterInfo>()
+    for (const c of sharedCompletions) {
+      if (!c.step_id) continue
+      const completerId = c.family_member_id ?? c.member_id
+      if (completerId === memberId) continue
+      if (map.has(c.step_id)) continue
+      const fm = assignees?.find(a => a.id === completerId)
+      map.set(c.step_id, {
+        memberId: completerId,
+        memberName: fm?.display_name ?? 'Someone',
+        memberColor: fm ? getMemberColor(fm) : '#6B7280',
+      })
+    }
+    return map
+  }, [shared, sharedCompletions, memberId, assignees])
 
   if (isLoading) {
     return (
@@ -588,15 +832,27 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
       .map(c => c.step_id)
       .filter((id): id is string => id !== null),
   )
-  // Week completions — used by isSectionActiveToday to determine if a
-  // show_until_complete section has been finished this week (Mon→today)
+  const weekSource = shared ? sharedWeekCompletions : weekCompletions
   const weekCompletedStepIds = new Set(
-    (weekCompletions ?? [])
+    (weekSource ?? [])
       .map(c => c.step_id)
       .filter((id): id is string => id !== null),
   )
 
-  async function handleToggleStep(stepId: string, isCurrentlyCompleted: boolean) {
+  // Multi-instance tracking: stepId → set of completed instance_numbers
+  const instancesByStep = useMemo(() => {
+    const map = new Map<string, Set<number>>()
+    for (const c of (completions ?? [])) {
+      if (c.step_id) {
+        const set = map.get(c.step_id) ?? new Set<number>()
+        set.add(c.instance_number ?? 1)
+        map.set(c.step_id, set)
+      }
+    }
+    return map
+  }, [completions])
+
+  async function handleToggleInstance(stepId: string, instanceNumber: number, isCurrentlyCompleted: boolean) {
     setTogglingStepId(stepId)
     try {
       if (isCurrentlyCompleted) {
@@ -604,6 +860,35 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
           taskId,
           stepId,
           memberId,
+          instanceNumber,
+        })
+      } else {
+        await completeStep.mutateAsync({
+          task_id: taskId,
+          step_id: stepId,
+          member_id: memberId,
+          period_date: todayLocalIso(),
+          instance_number: instanceNumber,
+        })
+      }
+    } catch (err) {
+      console.error('Failed to toggle instance:', err)
+    } finally {
+      setTogglingStepId(null)
+    }
+  }
+
+  async function handleToggleStep(stepId: string, isCurrentlyCompleted: boolean) {
+    const otherCompleter = stepCompleterMap?.get(stepId)
+    const uncompleteTarget = otherCompleter && isMom ? otherCompleter.memberId : memberId
+
+    setTogglingStepId(stepId)
+    try {
+      if (isCurrentlyCompleted) {
+        await uncompleteStep.mutateAsync({
+          taskId,
+          stepId,
+          memberId: uncompleteTarget,
         })
       } else {
         await completeStep.mutateAsync({
@@ -672,6 +957,10 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
 
   return (
     <div className="flex flex-col gap-1">
+      {shared && assignees && assignees.length > 0 && (
+        <SharedWithHeader members={assignees} currentMemberId={memberId} />
+      )}
+
       {activeSections.map(section => (
         showHeaders ? (
           <SectionGroup
@@ -685,22 +974,34 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact }: 
             canEdit={!!canEdit}
             onStepsChanged={refreshSteps}
             onTrackingResolved={(stepId, t) => setStepTrackingMap(prev => ({ ...prev, [stepId]: t }))}
+            stepCompleterMap={stepCompleterMap}
+            isMom={isMom}
+            instancesByStep={instancesByStep}
+            onToggleInstance={handleToggleInstance}
           />
         ) : (
-          // Single section, compact mode — just render steps without header
           <div key={section.id}>
-            {section.steps.map(step => (
-              <StepRow
-                key={step.id}
-                step={step}
-                taskId={taskId}
-                memberId={memberId}
-                isCompleted={completedStepIds.has(step.id)}
-                onToggle={() => handleToggleStep(step.id, completedStepIds.has(step.id))}
-                toggling={togglingStepId === step.id}
-                onTrackingResolved={(stepId, t) => setStepTrackingMap(prev => ({ ...prev, [stepId]: t }))}
-              />
-            ))}
+            {section.steps.map(step => {
+              const otherCompleter = stepCompleterMap?.get(step.id)
+              const myCompletion = completedStepIds.has(step.id)
+              const isReadOnly = !!otherCompleter && !isMom
+              return (
+                <StepRow
+                  key={step.id}
+                  step={step}
+                  taskId={taskId}
+                  memberId={memberId}
+                  isCompleted={myCompletion && !otherCompleter}
+                  onToggle={() => handleToggleStep(step.id, myCompletion || !!otherCompleter)}
+                  toggling={togglingStepId === step.id}
+                  onTrackingResolved={(stepId, t) => setStepTrackingMap(prev => ({ ...prev, [stepId]: t }))}
+                  completedByOther={otherCompleter}
+                  readOnly={isReadOnly}
+                  completedInstances={instancesByStep.get(step.id)}
+                  onToggleInstance={(n, done) => handleToggleInstance(step.id, n, done)}
+                />
+              )
+            })}
           </div>
         )
       ))}

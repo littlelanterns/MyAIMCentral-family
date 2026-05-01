@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-04-30
+> Auto-generated from live Supabase on 2026-05-01
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 466 rows
+### `routine_step_completions` — 474 rows
 
 | # | Column |
 |---|---|
@@ -1754,7 +1754,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 0 rows
+### `bookshelf_items` — 562 rows
 
 | # | Column |
 |---|---|

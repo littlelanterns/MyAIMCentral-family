@@ -368,6 +368,67 @@ export function useRoutineStepCompletions(
 }
 
 /**
+ * Fetch ALL routine step completions for a shared task today (no member filter).
+ * Returns completions from every assignee so the UI can show who completed each step.
+ */
+export function useSharedRoutineStepCompletions(
+  taskId: string | undefined,
+  isShared: boolean,
+  periodDate?: string,
+) {
+  const date = periodDate ?? todayLocalIso()
+
+  return useQuery({
+    queryKey: ['routine-step-completions-shared', taskId, date],
+    queryFn: async () => {
+      if (!taskId) return []
+
+      const { data, error } = await supabase
+        .from('routine_step_completions')
+        .select('*')
+        .eq('task_id', taskId)
+        .eq('period_date', date)
+        .order('completed_at')
+
+      if (error) throw error
+      return data as RoutineStepCompletion[]
+    },
+    enabled: !!taskId && isShared,
+  })
+}
+
+/**
+ * Fetch ALL routine step completions for the ENTIRE current ISO week for a shared task.
+ * Used by isSectionActiveToday for show_until_complete on shared routines.
+ */
+export function useSharedRoutineStepCompletionsThisWeek(
+  taskId: string | undefined,
+  isShared: boolean,
+) {
+  const today = todayLocalIso()
+  const weekStart = startOfLocalWeekIso()
+
+  return useQuery({
+    queryKey: ['routine-step-completions-shared-week', taskId, weekStart],
+    queryFn: async () => {
+      if (!taskId) return []
+
+      const { data, error } = await supabase
+        .from('routine_step_completions')
+        .select('*')
+        .eq('task_id', taskId)
+        .gte('period_date', weekStart)
+        .lte('period_date', today)
+        .order('completed_at')
+
+      if (error) throw error
+      return data as RoutineStepCompletion[]
+    },
+    enabled: !!taskId && isShared,
+  })
+}
+
+/**
  * Fetch routine step completions for the ENTIRE current ISO week (Monday→today).
  * Used by isSectionActiveToday to determine whether a show_until_complete section
  * has already been finished this week. Without this, a Monday section completed on
@@ -401,35 +462,30 @@ export function useRoutineStepCompletionsThisWeek(
   })
 }
 
-// Row 192 NEW-LL: idempotent toggle. UPSERT with ON CONFLICT DO NOTHING means
-// re-clicking an already-checked step is a silent no-op (no duplicate row, no
-// error). The onConflict target matches the partial UNIQUE INDEX created in
-// migration 100165 (step_id, family_member_id, period_date).
+// Idempotent toggle. UPSERT with ON CONFLICT DO NOTHING so re-clicking is a
+// silent no-op. onConflict matches the UNIQUE INDEX widened in migration 100191
+// to (step_id, family_member_id, period_date, instance_number).
 export function useCompleteRoutineStep() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (completion: CreateRoutineStepCompletion) => {
-      // Defensive: ensure family_member_id is set so the partial UNIQUE index
-      // applies (the index is WHERE family_member_id IS NOT NULL).
       const row = {
         ...completion,
         family_member_id: completion.member_id,
+        instance_number: completion.instance_number ?? 1,
       }
 
       const { data, error } = await supabase
         .from('routine_step_completions')
         .upsert(row, {
-          onConflict: 'step_id,family_member_id,period_date',
+          onConflict: 'step_id,family_member_id,period_date,instance_number',
           ignoreDuplicates: true,
         })
         .select()
         .maybeSingle()
 
       if (error) throw error
-      // data is null when ignoreDuplicates=true and the conflict was a hit.
-      // Return a minimal shape so onSuccess invalidations still fire correctly
-      // — the cache invalidation is the meaningful side effect either way.
       return (data ?? {
         task_id: completion.task_id,
         step_id: completion.step_id,
@@ -442,17 +498,18 @@ export function useCompleteRoutineStep() {
         queryKey: ['routine-step-completions', data.task_id, data.member_id],
       })
       queryClient.invalidateQueries({
+        queryKey: ['routine-step-completions-shared', data.task_id],
+      })
+      queryClient.invalidateQueries({
         queryKey: ['live-allowance-progress', data.member_id],
       })
     },
   })
 }
 
-// Row 192 NEW-LL: unchecking deletes ALL matching rows (no instance_number
-// filter). After migration 100165 there can only ever be one row per
-// (step_id, family_member_id, period_date), but the broader DELETE is
-// belt-and-suspenders against any pre-migration stragglers and against
-// race conditions during the migration window.
+// Unchecking a step. When instanceNumber is provided, deletes only that
+// instance (multi-instance steps). When omitted, deletes ALL instances
+// for the step on that day (single-instance backward compat + reset).
 export function useUncompleteRoutineStep() {
   const queryClient = useQueryClient()
 
@@ -461,18 +518,18 @@ export function useUncompleteRoutineStep() {
       taskId,
       stepId,
       memberId,
+      instanceNumber,
       periodDate,
     }: {
       taskId: string
       stepId: string
       memberId: string
-      /** @deprecated NEW-LL — instance_number filter dropped; kept on the type for caller compat */
       instanceNumber?: number
       periodDate?: string
     }) => {
       const date = periodDate ?? todayLocalIso()
 
-      const { error } = await supabase
+      let query = supabase
         .from('routine_step_completions')
         .delete()
         .eq('task_id', taskId)
@@ -480,12 +537,20 @@ export function useUncompleteRoutineStep() {
         .eq('member_id', memberId)
         .eq('period_date', date)
 
+      if (instanceNumber != null) {
+        query = query.eq('instance_number', instanceNumber)
+      }
+
+      const { error } = await query
       if (error) throw error
       return { taskId, memberId, periodDate: date }
     },
     onSuccess: ({ taskId, memberId }) => {
       queryClient.invalidateQueries({
         queryKey: ['routine-step-completions', taskId, memberId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['routine-step-completions-shared', taskId],
       })
       queryClient.invalidateQueries({
         queryKey: ['live-allowance-progress', memberId],
@@ -508,7 +573,9 @@ export function useRoutineCompletionSummary(
   const date = periodDate ?? todayLocalIso()
   const { data: completions } = useRoutineStepCompletions(taskId, memberId, date)
 
-  const completedSteps = completions?.length ?? 0
+  const completedSteps = new Set(
+    (completions ?? []).map(c => c.step_id).filter(Boolean),
+  ).size
   const percentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
 
   return { completedSteps, totalSteps, percentage }

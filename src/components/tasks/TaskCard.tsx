@@ -533,6 +533,7 @@ export function TaskCard({
                 taskId={task.id}
                 templateId={task.template_id}
                 memberId={task.assignee_id ?? currentMember.id}
+                isShared={task.is_shared}
               />
             </div>
           )}

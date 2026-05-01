@@ -19,6 +19,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '@/lib/supabase/client'
 import { getMemberColor } from '@/lib/memberColors'
+import { SharedWithHeader } from '@/components/shared/SharedWithHeader'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -1294,6 +1295,17 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const myShare = shares.find(s => s.member_id === member?.id)
   const canEdit = isOwnerOrParent || myShare?.permission === 'edit' || myShare?.can_edit === true
 
+  function getCheckerProps(item: ListItem) {
+    if (!list?.is_shared || !item.checked || !item.checked_by) return {}
+    if (item.checked_by === member?.id) return {}
+    const checker = familyMembers.find(m => m.id === item.checked_by)
+    return {
+      checkerName: checker?.display_name ?? 'Someone',
+      checkerColor: checker ? getMemberColor(checker) : '#6B7280',
+      canUncheck: isPrimaryParent,
+    }
+  }
+
   // "Leave shared list" — soft-hides the share so user can recover later
   async function handleLeaveSharedList() {
     if (!myShare) return
@@ -1402,6 +1414,13 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
             )}
           </div>
         </div>
+
+        {list.is_shared && shares.length > 0 && (
+          <SharedWithHeader
+            members={familyMembers.filter(m => shares.some(s => s.member_id === m.id))}
+            currentMemberId={member?.id}
+          />
+        )}
 
         {/* Tags display */}
         {list.tags && list.tags.length > 0 && (
@@ -1829,6 +1848,14 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
       )
     }
 
+    const inlineChecker = getCheckerProps(item)
+    const inlineBorderColor = inlineChecker.checkerColor ?? (item.checked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)')
+    const inlineBgColor = inlineChecker.checkerColor
+      ? `color-mix(in srgb, ${inlineChecker.checkerColor} 15%, transparent)`
+      : (item.checked ? 'var(--color-btn-primary-bg)' : 'transparent')
+    const inlineCheckColor = inlineChecker.checkerColor ?? 'var(--color-btn-primary-text)'
+    const inlineToggleDisabled = item.checked && inlineChecker.canUncheck === false
+
     return (
       <div
         className="flex items-center gap-2 py-1 px-1 group"
@@ -1836,23 +1863,32 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
       >
         <button
           onClick={() => handleToggle(item)}
+          disabled={inlineToggleDisabled}
           className="shrink-0"
+          style={{ cursor: inlineToggleDisabled ? 'default' : 'pointer' }}
         >
           <div
             className="w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-colors"
             style={{
-              borderColor: item.checked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
-              backgroundColor: item.checked ? 'var(--color-btn-primary-bg)' : 'transparent',
+              borderColor: inlineBorderColor,
+              backgroundColor: inlineBgColor,
             }}
           >
-            {item.checked && <Check size={10} style={{ color: 'var(--color-btn-primary-text)' }} />}
+            {item.checked && <Check size={10} style={{ color: inlineCheckColor }} />}
           </div>
         </button>
         <div className="flex-1 min-w-0">
-          <span className={`text-sm truncate block ${item.checked ? 'line-through' : ''}`} style={{ color: 'var(--color-text-primary)' }}>
-            {label}
-            {qty && <span className="text-xs ml-1" style={{ color: 'var(--color-text-secondary)' }}>{qty}</span>}
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className={`text-sm truncate ${item.checked ? 'line-through' : ''}`} style={{ color: 'var(--color-text-primary)' }}>
+              {label}
+              {qty && <span className="text-xs ml-1" style={{ color: 'var(--color-text-secondary)' }}>{qty}</span>}
+            </span>
+            {inlineChecker.checkerName && (
+              <span className="text-[10px] shrink-0" style={{ color: inlineChecker.checkerColor ?? 'var(--color-text-secondary)' }}>
+                by {inlineChecker.checkerName}
+              </span>
+            )}
+          </div>
           {item.notes && (
             <span className="text-[11px] italic block whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>
               {item.notes}
@@ -2441,6 +2477,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                       onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
                       showVictoryFlag={isOwnerOrParent}
                       onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
+                      {...getCheckerProps(item)}
                     />
                   ))}
                 </div>
@@ -2835,6 +2872,9 @@ interface ListItemRowProps {
   showVictoryFlag?: boolean
   onToggleVictoryFlag?: () => void
   dragHandleProps?: Record<string, unknown>
+  checkerName?: string | null
+  checkerColor?: string | null
+  canUncheck?: boolean
 }
 
 function SortableListItemRow(props: Omit<ListItemRowProps, 'dragHandleProps'>) {
@@ -2875,11 +2915,26 @@ function ListItemRow({
   showVictoryFlag,
   onToggleVictoryFlag,
   dragHandleProps,
+  checkerName,
+  checkerColor,
+  canUncheck,
 }: ListItemRowProps) {
   const isTodo = listType === 'todo'
   const isWishlist = listType === 'wishlist'
   const isExpense = listType === 'expenses'
   const isShopping = listType === 'shopping'
+
+  const isCheckedByOther = item.checked && checkerName != null
+  const checkBorderColor = isCheckedByOther && checkerColor
+    ? checkerColor
+    : item.checked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'
+  const checkBgColor = isCheckedByOther && checkerColor
+    ? `color-mix(in srgb, ${checkerColor} 15%, transparent)`
+    : item.checked ? 'var(--color-btn-primary-bg)' : 'transparent'
+  const checkIconColor = isCheckedByOther && checkerColor
+    ? checkerColor
+    : 'var(--color-btn-primary-text)'
+  const toggleDisabled = item.checked && canUncheck === false
 
   return (
     <div
@@ -2902,26 +2957,33 @@ function ListItemRow({
       )}
 
       {/* Checkbox */}
-      <button onClick={onToggle} className="mt-0.5 shrink-0">
+      <button onClick={onToggle} disabled={toggleDisabled} className="mt-0.5 shrink-0" style={{ cursor: toggleDisabled ? 'default' : 'pointer' }}>
         <div
           className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
           style={{
-            borderColor: item.checked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
-            backgroundColor: item.checked ? 'var(--color-btn-primary-bg)' : 'transparent',
+            borderColor: checkBorderColor,
+            backgroundColor: checkBgColor,
           }}
         >
-          {item.checked && <CheckSquare size={12} style={{ color: 'var(--color-btn-primary-text)' }} />}
+          {item.checked && <CheckSquare size={12} style={{ color: checkIconColor }} />}
         </div>
       </button>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm ${item.checked ? 'line-through' : ''}`}
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          {item.content || item.item_name}
-        </p>
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <p
+            className={`text-sm ${item.checked ? 'line-through' : ''}`}
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            {item.content || item.item_name}
+          </p>
+          {isCheckedByOther && (
+            <span className="text-[10px]" style={{ color: checkerColor ?? 'var(--color-text-secondary)' }}>
+              by {checkerName}
+            </span>
+          )}
+        </div>
 
         {/* Type-specific fields */}
         <div className="flex flex-wrap items-center gap-2 mt-0.5">
