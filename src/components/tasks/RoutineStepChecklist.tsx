@@ -807,6 +807,18 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
     return map
   }, [shared, sharedCompletions, memberId, assignees])
 
+  const instancesByStep = useMemo(() => {
+    const map = new Map<string, Set<number>>()
+    for (const c of (completions ?? [])) {
+      if (c.step_id) {
+        const set = map.get(c.step_id) ?? new Set<number>()
+        set.add(c.instance_number ?? 1)
+        map.set(c.step_id, set)
+      }
+    }
+    return map
+  }, [completions])
+
   if (isLoading) {
     return (
       <div className="py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
@@ -838,19 +850,6 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
       .map(c => c.step_id)
       .filter((id): id is string => id !== null),
   )
-
-  // Multi-instance tracking: stepId → set of completed instance_numbers
-  const instancesByStep = useMemo(() => {
-    const map = new Map<string, Set<number>>()
-    for (const c of (completions ?? [])) {
-      if (c.step_id) {
-        const set = map.get(c.step_id) ?? new Set<number>()
-        set.add(c.instance_number ?? 1)
-        map.set(c.step_id, set)
-      }
-    }
-    return map
-  }, [completions])
 
   async function handleToggleInstance(stepId: string, instanceNumber: number, isCurrentlyCompleted: boolean) {
     setTogglingStepId(stepId)
