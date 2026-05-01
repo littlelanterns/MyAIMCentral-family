@@ -1,67 +1,38 @@
 /**
- * StudyGuideModal (PRD-23)
- * Generates age-adapted study guides from a book's key-point extractions.
- * Mom selects child + detail level → calls bookshelf-study-guide Edge Function.
- * View As aware: when mom views as a child, auto-targets that child.
+ * StudyGuideModal (PRD-23 — Reworked)
+ * Generates Teen + Kid reading levels by backfilling guided_text and
+ * independent_text columns on existing extraction rows via Sonnet.
+ * No child picker, no detail level — family-wide, one-click generate.
  */
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Loader2, GraduationCap, Check, AlertTriangle, BookOpen } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
-import { getMemberColor } from '@/lib/memberColors'
 
 interface StudyGuideModalProps {
   isOpen: boolean
   onClose: () => void
   bookshelfItemId: string
   bookTitle: string
-  /** When View As is active, pre-select this child */
-  viewAsTargetId?: string
   onComplete: () => void
-  onNavigateToGuide?: (bookshelfItemId: string, audienceKey: string) => void
+  onNavigateToGuide?: (bookshelfItemId: string, audience: string) => void
 }
 
 interface GenerateResult {
-  items_created: number
-  target_member: string
-  audience_key: string
+  items_updated: number
+  sections_processed: number
 }
 
-const DETAIL_LEVELS = [
-  { value: 'brief', label: 'Brief', description: '1-2 sentences per item' },
-  { value: 'standard', label: 'Standard', description: '2-3 sentences, clear explanations' },
-  { value: 'detailed', label: 'Detailed', description: '3-4 sentences with examples' },
-] as const
-
 export function StudyGuideModal({
-  isOpen, onClose, bookshelfItemId, bookTitle, viewAsTargetId, onComplete, onNavigateToGuide,
+  isOpen, onClose, bookshelfItemId, bookTitle, onComplete, onNavigateToGuide,
 }: StudyGuideModalProps) {
   const { data: currentMember } = useFamilyMember()
-  const { data: members = [] } = useFamilyMembers(currentMember?.family_id)
-
-  const [selectedChild, setSelectedChild] = useState<string | null>(viewAsTargetId ?? null)
-  const [detailLevel, setDetailLevel] = useState<'brief' | 'standard' | 'detailed'>('standard')
   const [generating, setGenerating] = useState(false)
   const [generatingPhase, setGeneratingPhase] = useState<string | null>(null)
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const isAdult = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
-
-  const children = isAdult
-    ? members.filter(m => m.role === 'member' && m.id !== currentMember?.id)
-    : []
-
-  const autoSelectedSelf = !isAdult ? currentMember?.id ?? null : null
-  const effectiveSelectedChild = isAdult ? selectedChild : (autoSelectedSelf || currentMember?.id || null)
-
-  useEffect(() => {
-    if (viewAsTargetId && isAdult) {
-      setSelectedChild(viewAsTargetId)
-    }
-  }, [viewAsTargetId, isAdult])
 
   useEffect(() => {
     return () => {
@@ -69,20 +40,16 @@ export function StudyGuideModal({
     }
   }, [])
 
-  const selectedChildName = effectiveSelectedChild
-    ? members.find(m => m.id === effectiveSelectedChild)?.display_name ?? 'this child'
-    : ''
-
   const handleGenerate = useCallback(async () => {
-    if (!effectiveSelectedChild || !currentMember) return
+    if (!currentMember) return
     setGenerating(true)
     setError(null)
     setResult(null)
-    setGeneratingPhase(`Generating study guide for ${selectedChildName}...`)
+    setGeneratingPhase('Reading book text and generating Teen + Kid versions...')
 
     phaseTimerRef.current = setTimeout(() => {
-      setGeneratingPhase('This usually takes 15-30 seconds...')
-    }, 3000)
+      setGeneratingPhase('Processing sections with Sonnet — this may take 1-3 minutes for longer books...')
+    }, 5000)
 
     try {
       const session = await supabase.auth.getSession()
@@ -99,12 +66,10 @@ export function StudyGuideModal({
           },
           body: JSON.stringify({
             bookshelf_item_id: bookshelfItemId,
-            target_member_id: effectiveSelectedChild,
             family_id: currentMember.family_id,
             member_id: currentMember.id,
-            detail_level: detailLevel,
           }),
-        }
+        },
       )
 
       if (!resp.ok) {
@@ -115,14 +80,16 @@ export function StudyGuideModal({
         throw new Error(errMsg)
       }
 
-      const data = await resp.json() as GenerateResult
+      const data = await resp.json() as GenerateResult & { message?: string }
 
-      if (data.items_created === 0) {
-        setError('No key points found for this book. Try running Go Deeper first to mark important passages.')
-        return
+      if (data.items_updated === 0 && data.message) {
+        setResult(data)
+      } else if (data.items_updated === 0) {
+        setError('No extractions needed updating. The book may already have Teen and Kid versions, or no extractions exist yet.')
+      } else {
+        setResult(data)
       }
 
-      setResult(data)
       onComplete()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate study guide')
@@ -134,13 +101,11 @@ export function StudyGuideModal({
         phaseTimerRef.current = null
       }
     }
-  }, [effectiveSelectedChild, currentMember, bookshelfItemId, detailLevel, onComplete, selectedChildName])
+  }, [currentMember, bookshelfItemId, onComplete])
 
   const handleClose = () => {
     setResult(null)
     setError(null)
-    setSelectedChild(viewAsTargetId ?? null)
-    setDetailLevel('standard')
     onClose()
   }
 
@@ -157,83 +122,18 @@ export function StudyGuideModal({
         {/* Book info */}
         <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
           <GraduationCap size={16} className="text-[var(--color-accent)]" />
-          <span>Create an age-adapted version of <strong className="text-[var(--color-text-primary)]">{bookTitle}</strong></span>
+          <span>
+            Generate Teen and Kid reading levels for{' '}
+            <strong className="text-[var(--color-text-primary)]">{bookTitle}</strong>
+          </span>
         </div>
 
-        {/* Child picker — only shown for adults; children auto-target themselves */}
-        {isAdult ? (
-          <div>
-            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
-              For which child?
-            </label>
-            {children.length === 0 ? (
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                No child members in this family yet.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {children.map(child => (
-                  <button
-                    key={child.id}
-                    onClick={() => setSelectedChild(child.id)}
-                    disabled={generating}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                      ${selectedChild === child.id
-                        ? 'text-white'
-                        : 'border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)]'
-                      }`}
-                    style={selectedChild === child.id ? {
-                      backgroundColor: getMemberColor(child),
-                    } : {
-                      borderColor: getMemberColor(child),
-                    }}
-                  >
-                    {child.display_name}
-                    {child.age ? ` (${child.age})` : ''}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            This will create a simplified version of the book&apos;s key points just for you.
+        {!result && !generating && !error && (
+          <p className="text-xs text-[var(--color-text-tertiary)]">
+            This will read the book text and create age-adapted versions of every extraction.
+            For longer books this may take 1-3 minutes. You can browse the Teen and Kid
+            versions from the audience toggle on any book page.
           </p>
-        )}
-
-        {/* Detail level */}
-        {!result && (
-          <div>
-            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
-              Detail level
-            </label>
-            <div className="space-y-1.5">
-              {DETAIL_LEVELS.map(level => (
-                <label
-                  key={level.value}
-                  className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors
-                    ${detailLevel === level.value
-                      ? 'bg-[var(--color-surface-tertiary)]'
-                      : 'hover:bg-[var(--color-surface-secondary)]'
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="detail_level"
-                    value={level.value}
-                    checked={detailLevel === level.value}
-                    onChange={() => setDetailLevel(level.value)}
-                    disabled={generating}
-                    className="accent-[var(--color-accent)]"
-                  />
-                  <div>
-                    <div className="text-sm font-medium text-[var(--color-text-primary)]">{level.label}</div>
-                    <div className="text-xs text-[var(--color-text-tertiary)]">{level.description}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
         )}
 
         {/* Generation progress */}
@@ -258,18 +158,30 @@ export function StudyGuideModal({
             <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-surface-tertiary)]">
               <Check size={16} className="text-green-600 shrink-0" />
               <span className="text-sm text-[var(--color-text-primary)]">
-                Created {result.items_created} study guide items for {result.target_member}
+                {result.items_updated > 0
+                  ? `Updated ${result.items_updated} items across ${result.sections_processed} sections`
+                  : 'All items already have Teen and Kid versions'}
               </span>
             </div>
-            {onNavigateToGuide && (
-              <button
-                onClick={() => onNavigateToGuide(bookshelfItemId, result.audience_key)}
-                className="flex items-center gap-2 w-full px-4 py-2.5 text-sm rounded-lg text-white justify-center"
-                style={{ background: 'var(--surface-primary)' }}
-              >
-                <BookOpen size={14} />
-                View Study Guide
-              </button>
+            {onNavigateToGuide && result.items_updated > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onNavigateToGuide(bookshelfItemId, 'independent')}
+                  className="flex items-center gap-2 flex-1 px-4 py-2.5 text-sm rounded-lg text-white justify-center"
+                  style={{ background: 'var(--surface-primary)' }}
+                >
+                  <BookOpen size={14} />
+                  View Teen Level
+                </button>
+                <button
+                  onClick={() => onNavigateToGuide(bookshelfItemId, 'guided')}
+                  className="flex items-center gap-2 flex-1 px-4 py-2.5 text-sm rounded-lg text-white justify-center"
+                  style={{ background: 'var(--surface-primary)' }}
+                >
+                  <BookOpen size={14} />
+                  View Kid Level
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -285,7 +197,7 @@ export function StudyGuideModal({
           {!result && (
             <button
               onClick={handleGenerate}
-              disabled={!effectiveSelectedChild || generating}
+              disabled={generating}
               className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white disabled:opacity-50"
               style={{ background: 'var(--surface-primary)' }}
             >

@@ -4,8 +4,9 @@
  * Handles tabs, filters, abridged logic, item actions, sidebar, chapter jump.
  */
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, Sparkles } from 'lucide-react'
+import { AudienceToggle } from './AudienceToggle'
 import { ExtractionHeader } from './ExtractionHeader'
 import { ExtractionControls, buildTabs } from './ExtractionControls'
 import { ExtractionContent } from './ExtractionContent'
@@ -33,6 +34,8 @@ import type { ExtractionTab, BookExtraction } from '@/types/bookshelf'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { ExtractionType } from '@/types/bookshelf'
 
+export type AudienceLevel = 'adult' | 'independent' | 'guided'
+
 interface ExtractionBrowserProps {
   bookId?: string | null
   /** Resolve a platform_intelligence.book_library ID to a bookshelf_items row */
@@ -40,7 +43,7 @@ interface ExtractionBrowserProps {
   bookIds?: string[]
   collectionId?: string | null
   showHearted?: boolean
-  /** Filter extractions to a specific audience (e.g. 'study_guide_{memberId}') */
+  /** Initial audience display level from URL param (guided/independent) */
   audience?: string
   onBack: () => void
 }
@@ -81,11 +84,26 @@ export function ExtractionBrowser({
     [resolvedBookIds, selectedBookIds]
   )
 
-  // Fetch data
+  // Audience display toggle — always fetch 'original', toggle switches which text column renders
+  const [, setSearchParams] = useSearchParams()
+  const initialAudience: AudienceLevel = audience === 'guided' ? 'guided' : audience === 'independent' ? 'independent' : 'adult'
+  const [activeAudience, setActiveAudience] = useState<AudienceLevel>(initialAudience)
+
+  const handleAudienceChange = useCallback((level: AudienceLevel) => {
+    setActiveAudience(level)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (level === 'adult') next.delete('audience')
+      else next.set('audience', level)
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  // Fetch data — always 'original' audience (display toggle picks which column to render)
   const {
     summaries, insights, declarations, actionSteps, questions,
     chapters, books, loading, error, refetch, updateItemLocally,
-  } = useExtractionData(activeBookIds, audience)
+  } = useExtractionData(activeBookIds)
 
   // Browser state (tabs, filters, etc.)
   const browserState = useExtractionBrowser()
@@ -372,6 +390,11 @@ export function ExtractionBrowser({
 
   const totalExtractions = summaries.length + insights.length + declarations.length + actionSteps.length + questions.length
 
+  const hasYouthText = useMemo(() => {
+    const allItems = [...summaries, ...insights, ...declarations, ...actionSteps, ...questions]
+    return allItems.some(item => item.guided_text != null || item.independent_text != null)
+  }, [summaries, insights, declarations, actionSteps, questions])
+
   // Determine which sections have already been extracted (by section_title)
   const extractedSectionTitles = useMemo(() => {
     const titles = new Set<string>()
@@ -569,6 +592,11 @@ export function ExtractionBrowser({
         isSingleBook={isSingleBook}
       />
 
+      {/* Audience toggle — only show when some rows have youth text */}
+      {hasYouthText && (
+        <AudienceToggle activeAudience={activeAudience} onChange={handleAudienceChange} />
+      )}
+
       {/* Extraction progress indicator */}
       {extracting && (
         <div className="text-center py-8 px-4">
@@ -673,6 +701,7 @@ export function ExtractionBrowser({
             questions={questions}
             chapters={chapters}
             books={books.map(b => ({ id: b.id, title: b.title, book_library_id: b.book_library_id || undefined }))}
+            activeAudience={activeAudience}
             deletingItemIds={itemActions.deletingItemIds}
             notingItemId={itemActions.notingItemId}
             applyThisItemId={itemActions.applyThisItemId}
@@ -768,7 +797,11 @@ export function ExtractionBrowser({
           onClose={() => setShowStudyGuide(false)}
           bookshelfItemId={primaryBook.id}
           bookTitle={primaryBook.title}
-          onComplete={refetch}
+          onComplete={() => { refetch(); setShowStudyGuide(false) }}
+          onNavigateToGuide={(_bookItemId, audLevel) => {
+            setShowStudyGuide(false)
+            handleAudienceChange(audLevel === 'guided' ? 'guided' : 'independent')
+          }}
         />
       )}
     </div>

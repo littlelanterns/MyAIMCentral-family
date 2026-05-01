@@ -16,6 +16,7 @@ import { TAB_TO_TYPE } from '@/types/bookshelf'
 import type { ExtractionType } from '@/lib/extractionActions'
 import type { ViewMode, FilterMode } from '@/hooks/useExtractionBrowser'
 import type { BookShelfChapter } from '@/hooks/useExtractionData'
+import type { AudienceLevel } from './ExtractionBrowser'
 
 interface ExtractionContentProps {
   viewMode: ViewMode
@@ -34,6 +35,7 @@ interface ExtractionContentProps {
   questions: BookExtraction[]
   chapters: BookShelfChapter[]
   books: { id: string; title: string; book_library_id?: string }[]
+  activeAudience?: AudienceLevel
   // Item action handlers
   deletingItemIds: Set<string>
   notingItemId: string | null
@@ -60,6 +62,29 @@ interface ExtractionContentProps {
 function getItemText(item: BookExtraction, tab: ExtractionTab): string {
   if (tab === 'declarations') return item.declaration_text || item.text
   return item.text
+}
+
+function resolveAudienceText(item: BookExtraction, audience?: AudienceLevel): BookExtraction {
+  if (!audience || audience === 'adult') return item
+  if (audience === 'guided') {
+    const guidedText = item.guided_text
+    if (!guidedText) return item
+    return {
+      ...item,
+      text: guidedText,
+      declaration_text: item.declaration_text ? guidedText : item.declaration_text,
+    }
+  }
+  if (audience === 'independent') {
+    const independentText = item.independent_text
+    if (!independentText) return item
+    return {
+      ...item,
+      text: independentText,
+      declaration_text: item.declaration_text ? independentText : item.declaration_text,
+    }
+  }
+  return item
 }
 
 function matchesSearch(item: BookExtraction, tab: ExtractionTab, query: string): boolean {
@@ -351,14 +376,15 @@ function getBookTitle(item: BookExtraction, books: { id: string; title: string; 
 }
 
 function renderItem(item: BookExtraction, tab: ExtractionTab, props: ExtractionContentProps) {
-  const { deletingItemIds, notingItemId, applyThisItemId, books } = props
+  const { deletingItemIds, notingItemId, applyThisItemId, books, activeAudience } = props
+  const displayItem = resolveAudienceText(item, activeAudience)
   const bookTitle = getBookTitle(item, books)
   const extractionType = TAB_TO_TYPE[tab]
 
   const applyThis = applyThisItemId === item.id ? (
     <ApplyThisSheet
       itemId={item.id}
-      itemText={getItemText(item, tab)}
+      itemText={getItemText(displayItem, tab)}
       extractionType={extractionType}
       bookTitle={bookTitle}
       chapterTitle={item.section_title}
@@ -388,15 +414,15 @@ function renderItem(item: BookExtraction, tab: ExtractionTab, props: ExtractionC
 
   switch (tab) {
     case 'summaries':
-      return <SummaryItem key={item.id} item={item} {...shared} />
+      return <SummaryItem key={item.id} item={displayItem} {...shared} />
     case 'insights':
-      return <InsightItem key={item.id} item={item} {...shared} />
+      return <InsightItem key={item.id} item={displayItem} {...shared} />
     case 'declarations':
-      return <DeclarationItem key={item.id} item={item} {...shared} />
+      return <DeclarationItem key={item.id} item={displayItem} {...shared} />
     case 'action_steps':
-      return <ActionStepItem key={item.id} item={item} {...shared} />
+      return <ActionStepItem key={item.id} item={displayItem} {...shared} />
     case 'questions':
-      return <QuestionItem key={item.id} item={item} {...shared} />
+      return <QuestionItem key={item.id} item={displayItem} {...shared} />
   }
 }
 
