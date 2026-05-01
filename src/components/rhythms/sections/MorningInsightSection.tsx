@@ -260,7 +260,7 @@ function EmptyBookShelfNudge() {
 function ExtractionCard({ match }: { match: MorningInsightMatch }) {
   return (
     <Link
-      to={`/bookshelf/book/${match.book_library_id}`}
+      to={`/bookshelf?book_library=${match.book_library_id}`}
       className="block rounded-lg p-3 transition-colors"
       style={{
         background: 'var(--color-bg-secondary)',

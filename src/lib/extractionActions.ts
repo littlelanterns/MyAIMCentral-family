@@ -286,3 +286,74 @@ export async function markSentToTasks(
   }
   return true
 }
+
+// ── Send to Notepad (PRD-08) ────────────────────────────────────────────────
+
+interface SendToNotepadData {
+  familyId: string
+  memberId: string
+  text: string
+  sourceItemId: string
+  sourceType: ExtractionType
+  bookTitle: string | null
+}
+
+export async function sendToNotepad(
+  data: SendToNotepadData
+): Promise<{ tabId: string } | null> {
+  const title = data.bookTitle
+    ? `From "${data.bookTitle}"`
+    : 'BookShelf extraction'
+
+  const { data: tab, error } = await supabase
+    .from('notepad_tabs')
+    .insert({
+      family_id: data.familyId,
+      member_id: data.memberId,
+      title,
+      content: data.text,
+      source_type: 'bookshelf',
+      source_reference_id: data.sourceItemId,
+    })
+    .select('id')
+    .single()
+
+  if (error || !tab) return null
+  return { tabId: tab.id }
+}
+
+// ── Send to Messages (stub routing via studio_queue, PRD-15 dependency) ─────
+
+interface SendToMessagesData {
+  familyId: string
+  memberId: string
+  text: string
+  sourceItemId: string
+  sourceType: ExtractionType
+  bookTitle: string | null
+}
+
+export async function sendToMessages(
+  data: SendToMessagesData
+): Promise<{ queueItemId: string } | null> {
+  const content = data.bookTitle
+    ? `[From "${data.bookTitle}"] ${data.text}`
+    : data.text
+
+  const { data: qi, error } = await supabase
+    .from('studio_queue')
+    .insert({
+      family_id: data.familyId,
+      owner_id: data.memberId,
+      destination: 'message',
+      content,
+      source: 'bookshelf',
+      source_reference_id: data.sourceItemId,
+      content_details: { extraction_type: data.sourceType, book_title: data.bookTitle },
+    })
+    .select('id')
+    .single()
+
+  if (error || !qi) return null
+  return { queueItemId: qi.id }
+}

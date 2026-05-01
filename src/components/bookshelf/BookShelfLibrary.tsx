@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Grid3X3, List, ChevronDown,
   X, Library, Sparkles, Tag,
-  Upload, Download, Clock, Heart,
+  Upload, Download, Clock, Heart, HeartOff,
 } from 'lucide-react'
 import { Button, FeatureGuide } from '@/components/shared'
 import { BookUploadModal } from './BookUploadModal'
@@ -245,7 +245,7 @@ export function BookShelfLibrary() {
         {/* Main content */}
         <div className="flex-1 min-w-0 p-4 md:p-6">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-2">
             <Library size={24} style={{ color: 'var(--color-accent)' }} />
             <h1
               className="text-xl font-bold"
@@ -298,7 +298,7 @@ export function BookShelfLibrary() {
           <ContinueBanner />
 
           {/* Controls row */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             {/* Search */}
             <div className="relative flex-1 min-w-48 max-w-md">
               <Search
@@ -407,7 +407,7 @@ export function BookShelfLibrary() {
 
           {/* Tag filter bar */}
           {availableTags.length > 0 && (
-            <div className="relative mb-4 group/tags">
+            <div className="relative mb-2 group/tags">
               <div
                 className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin"
                 style={{ scrollbarColor: 'var(--color-border) transparent' }}
@@ -457,7 +457,7 @@ export function BookShelfLibrary() {
           )}
 
           {/* Action buttons row */}
-          <div className="flex gap-2 mb-4 relative">
+          <div className="flex gap-2 mb-3 relative">
             <Button variant="secondary" size="sm" onClick={() => setShowSemanticSearch(true)} className="gap-1.5">
               <Sparkles size={14} />
               Search Library
@@ -488,6 +488,31 @@ export function BookShelfLibrary() {
               }}
               onDeleteDiscussion={deleteDiscussion}
             />
+          </div>
+
+          {/* LiLa context indicator — Convention #8 */}
+          <div
+            className="flex items-center gap-1.5 mb-2 text-xs"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            {settings.bookKnowledgeAccess === 'none' ? (
+              <>
+                <HeartOff size={14} />
+                <span>LiLa is not drawing from your BookShelf</span>
+              </>
+            ) : (
+              <>
+                <Heart size={14} style={{ color: 'var(--color-accent)' }} />
+                <span>
+                  LiLa is drawing from{' '}
+                  {settings.bookKnowledgeAccess === 'hearted_only'
+                    ? 'hearted extractions'
+                    : settings.bookKnowledgeAccess === 'insights_only'
+                      ? 'insights only'
+                      : 'all extractions'}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Collection panel — mobile only */}

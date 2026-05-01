@@ -2,12 +2,14 @@
  * StudyGuideLibrary (PRD-23)
  * Shows books that have study guides for the current member.
  * Entry point from Guided/Independent "Study Guides" nav item.
+ * View As aware: when mom views as a child, shows that child's study guides.
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, GraduationCap, BookOpen, Loader2 } from 'lucide-react'
+import { ArrowLeft, GraduationCap, BookOpen, Loader2, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useViewAs } from '@/lib/permissions'
 import { useBookShelf } from '@/hooks/useBookShelf'
 import { StudyGuideModal } from './StudyGuideModal'
 
@@ -25,50 +27,62 @@ interface StudyGuideBook {
 export function StudyGuideLibrary({ onBack }: StudyGuideLibraryProps) {
   const navigate = useNavigate()
   const { data: member } = useFamilyMember()
+  const { isViewingAs, viewingAsMember } = useViewAs()
   const { parentBooks } = useBookShelf()
   const [studyGuideBooks, setStudyGuideBooks] = useState<StudyGuideBook[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [generateBookId, setGenerateBookId] = useState<string | null>(null)
 
-  const audienceKey = member ? `study_guide_${member.id}` : null
+  const effectiveMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const audienceKey = effectiveMember ? `study_guide_${effectiveMember.id}` : null
 
-  // Load books that have study guides for this member (via platform RPC)
-  useEffect(() => {
-    if (!member?.family_id || !audienceKey) return
-    setLoading(true)
+  const fetchStudyGuides = useCallback(async () => {
+    if (!effectiveMember?.family_id || !audienceKey) return
 
-    // Get book_library_ids for all parent books
     const libraryIds = parentBooks
       .map(b => b.book_library_id)
       .filter((id): id is string => !!id)
 
     if (libraryIds.length === 0) { setLoading(false); return }
 
-    supabase
-      .rpc('count_extractions_by_audience', {
-        p_book_library_ids: libraryIds,
-        p_audience: audienceKey,
-      })
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return }
+    setFetchError(null)
 
-        const books: StudyGuideBook[] = []
-        for (const row of data as Array<{ book_library_id: string; item_count: number }>) {
-          const book = parentBooks.find(b => b.book_library_id === row.book_library_id)
-          if (book) {
-            books.push({
-              bookshelfItemId: book.id,
-              title: book.title,
-              author: book.author,
-              itemCount: row.item_count,
-            })
-          }
+    try {
+      const { data, error } = await supabase
+        .rpc('count_extractions_by_audience', {
+          p_book_library_ids: libraryIds,
+          p_audience: audienceKey,
+        })
+
+      if (error) throw error
+      if (!data) { setLoading(false); return }
+
+      const books: StudyGuideBook[] = []
+      for (const row of data as Array<{ book_library_id: string; item_count: number }>) {
+        const book = parentBooks.find(b => b.book_library_id === row.book_library_id)
+        if (book) {
+          books.push({
+            bookshelfItemId: book.id,
+            title: book.title,
+            author: book.author,
+            itemCount: row.item_count,
+          })
         }
-        setStudyGuideBooks(books)
-        setLoading(false)
-      })
-  }, [member?.family_id, audienceKey, parentBooks])
+      }
+      setStudyGuideBooks(books)
+    } catch {
+      setFetchError("Couldn't load study guides")
+    } finally {
+      setLoading(false)
+    }
+  }, [effectiveMember?.family_id, audienceKey, parentBooks])
+
+  useEffect(() => {
+    setLoading(true)
+    fetchStudyGuides()
+  }, [fetchStudyGuides])
 
   // Books available for new study guides (extracted but no study guide yet)
   const availableForGeneration = useMemo(() => {
@@ -95,7 +109,19 @@ export function StudyGuideLibrary({ onBack }: StudyGuideLibraryProps) {
         </h1>
       </div>
 
-      {loading ? (
+      {fetchError ? (
+        <div className="text-center py-16">
+          <GraduationCap size={48} className="mx-auto mb-3 text-[var(--color-text-tertiary)]" />
+          <p className="text-sm text-[var(--color-text-secondary)]">{fetchError}</p>
+          <button
+            onClick={() => { setLoading(true); setFetchError(null); fetchStudyGuides() }}
+            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-tertiary)]"
+          >
+            <RefreshCw size={14} />
+            Tap to retry
+          </button>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 size={32} className="animate-spin text-[var(--color-accent)]" />
         </div>
@@ -188,12 +214,14 @@ export function StudyGuideLibrary({ onBack }: StudyGuideLibraryProps) {
           onClose={() => { setShowGenerateModal(false); setGenerateBookId(null) }}
           bookshelfItemId={generateBookId}
           bookTitle={generateBookTitle}
+          viewAsTargetId={isViewingAs && viewingAsMember ? viewingAsMember.id : undefined}
           onComplete={() => {
-            // Refresh the list
-            setStudyGuideBooks([])
-            setLoading(true)
+            fetchStudyGuides()
+          }}
+          onNavigateToGuide={(bookItemId, audKey) => {
             setShowGenerateModal(false)
             setGenerateBookId(null)
+            navigate(`/bookshelf?book=${bookItemId}&audience=${audKey}`)
           }}
         />
       )}

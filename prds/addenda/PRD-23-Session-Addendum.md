@@ -45,7 +45,7 @@ The extraction response includes an `is_key_point: true/false` field per item. T
 
 ### Schema Addition
 
-Add to all five extraction tables (`bookshelf_summaries`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`):
+Add to all five extraction tables (`bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`):
 
 | Column | Type | Default | Nullable | Notes |
 |--------|------|---------|----------|-------|
@@ -510,7 +510,7 @@ Every extraction item, in every view, has these icon-only action buttons:
 
 ### New Columns on Existing Tables
 
-**On `bookshelf_summaries`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`:**
+**On `bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`:**
 
 | Column | Type | Default | Notes |
 |--------|------|---------|-------|

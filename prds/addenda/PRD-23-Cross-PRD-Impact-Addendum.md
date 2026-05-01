@@ -34,7 +34,7 @@ Add to the Registered Modes table in Section "Guided Mode Registry":
 Add to the context sources that the context assembly pipeline can load:
 
 - `bookshelf_summaries` — extracted book summaries (filtered by `book_knowledge_access` setting + `is_included_in_ai`)
-- `bookshelf_principles` — extracted principles and frameworks (same filters)
+- `bookshelf_insights` — extracted principles and frameworks (same filters)
 - `bookshelf_declarations` — extracted declarations (same filters)
 - `bookshelf_action_steps` — extracted action steps (same filters)
 - Active `bookshelf_frameworks` loaded alongside Guiding Stars when `is_active = true`
@@ -170,14 +170,14 @@ Add to the Embeddable Fields Map table:
 |-------|------------------------|-------|
 | `bookshelf_chunks` | `chunk_text` | Platform-level RAG chunks. Used in `book_discuss` and `library_ask` modes. |
 | `bookshelf_summaries` | `text` | Per-member extracted summaries. |
-| `bookshelf_principles` | `content_type || ': ' || text` | Per-member principles & frameworks. Content type provides classification signal. |
+| `bookshelf_insights` | `content_type || ': ' || text` | Per-member principles & frameworks. Content type provides classification signal. |
 | `bookshelf_declarations` | `COALESCE(value_name || ': ', '') || declaration_text` | Per-member declarations. Value name provides thematic signal. |
 | `bookshelf_action_steps` | `content_type || ': ' || text` | Per-member action steps. Content type provides classification signal. |
 | `bookshelf_questions` | `content_type || ': ' || text` | Per-member extracted questions. Content type provides classification signal. |
 
 ### Tables Receiving Embedding Columns — New Entries
 
-Add embedding column specs for: `bookshelf_summaries`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `bookshelf_chunks`. All follow the standard pattern: `halfvec(1536)`, HNSW index with `halfvec_cosine_ops`, trigger on text change → `util.queue_embedding_job()`.
+Add embedding column specs for: `bookshelf_summaries`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `bookshelf_chunks`. All follow the standard pattern: `halfvec(1536)`, HNSW index with `halfvec_cosine_ops`, trigger on text change → `util.queue_embedding_job()`.
 
 ---
 
@@ -218,7 +218,7 @@ BookShelf applies the following optimization patterns:
 
 | PRD # | Feature Name | Key DB Tables |
 |-------|-------------|--------------|
-| **PRD-23** | BookShelf | `bookshelf_items`, `bookshelf_chunks`, `bookshelf_summaries`, `bookshelf_frameworks`, `bookshelf_principles`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `journal_prompts`, `bookshelf_discussions`, `bookshelf_discussion_messages`, `bookshelf_collections`, `bookshelf_collection_items`, `bookshelf_shares`, `bookshelf_member_settings` |
+| **PRD-23** | BookShelf | `bookshelf_items`, `bookshelf_chunks`, `bookshelf_summaries`, `bookshelf_frameworks`, `bookshelf_insights`, `bookshelf_declarations`, `bookshelf_action_steps`, `bookshelf_questions`, `journal_prompts`, `bookshelf_discussions`, `bookshelf_discussion_messages`, `bookshelf_collections`, `bookshelf_collection_items`, `bookshelf_shares`, `bookshelf_member_settings` |
 
 2. **Section 4 (Side Quests):** Mark "Personal Library / Manifest" as completed → PRD-23.
 

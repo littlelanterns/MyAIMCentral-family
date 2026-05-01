@@ -2,9 +2,10 @@
  * StudyGuideModal (PRD-23)
  * Generates age-adapted study guides from a book's key-point extractions.
  * Mom selects child + detail level → calls bookshelf-study-guide Edge Function.
+ * View As aware: when mom views as a child, auto-targets that child.
  */
-import { useState, useCallback } from 'react'
-import { Loader2, GraduationCap, Check } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Loader2, GraduationCap, Check, AlertTriangle, BookOpen } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
@@ -15,7 +16,16 @@ interface StudyGuideModalProps {
   onClose: () => void
   bookshelfItemId: string
   bookTitle: string
+  /** When View As is active, pre-select this child */
+  viewAsTargetId?: string
   onComplete: () => void
+  onNavigateToGuide?: (bookshelfItemId: string, audienceKey: string) => void
+}
+
+interface GenerateResult {
+  items_created: number
+  target_member: string
+  audience_key: string
 }
 
 const DETAIL_LEVELS = [
@@ -25,33 +35,54 @@ const DETAIL_LEVELS = [
 ] as const
 
 export function StudyGuideModal({
-  isOpen, onClose, bookshelfItemId, bookTitle, onComplete,
+  isOpen, onClose, bookshelfItemId, bookTitle, viewAsTargetId, onComplete, onNavigateToGuide,
 }: StudyGuideModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: members = [] } = useFamilyMembers(currentMember?.family_id)
 
-  const [selectedChild, setSelectedChild] = useState<string | null>(null)
+  const [selectedChild, setSelectedChild] = useState<string | null>(viewAsTargetId ?? null)
   const [detailLevel, setDetailLevel] = useState<'brief' | 'standard' | 'detailed'>('standard')
   const [generating, setGenerating] = useState(false)
-  const [result, setResult] = useState<{ items_created: number; target_member: string } | null>(null)
+  const [generatingPhase, setGeneratingPhase] = useState<string | null>(null)
+  const [result, setResult] = useState<GenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isAdult = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
 
-  // Mom/adults see children to pick from; children see "For myself" option
   const children = isAdult
     ? members.filter(m => m.role === 'member' && m.id !== currentMember?.id)
     : []
 
-  // Auto-select self for non-adult members
-  const [autoSelectedSelf] = useState(() => !isAdult ? currentMember?.id ?? null : null)
+  const autoSelectedSelf = !isAdult ? currentMember?.id ?? null : null
   const effectiveSelectedChild = isAdult ? selectedChild : (autoSelectedSelf || currentMember?.id || null)
+
+  useEffect(() => {
+    if (viewAsTargetId && isAdult) {
+      setSelectedChild(viewAsTargetId)
+    }
+  }, [viewAsTargetId, isAdult])
+
+  useEffect(() => {
+    return () => {
+      if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current)
+    }
+  }, [])
+
+  const selectedChildName = effectiveSelectedChild
+    ? members.find(m => m.id === effectiveSelectedChild)?.display_name ?? 'this child'
+    : ''
 
   const handleGenerate = useCallback(async () => {
     if (!effectiveSelectedChild || !currentMember) return
     setGenerating(true)
     setError(null)
     setResult(null)
+    setGeneratingPhase(`Generating study guide for ${selectedChildName}...`)
+
+    phaseTimerRef.current = setTimeout(() => {
+      setGeneratingPhase('This usually takes 15-30 seconds...')
+    }, 3000)
 
     try {
       const session = await supabase.auth.getSession()
@@ -78,23 +109,37 @@ export function StudyGuideModal({
 
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error || 'Failed to generate study guide')
+        const errMsg = (data as { error?: string; message?: string }).error
+          || (data as { error?: string; message?: string }).message
+          || 'Failed to generate study guide'
+        throw new Error(errMsg)
       }
 
-      const data = await resp.json() as { items_created: number; target_member: string }
+      const data = await resp.json() as GenerateResult
+
+      if (data.items_created === 0) {
+        setError('No key points found for this book. Try running Go Deeper first to mark important passages.')
+        return
+      }
+
       setResult(data)
       onComplete()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate study guide')
     } finally {
       setGenerating(false)
+      setGeneratingPhase(null)
+      if (phaseTimerRef.current) {
+        clearTimeout(phaseTimerRef.current)
+        phaseTimerRef.current = null
+      }
     }
-  }, [effectiveSelectedChild, currentMember, bookshelfItemId, detailLevel, onComplete])
+  }, [effectiveSelectedChild, currentMember, bookshelfItemId, detailLevel, onComplete, selectedChildName])
 
   const handleClose = () => {
     setResult(null)
     setError(null)
-    setSelectedChild(null)
+    setSelectedChild(viewAsTargetId ?? null)
     setDetailLevel('standard')
     onClose()
   }
@@ -131,6 +176,7 @@ export function StudyGuideModal({
                   <button
                     key={child.id}
                     onClick={() => setSelectedChild(child.id)}
+                    disabled={generating}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors
                       ${selectedChild === child.id
                         ? 'text-white'
@@ -156,49 +202,75 @@ export function StudyGuideModal({
         )}
 
         {/* Detail level */}
-        <div>
-          <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
-            Detail level
-          </label>
-          <div className="space-y-1.5">
-            {DETAIL_LEVELS.map(level => (
-              <label
-                key={level.value}
-                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors
-                  ${detailLevel === level.value
-                    ? 'bg-[var(--color-surface-tertiary)]'
-                    : 'hover:bg-[var(--color-surface-secondary)]'
-                  }`}
-              >
-                <input
-                  type="radio"
-                  name="detail_level"
-                  value={level.value}
-                  checked={detailLevel === level.value}
-                  onChange={() => setDetailLevel(level.value)}
-                  className="accent-[var(--color-accent)]"
-                />
-                <div>
-                  <div className="text-sm font-medium text-[var(--color-text-primary)]">{level.label}</div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">{level.description}</div>
-                </div>
-              </label>
-            ))}
+        {!result && (
+          <div>
+            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
+              Detail level
+            </label>
+            <div className="space-y-1.5">
+              {DETAIL_LEVELS.map(level => (
+                <label
+                  key={level.value}
+                  className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors
+                    ${detailLevel === level.value
+                      ? 'bg-[var(--color-surface-tertiary)]'
+                      : 'hover:bg-[var(--color-surface-secondary)]'
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="detail_level"
+                    value={level.value}
+                    checked={detailLevel === level.value}
+                    onChange={() => setDetailLevel(level.value)}
+                    disabled={generating}
+                    className="accent-[var(--color-accent)]"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">{level.label}</div>
+                    <div className="text-xs text-[var(--color-text-tertiary)]">{level.description}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Generation progress */}
+        {generating && generatingPhase && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-surface-tertiary)]">
+            <Loader2 size={16} className="animate-spin text-[var(--color-accent)]" />
+            <span className="text-sm text-[var(--color-text-secondary)]">{generatingPhase}</span>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
-          <p className="text-xs text-[var(--color-error)]">{error}</p>
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-[var(--color-surface-tertiary)]">
+            <AlertTriangle size={16} className="text-[var(--color-error)] mt-0.5 shrink-0" />
+            <span className="text-sm text-[var(--color-text-primary)]">{error}</span>
+          </div>
         )}
 
         {/* Success */}
         {result && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-surface-tertiary)]">
-            <Check size={16} className="text-green-600" />
-            <span className="text-sm text-[var(--color-text-primary)]">
-              Created {result.items_created} study guide items for {result.target_member}
-            </span>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-surface-tertiary)]">
+              <Check size={16} className="text-green-600 shrink-0" />
+              <span className="text-sm text-[var(--color-text-primary)]">
+                Created {result.items_created} study guide items for {result.target_member}
+              </span>
+            </div>
+            {onNavigateToGuide && (
+              <button
+                onClick={() => onNavigateToGuide(bookshelfItemId, result.audience_key)}
+                className="flex items-center gap-2 w-full px-4 py-2.5 text-sm rounded-lg text-white justify-center"
+                style={{ background: 'var(--surface-primary)' }}
+              >
+                <BookOpen size={14} />
+                View Study Guide
+              </button>
+            )}
           </div>
         )}
 

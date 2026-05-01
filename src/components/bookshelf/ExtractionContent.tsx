@@ -43,12 +43,14 @@ interface ExtractionContentProps {
   onNoteSave: (type: ExtractionType, id: string, note: string) => void
   onDelete: (type: ExtractionType, id: string) => void
   onApplyThisToggle: (id: string | null) => void
-  onOpenTaskCreation: (title: string, description: string, taskType?: string) => void
+  onOpenTaskCreation: (title: string, description: string, taskType?: string, extractionType?: ExtractionType) => void
   onSendToGuidingStars: (type: ExtractionType, id: string, text: string) => Promise<unknown>
   onSendToBestIntentions: (id: string, text: string) => Promise<unknown>
   onSendToJournalPrompts: (id: string, text: string, bookTitle: string | null, chapterTitle: string | null) => Promise<unknown>
   onSendToQueue: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
   onSendToSelfKnowledge: (type: ExtractionType, id: string, text: string) => Promise<unknown>
+  onSendToNotepad: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onSendToMessages: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
   onCreateCustomInsight?: (bookLibraryId: string, text: string, contentType: string) => Promise<unknown>
   /** Primary book's book_library_id for custom insight creation (single-book mode) */
   primaryBookLibraryId?: string
@@ -365,6 +367,8 @@ function renderItem(item: BookExtraction, tab: ExtractionTab, props: ExtractionC
       onSendToJournalPrompts={props.onSendToJournalPrompts}
       onSendToQueue={props.onSendToQueue}
       onSendToSelfKnowledge={props.onSendToSelfKnowledge}
+      onSendToNotepad={props.onSendToNotepad}
+      onSendToMessages={props.onSendToMessages}
       onOpenTaskCreation={props.onOpenTaskCreation}
       onClose={() => props.onApplyThisToggle(null)}
     />

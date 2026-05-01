@@ -233,7 +233,7 @@ export function GlitchReporterFAB() {
     <>
       {/* FAB button */}
       <button
-        className="glitch-reporter-fab fixed z-9990 rounded-full flex items-center justify-center p-0"
+        className="glitch-reporter-fab fixed rounded-full flex items-center justify-center p-0"
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
         onClick={(e) => {
@@ -247,6 +247,8 @@ export function GlitchReporterFAB() {
           top: pos.y,
           width: FAB_SIZE,
           height: FAB_SIZE,
+          zIndex: 9990,
+          pointerEvents: 'auto',
           border: '1px solid var(--color-border)',
           backgroundColor: 'var(--color-bg-card)',
           color: 'var(--color-text-secondary)',

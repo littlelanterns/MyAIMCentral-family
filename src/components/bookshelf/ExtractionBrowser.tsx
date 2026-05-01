@@ -3,7 +3,7 @@
  * Unified extraction reading mode. Accepts bookIds[]. Single array → single-book mode.
  * Handles tabs, filters, abridged logic, item actions, sidebar, chapter jump.
  */
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, Sparkles } from 'lucide-react'
 import { ExtractionHeader } from './ExtractionHeader'
@@ -21,16 +21,22 @@ import { useExtractionData } from '@/hooks/useExtractionData'
 import { useBookDiscussions } from '@/hooks/useBookDiscussions'
 import { useExtractionBrowser } from '@/hooks/useExtractionBrowser'
 import { useExtractionItemActions } from '@/hooks/useExtractionItemActions'
+import { useBookReadingPosition } from '@/hooks/useBookReadingPosition'
 import { useBookShelf } from '@/hooks/useBookShelf'
 import { useBookShelfCollections } from '@/hooks/useBookShelfCollections'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
+import { createTaskFromData } from '@/utils/createTaskFromData'
+import { supabase } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ExtractionTab, BookExtraction } from '@/types/bookshelf'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { ExtractionType } from '@/types/bookshelf'
 
 interface ExtractionBrowserProps {
   bookId?: string | null
+  /** Resolve a platform_intelligence.book_library ID to a bookshelf_items row */
+  bookLibraryId?: string | null
   bookIds?: string[]
   collectionId?: string | null
   showHearted?: boolean
@@ -40,24 +46,29 @@ interface ExtractionBrowserProps {
 }
 
 export function ExtractionBrowser({
-  bookId, bookIds: propBookIds, collectionId, showHearted, audience, onBack,
+  bookId, bookLibraryId, bookIds: propBookIds, collectionId, showHearted, audience, onBack,
 }: ExtractionBrowserProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: member } = useFamilyMember()
+  const { data: familyMembers } = useFamilyMembers(member?.family_id)
   const { books: allBooks, updateBookTitle, updateBookAuthor, updateBookFolder, updateBookGenres, updateBookTags, updateLastViewedAt, archiveBook } = useBookShelf()
   const { getBookIdsForCollection, collections } = useBookShelfCollections()
 
   // Resolve book IDs from props
   const resolvedBookIds = useMemo(() => {
     if (bookId) return [bookId]
+    if (bookLibraryId) {
+      const match = allBooks.find(b => b.book_library_id === bookLibraryId)
+      return match ? [match.id] : []
+    }
     if (propBookIds && propBookIds.length > 0) return propBookIds
     if (collectionId) return getBookIdsForCollection(collectionId)
     if (showHearted) {
-      // All books — will be filtered by hearted items in content
       return allBooks.map(b => b.id)
     }
     return []
-  }, [bookId, propBookIds, collectionId, showHearted, allBooks, getBookIdsForCollection])
+  }, [bookId, bookLibraryId, propBookIds, collectionId, showHearted, allBooks, getBookIdsForCollection])
 
   // Multi-book selector state
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set(resolvedBookIds))
@@ -73,11 +84,14 @@ export function ExtractionBrowser({
   // Fetch data
   const {
     summaries, insights, declarations, actionSteps, questions,
-    chapters, books, loading, error, refetch,
+    chapters, books, loading, error, refetch, updateItemLocally,
   } = useExtractionData(activeBookIds, audience)
 
   // Browser state (tabs, filters, etc.)
   const browserState = useExtractionBrowser()
+
+  // Ref for the root content wrapper — used by scroll preservation and reading position
+  const contentWrapperRef = useRef<HTMLDivElement>(null)
 
   // Force hearted filter when in hearted aggregation mode
   useEffect(() => {
@@ -91,6 +105,13 @@ export function ExtractionBrowser({
     if (books.length === 0) return undefined
     return books.find(b => !b.parent_bookshelf_item_id) || books[0]
   }, [books])
+
+  // Persist and restore reading position
+  useBookReadingPosition({
+    bookLibraryId: primaryBook?.book_library_id || undefined,
+    activeTab: browserState.activeTab,
+    scrollContainerRef: contentWrapperRef,
+  })
 
   // Update last_viewed_at for single book
   useEffect(() => {
@@ -124,11 +145,41 @@ export function ExtractionBrowser({
     }
   }, [primaryBook, member?.id])
 
-  // Item actions
+  // Scroll position preservation — captures before render, restores after
+  const scrollRestorationRef = useRef<number | null>(null)
+
+  const captureScrollPosition = useCallback(() => {
+    const el = contentWrapperRef.current
+    if (el) {
+      const scrollParent = el.closest('[data-scroll-container]') || el.ownerDocument?.scrollingElement
+      if (scrollParent) scrollRestorationRef.current = scrollParent.scrollTop
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (scrollRestorationRef.current !== null) {
+      const el = contentWrapperRef.current
+      if (el) {
+        const scrollParent = el.closest('[data-scroll-container]') || el.ownerDocument?.scrollingElement
+        if (scrollParent) scrollParent.scrollTop = scrollRestorationRef.current
+      }
+      scrollRestorationRef.current = null
+    }
+  })
+
+  const updateItemLocallyWithScroll = useCallback<typeof updateItemLocally>(
+    (id, type, update) => {
+      captureScrollPosition()
+      updateItemLocally(id, type, update)
+    },
+    [updateItemLocally, captureScrollPosition]
+  )
+
+  // Item actions — optimistic local updates, background sync on create operations
   const itemActions = useExtractionItemActions(
     member?.family_id || '',
     member?.id || '',
-    { onItemUpdated: refetch }
+    { onItemUpdated: refetch, updateItemLocally: updateItemLocallyWithScroll }
   )
 
   // Discussion state
@@ -152,22 +203,29 @@ export function ExtractionBrowser({
   const [showStudyGuide, setShowStudyGuide] = useState(false)
   const [taskDefaults, setTaskDefaults] = useState<{ title: string; description: string; taskType?: string; sourceType?: ExtractionType; sourceItemId?: string }>({ title: '', description: '' })
 
-  const handleOpenTaskCreation = useCallback((title: string, description: string, taskType?: string) => {
+  const handleOpenTaskCreation = useCallback((title: string, description: string, taskType?: string, extractionType?: ExtractionType) => {
     setTaskDefaults({
       title, description, taskType,
-      sourceType: itemActions.applyThisItemId ? undefined : undefined,
+      sourceType: extractionType,
       sourceItemId: itemActions.applyThisItemId || undefined,
     })
     setTaskModalOpen(true)
   }, [itemActions.applyThisItemId])
 
-  const handleTaskSave = useCallback(async (_task: CreateTaskData) => {
-    // The parent page handles actual task saving. Here we just track the source.
-    if (taskDefaults.sourceItemId && taskDefaults.sourceType) {
-      // This would be handled by the task save callback
+  const handleTaskSave = useCallback(async (data: CreateTaskData) => {
+    if (!member?.family_id || !member?.id) return
+    const result = await createTaskFromData(
+      supabase, { ...data, source: 'bookshelf' },
+      member.family_id, member.id, familyMembers ?? []
+    )
+    if (result.taskIds.length > 0 && taskDefaults.sourceItemId && taskDefaults.sourceType) {
+      await itemActions.handleMarkSentToTasks(
+        taskDefaults.sourceType, taskDefaults.sourceItemId, result.taskIds[0]
+      )
     }
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
     setTaskModalOpen(false)
-  }, [taskDefaults])
+  }, [member, familyMembers, taskDefaults, itemActions, queryClient])
 
   // Filter counts for tabs (respecting current filter + search)
   const filterForCounts = useCallback((items: BookExtraction[], tab: ExtractionTab) => {
@@ -443,7 +501,7 @@ export function ExtractionBrowser({
   }
 
   return (
-    <div className="density-comfortable">
+    <div className="density-comfortable" ref={contentWrapperRef}>
       <ExtractionHeader
         books={primaryBook ? [primaryBook] : books}
         collectionName={collectionName}
@@ -629,6 +687,8 @@ export function ExtractionBrowser({
             onSendToJournalPrompts={itemActions.handleSendToJournalPrompts}
             onSendToQueue={itemActions.handleSendToQueue}
             onSendToSelfKnowledge={itemActions.handleSendToSelfKnowledge}
+            onSendToNotepad={itemActions.handleSendToNotepad}
+            onSendToMessages={itemActions.handleSendToMessages}
             onCreateCustomInsight={isSingleBook ? itemActions.handleCreateCustomInsight : undefined}
             primaryBookLibraryId={isSingleBook ? primaryBook?.book_library_id || undefined : undefined}
           />

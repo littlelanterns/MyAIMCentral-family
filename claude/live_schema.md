@@ -2026,6 +2026,7 @@
 | 8 | `resurfaced_item_ids` |
 | 9 | `created_at` |
 | 10 | `updated_at` |
+| 11 | `reading_positions` |
 
 ### `journal_prompts` — 2 rows
 

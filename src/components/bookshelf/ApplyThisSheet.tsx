@@ -7,6 +7,7 @@ import { useState } from 'react'
 import {
   Star, Target, CheckSquare, Repeat, BookOpen,
   Inbox, Brain, Compass, FolderKanban,
+  FileEdit, MessageSquare,
 } from 'lucide-react'
 import type { ExtractionType } from '@/lib/extractionActions'
 
@@ -21,7 +22,9 @@ interface ApplyThisSheetProps {
   onSendToJournalPrompts: (id: string, text: string, bookTitle: string | null, chapterTitle: string | null) => Promise<unknown>
   onSendToQueue: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
   onSendToSelfKnowledge: (type: ExtractionType, id: string, text: string) => Promise<unknown>
-  onOpenTaskCreation: (title: string, description: string, taskType?: string) => void
+  onSendToNotepad: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onSendToMessages: (type: ExtractionType, id: string, text: string, bookTitle: string | null) => Promise<unknown>
+  onOpenTaskCreation: (title: string, description: string, taskType?: string, extractionType?: ExtractionType) => void
   onClose: () => void
 }
 
@@ -37,6 +40,7 @@ export function ApplyThisSheet({
   itemId, itemText, extractionType, bookTitle, chapterTitle,
   onSendToGuidingStars, onSendToBestIntentions,
   onSendToJournalPrompts, onSendToQueue, onSendToSelfKnowledge,
+  onSendToNotepad, onSendToMessages,
   onOpenTaskCreation, onClose,
 }: ApplyThisSheetProps) {
   const [sending, setSending] = useState<string | null>(null)
@@ -70,7 +74,7 @@ export function ApplyThisSheet({
       label: 'Tasks',
       tooltip: 'Create a task from this',
       action: () => {
-        onOpenTaskCreation(truncTitle, itemText)
+        onOpenTaskCreation(truncTitle, itemText, undefined, extractionType)
         onClose()
       },
     },
@@ -79,7 +83,7 @@ export function ApplyThisSheet({
       label: 'Tracker',
       tooltip: 'Track this as a recurring practice',
       action: () => {
-        onOpenTaskCreation(truncTitle, itemText, 'habit')
+        onOpenTaskCreation(truncTitle, itemText, 'habit', extractionType)
         onClose()
       },
     },
@@ -100,6 +104,18 @@ export function ApplyThisSheet({
       label: 'InnerWorkings',
       tooltip: 'Add to your self-knowledge',
       action: () => handleAction('iw', () => onSendToSelfKnowledge(extractionType, itemId, itemText)),
+    },
+    {
+      icon: FileEdit,
+      label: 'Notepad',
+      tooltip: 'Open in Smart Notepad',
+      action: () => handleAction('notepad', () => onSendToNotepad(extractionType, itemId, itemText, bookTitle)),
+    },
+    {
+      icon: MessageSquare,
+      label: 'Messages',
+      tooltip: 'Send via Messages (routes to queue)',
+      action: () => handleAction('messages', () => onSendToMessages(extractionType, itemId, itemText, bookTitle)),
     },
     {
       icon: Compass,

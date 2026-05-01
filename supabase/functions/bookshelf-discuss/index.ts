@@ -29,6 +29,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -558,6 +559,14 @@ Deno.serve(async (req) => {
     } = parsed.data
 
     const isMultiBook = bookshelf_item_ids.length > 1
+
+    // Convention #7: Global crisis override — check BEFORE any AI call
+    if (message && detectCrisis(message)) {
+      return new Response(
+        JSON.stringify({ crisis: true, content: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
+    }
 
     // Build context in parallel — book context + layered user/family context
     const [{ context: bookContext, titles: bookTitles }, userCtx] =

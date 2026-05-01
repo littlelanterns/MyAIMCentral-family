@@ -14,13 +14,14 @@ export function BookShelfPage() {
   const navigate = useNavigate()
 
   const bookId = searchParams.get('book')
+  const bookLibraryId = searchParams.get('book_library')
   const bookIds = searchParams.get('books')?.split(',').filter(Boolean)
   const collectionId = searchParams.get('collection')
   const showHearted = searchParams.get('hearted') === 'true'
   const showStudyGuides = searchParams.get('study_guides') === 'true'
   const audience = searchParams.get('audience')
 
-  const isReadingMode = !!(bookId || (bookIds && bookIds.length > 0) || collectionId || showHearted || audience)
+  const isReadingMode = !!(bookId || bookLibraryId || (bookIds && bookIds.length > 0) || collectionId || showHearted || audience)
 
   return (
     <PermissionGate featureKey="bookshelf_basic">
@@ -29,6 +30,7 @@ export function BookShelfPage() {
       ) : isReadingMode ? (
         <ExtractionBrowser
           bookId={bookId}
+          bookLibraryId={bookLibraryId}
           bookIds={bookIds}
           collectionId={collectionId}
           showHearted={showHearted}

@@ -3,7 +3,7 @@
  * Fetches extraction data via get_book_extractions RPC (single query).
  * Multi-part consolidation handled at the DB level — no client-side expansion needed.
  */
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from './useFamilyMember'
 import type {
@@ -22,6 +22,12 @@ export type BookShelfDeclaration = BookExtraction
 export type BookShelfActionStep = BookExtraction
 export type BookShelfQuestion = BookExtraction
 
+export type ExtractionUpdater = (
+  id: string,
+  type: ExtractionType,
+  update: Partial<BookExtraction> | 'remove'
+) => void
+
 export interface UseExtractionDataReturn {
   summaries: BookExtraction[]
   insights: BookExtraction[]
@@ -33,6 +39,7 @@ export interface UseExtractionDataReturn {
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
+  updateItemLocally: ExtractionUpdater
 }
 
 function groupByType(rows: BookExtraction[]): Record<ExtractionType, BookExtraction[]> {
@@ -164,8 +171,25 @@ export function useExtractionData(bookIds: string[], audience?: string): UseExtr
     fetchData()
   }, [fetchData])
 
+  const updateItemLocally = useCallback<ExtractionUpdater>((id, type, update) => {
+    const setterMap: Record<ExtractionType, React.Dispatch<React.SetStateAction<BookExtraction[]>>> = {
+      summary: setSummaries,
+      insight: setInsights,
+      declaration: setDeclarations,
+      action_step: setActionSteps,
+      question: setQuestions,
+    }
+    const setter = setterMap[type]
+    if (!setter) return
+    if (update === 'remove') {
+      setter(prev => prev.filter(item => item.id !== id))
+    } else {
+      setter(prev => prev.map(item => item.id === id ? { ...item, ...update } : item))
+    }
+  }, [])
+
   return {
     summaries, insights, declarations, actionSteps, questions,
-    chapters, books, loading, error, refetch: fetchData,
+    chapters, books, loading, error, refetch: fetchData, updateItemLocally,
   }
 }
