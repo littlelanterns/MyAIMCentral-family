@@ -228,6 +228,9 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Semantic/vector search for Vault | PRD-21C | — | 📌 Post-MVP | — |
 | Out of Nest → sibling messaging | PRD-22 | — | 📌 Post-MVP | — |
 | Book social sharing | PRD-23 | — | 📌 Post-MVP | — |
+| BookShelf → Send to Widgets (tracker data point) | PRD-23 | PRD-10 | ⏳ Unwired (MVP) | ApplyThisSheet shows "Tracker" button which opens TaskCreationModal with habit taskType — but direct widget data-point routing is not built |
+| BookShelf → Send to BigPlans (project goal) | PRD-23 | PRD-29 | ⏳ Unwired (MVP) | ApplyThisSheet shows BigPlans as "Coming Soon" — wires when PRD-29 builds |
+| BookShelf → Send to Messages (full message send) | PRD-23 | PRD-15 | ⏳ Unwired (MVP) | Routes to studio_queue with destination='message'; actual message delivery pending PRD-15 |
 | Drop old per-family BookShelf tables (Phase 1c) | PRD-23 Phase 1b | PRD-23 Phase 1c | ⏳ Unwired (MVP) | 30-day soak after 1b-F, then drop bookshelf_summaries/insights/declarations/action_steps/questions + old RPCs |
 | bookshelf_chapters migration to platform | PRD-23 | — | 📌 Post-MVP | — |
 | Cross-family book recommendations | PRD-23 | — | 📌 Post-MVP | — |
@@ -399,7 +402,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Studio [Customize] → List types | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Studio [Customize] → Guided Forms | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Studio [Customize] → Trackers/Widgets | PRD-09B | PRD-10 | ✅ Wired | PRD-10 Phase A |
-| Studio seed templates | PRD-09B | PRD-09B | 🔗 Partially Wired | Template cards render in Studio; click-through deploys nothing or drops user into generic task/tally creator for most templates. Tailored wizard flows pending — feeds Universal Setup Wizards workstream. |
+| Studio seed templates | PRD-09B | PRD-09B | 🔗 Partially Wired | Task templates fully deploy. List templates now hydrate default_items on deploy (Worker 4, 2026-05-01). Tailored wizard flows pending — feeds Universal Setup Wizards workstream. |
 | Lists full CRUD (9 types) | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Lists Randomizer draw view | PRD-09B | PRD-09B | ✅ Wired | Phase 10 |
 | Lists promote-to-task | PRD-09B | PRD-09A | ✅ Wired | Phase 10 |
