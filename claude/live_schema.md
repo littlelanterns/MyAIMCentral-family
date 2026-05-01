@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 308 rows
+### `view_as_sessions` — 310 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 202 rows
+### `view_as_feature_exclusions` — 204 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 600 rows
+### `ai_usage_tracking` — 621 rows
 
 | # | Column |
 |---|---|
@@ -497,7 +497,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 55 rows
+### `journal_entries` — 58 rows
 
 | # | Column |
 |---|---|
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 474 rows
+### `routine_step_completions` — 483 rows
 
 | # | Column |
 |---|---|
@@ -1033,7 +1033,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 21 rows
+### `dashboard_configs` — 22 rows
 
 | # | Column |
 |---|---|
@@ -1049,7 +1049,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 46 rows
+### `dashboard_widgets` — 48 rows
 
 | # | Column |
 |---|---|
@@ -2470,7 +2470,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 149 rows
+### `activity_log_entries` — 184 rows
 
 | # | Column |
 |---|---|
@@ -3244,6 +3244,27 @@
 | 7 | `sort_order` |
 | 8 | `created_at` |
 
+### `pending_changes` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `source_type` |
+| 4 | `source_id` |
+| 5 | `change_category` |
+| 6 | `change_payload` |
+| 7 | `trigger_mode` |
+| 8 | `trigger_at` |
+| 9 | `affected_deployment_ids` |
+| 10 | `affected_member_ids` |
+| 11 | `created_by` |
+| 12 | `created_at` |
+| 13 | `updated_at` |
+| 14 | `applied_at` |
+| 15 | `cancelled_at` |
+| 16 | `batch_id` |
+
 ### `practice_log` — 10 rows
 
 | # | Column |
@@ -3292,7 +3313,7 @@
 | 10 | `practice_count` |
 | 11 | `created_at` |
 
-### `reflection_prompts` — 256 rows
+### `reflection_prompts` — 320 rows
 
 | # | Column |
 |---|---|
@@ -3309,7 +3330,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 50 rows
+### `reflection_responses` — 53 rows
 
 | # | Column |
 |---|---|
@@ -3708,7 +3729,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 61 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 62 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

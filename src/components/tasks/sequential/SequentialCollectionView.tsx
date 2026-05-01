@@ -18,6 +18,11 @@ import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { Toggle } from '@/components/shared'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
+import { PendingChangesBadge } from '@/components/templates/PendingChangesBadge'
+import { usePendingChangesForSource, useApplyPendingChanges, useCreatePendingChange } from '@/hooks/usePendingChanges'
+import { NowNextChoiceModal } from '@/components/shared/NowNextChoiceModal'
+import { classifyChangeCategory } from '@/lib/pendingChanges/classifyChangeCategory'
+import type { NowNextTiming } from '@/components/shared/NowNextChoiceModal'
 import type { SequentialCollection, Task, AdvancementMode } from '@/types/tasks'
 
 // ─── Per-Item Advancement Override Editor ────────────────────
@@ -26,10 +31,12 @@ function ItemAdvancementEditor({
   task,
   collectionId,
   onClose,
+  onStagedEdit,
 }: {
   task: Task
   collectionId: string
   onClose: () => void
+  onStagedEdit?: (updates: Record<string, unknown>, changedFields: string[]) => void
 }) {
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<AdvancementMode>(task.advancement_mode ?? 'complete')
@@ -40,14 +47,23 @@ function ItemAdvancementEditor({
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
-    setSaving(true)
-    const { error } = await supabase.from('tasks').update({
+    const updates = {
       advancement_mode: mode,
       practice_target: mode === 'practice_count' ? target : null,
       require_mastery_approval: mode === 'mastery' ? requireApproval : false,
       require_mastery_evidence: mode === 'mastery' ? requireEvidence : false,
       track_duration: trackDuration,
-    }).eq('id', task.id)
+    }
+    const changedFields = Object.keys(updates)
+
+    if (onStagedEdit) {
+      onStagedEdit(updates, changedFields)
+      onClose()
+      return
+    }
+
+    setSaving(true)
+    const { error } = await supabase.from('tasks').update(updates).eq('id', task.id)
 
     if (!error) {
       queryClient.invalidateQueries({ queryKey: ['sequential-collection', collectionId] })
@@ -211,13 +227,32 @@ export function SequentialCollectionView({ familyId, onCreateCollection }: Seque
 }
 
 export function SequentialCollectionCard({ collection }: { collection: SequentialCollection }) {
+  const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const [showRedeployPicker, setShowRedeployPicker] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [applyingPending, setApplyingPending] = useState(false)
   const { data: detail } = useSequentialCollection(expanded ? collection.id : undefined)
   const redeploy = useRedeploySequentialCollection()
   const { data: familyMembers = [] } = useFamilyMembers(collection.family_id)
+  const { data: pendingChanges = [] } = usePendingChangesForSource('sequential_collection', collection.id)
+  const applyPendingChanges = useApplyPendingChanges()
+  const createPendingChange = useCreatePendingChange()
+
+  // Now/Next staging for per-item capability edits
+  const [nowNextPending, setNowNextPending] = useState<{
+    updates: Record<string, unknown>
+    changedFields: string[]
+    sourceType: 'sequential_collection' | 'sequential_item'
+    sourceId: string
+  } | null>(null)
+
+  const assigneeName = (() => {
+    const firstTask = detail?.tasks?.[0]
+    if (!firstTask) return null
+    return familyMembers.find(m => m.id === firstTask.assignee_id)?.display_name ?? null
+  })()
 
   const completedCount = detail?.tasks?.filter((t: Task) => t.status === 'completed').length ?? 0
   const totalCount = collection.total_items ?? 0
@@ -253,6 +288,25 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
     }
   }
 
+  async function handleNowNextConfirm(timing: NowNextTiming) {
+    if (!nowNextPending) return
+    const { updates, changedFields, sourceType, sourceId } = nowNextPending
+    if (timing === 'now') {
+      const table = sourceType === 'sequential_collection' ? 'sequential_collections' : 'tasks'
+      await supabase.from(table).update(updates).eq('id', sourceId)
+      queryClient.invalidateQueries({ queryKey: ['sequential-collection', collection.id] })
+    } else {
+      await createPendingChange.mutateAsync({
+        source_type: sourceType,
+        source_id: sourceId,
+        change_category: classifyChangeCategory(changedFields),
+        change_payload: updates,
+        trigger_mode: 'manual_apply',
+      })
+    }
+    setNowNextPending(null)
+  }
+
   return (
     <div
       className="rounded-xl overflow-hidden"
@@ -283,11 +337,14 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
               <CheckCircle2 size={14} style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }} />
             )}
           </div>
-          {(collection.life_area_tags?.[0] ?? collection.life_area_tag) && (
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {collection.life_area_tags?.[0] ?? collection.life_area_tag}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {(collection.life_area_tags?.[0] ?? collection.life_area_tag) && (
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                {collection.life_area_tags?.[0] ?? collection.life_area_tag}
+              </span>
+            )}
+            <PendingChangesBadge sourceType="sequential_collection" sourceId={collection.id} />
+          </div>
         </div>
 
         <span
@@ -395,6 +452,41 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Pending changes apply banner */}
+      {expanded && pendingChanges.length > 0 && (
+        <div
+          className="mx-4 mb-2 flex items-center gap-3 px-3 py-2 rounded-lg"
+          style={{
+            background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+            border: '1px solid var(--color-btn-primary-bg)',
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+              {pendingChanges.length} pending {pendingChanges.length === 1 ? 'change' : 'changes'}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              setApplyingPending(true)
+              try {
+                await applyPendingChanges.mutateAsync({ sourceType: 'sequential_collection', sourceId: collection.id })
+              } finally {
+                setApplyingPending(false)
+              }
+            }}
+            disabled={applyingPending}
+            className="px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+            }}
+          >
+            {applyingPending ? 'Applying...' : 'Apply now'}
+          </button>
         </div>
       )}
 
@@ -507,6 +599,14 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
                           task={task}
                           collectionId={detail.collection.id}
                           onClose={() => setEditingItemId(null)}
+                          onStagedEdit={(updates, changedFields) => {
+                            setNowNextPending({
+                              updates,
+                              changedFields,
+                              sourceType: 'sequential_item',
+                              sourceId: task.id,
+                            })
+                          }}
                         />
                       )}
                     </div>
@@ -541,6 +641,18 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
           )}
         </div>
       )}
+      <NowNextChoiceModal
+        isOpen={!!nowNextPending}
+        onClose={() => setNowNextPending(null)}
+        title="Update active collection?"
+        itemName={collection.title || 'Collection'}
+        affectedNames={assigneeName ? [assigneeName] : []}
+        affectedCount={assigneeName ? 1 : 0}
+        defaultTiming={nowNextPending ? (classifyChangeCategory(nowNextPending.changedFields) === 'display' ? 'now' : 'next') : 'next'}
+        nextCycleDate={null}
+        onConfirm={handleNowNextConfirm}
+        onCancel={() => setNowNextPending(null)}
+      />
     </div>
   )
 }

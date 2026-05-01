@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { Calendar, Users, Unlink, Copy, Archive, Edit2, Play, MoreHorizontal } from 'lucide-react'
 import type { StudioTemplateType } from './StudioTemplateCard'
 import { ScheduledStartBadge } from '@/components/templates/ScheduledStartBadge'
+import { PendingChangesBadge } from '@/components/templates/PendingChangesBadge'
 
 export interface CustomizedTemplate {
   id: string
@@ -147,6 +148,10 @@ export function CustomizedTemplateCard({
             <ScheduledStartBadge
               dtstart={template.nextScheduledStart}
               size="full"
+            />
+            <PendingChangesBadge
+              sourceType="routine_template"
+              sourceId={template.id}
             />
           </div>
         </div>

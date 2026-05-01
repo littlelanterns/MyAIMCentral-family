@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-04-27 (Worker 5 — Painter / Universal Scheduler Upgrade).
+> Updated each build session. Last updated: 2026-05-01 (Universal Capability Parity — Stage 3).
 
 ## RoutingStrip Destinations
 
@@ -233,6 +233,22 @@
 | Shared list completion attribution | List item check uses `checked_by` for member-color display | **Wired** | Member color rendered via `useMemberColor` |
 | Soft-claim visibility on task cards | "In progress by [Name]" badge on `track_progress=true` tasks with `in_progress_member_id` set | **Wired** | Opportunity items show per-item attribute badges (reward, claim lock, advancement) |
 | Allowance actual-completer pipeline | RPC uses `task_completions.family_member_id` (not `tasks.assignee_id`). Edge Function display count includes `task_assignments`. | **Wired** | Stage 1 migration 100190 + Stage 2 Edge Function fix |
+
+## Universal Capability Parity — Stage 3 (2026-05-01)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Content edit timing — Now/Next cycle | Mom chooses whether edits apply immediately or stage for next cycle. `pending_changes` table stages changes; cron auto-applies scheduled ones. | **Wired** | Migration 100192 (table), 100193 (cron). Routines: schedule_activation. Lists/sequential: manual_apply. |
+| Routine Now/Next modal | `MasterTemplateEditConfirmationModal` extended with Now/Next segmented control. Type-aware defaults (display→Now, structural→Next). | **Wired** | Worker 2. Staging intercept in `handleEditConfirm` + save-to-studio. |
+| List Now/Next modal | `NowNextChoiceModal` shared component. Intercepts capability edits on shared lists via `handleSharedListEdit`. | **Wired** | Worker 3 + gap fix. Tracking defaults + victory mode routed through handler. |
+| Sequential Now/Next modal | `NowNextChoiceModal` on SequentialCollectionView. Per-item advancement edits pass through `onStagedEdit` prop. | **Wired** | Worker 3 + gap fix. |
+| PendingChangesBadge | Self-hiding badge on Studio template cards, list cards, sequential collection cards. | **Wired** | Shows "N pending" when count > 0. |
+| PendingChangesSummary | Collapsible inline section in TaskCreationModal for routine editing. Per-item cancel + apply-all. | **Wired** | Worker 2. |
+| Apply Pending Changes banner | Banner on list detail + sequential detail views with "Apply now" button. | **Wired** | Worker 3. Calls `useApplyPendingChanges`. |
+| Cron auto-apply | `util.apply_scheduled_pending_changes()` runs hourly at :15. Dynamic SQL for generic apply. | **Wired** | Migration 100193. Handles all 7 source types. |
+| Family Overview bug fix | Null-due-date tasks filtered to 7-day window + not-completed + `isRecurringTaskVisibleToday`. | **Wired** | `useFamilyOverviewData.ts:59`. |
+| LiLa drawer default closed | `MomShell.tsx` `_lilaVisible` defaults to `false` instead of `true`. | **Wired** | UX fix. |
+| FeatureGuide disabled | `FEATURE_GUIDES_DISABLED = true` constant guards render + effect. | **Wired** | Temporary. Flip to `false` to re-enable. |
 
 ## Known Issues / TODO
 

@@ -11,6 +11,12 @@
 
 ## Index
 
+### 2026-05
+
+| Build | PRD | Signed off | File |
+|---|---|---|---|
+| Universal Capability Parity — Stages 1+2+3 | PRD-09A/09B cross-cutting — content edit timing, pending_changes, cron, Family Overview fix | 2026-05-01 | [universal-capability-parity-stages-1-2-3.md](2026-05/universal-capability-parity-stages-1-2-3.md) |
+
 ### 2026-04
 
 | Build | PRD | Signed off | File |

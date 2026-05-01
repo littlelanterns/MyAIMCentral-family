@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamily } from './useFamily'
 import { useFamilyToday } from './useFamilyToday'
+import { isoDaysFrom } from '@/utils/dates'
+import { isRecurringTaskVisibleToday } from '@/lib/tasks/recurringTaskFilter'
 
 // Row 184 NEW-DD Path 2: Family Overview queries use server-derived family-today
 // via useFamilyToday. Any member in `selectedMemberIds` resolves to the family's
@@ -47,18 +49,19 @@ export function useTodayTasksForMembers(memberIds: string[]) {
     queryKey: ['fo-tasks', familyId, dateStr, memberIds],
     queryFn: async () => {
       if (!familyId || memberIds.length === 0 || !dateStr) return []
-      // Get tasks assigned to selected members, due today or with no due date and active
+      const weekAgoStr = isoDaysFrom(dateStr, -7)
       const { data, error } = await supabase
         .from('tasks')
-        .select('id, title, status, due_date, due_time, assignee_id, task_type, require_approval, sort_order, completed_at, is_shared')
+        .select('id, title, status, due_date, due_time, assignee_id, task_type, require_approval, sort_order, completed_at, is_shared, recurrence_rule, recurrence_details')
         .eq('family_id', familyId)
         .is('archived_at', null)
         .not('task_type', 'like', 'opportunity%')
-        .or(`due_date.eq.${dateStr},due_date.is.null`)
+        .or(`due_date.eq.${dateStr},and(due_date.is.null,status.neq.completed,created_at.gte.${weekAgoStr})`)
         .in('status', ['pending', 'in_progress', 'completed', 'pending_approval'])
         .order('sort_order', { ascending: true })
       if (error) throw error
-      return data ?? []
+      const rows = data ?? []
+      return rows.filter(t => isRecurringTaskVisibleToday(t as Parameters<typeof isRecurringTaskVisibleToday>[0]))
     },
     enabled: !!familyId && memberIds.length > 0 && !!dateStr,
   })

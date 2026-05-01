@@ -25,6 +25,8 @@ function savePreferences(prefs: { dismissed_guides: string[]; all_guides_dismiss
   localStorage.setItem('myaim_guide_prefs', JSON.stringify(prefs))
 }
 
+const FEATURE_GUIDES_DISABLED = true
+
 export function FeatureGuide({ featureKey, title, description, bullets }: FeatureGuideProps) {
   const { data: member } = useFamilyMember()
   const [visible, setVisible] = useState(false)
@@ -36,6 +38,7 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
   const displayBullets = bullets ?? registryEntry?.bullets
 
   useEffect(() => {
+    if (FEATURE_GUIDES_DISABLED) return
     // Check localStorage first (fast)
     const prefs = getPreferences()
     if (prefs.all_guides_dismissed) return
@@ -97,7 +100,7 @@ export function FeatureGuide({ featureKey, title, description, bullets }: Featur
     [featureKey, member?.id],
   )
 
-  if (!visible || !displayTitle) return null
+  if (FEATURE_GUIDES_DISABLED || !visible || !displayTitle) return null
 
   return (
     <div

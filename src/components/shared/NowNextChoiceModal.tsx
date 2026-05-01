@@ -3,18 +3,19 @@ import { Layers } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { Button } from '@/components/shared'
 
-export type EditTiming = 'now' | 'next'
+export type NowNextTiming = 'now' | 'next'
 
-export interface MasterTemplateEditConfirmationModalProps {
+export interface NowNextChoiceModalProps {
   isOpen: boolean
   onClose: () => void
+  title: string
+  itemName: string
   affectedNames: string[]
   affectedCount: number
-  templateName: string
-  onConfirm: (timing: EditTiming) => void
-  onCancel: () => void
-  defaultTiming?: EditTiming
+  defaultTiming: NowNextTiming
   nextCycleDate: string | null
+  onConfirm: (timing: NowNextTiming) => void
+  onCancel: () => void
 }
 
 function formatNameList(names: string[]): string {
@@ -24,20 +25,20 @@ function formatNameList(names: string[]): string {
   return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`
 }
 
-export function MasterTemplateEditConfirmationModal({
+export function NowNextChoiceModal({
   isOpen,
   onClose,
+  title,
+  itemName,
   affectedNames,
   affectedCount,
-  templateName,
+  defaultTiming,
+  nextCycleDate,
   onConfirm,
   onCancel,
-  defaultTiming = 'now',
-  nextCycleDate,
-}: MasterTemplateEditConfirmationModalProps) {
-  const [timing, setTiming] = useState<EditTiming>(defaultTiming)
+}: NowNextChoiceModalProps) {
+  const [timing, setTiming] = useState<NowNextTiming>(defaultTiming)
   const nameList = formatNameList(affectedNames)
-  const routineWord = affectedCount === 1 ? 'routine' : 'routines'
 
   const formattedNextDate = nextCycleDate
     ? new Date(nextCycleDate).toLocaleDateString('en-US', {
@@ -49,13 +50,13 @@ export function MasterTemplateEditConfirmationModal({
 
   return (
     <ModalV2
-      id="master-template-edit-confirmation"
+      id="now-next-choice"
       isOpen={isOpen}
       onClose={onClose}
       type="transient"
       size="sm"
-      title="Update active routines?"
-      subtitle={templateName}
+      title={title}
+      subtitle={itemName}
       icon={Layers}
     >
       <div className="p-4 flex flex-col gap-4">
@@ -63,7 +64,7 @@ export function MasterTemplateEditConfirmationModal({
           className="text-sm"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          This will update {affectedCount} active {routineWord}
+          This will update {affectedCount} shared {affectedCount === 1 ? 'member' : 'members'}
           {nameList ? ': ' : '.'}
           {nameList && (
             <strong style={{ color: 'var(--color-text-heading)' }}>
@@ -73,7 +74,6 @@ export function MasterTemplateEditConfirmationModal({
           {nameList && '.'}
         </div>
 
-        {/* When should this take effect? */}
         <div>
           <p
             className="text-xs font-medium mb-2"
@@ -118,20 +118,12 @@ export function MasterTemplateEditConfirmationModal({
             style={{ color: 'var(--color-text-secondary)' }}
           >
             {timing === 'now'
-              ? 'Changes apply immediately to current and future days.'
+              ? 'Changes apply immediately.'
               : formattedNextDate
                 ? `Changes take effect ${formattedNextDate}.`
-                : 'Changes will be applied manually.'}
+                : 'Changes will be staged for manual apply.'}
           </p>
         </div>
-
-        <p
-          className="text-xs"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          Past completions stay as-is — only future routine days reflect
-          the change.
-        </p>
 
         <div className="flex flex-col gap-2 pt-1">
           <Button variant="primary" onClick={() => onConfirm(timing)}>

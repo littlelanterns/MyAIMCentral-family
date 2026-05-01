@@ -10,6 +10,7 @@ No builds are currently in flight. No code should be written without starting th
 
 ### Last signed-off builds
 
+- **Universal Capability Parity — Stages 1+2+3** (2026-05-01) — 25 Stage 3 wired, 1 stubbed, 0 missing. Content edit timing Now/Next cycle, pending_changes table + cron auto-apply, Family Overview bug fix, LiLa drawer fix, FeatureGuide disabled. 9 Playwright tests. Archived in `.claude/completed-builds/2026-05/universal-capability-parity-stages-1-2-3.md`.
 - **Daily Progress Marking** (2026-04-28) — 55 requirements: 47 wired, 8 stubbed, 0 missing. 13 Playwright tests, 6 UT items pending multi-member verification. Long Term Task type, soft-claim, duration tracking. Verification in `claude/feature-decisions/PRD-09A-Daily-Progress-Marking.md`.
 - **Worker 5 — Painter / Universal Scheduler Upgrade** (2026-04-27) — 8 sub-tasks complete, 0 missing. Pick Dates painted-calendar mode, deed_firings table, per-date assignee editor, time-of-day windows, fire-painted-schedules Edge Function, Active today badge. Verification in `claude/feature-decisions/Worker-5-Painter-Universal-Scheduler-Upgrade.md`.
 - **Build P — PRD-16 Meetings** (2026-04-16) — 127 requirements verified: 114 wired, 13 stubbed, 0 missing. Verification table in `claude/feature-decisions/PRD-16-Meetings.md`.
@@ -22,6 +23,7 @@ No builds are currently in flight. No code should be written without starting th
 The complete set of signed-off builds and their pre-build summaries lives in `.claude/completed-builds/`, organized by month:
 
 - `.claude/completed-builds/2026-04/` — 17 build files covering Builds C through P, Phase 1b, Worker 5, and Daily Progress Marking
+- `.claude/completed-builds/2026-05/` — Universal Capability Parity Stages 1-2-3
 - `.claude/completed-builds/README.md` — chronological completion ledger + index of all archived build files
 
 Search `.claude/completed-builds/` via mgrep when you need to recall the full pre-build summary, decisions, or stubs for a historical build. The feature-decision files in `claude/feature-decisions/` remain the authoritative post-verification record per build.

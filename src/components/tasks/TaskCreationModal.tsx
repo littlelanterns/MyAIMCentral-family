@@ -61,14 +61,15 @@ import {
   formatNameList,
   type ActiveDeployment,
 } from '@/lib/templates/getActiveTemplateDeployments'
-import { MasterTemplateEditConfirmationModal } from '@/components/templates/MasterTemplateEditConfirmationModal'
-// Worker ROUTINE-PROPAGATION (c6): post-save success toasts. Reuses
-// the existing RoutingToastProvider — no new toast infrastructure.
-// Anti-panic UX: every routine-template save path now confirms what
-// actually happened so mom doesn't have to wonder.
+import { MasterTemplateEditConfirmationModal, type EditTiming } from '@/components/templates/MasterTemplateEditConfirmationModal'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import { fetchFamilyToday } from '@/hooks/useFamilyToday'
 import { supabase } from '@/lib/supabase/client'
+import { useFamily } from '@/hooks/useFamily'
+import { useCreatePendingChange, usePendingChangesForSource, useCancelPendingChange, useApplyPendingChanges } from '@/hooks/usePendingChanges'
+import { classifyChangeCategory } from '@/lib/pendingChanges/classifyChangeCategory'
+import { computeNextTriggerAt } from '@/lib/pendingChanges/computeNextTriggerAt'
+import type { ChangeCategory } from '@/types/pendingChanges'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -499,6 +500,99 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 }
 
+// ─── Pending Changes Summary ────────────────────────────────
+
+const CATEGORY_LABELS: Record<ChangeCategory, string> = {
+  display: 'Display',
+  structural: 'Structural',
+  capability: 'Capability',
+  schedule: 'Schedule',
+}
+
+function PendingChangesSummary({
+  changes,
+  onCancel,
+  onApplyAll,
+}: {
+  changes: import('@/types/pendingChanges').PendingChange[]
+  onCancel: (id: string) => void
+  onApplyAll: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div
+      className="mx-4 mt-3 mb-1 rounded-lg border overflow-hidden"
+      style={{
+        borderColor: 'var(--color-border)',
+        backgroundColor: 'var(--color-bg-secondary)',
+      }}
+    >
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold"
+        style={{ color: 'var(--color-text-heading)', cursor: 'pointer', border: 'none', background: 'none' }}
+        onClick={() => setExpanded(e => !e)}
+      >
+        <span>Pending changes ({changes.length})</span>
+        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 flex flex-col gap-2">
+          {changes.map(c => (
+            <div
+              key={c.id}
+              className="flex items-center justify-between gap-2 text-xs rounded-md px-2 py-1.5"
+              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                  style={{
+                    backgroundColor: 'var(--color-surface-secondary)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  {CATEGORY_LABELS[c.change_category] ?? c.change_category}
+                </span>
+                <span style={{ color: 'var(--color-text-secondary)' }}>
+                  {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-xs font-medium px-2 py-0.5 rounded"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  cursor: 'pointer',
+                  border: '1px solid var(--color-border)',
+                  background: 'none',
+                }}
+                onClick={() => onCancel(c.id)}
+              >
+                Cancel
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="self-end text-xs font-semibold px-3 py-1.5 rounded-lg"
+            style={{
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+              cursor: 'pointer',
+              border: 'none',
+            }}
+            onClick={onApplyAll}
+          >
+            Apply all now
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Modal ──────────────────────────────────────────────
 
 export function TaskCreationModal({
@@ -522,8 +616,16 @@ export function TaskCreationModal({
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(currentMember?.family_id)
+  const { data: family } = useFamily()
   const homeworkTrackingEnabled = useCanAccess('homeschool_subjects')
   const { data: homeschoolSubjects } = useHomeschoolSubjects(currentMember?.family_id)
+  const createPendingChange = useCreatePendingChange()
+  const cancelPendingChange = useCancelPendingChange()
+  const applyAllPendingChanges = useApplyPendingChanges()
+  const { data: pendingChangesForTemplate } = usePendingChangesForSource(
+    editingTemplateId ? 'routine_template' : undefined,
+    editingTemplateId ?? undefined,
+  )
 
   const [data, setData] = useState<CreateTaskData>(() => {
     const d = defaultTaskData(queueItem)
@@ -2599,24 +2701,60 @@ export function TaskCreationModal({
   // ─── Master-template edit confirmation handler (c3) ─────────
   // When mom confirms the edit, archive the modal state and re-enter
   // the save path with the stashed finalData. Cancel just closes.
-  const handleEditConfirm = useCallback(async () => {
+  const handleEditConfirm = useCallback(async (timing: EditTiming) => {
     const stash = editConfirmState
     if (!stash) return
     setLoading(true)
     try {
-      await onSave(stash.pendingFinalData)
-      // Worker ROUTINE-PROPAGATION (c6): post-confirm toast naming
-      // every affected family member. "Saved — updated 3 active
-      // routines: Ruthie, Mosiah, and Gideon."
-      const names = distinctAssigneeNames(stash.deployments)
-      const count = names.length
-      const routineWord = count === 1 ? 'routine' : 'routines'
-      const nameList = formatNameList(names)
-      showToast(
-        nameList
-          ? `Saved — updated ${count} active ${routineWord}: ${nameList}.`
-          : `Saved — updated ${count} active ${routineWord}.`,
-      )
+      if (timing === 'now') {
+        await onSave(stash.pendingFinalData)
+        const names = distinctAssigneeNames(stash.deployments)
+        const count = names.length
+        const routineWord = count === 1 ? 'routine' : 'routines'
+        const nameList = formatNameList(names)
+        showToast(
+          nameList
+            ? `Saved — updated ${count} active ${routineWord}: ${nameList}.`
+            : `Saved — updated ${count} active ${routineWord}.`,
+        )
+      } else {
+        const sections = stash.pendingFinalData.routineSections
+        const firstSection = sections?.[0]
+        const frequencyRule = firstSection?.frequency ?? 'daily'
+        const frequencyDays = firstSection?.customDays
+        const triggerDate = computeNextTriggerAt(
+          frequencyRule,
+          frequencyDays,
+          family?.timezone ?? undefined,
+        )
+        const category = classifyChangeCategory(
+          sections ? ['sections'] : ['title', 'description'],
+        )
+        const deploymentIds = stash.deployments.map(d => d.taskId)
+        const memberIds = [...new Set(stash.deployments.map(d => d.assigneeId))]
+        await createPendingChange.mutateAsync({
+          source_type: 'routine_template',
+          source_id: editingTemplateId!,
+          change_category: category,
+          change_payload: {
+            title: stash.pendingFinalData.title,
+            description: stash.pendingFinalData.description,
+            sections: stash.pendingFinalData.routineSections,
+          },
+          trigger_mode: triggerDate ? 'schedule_activation' : 'manual_apply',
+          trigger_at: triggerDate?.toISOString() ?? null,
+          affected_deployment_ids: deploymentIds,
+          affected_member_ids: memberIds,
+        })
+        const formattedDate = triggerDate
+          ? triggerDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          : null
+        showToast(
+          formattedDate
+            ? `Changes staged for ${formattedDate}.`
+            : 'Changes staged. Apply them from routine settings when ready.',
+        )
+      }
       setEditConfirmState(null)
       if (
         batchMode === 'sequential' &&
@@ -2628,16 +2766,12 @@ export function TaskCreationModal({
         onClose()
       }
     } catch (err) {
-      // Worker ROUTINE-SAVE-FIX (c2): post-confirm save failure. Keep
-      // editConfirmState as-is so mom can either retry the modal Update
-      // button OR cancel out and adjust her edits — either path stays
-      // discoverable instead of vanishing silently.
       console.error('Routine save failed:', err)
       showErrorToast("Couldn't save changes. Please try again or contact support.")
     } finally {
       setLoading(false)
     }
-  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex, showToast, showErrorToast])
+  }, [editConfirmState, onSave, onClose, batchMode, batchItems, batchIndex, showToast, showErrorToast, family?.timezone, createPendingChange, editingTemplateId])
 
   const handleEditCancel = useCallback(() => {
     setEditConfirmState(null)
@@ -2736,6 +2870,21 @@ export function TaskCreationModal({
           : undefined
       }
     >
+      {editingTemplateId && pendingChangesForTemplate && pendingChangesForTemplate.length > 0 && (
+        <PendingChangesSummary
+          changes={pendingChangesForTemplate}
+          onCancel={async (id) => {
+            await cancelPendingChange.mutateAsync(id)
+          }}
+          onApplyAll={async () => {
+            await applyAllPendingChanges.mutateAsync({
+              sourceType: 'routine_template',
+              sourceId: editingTemplateId,
+            })
+            showToast('All pending changes applied.')
+          }}
+        />
+      )}
       {viewMode === 'quick' ? quickModeContent : fullModeContent}
 
       {/* Bulk Add overlay for opportunities */}
@@ -2799,20 +2948,34 @@ export function TaskCreationModal({
       />
     )}
 
-    {/* Worker ROUTINE-PROPAGATION (c3): master-template edit
-        confirmation. Fires when mom edits a routine template that has
-        active deployments. */}
-    {editConfirmState && (
-      <MasterTemplateEditConfirmationModal
-        isOpen={!!editConfirmState}
-        onClose={handleEditCancel}
-        affectedNames={distinctAssigneeNames(editConfirmState.deployments)}
-        affectedCount={distinctAssigneeNames(editConfirmState.deployments).length}
-        templateName={editConfirmState.pendingFinalData.title}
-        onConfirm={handleEditConfirm}
-        onCancel={handleEditCancel}
-      />
-    )}
+    {editConfirmState && (() => {
+      const sections = editConfirmState.pendingFinalData.routineSections
+      const firstSection = sections?.[0]
+      const category: ChangeCategory = classifyChangeCategory(
+        sections ? ['sections'] : ['title', 'description'],
+      )
+      const triggerDate = firstSection
+        ? computeNextTriggerAt(
+            firstSection.frequency,
+            firstSection.customDays,
+            family?.timezone ?? undefined,
+          )
+        : null
+      const defaultTiming: EditTiming = category === 'display' ? 'now' : 'next'
+      return (
+        <MasterTemplateEditConfirmationModal
+          isOpen={!!editConfirmState}
+          onClose={handleEditCancel}
+          affectedNames={distinctAssigneeNames(editConfirmState.deployments)}
+          affectedCount={distinctAssigneeNames(editConfirmState.deployments).length}
+          templateName={editConfirmState.pendingFinalData.title}
+          onConfirm={handleEditConfirm}
+          onCancel={handleEditCancel}
+          defaultTiming={defaultTiming}
+          nextCycleDate={triggerDate?.toISOString() ?? null}
+        />
+      )
+    })()}
     </>
   )
 }

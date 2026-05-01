@@ -55,6 +55,11 @@ import { SequentialCreatorModal } from '@/components/tasks/sequential/Sequential
 import { useSequentialCollections } from '@/hooks/useSequentialCollections'
 import { isDateActive, type SchedulerOutput } from '@/components/scheduling'
 import { todayLocalIso } from '@/utils/dates'
+import { usePendingChangesForSource, useApplyPendingChanges, useCreatePendingChange } from '@/hooks/usePendingChanges'
+import { PendingChangesBadge } from '@/components/templates/PendingChangesBadge'
+import { NowNextChoiceModal } from '@/components/shared/NowNextChoiceModal'
+import { classifyChangeCategory } from '@/lib/pendingChanges/classifyChangeCategory'
+import type { NowNextTiming } from '@/components/shared/NowNextChoiceModal'
 
 // ── Victory mode selector ──────────────────────────────────
 const VICTORY_MODE_OPTIONS: { value: VictoryMode; label: string; description: string }[] = [
@@ -685,9 +690,12 @@ export function ListsPage() {
                 )}
                 <Icon size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
                 <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
-                <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-                  {cfg.label}{list.is_shared ? ' · Shared' : ''}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                    {cfg.label}{list.is_shared ? ' · Shared' : ''}
+                  </p>
+                  <PendingChangesBadge sourceType="list" sourceId={list.id} />
+                </div>
               </button>
             )
           })}
@@ -756,9 +764,12 @@ export function ListsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {cfg.label} {list.is_shared ? ' · Shared' : ''}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                      {cfg.label} {list.is_shared ? ' · Shared' : ''}
+                    </p>
+                    <PendingChangesBadge sourceType="list" sourceId={list.id} />
+                  </div>
                 </div>
                 <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
               </button>
@@ -1255,6 +1266,57 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const hideSharedList = useHideSharedList()
   const [showShareModal, setShowShareModal] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const { data: pendingChanges = [] } = usePendingChangesForSource('list', listId)
+  const applyPendingChanges = useApplyPendingChanges()
+  const createPendingChange = useCreatePendingChange()
+  const [applyingPending, setApplyingPending] = useState(false)
+
+  // Now/Next staging for shared list edits
+  const isSharedList = !!(list?.is_shared && shares.length > 0)
+  const [nowNextPending, setNowNextPending] = useState<{
+    updates: Record<string, unknown>
+    changedFields: string[]
+    sourceType: 'list' | 'list_item'
+    sourceId: string
+  } | null>(null)
+
+  const sharedMemberNames: string[] = isSharedList
+    ? shares.map(s => familyMembers.find(fm => fm.id === s.member_id)?.display_name).filter((n): n is string => !!n)
+    : []
+
+  function handleSharedListEdit(
+    sourceId: string,
+    sourceType: 'list' | 'list_item',
+    updates: Record<string, unknown>,
+    changedFields: string[],
+  ) {
+    const category = classifyChangeCategory(changedFields)
+    if (isSharedList && category !== 'display') {
+      setNowNextPending({ updates, changedFields, sourceType, sourceId })
+    } else {
+      if (sourceType === 'list') updateList.mutate({ id: sourceId, ...updates })
+      else updateItem.mutate({ id: sourceId, listId, ...updates } as Parameters<typeof updateItem.mutate>[0])
+    }
+  }
+
+  async function handleNowNextConfirm(timing: NowNextTiming) {
+    if (!nowNextPending) return
+    const { updates, changedFields, sourceType, sourceId } = nowNextPending
+    if (timing === 'now') {
+      if (sourceType === 'list') updateList.mutate({ id: sourceId, ...updates })
+      else updateItem.mutate({ id: sourceId, listId, ...updates } as Parameters<typeof updateItem.mutate>[0])
+    } else {
+      await createPendingChange.mutateAsync({
+        source_type: sourceType,
+        source_id: sourceId,
+        change_category: classifyChangeCategory(changedFields),
+        change_payload: updates as Record<string, unknown>,
+        trigger_mode: 'manual_apply',
+        affected_member_ids: shares.map(s => s.member_id).filter((id): id is string => !!id),
+      })
+    }
+    setNowNextPending(null)
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -1619,7 +1681,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
 
   // When victory mode changes, auto-flag/unflag all items
   async function handleVictoryModeChange(newMode: VictoryMode) {
-    updateList.mutate({ id: listId, victory_mode: newMode })
+    handleSharedListEdit(listId, 'list', { victory_mode: newMode }, ['victory_mode'])
     const shouldFlag = newMode === 'item_completed' || newMode === 'both'
     // Bulk update all items' victory_flagged
     if (items.length > 0) {
@@ -1750,6 +1812,45 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
   function moveItemToSection(itemId: string, newSection: string) {
     updateItem.mutate({ id: itemId, listId, section_name: newSection || null })
   }
+
+  // ── Apply Pending Changes banner ────────────────────────
+  const pendingCount = pendingChanges.length
+  const pendingBanner = pendingCount > 0 && isOwnerOrParent ? (
+    <div
+      className="flex items-center gap-3 px-4 py-2.5 rounded-lg"
+      style={{
+        background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+        border: '1px solid var(--color-btn-primary-bg)',
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium" style={{ color: 'var(--color-text-heading)' }}>
+          {pendingCount} pending {pendingCount === 1 ? 'change' : 'changes'}
+        </p>
+        <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+          Staged for this list. Apply when ready.
+        </p>
+      </div>
+      <button
+        onClick={async () => {
+          setApplyingPending(true)
+          try {
+            await applyPendingChanges.mutateAsync({ sourceType: 'list', sourceId: listId })
+          } finally {
+            setApplyingPending(false)
+          }
+        }}
+        disabled={applyingPending}
+        className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap disabled:opacity-50"
+        style={{
+          backgroundColor: 'var(--color-btn-primary-bg)',
+          color: 'var(--color-btn-primary-text)',
+        }}
+      >
+        {applyingPending ? 'Applying...' : 'Apply now'}
+      </button>
+    </div>
+  ) : null
 
   // ── Compact shopping list item row ─────────────────────
   const allSectionNames = Array.from(sections.keys())
@@ -2028,6 +2129,8 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           </div>
         )}
 
+        {pendingBanner}
+
         {/* Victory mode selector */}
         {isOwnerOrParent && (
           <VictoryModeSelector
@@ -2213,6 +2316,18 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           />
         )}
       </div>
+      <NowNextChoiceModal
+        isOpen={!!nowNextPending}
+        onClose={() => setNowNextPending(null)}
+        title="Update shared list?"
+        itemName={list.title || list.list_name || 'List'}
+        affectedNames={sharedMemberNames}
+        affectedCount={sharedMemberNames.length}
+        defaultTiming={nowNextPending ? (classifyChangeCategory(nowNextPending.changedFields) === 'display' ? 'now' : 'next') : 'next'}
+        nextCycleDate={null}
+        onConfirm={handleNowNextConfirm}
+        onCancel={() => setNowNextPending(null)}
+      />
       </>
     )
   }
@@ -2355,6 +2470,8 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         </div>
       )}
 
+      {pendingBanner}
+
       {/* Victory mode selector */}
       {isOwnerOrParent && (
         <VictoryModeSelector
@@ -2417,8 +2534,8 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           <TrackingDefaultsPanel
             defaultTrackProgress={list.default_track_progress ?? false}
             defaultTrackDuration={list.default_track_duration ?? false}
-            onDefaultTrackProgressChange={(v) => updateList.mutate({ id: listId, default_track_progress: v })}
-            onDefaultTrackDurationChange={(v) => updateList.mutate({ id: listId, default_track_duration: v })}
+            onDefaultTrackProgressChange={(v) => handleSharedListEdit(listId, 'list', { default_track_progress: v }, ['default_track_progress'])}
+            onDefaultTrackDurationChange={(v) => handleSharedListEdit(listId, 'list', { default_track_duration: v }, ['default_track_duration'])}
           />
         </div>
       )}
@@ -2595,6 +2712,18 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         />
       )}
     </div>
+    <NowNextChoiceModal
+      isOpen={!!nowNextPending}
+      onClose={() => setNowNextPending(null)}
+      title="Update shared list?"
+      itemName={list.title || list.list_name || 'List'}
+      affectedNames={sharedMemberNames}
+      affectedCount={sharedMemberNames.length}
+      defaultTiming={nowNextPending ? (classifyChangeCategory(nowNextPending.changedFields) === 'display' ? 'now' : 'next') : 'next'}
+      nextCycleDate={null}
+      onConfirm={handleNowNextConfirm}
+      onCancel={() => setNowNextPending(null)}
+    />
     </>
   )
 }

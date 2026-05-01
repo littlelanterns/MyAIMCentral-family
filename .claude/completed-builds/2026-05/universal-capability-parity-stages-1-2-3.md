@@ -1,6 +1,6 @@
-# Universal Capability Parity — Stage 1 + Stage 2
+# Universal Capability Parity — Stage 1 + Stage 2 + Stage 3
 
-## Status: STAGE 2 COMPLETE
+## Status: ALL STAGES COMPLETE
 
 **Started:** 2026-04-30
 **Stage 2 completed:** 2026-04-30
@@ -118,7 +118,79 @@ Backend-only items (no UI verification needed): allowance Edge Function fix, vic
 - [x] tsc -b clean
 - [x] All creation paths produce tasks with correct capability set (Stage 1)
 - [x] Migrations applied and verified (Stage 1: 100187-100190)
-- [ ] live_schema.md regenerated (run `npm run schema:dump` after Edge Function deploy)
+- [ ] live_schema.md regenerated (run `npm run schema:dump` after migrations 100192-100193 applied)
 - [x] STUB_REGISTRY.md updated (require_note stub added)
-- [x] WIRING_STATUS.md updated (Stage 2 entries added)
-- [x] BUILD_STATUS.md updated (Stage 2 complete with date)
+- [x] WIRING_STATUS.md updated (Stage 2 + Stage 3 entries added)
+- [x] BUILD_STATUS.md updated (Stage 3 complete with date)
+
+## Stage 3 Scope (Complete)
+
+**Started:** 2026-05-01
+**Completed:** 2026-05-01
+
+### Migrations
+- **100192** — `pending_changes` table with RLS (4 policies), 3 partial indexes, TEXT types for extensibility
+- **100193** — `util.apply_scheduled_pending_changes()` SQL function + pg_cron hourly at :15
+
+### Infrastructure
+- `src/types/pendingChanges.ts` — PendingChange, CreatePendingChangeInput, discriminated type unions
+- `src/hooks/usePendingChanges.ts` — 6 hooks for CRUD + apply
+- `src/lib/pendingChanges/applyPendingChanges.ts` — deep merge + dispatch to appropriate table/RPC
+- `src/lib/pendingChanges/classifyChangeCategory.ts` — field → category mapping
+- `src/lib/pendingChanges/computeNextTriggerAt.ts` — timezone-aware next-period computation
+
+### UI
+- `MasterTemplateEditConfirmationModal` — Now/Next segmented control for routines
+- `NowNextChoiceModal` — shared component for lists + sequential collections
+- `PendingChangesBadge` — self-hiding badge on template/list/sequential cards
+- `PendingChangesSummary` — collapsible section in routine editing view
+- Apply Pending Changes banners on list + sequential detail views
+- List edit interception via `handleSharedListEdit` for shared list capability edits
+- Sequential edit interception via `onStagedEdit` prop on ItemAdvancementEditor
+
+### Bug fixes
+- Family Overview null-due-date historical tasks filtered (useFamilyOverviewData.ts)
+- LiLa drawer defaults to closed (MomShell.tsx)
+- FeatureGuide temporarily disabled (FEATURE_GUIDES_DISABLED constant)
+- 5/6 paused-build bugs verified already fixed
+
+### Paused-build bug verification
+- Routine deploy button: Already fixed
+- bed6e781 Herringbone duplicates: Already fixed (migration 100168)
+- 30102e19+cd02de88 overdue past end date: Already fixed (recurringTaskFilter)
+- bc0597ad rhythm task no due_date overdue: Already fixed (TaskCard logic)
+- 7a27f006 Family Overview historical: Fixed in this stage
+- NEW-X assignment mode: Already fixed (migration 100187)
+
+## Post-Build Verification Table — Stage 3
+
+| # | Scope Item | Status | Evidence |
+|---|-----------|--------|----------|
+| 1 | pending_changes table + RLS + indexes | **Wired** | Migration 100192 |
+| 2 | TypeScript types | **Wired** | src/types/pendingChanges.ts |
+| 3 | usePendingChanges hook (6 operations) | **Wired** | src/hooks/usePendingChanges.ts |
+| 4 | applyPendingChanges utility | **Wired** | src/lib/pendingChanges/applyPendingChanges.ts |
+| 5 | classifyChangeCategory helper | **Wired** | src/lib/pendingChanges/classifyChangeCategory.ts |
+| 6 | computeNextTriggerAt helper | **Wired** | src/lib/pendingChanges/computeNextTriggerAt.ts |
+| 7 | Routine Now/Next segmented control | **Wired** | MasterTemplateEditConfirmationModal.tsx |
+| 8 | Type-aware defaults | **Wired** | display→Now, structural/capability/schedule→Next |
+| 9 | Staging intercept in handleEditConfirm | **Wired** | TaskCreationModal.tsx:2704 |
+| 10 | Staging intercept in save-to-studio | **Wired** | TaskCreationModal.tsx:~2954 |
+| 11 | PendingChangesBadge component | **Wired** | src/components/templates/PendingChangesBadge.tsx |
+| 12 | Badge on routine cards | **Wired** | CustomizedTemplateCard.tsx |
+| 13 | Badge on list cards | **Wired** | Lists.tsx:694 (grid), 768 (list) |
+| 14 | Badge on sequential cards | **Wired** | SequentialCollectionView.tsx:297 |
+| 15 | PendingChangesSummary in routine editing | **Wired** | TaskCreationModal.tsx inline component |
+| 16 | NowNextChoiceModal shared component | **Wired** | src/components/shared/NowNextChoiceModal.tsx |
+| 17 | NowNextChoiceModal wired into list edit paths | **Wired** | Lists.tsx handleSharedListEdit + modal render |
+| 18 | NowNextChoiceModal wired into sequential edit paths | **Wired** | SequentialCollectionView.tsx onStagedEdit + modal render |
+| 19 | Apply banner on list detail | **Wired** | Lists.tsx:1816, both views |
+| 20 | Apply banner on sequential detail | **Wired** | SequentialCollectionView.tsx |
+| 21 | Cron function | **Wired** | Migration 100193, util.apply_scheduled_pending_changes() |
+| 22 | Cron schedule | **Wired** | Hourly at :15 |
+| 23 | Family Overview bug fix | **Wired** | useFamilyOverviewData.ts:59 |
+| 24 | LiLa drawer default closed | **Wired** | MomShell.tsx:41 |
+| 25 | FeatureGuide disabled | **Wired** | FeatureGuide.tsx FEATURE_GUIDES_DISABLED |
+| — | require_note per-step toggle | **Stubbed** | From Stage 2, carried forward |
+
+**Result: 25 Wired, 1 Stubbed, 0 Missing. 9 Playwright tests passing.**
