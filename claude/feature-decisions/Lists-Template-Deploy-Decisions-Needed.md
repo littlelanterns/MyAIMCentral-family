@@ -1,7 +1,7 @@
 # Lists — Template Deploy Decisions Needed
 
 > **Filed:** 2026-04-25 by Worker ROUTINE-PROPAGATION (founder D6 Thread 2)
-> **Status:** Awaiting founder decisions before a Lists-focused worker can dispatch
+> **Status:** COMPLETE — All 6 decisions answered, Worker 4 shipped 2026-05-01 (commit eb3e8df)
 > **Cross-ref:** TRIAGE_WORKSHEET.md row 205 NEW-ZZ
 > **Worker handoff pre-reqs:** see `Shared-Assignment-Model-Worker-Handoff.md` for the assignment-model side; this doc is the **template-deploy** side.
 
@@ -158,6 +158,11 @@ This sequence is a recommendation, not a constraint. If founder wants Lists temp
 
 ---
 
-## Founder action requested
+## Founder Decisions (answered 2026-05-01)
 
-Please answer D-L1 through D-L6 when convenient. No urgency — Worker 4 isn't dispatched yet, and the answers will benefit from seeing Workers 2 and 3 ship first.
+- **D-L1: Snapshot.** Template items copy into the new list at deploy time. After that, the list is mom's.
+- **D-L2: N/A.** No propagation means no deployment count needed.
+- **D-L3: No propagation in v1.** Template is a starting point, not a living source.
+- **D-L4: Simple duplicate button.** Name input, save. No chooser dialog.
+- **D-L5: Skip advance scheduling for v1.** Create and assign when ready already works.
+- **D-L6: No confirmation modal needed.** Snapshot means template edits don't affect deployed lists.
