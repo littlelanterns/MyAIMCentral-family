@@ -134,6 +134,7 @@ export interface ListItem {
   claim_lock_duration: number | null
   claim_lock_unit: ClaimLockUnit | null
   life_area_tags: string[]
+  in_progress_member_id: string | null
   created_at: string
   updated_at: string
 }

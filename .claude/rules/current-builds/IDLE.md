@@ -10,6 +10,7 @@ No builds are currently in flight. No code should be written without starting th
 
 ### Last signed-off builds
 
+- **Workers 2+3 — Shared Routines + Shared Lists** (2026-05-02) — 9 items: 4 already wired, 5 built. Multi-instance FIRST-N-COMPLETERS, mom re-attribution, cross-sibling edit authority, list claim semantics, four-mode sharing config, week view with member colors. 13 Playwright tests. Conventions 266-270. Archived in `.claude/completed-builds/2026-05/workers-2-3-shared-routines-lists.md`.
 - **Universal Capability Parity — Stages 1+2+3** (2026-05-01) — 25 Stage 3 wired, 1 stubbed, 0 missing. Content edit timing Now/Next cycle, pending_changes table + cron auto-apply, Family Overview bug fix, LiLa drawer fix, FeatureGuide disabled. 9 Playwright tests. Archived in `.claude/completed-builds/2026-05/universal-capability-parity-stages-1-2-3.md`.
 - **Daily Progress Marking** (2026-04-28) — 55 requirements: 47 wired, 8 stubbed, 0 missing. 13 Playwright tests, 6 UT items pending multi-member verification. Long Term Task type, soft-claim, duration tracking. Verification in `claude/feature-decisions/PRD-09A-Daily-Progress-Marking.md`.
 - **Worker 5 — Painter / Universal Scheduler Upgrade** (2026-04-27) — 8 sub-tasks complete, 0 missing. Pick Dates painted-calendar mode, deed_firings table, per-date assignee editor, time-of-day windows, fire-painted-schedules Edge Function, Active today badge. Verification in `claude/feature-decisions/Worker-5-Painter-Universal-Scheduler-Upgrade.md`.

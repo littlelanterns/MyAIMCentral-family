@@ -248,6 +248,10 @@ function StepRow({
   readOnly,
   completedInstances,
   onToggleInstance,
+  sharedInstanceCompleters,
+  isMom,
+  onReattribute,
+  assignees,
 }: {
   step: TaskTemplateStep
   taskId: string
@@ -260,12 +264,17 @@ function StepRow({
   readOnly?: boolean
   completedInstances?: Set<number>
   onToggleInstance?: (instanceNumber: number, isCompleted: boolean) => void
+  sharedInstanceCompleters?: Map<number, StepCompleterInfo>
+  isMom?: boolean
+  onReattribute?: (fromMemberId: string, toMemberId: string) => void
+  assignees?: { id: string; display_name: string; assigned_color: string | null; member_color: string | null }[]
 }) {
   const isLinked = step.step_type !== 'static' && step.step_type != null
   const displayName = step.display_name_override || step.title
   const isDisabled = toggling || readOnly
   const instanceCount = step.instance_count ?? 1
   const isMultiInstance = instanceCount > 1
+  const [showReattribute, setShowReattribute] = useState(false)
 
   const checkboxBorderColor = completedByOther
     ? completedByOther.memberColor
@@ -338,11 +347,53 @@ function StepRow({
             </span>
           )}
           {completedByOther && (
-            <span
-              className="text-[10px] leading-none"
-              style={{ color: completedByOther.memberColor }}
-            >
-              done by {completedByOther.memberName}
+            <span className="relative inline-flex items-center">
+              <button
+                onClick={isMom && onReattribute && assignees ? () => setShowReattribute(!showReattribute) : undefined}
+                className="text-[10px] leading-none"
+                style={{
+                  color: completedByOther.memberColor,
+                  cursor: isMom && onReattribute ? 'pointer' : 'default',
+                  minHeight: 'unset',
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  textDecoration: isMom && onReattribute ? 'underline dotted' : 'none',
+                }}
+              >
+                done by {completedByOther.memberName}
+              </button>
+              {showReattribute && assignees && (
+                <div
+                  className="absolute left-0 top-full mt-1 z-10 flex flex-wrap gap-1 p-1.5 rounded-lg shadow-md"
+                  style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+                >
+                  {assignees.map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => {
+                        onReattribute!(completedByOther.memberId, a.id)
+                        setShowReattribute(false)
+                      }}
+                      disabled={a.id === completedByOther.memberId}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-opacity"
+                      style={{
+                        backgroundColor: a.id === completedByOther.memberId
+                          ? getMemberColor(a)
+                          : `color-mix(in srgb, ${getMemberColor(a)} 15%, transparent)`,
+                        color: a.id === completedByOther.memberId
+                          ? '#fff'
+                          : getMemberColor(a),
+                        border: `1px solid ${getMemberColor(a)}`,
+                        minHeight: 'unset',
+                        opacity: a.id === completedByOther.memberId ? 0.6 : 1,
+                      }}
+                    >
+                      {a.display_name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </span>
           )}
         </div>
@@ -358,49 +409,74 @@ function StepRow({
         )}
 
         {/* Multi-instance checkboxes */}
-        {isMultiInstance && onToggleInstance && (
-          <div className="flex items-center gap-1 mt-1">
-            {instanceCount <= 5 ? (
-              Array.from({ length: instanceCount }, (_, i) => i + 1).map(n => (
-                <InstanceCheckbox
-                  key={n}
-                  checked={completedInstances?.has(n) ?? false}
-                  onToggle={() => onToggleInstance(n, completedInstances?.has(n) ?? false)}
-                  disabled={!!isDisabled}
-                  borderColor="var(--color-btn-primary-bg)"
-                  bgColor="var(--color-btn-primary-bg)"
-                  checkColor="var(--color-btn-primary-text)"
-                />
-              ))
-            ) : (
-              <>
-                <InstanceCheckbox
-                  checked={doneCount > 0}
-                  onToggle={() => {
-                    if (allInstancesDone) {
-                      for (let n = instanceCount; n >= 1; n--) {
-                        if (completedInstances?.has(n)) onToggleInstance(n, true)
+        {isMultiInstance && onToggleInstance && (() => {
+          const hasShared = sharedInstanceCompleters && sharedInstanceCompleters.size > 0
+          const totalDone = hasShared ? sharedInstanceCompleters.size : doneCount
+          const allDone = totalDone >= instanceCount
+
+          return (
+            <div className="flex items-center gap-1 mt-1">
+              {instanceCount <= 5 ? (
+                Array.from({ length: instanceCount }, (_, i) => i + 1).map(n => {
+                  const myDone = completedInstances?.has(n) ?? false
+                  const otherCompleter = hasShared && !myDone ? sharedInstanceCompleters.get(n) : undefined
+                  const isDone = myDone || !!otherCompleter
+                  const color = otherCompleter
+                    ? otherCompleter.memberColor
+                    : 'var(--color-btn-primary-bg)'
+                  return (
+                    <InstanceCheckbox
+                      key={n}
+                      checked={isDone}
+                      onToggle={() => onToggleInstance(n, isDone)}
+                      disabled={toggling || (!!otherCompleter && !isMom)}
+                      borderColor={color}
+                      bgColor={otherCompleter
+                        ? `color-mix(in srgb, ${color} 15%, transparent)`
+                        : color}
+                      checkColor={otherCompleter ? color : 'var(--color-btn-primary-text)'}
+                    />
+                  )
+                })
+              ) : (
+                <>
+                  <InstanceCheckbox
+                    checked={totalDone > 0}
+                    onToggle={() => {
+                      if (allDone) {
+                        for (let n = instanceCount; n >= 1; n--) {
+                          if (completedInstances?.has(n)) onToggleInstance(n, true)
+                        }
+                      } else {
+                        // Find next unclaimed instance
+                        let next = doneCount + 1
+                        if (hasShared) {
+                          for (let n = 1; n <= instanceCount; n++) {
+                            if (!sharedInstanceCompleters.has(n) && !(completedInstances?.has(n))) {
+                              next = n
+                              break
+                            }
+                          }
+                        }
+                        onToggleInstance(next, false)
                       }
-                    } else {
-                      const next = doneCount + 1
-                      onToggleInstance(next, false)
-                    }
-                  }}
-                  disabled={!!isDisabled}
-                  borderColor="var(--color-btn-primary-bg)"
-                  bgColor={allInstancesDone ? 'var(--color-btn-primary-bg)' : 'color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)'}
-                  checkColor="var(--color-btn-primary-text)"
-                />
-                <span
-                  className="text-[10px] font-medium"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  {doneCount}/{instanceCount}
-                </span>
-              </>
-            )}
-          </div>
-        )}
+                    }}
+                    disabled={toggling || (allDone && !isMom)}
+                    borderColor="var(--color-btn-primary-bg)"
+                    bgColor={allDone ? 'var(--color-btn-primary-bg)' : 'color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)'}
+                    checkColor="var(--color-btn-primary-text)"
+                  />
+                  <span
+                    className="text-[10px] font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {totalDone}/{instanceCount}
+                  </span>
+                </>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Linked content — shows the active item from the source */}
         {isLinked && !isCompleted && !completedByOther && (
@@ -440,6 +516,9 @@ function SectionGroup({
   isMom,
   instancesByStep,
   onToggleInstance,
+  sharedInstancesByStep,
+  onReattribute,
+  assignees,
 }: {
   section: RoutineSection
   taskId: string
@@ -454,6 +533,9 @@ function SectionGroup({
   isMom?: boolean
   instancesByStep?: Map<string, Set<number>>
   onToggleInstance?: (stepId: string, instanceNumber: number, isCompleted: boolean) => void
+  sharedInstancesByStep?: Map<string, Map<number, StepCompleterInfo>>
+  onReattribute?: (stepId: string, fromMemberId: string, toMemberId: string) => void
+  assignees?: { id: string; display_name: string; assigned_color: string | null; member_color: string | null }[]
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -558,7 +640,12 @@ function SectionGroup({
           {section.steps.map(step => {
             const otherCompleter = stepCompleterMap?.get(step.id)
             const myCompletion = completedStepIds.has(step.id)
-            const isReadOnly = !!otherCompleter && !isMom
+            const isMulti = (step.instance_count ?? 1) > 1
+            const sharedInstances = sharedInstancesByStep?.get(step.id)
+            const allInstancesClaimed = isMulti && sharedInstances && sharedInstances.size >= (step.instance_count ?? 1)
+            const isReadOnly = isMulti
+              ? (!!allInstancesClaimed && !isMom)
+              : (!!otherCompleter && !isMom)
 
             return (
               <StepRow
@@ -574,6 +661,10 @@ function SectionGroup({
                 readOnly={isReadOnly}
                 completedInstances={instancesByStep?.get(step.id)}
                 onToggleInstance={onToggleInstance ? (n, done) => onToggleInstance(step.id, n, done) : undefined}
+                sharedInstanceCompleters={sharedInstances}
+                isMom={isMom}
+                onReattribute={onReattribute ? (from, to) => onReattribute(step.id, from, to) : undefined}
+                assignees={assignees}
               />
             )
           })}
@@ -783,8 +874,10 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
   const [durationPromptStepId, setDurationPromptStepId] = useState<string | null>(null)
   const { data: currentMember } = useFamilyMember()
   const queryClient = useQueryClient()
-  const canEdit = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
   const isMom = currentMember?.role === 'primary_parent'
+  const canEdit = shared
+    ? isMom
+    : (isMom || currentMember?.role === 'additional_adult')
   const refreshSteps = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['routine-template-steps', templateId] })
   }, [queryClient, templateId])
@@ -806,6 +899,31 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
     }
     return map
   }, [shared, sharedCompletions, memberId, assignees])
+
+  // For shared multi-instance steps: step_id → instance_number → completer info (all members)
+  const sharedInstancesByStep = useMemo(() => {
+    if (!shared || !sharedCompletions) return undefined
+    const map = new Map<string, Map<number, StepCompleterInfo>>()
+    for (const c of sharedCompletions) {
+      if (!c.step_id) continue
+      const completerId = c.family_member_id ?? c.member_id
+      const instanceNum = c.instance_number ?? 1
+      let stepMap = map.get(c.step_id)
+      if (!stepMap) {
+        stepMap = new Map()
+        map.set(c.step_id, stepMap)
+      }
+      if (!stepMap.has(instanceNum)) {
+        const fm = assignees?.find(a => a.id === completerId)
+        stepMap.set(instanceNum, {
+          memberId: completerId,
+          memberName: fm?.display_name ?? 'Someone',
+          memberColor: fm ? getMemberColor(fm) : '#6B7280',
+        })
+      }
+    }
+    return map
+  }, [shared, sharedCompletions, assignees])
 
   const instancesByStep = useMemo(() => {
     const map = new Map<string, Set<number>>()
@@ -935,6 +1053,24 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
     setDurationPromptStepId(null)
   }
 
+  async function handleReattribute(stepId: string, fromMemberId: string, toMemberId: string) {
+    if (fromMemberId === toMemberId) return
+    setTogglingStepId(stepId)
+    try {
+      await uncompleteStep.mutateAsync({ taskId, stepId, memberId: fromMemberId })
+      await completeStep.mutateAsync({
+        task_id: taskId,
+        step_id: stepId,
+        member_id: toMemberId,
+        period_date: todayLocalIso(),
+      })
+    } catch (err) {
+      console.error('Failed to reattribute step:', err)
+    } finally {
+      setTogglingStepId(null)
+    }
+  }
+
   // Filter to sections active today (week completions used for show_until_complete).
   // Also hide empty sections (0 steps) — they are either ghost rows left over
   // from prior template edits or placeholders that never got populated, and
@@ -977,13 +1113,21 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
             isMom={isMom}
             instancesByStep={instancesByStep}
             onToggleInstance={handleToggleInstance}
+            sharedInstancesByStep={sharedInstancesByStep}
+            onReattribute={isMom && shared ? handleReattribute : undefined}
+            assignees={assignees}
           />
         ) : (
           <div key={section.id}>
             {section.steps.map(step => {
               const otherCompleter = stepCompleterMap?.get(step.id)
               const myCompletion = completedStepIds.has(step.id)
-              const isReadOnly = !!otherCompleter && !isMom
+              const isMulti = (step.instance_count ?? 1) > 1
+              const sharedInstances = sharedInstancesByStep?.get(step.id)
+              const allInstancesClaimed = isMulti && sharedInstances && sharedInstances.size >= (step.instance_count ?? 1)
+              const isReadOnly = isMulti
+                ? (!!allInstancesClaimed && !isMom)
+                : (!!otherCompleter && !isMom)
               return (
                 <StepRow
                   key={step.id}
@@ -998,12 +1142,27 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
                   readOnly={isReadOnly}
                   completedInstances={instancesByStep.get(step.id)}
                   onToggleInstance={(n, done) => handleToggleInstance(step.id, n, done)}
+                  sharedInstanceCompleters={sharedInstances}
+                  isMom={isMom}
+                  onReattribute={isMom && shared ? (from, to) => handleReattribute(step.id, from, to) : undefined}
+                  assignees={assignees}
                 />
               )
             })}
           </div>
         )
       ))}
+
+      {/* View this week link for shared routines (mom only) */}
+      {shared && isMom && (
+        <a
+          href={`/settings/allowance/${memberId}/history`}
+          className="text-[10px] mt-1 self-end hover:underline"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          View this week →
+        </a>
+      )}
 
       {/* Daily Progress Marking: duration prompt for linked steps */}
       <DurationPromptModal

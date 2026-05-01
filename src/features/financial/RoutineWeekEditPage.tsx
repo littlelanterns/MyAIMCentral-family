@@ -103,11 +103,13 @@ export function RoutineWeekEditPage() {
             color: 'var(--color-text-muted)',
           }}
         >
-          No active allowance period found for {member?.display_name ?? 'this child'}.
+          No routines found for {member?.display_name ?? 'this child'}.
         </div>
       </div>
     )
   }
+
+  const memberMap = new Map(members.map(m => [m.id, m]))
 
   const refreshWeekView = () => {
     // The shared completion hooks don't know about this page's query key.
@@ -126,7 +128,7 @@ export function RoutineWeekEditPage() {
         await uncompleteStep.mutateAsync({
           taskId: cell.task_id,
           stepId: step.step_id,
-          memberId,
+          memberId: step.completed_by_member_id ?? memberId,
           periodDate: dayIso,
         })
       } else {
@@ -204,6 +206,8 @@ export function RoutineWeekEditPage() {
           memberColor={memberColor}
           onToggle={handleToggle}
           pending={completeStep.isPending || uncompleteStep.isPending}
+          viewedMemberId={memberId ?? ''}
+          memberMap={memberMap}
         />
       ))}
     </div>
@@ -217,6 +221,8 @@ function DayBlock({
   memberColor,
   onToggle,
   pending,
+  viewedMemberId,
+  memberMap,
 }: {
   day: RoutineWeekDay
   memberColor: string
@@ -226,6 +232,8 @@ function DayBlock({
     dayIso: string,
   ) => void
   pending: boolean
+  viewedMemberId: string
+  memberMap: Map<string, { id: string; display_name: string; assigned_color: string | null; member_color: string | null }>
 }) {
   const dayLabel = day.is_today ? 'Today' : day.weekday
   const dateLabel = day.iso.slice(5).replace('-', '/')
@@ -302,6 +310,8 @@ function DayBlock({
               isFuture={day.is_future}
               onToggle={onToggle}
               pending={pending}
+              viewedMemberId={viewedMemberId}
+              memberMap={memberMap}
             />
           ))}
         </div>
@@ -316,6 +326,8 @@ function CellBlock({
   isFuture,
   onToggle,
   pending,
+  viewedMemberId,
+  memberMap,
 }: {
   cell: RoutineWeekDayCell
   dayIso: string
@@ -326,6 +338,8 @@ function CellBlock({
     dayIso: string,
   ) => void
   pending: boolean
+  viewedMemberId: string
+  memberMap: Map<string, { id: string; display_name: string; assigned_color: string | null; member_color: string | null }>
 }) {
   return (
     <div
@@ -383,32 +397,48 @@ function CellBlock({
           gap: '0.25rem',
         }}
       >
-        {cell.steps.map(step => (
-          <li key={step.step_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <input
-              type="checkbox"
-              checked={step.is_checked}
-              disabled={isFuture || pending}
-              onChange={() => onToggle(cell, step, dayIso)}
-              data-testid={`week-edit-step-${dayIso}-${step.step_id}`}
-              style={{
-                accentColor: 'var(--color-btn-primary-bg)',
-                cursor: isFuture || pending ? 'not-allowed' : 'pointer',
-              }}
-            />
-            <span
-              style={{
-                fontSize: 'var(--font-size-sm)',
-                color: step.is_checked
-                  ? 'var(--color-text-muted)'
-                  : 'var(--color-text-primary)',
-                textDecoration: step.is_checked ? 'line-through' : 'none',
-              }}
-            >
-              {step.step_name}
-            </span>
-          </li>
-        ))}
+        {cell.steps.map(step => {
+          const completedByOther = step.completed_by_member_id && step.completed_by_member_id !== viewedMemberId
+          const completerMember = step.completed_by_member_id ? memberMap.get(step.completed_by_member_id) : undefined
+          const completerColor = completerMember ? getMemberColor(completerMember) : undefined
+          return (
+            <li key={step.step_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={step.is_checked}
+                disabled={isFuture || pending}
+                onChange={() => onToggle(cell, step, dayIso)}
+                data-testid={`week-edit-step-${dayIso}-${step.step_id}`}
+                style={{
+                  accentColor: completedByOther && completerColor ? completerColor : 'var(--color-btn-primary-bg)',
+                  cursor: isFuture || pending ? 'not-allowed' : 'pointer',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 'var(--font-size-sm)',
+                  color: step.is_checked
+                    ? 'var(--color-text-muted)'
+                    : 'var(--color-text-primary)',
+                  textDecoration: step.is_checked ? 'line-through' : 'none',
+                }}
+              >
+                {step.step_name}
+              </span>
+              {completedByOther && completerMember && (
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    color: completerColor,
+                    fontWeight: 500,
+                  }}
+                >
+                  {completerMember.display_name}
+                </span>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

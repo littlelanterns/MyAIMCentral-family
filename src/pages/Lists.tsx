@@ -28,7 +28,7 @@ import {
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
   useUncheckAllItems, usePromoteListItem, useArchiveList, useDeleteList, useRestoreList,
   useReorderListItems, useSaveListAsTemplate,
-  useListShares, useShareList, useUnshareList, useSharedListIds,
+  useListShares, useShareList, useUnshareList, useSharedListIds, useClaimListItem, useDuplicateListForMembers,
   useUpdateSharePermission, useHideSharedList, useUnhideSharedList, useHiddenSharedLists,
 } from '@/hooks/useLists'
 import { FeatureGuide, FeatureIcon, BulkAddWithAI, Tooltip } from '@/components/shared'
@@ -1301,6 +1301,8 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const hideSharedList = useHideSharedList()
   const [showShareModal, setShowShareModal] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const claimItem = useClaimListItem()
+  const duplicateForMembers = useDuplicateListForMembers()
   const { data: pendingChanges = [] } = usePendingChangesForSource('list', listId)
   const applyPendingChanges = useApplyPendingChanges()
   const createPendingChange = useCreatePendingChange()
@@ -1390,7 +1392,9 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const isPrimaryParent = member?.role === 'primary_parent'
   const isOwnerOrParent = isOwner || isPrimaryParent
   const myShare = shares.find(s => s.member_id === member?.id)
-  const canEdit = isOwnerOrParent || myShare?.permission === 'edit' || myShare?.can_edit === true
+  const canEdit = list.is_shared
+    ? isPrimaryParent
+    : (isOwnerOrParent || myShare?.permission === 'edit' || myShare?.can_edit === true)
 
   function getCheckerProps(item: ListItem) {
     if (!list?.is_shared || !item.checked || !item.checked_by) return {}
@@ -1400,6 +1404,21 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
       checkerName: checker?.display_name ?? 'Someone',
       checkerColor: checker ? getMemberColor(checker) : '#6B7280',
       canUncheck: isPrimaryParent,
+    }
+  }
+
+  function getClaimProps(item: ListItem) {
+    if (!list?.is_shared || item.checked) return {}
+    if (!item.in_progress_member_id) return { onClaimToggle: () => claimItem.mutate({ id: item.id, listId, memberId: member?.id ?? '' }) }
+    if (item.in_progress_member_id === member?.id) return {
+      claimedByMe: true,
+      onClaimToggle: () => claimItem.mutate({ id: item.id, listId, memberId: null }),
+    }
+    const claimer = familyMembers.find(m => m.id === item.in_progress_member_id)
+    return {
+      claimerName: claimer?.display_name ?? 'Someone',
+      claimerColor: claimer ? getMemberColor(claimer) : '#6B7280',
+      onClaimToggle: isPrimaryParent ? () => claimItem.mutate({ id: item.id, listId, memberId: null }) : undefined,
     }
   }
 
@@ -1573,6 +1592,12 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
             onUpdatePermission={handleUpdatePermission}
             isPending={shareList.isPending || unshareList.isPending}
             onClose={() => setShowShareModal(false)}
+            sourceList={list}
+            items={items}
+            familyId={list.family_id}
+            onDuplicateForMembers={async (memberIds) => {
+              await duplicateForMembers.mutateAsync({ sourceList: list, items, memberIds, familyId: list.family_id })
+            }}
           />
         )}
 
@@ -1985,6 +2010,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
     }
 
     const inlineChecker = getCheckerProps(item)
+    const inlineClaim = getClaimProps(item)
     const inlineBorderColor = inlineChecker.checkerColor ?? (item.checked ? 'var(--color-btn-primary-bg)' : 'var(--color-border)')
     const inlineBgColor = inlineChecker.checkerColor
       ? `color-mix(in srgb, ${inlineChecker.checkerColor} 15%, transparent)`
@@ -2023,6 +2049,30 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               <span className="text-[10px] shrink-0" style={{ color: inlineChecker.checkerColor ?? 'var(--color-text-secondary)' }}>
                 by {inlineChecker.checkerName}
               </span>
+            )}
+            {!item.checked && inlineClaim.claimerName && !inlineClaim.claimedByMe && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] shrink-0" style={{ color: inlineClaim.claimerColor ?? 'var(--color-text-secondary)' }}>
+                <Loader2 size={9} className="animate-spin" />
+                {inlineClaim.claimerName}
+              </span>
+            )}
+            {!item.checked && inlineClaim.claimedByMe && inlineClaim.onClaimToggle && (
+              <button
+                onClick={(e) => { e.stopPropagation(); inlineClaim.onClaimToggle!() }}
+                className="inline-flex items-center gap-0.5 text-[10px] font-medium shrink-0"
+                style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', padding: 0, minHeight: 'unset', cursor: 'pointer' }}
+              >
+                on it ✕
+              </button>
+            )}
+            {!item.checked && !inlineClaim.claimerName && !inlineClaim.claimedByMe && inlineClaim.onClaimToggle && (
+              <button
+                onClick={(e) => { e.stopPropagation(); inlineClaim.onClaimToggle!() }}
+                className="text-[10px] opacity-0 group-hover:opacity-60 hover:opacity-100! transition-opacity shrink-0"
+                style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', padding: 0, minHeight: 'unset', cursor: 'pointer' }}
+              >
+                I'm on it
+              </button>
             )}
           </div>
           {item.notes && (
@@ -2324,6 +2374,12 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             onUpdatePermission={handleUpdatePermission}
             isPending={shareList.isPending || unshareList.isPending}
             onClose={() => setShowShareModal(false)}
+            sourceList={list}
+            items={items}
+            familyId={list.family_id}
+            onDuplicateForMembers={async (memberIds) => {
+              await duplicateForMembers.mutateAsync({ sourceList: list, items, memberIds, familyId: list.family_id })
+            }}
           />
         )}
 
@@ -2630,6 +2686,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                       showVictoryFlag={isOwnerOrParent}
                       onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
                       {...getCheckerProps(item)}
+                      {...getClaimProps(item)}
                     />
                   ))}
                 </div>
@@ -2720,6 +2777,12 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           onToggle={handleToggleShare}
           isPending={shareList.isPending || unshareList.isPending}
           onClose={() => setShowShareModal(false)}
+          sourceList={list}
+          items={items}
+          familyId={list.family_id}
+          onDuplicateForMembers={async (memberIds) => {
+            await duplicateForMembers.mutateAsync({ sourceList: list, items, memberIds, familyId: list.family_id })
+          }}
         />
       )}
 
@@ -2902,6 +2965,7 @@ function ShareListModal({
   onUpdatePermission,
   isPending,
   onClose,
+  onDuplicateForMembers,
 }: {
   familyMembers: FamilyMember[]
   currentMemberId: string
@@ -2911,8 +2975,35 @@ function ShareListModal({
   onUpdatePermission?: (shareId: string, permission: 'view' | 'edit') => Promise<void>
   isPending: boolean
   onClose: () => void
+  sourceList?: unknown
+  items?: unknown
+  familyId?: unknown
+  onDuplicateForMembers?: (memberIds: string[]) => Promise<void>
 }) {
   const otherMembers = familyMembers.filter(m => m.id !== currentMemberId)
+  const [shareMode, setShareMode] = useState<'shared' | 'individual'>('shared')
+  const [selectedForCopy, setSelectedForCopy] = useState<Set<string>>(new Set())
+  const [copying, setCopying] = useState(false)
+
+  function toggleCopySelection(memberId: string) {
+    setSelectedForCopy(prev => {
+      const next = new Set(prev)
+      if (next.has(memberId)) next.delete(memberId)
+      else next.add(memberId)
+      return next
+    })
+  }
+
+  async function handleCreateCopies() {
+    if (!onDuplicateForMembers || selectedForCopy.size === 0) return
+    setCopying(true)
+    try {
+      await onDuplicateForMembers([...selectedForCopy])
+      onClose()
+    } finally {
+      setCopying(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
@@ -2925,61 +3016,130 @@ function ShareListModal({
           <button onClick={onClose} className="p-1 rounded" style={{ color: 'var(--color-text-secondary)' }}><X size={16} /></button>
         </div>
         <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          Tap a member to share/unshare. Use the dropdown to set permission.
+          {shareMode === 'shared'
+            ? 'Everyone sees the same list and can check items off.'
+            : 'Each person gets their own copy with the same items.'}
         </p>
+        {onDuplicateForMembers && (
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            <button
+              onClick={() => setShareMode('shared')}
+              className="flex-1 text-xs py-1.5 font-medium transition-colors"
+              style={{
+                backgroundColor: shareMode === 'shared' ? 'var(--color-btn-primary-bg)' : 'transparent',
+                color: shareMode === 'shared' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+              }}
+            >
+              Shared list
+            </button>
+            <button
+              onClick={() => setShareMode('individual')}
+              className="flex-1 text-xs py-1.5 font-medium transition-colors"
+              style={{
+                backgroundColor: shareMode === 'individual' ? 'var(--color-btn-primary-bg)' : 'transparent',
+                color: shareMode === 'individual' ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+              }}
+            >
+              Individual copies
+            </button>
+          </div>
+        )}
         {otherMembers.length === 0 ? (
           <p className="text-xs py-2" style={{ color: 'var(--color-text-secondary)' }}>No other family members to share with.</p>
         ) : (
           <div className="space-y-2">
             {/* Member toggle pills */}
             <div className="flex flex-wrap gap-2">
-              {otherMembers.length > 1 && (() => {
-                const allShared = otherMembers.every(m => sharedMemberIds.has(m.id))
-                return (
-                  <button
-                    onClick={async () => {
-                      for (const m of otherMembers) {
-                        const isShared = sharedMemberIds.has(m.id)
-                        if (allShared ? isShared : !isShared) await onToggle(m.id)
-                      }
-                    }}
-                    disabled={isPending}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
-                    style={{
-                      backgroundColor: allShared ? 'var(--color-btn-primary-bg)' : 'transparent',
-                      color: allShared ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
-                      border: `2px solid ${allShared ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
-                    }}
-                  >
-                    {allShared && <Check size={12} />}
-                    Everyone
-                  </button>
-                )
-              })()}
-              {otherMembers.map(m => {
-                const isShared = sharedMemberIds.has(m.id)
-                const color = getMemberColor(m)
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => onToggle(m.id)}
-                    disabled={isPending}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
-                    style={{
-                      backgroundColor: isShared ? color : 'transparent',
-                      color: isShared ? 'var(--color-text-on-primary, #fff)' : color,
-                      border: `2px solid ${color}`,
-                    }}
-                  >
-                    {isShared && <Check size={12} />}
-                    {m.display_name}
-                  </button>
-                )
-              })}
+              {shareMode === 'shared' ? (
+                <>
+                  {otherMembers.length > 1 && (() => {
+                    const allShared = otherMembers.every(m => sharedMemberIds.has(m.id))
+                    return (
+                      <button
+                        onClick={async () => {
+                          for (const m of otherMembers) {
+                            const isShared = sharedMemberIds.has(m.id)
+                            if (allShared ? isShared : !isShared) await onToggle(m.id)
+                          }
+                        }}
+                        disabled={isPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
+                        style={{
+                          backgroundColor: allShared ? 'var(--color-btn-primary-bg)' : 'transparent',
+                          color: allShared ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
+                          border: `2px solid ${allShared ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                        }}
+                      >
+                        {allShared && <Check size={12} />}
+                        Everyone
+                      </button>
+                    )
+                  })()}
+                  {otherMembers.map(m => {
+                    const isShared = sharedMemberIds.has(m.id)
+                    const color = getMemberColor(m)
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => onToggle(m.id)}
+                        disabled={isPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50"
+                        style={{
+                          backgroundColor: isShared ? color : 'transparent',
+                          color: isShared ? 'var(--color-text-on-primary, #fff)' : color,
+                          border: `2px solid ${color}`,
+                        }}
+                      >
+                        {isShared && <Check size={12} />}
+                        {m.display_name}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <>
+                  {otherMembers.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const allSelected = otherMembers.every(m => selectedForCopy.has(m.id))
+                        setSelectedForCopy(allSelected ? new Set() : new Set(otherMembers.map(m => m.id)))
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                      style={{
+                        backgroundColor: otherMembers.every(m => selectedForCopy.has(m.id)) ? 'var(--color-btn-primary-bg)' : 'transparent',
+                        color: otherMembers.every(m => selectedForCopy.has(m.id)) ? 'var(--color-btn-primary-text, #fff)' : 'var(--color-text-primary)',
+                        border: `2px solid ${otherMembers.every(m => selectedForCopy.has(m.id)) ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                      }}
+                    >
+                      {otherMembers.every(m => selectedForCopy.has(m.id)) && <Check size={12} />}
+                      Everyone
+                    </button>
+                  )}
+                  {otherMembers.map(m => {
+                    const isSel = selectedForCopy.has(m.id)
+                    const color = getMemberColor(m)
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => toggleCopySelection(m.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                        style={{
+                          backgroundColor: isSel ? color : 'transparent',
+                          color: isSel ? 'var(--color-text-on-primary, #fff)' : color,
+                          border: `2px solid ${color}`,
+                        }}
+                      >
+                        {isSel && <Check size={12} />}
+                        {m.display_name}
+                      </button>
+                    )
+                  })}
+                </>
+              )}
             </div>
 
-            {/* Permission toggles for shared members */}
-            {shares && onUpdatePermission && shares.length > 0 && (
+            {/* Permission toggles for shared members (shared mode only) */}
+            {shareMode === 'shared' && shares && onUpdatePermission && shares.length > 0 && (
               <div className="space-y-1 pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
                   Permissions
@@ -3009,14 +3169,25 @@ function ShareListModal({
             )}
           </div>
         )}
-        <div className="flex justify-end pt-1">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-          >
-            Done
-          </button>
+        <div className="flex justify-end gap-2 pt-1">
+          {shareMode === 'individual' && selectedForCopy.size > 0 ? (
+            <button
+              onClick={handleCreateCopies}
+              disabled={copying}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+            >
+              {copying ? 'Creating...' : `Create ${selectedForCopy.size} ${selectedForCopy.size === 1 ? 'Copy' : 'Copies'}`}
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+            >
+              Done
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -3039,6 +3210,10 @@ interface ListItemRowProps {
   checkerName?: string | null
   checkerColor?: string | null
   canUncheck?: boolean
+  claimedByMe?: boolean
+  claimerName?: string | null
+  claimerColor?: string | null
+  onClaimToggle?: () => void
 }
 
 function SortableListItemRow(props: Omit<ListItemRowProps, 'dragHandleProps'>) {
@@ -3082,6 +3257,10 @@ function ListItemRow({
   checkerName,
   checkerColor,
   canUncheck,
+  claimedByMe,
+  claimerName,
+  claimerColor,
+  onClaimToggle,
 }: ListItemRowProps) {
   const isTodo = listType === 'todo'
   const isWishlist = listType === 'wishlist'
@@ -3146,6 +3325,34 @@ function ListItemRow({
             <span className="text-[10px]" style={{ color: checkerColor ?? 'var(--color-text-secondary)' }}>
               by {checkerName}
             </span>
+          )}
+          {!item.checked && claimerName && !claimedByMe && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px]"
+              style={{ color: claimerColor ?? 'var(--color-text-secondary)' }}
+            >
+              <Loader2 size={9} className="animate-spin" />
+              {claimerName} is on it
+            </span>
+          )}
+          {!item.checked && claimedByMe && onClaimToggle && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onClaimToggle() }}
+              className="inline-flex items-center gap-0.5 text-[10px] font-medium"
+              style={{ color: 'var(--color-btn-primary-bg)', background: 'none', border: 'none', padding: 0, minHeight: 'unset', cursor: 'pointer' }}
+            >
+              <Loader2 size={9} className="animate-spin" />
+              I'm on it ✕
+            </button>
+          )}
+          {!item.checked && !claimerName && !claimedByMe && onClaimToggle && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onClaimToggle() }}
+              className="text-[10px] opacity-0 group-hover:opacity-60 hover:opacity-100! transition-opacity"
+              style={{ color: 'var(--color-text-secondary)', background: 'none', border: 'none', padding: 0, minHeight: 'unset', cursor: 'pointer' }}
+            >
+              I'm on it
+            </button>
           )}
         </div>
 

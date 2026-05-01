@@ -172,6 +172,7 @@ export function useToggleListItem() {
           checked,
           checked_by: checked ? checkedBy : null,
           checked_at: checked ? new Date().toISOString() : null,
+          in_progress_member_id: null,
         })
         .eq('id', id)
 
@@ -200,6 +201,76 @@ export function useToggleListItem() {
     },
     onSuccess: (listId) => {
       queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
+    },
+  })
+}
+
+export function useClaimListItem() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, listId, memberId }: { id: string; listId: string; memberId: string | null }) => {
+      const { error } = await supabase
+        .from('list_items')
+        .update({ in_progress_member_id: memberId })
+        .eq('id', id)
+      if (error) throw error
+      return listId
+    },
+    onSuccess: (listId) => {
+      queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
+    },
+  })
+}
+
+export function useDuplicateListForMembers() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ sourceList, items, memberIds, familyId }: {
+      sourceList: List
+      items: ListItem[]
+      memberIds: string[]
+      familyId: string
+    }) => {
+      const created: string[] = []
+      for (const memberId of memberIds) {
+        const { data: newList, error: listErr } = await supabase
+          .from('lists')
+          .insert({
+            family_id: familyId,
+            owner_id: memberId,
+            title: sourceList.title,
+            list_type: sourceList.list_type,
+            tags: sourceList.tags ?? [],
+            victory_mode: sourceList.victory_mode ?? 'none',
+            instantiation_mode: 'individual',
+          })
+          .select()
+          .single()
+        if (listErr) throw listErr
+
+        if (items.length > 0) {
+          const rows = items.map((item, i) => ({
+            list_id: (newList as List).id,
+            content: item.content || item.item_name || '',
+            item_name: item.item_name,
+            section_name: item.section_name,
+            notes: item.notes,
+            resource_url: item.resource_url,
+            quantity: item.quantity,
+            quantity_unit: item.quantity_unit,
+            price: item.price,
+            category: item.category,
+            priority: item.priority,
+            sort_order: item.sort_order ?? i,
+          }))
+          await supabase.from('list_items').insert(rows)
+        }
+        created.push((newList as List).id)
+      }
+      return created
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['lists', vars.familyId] })
     },
   })
 }

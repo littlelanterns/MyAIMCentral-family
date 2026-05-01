@@ -59,7 +59,11 @@
 | Shared `cloneRoutineTemplate` utility | `src/lib/templates/cloneRoutineTemplate.ts` — pure deep-clone, no task row insert. Reused by `RoutineDuplicateDialog` (clone-and-deploy) and `RoutineDuplicateTemplateDialog` (clone-only). | **Wired** | c4. Founder D6 Thread 1 — utilities live under `src/lib/templates/` for cross-feature reuse by future Workers 2/3/4. |
 | Shared template UI under `src/components/templates/` | ScheduledStartBadge, MasterTemplateEditConfirmationModal, RoutineOverlapResolutionModal, RoutineDuplicateChooserDialog, RoutineDuplicateTemplateDialog | **Wired** | c2.5/c3/c4/c5. Cross-feature reuse-ready. |
 | Lists template deploy | `useCreateList` hydrates `default_items` into `list_items` at deploy time (snapshot). `template_id` written. `ListDuplicateDialog` for copy-and-rename. | **Wired** | Worker 4 (2026-05-01). D-L1 snapshot, no propagation. |
-| Shared routines (is_shared=true) completion UX | Anyone-can-complete + completer-color rendering + allowance credit to actual completer | Stub | Deferred to Worker 2 SHARED-ROUTINES per founder D6 Thread 3. Handoff: `claude/feature-decisions/Shared-Assignment-Model-Worker-Handoff.md`. Worker 1 audited is_shared=true rows pass advance-start + overlap detection cleanly. |
+| Shared routines (is_shared=true) completion UX | Anyone-can-complete + completer-color rendering + allowance credit to actual completer | **Wired** | Workers 2+3 (2026-05-01). Grayed-out steps for non-completers, multi-instance FIRST-N-COMPLETERS, mom re-attribution, cross-sibling edit authority (Conventions 266-270). |
+| Shared routine week review | RoutineWeekEditPage shows all members' completions with completer colors. Falls back to 7-day window without allowance period. | **Wired** | Workers 2+3. "View this week →" entry point on shared routines. |
+| Shared list claim semantics | `list_items.in_progress_member_id` tracks "I'm on it" claims. Cleared on check/uncheck. Member colors on claimed items. | **Wired** | Workers 2+3. Migration 100196. Convention 268. |
+| Shared list mode selector | ShareListModal "Shared list" / "Individual copies" toggle. Individual mode creates per-member copies via `useDuplicateListForMembers`. | **Wired** | Workers 2+3. Convention 269. |
+| Cross-Sibling Edit Authority | Shared items (routines + lists) are mom-edit-only. Edit buttons hidden for non-primary-parent. | **Wired** | Workers 2+3. Convention 266. |
 
 ## Routine Save Reliability (Worker ROUTINE-SAVE-FIX, 2026-04-26)
 

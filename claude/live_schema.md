@@ -978,6 +978,7 @@
 | 53 | `claim_lock_unit` |
 | 54 | `track_progress` |
 | 55 | `life_area_tags` |
+| 56 | `in_progress_member_id` |
 
 ### `list_shares` — 1 rows
 
@@ -1754,7 +1755,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|

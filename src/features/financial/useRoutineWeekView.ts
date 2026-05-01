@@ -27,6 +27,8 @@ export interface RoutineWeekStep {
   is_checked: boolean
   /** completion_id if checked — needed to delete on uncheck. */
   completion_id: string | null
+  /** Who completed this step (null if unchecked). For shared routines, may differ from the viewed member. */
+  completed_by_member_id: string | null
 }
 
 export interface RoutineWeekDayCell {
@@ -53,7 +55,7 @@ export interface RoutineWeekDay {
 }
 
 export interface WeekViewData {
-  period_id: string
+  period_id: string | null
   period_start: string
   period_end: string
   days: RoutineWeekDay[]
@@ -68,7 +70,7 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
     queryFn: async (): Promise<WeekViewData | null> => {
       if (!memberId) return null
 
-      // 1. Active period
+      // 1. Active period — fall back to last 7 days when no allowance configured
       const { data: period } = await supabase
         .from('allowance_periods')
         .select('id, period_start, period_end')
@@ -77,16 +79,51 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         .order('period_start', { ascending: false })
         .limit(1)
         .maybeSingle()
-      if (!period) return null
 
-      // 2. Routine tasks for this kid
-      const { data: tasks } = await supabase
+      let periodId: string | null = period?.id as string | null ?? null
+      let periodStart: string
+      let periodEnd: string
+      if (period) {
+        periodStart = period.period_start as string
+        periodEnd = period.period_end as string
+      } else {
+        periodEnd = todayIso
+        const d = new Date(todayIso + 'T12:00:00Z')
+        d.setUTCDate(d.getUTCDate() - 6)
+        // eslint-disable-next-line no-restricted-syntax -- d is explicitly UTC-constructed; UTC slice is correct
+        periodStart = d.toISOString().slice(0, 10)
+        periodId = null
+      }
+
+      // 2. Routine tasks for this kid (including shared via task_assignments)
+      const { data: directTasks } = await supabase
         .from('tasks')
-        .select('id, title, template_id')
+        .select('id, title, template_id, is_shared')
         .eq('assignee_id', memberId)
         .eq('task_type', 'routine')
         .is('archived_at', null)
-      const taskList = tasks ?? []
+      const { data: sharedAssignments } = await supabase
+        .from('task_assignments')
+        .select('task_id')
+        .eq('family_member_id', memberId)
+        .eq('is_active', true)
+      const sharedTaskIds = (sharedAssignments ?? []).map(a => a.task_id)
+      const directList = directTasks ?? []
+      const directIds = new Set(directList.map(t => t.id))
+      let extraShared: typeof directList = []
+      if (sharedTaskIds.length > 0) {
+        const missing = sharedTaskIds.filter(id => !directIds.has(id))
+        if (missing.length > 0) {
+          const { data: extra } = await supabase
+            .from('tasks')
+            .select('id, title, template_id, is_shared')
+            .in('id', missing)
+            .eq('task_type', 'routine')
+            .is('archived_at', null)
+          extraShared = extra ?? []
+        }
+      }
+      const taskList = [...directList, ...extraShared]
       const templateIds = taskList.map(t => t.template_id).filter((x): x is string => !!x)
 
       // 3. Sections for those templates
@@ -110,26 +147,44 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         : { data: [] as Array<{ id: string; section_id: string; step_name: string | null; title: string | null; sort_order: number }> }
       const stepList = steps ?? []
 
-      // 5. Completions in this period
-      const { data: completions } = await supabase
-        .from('routine_step_completions')
-        .select('id, task_id, step_id, period_date')
-        .eq('member_id', memberId)
-        .gte('period_date', period.period_start)
-        .lte('period_date', period.period_end)
-      const completionList = completions ?? []
+      // 5. Completions in this period — for shared tasks, load ALL members
+      const sharedIds = taskList.filter(t => t.is_shared).map(t => t.id)
+      const personalIds = taskList.filter(t => !t.is_shared).map(t => t.id)
 
-      // Index completions by (step_id, period_date)
-      const completionByKey = new Map<string, { id: string; task_id: string }>()
+      let completionList: Array<{ id: string; task_id: string; step_id: string; period_date: string; family_member_id: string }> = []
+      if (personalIds.length > 0) {
+        const { data } = await supabase
+          .from('routine_step_completions')
+          .select('id, task_id, step_id, period_date, family_member_id')
+          .eq('member_id', memberId)
+          .in('task_id', personalIds)
+          .gte('period_date', periodStart)
+          .lte('period_date', periodEnd)
+        completionList.push(...((data ?? []) as typeof completionList))
+      }
+      if (sharedIds.length > 0) {
+        const { data } = await supabase
+          .from('routine_step_completions')
+          .select('id, task_id, step_id, period_date, family_member_id')
+          .in('task_id', sharedIds)
+          .gte('period_date', periodStart)
+          .lte('period_date', periodEnd)
+        completionList.push(...((data ?? []) as typeof completionList))
+      }
+
+      // Index completions by (step_id, period_date) — first completion wins for display
+      const completionByKey = new Map<string, { id: string; task_id: string; family_member_id: string }>()
       for (const c of completionList) {
         const key = `${c.step_id}|${c.period_date}`
-        completionByKey.set(key, { id: c.id as string, task_id: c.task_id as string })
+        if (!completionByKey.has(key)) {
+          completionByKey.set(key, { id: c.id as string, task_id: c.task_id as string, family_member_id: c.family_member_id as string })
+        }
       }
 
       // 6. Walk the period day-by-day, building cells
       const days: RoutineWeekDay[] = []
-      const start = new Date(period.period_start + 'T12:00:00Z')
-      const end = new Date(period.period_end + 'T12:00:00Z')
+      const start = new Date(periodStart + 'T12:00:00Z')
+      const end = new Date(periodEnd + 'T12:00:00Z')
       for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
         // eslint-disable-next-line no-restricted-syntax -- d is explicitly UTC-constructed via 'T12:00:00Z' + setUTCDate; UTC slice is correct here
         const iso = d.toISOString().slice(0, 10)
@@ -150,6 +205,7 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
                 step_name: (s.step_name ?? s.title ?? 'Step') as string,
                 is_checked: !!completion,
                 completion_id: completion?.id ?? null,
+                completed_by_member_id: completion?.family_member_id ?? null,
               }
             })
             const checkedCount = cellSteps.filter(s => s.is_checked).length
@@ -177,9 +233,9 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
       }
 
       return {
-        period_id: period.id as string,
-        period_start: period.period_start as string,
-        period_end: period.period_end as string,
+        period_id: periodId,
+        period_start: periodStart,
+        period_end: periodEnd,
         days,
       }
     },

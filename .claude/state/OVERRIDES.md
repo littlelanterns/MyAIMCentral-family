@@ -10,3 +10,7 @@
 ---
 
 *No overrides recorded yet.*
+
+## 2026-05-01 18:19 — Pre-commit override
+- **Reason:** useRoutineWeekView.ts: date is explicitly UTC-constructed via T12:00:00Z + setUTCDate — same pattern as existing line 134 in same file
+- **Staged files with violations:** see commit diff
