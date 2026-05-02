@@ -92,7 +92,12 @@ export function StudyGuideModal({
 
       onComplete()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate study guide')
+      const msg = err instanceof Error ? err.message : 'Failed to generate study guide'
+      if (msg.includes('timeout') || msg.includes('Timeout') || msg.includes('AbortError') || msg.includes('network')) {
+        setError('The generation timed out — some sections may have been completed. Click "Generate" again to resume where it left off.')
+      } else {
+        setError(msg)
+      }
     } finally {
       setGenerating(false)
       setGeneratingPhase(null)
@@ -194,7 +199,7 @@ export function StudyGuideModal({
           >
             {result ? 'Done' : 'Cancel'}
           </button>
-          {!result && (
+          {(!result || error) && (
             <button
               onClick={handleGenerate}
               disabled={generating}
@@ -209,7 +214,7 @@ export function StudyGuideModal({
               ) : (
                 <>
                   <GraduationCap size={14} />
-                  Generate Study Guide
+                  {error ? 'Resume Generation' : 'Generate Study Guide'}
                 </>
               )}
             </button>

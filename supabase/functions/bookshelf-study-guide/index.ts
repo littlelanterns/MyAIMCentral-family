@@ -183,26 +183,57 @@ Deno.serve(async (req) => {
     const bookCacheId = book.book_cache_id as string | null
     const displayTitle = bookAuthor ? `${bookTitle} by ${bookAuthor}` : bookTitle
 
-    // 2. Load ALL chunks from bookshelf_chunks (public table, PostgREST accessible)
-    // bookshelf_chunks uses book_cache_id which equals book_library_id or bookshelf_item_id
+    // 2. Load ALL chunks — try old per-family table first, fall back to platform table
     const chunkKey = bookCacheId || bookLibraryId
-    const { data: rawChunks, error: chunkErr } = await supabase
+    let chunks: ChunkRow[] = []
+
+    // Try bookshelf_chunks (old per-family table, PostgREST accessible)
+    const { data: oldChunks } = await supabase
       .from('bookshelf_chunks')
       .select('chunk_index, chapter_index, chapter_title, chunk_text')
       .eq('book_cache_id', chunkKey)
       .order('chunk_index', { ascending: true })
 
-    if (chunkErr || !rawChunks || rawChunks.length === 0) {
+    if (oldChunks && oldChunks.length > 0) {
+      chunks = (oldChunks as Array<{ chunk_index: number; chapter_index: number | null; chapter_title: string | null; chunk_text: string }>)
+        .map(c => ({ chunk_index: c.chunk_index, chapter_index: c.chapter_index, chapter_title: c.chapter_title, text: c.chunk_text }))
+      console.log(`[study-guide] Loaded ${chunks.length} chunks from bookshelf_chunks for "${displayTitle}"`)
+    } else {
+      // Fall back to platform_intelligence.book_chunks (service role can query directly)
+      const { data: platformChunks, error: platErr } = await supabase
+        .from('platform_intelligence.book_chunks' as 'bookshelf_chunks')
+        .select('chunk_index, chapter_index, chapter_title, text')
+        .eq('book_library_id', bookLibraryId)
+        .order('chunk_index', { ascending: true })
+
+      if (platErr || !platformChunks || platformChunks.length === 0) {
+        // Last resort: try via raw SQL (service role has access to platform_intelligence)
+        const { data: sqlChunks, error: sqlErr } = await supabase.rpc('get_book_chunks_for_study_guide', {
+          p_book_library_id: bookLibraryId,
+        })
+
+        if (sqlErr || !sqlChunks || (sqlChunks as unknown[]).length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'No text chunks found for this book. The book may still be processing.' }),
+            { status: 404, headers: jsonHeaders },
+          )
+        }
+
+        chunks = (sqlChunks as Array<{ chunk_index: number; chapter_index: number | null; chapter_title: string | null; text: string }>)
+          .map(c => ({ chunk_index: c.chunk_index, chapter_index: c.chapter_index, chapter_title: c.chapter_title, text: c.text }))
+      } else {
+        chunks = (platformChunks as Array<{ chunk_index: number; chapter_index: number | null; chapter_title: string | null; text: string }>)
+          .map(c => ({ chunk_index: c.chunk_index, chapter_index: c.chapter_index, chapter_title: c.chapter_title, text: c.text }))
+      }
+      console.log(`[study-guide] Loaded ${chunks.length} chunks from platform table for "${displayTitle}"`)
+    }
+
+    if (chunks.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No text chunks found for this book. The book may still be processing.' }),
+        JSON.stringify({ error: 'No text chunks found for this book.' }),
         { status: 404, headers: jsonHeaders },
       )
     }
-
-    const chunks: ChunkRow[] = (rawChunks as Array<{ chunk_index: number; chapter_index: number | null; chapter_title: string | null; chunk_text: string }>)
-      .map(c => ({ chunk_index: c.chunk_index, chapter_index: c.chapter_index, chapter_title: c.chapter_title, text: c.chunk_text }))
-
-    console.log(`[study-guide] Loaded ${chunks.length} chunks for "${displayTitle}"`)
 
     // 3. Load ALL existing extraction rows that need backfill
     const allExtractions: ExtractionRow[] = []
