@@ -274,11 +274,16 @@
 | BookShelf → Messages | `sendToMessages` routes to `studio_queue` with `destination='message'`. | Stub | Worker 5. Actual delivery is PRD-15 scope. |
 | BookShelf → Widgets | — | Stub | PRD-10 dependency. |
 | BookShelf → BigPlans | — | Stub | PRD-29 dependency. |
+| Study Guide Rework — Sonnet from chunks | `bookshelf-study-guide` Edge Function rewritten: reads chunks (old table → platform table fallback via `get_book_chunks_for_study_guide` RPC), uses Sonnet, UPDATEs `guided_text` + `independent_text` columns on existing `audience='original'` rows. Resume-safe (skips already-filled items). | **Wired** | Migrations 100197-100198. Verified on Lion, Witch & Wardrobe (395 items, 4 passes). |
+| Audience Toggle (Adult/Teen/Kid) | `AudienceToggle` segmented control on `ExtractionBrowser`. Display-only — switches which column renders (`text`, `independent_text`, `guided_text`). Falls back to adult when NULL. | **Wired** | URL param `?audience=guided\|independent`. |
+| Study Guide Library rework | Shows all extracted books with View/Generate buttons. No per-child scoping. `count_youth_text_by_book` RPC checks which books have youth text. | **Wired** | Replaced old `study_guide_{memberId}` approach. |
+| Study Guide timeout/resume | Modal shows "Click Generate again to resume" on timeout. Edge Function filters to `guided_text IS NULL` so retries skip completed items. | **Wired** | 150s Edge Function limit means large books need 2-4 passes. |
 
 ## Known Issues / TODO
 
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)
 - Guided Form child fill view + mom review flow not tested end-to-end
 - Quick Create "Send Request" falls back to Notepad until PRD-15 is built
-- Silver Chair study guide: if `book_library_id` is NULL, needs one-row DB fix from Supabase dashboard
 - Crisis Override still missing in `message-coach` and `auto-title-thread` Edge Functions (separate ticket, not BookShelf scope)
+- Phase 1c (drop old per-family BookShelf tables) still pending — 30-day soak well past (Phase 1b was April 11)
+- Old `bookshelf_chunks` table has 58K rows overlapping with `platform_intelligence.book_chunks` (56K rows) — cleanup deferred to Phase 1c
