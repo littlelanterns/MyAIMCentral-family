@@ -10,29 +10,8 @@ import type {
   RoutineStepCompletion,
   CreateRoutineStepCompletion,
 } from '@/types/tasks'
-import type { GamificationResult } from '@/types/gamification'
 import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
-
-// Build M Sub-phase C — gamification pipeline invocation
-// Same contract as the copy in useTasks.ts: never throws, logs on failure,
-// returns null when anything goes wrong. Gamification is additive.
-async function rollGamificationForCompletion(
-  completionId: string,
-): Promise<GamificationResult | null> {
-  try {
-    const { data, error } = await supabase.rpc('roll_creature_for_completion', {
-      p_task_completion_id: completionId,
-    })
-    if (error) {
-      console.warn('[gamification] roll_creature_for_completion failed:', error)
-      return null
-    }
-    return (data as GamificationResult) ?? null
-  } catch (err) {
-    console.warn('[gamification] roll_creature_for_completion threw:', err)
-    return null
-  }
-}
+import { rollGamificationForCompletion } from '@/lib/gamification/rollGamificationForCompletion'
 
 // NEW-NN — Opportunity earning forward write. Same contract as the
 // copy in useTasks.ts. See that file for the full docstring. Mirror

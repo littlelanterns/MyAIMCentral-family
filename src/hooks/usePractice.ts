@@ -27,26 +27,7 @@ import type {
   Task,
 } from '@/types/tasks'
 import type { GamificationResult } from '@/types/gamification'
-
-// Build M Sub-phase C — gamification pipeline invocation
-// Mirror of the helpers in useTasks.ts / useTaskCompletions.ts. Never throws.
-async function rollGamificationForCompletion(
-  completionId: string,
-): Promise<GamificationResult | null> {
-  try {
-    const { data, error } = await supabase.rpc('roll_creature_for_completion', {
-      p_task_completion_id: completionId,
-    })
-    if (error) {
-      console.warn('[gamification] roll_creature_for_completion failed:', error)
-      return null
-    }
-    return (data as GamificationResult) ?? null
-  } catch (err) {
-    console.warn('[gamification] roll_creature_for_completion threw:', err)
-    return null
-  }
-}
+import { rollGamificationForCompletion } from '@/lib/gamification/rollGamificationForCompletion'
 
 // ─── useLogPractice ────────────────────────────────────────────────
 // Records a practice session. For sequential items this also:
