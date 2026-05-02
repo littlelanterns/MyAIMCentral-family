@@ -318,12 +318,12 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
 
       {/* Task-linked coloring reveals — "I did it!" tally widgets */}
       {coloringReveals
-        .filter(r => r.earning_task_id && !r.is_complete && r.is_active)
+        .filter(r => r.earning_source_id && !r.is_complete && r.is_active)
         .map(reveal => (
           <ColorRevealTallyWidget
             key={reveal.id}
             reveal={reveal}
-            linkedTask={allTasks.find(t => t.id === reveal.earning_task_id)}
+            linkedTask={allTasks.find(t => t.id === reveal.earning_source_id)}
             memberId={memberId}
             isShimmering={shimmeringRevealIds.has(reveal.id)}
           />
@@ -332,7 +332,7 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
 
       {/* Non-task-linked coloring reveals — original gallery widget */}
       <ColorRevealWidget
-        reveals={coloringReveals.filter(r => !r.earning_task_id)}
+        reveals={coloringReveals.filter(r => !r.earning_source_id)}
         onOpenReveal={reveal => {
           setColorRevealCelebration(false)
           setColorRevealDetailOpen(reveal)

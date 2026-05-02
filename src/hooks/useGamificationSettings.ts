@@ -217,7 +217,8 @@ interface CreateColoringRevealInput {
   family_member_id: string
   coloring_image_id: string
   reveal_step_count: RevealStepCount
-  earning_task_id: string
+  earning_source_type: string
+  earning_source_id: string
   lineart_preference?: LineartPreference
 }
 
@@ -233,7 +234,8 @@ export function useCreateColoringReveal() {
           family_member_id: input.family_member_id,
           coloring_image_id: input.coloring_image_id,
           reveal_step_count: input.reveal_step_count,
-          earning_task_id: input.earning_task_id,
+          earning_source_type: input.earning_source_type,
+          earning_source_id: input.earning_source_id,
           earning_mode: 'every_n_completions', // 1:1 with task completion
           earning_threshold: 1,
           lineart_preference: input.lineart_preference ?? 'medium',

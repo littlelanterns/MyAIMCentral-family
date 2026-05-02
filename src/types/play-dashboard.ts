@@ -98,7 +98,8 @@ export interface MemberColoringReveal {
   earning_segment_ids: string[]
   earning_tracker_widget_id: string | null
   earning_tracker_threshold: number | null
-  earning_task_id: string | null
+  earning_source_type: string | null
+  earning_source_id: string | null
   lineart_preference: LineartPreference
   is_complete: boolean
   completed_at: string | null

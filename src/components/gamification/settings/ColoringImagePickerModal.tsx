@@ -126,7 +126,8 @@ export function ColoringImagePickerModal({
         family_member_id: familyMemberId,
         coloring_image_id: selectedImage.id,
         reveal_step_count: stepCount,
-        earning_task_id: selectedTaskId,
+        earning_source_type: 'task',
+        earning_source_id: selectedTaskId,
         lineart_preference: lineart,
       })
       setSelectedImage(null)

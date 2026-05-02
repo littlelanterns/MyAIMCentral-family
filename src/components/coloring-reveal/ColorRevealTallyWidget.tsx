@@ -6,7 +6,7 @@
  * Each tap completes the linked task → gamification RPC fires → reveal advances.
  *
  * Founder decisions #9-#11:
- *   - Each coloring picture is linked to ONE task via earning_task_id
+ *   - Each coloring picture is linked to ONE source via earning_source_type/earning_source_id
  *   - Each completion = one reveal step (visual tally counter)
  *   - Widget shows: image + task name + "I did it!" + progress
  *   - When complete: celebration + "Print it!" button

@@ -487,7 +487,7 @@ export function GamificationSettingsModal({
                   <ColoringRevealRow
                     key={reveal.id}
                     reveal={reveal}
-                    linkedTaskName={memberTasks.find((t) => t.id === reveal.earning_task_id)?.title ?? null}
+                    linkedTaskName={memberTasks.find((t) => t.id === reveal.earning_source_id)?.title ?? null}
                     onUpdateLineart={(pref) =>
                       updateReveal.mutate({ revealId: reveal.id, lineart_preference: pref })
                     }
@@ -1311,8 +1311,8 @@ function ColoringRevealRow({
           Step {reveal.current_step}/{reveal.reveal_step_count}
           {reveal.is_complete && ' — Complete!'}
           {linkedTaskName && ` | ${linkedTaskName}`}
-          {!linkedTaskName && reveal.earning_task_id && ' | Task not found'}
-          {!linkedTaskName && !reveal.earning_task_id && ' | No task linked'}
+          {!linkedTaskName && reveal.earning_source_id && ' | Task not found'}
+          {!linkedTaskName && !reveal.earning_source_id && ' | No task linked'}
         </p>
 
         {/* Lineart preference picker */}

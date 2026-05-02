@@ -93,7 +93,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
     gamConfig?.enabled ? displayMemberId : undefined,
   )
   const taskLinkedReveals = useMemo(
-    () => colorReveals.filter(r => r.earning_task_id && !r.is_complete && r.is_active),
+    () => colorReveals.filter(r => r.earning_source_id && !r.is_complete && r.is_active),
     [colorReveals],
   )
   // Fetch tasks for linked reveals (lightweight — only when reveals exist)
@@ -709,7 +709,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
                 <ColorRevealTallyWidget
                   key={reveal.id}
                   reveal={reveal}
-                  linkedTask={revealLinkedTasks.find(t => t.id === reveal.earning_task_id)}
+                  linkedTask={revealLinkedTasks.find(t => t.id === reveal.earning_source_id)}
                   memberId={displayMemberId ?? ''}
                 />
               ))}
