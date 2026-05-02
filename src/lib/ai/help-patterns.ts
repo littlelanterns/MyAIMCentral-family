@@ -170,7 +170,12 @@ const HELP_PATTERNS: HelpPattern[] = [
   {
     category: 'bookshelf',
     keywords: ['book', 'bookshelf', 'upload book', 'reading', 'extract', 'pdf', 'epub', 'book club', 'book discussion'],
-    response: "BookShelf lets you upload books and extract wisdom:\n\n1. Go to **BookShelf** from the sidebar (under AI & Tools)\n2. Tap **Upload** and add a PDF, EPUB, or text file\n3. The system processes it automatically — extracting summaries, insights, declarations, action steps, and discussion questions\n4. Browse extractions by chapter or by type\n5. **Heart** items to include them in LiLa's context (she'll reference your books in conversations)\n6. Send items to Guiding Stars, Tasks, or Journal Prompts\n7. Start a **Book Discussion** with LiLa about any book in your library\n\nBooks are processed at the platform level — if another family uploads the same book, they benefit from the existing extractions instantly.",
+    response: "BookShelf lets you upload books and extract wisdom:\n\n1. Go to **BookShelf** from the sidebar (under AI & Tools)\n2. Tap **Upload** and add a PDF, EPUB, or text file\n3. The system processes it automatically — extracting summaries, insights, declarations, action steps, and discussion questions\n4. Browse extractions by chapter or by type\n5. **Heart** items to include them in LiLa's context (she'll reference your books in conversations)\n6. Send items to Guiding Stars, Tasks, Journal Prompts, or Notepad\n7. Start a **Book Discussion** with LiLa about any book in your library\n\nBooks are processed at the platform level — if another family uploads the same book, they benefit from the existing extractions instantly.",
+  },
+  {
+    category: 'study_guide',
+    keywords: ['study guide', 'reading level', 'kid version', 'teen version', 'guided version', 'independent version', 'age appropriate', 'child reading', 'adult teen kid'],
+    response: "Study Guides let you create age-appropriate reading levels for any book in your library:\n\n1. Go to **BookShelf** → **Study Guides** tab\n2. Find a book and tap **Generate Study Guide**\n3. The system reads the original book text and creates Teen (ages 13-16) and Kid (ages 8-12) versions of every extraction — simpler language, shorter content, age-appropriate framing\n4. For longer books, generation may take a few minutes. If it times out, just click Generate again — it picks up where it left off\n5. Once generated, use the **Adult / Teen / Kid** toggle on any book page to switch reading levels\n\nStudy guides are family-wide — everyone can view any reading level. New books uploaded through the app get all three levels automatically during processing.",
   },
   {
     category: 'mindsweep',

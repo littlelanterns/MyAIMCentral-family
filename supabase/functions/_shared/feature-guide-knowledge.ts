@@ -65,8 +65,11 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Task due dates show on calendar (checkbox icon, slightly muted).`,
 
   '/bookshelf': `BOOKSHELF — Upload books (PDF, EPUB, DOCX). AI extracts summaries, insights, declarations, action steps, questions.
-  Browse extracted wisdom. Heart items for LiLa to reference. Send to Guiding Stars, Tasks, Journal Prompts.
-  Book Discussion: multi-book RAG conversation with LiLa about your library.`,
+  Browse extracted wisdom. Heart items for LiLa to reference. Send to Guiding Stars, Tasks, Journal Prompts, or Notepad.
+  Book Discussion: multi-book RAG conversation with LiLa about your library.
+  STUDY GUIDES — Generate age-appropriate reading levels for any book. Go to Study Guides tab, click Generate.
+  Creates Teen (13-16) and Kid (8-12) versions from the actual book text. Use the Adult/Teen/Kid toggle to switch reading levels.
+  Study guides are family-wide. For large books, generation may need multiple clicks — it resumes automatically.`,
 
   '/sweep': `MINDSWEEP — Quick-capture brain dump. Text, voice, scan (OCR), link import.
   AI classifies each item → routes to the right destination (task, calendar, journal, list, etc.)
@@ -430,6 +433,33 @@ Each kid sees only their current assignment on their dashboard.`,
 3. Any family member with meeting access can add agenda items between meetings
 4. When you start, pick "Live Mode" and select all participants
 5. LiLa opens with a warm welcome and guides through each section in order`,
+      },
+    ],
+  },
+
+  // ── Study Guides (PRD-23 Rework) ────────────────────────────
+  {
+    triggers: ['study guide', 'kid version of book', 'teen version', 'reading level', 'age appropriate book', 'simplified version', 'child friendly book', 'homeschool reading'],
+    clarifyingQuestion: "Are you looking to create age-appropriate reading levels for a book already in your library, or are you wondering how to use study guides that have already been generated?",
+    variants: [
+      {
+        name: 'Generate Study Guide for Existing Book',
+        description: 'Creates Teen and Kid reading levels from the original book text.',
+        howToSetUp: `1. Go to BookShelf → Study Guides tab
+2. Find the book you want — it needs to be fully extracted first (shows "completed" status)
+3. Tap "Generate Study Guide" — this reads the actual book text and creates age-adapted versions using Sonnet
+4. For longer books this takes a few minutes. If it times out, just click Generate again — it picks up where it left off
+5. Once generated, go to the book and use the Adult / Teen / Kid toggle to switch reading levels
+6. Everyone in the family can view any level — study guides are family-wide, not per-child`,
+      },
+      {
+        name: 'Browse Existing Study Guides',
+        description: 'View books that already have Teen and Kid versions available.',
+        howToSetUp: `1. Go to BookShelf → Study Guides tab
+2. Books in the "Ready to View" section already have study guides
+3. Tap "View Teen" or "View Kid" to open the book at that reading level
+4. You can also go to any book page and use the Adult / Teen / Kid toggle if it's available
+5. New books uploaded through the app get all three levels automatically during processing`,
       },
     ],
   },
