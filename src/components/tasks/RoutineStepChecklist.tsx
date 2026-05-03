@@ -956,6 +956,8 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
     return map
   }, [completions])
 
+  const routineActiveDays = useMemo(() => deriveRoutineActiveDays(sections ?? []), [sections])
+
   if (isLoading) {
     return (
       <div className="py-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
@@ -1089,8 +1091,6 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
       setTogglingStepId(null)
     }
   }
-
-  const routineActiveDays = useMemo(() => deriveRoutineActiveDays(sections), [sections])
 
   const activeSections = sections.filter(
     s =>
