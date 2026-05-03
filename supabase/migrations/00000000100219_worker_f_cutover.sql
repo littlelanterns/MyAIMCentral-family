@@ -382,7 +382,7 @@ INSERT INTO public.contracts (
 )
 SELECT
   ac.family_id,
-  f.primary_parent_id,
+  mom.id,
   'task_completion',
   NULL,
   ac.family_member_id,
@@ -394,6 +394,7 @@ SELECT
   'active'
 FROM public.allowance_configs ac
 JOIN public.families f ON f.id = ac.family_id
+JOIN public.family_members mom ON mom.user_id = f.primary_parent_id AND mom.family_id = f.id
 WHERE ac.enabled = true
 ON CONFLICT DO NOTHING;
 
@@ -408,7 +409,7 @@ INSERT INTO public.contracts (
 )
 SELECT
   t.family_id,
-  f.primary_parent_id,
+  mom.id,
   'task_completion',
   t.id,
   NULL,
@@ -427,6 +428,7 @@ SELECT
 FROM public.task_rewards tr
 JOIN public.tasks t ON t.id = tr.task_id
 JOIN public.families f ON f.id = t.family_id
+JOIN public.family_members mom ON mom.user_id = f.primary_parent_id AND mom.family_id = f.id
 WHERE tr.reward_type = 'money'
   AND t.task_type LIKE 'opportunity_%'
   AND t.status != 'archived'
@@ -447,7 +449,7 @@ INSERT INTO public.contracts (
 )
 SELECT
   t.family_id,
-  f.primary_parent_id,
+  mom.id,
   'task_completion',
   t.id,
   NULL,
@@ -459,6 +461,7 @@ SELECT
   'active'
 FROM public.tasks t
 JOIN public.families f ON f.id = t.family_id
+JOIN public.family_members mom ON mom.user_id = f.primary_parent_id AND mom.family_id = f.id
 WHERE t.victory_flagged = true
   AND t.status != 'archived'
   AND t.archived_at IS NULL
@@ -475,7 +478,7 @@ INSERT INTO public.contracts (
 )
 SELECT
   gc.family_id,
-  f.primary_parent_id,
+  mom.id,
   'task_completion',
   NULL,
   gc.family_member_id,
@@ -488,6 +491,7 @@ SELECT
   'active'
 FROM public.gamification_configs gc
 JOIN public.families f ON f.id = gc.family_id
+JOIN public.family_members mom ON mom.user_id = f.primary_parent_id AND mom.family_id = f.id
 WHERE gc.enabled = true
 ON CONFLICT DO NOTHING;
 
