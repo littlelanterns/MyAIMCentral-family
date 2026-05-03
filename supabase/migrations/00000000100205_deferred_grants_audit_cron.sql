@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.contract_grant_log (
   godmother_type  TEXT NOT NULL,
   status          TEXT NOT NULL
                     CHECK (status IN ('granted', 'no_op', 'failed', 'deferred')),
-  grant_reference UUID,
+  grant_reference TEXT,
   error_message   TEXT,
   metadata        JSONB DEFAULT '{}',
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
