@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
+import { createVictoryForDeed } from '@/lib/victories/createVictoryForDeed'
 import type { MemberType } from '@/types/victories'
 
 function dashboardModeToMemberType(dashboardMode: string | null | undefined): MemberType {
@@ -16,26 +17,13 @@ async function insertVictoryIfNotExists(params: {
   lifeAreaTags: string[]
   memberType: MemberType
 }) {
-  const { data: existing } = await supabase
-    .from('victories')
-    .select('id')
-    .eq('family_id', params.familyId)
-    .eq('family_member_id', params.memberId)
-    .eq('source', 'task_completed')
-    .eq('source_reference_id', params.taskId)
-    .limit(1)
-
-  if (existing && existing.length > 0) return
-
-  await supabase.from('victories').insert({
-    family_id: params.familyId,
-    family_member_id: params.memberId,
+  await createVictoryForDeed({
+    familyId: params.familyId,
+    memberId: params.memberId,
     description: params.taskTitle,
     source: 'task_completed',
-    source_reference_id: params.taskId,
-    life_area_tags: params.lifeAreaTags,
-    member_type: params.memberType,
-    importance: 'small_win',
+    sourceReferenceId: params.taskId,
+    lifeAreaTags: params.lifeAreaTags,
   })
 }
 
