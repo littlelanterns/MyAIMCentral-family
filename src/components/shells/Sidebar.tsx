@@ -8,7 +8,7 @@ import {
   LayoutDashboard, BookOpen, BookHeart, Sun, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle, UsersRound,
-  ChevronLeft, ChevronRight, Gift,
+  ChevronLeft, ChevronRight, Gift, FileText,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
@@ -64,6 +64,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
       { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
       { label: 'Studio', path: '/studio', featureKey: 'studio', icon: <Palette size={20} />, tooltip: 'Template workshop' },
       { label: 'Prize Board', path: '/prize-board', featureKey: 'gamification_basic', icon: <Gift size={20} />, tooltip: 'Unredeemed prizes and IOUs' },
+      { label: 'Contracts', path: '/contracts', featureKey: 'gamification_basic', icon: <FileText size={20} />, tooltip: 'Reward rules and automation' },
     ],
   }
 

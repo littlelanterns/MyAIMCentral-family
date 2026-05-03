@@ -4,6 +4,7 @@ import { useActedBy } from './useActedBy'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import { todayLocalIso } from '@/utils/dates'
 import { useFamilyToday } from './useFamilyToday'
+import { fireDeed } from '@/lib/connector/fireDeed'
 
 /** Full AIMfM 44-color palette for intention color assignment */
 export const INTENTION_COLORS = MEMBER_COLORS.map((c) => c.hex)
@@ -439,7 +440,18 @@ export function useLogIteration() {
 
       if (error) throw error
 
-      // iteration_count is auto-incremented by DB trigger (trg_increment_iteration_count)
+      // Phase 3 connector: fire deed for intention iteration
+      fireDeed({
+        familyId,
+        memberId,
+        sourceType: 'intention_iteration',
+        sourceId: intentionId,
+        metadata: {
+          intention_statement: intentionStatement,
+          iteration_id: data.id,
+        },
+        idempotencyKey: `intention_iteration:${data.id}`,
+      })
 
       // Activity log entry (fire-and-forget) — enriches data for victory scan
       supabase

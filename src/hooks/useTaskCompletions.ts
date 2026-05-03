@@ -10,66 +10,7 @@ import type {
   RoutineStepCompletion,
   CreateRoutineStepCompletion,
 } from '@/types/tasks'
-import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
-import { rollGamificationForCompletion } from '@/lib/gamification/rollGamificationForCompletion'
-import { grantMoney } from '@/lib/financial/grantMoney'
-
-// Opportunity earning forward write. Delegates to the shared grantMoney
-// helper (grant_money RPC). Idempotency enforced DB-level by partial
-// unique index uq_financial_transactions_forward_per_completion (migration 100174).
-async function awardOpportunityEarning(completionId: string): Promise<void> {
-  try {
-    const { data: completion } = await supabase
-      .from('task_completions')
-      .select('id, task_id, family_member_id, tasks!inner(id, title, task_type, family_id)')
-      .eq('id', completionId)
-      .single()
-    if (!completion) return
-
-    const task = (completion.tasks as unknown) as {
-      id: string
-      title: string
-      task_type: string
-      family_id: string
-    }
-    if (!task.task_type || !task.task_type.startsWith('opportunity_')) return
-
-    const { data: rewards } = await supabase
-      .from('task_rewards')
-      .select('reward_type, reward_value')
-      .eq('task_id', task.id)
-      .limit(1)
-    const reward = rewards?.[0]
-    if (!reward || reward.reward_type !== 'money') return
-
-    const rewardValue = (reward.reward_value ?? {}) as { amount?: number | string }
-    const amount =
-      typeof rewardValue.amount === 'number'
-        ? rewardValue.amount
-        : typeof rewardValue.amount === 'string' && rewardValue.amount.trim() !== ''
-          ? Number(rewardValue.amount)
-          : NaN
-    if (Number.isNaN(amount) || amount <= 0) return
-
-    await grantMoney({
-      familyId: task.family_id,
-      memberId: completion.family_member_id,
-      amount,
-      transactionType: 'opportunity_earned',
-      description: `Job: ${task.title}`,
-      sourceType: 'task_completion',
-      sourceReferenceId: completionId,
-      category: task.title,
-      metadata: {
-        task_id: task.id,
-        task_type: task.task_type,
-        reward_type: 'money',
-      },
-    })
-  } catch (err) {
-    console.warn('[opportunity-earning] threw:', err)
-  }
-}
+import { fireDeed } from '@/lib/connector/fireDeed'
 
 // ============================================================
 // useTaskCompletions — completions for a single task
@@ -227,51 +168,42 @@ export function useApproveCompletion() {
 
       if (taskError) throw taskError
 
-      // Build M Sub-phase C — fire gamification pipeline at approval time.
-      // Idempotent via awarded_source_id if this path is ever re-fired.
-      const gamificationResult = await rollGamificationForCompletion(completionId)
-
-      // NEW-NN — opportunity earning forward write at approval time.
-      await awardOpportunityEarning(completionId)
-
-      // Victory creation for flagged tasks (fire and forget).
+      // Phase 3 connector: fire deed at approval time.
       const { data: compRow } = await supabase
         .from('task_completions')
         .select('family_member_id')
         .eq('id', completionId)
         .single()
       if (compRow?.family_member_id) {
-        createVictoryForCompletion({
-          task: { id: data.id, title: data.title, victory_flagged: data.victory_flagged, is_shared: data.is_shared, family_id: data.family_id, life_area_tags: data.life_area_tags },
-          completerId: compRow.family_member_id,
+        await fireDeed({
           familyId: data.family_id,
+          memberId: compRow.family_member_id,
+          sourceType: 'task_completion',
+          sourceId: taskId,
+          metadata: {
+            task_title: data.title,
+            completion_id: completionId,
+            victory_flagged: data.victory_flagged,
+          },
+          idempotencyKey: `task_completion:${completionId}`,
         })
       }
 
-      return { ...data, gamificationResult }
+      return data
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['task-completions', data.id] })
       queryClient.invalidateQueries({ queryKey: ['pending-approvals', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
-
-      if (data.victory_flagged) {
-        queryClient.invalidateQueries({ queryKey: ['victories'] })
-        queryClient.invalidateQueries({ queryKey: ['victory-count'] })
-      }
-
-      if (data.gamificationResult && !data.gamificationResult.error) {
-        queryClient.invalidateQueries({ queryKey: ['family-member'] })
-        queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
-      }
-
-      // NEW-NN: refresh financial caches after approval. Broadcast-
-      // invalidate since this site doesn't know the task_type; cheap
-      // no-ops when no subscriber is mounted.
+      queryClient.invalidateQueries({ queryKey: ['victories'] })
+      queryClient.invalidateQueries({ queryKey: ['victory-count'] })
+      queryClient.invalidateQueries({ queryKey: ['family-member'] })
+      queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })
       queryClient.invalidateQueries({ queryKey: ['family-transactions', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['running-balance'] })
       queryClient.invalidateQueries({ queryKey: ['family-financial-summary', data.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['pending-reveals'] })
     },
   })
 }

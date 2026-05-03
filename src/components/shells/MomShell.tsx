@@ -31,6 +31,7 @@ import { supabase } from '@/lib/supabase/client'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
+import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
 
 interface MomShellProps {
   children: ReactNode
@@ -109,6 +110,7 @@ export function MomShell({ children }: MomShellProps) {
   return (
     <TimerProvider>
     <RewardRevealProvider>
+    <ContractRevealWatcher memberId={currentMember?.id} familyId={currentFamily?.id} />
     <RoutingToastProvider>
     <NotepadProvider>
     <ToolLauncherProvider>

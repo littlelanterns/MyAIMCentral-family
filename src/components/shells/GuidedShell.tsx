@@ -4,6 +4,7 @@ import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
+import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
@@ -61,6 +62,7 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex flex-col min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+      <ContractRevealWatcher memberId={member?.id} familyId={member?.family_id} />
       {/* Header */}
       <header
         className="flex items-center justify-between px-4 py-3 border-b"

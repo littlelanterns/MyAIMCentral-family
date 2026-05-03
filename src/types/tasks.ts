@@ -314,7 +314,6 @@ export interface Task {
   completion_note: string | null
   completed_at: string | null
   source_reference_id: string | null
-  related_intention_id: string | null
   focus_time_seconds: number
   archived_at: string | null
   // Timer integration (PRD-36 addenda)

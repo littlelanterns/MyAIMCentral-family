@@ -6,8 +6,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
 import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
-import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
-import { grantMoney } from '@/lib/financial/grantMoney'
+import { fireDeed } from '@/lib/connector/fireDeed'
 import type {
   Task,
   CreateTask,
@@ -25,124 +24,6 @@ import type {
   AbcdeCategory,
 } from '@/types/tasks'
 import type { GamificationResult } from '@/types/gamification'
-import { rollGamificationForCompletion } from '@/lib/gamification/rollGamificationForCompletion'
-
-// ============================================================
-// NEW-NN — Opportunity earning forward write
-// ============================================================
-//
-// Shared helper invoked from every task-completion site. Reads the
-// task's task_rewards row; if it exists and is type='money' on an
-// opportunity task, inserts a forward `opportunity_earned` transaction
-// linked to the completion (`source_reference_id=completion.id`).
-//
-// Contract (mirrors the reverse RPC in migration 100173):
-//   transaction_type = 'opportunity_earned'
-//   source_type      = 'task_completion'
-//   source_reference_id = completion.id    ← canonical back-link
-//
-// Idempotency: enforced by a DB-level partial unique index
-// (migration 100174). A retry on the same completion hits a
-// duplicate-violation which we swallow (same pattern as the
-// gamification pipeline's awarded_source_id safety net).
-//
-// NEVER throws. Failure is logged + returned as null; the task is
-// still considered complete. Same additive-not-load-bearing contract
-// as gamification (Convention #199).
-//
-// Applies ONLY to opportunity_* task_types. Non-opportunity tasks with
-// a money reward (extremely rare, but possible) are skipped — money
-// flow on routine/simple tasks happens via the allowance_earned cron
-// path, not this hook.
-interface OpportunityEarningResult {
-  status:
-    | 'awarded'
-    | 'already_awarded'
-    | 'no_reward'
-    | 'not_opportunity'
-    | 'not_money'
-    | 'error'
-  transaction_id: string | null
-  amount: number
-}
-
-async function awardOpportunityEarning(
-  completionId: string,
-): Promise<OpportunityEarningResult | null> {
-  try {
-    const { data: completion, error: compErr } = await supabase
-      .from('task_completions')
-      .select('id, task_id, family_member_id, tasks!inner(id, title, task_type, family_id)')
-      .eq('id', completionId)
-      .single()
-    if (compErr || !completion) {
-      return { status: 'error', transaction_id: null, amount: 0 }
-    }
-
-    const task = (completion.tasks as unknown) as {
-      id: string
-      title: string
-      task_type: string
-      family_id: string
-    }
-
-    if (!task.task_type || !task.task_type.startsWith('opportunity_')) {
-      return { status: 'not_opportunity', transaction_id: null, amount: 0 }
-    }
-
-    const { data: rewards } = await supabase
-      .from('task_rewards')
-      .select('reward_type, reward_value')
-      .eq('task_id', task.id)
-      .limit(1)
-
-    const reward = rewards?.[0]
-    if (!reward) {
-      return { status: 'no_reward', transaction_id: null, amount: 0 }
-    }
-    if (reward.reward_type !== 'money') {
-      return { status: 'not_money', transaction_id: null, amount: 0 }
-    }
-
-    const rewardValue = (reward.reward_value ?? {}) as { amount?: number | string }
-    const amount =
-      typeof rewardValue.amount === 'number'
-        ? rewardValue.amount
-        : typeof rewardValue.amount === 'string' && rewardValue.amount.trim() !== ''
-          ? Number(rewardValue.amount)
-          : NaN
-    if (Number.isNaN(amount) || amount <= 0) {
-      return { status: 'no_reward', transaction_id: null, amount: 0 }
-    }
-
-    const result = await grantMoney({
-      familyId: task.family_id,
-      memberId: completion.family_member_id,
-      amount,
-      transactionType: 'opportunity_earned',
-      description: `Job: ${task.title}`,
-      sourceType: 'task_completion',
-      sourceReferenceId: completionId,
-      category: task.title,
-      metadata: {
-        task_id: task.id,
-        task_type: task.task_type,
-        reward_type: 'money',
-      },
-    })
-
-    if (result.status === 'granted') {
-      return { status: 'awarded', transaction_id: result.transactionId, amount }
-    }
-    if (result.status === 'already_awarded') {
-      return { status: 'already_awarded', transaction_id: null, amount }
-    }
-    return { status: 'error', transaction_id: null, amount: 0 }
-  } catch (err) {
-    console.warn('[opportunity-earning] threw:', err)
-    return null
-  }
-}
 
 // ============================================================
 // Shared helper: fetch task IDs where a member has a task_assignment
@@ -381,34 +262,22 @@ export function useCompleteTask() {
 
       if (taskError) throw taskError
 
-      // 3. Build M Sub-phase C — gamification pipeline
-      // Only fire when the task is genuinely done. If require_approval=true,
-      // the task_completions row is 'pending' and the RPC would wrongly award
-      // points before mom reviewed the work. The approval hooks fire the RPC
-      // at approval time instead (useApproveTaskCompletion / useApproveCompletion).
-      let gamificationResult: GamificationResult | null = null
+      // Phase 3 connector: fire a deed for gamification, victory, money, points.
+      // dispatch_godmothers (DB trigger) evaluates contracts and invokes godmothers.
+      // Only fire when the task doesn't need approval — approval hooks fire their own deed.
       if (!requireApproval) {
-        gamificationResult = await rollGamificationForCompletion(completion.id)
-      }
-
-      // 3b. NEW-NN — Opportunity earning forward write.
-      // Same no-approval gate as gamification. If mom requires approval
-      // the money flow is deferred to useApproveTaskCompletion /
-      // useApproveCompletion. Fire-and-forget from the caller's
-      // perspective — the helper never throws, logs internally, and
-      // returns null on error. The DB partial unique index
-      // (migration 100174) enforces at-most-one forward row per
-      // completion id.
-      if (!requireApproval) {
-        await awardOpportunityEarning(completion.id)
-      }
-
-      // 4a. Victory creation for flagged tasks (fire and forget)
-      if (!requireApproval) {
-        createVictoryForCompletion({
-          task: { id: taskId, title: updatedTask.title, victory_flagged: updatedTask.victory_flagged, is_shared: updatedTask.is_shared, family_id: updatedTask.family_id, life_area_tags: updatedTask.life_area_tags },
-          completerId: memberId,
+        await fireDeed({
           familyId: updatedTask.family_id,
+          memberId: memberId,
+          sourceType: 'task_completion',
+          sourceId: taskId,
+          metadata: {
+            task_title: updatedTask.title,
+            task_type: updatedTask.task_type,
+            completion_id: completion.id,
+            victory_flagged: updatedTask.victory_flagged,
+          },
+          idempotencyKey: `task_completion:${completion.id}`,
         })
       }
 
@@ -442,56 +311,38 @@ export function useCompleteTask() {
         }
       }
 
-      return { completion, task: updatedTask as Task, gamificationResult }
+      return { completion, task: updatedTask as Task, gamificationResult: null as GamificationResult | null }
     },
-    onSuccess: ({ completion, task, gamificationResult }) => {
+    onSuccess: ({ completion, task }) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', task.id] })
       queryClient.invalidateQueries({ queryKey: ['task-completions', task.id] })
 
+      const completerId = completion.family_member_id ?? completion.member_id
+
       if (task.victory_flagged) {
-        const completerId = completion.family_member_id ?? completion.member_id
         queryClient.invalidateQueries({ queryKey: ['victories', completerId] })
         queryClient.invalidateQueries({ queryKey: ['victory-count', completerId] })
       }
 
-      // PRD-28: invalidate homework summaries when homework time logged
       if (task.counts_for_homework && task.homework_subject_ids?.length > 0) {
-        const completerId = completion.family_member_id ?? completion.member_id
         queryClient.invalidateQueries({ queryKey: ['homeschool-daily-summary', completerId] })
         queryClient.invalidateQueries({ queryKey: ['homeschool-weekly-summary', completerId] })
       }
 
-      // NEW-NN: invalidate financial caches when an opportunity task
-      // just completed. The helper is fire-and-forget so we don't know
-      // from this site whether a forward write actually landed, but the
-      // invalidations are cheap no-ops when no subscriber is mounted.
-      if (task.task_type && task.task_type.startsWith('opportunity_')) {
-        const completerId = completion.family_member_id ?? completion.member_id
-        queryClient.invalidateQueries({ queryKey: ['financial-transactions', completerId] })
-        queryClient.invalidateQueries({ queryKey: ['family-transactions', task.family_id] })
-        queryClient.invalidateQueries({ queryKey: ['running-balance', completerId] })
-        queryClient.invalidateQueries({ queryKey: ['family-financial-summary', task.family_id] })
-      }
-
-      // Sub-phase C: refresh gamification-dependent queries when the
-      // pipeline actually ran (points / creatures / pages). Cheap no-ops
-      // when nothing is subscribed.
-      if (gamificationResult && !gamificationResult.error) {
-        // Header stats live on family_members columns — invalidate both
-        // shapes: the logged-in user's own row AND the family-wide list
-        // that ViewAs + PlayDashboard read from.
-        queryClient.invalidateQueries({ queryKey: ['family-member'] })
-        queryClient.invalidateQueries({ queryKey: ['family-members', task.family_id] })
-        // Sticker book widget + creature collection are keyed on the
-        // completing member (completion.family_member_id), not the task
-        // assignee (different for shared tasks).
-        const completerId = completion.family_member_id
-        if (completerId) {
-          queryClient.invalidateQueries({ queryKey: ['sticker-book-state', completerId] })
-          queryClient.invalidateQueries({ queryKey: ['member-creatures', completerId] })
-          queryClient.invalidateQueries({ queryKey: ['member-coloring-reveals', completerId] })
-        }
+      // Connector: deed firing triggers godmothers which may write financial,
+      // gamification, victory records. Broadcast-invalidate all dependent caches.
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions', completerId] })
+      queryClient.invalidateQueries({ queryKey: ['family-transactions', task.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['running-balance', completerId] })
+      queryClient.invalidateQueries({ queryKey: ['family-financial-summary', task.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['family-member'] })
+      queryClient.invalidateQueries({ queryKey: ['family-members', task.family_id] })
+      if (completerId) {
+        queryClient.invalidateQueries({ queryKey: ['sticker-book-state', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['member-creatures', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['member-coloring-reveals', completerId] })
+        queryClient.invalidateQueries({ queryKey: ['pending-reveals', completerId] })
       }
     },
   })
@@ -986,55 +837,43 @@ export function useApproveTaskCompletion() {
 
       if (taskError) throw taskError
 
-      // 3. Build M Sub-phase C — gamification pipeline
-      // The completion now represents a genuinely finished task (mom
-      // approved it). Fire the RPC against the approved completion id.
-      // RPC is idempotency-safe via member_creature_collection.awarded_source_id.
-      const gamificationResult = await rollGamificationForCompletion(completionId)
-
-      // 3b. NEW-NN — Opportunity earning forward write, fired at
-      // approval time for require_approval=true flows. Idempotent via
-      // DB partial unique index (migration 100174).
-      await awardOpportunityEarning(completionId)
-
-      // 3c. Victory creation for flagged tasks (fire and forget).
-      // Look up the completer from the completion record.
+      // Phase 3 connector: fire deed at approval time.
       const { data: compRow } = await supabase
         .from('task_completions')
         .select('family_member_id')
         .eq('id', completionId)
         .single()
       if (compRow?.family_member_id) {
-        createVictoryForCompletion({
-          task: { id: data.id, title: data.title, victory_flagged: data.victory_flagged, is_shared: data.is_shared, family_id: data.family_id, life_area_tags: data.life_area_tags },
-          completerId: compRow.family_member_id,
+        await fireDeed({
           familyId: data.family_id,
+          memberId: compRow.family_member_id,
+          sourceType: 'task_completion',
+          sourceId: taskId,
+          metadata: {
+            task_title: data.title,
+            task_type: (data as Record<string, unknown>).task_type,
+            completion_id: completionId,
+            victory_flagged: data.victory_flagged,
+            approved_by: approvedById,
+          },
+          idempotencyKey: `task_completion:${completionId}`,
         })
       }
 
-      return { ...data, gamificationResult }
+      return data
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['task', data.id] })
-
-      if (data.victory_flagged) {
-        queryClient.invalidateQueries({ queryKey: ['victories'] })
-        queryClient.invalidateQueries({ queryKey: ['victory-count'] })
-      }
-
-      if (data.gamificationResult && !data.gamificationResult.error) {
-        queryClient.invalidateQueries({ queryKey: ['family-member'] })
-        queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
-      }
-
-      // NEW-NN: refresh financial caches after approval path too.
-      // Broadcast-invalidate since this site doesn't carry the completer
-      // id or task_type; subscribers are cheap no-ops.
+      queryClient.invalidateQueries({ queryKey: ['victories'] })
+      queryClient.invalidateQueries({ queryKey: ['victory-count'] })
+      queryClient.invalidateQueries({ queryKey: ['family-member'] })
+      queryClient.invalidateQueries({ queryKey: ['family-members', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })
       queryClient.invalidateQueries({ queryKey: ['family-transactions', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['running-balance'] })
       queryClient.invalidateQueries({ queryKey: ['family-financial-summary', data.family_id] })
+      queryClient.invalidateQueries({ queryKey: ['pending-reveals'] })
     },
   })
 }

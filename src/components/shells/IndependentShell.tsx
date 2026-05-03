@@ -5,6 +5,7 @@ import { Settings } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
+import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
 import { ToolLauncherProvider } from '@/components/lila/ToolLauncherProvider'
 import { NotepadDrawer, NotepadProvider, useNotepadContext } from '@/components/notepad'
 import { QuickTasks, QuickTasksNotepadBridgeProvider } from './QuickTasks'
@@ -53,6 +54,7 @@ export function IndependentShell({ children }: IndependentShellProps) {
     <ToolLauncherProvider>
     <TimerProvider>
     <RewardRevealProvider>
+    <ContractRevealWatcher memberId={currentMember?.id} familyId={currentFamily?.id} />
     <NotepadProvider>
     <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <Sidebar />

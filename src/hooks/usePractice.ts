@@ -27,7 +27,7 @@ import type {
   Task,
 } from '@/types/tasks'
 import type { GamificationResult } from '@/types/gamification'
-import { rollGamificationForCompletion } from '@/lib/gamification/rollGamificationForCompletion'
+import { fireDeed } from '@/lib/connector/fireDeed'
 
 // ─── useLogPractice ────────────────────────────────────────────────
 // Records a practice session. For sequential items this also:
@@ -466,10 +466,7 @@ export function useApproveMasterySubmission() {
 
       if (params.sourceType === 'sequential_task') {
         // Approve the completion row if present
-        // Build M Sub-phase C: also flip completion_type from 'mastery_submit'
-        // → 'mastery_approved' so the roll_creature_for_completion RPC accepts
-        // this row past its Step 3 filter. Without this flip, the RPC would
-        // skip it with skipped_completion_type='mastery_submit'.
+        // Flip completion_type so the connector deed firing carries the correct type.
         if (params.completionId) {
           await supabase
             .from('task_completions')
@@ -521,13 +518,28 @@ export function useApproveMasterySubmission() {
           }
         }
 
-        // Build M Sub-phase C — mastery approval fires the gamification
-        // pipeline. The completion row's completion_type was updated to
-        // 'mastery_approved' above, so the RPC's Step 3 filter accepts it.
-        // Idempotent via awarded_source_id if somehow re-fired.
-        let gamificationResult: GamificationResult | null = null
+        // Phase 3 connector: fire deed after mastery approval.
+        // completion_type was flipped to 'mastery_approved' above — deed must fire AFTER that flip.
         if (params.completionId) {
-          gamificationResult = await rollGamificationForCompletion(params.completionId)
+          const { data: compRow } = await supabase
+            .from('task_completions')
+            .select('family_member_id')
+            .eq('id', params.completionId)
+            .single()
+          if (compRow?.family_member_id) {
+            await fireDeed({
+              familyId: task.family_id,
+              memberId: compRow.family_member_id,
+              sourceType: 'task_completion',
+              sourceId: params.sourceId,
+              metadata: {
+                completion_id: params.completionId,
+                completion_type: 'mastery_approved',
+                mastery: true,
+              },
+              idempotencyKey: `task_completion:${params.completionId}`,
+            })
+          }
         }
 
         queryClient.invalidateQueries({ queryKey: ['tasks', task.family_id] })
@@ -536,11 +548,10 @@ export function useApproveMasterySubmission() {
         if (task.sequential_collection_id) {
           queryClient.invalidateQueries({ queryKey: ['sequential-collection', task.sequential_collection_id] })
         }
-        if (gamificationResult && !gamificationResult.error) {
-          queryClient.invalidateQueries({ queryKey: ['family-member'] })
-          queryClient.invalidateQueries({ queryKey: ['family-members', task.family_id] })
-        }
-        return { familyId: task.family_id, gamificationResult }
+        queryClient.invalidateQueries({ queryKey: ['family-member'] })
+        queryClient.invalidateQueries({ queryKey: ['family-members', task.family_id] })
+        queryClient.invalidateQueries({ queryKey: ['pending-reveals'] })
+        return { familyId: task.family_id, gamificationResult: null as GamificationResult | null }
       } else {
         // Randomizer: mark mastered + exit pool
         // NOTE: Randomizer items do NOT go through task_completions, so the

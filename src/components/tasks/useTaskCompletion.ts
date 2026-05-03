@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase/client'
 import type { Task } from '@/hooks/useTasks'
 import { useActedBy } from '@/hooks/useActedBy'
 import { todayLocalIso } from '@/utils/dates'
-import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
+import { fireDeed } from '@/lib/connector/fireDeed'
 
 interface UseTaskCompletionOptions {
   memberId: string
@@ -80,10 +80,7 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
       if (updateError) return { success: false, error: updateError.message }
 
       // Step 2B: Insert task_completion record
-      // period_date scopes the completion to a specific recurrence instance —
-      // critical for "any of them" shared recurring tasks (e.g., trash on Tuesdays).
-      // Without it, the same shared task can't reset week-to-week.
-      const { error: completionError } = await supabase
+      const { data: completionRow, error: completionError } = await supabase
         .from('task_completions')
         .insert({
           task_id: task.id,
@@ -94,22 +91,29 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
           photo_url: photoUrl ?? null,
           acted_by: actedBy,
         })
+        .select('id')
+        .single()
 
       if (completionError) {
-        // Non-fatal — log but continue
         console.warn('task_completion insert failed:', completionError.message)
       }
 
-      // Step 3: Queue reward (stub — PRD-24)
-      // STUB: wires to PRD-24 gamification reward transaction
-      // When PRD-24 is built, call award_task_reward(task.id, memberId) here
-
-      // Step 4: Create victory if victory_flagged (fire and forget)
-      createVictoryForCompletion({
-        task: { id: task.id, title: task.title, victory_flagged: task.victory_flagged, is_shared: task.is_shared, family_id: familyId, life_area_tags: task.life_area_tags },
-        completerId: memberId,
-        familyId,
-      })
+      // Phase 3 connector: fire deed for gamification, victory, money, points.
+      if (completionRow?.id) {
+        fireDeed({
+          familyId,
+          memberId,
+          sourceType: 'task_completion',
+          sourceId: task.id,
+          metadata: {
+            task_title: task.title,
+            task_type: task.task_type,
+            completion_id: completionRow.id,
+            victory_flagged: task.victory_flagged,
+          },
+          idempotencyKey: `task_completion:${completionRow.id}`,
+        })
+      }
 
       // Step 5: Activity log entry (fire and forget)
       const isRoutine = task.task_type === 'routine'
@@ -155,6 +159,10 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
       queryClient.invalidateQueries({ queryKey: ['task-completions'] })
       queryClient.invalidateQueries({ queryKey: ['victories', memberId] })
       queryClient.invalidateQueries({ queryKey: ['victory-count', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['family-member'] })
+      queryClient.invalidateQueries({ queryKey: ['family-members', familyId] })
+      queryClient.invalidateQueries({ queryKey: ['financial-transactions', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['pending-reveals', memberId] })
     },
   })
 
