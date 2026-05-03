@@ -46,6 +46,7 @@ import { HomeworkSettingsPage } from '@/features/financial/HomeworkSettingsPage'
 import { GamificationSettingsPage } from '@/pages/GamificationSettingsPage'
 import { RewardRevealLibrary } from '@/components/reward-reveals/RewardRevealLibrary'
 import { PlayRewards } from '@/pages/PlayRewards'
+import PrizeBoard from '@/pages/PrizeBoard'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import { ArchivesPage } from '@/pages/archives/ArchivesPage'
 import { MemberArchiveDetail } from '@/pages/archives/MemberArchiveDetail'
@@ -169,6 +170,8 @@ function App() {
               <Route path="/settings/reward-reveals" element={<ProtectedRoute><RewardRevealLibrary /></ProtectedRoute>} />
               {/* SCOPE-3.F22: Play shell "Fun" tab — dedicated rewards surface */}
               <Route path="/rewards" element={<ProtectedRoute><PlayRewards /></ProtectedRoute>} />
+              {/* Phase 3: Mom-facing prize IOU board */}
+              <Route path="/prize-board" element={<ProtectedRoute><PrizeBoard /></ProtectedRoute>} />
               <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
