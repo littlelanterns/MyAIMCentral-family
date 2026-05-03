@@ -1,11 +1,11 @@
 // Bridges modal schedule UI state to database columns (due_date, recurrence_rule, recurrence_details).
-// Without this, schedule data collected in TaskCreationModal was silently discarded.
+//
+// due_date is OPT-IN, DEADLINE-ONLY. It is set ONLY when mom explicitly assigns a
+// deadline. Recurring schedule anchors use recurrence_details.dtstart, not due_date.
+// Routine end-dates use recurrence_details.until, not due_date.
 //
 // `familyToday` is the family-timezone-derived "today" in YYYY-MM-DD, obtained by
-// the caller via `fetchFamilyToday(memberId)` from useFamilyToday. Row 184 NEW-DD
-// Path 2: due_date is not derived from a timestamp column (it's a scheduled future
-// date), so a server-side trigger cannot fix it — the client must write the
-// correct value. See Convention #257.
+// the caller via `fetchFamilyToday(memberId)` from useFamilyToday. See Convention #257.
 
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import { dayToRRule } from '@/components/scheduling/schedulerUtils'
@@ -21,20 +21,16 @@ export function buildTaskScheduleFields(
   data: CreateTaskData,
   familyToday: string,
 ): TaskScheduleFields {
-  // Worker ROUTINE-PROPAGATION (c2, founder D1+D2): routines persist
-  // recurrence_details.dtstart on the JSONB so recurringTaskFilter can
-  // gate visibility against today. dtstart is the canonical start date
-  // for both per-section-frequency routines (no rrule) and any future
-  // RRULE routines that flow through this branch. Default = familyToday
-  // (today in the family's timezone) so legacy callers and the toggle-
-  // off path silently land on today. data.dueDate, when set, is the
-  // "Run until" end date — preserved unchanged on the task row.
+  // Routines never get a due_date. The "Run until" end date lives in
+  // recurrence_details.until so it doesn't trigger deadline display logic.
   if (data.taskType === 'routine') {
     const dtstart = data.startDate || familyToday
+    const details: Record<string, unknown> = { dtstart, schedule_type: 'recurring' }
+    if (data.dueDate) details.until = data.dueDate
     return {
-      due_date: data.dueDate || null,
+      due_date: null,
       recurrence_rule: null,
-      recurrence_details: { dtstart, schedule_type: 'recurring' },
+      recurrence_details: details,
     }
   }
 
@@ -44,15 +40,13 @@ export function buildTaskScheduleFields(
 
   if (data.scheduleMode === 'daily') {
     return {
-      due_date: familyToday,
+      due_date: data.dueDate || null,
       recurrence_rule: 'daily',
       recurrence_details: { rrule: 'FREQ=DAILY', dtstart: familyToday, schedule_type: 'recurring' },
     }
   }
 
   if (data.scheduleMode === 'weekly' && data.weeklyDays && data.weeklyDays.length > 0) {
-    // Week-arithmetic uses a Date object seeded from familyToday to keep day-of-week
-    // aligned to the family's calendar day, not the clicking device's day.
     const [y, m, d] = familyToday.split('-').map(Number)
     const today = new Date(y, m - 1, d)
     const todayDow = today.getDay()
@@ -63,19 +57,18 @@ export function buildTaskScheduleFields(
     if (daysUntil < 0) daysUntil += 7
     const nextDate = new Date(today)
     nextDate.setDate(nextDate.getDate() + daysUntil)
-    const dueDate = localIso(nextDate)
+    const dtstart = localIso(nextDate)
     const byDay = data.weeklyDays.map(d => dayToRRule(d)).join(',')
     return {
-      due_date: dueDate,
+      due_date: data.dueDate || null,
       recurrence_rule: 'weekly',
-      recurrence_details: { rrule: `FREQ=WEEKLY;BYDAY=${byDay}`, dtstart: dueDate, schedule_type: 'recurring' },
+      recurrence_details: { rrule: `FREQ=WEEKLY;BYDAY=${byDay}`, dtstart, schedule_type: 'recurring' },
     }
   }
 
   if (data.scheduleMode === 'custom' && data.schedule) {
-    const dueDate = data.schedule.dtstart ?? familyToday
     return {
-      due_date: dueDate,
+      due_date: data.dueDate || null,
       recurrence_rule: 'custom',
       recurrence_details: data.schedule as unknown as Record<string, unknown>,
     }

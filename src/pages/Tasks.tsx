@@ -374,7 +374,7 @@ export function TasksPage() {
           incomplete_action: data.incompleteAction,
           require_approval: data.reward?.requireApproval ?? false,
           victory_flagged: data.reward?.flagAsVictory ?? false,
-          due_date: data.taskType === 'routine' ? data.dueDate || null : scheduleFields.due_date,
+          due_date: scheduleFields.due_date,
           recurrence_rule: scheduleFields.recurrence_rule,
           recurrence_details: scheduleFields.recurrence_details,
           counts_for_allowance: data.countsForAllowance ?? false,

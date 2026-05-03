@@ -18,7 +18,7 @@ import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import { speak } from '@/utils/speak'
-import { RoutineStepChecklist, isSectionActiveToday } from '@/components/tasks/RoutineStepChecklist'
+import { RoutineStepChecklist, isSectionActiveToday, deriveRoutineActiveDays } from '@/components/tasks/RoutineStepChecklist'
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import { todayLocalIso } from '@/utils/dates'
@@ -495,7 +495,8 @@ function useGuidedRoutineProgress(taskId: string, templateId: string | null, mem
   const weekIds = new Set(
     (weekCompletions ?? []).map(c => c.step_id).filter((id): id is string => id !== null),
   )
-  const activeSections = (sections ?? []).filter(s => isSectionActiveToday(s, completedIds, weekIds))
+  const routineActiveDays = deriveRoutineActiveDays(sections ?? [])
+  const activeSections = (sections ?? []).filter(s => isSectionActiveToday(s, completedIds, weekIds, routineActiveDays))
   const todaySteps = activeSections.flatMap(s => s.steps)
   const done = todaySteps.filter(s => completedIds.has(s.id)).length
   const total = todaySteps.length

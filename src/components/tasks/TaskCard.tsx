@@ -44,7 +44,7 @@ import { useTimerContext } from '@/features/timer'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { supabase } from '@/lib/supabase/client'
 import { TaskCompletionExpander } from './TaskCompletionExpander'
-import { RoutineStepChecklist, isSectionActiveToday } from './RoutineStepChecklist'
+import { RoutineStepChecklist, isSectionActiveToday, deriveRoutineActiveDays } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useArchiveTask } from '@/hooks/useTasks'
 import { useTaskPracticeAggregation } from '@/hooks/usePractice'
@@ -222,7 +222,8 @@ export function TaskCard({
     const weekIds = new Set(
       (routineWeekCompletions ?? []).map(c => c.step_id).filter((id): id is string => id !== null),
     )
-    const activeSections = routineSections.filter(s => isSectionActiveToday(s, completedIds, weekIds))
+    const routineActiveDays = deriveRoutineActiveDays(routineSections)
+    const activeSections = routineSections.filter(s => isSectionActiveToday(s, completedIds, weekIds, routineActiveDays))
     const todaySteps = activeSections.flatMap(s => s.steps)
     const done = todaySteps.filter(s => completedIds.has(s.id)).length
     return { completed: done, total: todaySteps.length }

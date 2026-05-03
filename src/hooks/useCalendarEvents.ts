@@ -144,6 +144,7 @@ export function useTasksDueInRange(start: Date, end: Date, memberFilter?: string
         .select('id, title, due_date, assignee_id, status, priority, created_by')
         .eq('family_id', familyId!)
         .not('due_date', 'is', null)
+        .neq('task_type', 'routine')
         .gte('due_date', toISODate(start))
         .lte('due_date', toISODate(end))
         .is('archived_at', null)

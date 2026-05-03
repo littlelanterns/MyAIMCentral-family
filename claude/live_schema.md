@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-02
+> Auto-generated from live Supabase on 2026-05-03
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -122,7 +122,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 310 rows
+### `view_as_sessions` — 313 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +133,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 204 rows
+### `view_as_feature_exclusions` — 206 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +391,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 622 rows
+### `ai_usage_tracking` — 632 rows
 
 | # | Column |
 |---|---|
@@ -460,7 +460,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 31 rows
+### `intention_iterations` — 32 rows
 
 | # | Column |
 |---|---|
@@ -497,7 +497,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 58 rows
+### `journal_entries` — 61 rows
 
 | # | Column |
 |---|---|
@@ -659,7 +659,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 94 rows
+### `tasks` — 98 rows
 
 | # | Column |
 |---|---|
@@ -744,7 +744,7 @@
 | 79 | `collaboration_mode` |
 | 80 | `life_area_tags` |
 
-### `task_assignments` — 35 rows
+### `task_assignments` — 39 rows
 
 | # | Column |
 |---|---|
@@ -761,7 +761,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 34 rows
+### `task_completions` — 35 rows
 
 | # | Column |
 |---|---|
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 483 rows
+### `routine_step_completions` — 617 rows
 
 | # | Column |
 |---|---|
@@ -1755,7 +1755,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2331,7 +2331,7 @@
 
 ## MindSweep (PRD-17B)
 
-### `mindsweep_settings` — 0 rows
+### `mindsweep_settings` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2472,7 +2472,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 184 rows
+### `activity_log_entries` — 192 rows
 
 | # | Column |
 |---|---|
@@ -2601,7 +2601,7 @@
 | 27 | `bonus_type` |
 | 28 | `bonus_flat_amount` |
 
-### `allowance_periods` — 10 rows
+### `allowance_periods` — 14 rows
 
 | # | Column |
 |---|---|
@@ -2631,7 +2631,7 @@
 | 24 | `created_at` |
 | 25 | `updated_at` |
 
-### `beta_glitch_reports` — 65 rows
+### `beta_glitch_reports` — 71 rows
 
 | # | Column |
 |---|---|
@@ -2830,7 +2830,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 4 rows
+### `financial_transactions` — 8 rows
 
 | # | Column |
 |---|---|
@@ -3332,7 +3332,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 53 rows
+### `reflection_responses` — 56 rows
 
 | # | Column |
 |---|---|
@@ -3420,7 +3420,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 17 rows
+### `rhythm_completions` — 20 rows
 
 | # | Column |
 |---|---|
@@ -3736,5 +3736,3 @@
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
 > **DOMAIN_ORDER missing entries** are tables that `scripts/full-schema-dump.cjs` expects to see but that don't exist in the live database. Most common cause: the owning PRD was planned but the migration hasn't been built yet. Each is flagged inline in its domain section.
->
-> **Pending function-only migrations (not yet applied):** 100207 (`execute_allowance_godmother`, upgraded `dispatch_godmothers`), 100208 (`execute_numerator_godmother`), 100209 (`grant_money`, `execute_money_godmother`), 100210 (`grant_points`, `execute_points_godmother`), 100211 (`execute_prize_godmother`), 100212 (`execute_victory_godmother`), 100213 (`execute_family_victory_godmother` no-op), 100214 (`execute_custom_reward_godmother`), 100215 (`execute_assign_task_godmother`). No new tables or columns. Run `npm run schema:dump` after applying to refresh this file.

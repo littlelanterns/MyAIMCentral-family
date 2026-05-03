@@ -27,17 +27,16 @@ export function isRecurringTaskVisibleToday(task: Task, today?: Date): boolean {
   const now = today ?? new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
 
-  // For routines, `tasks.due_date` is the "Run until" end date set in the
-  // TaskCreationModal "How Long Should This Run?" picker (not a deadline).
-  // When today is past the end date, the routine has ended — drop it off
-  // the dashboard. Completion history is preserved via `task_completions`
-  // and feeds allowance/gamification without the task staying visible.
-  // This applies whether or not the task has a recurrence_rule — many
-  // routines rely on per-section frequency and carry no RRULE on the task
-  // row itself.
-  if (task.task_type === 'routine' && task.due_date) {
-    const endDate = new Date(task.due_date + 'T23:59:59')
-    if (endDate < startOfToday) return false
+  // Routine end-date: "Run until" lives in recurrence_details.until (migration
+  // 100218 moved it out of due_date). Legacy fallback checks due_date for rows
+  // that haven't been migrated yet.
+  if (task.task_type === 'routine') {
+    const details = task.recurrence_details as Record<string, unknown> | null
+    const untilStr = (details?.until as string | undefined) ?? task.due_date
+    if (untilStr) {
+      const endDate = new Date(untilStr + 'T23:59:59')
+      if (endDate < startOfToday) return false
+    }
   }
 
   // Advance-start gating (Worker ROUTINE-PROPAGATION, D1):

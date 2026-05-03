@@ -9,12 +9,10 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useGuidedDashboardConfig } from '@/hooks/useGuidedDashboardConfig'
-import { useNBTEngine } from '@/hooks/useNBTEngine'
 import { FeatureGuide } from '@/components/shared'
 import {
   GuidedGreetingSection,
   GuidedBestIntentionsSection,
-  NextBestThingCard,
   GuidedCalendarSection,
   GuidedActiveTasksSection,
   GuidedWidgetGrid,
@@ -48,15 +46,6 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
     preferences,
     handleToggleCollapse,
   } = useGuidedDashboardConfig(displayFamilyId, displayMemberId)
-
-  const {
-    currentSuggestion,
-    advance,
-    isEmpty,
-    isLoading: nbtLoading,
-    suggestions,
-    currentIndex,
-  } = useNBTEngine(displayFamilyId, displayMemberId)
 
   // Member data for gamification indicators
   const memberData = displayMember as Record<string, unknown> | undefined
@@ -109,21 +98,9 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
         ) : null
 
       case 'next_best_thing':
-        return (
-          <NextBestThingCard
-            suggestion={currentSuggestion}
-            onAdvance={advance}
-            isEmpty={isEmpty}
-            isLoading={nbtLoading}
-            memberName={displayMember?.display_name ?? 'Friend'}
-            streakCount={streak}
-            familyId={displayFamilyId}
-            memberId={displayMemberId}
-            readingSupport={readingSupport}
-            totalSuggestions={suggestions.length}
-            currentIndex={currentIndex}
-          />
-        )
+        // Disabled per founder request (2026-05-03): pulling from unassigned/inactive tasks.
+        // Re-enable when the suggestion engine is scoped to assigned+active tasks only.
+        return null
 
       case 'calendar':
         return displayMemberId ? (

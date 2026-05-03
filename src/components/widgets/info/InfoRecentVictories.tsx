@@ -1,6 +1,7 @@
 import { Trophy, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useRecentVictories } from '@/hooks/useVictories'
 import type { DashboardWidget } from '@/types/widgets'
 
@@ -20,10 +21,12 @@ function timeAgo(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function InfoRecentVictories({ widget: _widget, isCompact: _isCompact }: Props) {
+export function InfoRecentVictories({ widget, isCompact: _isCompact }: Props) {
   const navigate = useNavigate()
   const { data: member } = useFamilyMember()
-  const { data: victories = [] } = useRecentVictories(member?.id, 3)
+  const { viewingAsMember } = useViewAs()
+  const memberId = viewingAsMember?.id ?? widget.family_member_id ?? member?.id
+  const { data: victories = [] } = useRecentVictories(memberId, 3)
 
   return (
     <button

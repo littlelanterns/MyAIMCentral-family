@@ -110,9 +110,9 @@ export function OnTheHorizonSection({ familyId, memberId, config }: Props) {
       }
 
       // ─── Calendar events ───
-      // Member's attended events in the lookahead window.
-      // event_attendees → event_id join. We query event_attendees first
-      // because members can be attendees without being the creator.
+      // Show events where: member is an attendee OR member created it OR
+      // the event has no attendees (family-wide). This prevents events with
+      // no explicit attendees from being invisible on the horizon.
       const { data: attended, error: attendedError } = await supabase
         .from('event_attendees')
         .select('event_id')
@@ -122,16 +122,18 @@ export function OnTheHorizonSection({ familyId, memberId, config }: Props) {
 
       const attendedIds = (attended ?? []).map(a => a.event_id as string)
 
-      let events: Array<{
+      type EventRow = {
         id: string
         title: string
         description: string | null
         event_date: string
         recurrence_rule: string | null
-      }> = []
+      }
 
+      // Query 1: events the member attends
+      let attendedEvents: EventRow[] = []
       if (attendedIds.length > 0) {
-        const { data: eventRows, error: eventsError } = await supabase
+        const { data, error } = await supabase
           .from('calendar_events')
           .select('id, title, description, event_date, recurrence_rule')
           .in('id', attendedIds)
@@ -140,10 +142,32 @@ export function OnTheHorizonSection({ familyId, memberId, config }: Props) {
           .lte('event_date', endDate)
           .order('event_date', { ascending: true })
           .limit(15)
-
-        if (eventsError) throw eventsError
-        events = (eventRows ?? []) as typeof events
+        if (error) throw error
+        attendedEvents = (data ?? []) as EventRow[]
       }
+
+      // Query 2: events created by member with no attendees (family-visible)
+      const { data: createdRows, error: createdError } = await supabase
+        .from('calendar_events')
+        .select('id, title, description, event_date, recurrence_rule, event_attendees(id)')
+        .eq('family_id', familyId)
+        .eq('created_by', memberId)
+        .gte('event_date', startDate)
+        .lte('event_date', endDate)
+        .order('event_date', { ascending: true })
+        .limit(15)
+      if (createdError) throw createdError
+
+      const noAttendeeEvents = ((createdRows ?? []) as (EventRow & { event_attendees: { id: string }[] })[])
+        .filter(e => !e.event_attendees?.length)
+        .map(({ event_attendees: _ea, ...e }) => e)
+
+      // Merge and deduplicate
+      const seenIds = new Set(attendedEvents.map(e => e.id))
+      const events = [
+        ...attendedEvents,
+        ...noAttendeeEvents.filter(e => !seenIds.has(e.id)),
+      ]
 
       // Merge + sort + cap
       const taskItems: HorizonItem[] = (tasks ?? [])
