@@ -3736,3 +3736,5 @@
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
 > **DOMAIN_ORDER missing entries** are tables that `scripts/full-schema-dump.cjs` expects to see but that don't exist in the live database. Most common cause: the owning PRD was planned but the migration hasn't been built yet. Each is flagged inline in its domain section.
+>
+> **Pending function-only migrations (not yet applied):** 100207–100210 create/replace SQL functions (`execute_allowance_godmother`, `execute_numerator_godmother`, `execute_money_godmother`, `execute_points_godmother`, `grant_money`, `grant_points`, upgraded `dispatch_godmothers`). No new tables or columns. Run `npm run schema:dump` after applying to refresh this file.
