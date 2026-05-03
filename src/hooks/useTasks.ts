@@ -7,6 +7,7 @@ import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
 import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
+import { grantMoney } from '@/lib/financial/grantMoney'
 import type {
   Task,
   CreateTask,
@@ -69,7 +70,6 @@ async function awardOpportunityEarning(
   completionId: string,
 ): Promise<OpportunityEarningResult | null> {
   try {
-    // 1. Load completion + task shape (task_type + title + family link).
     const { data: completion, error: compErr } = await supabase
       .from('task_completions')
       .select('id, task_id, family_member_id, tasks!inner(id, title, task_type, family_id)')
@@ -79,8 +79,6 @@ async function awardOpportunityEarning(
       return { status: 'error', transaction_id: null, amount: 0 }
     }
 
-    // The PostgREST shape for the inner-join is an object (not array)
-    // when the FK is non-null, which it always is for task_completions.
     const task = (completion.tasks as unknown) as {
       id: string
       title: string
@@ -92,9 +90,6 @@ async function awardOpportunityEarning(
       return { status: 'not_opportunity', transaction_id: null, amount: 0 }
     }
 
-    // 2. Load the task_rewards row. Zero rows = silent skip (no money
-    //    configured on this task). Multiple rows (shouldn't happen — one
-    //    per task_id by design): take the first.
     const { data: rewards } = await supabase
       .from('task_rewards')
       .select('reward_type, reward_value')
@@ -120,47 +115,29 @@ async function awardOpportunityEarning(
       return { status: 'no_reward', transaction_id: null, amount: 0 }
     }
 
-    // 3. Compute the new balance via the shared running-balance RPC.
-    const { data: balanceData } = await supabase.rpc('calculate_running_balance', {
-      p_member_id: completion.family_member_id,
+    const result = await grantMoney({
+      familyId: task.family_id,
+      memberId: completion.family_member_id,
+      amount,
+      transactionType: 'opportunity_earned',
+      description: `Job: ${task.title}`,
+      sourceType: 'task_completion',
+      sourceReferenceId: completionId,
+      category: task.title,
+      metadata: {
+        task_id: task.id,
+        task_type: task.task_type,
+        reward_type: 'money',
+      },
     })
-    const currentBalance = Number(balanceData ?? 0)
-    const newBalance = currentBalance + amount
 
-    // 4. INSERT the forward transaction. The DB partial unique index
-    //    (migration 100174) guarantees one per completion — a second
-    //    insert returns error code '23505' which we treat as
-    //    already-awarded (idempotent).
-    const { data: tx, error: insertErr } = await supabase
-      .from('financial_transactions')
-      .insert({
-        family_id: task.family_id,
-        family_member_id: completion.family_member_id,
-        transaction_type: 'opportunity_earned',
-        amount,
-        balance_after: newBalance,
-        description: `Job: ${task.title}`,
-        source_type: 'task_completion',
-        source_reference_id: completionId,
-        category: task.title,
-        metadata: {
-          task_id: task.id,
-          task_type: task.task_type,
-          reward_type: 'money',
-        },
-      })
-      .select('id')
-      .single()
-
-    if (insertErr) {
-      if (insertErr.code === '23505') {
-        return { status: 'already_awarded', transaction_id: null, amount }
-      }
-      console.warn('[opportunity-earning] insert failed:', insertErr)
-      return { status: 'error', transaction_id: null, amount: 0 }
+    if (result.status === 'granted') {
+      return { status: 'awarded', transaction_id: result.transactionId, amount }
     }
-
-    return { status: 'awarded', transaction_id: tx?.id ?? null, amount }
+    if (result.status === 'already_awarded') {
+      return { status: 'already_awarded', transaction_id: null, amount }
+    }
+    return { status: 'error', transaction_id: null, amount: 0 }
   } catch (err) {
     console.warn('[opportunity-earning] threw:', err)
     return null

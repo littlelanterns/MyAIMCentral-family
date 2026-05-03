@@ -3737,4 +3737,4 @@
 >
 > **DOMAIN_ORDER missing entries** are tables that `scripts/full-schema-dump.cjs` expects to see but that don't exist in the live database. Most common cause: the owning PRD was planned but the migration hasn't been built yet. Each is flagged inline in its domain section.
 >
-> **Pending function-only migrations (not yet applied):** 100207 (`execute_allowance_godmother`, upgraded `dispatch_godmothers`), 100208 (`execute_numerator_godmother`), 100209–100210 pending. No new tables or columns. Run `npm run schema:dump` after applying to refresh this file.
+> **Pending function-only migrations (not yet applied):** 100207 (`execute_allowance_godmother`, upgraded `dispatch_godmothers`), 100208 (`execute_numerator_godmother`), 100209 (`grant_money`, `execute_money_godmother`), 100210 pending. No new tables or columns. Run `npm run schema:dump` after applying to refresh this file.

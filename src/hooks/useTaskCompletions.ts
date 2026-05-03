@@ -12,12 +12,11 @@ import type {
 } from '@/types/tasks'
 import { createVictoryForCompletion } from '@/lib/tasks/createVictoryForCompletion'
 import { rollGamificationForCompletion } from '@/lib/gamification/rollGamificationForCompletion'
+import { grantMoney } from '@/lib/financial/grantMoney'
 
-// NEW-NN — Opportunity earning forward write. Same contract as the
-// copy in useTasks.ts. See that file for the full docstring. Mirror
-// kept here to avoid circular imports between the two completion-site
-// hooks. Idempotency enforced DB-level by partial unique index
-// uq_financial_transactions_forward_per_completion (migration 100174).
+// Opportunity earning forward write. Delegates to the shared grantMoney
+// helper (grant_money RPC). Idempotency enforced DB-level by partial
+// unique index uq_financial_transactions_forward_per_completion (migration 100174).
 async function awardOpportunityEarning(completionId: string): Promise<void> {
   try {
     const { data: completion } = await supabase
@@ -52,33 +51,21 @@ async function awardOpportunityEarning(completionId: string): Promise<void> {
           : NaN
     if (Number.isNaN(amount) || amount <= 0) return
 
-    const { data: balanceData } = await supabase.rpc('calculate_running_balance', {
-      p_member_id: completion.family_member_id,
+    await grantMoney({
+      familyId: task.family_id,
+      memberId: completion.family_member_id,
+      amount,
+      transactionType: 'opportunity_earned',
+      description: `Job: ${task.title}`,
+      sourceType: 'task_completion',
+      sourceReferenceId: completionId,
+      category: task.title,
+      metadata: {
+        task_id: task.id,
+        task_type: task.task_type,
+        reward_type: 'money',
+      },
     })
-    const newBalance = Number(balanceData ?? 0) + amount
-
-    const { error: insertErr } = await supabase
-      .from('financial_transactions')
-      .insert({
-        family_id: task.family_id,
-        family_member_id: completion.family_member_id,
-        transaction_type: 'opportunity_earned',
-        amount,
-        balance_after: newBalance,
-        description: `Job: ${task.title}`,
-        source_type: 'task_completion',
-        source_reference_id: completionId,
-        category: task.title,
-        metadata: {
-          task_id: task.id,
-          task_type: task.task_type,
-          reward_type: 'money',
-        },
-      })
-    // Swallow duplicate-violation — idempotent by design.
-    if (insertErr && insertErr.code !== '23505') {
-      console.warn('[opportunity-earning] insert failed:', insertErr)
-    }
   } catch (err) {
     console.warn('[opportunity-earning] threw:', err)
   }
