@@ -51,4 +51,4 @@ COMMENT ON FUNCTION public.execute_numerator_godmother IS
   'numerator boost. Phase 3.5 will read contract_grant_log entries '
   'with this godmother_type at period close to compute boosted numerators.';
 
-RAISE NOTICE 'migration 100208: execute_numerator_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100208: execute_numerator_godmother created'; END $$;

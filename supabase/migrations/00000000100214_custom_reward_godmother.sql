@@ -125,4 +125,4 @@ COMMENT ON FUNCTION public.execute_custom_reward_godmother IS
   'Phase 3 connector: delivers custom rewards via text or list-reference mode. '
   'Writes IOUs to earned_prizes for display on mom''s Prize Board.';
 
-RAISE NOTICE 'migration 100214: execute_custom_reward_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100214: execute_custom_reward_godmother created'; END $$;

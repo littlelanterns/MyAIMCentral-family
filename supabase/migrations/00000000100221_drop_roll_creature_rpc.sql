@@ -4,4 +4,4 @@
 
 DROP FUNCTION IF EXISTS public.roll_creature_for_completion(UUID);
 
-RAISE NOTICE 'migration 100221: dropped roll_creature_for_completion RPC';
+DO $$ BEGIN RAISE NOTICE 'migration 100221: dropped roll_creature_for_completion RPC'; END $$;

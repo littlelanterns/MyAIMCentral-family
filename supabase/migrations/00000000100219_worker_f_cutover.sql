@@ -528,4 +528,4 @@ SELECT
 FROM public.allowance_periods ap
 WHERE ap.status = 'active';
 
-RAISE NOTICE 'migration 100219: Worker F cutover — dispatch_godmothers wired to 10 execute_* functions, deed_firings trigger added, contracts seeded, feature flag flipped';
+DO $$ BEGIN RAISE NOTICE 'migration 100219: Worker F cutover — dispatch_godmothers wired to 10 execute_* functions, deed_firings trigger added, contracts seeded, feature flag flipped'; END $$;

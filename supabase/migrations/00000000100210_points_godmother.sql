@@ -140,4 +140,4 @@ COMMENT ON FUNCTION public.execute_points_godmother IS
   'Phase 3 connector: awards gamification points from contract payload or '
   'points_godmother_configs to a family member via grant_points RPC.';
 
-RAISE NOTICE 'migration 100210: grant_points + execute_points_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100210: grant_points + execute_points_godmother created'; END $$;

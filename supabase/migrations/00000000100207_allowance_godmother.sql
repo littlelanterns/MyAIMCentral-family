@@ -352,4 +352,4 @@ BEGIN
 END;
 $fn$;
 
-RAISE NOTICE 'migration 100207: execute_allowance_godmother + dispatch_godmothers upgraded to dynamic routing';
+DO $$ BEGIN RAISE NOTICE 'migration 100207: execute_allowance_godmother + dispatch_godmothers upgraded to dynamic routing'; END $$;

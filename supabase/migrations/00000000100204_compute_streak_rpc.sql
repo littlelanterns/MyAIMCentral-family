@@ -101,4 +101,4 @@ COMMENT ON FUNCTION public.compute_streak IS
   'Used as an IF condition on streak-pattern contracts. '
   'Respects gamification_configs.streak_grace_days for gap tolerance.';
 
-RAISE NOTICE 'migration 100204: compute_streak RPC created';
+DO $$ BEGIN RAISE NOTICE 'migration 100204: compute_streak RPC created'; END $$;

@@ -32,4 +32,4 @@ COMMENT ON FUNCTION public.execute_family_victory_godmother IS
   'Phase 3 connector: no-op placeholder for family victory celebrations. '
   'PRD-11B is not yet built. Returns no_op status without writing to grant log as granted.';
 
-RAISE NOTICE 'migration 100213: execute_family_victory_godmother (no-op) created';
+DO $$ BEGIN RAISE NOTICE 'migration 100213: execute_family_victory_godmother (no-op) created'; END $$;

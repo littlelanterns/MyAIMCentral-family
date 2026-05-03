@@ -194,4 +194,4 @@ CREATE POLICY contracts_member_read ON public.contracts
     )
   );
 
-RAISE NOTICE 'migration 100199: contracts table created with RLS and indexes';
+DO $$ BEGIN RAISE NOTICE 'migration 100199: contracts table created with RLS and indexes'; END $$;

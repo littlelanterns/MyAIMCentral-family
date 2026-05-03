@@ -148,4 +148,4 @@ COMMENT ON FUNCTION public.execute_money_godmother IS
   'Phase 3 connector: awards a dollar amount from contract payload to a '
   'family member''s financial balance via grant_money RPC.';
 
-RAISE NOTICE 'migration 100209: grant_money + execute_money_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100209: grant_money + execute_money_godmother created'; END $$;

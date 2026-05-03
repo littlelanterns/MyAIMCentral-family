@@ -148,4 +148,4 @@ COMMENT ON FUNCTION public.execute_assign_task_godmother IS
   'Phase 3 connector: creates tasks from templates when contracts fire. '
   'Supports to_doer/to_specific/to_all assignment and configurable due dates.';
 
-RAISE NOTICE 'migration 100215: execute_assign_task_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100215: execute_assign_task_godmother created'; END $$;

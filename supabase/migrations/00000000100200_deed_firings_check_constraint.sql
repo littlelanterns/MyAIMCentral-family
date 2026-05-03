@@ -31,4 +31,4 @@ CREATE POLICY deed_firings_insert_family ON public.deed_firings
     )
   );
 
-RAISE NOTICE 'migration 100200: deed_firings CHECK constraint + index + insert policy added';
+DO $$ BEGIN RAISE NOTICE 'migration 100200: deed_firings CHECK constraint + index + insert policy added'; END $$;

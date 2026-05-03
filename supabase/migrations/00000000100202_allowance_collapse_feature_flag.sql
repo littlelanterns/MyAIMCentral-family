@@ -21,4 +21,4 @@ ALTER TABLE public.families
     NOT NULL DEFAULT 'legacy'
     CHECK (allowance_dispatch_via IN ('legacy', 'connector'));
 
-RAISE NOTICE 'migration 100202: fixed→dynamic collapse + allowance_dispatch_via feature flag';
+DO $$ BEGIN RAISE NOTICE 'migration 100202: fixed→dynamic collapse + allowance_dispatch_via feature flag'; END $$;

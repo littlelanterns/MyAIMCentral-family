@@ -301,4 +301,4 @@ COMMENT ON FUNCTION public.dispatch_single_grant IS
   'Phase 3 connector: processes a single deferred_grants row. '
   'Called by evaluate-deferred-contracts Edge Function.';
 
-RAISE NOTICE 'migration 100206: dispatch_godmothers + dispatch_single_grant RPCs created';
+DO $$ BEGIN RAISE NOTICE 'migration 100206: dispatch_godmothers + dispatch_single_grant RPCs created'; END $$;

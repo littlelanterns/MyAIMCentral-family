@@ -402,7 +402,7 @@ COMMENT ON FUNCTION public.dispatch_godmothers IS
   'Now writes presentation_mode, animation_slug, and family_member_id '
   'to contract_grant_log for frontend reveal consumption.';
 
-RAISE NOTICE 'migration 100216: presentation layer + recognition_godmother + dispatch upgrade';
+DO $$ BEGIN RAISE NOTICE 'migration 100216: presentation layer + recognition_godmother + dispatch upgrade'; END $$;
 
 END;
 $migration$;

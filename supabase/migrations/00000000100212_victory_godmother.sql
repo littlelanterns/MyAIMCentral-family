@@ -86,4 +86,4 @@ COMMENT ON FUNCTION public.execute_victory_godmother IS
   'Phase 3 connector: creates a victory record from a deed firing. '
   'Uses payload_text as description or auto-generates from deed metadata.';
 
-RAISE NOTICE 'migration 100212: execute_victory_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100212: execute_victory_godmother created'; END $$;

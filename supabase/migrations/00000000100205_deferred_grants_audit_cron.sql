@@ -140,4 +140,4 @@ SELECT cron.schedule(
   $cron$ SELECT util.invoke_edge_function('evaluate-deferred-contracts', '{"sweep_type": "end_of_day_and_lifecycle"}'::jsonb); $cron$
 );
 
-RAISE NOTICE 'migration 100205: deferred_grants + contract_grant_log + allowance_dispatch_audit + cron schedules';
+DO $$ BEGIN RAISE NOTICE 'migration 100205: deferred_grants + contract_grant_log + allowance_dispatch_audit + cron schedules'; END $$;

@@ -156,4 +156,4 @@ COMMENT ON FUNCTION public.execute_prize_godmother IS
   'Phase 3 connector: creates prize IOUs in earned_prizes. Bridges event-form '
   'deed_firings to entity-form reward_reveal_attachments for animation lookup.';
 
-RAISE NOTICE 'migration 100211: execute_prize_godmother created';
+DO $$ BEGIN RAISE NOTICE 'migration 100211: execute_prize_godmother created'; END $$;

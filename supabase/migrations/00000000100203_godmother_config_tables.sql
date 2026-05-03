@@ -132,4 +132,4 @@ BEGIN
   END LOOP;
 END $$;
 
-RAISE NOTICE 'migration 100203: 5 godmother config tables created with RLS';
+DO $$ BEGIN RAISE NOTICE 'migration 100203: 5 godmother config tables created with RLS'; END $$;

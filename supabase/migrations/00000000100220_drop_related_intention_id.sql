@@ -3,4 +3,4 @@
 
 ALTER TABLE public.tasks DROP COLUMN IF EXISTS related_intention_id;
 
-RAISE NOTICE 'migration 100220: dropped tasks.related_intention_id';
+DO $$ BEGIN RAISE NOTICE 'migration 100220: dropped tasks.related_intention_id'; END $$;

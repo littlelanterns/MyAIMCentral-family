@@ -394,4 +394,4 @@ BEGIN
 END;
 $fn$;
 
-RAISE NOTICE 'migration 100201: coloring reveal polymorphic extension + RPC update';
+DO $$ BEGIN RAISE NOTICE 'migration 100201: coloring reveal polymorphic extension + RPC update'; END $$;
