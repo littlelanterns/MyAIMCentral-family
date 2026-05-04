@@ -136,13 +136,11 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
       const isCurrentPeriod = !selectedPeriodId
       let directQuery = supabase
         .from('tasks')
-        .select('id, title, template_id, is_shared, created_at, recurrence_details')
+        .select('id, title, template_id, is_shared, created_at, recurrence_details, archived_at')
         .eq('assignee_id', memberId)
         .eq('task_type', 'routine')
       if (isCurrentPeriod) {
         directQuery = directQuery.is('archived_at', null)
-      } else {
-        directQuery = directQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
       }
       const { data: directTasks } = await directQuery
 
@@ -159,27 +157,29 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         if (missing.length > 0) {
           let sharedQuery = supabase
             .from('tasks')
-            .select('id, title, template_id, is_shared, created_at, recurrence_details')
+            .select('id, title, template_id, is_shared, created_at, recurrence_details, archived_at')
             .in('id', missing)
             .eq('task_type', 'routine')
           if (isCurrentPeriod) {
             sharedQuery = sharedQuery.is('archived_at', null)
-          } else {
-            sharedQuery = sharedQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
           }
           const { data: extra } = await sharedQuery
           extraShared = extra ?? []
         }
       }
 
-      // Filter to only routines that were active during this period:
+      // Filter to only routines that were actually active during this period:
       // - created before the period ended
       // - dtstart (if set) is on or before the period end
       // - until (if set) is on or after the period start
+      // - if archived, must have been archived on or after the period start
+      //   (archived before the period = mom removed it before this week)
       const allTasks = [...directList, ...extraShared]
       const taskList = allTasks.filter(t => {
         const createdDate = t.created_at ? (t.created_at as string).slice(0, 10) : '2020-01-01'
         if (createdDate > periodEnd) return false
+        const archivedDate = t.archived_at ? (t.archived_at as string).slice(0, 10) : null
+        if (archivedDate && archivedDate < periodStart) return false
         const details = t.recurrence_details as Record<string, unknown> | null
         if (details) {
           const dtstart = details.dtstart as string | undefined
