@@ -178,7 +178,7 @@ BEGIN
                                   AND ta.member_id = p_member_id
     WHERE (t.assignee_id = p_member_id OR ta.member_id IS NOT NULL)
       AND t.counts_for_allowance = TRUE
-      AND t.archived_at IS NULL
+      AND (t.archived_at IS NULL OR t.archived_at::DATE >= p_period_start)
       AND t.created_at::DATE <= p_period_end
       -- V9: skip expired routines
       AND (

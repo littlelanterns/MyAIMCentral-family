@@ -872,7 +872,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 42 rows
+### `lists` — 41 rows
 
 | # | Column |
 |---|---|
@@ -919,7 +919,7 @@
 | 41 | `instantiation_mode` |
 | 42 | `collaboration_mode` |
 
-### `list_items` — 116 rows
+### `list_items` — 113 rows
 
 | # | Column |
 |---|---|
@@ -1755,7 +1755,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 0 rows
+### `bookshelf_items` — 562 rows
 
 | # | Column |
 |---|---|
