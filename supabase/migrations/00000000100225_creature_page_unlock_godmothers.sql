@@ -344,10 +344,12 @@ BEGIN
       FROM public.member_sticker_book_state msbs
      WHERE msbs.is_enabled = true
   LOOP
-    -- Find mom (created_by) for this family
-    SELECT f.primary_parent_id INTO v_mom_id
-      FROM public.families f
-     WHERE f.id = v_state.family_id;
+    -- Find mom's family_members.id (created_by FK references family_members, not auth.users)
+    SELECT fm.id INTO v_mom_id
+      FROM public.family_members fm
+      JOIN public.families f ON f.id = fm.family_id
+     WHERE f.id = v_state.family_id
+       AND fm.user_id = f.primary_parent_id;
 
     IF v_mom_id IS NULL THEN
       CONTINUE;
