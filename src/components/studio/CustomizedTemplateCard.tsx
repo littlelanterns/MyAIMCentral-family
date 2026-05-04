@@ -75,6 +75,10 @@ const TYPE_LABELS: Record<StudioTemplateType, string> = {
   routine_builder_wizard: 'Routine Builder',
   meeting_setup_wizard: 'Meeting Setup',
   list_wizard: 'List',
+  // Phase 3.7 Wizards
+  rewards_list_wizard: 'Rewards List',
+  repeated_action_chart_wizard: 'Progress Chart',
+  list_reveal_assignment_wizard: 'Opportunities / Spinner',
 }
 
 function formatDate(iso: string | null): string {

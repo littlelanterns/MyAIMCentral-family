@@ -36,6 +36,10 @@ const GODMOTHER_META: Record<GodmotherType, { icon: React.ReactNode; label: stri
   custom_reward_godmother: { icon: <Wand2 size={16} />, label: 'Custom Reward' },
   assign_task_godmother: { icon: <ListPlus size={16} />, label: 'Assign Task' },
   recognition_godmother: { icon: <Eye size={16} />, label: 'Recognition Only' },
+  creature_godmother: { icon: <Star size={16} />, label: 'Creature Roll' },
+  page_unlock_godmother: { icon: <Gift size={16} />, label: 'Page Unlock' },
+  coloring_reveal_godmother: { icon: <Palette size={16} />, label: 'Coloring Advance' },
+  widget_data_point_godmother: { icon: <Activity size={16} />, label: 'Widget Data' },
 }
 
 const PRESENTATION_META: Record<PresentationMode, { icon: React.ReactNode; label: string }> = {

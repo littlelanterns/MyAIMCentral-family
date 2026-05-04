@@ -31,6 +31,10 @@ export type GodmotherType =
   | 'custom_reward_godmother'
   | 'assign_task_godmother'
   | 'recognition_godmother'
+  | 'creature_godmother'
+  | 'page_unlock_godmother'
+  | 'coloring_reveal_godmother'
+  | 'widget_data_point_godmother'
 
 export type StrokeOf =
   | 'immediate'

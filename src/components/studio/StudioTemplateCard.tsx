@@ -18,6 +18,7 @@ import {
   FileText, HelpCircle, AlertTriangle, Heart,
   ShoppingCart, Gift, Luggage, DollarSign, ListTodo, List,
   ChevronRight, Users, UsersRound, Palette, Trophy, Wand2,
+  Award, BarChart3, ListPlus,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -56,6 +57,10 @@ export type StudioTemplateType =
   | 'routine_builder_wizard'
   | 'meeting_setup_wizard'
   | 'list_wizard'
+  // Phase 3.7 Wizards
+  | 'rewards_list_wizard'
+  | 'repeated_action_chart_wizard'
+  | 'list_reveal_assignment_wizard'
 
 export interface StudioTemplate {
   id: string
@@ -123,6 +128,10 @@ function TemplateIcon({ type, size = 22 }: { type: StudioTemplateType; size?: nu
     case 'routine_builder_wizard': return <Wand2 size={size} style={style} />
     case 'meeting_setup_wizard':   return <UsersRound size={size} style={style} />
     case 'list_wizard':            return <List size={size} style={style} />
+    // Phase 3.7 Wizards
+    case 'rewards_list_wizard':    return <Award size={size} style={style} />
+    case 'repeated_action_chart_wizard': return <BarChart3 size={size} style={style} />
+    case 'list_reveal_assignment_wizard': return <ListPlus size={size} style={style} />
     default:                   return <FileText size={size} style={style} />
   }
 }

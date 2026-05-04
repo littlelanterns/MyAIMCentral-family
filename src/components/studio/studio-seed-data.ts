@@ -790,3 +790,126 @@ export const GROWTH_TEMPLATES: StudioTemplate[] = [
     isExample: false,
   },
 ]
+
+// ─── Phase 3.7 Wizard Templates (blank "Create Your Own") ───────
+
+export const PHASE37_WIZARD_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'wizard_rewards_list',
+    templateType: 'rewards_list_wizard',
+    name: 'Create a Rewards List',
+    tagline: 'Build a list of prizes for treasure boxes, spinners, and milestone charts.',
+    description:
+      'Create a list of rewards your kids can earn. Use it with treasure box reveals, spinner wheels, milestone charts, or any reward contract. Add items one at a time or bulk-paste a brain dump and let AI sort them.',
+    exampleUseCases: [
+      'Treasure box prize options',
+      'Spinner wheel rewards',
+      'Milestone chart prizes',
+      'Consequence list for spinners',
+    ],
+    capability_tags: [
+      'rewards', 'prizes', 'treasure_box', 'spinner', 'milestone',
+      'family_economy', 'setup_wizard', 'bulk_add',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'wizard_repeated_action_chart',
+    templateType: 'repeated_action_chart_wizard',
+    name: 'Set Up a Progress Chart',
+    tagline: 'Star charts, potty charts, coloring reveals — track a repeated action with visual rewards.',
+    description:
+      'Pick an action your child is practicing (potty trips, piano practice, reading chapters). Choose how to display progress (star chart, coloring reveal, or both). Set milestone rewards that trigger at thresholds you choose. Assign to one or more kids and deploy.',
+    exampleUseCases: [
+      'Potty training chart',
+      'Piano practice tracker',
+      'Reading milestone chart',
+      'Good behavior star chart',
+    ],
+    capability_tags: [
+      'tracking', 'stars', 'coloring', 'milestones', 'potty_training',
+      'visual_progress', 'rewards', 'setup_wizard', 'repeated_action',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'wizard_list_reveal_assignment',
+    templateType: 'list_reveal_assignment_wizard',
+    name: 'Extra Earning or Consequence Spinner',
+    tagline: 'Opportunity boards with reveals, or consequence spinners — pick a flavor and customize.',
+    description:
+      'Two flavors in one wizard. Opportunity: create an earning board where kids claim jobs for rewards, with optional reveal animations on completion. Draw: create a consequence or activity spinner that picks randomly from your list. Both compose contracts under the hood for automatic reward delivery.',
+    exampleUseCases: [
+      'Extra earning opportunities board',
+      'Consequence spinner',
+      'Activity picker wheel',
+      'Bonus chore board with reveals',
+    ],
+    capability_tags: [
+      'opportunities', 'consequences', 'spinner', 'earning',
+      'randomizer', 'reveal_animation', 'setup_wizard', 'family_economy',
+    ],
+    isExample: false,
+  },
+]
+
+// ─── Phase 3.7 Seeded Templates (pre-filled examples) ───────────
+
+export const PHASE37_SEEDED_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'seed_potty_chart',
+    templateType: 'repeated_action_chart_wizard',
+    name: 'Potty Chart',
+    tagline: 'Classic potty training chart with coloring reveal and milestone celebrations.',
+    description:
+      'A ready-to-deploy potty training chart. The action is "Used the potty!" — each success adds a star and reveals a zone on a coloring page. Set up milestone rewards (every 5 trips, every 10, at completion). Customize the coloring image, step count, and prize list. Deploy to your child in under a minute.',
+    exampleUseCases: [
+      'Potty training for toddlers',
+      'Bathroom independence chart',
+      'Toilet training with visual rewards',
+    ],
+    capability_tags: [
+      'potty_training', 'coloring', 'milestones', 'visual_progress',
+      'rewards', 'setup_wizard', 'repeated_action', 'toddler',
+    ],
+    isExample: true,
+  },
+  {
+    id: 'seed_consequence_spinner',
+    templateType: 'list_reveal_assignment_wizard',
+    name: 'Consequence Spinner',
+    tagline: 'Fair, pre-decided consequences. Spin the wheel — no arguing in the moment.',
+    description:
+      'A consequence spinner the whole family agrees on ahead of time. When a rule is broken, spin the wheel instead of deciding in the heat of the moment. Pre-filled with 8 age-appropriate consequences (extra chores, earlier bedtime, loss of screen time, writing reflection, etc.). Customize for your family values. The spinner reveal animation makes even consequences feel fair.',
+    exampleUseCases: [
+      'Rule-breaking consequences',
+      'Fair discipline decisions',
+      'Pre-agreed consequence list',
+      'No-argument discipline tool',
+    ],
+    capability_tags: [
+      'consequences', 'spinner', 'discipline', 'fairness',
+      'setup_wizard', 'randomizer', 'pre_teaching',
+    ],
+    isExample: true,
+  },
+  {
+    id: 'seed_extra_earning',
+    templateType: 'list_reveal_assignment_wizard',
+    name: 'Extra Earning Opportunities',
+    tagline: 'Bonus jobs kids can claim for money or prizes, with optional celebration reveals.',
+    description:
+      'A ready-to-deploy opportunity board with 6 household jobs ranging from $1 to $5. Kids browse available jobs, claim one, and complete it within the lock window. Mom approves and the reward (money, points, or a reveal animation) fires automatically. Pre-filled with common household tasks — customize amounts, add your own jobs, and pick which kids can see the board.',
+    exampleUseCases: [
+      'Extra chore earning board',
+      'Summer job opportunities',
+      'Weekend bonus tasks',
+      'Allowance supplement jobs',
+    ],
+    capability_tags: [
+      'earning', 'opportunities', 'job_board', 'claim_lock',
+      'family_economy', 'setup_wizard', 'rewards', 'bonus_work',
+    ],
+    isExample: true,
+  },
+]

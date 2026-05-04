@@ -49,7 +49,10 @@ import {
   GAMIFICATION_TEMPLATES,
   GROWTH_TEMPLATES,
   WIZARD_TEMPLATES,
+  PHASE37_WIZARD_TEMPLATES,
+  PHASE37_SEEDED_TEMPLATES,
 } from '@/components/studio/studio-seed-data'
+import { useWizardDraftList, clearWizardDraft } from '@/components/studio/wizards/useWizardDraft'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { RoutineSection } from '@/components/tasks/RoutineSectionEditor'
@@ -74,6 +77,15 @@ import { GetToKnowWizard } from '@/components/studio/wizards/GetToKnowWizard'
 import { RoutineBuilderWizard } from '@/components/studio/wizards/RoutineBuilderWizard'
 import { MeetingSetupWizard } from '@/components/studio/wizards/MeetingSetupWizard'
 import { UniversalListWizard } from '@/components/studio/wizards/UniversalListWizard'
+import { RewardsListWizard } from '@/components/studio/wizards/RewardsListWizard'
+import {
+  ListRevealAssignmentWizard,
+  CONSEQUENCE_SPINNER_PREFILL,
+  EXTRA_EARNING_PREFILL,
+  type ListRevealPreFill,
+} from '@/components/studio/wizards/ListRevealAssignmentWizard'
+import { RepeatedActionChartWizard } from '@/components/studio/wizards/RepeatedActionChartWizard'
+import { NaturalLanguageComposition } from '@/components/studio/NaturalLanguageComposition'
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -269,7 +281,8 @@ export function StudioPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [activeTab, setActiveTab] = useState<'browse' | 'customized'>('browse')
+  const [activeTab, setActiveTab] = useState<'browse' | 'drafts' | 'customized'>('browse')
+  const [draftRefreshKey, setDraftRefreshKey] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [customizedSort, setCustomizedSort] = useState<CustomizedSortKey>('recently_created')
   const [customizedFilter, setCustomizedFilter] = useState<CustomizedFilter>('all')
@@ -318,6 +331,11 @@ export function StudioPage() {
   const [routineBuilderWizardOpen, setRoutineBuilderWizardOpen] = useState(false)
   const [meetingSetupWizardOpen, setMeetingSetupWizardOpen] = useState(false)
   const [listWizardOpen, setListWizardOpen] = useState(false)
+  const [rewardsListWizardOpen, setRewardsListWizardOpen] = useState(false)
+  const [listRevealWizardOpen, setListRevealWizardOpen] = useState(false)
+  const [listRevealPreFill, setListRevealPreFill] = useState<ListRevealPreFill | undefined>(undefined)
+  const [repeatedActionChartWizardOpen, setRepeatedActionChartWizardOpen] = useState(false)
+  const [repeatedActionChartInitial, setRepeatedActionChartInitial] = useState<Record<string, unknown> | undefined>(undefined)
 
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -342,6 +360,8 @@ export function StudioPage() {
     data: customizedTemplates = [],
     isLoading: customizedLoading,
   } = useCustomizedTemplates(family?.id)
+
+  const { drafts: wizardDrafts } = useWizardDraftList(family?.id, draftRefreshKey)
 
   // ── Load routine template sections + steps from DB ─────────
   const loadRoutineTemplate = useCallback(async (templateId: string, templateName: string) => {
@@ -443,6 +463,43 @@ export function StudioPage() {
     }
     if (template.templateType === 'list_wizard') {
       setListWizardOpen(true)
+      return
+    }
+    // Phase 3.7 wizard types
+    if (template.templateType === 'rewards_list_wizard') {
+      setRewardsListWizardOpen(true)
+      return
+    }
+    if (template.templateType === 'list_reveal_assignment_wizard') {
+      if (template.id === 'seed_consequence_spinner') {
+        setListRevealPreFill(CONSEQUENCE_SPINNER_PREFILL)
+      } else if (template.id === 'seed_extra_earning') {
+        setListRevealPreFill(EXTRA_EARNING_PREFILL)
+      } else {
+        setListRevealPreFill(undefined)
+      }
+      setListRevealWizardOpen(true)
+      return
+    }
+    if (template.templateType === 'repeated_action_chart_wizard') {
+      if (template.isExample && template.id === 'seed_potty_chart') {
+        setRepeatedActionChartInitial({
+          chartName: 'Potty Chart',
+          actionTaskName: 'Used the potty!',
+          showStarChart: true,
+          starChartTarget: 50,
+          showColoringReveal: true,
+          coloringStepCount: 10,
+          coloringAutoNext: true,
+          milestones: [
+            { id: 'seed_m1', type: 'every_nth', count: 5, rewardMode: 'rewards_list', rewardsListId: '', customText: '', presentation: 'treasure_box' },
+            { id: 'seed_m2', type: 'on_threshold_cross', count: 50, rewardMode: 'custom_text', rewardsListId: '', customText: 'I DID IT! Shopping trip for big kid underwear!', presentation: 'treasure_box' },
+          ],
+        })
+      } else {
+        setRepeatedActionChartInitial(undefined)
+      }
+      setRepeatedActionChartWizardOpen(true)
       return
     }
 
@@ -572,6 +629,59 @@ export function StudioPage() {
     }
   }, [navigate, loadRoutineTemplate])
 
+  const handleNLCOpenWizard = useCallback((
+    wizardType: 'rewards_list' | 'repeated_action_chart' | 'list_reveal_assignment_opportunity' | 'list_reveal_assignment_draw',
+    preFill: Record<string, unknown>,
+  ) => {
+    if (wizardType === 'rewards_list') {
+      setRewardsListWizardOpen(true)
+    } else if (wizardType === 'repeated_action_chart') {
+      const initial: Record<string, unknown> = {}
+      if (preFill.chartName) initial.chartName = preFill.chartName
+      if (preFill.actionTaskName) initial.actionTaskName = preFill.actionTaskName
+      setRepeatedActionChartInitial(Object.keys(initial).length > 0 ? initial : undefined)
+      setRepeatedActionChartWizardOpen(true)
+    } else if (wizardType === 'list_reveal_assignment_opportunity') {
+      const items = preFill.items as Array<{ name: string; amount?: number }> | undefined
+      const pf: ListRevealPreFill = {
+        flavor: 'opportunity',
+        listName: (preFill.listName as string) ?? '',
+        listDescription: '',
+        items: items
+          ? items.map((i, idx) => ({
+              id: `nlc-${idx}`,
+              name: i.name,
+              description: '',
+              rewardType: 'money' as const,
+              rewardAmount: i.amount ?? 1,
+              requireApproval: true,
+            }))
+          : [],
+      }
+      setListRevealPreFill(pf)
+      setListRevealWizardOpen(true)
+    } else if (wizardType === 'list_reveal_assignment_draw') {
+      const items = preFill.items as string[] | undefined
+      const pf: ListRevealPreFill = {
+        flavor: 'draw',
+        listName: (preFill.listName as string) ?? '',
+        listDescription: '',
+        items: items
+          ? items.map((name, idx) => ({
+              id: `nlc-${idx}`,
+              name,
+              description: '',
+              rewardType: '' as const,
+              rewardAmount: null,
+              requireApproval: false,
+            }))
+          : [],
+      }
+      setListRevealPreFill(pf)
+      setListRevealWizardOpen(true)
+    }
+  }, [])
+
   const handleUseAsIs = useCallback((template: StudioTemplate) => {
     handleCustomize(template)
   }, [handleCustomize])
@@ -620,7 +730,11 @@ export function StudioPage() {
     [searchQuery],
   )
   const wizardFiltered = useMemo(
-    () => WIZARD_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
+    () => [...WIZARD_TEMPLATES, ...PHASE37_WIZARD_TEMPLATES].filter(t => matchesSearch(t, searchQuery)),
+    [searchQuery],
+  )
+  const phase37SeededFiltered = useMemo(
+    () => PHASE37_SEEDED_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
     [searchQuery],
   )
 
@@ -634,7 +748,8 @@ export function StudioPage() {
     listExamplesFiltered.length === 0 &&
     gamificationFiltered.length === 0 &&
     growthFiltered.length === 0 &&
-    wizardFiltered.length === 0
+    wizardFiltered.length === 0 &&
+    phase37SeededFiltered.length === 0
 
   // ── Customized tab: sort + filter ────────────────────────────
 
@@ -668,6 +783,12 @@ export function StudioPage() {
 
   const tabs: TabItem[] = [
     { key: 'browse', label: 'Browse Templates' },
+    {
+      key: 'drafts',
+      label: wizardDrafts.length > 0
+        ? `Drafts (${wizardDrafts.length})`
+        : 'Drafts',
+    },
     {
       key: 'customized',
       label: customizedTemplates.length > 0
@@ -708,7 +829,10 @@ export function StudioPage() {
           <Tabs
             tabs={tabs}
             activeKey={activeTab}
-            onChange={key => setActiveTab(key as 'browse' | 'customized')}
+            onChange={key => {
+              setActiveTab(key as 'browse' | 'drafts' | 'customized')
+              if (key === 'drafts') setDraftRefreshKey(k => k + 1)
+            }}
           />
         </div>
         {activeTab === 'browse' && (
@@ -721,6 +845,14 @@ export function StudioPage() {
       {/* ── Browse Templates tab ─────────────────────────────── */}
       {activeTab === 'browse' && (
         <div>
+          {/* Natural Language Composition — Convention 253 */}
+          {!searchQuery.trim() && (
+            <NaturalLanguageComposition
+              familyMemberNames={familyMembers.filter(m => m.is_active).map(m => m.display_name)}
+              onOpenWizard={handleNLCOpenWizard}
+            />
+          )}
+
           {noSearchResults ? (
             <EmptyState
               icon={<Palette size={32} style={{ color: 'var(--color-text-secondary)' }} />}
@@ -812,16 +944,122 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 7. Setup Wizards — guided multi-step flows */}
-              {wizardFiltered.length > 0 && (
+              {/* 7. Setup Wizards — guided multi-step flows (includes Phase 3.7) */}
+              {(wizardFiltered.length > 0 || phase37SeededFiltered.length > 0) && (
                 <StudioCategorySection
                   title="Setup Wizards"
                   templates={wizardFiltered}
+                  exampleTemplates={phase37SeededFiltered}
                   onCustomize={handleCustomize}
+                  onUseAsIs={handleUseAsIs}
                   defaultCollapsed={false}
+                  showExamplesFirst
                 />
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* ── Drafts tab ────────────────────────────────────────── */}
+      {activeTab === 'drafts' && (
+        <div>
+          {wizardDrafts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {wizardDrafts.map((draft) => {
+                const WIZARD_TYPE_LABELS: Record<string, string> = {
+                  rewards_list: 'Rewards List',
+                  repeated_action_chart: 'Progress Chart',
+                  list_reveal_assignment: 'Opportunities / Spinner',
+                }
+                return (
+                  <div
+                    key={`${draft.wizardType}-${draft.draftId}`}
+                    className="rounded-xl border p-4"
+                    style={{
+                      backgroundColor: 'var(--color-bg-card)',
+                      borderColor: 'var(--color-border)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p
+                          className="font-semibold text-sm"
+                          style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
+                        >
+                          {draft.title === 'Untitled' ? `Untitled ${WIZARD_TYPE_LABELS[draft.wizardType] ?? 'Wizard'}` : draft.title}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                          {WIZARD_TYPE_LABELS[draft.wizardType] ?? draft.wizardType}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[10px] rounded-full px-2 py-0.5"
+                        style={{
+                          backgroundColor: 'var(--color-bg-secondary)',
+                          color: 'var(--color-text-secondary)',
+                        }}
+                      >
+                        Draft
+                      </span>
+                    </div>
+                    {draft.lastSaved && (
+                      <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                        Last saved {new Date(draft.lastSaved).toLocaleDateString()} at{' '}
+                        {new Date(draft.lastSaved).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (draft.wizardType === 'rewards_list') {
+                            setRewardsListWizardOpen(true)
+                          } else if (draft.wizardType === 'list_reveal_assignment') {
+                            setListRevealPreFill(undefined)
+                            setListRevealWizardOpen(true)
+                          } else if (draft.wizardType === 'repeated_action_chart') {
+                            setRepeatedActionChartInitial(undefined)
+                            setRepeatedActionChartWizardOpen(true)
+                          }
+                        }}
+                        className="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors"
+                        style={{
+                          backgroundColor: 'var(--color-btn-primary-bg)',
+                          color: 'var(--color-btn-primary-text)',
+                        }}
+                      >
+                        Resume
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Discard this draft? This can\'t be undone.')) {
+                            clearWizardDraft(draft.wizardType, family?.id ?? '', draft.draftId)
+                            setDraftRefreshKey(k => k + 1)
+                          }
+                        }}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-secondary)',
+                          backgroundColor: 'transparent',
+                        }}
+                      >
+                        Discard
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Palette size={32} style={{ color: 'var(--color-text-secondary)' }} />}
+              title="No drafts in progress"
+              description="Start a wizard from the Browse tab — you can save and come back anytime."
+              action={
+                <button onClick={() => setActiveTab('browse')} style={{ cursor: 'pointer' }}>Browse Templates</button>
+              }
+            />
           )}
         </div>
       )}
@@ -1264,6 +1502,38 @@ export function StudioPage() {
         <UniversalListWizard
           isOpen={listWizardOpen}
           onClose={() => setListWizardOpen(false)}
+        />
+      )}
+
+      {rewardsListWizardOpen && family?.id && member?.id && (
+        <RewardsListWizard
+          isOpen={rewardsListWizardOpen}
+          onClose={() => { setRewardsListWizardOpen(false); setDraftRefreshKey(k => k + 1) }}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
+        />
+      )}
+
+      {listRevealWizardOpen && family?.id && member?.id && (
+        <ListRevealAssignmentWizard
+          isOpen={listRevealWizardOpen}
+          onClose={() => { setListRevealWizardOpen(false); setListRevealPreFill(undefined); setDraftRefreshKey(k => k + 1) }}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
+          preFill={listRevealPreFill}
+        />
+      )}
+
+      {repeatedActionChartWizardOpen && family?.id && member?.id && (
+        <RepeatedActionChartWizard
+          isOpen={repeatedActionChartWizardOpen}
+          onClose={() => { setRepeatedActionChartWizardOpen(false); setRepeatedActionChartInitial(undefined); setDraftRefreshKey(k => k + 1) }}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
+          initialState={repeatedActionChartInitial}
         />
       )}
     </div>

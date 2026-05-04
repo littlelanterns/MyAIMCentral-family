@@ -25,6 +25,13 @@ import { ConfettiBurst } from '@/components/shared/ConfettiBurst'
 import { FeatureIcon } from '@/components/shared/FeatureIcon'
 import { Gift } from 'lucide-react'
 import type { ResolvedReveal } from '@/types/reward-reveals'
+import {
+  CardFlipReveal,
+  SpinnerWheelReveal,
+  ThreeDoorsReveal,
+  ScratchOffReveal,
+  type RevealContent,
+} from '@/components/gamification/reveals'
 
 interface RewardRevealModalProps {
   /** The fully resolved reveal (animation + prize) from useCheckRevealTrigger */
@@ -147,9 +154,14 @@ export function RewardRevealModal({
         />
       )}
 
-      {/* CSS reveal placeholder */}
+      {/* CSS reveal */}
       {isCss && !showCard && (
-        <CssRevealRenderer cssComponent={animation.css_component} />
+        <CssRevealRenderer
+          cssComponent={animation.css_component}
+          onComplete={() => setShowCard(true)}
+          onDismiss={() => setShowCard(true)}
+          prizeText={prize.prize_text ?? undefined}
+        />
       )}
 
       {/* Prize card — slides in from bottom */}
@@ -304,40 +316,67 @@ function PrizeCardContent({
   )
 }
 
-// ── CSS reveal component renderer (placeholder for spinner/card_flip/door_open) ──
+// ── CSS reveal component renderer ──────────────────────────────────────────────
+// Maps reveal_animations.css_component values to actual React components.
+// DB values: 'RandomizerSpinner', 'CardFlipReveal', 'DoorOpenReveal'
 
 function CssRevealRenderer({
   cssComponent,
+  onComplete,
+  onDismiss,
+  prizeText,
 }: {
   cssComponent: string | null
+  onComplete?: () => void
+  onDismiss?: () => void
+  prizeText?: string
 }) {
-  // CSS reveals are named components (RandomizerSpinner, CardFlipReveal, DoorOpenReveal).
-  // For now, render a generic animation. Phase 4 or later can wire the named components.
-  return (
-    <div
-      data-css-reveal={cssComponent ?? undefined}
-      style={{
-        width: 'min(80vw, 300px)',
-        height: 'min(80vw, 300px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 'var(--vibe-radius-card, 1rem)',
-        backgroundColor: 'var(--color-bg-card)',
-        border: '2px solid var(--color-border-accent, var(--color-btn-primary-bg))',
-        animation: 'cssRevealPulse 1.5s ease-in-out infinite',
-      }}
-    >
-      <Gift
-        size={64}
-        style={{ color: 'var(--color-btn-primary-bg)', opacity: 0.8 }}
-      />
-      <style>{`
-        @keyframes cssRevealPulse {
-          0%, 100% { transform: scale(1); opacity: 0.8; }
-          50% { transform: scale(1.05); opacity: 1; }
-        }
-      `}</style>
-    </div>
-  )
+  const content: RevealContent = {
+    title: prizeText || 'Surprise!',
+  }
+
+  switch (cssComponent) {
+    case 'CardFlipReveal':
+      return <CardFlipReveal content={content} onComplete={onComplete} onDismiss={onDismiss} />
+    case 'DoorOpenReveal':
+      return <ThreeDoorsReveal content={content} onComplete={onComplete} onDismiss={onDismiss} />
+    case 'RandomizerSpinner':
+      return (
+        <SpinnerWheelReveal
+          content={content}
+          onComplete={onComplete}
+          onDismiss={onDismiss}
+        />
+      )
+    case 'ScratchOffReveal':
+      return <ScratchOffReveal content={content} onComplete={onComplete} onDismiss={onDismiss} />
+    default:
+      return (
+        <div
+          data-css-reveal={cssComponent ?? undefined}
+          style={{
+            width: 'min(80vw, 300px)',
+            height: 'min(80vw, 300px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--vibe-radius-card, 1rem)',
+            backgroundColor: 'var(--color-bg-card)',
+            border: '2px solid var(--color-border-accent, var(--color-btn-primary-bg))',
+            animation: 'cssRevealPulse 1.5s ease-in-out infinite',
+          }}
+        >
+          <Gift
+            size={64}
+            style={{ color: 'var(--color-btn-primary-bg)', opacity: 0.8 }}
+          />
+          <style>{`
+            @keyframes cssRevealPulse {
+              0%, 100% { transform: scale(1); opacity: 0.8; }
+              50% { transform: scale(1.05); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )
+  }
 }

@@ -29,7 +29,7 @@ export function StudioSearch({ value, onChange, placeholder = 'Search templatesâ
         style={{ color: 'var(--color-text-secondary)' }}
       />
       <input
-        type="text"
+        type="search"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
