@@ -131,10 +131,12 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
       // 2. Routine tasks for this kid (including shared via task_assignments).
       // For past periods, include routines that were archived AFTER the period
       // started — they were active during that period even if archived now.
+      // Then client-side filter to only routines whose active date range
+      // (dtstart..until) overlaps the viewed period.
       const isCurrentPeriod = !selectedPeriodId
       let directQuery = supabase
         .from('tasks')
-        .select('id, title, template_id, is_shared')
+        .select('id, title, template_id, is_shared, created_at, recurrence_details')
         .eq('assignee_id', memberId)
         .eq('task_type', 'routine')
       if (isCurrentPeriod) {
@@ -157,7 +159,7 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         if (missing.length > 0) {
           let sharedQuery = supabase
             .from('tasks')
-            .select('id, title, template_id, is_shared')
+            .select('id, title, template_id, is_shared, created_at, recurrence_details')
             .in('id', missing)
             .eq('task_type', 'routine')
           if (isCurrentPeriod) {
@@ -169,7 +171,24 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
           extraShared = extra ?? []
         }
       }
-      const taskList = [...directList, ...extraShared]
+
+      // Filter to only routines that were active during this period:
+      // - created before the period ended
+      // - dtstart (if set) is on or before the period end
+      // - until (if set) is on or after the period start
+      const allTasks = [...directList, ...extraShared]
+      const taskList = allTasks.filter(t => {
+        const createdDate = t.created_at ? (t.created_at as string).slice(0, 10) : '2020-01-01'
+        if (createdDate > periodEnd) return false
+        const details = t.recurrence_details as Record<string, unknown> | null
+        if (details) {
+          const dtstart = details.dtstart as string | undefined
+          if (dtstart && dtstart > periodEnd) return false
+          const until = details.until as string | undefined
+          if (until && until < periodStart) return false
+        }
+        return true
+      })
       const templateIds = taskList.map(t => t.template_id).filter((x): x is string => !!x)
 
       // 3. Sections for those templates
