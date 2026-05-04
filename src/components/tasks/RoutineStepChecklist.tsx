@@ -823,24 +823,33 @@ export function isSectionActiveToday(
 }
 
 /**
- * Derive the union of all frequency_days across a routine's sections.
- * Used to bound show_until_complete carry-forward to the routine's active range.
+ * Derive the carry-forward boundary from the routine's BROADEST section —
+ * the section with the most scheduled days. show_until_complete only carries
+ * forward to days within this boundary.
+ *
+ * Why broadest, not union? A routine with "Every Day (Mon-Sat)" [1-6] plus
+ * "Sunday" [0] has a union of all 7 days. But Monday's unfinished work should
+ * NOT carry forward to Sunday — Sunday is a rest day with its own minimal
+ * section. The broadest section (Mon-Sat, 6 days) defines the "work cycle."
+ * Days outside it don't inherit carry-forward from inside it.
  */
 export function deriveRoutineActiveDays(sections: RoutineSection[]): Set<number> {
-  const days = new Set<number>()
+  let broadest: number[] = []
   for (const s of sections) {
     if (!s.frequency_rule || s.frequency_rule === 'daily') {
-      // daily = all 7 days, so no bounding effect
       return new Set([0, 1, 2, 3, 4, 5, 6])
     }
+    let sectionDays: number[] = []
     if (s.frequency_rule === 'weekdays') {
-      for (let d = 1; d <= 5; d++) days.add(d)
+      sectionDays = [1, 2, 3, 4, 5]
+    } else if (s.frequency_days) {
+      sectionDays = s.frequency_days.map(Number)
     }
-    if (s.frequency_days) {
-      for (const d of s.frequency_days) days.add(Number(d))
+    if (sectionDays.length > broadest.length) {
+      broadest = sectionDays
     }
   }
-  return days
+  return new Set(broadest)
 }
 
 // ─── Main Component ─────────────────────────────────────────
