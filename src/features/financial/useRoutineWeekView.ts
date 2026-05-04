@@ -141,6 +141,8 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         .eq('task_type', 'routine')
       if (isCurrentPeriod) {
         directQuery = directQuery.is('archived_at', null)
+      } else {
+        directQuery = directQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
       }
       const { data: directTasks } = await directQuery
 
@@ -162,6 +164,8 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
             .eq('task_type', 'routine')
           if (isCurrentPeriod) {
             sharedQuery = sharedQuery.is('archived_at', null)
+          } else {
+            sharedQuery = sharedQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
           }
           const { data: extra } = await sharedQuery
           extraShared = extra ?? []
