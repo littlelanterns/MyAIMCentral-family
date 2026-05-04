@@ -1,4 +1,4 @@
-# Convention #14 enforcement — doc/code sync check
+# Convention #14 enforcement — doc/code sync check (v2)
 #
 # Purpose
 # -------
@@ -8,6 +8,17 @@
 # timestamps stay in sync with the build cadence. Pre-commit hooks can
 # be bypassed with --no-verify; local ceremony drifts. This workflow
 # runs remotely, cannot be bypassed, and adds zero local friction.
+#
+# v2 changes (2026-05-04, founder-approved)
+# ------------------------------------------
+# - ONE open issue at a time: checks for existing open doc-drift issue
+#   before creating. If one exists, adds a comment with the new commit
+#   info instead of opening a duplicate.
+# - Commit message escape hatch: [drift-ok] in the commit message skips
+#   the check entirely for intentional small fixes (dependency sync,
+#   typo fix, CSS tweak) that don't need build doc tracking.
+# - Result: the alarm bell still rings when build docs fall behind, but
+#   it rings once instead of 65 times.
 #
 # Behavior
 # --------
@@ -19,9 +30,10 @@
 #   pattern doesn't match the file (first-run self-correction).
 #
 # - Non-correctable drift (code/migration change without a matching
-#   .claude/rules/current-builds/*.md update): workflow opens a tracking
-#   issue with the `doc-drift` label. Template is founder-specified
-#   (baked in below; do NOT edit without founder sign-off).
+#   .claude/rules/current-builds/*.md update): workflow opens ONE
+#   tracking issue with the `doc-drift` label. Subsequent commits
+#   without doc updates add comments to the existing issue instead
+#   of opening new ones. The issue accumulates a running log.
 #
 # - Stub-related changes (STUB_REGISTRY.md touched): log-only in v1.
 #   Per RECON_DECISIONS_RESOLVED.md Decision 3, stub-type taxonomy
@@ -39,16 +51,8 @@
 # Permissions rationale
 # ---------------------
 # - contents: write  — auto-commit BUILD_STATUS.md timestamp
-# - issues: write    — create doc-drift tracking issues
-# - pull-requests: read — scoped for v2 PR-linking enhancement (unused
-#   in v1; kept because dropping it later is safer than adding it).
-#
-# Repo-level settings this depends on (confirmed 2026-04-17):
-# - Settings → Actions → General → Workflow permissions: "Read and
-#   write permissions" enabled.
-# - Branch protection on `main`: none. Direct push from the bot works.
-#   If protection is added later, the auto-commit step must switch
-#   to a PR-open pattern.
+# - issues: write    — create/comment doc-drift tracking issues
+# - pull-requests: read — scoped for future PR-linking enhancement
 
 name: Enforce Convention #14
 
@@ -64,10 +68,12 @@ permissions:
 jobs:
   check:
     name: Doc/code sync check
-    # Loop guard: skip bot-authored commits and auto-update follow-ups.
+    # Loop guard: skip bot-authored commits, auto-update follow-ups,
+    # and commits with [drift-ok] escape hatch.
     if: >
       github.event.head_commit.author.name != 'github-actions[bot]' &&
-      !startsWith(github.event.head_commit.message, 'docs: auto-update')
+      !startsWith(github.event.head_commit.message, 'docs: auto-update') &&
+      !contains(github.event.head_commit.message, '[drift-ok]')
     runs-on: ubuntu-latest
     env:
       # Pass untrusted commit metadata via env vars, not inline ${{ }}
@@ -79,10 +85,6 @@ jobs:
       - name: Checkout with full history
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 gives full history so we can diff against
-          # github.event.before (pre-push tip of main). HEAD^ would only
-          # compare the final commit of a multi-commit push — missing
-          # intermediate commits in the same push.
           fetch-depth: 0
 
       - name: Detect changed files
@@ -92,9 +94,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # github.event.before is 0000...0000 on branch creation. Treat
-          # branch creation as "no previous state to compare against" —
-          # skip the check silently (branch creation isn't a drift risk).
           ZERO_SHA="0000000000000000000000000000000000000000"
           if [ "$BEFORE_SHA" = "$ZERO_SHA" ] || [ -z "$BEFORE_SHA" ]; then
             echo "Branch creation or missing before-SHA — skipping drift check."
@@ -125,7 +124,6 @@ jobs:
           echo "build_status_updated=$BUILD_STATUS" >> "$GITHUB_OUTPUT"
           echo "stub_registry_updated=$STUB" >> "$GITHUB_OUTPUT"
 
-          # Multi-line output for issue-body embedding (cap at 50 lines).
           {
             echo "changed_files<<__FILE_LIST_EOF__"
             echo "$CHANGED" | head -50
@@ -137,12 +135,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Phase-completion heuristics (founder-specified, 2026-04-17).
-          # Lowercase conventional-commit prefixes: feat(prd-, feat(phase-,
-          # feat(build-, complete(prd-, complete(phase-, complete(build-.
-          # Strong signal: literal "SIGNED OFF" anywhere in the message.
-          # False positives (issue gets opened, founder closes) are harmless.
-          # False negatives (missed drift) are what we're preventing.
           MSG_LOWER="${COMMIT_MESSAGE,,}"
           IS_PHASE=false
           case "$MSG_LOWER" in
@@ -155,7 +147,7 @@ jobs:
           echo "is_phase_completion=$IS_PHASE" >> "$GITHUB_OUTPUT"
           echo "Phase-completion signal: $IS_PHASE"
 
-      - name: Open doc-drift issue (non-correctable)
+      - name: Track doc-drift (single-issue, deduplicated)
         if: >
           steps.changes.outputs.code_changed == 'true' &&
           steps.changes.outputs.build_doc_updated == 'false'
@@ -175,36 +167,68 @@ jobs:
           SHORT_SHA="${COMMIT_ID:0:7}"
           FIRST_LINE=$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)
 
-          # Founder-specified issue body template (2026-04-17).
-          # Do NOT modify without founder sign-off.
-          # Backticks in the heredoc are escaped (\`) because this is
-          # an unquoted heredoc that expands $VARS.
-          BODY_FILE=$(mktemp)
-          cat > "$BODY_FILE" <<EOF
-          **Convention #14 violation detected**
+          # Check for an existing open doc-drift issue.
+          EXISTING_ISSUE=$(gh issue list \
+            --label "doc-drift" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING_ISSUE" ]; then
+            # Add a comment to the existing issue instead of opening a new one.
+            COMMENT_FILE=$(mktemp)
+            cat > "$COMMENT_FILE" <<EOF
+          **Additional commit without doc update**
 
           Commit: $COMMIT_ID ($SHORT_SHA)
           Author: $COMMIT_AUTHOR
           Message: $FIRST_LINE
 
-          Code/migration files changed:
+          Changed files:
+          \`\`\`
+          $CHANGED_FILES
+          \`\`\`
+          EOF
+
+            gh issue comment "$EXISTING_ISSUE" --body-file "$COMMENT_FILE"
+            echo "::warning::Doc-drift comment added to issue #$EXISTING_ISSUE for commit $SHORT_SHA"
+          else
+            # No open issue — create one.
+            BODY_FILE=$(mktemp)
+            cat > "$BODY_FILE" <<EOF
+          **Convention #14 — build docs falling behind**
+
+          Code or migration changes are landing without corresponding updates to the active build doc in \`.claude/rules/current-builds/\`.
+
+          This issue stays open and accumulates commits until the build docs are updated. When you push a commit that includes a build doc update, close this issue.
+
+          ---
+
+          **First detected commit:**
+          Commit: $COMMIT_ID ($SHORT_SHA)
+          Author: $COMMIT_AUTHOR
+          Message: $FIRST_LINE
+
+          Changed files:
           \`\`\`
           $CHANGED_FILES
           \`\`\`
 
-          No corresponding update detected in \`.claude/rules/current-builds/\`.
+          ---
 
-          **Resolution:** Either (a) update the active build doc in \`.claude/rules/current-builds/\` and push a follow-up commit, or (b) if this commit was scope-bleed not tracked by an active build, document the deviation in \`STUB_REGISTRY.md\` and close this issue with explanation.
+          **Resolution:** Update the active build doc in \`.claude/rules/current-builds/\` and close this issue. For commits that intentionally don't need doc tracking (dependency sync, typo fix), include \`[drift-ok]\` in the commit message.
 
           Auto-generated by \`.github/workflows/enforce-convention-14.yml\`.
           EOF
 
-          gh issue create \
-            --title "Doc drift detected in $SHORT_SHA" \
-            --label "doc-drift" \
-            --body-file "$BODY_FILE"
+            gh issue create \
+              --title "Build docs falling behind — doc-drift detected" \
+              --label "doc-drift" \
+              --body-file "$BODY_FILE"
 
-          echo "::warning::Doc-drift issue opened for commit $SHORT_SHA"
+            echo "::warning::Doc-drift issue opened for commit $SHORT_SHA"
+          fi
 
       - name: Auto-commit BUILD_STATUS timestamp bump
         if: >
@@ -222,14 +246,10 @@ jobs:
 
           TODAY=$(date -u '+%Y-%m-%d')
 
-          # Attempt to patch the timestamp line. Tolerant regex — matches
-          # "Last updated: YYYY-MM-DD" with optional blockquote prefix,
-          # optional bold markers, and colon-or-space separator. If no
-          # line matches, git diff --quiet catches it and we no-op.
           sed -i -E "s/^(> ?\*?\*?Last [Uu]pdated:?\*?\*?[[:space:]]*)[0-9]{4}-[0-9]{2}-[0-9]{2}.*$/\1$TODAY/" BUILD_STATUS.md || true
 
           if git diff --quiet BUILD_STATUS.md; then
-            echo "BUILD_STATUS.md unchanged after sed attempt — either no matching timestamp line, or already today's date. No follow-up commit needed."
+            echo "BUILD_STATUS.md unchanged after sed attempt — no follow-up commit needed."
             exit 0
           fi
 
@@ -244,4 +264,4 @@ jobs:
         if: steps.changes.outputs.stub_registry_updated == 'true'
         shell: bash
         run: |
-          echo "::notice::STUB_REGISTRY.md modified in commit ${COMMIT_ID:0:7}. v1 of this workflow logs only; v2 will parse and validate entries once stub-type taxonomy is formalized (RECON_DECISIONS_RESOLVED.md Decision 3 followup)."
+          echo "::notice::STUB_REGISTRY.md modified in commit ${COMMIT_ID:0:7}. v1 logs only; v2 will parse and validate."
