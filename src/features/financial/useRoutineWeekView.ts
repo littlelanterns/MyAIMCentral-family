@@ -63,24 +63,57 @@ export interface WeekViewData {
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export function useRoutineWeekView(memberId: string | undefined, todayIso: string) {
+export function useAllowancePeriods(memberId: string | undefined) {
   return useQuery({
-    queryKey: ['routine-week-view', memberId, todayIso],
+    queryKey: ['allowance-periods-list', memberId],
+    enabled: !!memberId,
+    queryFn: async () => {
+      if (!memberId) return []
+      const { data } = await supabase
+        .from('allowance_periods')
+        .select('id, period_start, period_end, status')
+        .eq('family_member_id', memberId)
+        .order('period_start', { ascending: false })
+        .limit(20)
+      return (data ?? []) as Array<{ id: string; period_start: string; period_end: string; status: string }>
+    },
+  })
+}
+
+export function useRoutineWeekView(memberId: string | undefined, todayIso: string, selectedPeriodId?: string | null) {
+  return useQuery({
+    queryKey: ['routine-week-view', memberId, todayIso, selectedPeriodId ?? 'active'],
     enabled: !!memberId && !!todayIso,
     queryFn: async (): Promise<WeekViewData | null> => {
       if (!memberId) return null
 
-      // 1. Active period — fall back to last 7 days when no allowance configured
-      const { data: period } = await supabase
-        .from('allowance_periods')
-        .select('id, period_start, period_end')
-        .eq('family_member_id', memberId)
-        .in('status', ['active', 'makeup_window'])
-        .order('period_start', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      // 1. Load the requested period, or fall back to active period, or last 7 days
+      type PeriodRow = { id: string; period_start: string; period_end: string }
+      let period: PeriodRow | null = null
 
-      let periodId: string | null = period?.id as string | null ?? null
+      if (selectedPeriodId) {
+        const { data } = await supabase
+          .from('allowance_periods')
+          .select('id, period_start, period_end')
+          .eq('id', selectedPeriodId)
+          .eq('family_member_id', memberId)
+          .maybeSingle()
+        period = data as PeriodRow | null
+      }
+
+      if (!period) {
+        const { data } = await supabase
+          .from('allowance_periods')
+          .select('id, period_start, period_end')
+          .eq('family_member_id', memberId)
+          .in('status', ['active', 'makeup_window'])
+          .order('period_start', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        period = data as PeriodRow | null
+      }
+
+      let periodId: string | null = period?.id ?? null
       let periodStart: string
       let periodEnd: string
       if (period) {

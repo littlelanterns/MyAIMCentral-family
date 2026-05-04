@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-03
+> Auto-generated from live Supabase on 2026-05-04
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -39,6 +39,7 @@
 | 20 | `setup_completed` |
 | 21 | `hub_config` |
 | 22 | `family_photo_url` |
+| 23 | `allowance_dispatch_via` |
 
 ### `family_members` — 18 rows
 
@@ -122,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 313 rows
+### `view_as_sessions` — 330 rows
 
 | # | Column |
 |---|---|
@@ -133,7 +134,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 206 rows
+### `view_as_feature_exclusions` — 217 rows
 
 | # | Column |
 |---|---|
@@ -391,7 +392,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 632 rows
+### `ai_usage_tracking` — 633 rows
 
 | # | Column |
 |---|---|
@@ -497,7 +498,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 61 rows
+### `journal_entries` — 64 rows
 
 | # | Column |
 |---|---|
@@ -578,7 +579,7 @@
 
 ## Tasks & Studio (PRD-09A, PRD-09B, PRD-17)
 
-### `task_templates` — 21 rows
+### `task_templates` — 20 rows
 
 | # | Column |
 |---|---|
@@ -625,7 +626,7 @@
 | 41 | `is_extra_credit` |
 | 42 | `life_area_tags` |
 
-### `task_template_sections` — 52 rows
+### `task_template_sections` — 44 rows
 
 | # | Column |
 |---|---|
@@ -640,7 +641,7 @@
 | 9 | `show_until_complete` |
 | 10 | `updated_at` |
 
-### `task_template_steps` — 228 rows
+### `task_template_steps` — 192 rows
 
 | # | Column |
 |---|---|
@@ -710,39 +711,38 @@
 | 45 | `completion_note` |
 | 46 | `completed_at` |
 | 47 | `source_reference_id` |
-| 48 | `related_intention_id` |
-| 49 | `focus_time_seconds` |
-| 50 | `archived_at` |
-| 51 | `time_tracking_enabled` |
-| 52 | `time_threshold_minutes` |
-| 53 | `linked_list_id` |
-| 54 | `list_delivery_mode` |
-| 55 | `advancement_mode` |
-| 56 | `practice_target` |
-| 57 | `practice_count` |
-| 58 | `mastery_status` |
-| 59 | `mastery_submitted_at` |
-| 60 | `mastery_approved_by` |
-| 61 | `mastery_approved_at` |
-| 62 | `require_mastery_approval` |
-| 63 | `require_mastery_evidence` |
-| 64 | `track_duration` |
-| 65 | `resource_url` |
-| 66 | `carry_forward_override` |
-| 67 | `icon_asset_key` |
-| 68 | `icon_variant` |
-| 69 | `task_segment_id` |
-| 70 | `counts_for_allowance` |
-| 71 | `counts_for_homework` |
-| 72 | `counts_for_gamification` |
-| 73 | `allowance_points` |
-| 74 | `homework_subject_ids` |
-| 75 | `is_extra_credit` |
-| 76 | `track_progress` |
-| 77 | `in_progress_member_id` |
-| 78 | `instantiation_mode` |
-| 79 | `collaboration_mode` |
-| 80 | `life_area_tags` |
+| 48 | `focus_time_seconds` |
+| 49 | `archived_at` |
+| 50 | `time_tracking_enabled` |
+| 51 | `time_threshold_minutes` |
+| 52 | `linked_list_id` |
+| 53 | `list_delivery_mode` |
+| 54 | `advancement_mode` |
+| 55 | `practice_target` |
+| 56 | `practice_count` |
+| 57 | `mastery_status` |
+| 58 | `mastery_submitted_at` |
+| 59 | `mastery_approved_by` |
+| 60 | `mastery_approved_at` |
+| 61 | `require_mastery_approval` |
+| 62 | `require_mastery_evidence` |
+| 63 | `track_duration` |
+| 64 | `resource_url` |
+| 65 | `carry_forward_override` |
+| 66 | `icon_asset_key` |
+| 67 | `icon_variant` |
+| 68 | `task_segment_id` |
+| 69 | `counts_for_allowance` |
+| 70 | `counts_for_homework` |
+| 71 | `counts_for_gamification` |
+| 72 | `allowance_points` |
+| 73 | `homework_subject_ids` |
+| 74 | `is_extra_credit` |
+| 75 | `track_progress` |
+| 76 | `in_progress_member_id` |
+| 77 | `instantiation_mode` |
+| 78 | `collaboration_mode` |
+| 79 | `life_area_tags` |
 
 ### `task_assignments` — 39 rows
 
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 617 rows
+### `routine_step_completions` — 625 rows
 
 | # | Column |
 |---|---|
@@ -2472,7 +2472,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 192 rows
+### `activity_log_entries` — 204 rows
 
 | # | Column |
 |---|---|
@@ -2601,6 +2601,40 @@
 | 27 | `bonus_type` |
 | 28 | `bonus_flat_amount` |
 
+### `allowance_dispatch_audit` — 4 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `period_id` |
+| 5 | `legacy_completion_percentage` |
+| 6 | `legacy_calculated_amount` |
+| 7 | `legacy_bonus_applied` |
+| 8 | `legacy_bonus_amount` |
+| 9 | `legacy_total_earned` |
+| 10 | `connector_completion_percentage` |
+| 11 | `connector_calculated_amount` |
+| 12 | `connector_bonus_applied` |
+| 13 | `connector_bonus_amount` |
+| 14 | `connector_total_earned` |
+| 15 | `match_status` |
+| 16 | `mismatch_details` |
+| 17 | `created_at` |
+
+### `allowance_godmother_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `pool_name` |
+| 4 | `weight_override` |
+| 5 | `include_in_denominator` |
+| 6 | `is_extra_credit` |
+| 7 | `created_at` |
+
 ### `allowance_periods` — 14 rows
 
 | # | Column |
@@ -2630,6 +2664,20 @@
 | 23 | `closed_early` |
 | 24 | `created_at` |
 | 25 | `updated_at` |
+
+### `assign_task_godmother_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `template_id` |
+| 4 | `task_title` |
+| 5 | `task_description` |
+| 6 | `assignment_mode` |
+| 7 | `specific_member_id` |
+| 8 | `due_date_offset_days` |
+| 9 | `created_at` |
 
 ### `beta_glitch_reports` — 71 rows
 
@@ -2753,6 +2801,74 @@
 | 6 | `sort_order` |
 | 7 | `created_at` |
 
+### `contract_grant_log` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `deed_firing_id` |
+| 4 | `contract_id` |
+| 5 | `godmother_type` |
+| 6 | `status` |
+| 7 | `grant_reference` |
+| 8 | `error_message` |
+| 9 | `metadata` |
+| 10 | `created_at` |
+| 11 | `family_member_id` |
+| 12 | `presentation_mode` |
+| 13 | `animation_slug` |
+| 14 | `revealed_at` |
+
+### `contracts` — 46 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `created_by` |
+| 4 | `created_at` |
+| 5 | `updated_at` |
+| 6 | `status` |
+| 7 | `deleted_at` |
+| 8 | `archived_at` |
+| 9 | `source_type` |
+| 10 | `source_id` |
+| 11 | `source_category` |
+| 12 | `family_member_id` |
+| 13 | `if_pattern` |
+| 14 | `if_n` |
+| 15 | `if_floor` |
+| 16 | `if_window_kind` |
+| 17 | `if_window_starts_at` |
+| 18 | `if_window_ends_at` |
+| 19 | `if_calendar_pattern` |
+| 20 | `if_offset` |
+| 21 | `godmother_type` |
+| 22 | `godmother_config_id` |
+| 23 | `payload_amount` |
+| 24 | `payload_text` |
+| 25 | `payload_config` |
+| 26 | `stroke_of` |
+| 27 | `stroke_of_time` |
+| 28 | `recurrence_details` |
+| 29 | `inheritance_level` |
+| 30 | `override_mode` |
+| 31 | `presentation_mode` |
+| 32 | `presentation_config` |
+
+### `custom_reward_godmother_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `delivery_mode` |
+| 4 | `reward_text` |
+| 5 | `reward_list_id` |
+| 6 | `display_icon` |
+| 7 | `created_at` |
+
 ### `daily_holidays` — 1502 rows
 
 | # | Column |
@@ -2785,6 +2901,22 @@
 | 7 | `metadata` |
 | 8 | `idempotency_key` |
 | 9 | `created_at` |
+
+### `deferred_grants` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `contract_id` |
+| 4 | `deed_firing_id` |
+| 5 | `family_member_id` |
+| 6 | `stroke_of` |
+| 7 | `stroke_of_time` |
+| 8 | `scheduled_for` |
+| 9 | `status` |
+| 10 | `granted_at` |
+| 11 | `created_at` |
 
 ### `earned_prizes` — 0 rows
 
@@ -2830,7 +2962,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 8 rows
+### `financial_transactions` — 9 rows
 
 | # | Column |
 |---|---|
@@ -3147,7 +3279,8 @@
 | 18 | `is_active` |
 | 19 | `created_at` |
 | 20 | `updated_at` |
-| 21 | `earning_task_id` |
+| 21 | `earning_source_type` |
+| 22 | `earning_source_id` |
 
 ### `member_creature_collection` — 0 rows
 
@@ -3267,6 +3400,20 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
+### `points_godmother_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `base_points` |
+| 4 | `streak_bonus_enabled` |
+| 5 | `streak_bonus_at` |
+| 6 | `streak_bonus_amount` |
+| 7 | `trigger_creature_roll` |
+| 8 | `creature_roll_chance` |
+| 9 | `created_at` |
+
 ### `practice_log` — 10 rows
 
 | # | Column |
@@ -3298,6 +3445,22 @@
 | 6 | `is_included_in_ai` |
 | 7 | `created_at` |
 | 8 | `updated_at` |
+
+### `prize_godmother_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `prize_mode` |
+| 4 | `prize_text` |
+| 5 | `prize_image_url` |
+| 6 | `prize_pool_id` |
+| 7 | `prize_list_id` |
+| 8 | `iou_text` |
+| 9 | `expires_in_days` |
+| 10 | `reveal_animation_id` |
+| 11 | `created_at` |
 
 ### `randomizer_draws` — 0 rows
 
@@ -3332,7 +3495,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 56 rows
+### `reflection_responses` — 59 rows
 
 | # | Column |
 |---|---|
@@ -3420,7 +3583,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 20 rows
+### `rhythm_completions` — 21 rows
 
 | # | Column |
 |---|---|
@@ -3731,7 +3894,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 62 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 71 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

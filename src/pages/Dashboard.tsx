@@ -41,6 +41,7 @@ import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
+import { useArchiveExpiredRoutines } from '@/hooks/useArchiveExpiredRoutines'
 
 interface DashboardProps {
   /** When true, this instance is inside the ViewAsModal overlay */
@@ -69,6 +70,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   // When false (main page underneath), always show mom's own data.
   const displayMemberId = (isViewAsOverlay && viewingAsMember?.id) || member?.id
   const displayFamilyId = family?.id
+  useArchiveExpiredRoutines(displayFamilyId)
 
   const queryClient = useQueryClient()
   const { data: widgets = [], isLoading: widgetsLoading } = useWidgets(displayFamilyId, displayMemberId)

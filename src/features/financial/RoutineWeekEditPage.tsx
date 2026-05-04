@@ -23,9 +23,9 @@
 // "Edit past days" link. Also linked from AllowanceSettingsPage's
 // per-kid summary card.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -37,6 +37,7 @@ import {
 import { getMemberColor } from '@/lib/memberColors'
 import {
   useRoutineWeekView,
+  useAllowancePeriods,
   type RoutineWeekDay,
   type RoutineWeekDayCell,
 } from './useRoutineWeekView'
@@ -57,7 +58,29 @@ export function RoutineWeekEditPage() {
   }, [members, family])
 
   const { data: today } = useFamilyToday(memberId)
-  const { data: weekView, isLoading } = useRoutineWeekView(memberId, today ?? '')
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null)
+  const { data: periods = [] } = useAllowancePeriods(memberId)
+  const { data: weekView, isLoading } = useRoutineWeekView(memberId, today ?? '', selectedPeriodId)
+
+  const currentPeriodIndex = useMemo(() => {
+    if (!weekView?.period_id || periods.length === 0) return 0
+    const idx = periods.findIndex(p => p.id === weekView.period_id)
+    return idx >= 0 ? idx : 0
+  }, [weekView?.period_id, periods])
+
+  const canGoNewer = currentPeriodIndex > 0
+  const canGoOlder = currentPeriodIndex < periods.length - 1
+
+  const goNewer = () => {
+    if (!canGoNewer) return
+    const newer = periods[currentPeriodIndex - 1]
+    setSelectedPeriodId(newer.id)
+  }
+  const goOlder = () => {
+    if (!canGoOlder) return
+    const older = periods[currentPeriodIndex + 1]
+    setSelectedPeriodId(older.id)
+  }
 
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
@@ -179,6 +202,66 @@ export function RoutineWeekEditPage() {
           </p>
         </div>
       </div>
+
+      {/* Period navigation */}
+      {periods.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+          }}
+        >
+          <button
+            onClick={goOlder}
+            disabled={!canGoOlder}
+            style={{
+              padding: '0.375rem',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              border: '1px solid var(--color-border-default, var(--color-border))',
+              background: canGoOlder ? 'var(--color-bg-secondary)' : 'transparent',
+              color: canGoOlder ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+              cursor: canGoOlder ? 'pointer' : 'not-allowed',
+              opacity: canGoOlder ? 1 : 0.4,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            aria-label="Previous period"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span
+            style={{
+              fontSize: 'var(--font-size-sm)',
+              color: 'var(--color-text-secondary)',
+              fontWeight: 500,
+            }}
+          >
+            {weekView?.period_start} → {weekView?.period_end}
+            {periods[currentPeriodIndex]?.status === 'active' && ' (current)'}
+            {periods[currentPeriodIndex]?.status === 'calculated' && ' (closed)'}
+          </span>
+          <button
+            onClick={goNewer}
+            disabled={!canGoNewer}
+            style={{
+              padding: '0.375rem',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              border: '1px solid var(--color-border-default, var(--color-border))',
+              background: canGoNewer ? 'var(--color-bg-secondary)' : 'transparent',
+              color: canGoNewer ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+              cursor: canGoNewer ? 'pointer' : 'not-allowed',
+              opacity: canGoNewer ? 1 : 0.4,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            aria-label="Next period"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
 
       {/* Helper banner */}
       <div

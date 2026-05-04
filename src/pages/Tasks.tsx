@@ -43,6 +43,7 @@ import { checkSoftClaimAuthorization, checkSoftClaimCrossClaim } from '@/lib/tas
 import { useCreateRequest } from '@/hooks/useRequests'
 import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySubmissionModal'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useArchiveExpiredRoutines } from '@/hooks/useArchiveExpiredRoutines'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
@@ -124,6 +125,7 @@ export function TasksPage() {
   const { isViewingAs, viewingAsMember } = useViewAs()
   const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
   const { data: familyMembers } = useFamilyMembers(family?.id)
+  useArchiveExpiredRoutines(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)
   const { data: pendingApprovalTasks = [] } = useTasksWithPendingApprovals(family?.id)
 
