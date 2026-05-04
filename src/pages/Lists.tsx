@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   List as ListIcon, Plus, ShoppingCart, Gift, Luggage, DollarSign,
   CheckSquare, Pencil, X, ExternalLink, ChevronDown, ChevronRight,
@@ -48,6 +48,7 @@ import { OpportunitySettingsPanel } from '@/components/lists/OpportunitySettings
 import { TrackingDefaultsPanel } from '@/components/lists/TrackingDefaultsPanel'
 import { SmartImportModal } from '@/components/lists/SmartImportModal'
 import { ListImageImportModal } from '@/components/lists/ListImageImportModal'
+import { ShoppingListSettings } from '@/components/lists/ShoppingListSettings'
 import {
   SequentialCollectionCard,
 } from '@/components/tasks/sequential/SequentialCollectionView'
@@ -155,6 +156,7 @@ function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
 // ── Main page ──────────────────────────────────────────────
 
 export function ListsPage() {
+  const navigate = useNavigate()
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const { isViewingAs, viewingAsMember } = useViewAs()
@@ -363,6 +365,16 @@ export function ListsPage() {
             </button>
             </Tooltip>
           </div>
+          <Tooltip content="Cross-list shopping view by store">
+            <button
+              onClick={() => navigate('/shopping-mode')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-btn-primary-bg)' }}
+            >
+              <ShoppingCart size={14} />
+              <span className="hidden sm:inline">Shop</span>
+            </button>
+          </Tooltip>
           <Tooltip content="Import from photo — OCR reads text from images">
             <button
               onClick={() => setImageImportOpen(true)}
@@ -901,12 +913,14 @@ function getBulkAddPrompt(listType: string): string {
 2. STORE CONTINUITY: Items between store mentions belong to the most recently mentioned store. For example, "From Sam's we need eggs, we need milk, we need cheese. From Aldi we need pizza" means eggs, milk, AND cheese all belong to Sam's because they appear after "From Sam's" and before "From Aldi." Only switch stores when a new store is explicitly named.
 3. QUANTITIES: Keep quantities with the item (e.g., "12 bags of chocolate chips" stays as "12 bags of chocolate chips"). Keep the full quantity in the text.
 4. NOTES: If the text mentions special instructions for an item (e.g., "needs to stay cold", "Gideon's choice", "whatever dips you wanted"), put them in a "note" field.
-5. MULTI-STORE ITEMS: If an item could come from multiple stores (e.g., "birthday cake from either Nothing Bundt Cake, Hy-Vee, or Sam's"), set category to "" and put the store options in the "note" field (e.g., "Could get from: Nothing Bundt Cake, Hy-Vee, or Sam's").
+5. MULTI-STORE ITEMS: If an item could come from multiple stores (e.g., "birthday cake from either Nothing Bundt Cake, Hy-Vee, or Sam's"), set category to "" and set "store_tags" to ["__anywhere__"]. Put the store options in the "note" field (e.g., "Could get from: Nothing Bundt Cake, Hy-Vee, or Sam's").
 6. VAGUE ITEMS: Keep vague descriptions as-is (e.g., "an assortment of produce" stays as one item, don't split).
 7. UNCLEAR: If something is ambiguous (could be a store name, an errand, not clearly a list item), add "unclear": true.
+8. STORE TAGS: For each item, include a "store_tags" array with specific store names the item should appear at. Use ["__anywhere__"] for items available anywhere. If only one store, use ["Store Name"].
+9. STORE CATEGORY: If you can infer the aisle or department (e.g., Frozen, Dairy, Produce, Bakery, Meat, Deli, Clothing, Electronics, Household, Personal Care, Snacks, Beverages), include it as "store_category".
 
-Return objects: [{"text": "item name", "category": "Store Name", "note": "optional note"}, ...].
-If no store is detected for an item, use "" as category. Never invent store names.`
+Return objects: [{"text": "item name", "category": "Store Name", "store_tags": ["Store Name"], "store_category": "Dairy", "note": "optional note"}, ...].
+If no store is detected for an item, use "" as category and ["__anywhere__"] as store_tags. Never invent store names.`
     case 'wishlist':
       return `${base} Each item should be a product name or gift idea. Keep descriptions concise. Return ["item1", "item2", ...].`
     case 'expenses':
@@ -1276,6 +1290,7 @@ function RandomizerDetailView({
 // ── List Detail View ──────────────────────────────────────
 
 function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void }) {
+  const navigate = useNavigate()
   const { data: list } = useList(listId)
   const { data: items = [], isLoading } = useListItems(listId)
   const { data: member } = useFamilyMember()
@@ -1372,6 +1387,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const queryClient = useQueryClient()
   const [victoryCreated, setVictoryCreated] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
+  const [shoppingTab, setShoppingTab] = useState<'need' | 'recent'>('need')
 
   // Sync local items when server items change (and no drag in progress)
   useEffect(() => {
@@ -1510,11 +1526,13 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
             )}
             {isOwnerOrParent ? (
               <>
-                <Tooltip content="Archive">
-                  <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
-                    <Archive size={16} />
-                  </button>
-                </Tooltip>
+                {!list.is_always_on && (
+                  <Tooltip content="Archive">
+                    <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
+                      <Archive size={16} />
+                    </button>
+                  </Tooltip>
+                )}
                 <Tooltip content="Delete permanently">
                   <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}>
                     <Trash2 size={16} />
@@ -1632,11 +1650,31 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
   const Icon = cfg.icon
   const isShopping = list.list_type === 'shopping'
+  const isAlwaysOn = list.is_always_on
+
+  // For always-on shopping lists: split items into visibility buckets
+  const visibilityHours = list.default_checked_visibility_hours ?? 48
+  const purchaseHistoryDays = list.default_purchase_history_days ?? 30
+  const now = Date.now()
+
+  function getItemBucket(item: ListItem): 'need' | 'recent' | 'archived' {
+    if (!item.checked || !item.checked_at) return 'need'
+    const checkedMs = new Date(item.checked_at).getTime()
+    const hoursSince = (now - checkedMs) / (1000 * 60 * 60)
+    if (hoursSince <= visibilityHours) return 'need'
+    const daysSince = hoursSince / 24
+    if (daysSince <= purchaseHistoryDays) return 'recent'
+    return 'archived'
+  }
+
+  const tabFilteredItems = isAlwaysOn && isShopping
+    ? displayItems.filter(item => getItemBucket(item) === shoppingTab)
+    : displayItems
 
   // Group items by section
   const sections = new Map<string, ListItem[]>()
   const unsectioned: ListItem[] = []
-  displayItems.forEach(item => {
+  tabFilteredItems.forEach(item => {
     if (item.section_name) {
       if (!sections.has(item.section_name)) sections.set(item.section_name, [])
       sections.get(item.section_name)!.push(item)
@@ -1644,6 +1682,10 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
       unsectioned.push(item)
     }
   })
+
+  const recentlyPurchasedCount = isAlwaysOn && isShopping
+    ? displayItems.filter(item => getItemBucket(item) === 'recent').length
+    : 0
 
   const totalItems = items.length
   const checkedItems = items.filter(i => i.checked).length
@@ -1683,7 +1725,17 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   function handleToggle(item: ListItem) {
     const isChecking = !item.checked
     toggleItem.mutate(
-      { id: item.id, checked: isChecking, listId, checkedBy: member?.id, familyId: family?.id ?? undefined, itemContent: item.content || item.item_name || undefined },
+      {
+        id: item.id, checked: isChecking, listId, checkedBy: member?.id,
+        familyId: family?.id ?? undefined,
+        itemContent: item.content || item.item_name || undefined,
+        purchaseSnapshot: isChecking && list?.list_type === 'shopping' ? {
+          section_name: item.section_name,
+          store_category: item.store_category,
+          quantity: item.quantity,
+          quantity_unit: item.quantity_unit,
+        } : undefined,
+      },
       {
         onSuccess: async () => {
           if (!isChecking || !list || !family || !member) return
@@ -2018,6 +2070,32 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
     const inlineCheckColor = inlineChecker.checkerColor ?? 'var(--color-btn-primary-text)'
     const inlineToggleDisabled = item.checked && inlineChecker.canUncheck === false
 
+    if (shoppingTab === 'recent') {
+      const purchasedDate = item.checked_at ? new Date(item.checked_at) : null
+      const checkerMember = item.checked_by ? familyMembers.find(m => m.id === item.checked_by) : null
+      return (
+        <div className="flex items-center gap-2 py-1.5 px-1 group" style={{ opacity: 0.7 }}>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+              {label}
+              {qty && <span className="text-xs ml-1" style={{ color: 'var(--color-text-secondary)' }}>{qty}</span>}
+            </span>
+            <div className="flex items-center gap-2 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+              {purchasedDate && <span>Purchased {purchasedDate.toLocaleDateString()}</span>}
+              {checkerMember && <span>by {checkerMember.display_name}</span>}
+            </div>
+          </div>
+          <button
+            onClick={() => handleToggle(item)}
+            className="px-2 py-1 rounded text-[11px] font-medium shrink-0"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)', color: 'var(--color-btn-primary-bg)' }}
+          >
+            Add back
+          </button>
+        </div>
+      )
+    }
+
     return (
       <div
         className="flex items-center gap-2 py-1 px-1 group"
@@ -2130,6 +2208,22 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             {list.title}
           </h1>
           <div className="flex items-center gap-1.5">
+            {isShopping && (
+              <Tooltip content="Open in Shopping Mode">
+                <button
+                  onClick={() => {
+                    // Pre-select the first section_name as the store
+                    const firstSection = Array.from(sections.keys())[0]
+                    const storeParam = firstSection ? `?store=${encodeURIComponent(firstSection)}` : ''
+                    navigate(`/shopping-mode${storeParam}`)
+                  }}
+                  className="p-1.5 rounded-lg"
+                  style={{ color: 'var(--color-btn-primary-bg)' }}
+                >
+                  <ShoppingCart size={16} />
+                </button>
+              </Tooltip>
+            )}
             {isOwnerOrParent && (
               <>
                 <Tooltip content="Share with family">
@@ -2164,9 +2258,11 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             )}
             {isOwnerOrParent ? (
               <>
-                <Tooltip content="Archive">
-                  <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Archive size={16} /></button>
-                </Tooltip>
+                {!list.is_always_on && (
+                  <Tooltip content="Archive">
+                    <button onClick={() => { archiveList.mutate(listId); onBack() }} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Archive size={16} /></button>
+                  </Tooltip>
+                )}
                 <Tooltip content="Delete permanently">
                   <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-secondary)' }}><Trash2 size={16} /></button>
                 </Tooltip>
@@ -2216,6 +2312,15 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
 
         {pendingBanner}
 
+        {/* Shopping list settings (always-on lists only) */}
+        {isAlwaysOn && isShopping && isOwnerOrParent && family && (
+          <ShoppingListSettings
+            list={list}
+            familyId={family.id}
+            sectionNames={Array.from(sections.keys())}
+          />
+        )}
+
         {/* Victory mode selector */}
         {isOwnerOrParent && (
           <VictoryModeSelector
@@ -2224,13 +2329,47 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           />
         )}
 
+        {/* Always-on tab bar: Need to Buy / Recently Purchased */}
+        {isAlwaysOn && (
+          <div className="flex gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
+            <button
+              onClick={() => setShoppingTab('need')}
+              className="flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+              style={{
+                backgroundColor: shoppingTab === 'need' ? 'var(--color-bg-card)' : 'transparent',
+                color: shoppingTab === 'need' ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
+                boxShadow: shoppingTab === 'need' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              Need to Buy
+            </button>
+            <button
+              onClick={() => setShoppingTab('recent')}
+              className="flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors relative"
+              style={{
+                backgroundColor: shoppingTab === 'recent' ? 'var(--color-bg-card)' : 'transparent',
+                color: shoppingTab === 'recent' ? 'var(--color-text-heading)' : 'var(--color-text-secondary)',
+                boxShadow: shoppingTab === 'recent' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              Recently Purchased
+              {recentlyPurchasedCount > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold"
+                  style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}>
+                  {recentlyPurchasedCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Single-card compact list */}
         <div
           className="rounded-xl overflow-hidden"
           style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
         >
           {/* Progress bar inside card */}
-          {totalItems > 0 && (
+          {shoppingTab === 'need' && totalItems > 0 && (
             <div className="flex items-center gap-3 px-4 pt-3 pb-1">
               <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)' }}>
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(checkedItems / totalItems) * 100}%`, backgroundColor: 'var(--color-btn-primary-bg)' }} />
@@ -2274,11 +2413,13 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             )}
 
             {/* Empty state inside card */}
-            {items.length === 0 && !isLoading && (
+            {tabFilteredItems.length === 0 && !isLoading && (
               <div className="py-6 text-center">
                 <ShoppingCart size={24} className="mx-auto mb-2" style={{ color: 'var(--color-text-secondary)' }} />
                 <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  Start adding items below
+                  {shoppingTab === 'recent'
+                    ? 'No recently purchased items'
+                    : 'Start adding items below'}
                 </p>
               </div>
             )}
@@ -2797,12 +2938,21 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
           onSave={async (parsed) => {
             for (const item of parsed.filter(i => i.selected)) {
               const note = typeof item.metadata?.note === 'string' ? item.metadata.note : undefined
+              // Extract shopping-mode fields from AI metadata
+              const storeTags = Array.isArray(item.metadata?.store_tags)
+                ? (item.metadata.store_tags as string[])
+                : undefined
+              const storeCategory = typeof item.metadata?.store_category === 'string'
+                ? item.metadata.store_category
+                : undefined
               await createItem.mutateAsync({
                 list_id: listId,
                 content: item.text,
                 section_name: item.category || undefined,
                 notes: note,
                 sort_order: items.length,
+                ...(storeTags ? { store_tags: storeTags } : {}),
+                ...(storeCategory ? { store_category: storeCategory } : {}),
               })
             }
           }}

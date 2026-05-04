@@ -17,6 +17,7 @@ import { InnerWorkingsPage } from '@/pages/InnerWorkings'
 import { JournalPage } from '@/pages/Journal'
 import { TasksPage } from '@/pages/Tasks'
 import { ListsPage } from '@/pages/Lists'
+import { ShoppingModePage } from '@/pages/ShoppingMode'
 import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
 import { GamificationShowcase } from '@/components/gamification/demo/GamificationShowcase'
@@ -136,6 +137,7 @@ function App() {
               <Route path="/journal/kid-quips" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
               <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
+              <Route path="/shopping-mode" element={<ProtectedRoute><ShoppingModePage /></ProtectedRoute>} />
               <Route path="/studio" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
               <Route path="/victories" element={<ProtectedRoute><VictoriesPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />

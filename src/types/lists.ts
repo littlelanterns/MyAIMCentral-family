@@ -15,6 +15,7 @@ export type ListType =
   | 'custom'
   | 'ideas'
   | 'prayer'
+  | 'reward_list'
 
 export type ListItemPriority = 'low' | 'medium' | 'high' | 'urgent' | 'must_have' | 'would_love' | 'nice_to_have'
 
@@ -74,6 +75,12 @@ export interface List {
   schedule_config: Record<string, unknown> | null
   instantiation_mode: string | null
   collaboration_mode: string | null
+  // Living Shopping List (V1)
+  is_always_on: boolean
+  default_checked_visibility_hours: number
+  default_purchase_history_days: number
+  default_auto_archive_days: number
+  include_in_shopping_mode: boolean
   created_at: string
   updated_at: string
 }
@@ -135,6 +142,10 @@ export interface ListItem {
   claim_lock_unit: ClaimLockUnit | null
   life_area_tags: string[]
   in_progress_member_id: string | null
+  // Living Shopping List (V1)
+  store_tags: string[] | null
+  store_category: string | null
+  archived_at: string | null
   created_at: string
   updated_at: string
 }
@@ -248,4 +259,43 @@ export interface ListFilters {
   listType?: ListType | ListType[]
   isShared?: boolean
   ownerId?: string
+}
+
+// ─── Living Shopping List & Shopping Mode (V1) ───────────────────────
+
+export interface ListSectionSettings {
+  id: string
+  family_id: string
+  list_id: string
+  section_name: string
+  checked_visibility_hours: number | null
+  purchase_history_days: number | null
+  auto_archive_days: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PurchaseHistoryRecord {
+  id: string
+  family_id: string
+  list_item_id: string
+  list_id: string
+  item_name: string
+  store_section: string | null
+  store_category: string | null
+  quantity: number | null
+  quantity_unit: string | null
+  purchased_by: string
+  purchased_at: string
+  price_paid: number | null
+}
+
+export const ANYWHERE_STORE_TAG = '__anywhere__'
+
+export type ShoppingModeGrouping = 'by_section' | 'by_list' | 'by_person' | 'all'
+
+export interface ShoppingModeItem {
+  listItem: ListItem
+  list: Pick<List, 'id' | 'title' | 'owner_id' | 'is_shared'>
+  resolvedStore: string
 }

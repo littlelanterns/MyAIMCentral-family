@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type {
   List, ListItem, ListShare, ListTemplate, ListTemplateItem, ListType, VictoryMode,
+  ListSectionSettings,
 } from '@/types/lists'
 
 // Re-export types for backward compatibility
@@ -142,6 +143,8 @@ export function useCreateListItem() {
       section_name?: string
       notes?: string
       sort_order?: number
+      store_tags?: string[] | null
+      store_category?: string | null
     }) => {
       const { data, error } = await supabase
         .from('list_items')
@@ -162,9 +165,15 @@ export function useToggleListItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, checked, listId, checkedBy, familyId, itemContent }: {
+    mutationFn: async ({ id, checked, listId, checkedBy, familyId, itemContent, purchaseSnapshot }: {
       id: string; checked: boolean; listId: string; checkedBy?: string
       familyId?: string; itemContent?: string
+      purchaseSnapshot?: {
+        section_name?: string | null
+        store_category?: string | null
+        quantity?: number | null
+        quantity_unit?: string | null
+      }
     }) => {
       const { error } = await supabase
         .from('list_items')
@@ -195,6 +204,26 @@ export function useToggleListItem() {
           .then(({ error: logErr }) => {
             if (logErr) console.warn('activity log insert failed:', logErr.message)
           })
+
+        // Purchase history capture for shopping lists (fire-and-forget)
+        if (purchaseSnapshot) {
+          supabase
+            .from('purchase_history')
+            .insert({
+              family_id: familyId,
+              list_item_id: id,
+              list_id: listId,
+              item_name: itemContent || 'Unknown item',
+              store_section: purchaseSnapshot.section_name ?? null,
+              store_category: purchaseSnapshot.store_category ?? null,
+              quantity: purchaseSnapshot.quantity ?? null,
+              quantity_unit: purchaseSnapshot.quantity_unit ?? null,
+              purchased_by: checkedBy,
+            })
+            .then(({ error: phErr }) => {
+              if (phErr) console.warn('purchase history insert failed:', phErr.message)
+            })
+        }
       }
 
       return listId
@@ -690,6 +719,66 @@ export function useSuggestListTags() {
       } catch {
         return []
       }
+    },
+  })
+}
+
+// ── Living Shopping List: Per-Section Settings ──────────────
+
+export function useListSectionSettings(listId: string | undefined) {
+  return useQuery({
+    queryKey: ['list-section-settings', listId],
+    queryFn: async () => {
+      if (!listId) return []
+      const { data, error } = await supabase
+        .from('list_section_settings')
+        .select('*')
+        .eq('list_id', listId)
+        .order('section_name')
+      if (error) throw error
+      return data as ListSectionSettings[]
+    },
+    enabled: !!listId,
+  })
+}
+
+export function useUpsertListSectionSettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      familyId,
+      listId,
+      sectionName,
+      updates,
+    }: {
+      familyId: string
+      listId: string
+      sectionName: string
+      updates: {
+        checked_visibility_hours?: number | null
+        purchase_history_days?: number | null
+        auto_archive_days?: number | null
+      }
+    }) => {
+      const { data, error } = await supabase
+        .from('list_section_settings')
+        .upsert(
+          {
+            family_id: familyId,
+            list_id: listId,
+            section_name: sectionName,
+            ...updates,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'list_id,section_name' }
+        )
+        .select()
+        .single()
+      if (error) throw error
+      return data as ListSectionSettings
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['list-section-settings', vars.listId] })
     },
   })
 }

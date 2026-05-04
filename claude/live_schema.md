@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 330 rows
+### `view_as_sessions` — 332 rows
 
 | # | Column |
 |---|---|
@@ -134,7 +134,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 217 rows
+### `view_as_feature_exclusions` — 218 rows
 
 | # | Column |
 |---|---|
@@ -224,7 +224,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 200 rows
+### `feature_key_registry` — 203 rows
 
 | # | Column |
 |---|---|
@@ -235,7 +235,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 350 rows
+### `feature_access_v2` — 359 rows
 
 | # | Column |
 |---|---|
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 634 rows
+### `routine_step_completions` — 670 rows
 
 | # | Column |
 |---|---|
@@ -918,6 +918,11 @@
 | 40 | `default_track_progress` |
 | 41 | `instantiation_mode` |
 | 42 | `collaboration_mode` |
+| 43 | `is_always_on` |
+| 44 | `default_checked_visibility_hours` |
+| 45 | `default_purchase_history_days` |
+| 46 | `default_auto_archive_days` |
+| 47 | `include_in_shopping_mode` |
 
 ### `list_items` — 113 rows
 
@@ -979,6 +984,9 @@
 | 54 | `track_progress` |
 | 55 | `life_area_tags` |
 | 56 | `in_progress_member_id` |
+| 57 | `store_tags` |
+| 58 | `store_category` |
+| 59 | `archived_at` |
 
 ### `list_shares` — 1 rows
 
@@ -1755,7 +1763,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2472,7 +2480,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 204 rows
+### `activity_log_entries` — 207 rows
 
 | # | Column |
 |---|---|
@@ -3128,6 +3136,20 @@
 | 7 | `created_at` |
 | 8 | `updated_at` |
 
+### `list_section_settings` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `list_id` |
+| 4 | `section_name` |
+| 5 | `checked_visibility_hours` |
+| 6 | `purchase_history_days` |
+| 7 | `auto_archive_days` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
 ### `loans` — 0 rows
 
 | # | Column |
@@ -3462,6 +3484,23 @@
 | 10 | `reveal_animation_id` |
 | 11 | `created_at` |
 
+### `purchase_history` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `list_item_id` |
+| 4 | `list_id` |
+| 5 | `item_name` |
+| 6 | `store_section` |
+| 7 | `store_category` |
+| 8 | `quantity` |
+| 9 | `quantity_unit` |
+| 10 | `purchased_by` |
+| 11 | `purchased_at` |
+| 12 | `price_paid` |
+
 ### `randomizer_draws` — 0 rows
 
 | # | Column |
@@ -3524,6 +3563,30 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
+### `reveal_animation_pool_members` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `pool_id` |
+| 3 | `reveal_animation_id` |
+| 4 | `weight` |
+| 5 | `sort_order` |
+| 6 | `created_at` |
+
+### `reveal_animation_pools` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `name` |
+| 4 | `description` |
+| 5 | `sharing_mode` |
+| 6 | `created_by` |
+| 7 | `created_at` |
+| 8 | `archived_at` |
+
 ### `reveal_animations` — 33 rows
 
 | # | Column |
@@ -3541,6 +3604,7 @@
 | 11 | `sort_order` |
 | 12 | `is_active` |
 | 13 | `created_at` |
+| 14 | `tag` |
 
 ### `reward_reveal_attachments` — 0 rows
 
@@ -3777,6 +3841,27 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
+### `wizard_templates` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `template_type` |
+| 4 | `title` |
+| 5 | `description` |
+| 6 | `template_source` |
+| 7 | `is_example` |
+| 8 | `config` |
+| 9 | `cloned_from_template_id` |
+| 10 | `original_author_id` |
+| 11 | `tags` |
+| 12 | `sharing_mode` |
+| 13 | `usage_count` |
+| 14 | `created_at` |
+| 15 | `updated_at` |
+| 16 | `archived_at` |
+
 ---
 
 ## Platform Intelligence Schema (`platform_intelligence.*`)
@@ -3894,7 +3979,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 71 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 76 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, BookOpen, BookHeart, Sun, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle, UsersRound,
-  ChevronLeft, ChevronRight, Gift, FileText,
+  ChevronLeft, ChevronRight, Gift, FileText, ShoppingCart,
 } from 'lucide-react'
 import { useShell } from './ShellProvider'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
@@ -62,6 +62,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
       { label: 'Meetings', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Structured family meetings with agendas' },
       { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
       { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
+      { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
       { label: 'Studio', path: '/studio', featureKey: 'studio', icon: <Palette size={20} />, tooltip: 'Template workshop' },
       { label: 'Prize Board', path: '/prize-board', featureKey: 'gamification_basic', icon: <Gift size={20} />, tooltip: 'Unredeemed prizes and IOUs' },
       { label: 'Contracts', path: '/contracts', featureKey: 'gamification_basic', icon: <FileText size={20} />, tooltip: 'Reward rules and automation' },
