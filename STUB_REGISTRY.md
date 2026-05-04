@@ -116,7 +116,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Reward system integration | PRD-09A | PRD-24 | ✅ Wired | Phase 29 |
 | Allowance pool calculation | PRD-09A | PRD-28 | ✅ Wired | Phase 32 |
 | Widget milestone → victory | PRD-10 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
-| Auto-victory from task completions | PRD-11 | PRD-11 (AIR) | ⏳ Unwired (MVP) | Auto-victory call commented out in `useTaskCompletion.ts:106-108` with `(stub — PRD-11)` marker. |
+| Auto-victory from task completions | PRD-11 | Phase 3 Connector | ✅ Wired | 2026-05-03 — `victory_godmother` fires via contracts on task completion deeds. Legacy `createVictoryForCompletion` deleted. |
 | Family Celebration mode | PRD-11 | PRD-11B | ✅ Wired | Phase 12 |
 | Complex goal → Project Planner | PRD-12A | PRD-29 | ✅ Wired | Phase 33 |
 | Family Vision Quest discussions | PRD-12B | PRD-12B | ⏳ Unwired (MVP) | PRD-12B schema (`family_vision_quests`, `vision_sections`, `family_vision_statements`, etc.) never built. Feature unavailable in app. Partial claim was aspirational. |
@@ -258,10 +258,10 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
 | Task segments | Build M Phase 1 | Build M Phase 2 | ✅ Wired | 2026-04-11 — `task_segments` table + CRUD hooks + PlayTaskTileGrid grouped rendering |
-| 4 creature earning modes (segment_complete, every_n, complete_the_day, random_per_task) | Build M Phase 1 | Build M Phase 1 | ✅ Wired | 2026-04-11 — `roll_creature_for_completion` RPC branches on `creature_earning_mode` |
-| 3 page earning modes (tracker_goal, every_n_creatures, every_n_completions) | Build M Phase 1 | Build M Phase 1 | ✅ Wired | 2026-04-11 — RPC branches on `page_earning_mode` |
+| 4 creature earning modes (segment_complete, every_n, complete_the_day, random_per_task) | Build M Phase 1 | Phase 3 Connector | ✅ Wired | 2026-05-03 — `creature_godmother` replaces old `roll_creature_for_completion` RPC. Earning modes configurable via contracts. |
+| 3 page earning modes (tracker_goal, every_n_creatures, every_n_completions) | Build M Phase 1 | Phase 3 Connector | ✅ Wired | 2026-05-03 — `page_unlock_godmother` replaces old RPC page unlock. Modes configurable via contracts. |
 | Coloring reveal library (32 subjects) | Build M Phase 1 | Build M Phase 3 | ✅ Wired | 2026-04-11 — `coloring_reveal_library` seeded, `ColorRevealCanvas` renders progressive zone reveals |
-| Task-linked coloring reveals (1:1 earning_task_id) | Build M Phase 4 | Build M Phase 5 | ✅ Wired | 2026-04-11 — `earning_task_id` FK, RPC checks task linkage first, `ColorRevealTallyWidget` with "I did it!" button |
+| Task-linked coloring reveals (polymorphic earning_source) | Build M Phase 4 | Phase 3 Connector | ✅ Wired | 2026-05-03 — `earning_task_id` replaced with `earning_source_type` + `earning_source_id` (polymorphic). Any deed source can advance coloring reveals via `presentation_mode='coloring_advance'`. |
 | Cross-shell segment rendering | Build M Phase 2 | Build M Phase 5 | ✅ Wired | 2026-04-11 — `SegmentHeader` for Guided/Independent/Adult + `PlayTaskTileGrid` for Play |
 | Gamification settings modal (6 sections) | Build M Phase 4 | Build M Phase 4 | ✅ Wired | 2026-04-11 — Full config: segments, earning modes, coloring reveals, toggles, reset |
 | Mystery tap tile + show upfront tile | Build M Phase 6 | Build M Phase 6 | ✅ Wired | 2026-04-11 — `MysteryTapTile` card-flip + per-segment `randomizer_reveal_style` |

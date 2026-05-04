@@ -1,6 +1,6 @@
 # Build Status — MyAIM Central v2
 
-> Last updated: 2026-05-01
+> Last updated: 2026-05-03
 
 ## Foundation Phases (Complete)
 
@@ -74,3 +74,11 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 39 | PRD-32, PRD-32A | Admin Console & Demand Validation | Phase 25, 34, 38 | Pending |
 | 40 | PRD-33 | Offline / PWA | All phases | Pending |
 | 41 | — | Tier Assignment Review | Phase 38 | Pending |
+
+## Cross-PRD Infrastructure Phases
+
+| Phase | Scope | Description | Status | Completed |
+|-------|-------|-------------|--------|-----------|
+| Phase 3 | Connector Architecture | Event-driven contract system: 12 godmothers, deed_firings dispatch trigger, contracts table (central switchboard), IF evaluation (8 patterns), inheritance resolution, presentation layer, `/contracts` authoring UI, `/prize-board` expansion (Allowance/Prizes/Balance tabs). Replaces hardcoded gamification/allowance/victory wiring. 14 Playwright e2e tests. Migrations 100199-100225. | **Complete** | 2026-05-03 |
+| Phase 3.5 | Multi-Pool Allowance | Restructure allowance for per-kid multi-pool support with cross-pool conditions, term-length pools, weighted combinations. | Pending | |
+| Phase 3.7 | Wizards & Templates | Friendly guided flows wrapping raw contract authoring: Potty Chart, Consequence Spinner, Extra Earning Opportunities. | Pending | |

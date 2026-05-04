@@ -660,7 +660,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 98 rows
+### `tasks` — 94 rows
 
 | # | Column |
 |---|---|
@@ -744,7 +744,7 @@
 | 78 | `collaboration_mode` |
 | 79 | `life_area_tags` |
 
-### `task_assignments` — 39 rows
+### `task_assignments` — 34 rows
 
 | # | Column |
 |---|---|
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 625 rows
+### `routine_step_completions` — 634 rows
 
 | # | Column |
 |---|---|
@@ -1755,7 +1755,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|

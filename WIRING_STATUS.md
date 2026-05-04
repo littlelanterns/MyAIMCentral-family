@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-05-01 (BookShelf Fix Session).
+> Updated each build session. Last updated: 2026-05-03 (Phase 3 Connector Layer close-out).
 
 ## RoutingStrip Destinations
 
@@ -278,6 +278,35 @@
 | Audience Toggle (Adult/Teen/Kid) | `AudienceToggle` segmented control on `ExtractionBrowser`. Display-only — switches which column renders (`text`, `independent_text`, `guided_text`). Falls back to adult when NULL. | **Wired** | URL param `?audience=guided\|independent`. |
 | Study Guide Library rework | Shows all extracted books with View/Generate buttons. No per-child scoping. `count_youth_text_by_book` RPC checks which books have youth text. | **Wired** | Replaced old `study_guide_{memberId}` approach. |
 | Study Guide timeout/resume | Modal shows "Click Generate again to resume" on timeout. Edge Function filters to `guided_text IS NULL` so retries skip completed items. | **Wired** | 150s Edge Function limit means large books need 2-4 passes. |
+
+## Phase 3 — Connector Layer (2026-05-03)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Contracts table | Central switchboard: deed addressing, IF logic (8 patterns), godmother routing, stroke_of timing, inheritance (3 levels), presentation mode | **Wired** | Migration 100199. 10 seeded contracts from existing configs. |
+| Deed firings dispatch | AFTER INSERT trigger on `deed_firings` → `dispatch_godmothers` RPC → contract matching → godmother invocation | **Wired** | Trigger `trg_deed_firings_dispatch`. Idempotent via UNIQUE on grant log. |
+| `fireDeed()` utility | Single deed-firing INSERT replaces old `rollGamificationForCompletion` + `awardOpportunityEarning` + `createVictoryForCompletion` at 5 hook sites + intention iterations | **Wired** | `src/lib/connector/fireDeed.ts`. Legacy code deleted. |
+| allowance_godmother | Registers deed for allowance calculation at period close | **Wired** | Migration 100207 |
+| numerator_godmother | Records above-and-beyond boost for Phase 3.5 computation | **Wired** | Migration 100208 (dispatch stub) |
+| money_godmother | Awards dollars to kid's financial balance via `grant_money` RPC | **Wired** | Migration 100209. 14/14 Playwright verified. |
+| points_godmother | Awards gamification points via `grant_points` RPC | **Wired** | Migration 100210. 14/14 Playwright verified. |
+| creature_godmother | d100 roll against rarity weights → creature collection insert | **Wired** | Migration 100225. Seeded for all sticker-book-enabled kids. |
+| page_unlock_godmother | Threshold check → unlock next sticker page | **Wired** | Migration 100225. Seeded for all sticker-book-enabled kids. |
+| prize_godmother | IOU creation + optional reveal animation | **Wired** | Migration 100211. Entity↔event bridge for reveal lookup. |
+| victory_godmother | Generic victory creation for any deed source | **Wired** | Migration 100212. `createVictoryForDeed` helper. |
+| family_victory_godmother | No-op placeholder until PRD-11B | **Wired** | Migration 100213. Returns `status: 'no_op'`. |
+| custom_reward_godmother | Text payload OR list reference delivery | **Wired** | Migration 100214. Handles inline + config modes. |
+| assign_task_godmother | Template-based task creation from contracts | **Wired** | Migration 100215 |
+| recognition_godmother | No-reward presentation-only contracts (e.g., coloring advance) | **Wired** | Migration 100216 |
+| Presentation layer | ContractRevealWatcher in all 5 shells. Modes: silent/toast/reveal_animation/treasure_box/coloring_advance | **Wired** | `usePendingReveals` hook, Realtime subscription. |
+| Contract authoring UI | `/contracts` page — 6-section CRUD form, inheritance visualization, delete/restore | **Wired** | Mom-only. Plan & Do sidebar. |
+| Prize Board expansion | 3-tab layout: Allowance (unpaid periods, itemized breakdown, Mark Paid), Prizes (IOUs), Balance (running totals) | **Wired** | `/prize-board`. Mom-only. |
+| Feature flag | `families.allowance_dispatch_via = 'connector'` for instant legacy rollback | **Wired** | Migration 100202 (column), 100219 (flipped). |
+| compute_streak RPC | Consecutive-day counting from deed_firings with grace days | **Wired** | Migration 100204. Used by streak IF pattern. |
+| Cron infrastructure | `:25` weekly (end_of_week contracts), `:30` hourly (end_of_day + lifecycle sweep) | **Wired** | Migration 100205. Convention #246 compliant. |
+| Deferred grants | Queue for non-immediate stroke_of values | **Wired** | `deferred_grants` table. |
+| Contract grant log | Append-only audit trail + presentation tracking | **Wired** | `contract_grant_log` with UNIQUE idempotency. |
+| Allowance dispatch audit | Dual-logging for migration verification | **Wired** | `allowance_dispatch_audit` table. |
 
 ## Known Issues / TODO
 
