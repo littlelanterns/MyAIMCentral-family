@@ -25,7 +25,7 @@
 
 import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -35,6 +35,7 @@ import {
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
 import { getMemberColor } from '@/lib/memberColors'
+import { supabase } from '@/lib/supabase/client'
 import {
   useRoutineWeekView,
   useAllowancePeriods,
@@ -80,6 +81,61 @@ export function RoutineWeekEditPage() {
     if (!canGoOlder) return
     const older = periods[currentPeriodIndex + 1]
     setSelectedPeriodId(older.id)
+  }
+
+  const currentPeriodStatus = periods[currentPeriodIndex]?.status
+  const isClosedPeriod = currentPeriodStatus === 'calculated'
+  const [recalculating, setRecalculating] = useState(false)
+  const [recalcResult, setRecalcResult] = useState<{ earned: number } | null>(null)
+
+  const handleRecalculate = async () => {
+    if (!memberId || !weekView?.period_id || !weekView.period_start || !weekView.period_end) return
+    setRecalculating(true)
+    setRecalcResult(null)
+    try {
+      const { data: periodRow } = await supabase
+        .from('allowance_periods')
+        .select('grace_days')
+        .eq('id', weekView.period_id)
+        .single()
+
+      const { data, error } = await supabase.rpc('calculate_allowance_progress', {
+        p_member_id: memberId,
+        p_period_start: weekView.period_start,
+        p_period_end: weekView.period_end,
+        p_grace_days: (periodRow as { grace_days: unknown } | null)?.grace_days ?? null,
+      })
+      if (error) throw error
+
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) throw new Error('No result from RPC')
+
+      const { error: updateErr } = await supabase
+        .from('allowance_periods')
+        .update({
+          effective_tasks_assigned: Number(row.effective_tasks_assigned),
+          effective_tasks_completed: Number(row.effective_tasks_completed),
+          completion_percentage: Number(row.completion_percentage),
+          base_amount: Number(row.base_amount),
+          bonus_applied: Boolean(row.bonus_applied),
+          bonus_amount: Number(row.bonus_amount),
+          calculated_amount: Number(row.calculated_amount),
+          total_earned: Number(row.total_earned),
+          tasks_completed: Number(row.effective_tasks_completed),
+          calculated_at: new Date().toISOString(),
+        })
+        .eq('id', weekView.period_id)
+      if (updateErr) throw updateErr
+
+      setRecalcResult({ earned: Number(row.total_earned) })
+      queryClient.invalidateQueries({ queryKey: ['allowance-periods-list', memberId] })
+      queryClient.invalidateQueries({ queryKey: ['live-allowance-progress'] })
+    } catch (err) {
+      console.error('[RoutineWeekEditPage] recalculate failed:', err)
+      alert('Recalculation failed. Please try again.')
+    } finally {
+      setRecalculating(false)
+    }
   }
 
   const completeStep = useCompleteRoutineStep()
@@ -259,6 +315,52 @@ export function RoutineWeekEditPage() {
             aria-label="Next period"
           >
             <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* Recalculate banner for closed periods */}
+      {isClosedPeriod && weekView?.period_id && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--vibe-radius-input, 8px)',
+            background: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 30%, transparent)',
+          }}
+        >
+          <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+            {recalcResult ? (
+              <span style={{ fontWeight: 600 }}>
+                Updated — new total: ${recalcResult.earned.toFixed(2)}
+              </span>
+            ) : (
+              'This period is closed. Edit completions below, then recalculate.'
+            )}
+          </div>
+          <button
+            onClick={handleRecalculate}
+            disabled={recalculating}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              padding: '0.375rem 0.75rem',
+              borderRadius: 'var(--vibe-radius-input, 8px)',
+              border: 'none',
+              background: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-text-on-primary)',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 600,
+              cursor: recalculating ? 'wait' : 'pointer',
+              opacity: recalculating ? 0.7 : 1,
+            }}
+          >
+            <RefreshCw size={14} className={recalculating ? 'animate-spin' : ''} />
+            {recalculating ? 'Recalculating…' : 'Recalculate'}
           </button>
         </div>
       )}

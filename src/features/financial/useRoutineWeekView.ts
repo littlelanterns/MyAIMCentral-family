@@ -128,18 +128,26 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         periodId = null
       }
 
-      // 2. Routine tasks for this kid (including shared via task_assignments)
-      const { data: directTasks } = await supabase
+      // 2. Routine tasks for this kid (including shared via task_assignments).
+      // For past periods, include routines that were archived AFTER the period
+      // started — they were active during that period even if archived now.
+      const isCurrentPeriod = !selectedPeriodId
+      let directQuery = supabase
         .from('tasks')
         .select('id, title, template_id, is_shared')
         .eq('assignee_id', memberId)
         .eq('task_type', 'routine')
-        .is('archived_at', null)
+      if (isCurrentPeriod) {
+        directQuery = directQuery.is('archived_at', null)
+      } else {
+        directQuery = directQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
+      }
+      const { data: directTasks } = await directQuery
+
       const { data: sharedAssignments } = await supabase
         .from('task_assignments')
         .select('task_id')
         .eq('family_member_id', memberId)
-        .eq('is_active', true)
       const sharedTaskIds = (sharedAssignments ?? []).map(a => a.task_id)
       const directList = directTasks ?? []
       const directIds = new Set(directList.map(t => t.id))
@@ -147,12 +155,17 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
       if (sharedTaskIds.length > 0) {
         const missing = sharedTaskIds.filter(id => !directIds.has(id))
         if (missing.length > 0) {
-          const { data: extra } = await supabase
+          let sharedQuery = supabase
             .from('tasks')
             .select('id, title, template_id, is_shared')
             .in('id', missing)
             .eq('task_type', 'routine')
-            .is('archived_at', null)
+          if (isCurrentPeriod) {
+            sharedQuery = sharedQuery.is('archived_at', null)
+          } else {
+            sharedQuery = sharedQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
+          }
+          const { data: extra } = await sharedQuery
           extraShared = extra ?? []
         }
       }
