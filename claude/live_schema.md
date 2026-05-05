@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 332 rows
+### `view_as_sessions` — 335 rows
 
 | # | Column |
 |---|---|
@@ -134,7 +134,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 218 rows
+### `view_as_feature_exclusions` — 221 rows
 
 | # | Column |
 |---|---|
@@ -392,7 +392,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 633 rows
+### `ai_usage_tracking` — 634 rows
 
 | # | Column |
 |---|---|
@@ -785,7 +785,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 670 rows
+### `routine_step_completions` — 682 rows
 
 | # | Column |
 |---|---|
@@ -872,7 +872,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 42 rows
+### `lists` — 46 rows
 
 | # | Column |
 |---|---|
@@ -924,7 +924,7 @@
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
 
-### `list_items` — 123 rows
+### `list_items` — 147 rows
 
 | # | Column |
 |---|---|
@@ -988,7 +988,7 @@
 | 58 | `store_category` |
 | 59 | `archived_at` |
 
-### `list_shares` — 1 rows
+### `list_shares` — 4 rows
 
 | # | Column |
 |---|---|
@@ -2480,7 +2480,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 208 rows
+### `activity_log_entries` — 215 rows
 
 | # | Column |
 |---|---|
@@ -3647,7 +3647,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 21 rows
+### `rhythm_completions` — 22 rows
 
 | # | Column |
 |---|---|

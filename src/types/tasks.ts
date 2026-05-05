@@ -55,6 +55,8 @@ export type TaskSource =
   | 'allowance_makeup'
   | 'opportunity_list_claim'
   | 'list_promotion'
+  | 'icon_launcher'
+  | 'activity_list'
 
 export type SequentialPromotion = 'immediate' | 'next_day' | 'manual'
 
