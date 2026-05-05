@@ -47,6 +47,11 @@ export function useWizardProgress<T>({
   const initializedRef = useRef(false)
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false)
 
+  // Track the key so we can detect when familyId loads and the key changes.
+  // Also suppress persistence writes during a key-change cycle.
+  const prevKeyRef = useRef(key)
+  const suppressPersistRef = useRef(false)
+
   // Try to restore from localStorage on first mount
   const [state, setStateRaw] = useState<T>(() => {
     try {
@@ -94,9 +99,40 @@ export function useWizardProgress<T>({
     }
   }, [key])
 
+  // Re-read from localStorage when the key changes (e.g., familyId loads from '' to real value).
+  // Without this, the useState initializer reads the wrong key and state is lost.
+  useEffect(() => {
+    if (prevKeyRef.current === key) return
+    prevKeyRef.current = key
+    // Suppress the persistence effect this cycle — it would overwrite the
+    // restored data with stale INITIAL_STATE before the state update takes effect.
+    suppressPersistRef.current = true
+    try {
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        const parsed: PersistedData<T> = JSON.parse(stored)
+        if (parsed.wizardState) {
+          setStateRaw(parsed.wizardState)
+        }
+        if (typeof parsed.currentStep === 'number') {
+          setCurrentStepRaw(parsed.currentStep)
+        }
+        setHasRestoredDraft(true)
+      }
+    } catch {
+      // ignore
+    }
+  }, [key])
+
   // Persist to localStorage whenever state or step changes
   useEffect(() => {
     if (!initializedRef.current) return
+    // Skip this write if we just restored from a key change — the state
+    // hasn't caught up yet and we'd overwrite the saved draft.
+    if (suppressPersistRef.current) {
+      suppressPersistRef.current = false
+      return
+    }
     try {
       const data: PersistedData<T> = {
         wizardState: state,

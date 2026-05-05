@@ -207,9 +207,16 @@ export function UniversalListWizard({
     [setState],
   )
 
-  // Auto-select the initial preset on mount (when not restoring a draft)
+  // Auto-select the initial preset on mount (when not restoring a draft).
+  // We check `state.detectedListType` rather than localStorage because
+  // React Strict Mode double-invokes effects: the persistence effect writes
+  // INITIAL_STATE to localStorage between the two invocations, making the
+  // second mount think a draft exists. Instead, we rely on the fact that
+  // restored drafts always have a non-null detectedListType. The selectPreset
+  // function itself guards against overwriting user-added items via
+  // prev.items.length === 0.
   useEffect(() => {
-    if (initialPreset && !hasRestoredDraft && !state.detectedListType) {
+    if (initialPreset && !state.detectedListType) {
       selectPreset(initialPreset)
     }
     // Only run on mount
@@ -264,7 +271,7 @@ export function UniversalListWizard({
       )
       const parsed = extractJSON<Record<string, unknown>[]>(response)
       if (Array.isArray(parsed)) {
-        const items: ListWizardItem[] = parsed.map((item: Record<string, unknown>) => ({
+        const newItems: ListWizardItem[] = parsed.map((item: Record<string, unknown>) => ({
           text: String(item.text ?? item.content ?? item.name ?? ''),
           section: item.section as string | undefined ?? item.category as string | undefined,
           price: item.price != null ? String(item.price) : undefined,
@@ -276,26 +283,43 @@ export function UniversalListWizard({
           store_category: item.store_category as string | undefined,
         }))
         // Extract unique sections from parsed items
-        const parsedSections = [...new Set(items.map((i) => i.section).filter(Boolean))] as string[]
-        setState((prev) => ({
-          ...prev,
-          items: items.filter((i) => i.text.trim()),
-          sections:
-            parsedSections.length > 0
-              ? parsedSections
-              : prev.sections,
-        }))
+        const parsedSections = [...new Set(newItems.map((i) => i.section).filter(Boolean))] as string[]
+        setState((prev) => {
+          // Append new items, deduplicating by case-insensitive text match
+          const existingTexts = new Set(
+            prev.items.map((i) => i.text.trim().toLowerCase()),
+          )
+          const deduped = newItems.filter(
+            (i) => i.text.trim() && !existingTexts.has(i.text.trim().toLowerCase()),
+          )
+          return {
+            ...prev,
+            items: [...prev.items, ...deduped],
+            sections:
+              parsedSections.length > 0
+                ? [...new Set([...prev.sections, ...parsedSections])]
+                : prev.sections,
+          }
+        })
       }
     } catch {
-      // Fallback: split by newlines
+      // Fallback: split by newlines and append (deduplicated)
       const lines = state.rawInput
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean)
-      setState((prev) => ({
-        ...prev,
-        items: lines.map((text) => ({ text })),
-      }))
+      setState((prev) => {
+        const existingTexts = new Set(
+          prev.items.map((i) => i.text.trim().toLowerCase()),
+        )
+        const deduped = lines
+          .filter((text) => !existingTexts.has(text.toLowerCase()))
+          .map((text) => ({ text }))
+        return {
+          ...prev,
+          items: [...prev.items, ...deduped],
+        }
+      })
     }
     setParsingItems(false)
   }, [state.rawInput, activePreset, setState])
