@@ -43,6 +43,8 @@ import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorReveal
 import { ColorRevealDetailModal } from '@/components/play-dashboard/ColorRevealDetailModal'
 import { CompletedBookGallery } from '@/components/play-dashboard/CompletedBookGallery'
 import { PlayTaskTileGrid } from '@/components/play-dashboard/PlayTaskTileGrid'
+import { IconLauncherGrid } from '@/components/play-dashboard/IconLauncherGrid'
+import { useIconLauncherWidgets } from '@/hooks/useIconLauncherWidgets'
 import { PlayRevealTileStub } from '@/components/play-dashboard/PlayRevealTileStub'
 import { PlayMomMessageStub } from '@/components/play-dashboard/PlayMomMessageStub'
 import { CreatureRevealModal } from '@/components/play-dashboard/CreatureRevealModal'
@@ -105,6 +107,7 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
   const { data: creatures = [] } = useCreaturesForMember(memberId)
   const { data: theme } = useGamificationTheme(stickerBookState?.active_theme_id)
   const { data: coloringReveals = [] } = useMemberColoringReveals(memberId)
+  const { data: iconLauncherWidgets = [] } = useIconLauncherWidgets(familyId, memberId)
 
   // ── Color reveal modal state (Phase 3) ────────────────────────
   const [colorRevealDetailOpen, setColorRevealDetailOpen] = useState<MemberColoringReveal | null>(null)
@@ -340,6 +343,15 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
         onOpenGallery={() => setColorRevealGalleryOpen(true)}
         shimmeringRevealIds={shimmeringRevealIds}
       />
+
+      {iconLauncherWidgets.length > 0 && (
+        <IconLauncherGrid
+          widgets={iconLauncherWidgets}
+          familyId={familyId}
+          memberId={memberId}
+          isPlayShell={true}
+        />
+      )}
 
       {tasksLoading ? (
         <div

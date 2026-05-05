@@ -58,6 +58,7 @@ export const GUIDED_SECTION_KEYS = [
   'next_best_thing',
   'calendar',
   'active_tasks',
+  'activity_list',
   'things_to_talk_about',
   'widget_grid',
   'celebrate',

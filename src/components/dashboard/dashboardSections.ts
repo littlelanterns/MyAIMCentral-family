@@ -14,6 +14,7 @@ export const SECTION_KEYS = {
   BEST_INTENTIONS: 'best_intentions',
   NEXT_BEST_THING: 'next_best_thing',
   CELEBRATE: 'celebrate',
+  ACTIVITY_LIST: 'activity_list',
 } as const
 
 // PRD-18: rhythm cards are auto-managed — they render at position 0 in
@@ -99,6 +100,14 @@ export const SECTION_META: Record<SectionKey, SectionMeta> = {
     key: 'celebrate',
     label: 'Celebrate',
     icon: 'trophy',
+    collapsible: true,
+    hideable: true,
+    draggable: true,
+  },
+  activity_list: {
+    key: 'activity_list',
+    label: 'Activities',
+    icon: 'sparkles',
     collapsible: true,
     hideable: true,
     draggable: true,

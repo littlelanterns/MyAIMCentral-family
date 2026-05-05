@@ -146,7 +146,29 @@
 - Task Breaker integration confirmation on promoted items
 - Seeded template: "Honey-Do List"
 
-### Worker E: Integration + Testing
+### Worker E: Deploy-Target Picker + Integration + Testing
+
+**Core reframe (founder decision 2026-05-05):** The ActivityListWizard's Step 6 currently auto-creates a floating `icon_launcher` widget above the task grid. This is wrong — mom needs to choose **where** the activity list shows up. The underlying activity list (a `lists` row) is the same regardless of surface. The deploy step becomes a "Where should this show up?" multi-select:
+
+**Three deploy targets (check all that apply, per kid):**
+
+1. **As a routine step** — Mom picks which routine → inserts a `linked_randomizer` step (Build J infrastructure). The activity draw happens inline in the routine step checklist. Works on ALL shells because RoutineStepChecklist already renders everywhere.
+
+2. **As a tile in a day segment** — The activity list tile appears inside a specific segment (Morning, School, etc.) on the Play dashboard alongside other tasks. Mom picks the segment. On Guided/Independent this renders at the appropriate density within the task section.
+
+3. **As a standalone card on the dashboard** — A lighter-weight "pick an activity" card not tied to a routine or segment. Two visual options:
+   - **Icon card** — big visual tile with the platform_assets icon (Play density on Play, compact on Guided/Independent)
+   - **Text button** — compact "Surprise me! / Browse" inline card (current GuidedActivitySection style)
+
+**What this means for Worker C's output:** The rendering components Worker C built (IconLauncherTile, IconLauncherGrid, ActivityRevealCard, ActivityBrowseModal, GuidedActivitySection, IndependentActivityCard) are all still valid — they're the rendering layer for target #3. Worker E wires the deploy-target picker that decides WHICH of these (plus target #1 and #2) get created on deploy.
+
+**Worker E tasks:**
+- Refactor ActivityListWizard Step 6: replace auto-widget-creation with deploy-target multi-select per kid
+- Target 1 (routine step): routine picker → insert `linked_randomizer` step via existing `useCreateLinkedStep` or equivalent
+- Target 2 (segment tile): create task with `task_segment_id` + `linked_list_id` + icon from wizard config
+- Target 3 (dashboard card): create `icon_launcher` widget (existing path, now opt-in)
+- Visual preference sub-choice for target 3: icon card vs text button (stored in `widget_config.visual_style`)
+- GuidedActivitySection + IconLauncherGrid read `visual_style` to fork rendering
 - NLC routing for new wizard types
 - Studio shelf cards for new wizards + seeded templates
 - Playwright E2E tests for all new flows
@@ -156,13 +178,14 @@
 ```
 Worker A (recurrence component) ─┬── Worker B (Activity wizard)
                                  │         │
-                                 │         └── Worker C (dashboard surfaces)
+                                 │         └── Worker C (rendering components)
+                                 │                   │
+                                 │                   └── Worker E (deploy-target picker + integration)
                                  │
-                                 ├── Worker D (Honey-Do wizard)
+                                 ├── Worker D (Honey-Do wizard) ──── Worker E
                                  │
-                                 └── Worker E (integration + tests, runs last)
 ```
-A must complete first. B and D can run in parallel after A. C depends on B. E runs last.
+A must complete first. B and D can run in parallel after A. C depends on B. E depends on C and D (runs last). E is now the heaviest worker — it wires the deploy-target picker and all integration.
 
 ---
 

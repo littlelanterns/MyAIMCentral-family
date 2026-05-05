@@ -19,6 +19,7 @@ import {
   CelebrateSection,
 } from '@/components/guided'
 import { GuidedThingsToTalkAboutSection } from '@/components/guided/GuidedThingsToTalkAboutSection'
+import { GuidedActivitySection } from '@/components/guided/GuidedActivitySection'
 import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
@@ -128,6 +129,15 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
       // PRD-18: mini evening rhythm for Guided renders OUTSIDE the section
       // loop at position 0. See the JSX below. Auto-managed — never in the
       // saved layout, never reorderable, never hideable.
+
+      case 'activity_list':
+        return displayFamilyId && displayMemberId ? (
+          <GuidedActivitySection
+            familyId={displayFamilyId}
+            memberId={displayMemberId}
+            readingSupport={readingSupport}
+          />
+        ) : null
 
       case 'things_to_talk_about':
         return displayFamilyId && displayMemberId ? (
