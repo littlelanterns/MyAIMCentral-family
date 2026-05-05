@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { Shuffle, List } from 'lucide-react'
 import { IconLauncherTile } from './IconLauncherTile'
 import { ActivityRevealCard } from './ActivityRevealCard'
 import { ActivityBrowseModal } from './ActivityBrowseModal'
@@ -74,6 +75,15 @@ export function IconLauncherGrid({
     setBrowseListId(null)
   }, [])
 
+  const iconWidgets = useMemo(
+    () => widgets.filter(w => w.widget_config.visual_style !== 'text_button'),
+    [widgets],
+  )
+  const textWidgets = useMemo(
+    () => widgets.filter(w => w.widget_config.visual_style === 'text_button'),
+    [widgets],
+  )
+
   if (widgets.length === 0) return null
 
   return (
@@ -89,15 +99,29 @@ export function IconLauncherGrid({
         Activities
       </h2>
 
-      <div className="icon-launcher-grid">
-        {widgets.map(widget => (
-          <IconLauncherTileWithData
-            key={widget.id}
-            widget={widget}
-            onTap={handleTap}
-          />
-        ))}
-      </div>
+      {iconWidgets.length > 0 && (
+        <div className="icon-launcher-grid">
+          {iconWidgets.map(widget => (
+            <IconLauncherTileWithData
+              key={widget.id}
+              widget={widget}
+              onTap={handleTap}
+            />
+          ))}
+        </div>
+      )}
+
+      {textWidgets.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: iconWidgets.length > 0 ? '0.75rem' : 0 }}>
+          {textWidgets.map(widget => (
+            <TextButtonLauncher
+              key={widget.id}
+              widget={widget}
+              onTap={handleTap}
+            />
+          ))}
+        </div>
+      )}
 
       {drawnItem && activeWidget && (
         <ActivityRevealCard
@@ -171,5 +195,63 @@ function IconLauncherTileWithData({
       iconUrl={iconUrl ?? null}
       onTap={() => onTap(widget, items)}
     />
+  )
+}
+
+function TextButtonLauncher({
+  widget,
+  onTap,
+}: {
+  widget: IconLauncherWidget
+  onTap: (widget: IconLauncherWidget, items: ListItem[]) => void
+}) {
+  const cfg = widget.widget_config
+
+  const { data: items = [] } = useQuery({
+    queryKey: ['icon-launcher-items', cfg.linked_list_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('list_items')
+        .select('*')
+        .eq('list_id', cfg.linked_list_id)
+        .is('archived_at', null)
+        .order('sort_order', { ascending: true })
+
+      if (error) throw error
+      return (data ?? []) as ListItem[]
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const eligible = items.filter(i => i.is_available !== false)
+  const isBrowse = cfg.display_mode === 'browse' || cfg.display_mode === 'sequential_browse'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onTap(widget, items)}
+      disabled={eligible.length === 0}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.5rem',
+        padding: '1rem',
+        borderRadius: 'var(--vibe-radius-card, 0.75rem)',
+        border: '1px dashed var(--color-border)',
+        backgroundColor: 'var(--color-bg-secondary)',
+        color: eligible.length > 0 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+        fontSize: 'var(--font-size-base)',
+        fontWeight: 600,
+        cursor: eligible.length > 0 ? 'pointer' : 'default',
+        minHeight: '56px',
+      }}
+    >
+      {isBrowse ? <List size={20} /> : <Shuffle size={20} />}
+      {eligible.length > 0
+        ? `${cfg.display_label}: ${isBrowse ? 'Browse' : 'Surprise me!'}`
+        : `${cfg.display_label}: All done!`}
+    </button>
   )
 }

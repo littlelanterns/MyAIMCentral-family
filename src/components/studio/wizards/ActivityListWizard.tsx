@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardProgress } from './useWizardProgress'
+import { RoutinePicker } from './RoutinePicker'
+import { SegmentPicker } from './SegmentPicker'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
@@ -10,7 +12,7 @@ import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import {
   GripVertical, Plus, Trash2, Shuffle, List, ArrowRight, BookOpen,
-  Sparkles, Info,
+  Sparkles, Info, LayoutGrid, LayoutList,
 } from 'lucide-react'
 import type { GodmotherType, ContractIfPattern } from '@/types/contracts'
 
@@ -19,11 +21,18 @@ import type { GodmotherType, ContractIfPattern } from '@/types/contracts'
 export type ActivityDisplayMode = 'random' | 'browse' | 'sequential_browse'
 type RewardScope = 'per_subject' | 'combined'
 type RewardType = 'points' | 'creatures' | 'pages'
+type VisualStyle = 'icon_card' | 'text_button'
 
 interface ActivityItem {
   id: string
   text: string
   recurrence: ItemRecurrenceValue
+}
+
+interface DeployTarget {
+  routineStep: { enabled: boolean; routineTaskId: string | null; sectionId: string | null }
+  segmentTile: { enabled: boolean; segmentId: string | null }
+  dashboardCard: { enabled: boolean; visualStyle: VisualStyle }
 }
 
 interface ActivityWizardState {
@@ -38,6 +47,13 @@ interface ActivityWizardState {
   rewardType: RewardType
   rewardThreshold: number
   assignedMemberIds: string[]
+  deployTargets: Record<string, DeployTarget>
+}
+
+const DEFAULT_DEPLOY_TARGET: DeployTarget = {
+  routineStep: { enabled: false, routineTaskId: null, sectionId: null },
+  segmentTile: { enabled: false, segmentId: null },
+  dashboardCard: { enabled: true, visualStyle: 'icon_card' },
 }
 
 const INITIAL_STATE: ActivityWizardState = {
@@ -52,6 +68,7 @@ const INITIAL_STATE: ActivityWizardState = {
   rewardType: 'creatures',
   rewardThreshold: 5,
   assignedMemberIds: [],
+  deployTargets: {},
 }
 
 const STEPS: WizardStep[] = [
@@ -211,11 +228,11 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
         })
       }
 
-      for (const memberId of state.assignedMemberIds) {
+      for (const mid of state.assignedMemberIds) {
         await supabase.from('list_shares').insert({
           list_id: listRow.id,
-          shared_with: memberId,
-          member_id: memberId,
+          shared_with: mid,
+          member_id: mid,
           permission: 'view',
           can_edit: false,
         })
@@ -227,8 +244,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
         state.rewardType === 'creatures' ? 'creature_godmother' :
         'page_unlock_godmother'
 
-      for (const memberId of state.assignedMemberIds) {
-        // Daily floor contract
+      for (const mid of state.assignedMemberIds) {
         await supabase.from('contracts').insert({
           family_id: family.id,
           created_by: member.id,
@@ -236,7 +252,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           source_type: 'list_item_completion',
           source_id: listRow.id,
           source_category: 'activity_list',
-          family_member_id: memberId,
+          family_member_id: mid,
           if_pattern: 'above_daily_floor' as ContractIfPattern,
           if_n: null,
           if_floor: state.dailyFloor,
@@ -250,7 +266,6 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           presentation_mode: 'silent',
         })
 
-        // Reward threshold contract (every Nth completion)
         await supabase.from('contracts').insert({
           family_id: family.id,
           created_by: member.id,
@@ -258,7 +273,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           source_type: 'list_item_completion',
           source_id: state.rewardScope === 'per_subject' ? listRow.id : null,
           source_category: state.rewardScope === 'combined' ? 'activity_list' : null,
-          family_member_id: memberId,
+          family_member_id: mid,
           if_pattern: 'every_nth' as ContractIfPattern,
           if_n: state.rewardThreshold,
           if_floor: null,
@@ -272,47 +287,97 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           presentation_mode: 'toast',
         })
 
-        // Create icon_launcher widget on member's dashboard
-        const maxSort = await supabase
-          .from('dashboard_widgets')
-          .select('sort_order')
-          .eq('family_member_id', memberId)
-          .eq('is_active', true)
-          .order('sort_order', { ascending: false })
-          .limit(1)
-          .single()
-        const nextSort = ((maxSort.data?.sort_order as number) ?? 0) + 1
+        // Deploy targets per member
+        const targets = state.deployTargets[mid] ?? DEFAULT_DEPLOY_TARGET
 
-        await supabase.from('dashboard_widgets').insert({
-          family_id: family.id,
-          family_member_id: memberId,
-          template_type: 'icon_launcher',
-          title: state.subjectName,
-          size: 'small',
-          position_x: 0,
-          position_y: 0,
-          sort_order: nextSort,
-          widget_config: {
+        // Target 1: Routine step
+        if (targets.routineStep.enabled && targets.routineStep.sectionId) {
+          const { data: maxStep } = await supabase
+            .from('task_template_steps')
+            .select('sort_order')
+            .eq('section_id', targets.routineStep.sectionId)
+            .order('sort_order', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          const nextSort = ((maxStep?.sort_order as number) ?? 0) + 1
+
+          await supabase.from('task_template_steps').insert({
+            section_id: targets.routineStep.sectionId,
+            title: state.subjectName,
+            step_name: state.subjectName,
+            sort_order: nextSort,
+            step_type: 'linked_randomizer',
+            linked_source_id: listRow.id,
+            linked_source_type: 'randomizer_list',
+            display_name_override: state.subjectName,
+            instance_count: 1,
+            require_photo: false,
+          })
+        }
+
+        // Target 2: Segment tile
+        if (targets.segmentTile.enabled && targets.segmentTile.segmentId) {
+          await supabase.from('tasks').insert({
+            family_id: family.id,
+            created_by: member.id,
+            assignee_id: mid,
+            title: state.subjectName,
+            task_type: 'task',
+            status: 'pending',
+            source: 'activity_list',
             linked_list_id: listRow.id,
+            task_segment_id: targets.segmentTile.segmentId,
             icon_asset_key: state.iconAssetKey,
             icon_variant: state.iconVariant,
-            display_label: state.subjectName,
-            display_mode: state.displayMode,
-          },
-          is_active: true,
-          is_on_dashboard: true,
-          is_included_in_ai: false,
-          multiplayer_enabled: false,
-          multiplayer_participants: [],
-          multiplayer_config: {},
-          data_source_ids: [],
-          view_mode: 'default',
-        })
+          })
+        }
+
+        // Target 3: Dashboard card (icon_launcher widget)
+        if (targets.dashboardCard.enabled) {
+          const { data: maxSortRow } = await supabase
+            .from('dashboard_widgets')
+            .select('sort_order')
+            .eq('family_member_id', mid)
+            .eq('is_active', true)
+            .order('sort_order', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          const nextWidgetSort = ((maxSortRow?.sort_order as number) ?? 0) + 1
+
+          await supabase.from('dashboard_widgets').insert({
+            family_id: family.id,
+            family_member_id: mid,
+            template_type: 'icon_launcher',
+            title: state.subjectName,
+            size: 'small',
+            position_x: 0,
+            position_y: 0,
+            sort_order: nextWidgetSort,
+            widget_config: {
+              linked_list_id: listRow.id,
+              icon_asset_key: state.iconAssetKey,
+              icon_variant: state.iconVariant,
+              display_label: state.subjectName,
+              display_mode: state.displayMode,
+              visual_style: targets.dashboardCard.visualStyle,
+            },
+            is_active: true,
+            is_on_dashboard: true,
+            is_included_in_ai: false,
+            multiplayer_enabled: false,
+            multiplayer_participants: [],
+            multiplayer_config: {},
+            data_source_ids: [],
+            view_mode: 'default',
+          })
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] })
+      queryClient.invalidateQueries({ queryKey: ['icon-launcher-widgets'] })
       queryClient.invalidateQueries({ queryKey: ['contracts'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       clearProgress()
       onClose()
     } catch (err) {
@@ -776,6 +841,16 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
     )
   }
 
+  const updateDeployTarget = useCallback((memberId: string, updater: (prev: DeployTarget) => DeployTarget) => {
+    setState(prev => ({
+      ...prev,
+      deployTargets: {
+        ...prev.deployTargets,
+        [memberId]: updater(prev.deployTargets[memberId] ?? DEFAULT_DEPLOY_TARGET),
+      },
+    }))
+  }, [setState])
+
   function renderAssignStep() {
     return (
       <div className="space-y-4">
@@ -808,6 +883,158 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           </div>
         </div>
 
+        {state.assignedMemberIds.map(mid => {
+          const m = familyMembers.find(fm => fm.id === mid)
+          if (!m) return null
+          const targets = state.deployTargets[mid] ?? DEFAULT_DEPLOY_TARGET
+
+          return (
+            <div
+              key={mid}
+              className="rounded-xl border p-3 space-y-3"
+              style={{
+                borderColor: 'var(--color-border)',
+                backgroundColor: 'var(--color-bg-card)',
+              }}
+            >
+              <p className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                Where should "{state.subjectName}" show up for {m.display_name}?
+              </p>
+
+              {/* Target 1: Routine step */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={targets.routineStep.enabled}
+                  onChange={e => updateDeployTarget(mid, prev => ({
+                    ...prev,
+                    routineStep: { ...prev.routineStep, enabled: e.target.checked },
+                  }))}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    As a step in a routine
+                  </span>
+                  {targets.routineStep.enabled && family?.id && (
+                    <div className="mt-1.5">
+                      <RoutinePicker
+                        memberId={mid}
+                        familyId={family.id}
+                        value={targets.routineStep}
+                        onChange={val => updateDeployTarget(mid, prev => ({
+                          ...prev,
+                          routineStep: { ...prev.routineStep, routineTaskId: val.routineTaskId, sectionId: val.sectionId },
+                        }))}
+                      />
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* Target 2: Segment tile */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={targets.segmentTile.enabled}
+                  onChange={e => updateDeployTarget(mid, prev => ({
+                    ...prev,
+                    segmentTile: { ...prev.segmentTile, enabled: e.target.checked },
+                  }))}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    As a tile in a day segment
+                  </span>
+                  {targets.segmentTile.enabled && (
+                    <div className="mt-1.5">
+                      <SegmentPicker
+                        memberId={mid}
+                        value={targets.segmentTile.segmentId}
+                        onChange={segId => updateDeployTarget(mid, prev => ({
+                          ...prev,
+                          segmentTile: { ...prev.segmentTile, segmentId: segId },
+                        }))}
+                      />
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* Target 3: Dashboard card */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={targets.dashboardCard.enabled}
+                  onChange={e => updateDeployTarget(mid, prev => ({
+                    ...prev,
+                    dashboardCard: { ...prev.dashboardCard, enabled: e.target.checked },
+                  }))}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    As a standalone card on the dashboard
+                  </span>
+                  {targets.dashboardCard.enabled && (
+                    <div className="flex gap-2 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => updateDeployTarget(mid, prev => ({
+                          ...prev,
+                          dashboardCard: { ...prev.dashboardCard, visualStyle: 'icon_card' },
+                        }))}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+                        style={{
+                          borderColor: targets.dashboardCard.visualStyle === 'icon_card'
+                            ? 'var(--color-btn-primary-bg)'
+                            : 'var(--color-border)',
+                          backgroundColor: targets.dashboardCard.visualStyle === 'icon_card'
+                            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)'
+                            : 'transparent',
+                          color: targets.dashboardCard.visualStyle === 'icon_card'
+                            ? 'var(--color-btn-primary-bg)'
+                            : 'var(--color-text-secondary)',
+                        }}
+                      >
+                        <LayoutGrid size={13} />
+                        Icon card
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateDeployTarget(mid, prev => ({
+                          ...prev,
+                          dashboardCard: { ...prev.dashboardCard, visualStyle: 'text_button' },
+                        }))}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
+                        style={{
+                          borderColor: targets.dashboardCard.visualStyle === 'text_button'
+                            ? 'var(--color-btn-primary-bg)'
+                            : 'var(--color-border)',
+                          backgroundColor: targets.dashboardCard.visualStyle === 'text_button'
+                            ? 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)'
+                            : 'transparent',
+                          color: targets.dashboardCard.visualStyle === 'text_button'
+                            ? 'var(--color-btn-primary-bg)'
+                            : 'var(--color-text-secondary)',
+                        }}
+                      >
+                        <LayoutList size={13} />
+                        Text button
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                Check all that apply — the same list can show up in multiple places!
+              </p>
+            </div>
+          )
+        })}
+
         {state.assignedMemberIds.length > 0 && (
           <div
             className="p-3 rounded-lg"
@@ -818,7 +1045,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
             </p>
             <ul className="text-xs mt-1 space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
               <li>• Creates "{state.subjectName}" activity list shared with {state.assignedMemberIds.length} {state.assignedMemberIds.length === 1 ? 'member' : 'members'}</li>
-              <li>• Adds a tappable icon tile to each kid's dashboard</li>
+              <li>• Places it where you chose above for each kid</li>
               <li>• Sets up daily requirement ({state.dailyFloor}/day) + reward contracts</li>
             </ul>
           </div>

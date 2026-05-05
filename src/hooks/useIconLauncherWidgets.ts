@@ -9,6 +9,7 @@ export interface IconLauncherWidget extends DashboardWidget {
     icon_variant: string
     display_label: string
     display_mode: 'random' | 'browse' | 'sequential_browse'
+    visual_style?: 'icon_card' | 'text_button'
   }
 }
 

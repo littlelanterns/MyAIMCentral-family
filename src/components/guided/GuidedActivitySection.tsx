@@ -22,14 +22,18 @@ export function GuidedActivitySection({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {widgets.map(widget => (
-        <GuidedActivityCard
-          key={widget.id}
-          widget={widget}
-          familyId={familyId}
-          memberId={memberId}
-        />
-      ))}
+      {widgets.map(widget => {
+        const vs = widget.widget_config.visual_style
+        return (
+          <GuidedActivityCard
+            key={widget.id}
+            widget={widget}
+            familyId={familyId}
+            memberId={memberId}
+            compact={vs === 'text_button'}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -38,10 +42,12 @@ function GuidedActivityCard({
   widget,
   familyId,
   memberId,
+  compact = false,
 }: {
   widget: IconLauncherWidget
   familyId: string
   memberId: string
+  compact?: boolean
 }) {
   const cfg = widget.widget_config
   const { data: iconUrl } = useIconLauncherIcon(cfg.icon_asset_key, cfg.icon_variant)
@@ -126,7 +132,7 @@ function GuidedActivityCard({
           padding: '0.75rem 1rem',
         }}
       >
-        {iconUrl && (
+        {!compact && iconUrl && (
           <img
             src={iconUrl}
             alt=""

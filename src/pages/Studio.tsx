@@ -706,9 +706,26 @@ export function StudioPage() {
   }, [navigate, loadRoutineTemplate])
 
   const handleNLCOpenWizard = useCallback((
-    wizardType: 'rewards_list' | 'repeated_action_chart' | 'list_reveal_assignment_opportunity' | 'list_reveal_assignment_draw',
+    wizardType: 'rewards_list' | 'repeated_action_chart' | 'list_reveal_assignment_opportunity' | 'list_reveal_assignment_draw' | 'activity_list_wizard' | 'shared_task_list_wizard',
     preFill: Record<string, unknown>,
   ) => {
+    if (wizardType === 'activity_list_wizard') {
+      const items = preFill.items as string[] | undefined
+      const pf: ActivityListWizardPrefill = {
+        subjectName: (preFill.subjectName as string) ?? undefined,
+        dailyFloor: (preFill.dailyFloor as number) ?? undefined,
+        items: items?.map(text => ({ text })),
+      }
+      setActivityListPrefill(Object.values(pf).some(v => v != null) ? pf : undefined)
+      setActivityListWizardOpen(true)
+      return
+    }
+    if (wizardType === 'shared_task_list_wizard') {
+      const items = preFill.items as string[] | undefined
+      setSharedTaskListInitialItems(items?.map(text => ({ text })))
+      setSharedTaskListWizardOpen(true)
+      return
+    }
     if (wizardType === 'rewards_list') {
       setRewardsListWizardOpen(true)
     } else if (wizardType === 'repeated_action_chart') {

@@ -14,6 +14,8 @@ type WizardMatch =
   | 'repeated_action_chart'
   | 'list_reveal_assignment_opportunity'
   | 'list_reveal_assignment_draw'
+  | 'activity_list_wizard'
+  | 'shared_task_list_wizard'
 
 interface NLCResult {
   wizardType: WizardMatch
@@ -32,6 +34,8 @@ const WIZARD_LABELS: Record<WizardMatch, string> = {
   repeated_action_chart: 'Set Up a Progress Chart',
   list_reveal_assignment_opportunity: 'Extra Earning Opportunities',
   list_reveal_assignment_draw: 'Consequence / Activity Spinner',
+  activity_list_wizard: 'Set Up Subject Activities',
+  shared_task_list_wizard: 'Create a Shared To-Do',
 }
 
 const WIZARD_DESCRIPTIONS: Record<WizardMatch, string> = {
@@ -39,6 +43,8 @@ const WIZARD_DESCRIPTIONS: Record<WizardMatch, string> = {
   repeated_action_chart: 'Track a repeated action with star charts, coloring reveals, and milestone rewards.',
   list_reveal_assignment_opportunity: 'Create an earning board where kids claim jobs for rewards.',
   list_reveal_assignment_draw: 'Create a spinner that picks randomly from your list.',
+  activity_list_wizard: 'Build a subject-based activity list with daily requirements, random/browse modes, and rewards.',
+  shared_task_list_wizard: 'Create a shared to-do list where family members claim and complete items.',
 }
 
 const SYSTEM_PROMPT = `You are a family management wizard router. A mom is describing what she wants to create for her family. Your job is to identify which wizard best matches her description and extract any pre-fillable fields.
@@ -48,17 +54,21 @@ Available wizards:
 2. "repeated_action_chart" — Star charts, potty charts, coloring reveals. Tracks a single repeated action (potty trips, piano practice, chores) with visual progress and milestone rewards. Use when mom wants to track/reward a repeated behavior.
 3. "list_reveal_assignment_opportunity" — Opportunity/earning board where kids claim jobs for money or prizes. Use when mom wants extra earning jobs, bonus chores, or a job board.
 4. "list_reveal_assignment_draw" — Consequence spinner or activity picker. A randomizer wheel that picks from a list. Use when mom wants a consequence wheel, activity picker, or random selection tool.
+5. "activity_list_wizard" — Subject-based activity list for homeschool or enrichment. Use when mom mentions reading activities, homeschool variety, subject activities, PE activities, art activities, or any collection of activities organized by subject with daily requirements.
+6. "shared_task_list_wizard" — Shared to-do list for household projects. Use when mom mentions honey-do list, shared to-do, household tasks, home improvement projects, or a list where family members claim and complete items.
 
 Family member names for reference: {FAMILY_MEMBERS}
 
 Respond with ONLY valid JSON (no markdown fences):
 {
-  "wizardType": "rewards_list" | "repeated_action_chart" | "list_reveal_assignment_opportunity" | "list_reveal_assignment_draw",
+  "wizardType": "rewards_list" | "repeated_action_chart" | "list_reveal_assignment_opportunity" | "list_reveal_assignment_draw" | "activity_list_wizard" | "shared_task_list_wizard",
   "preFill": {
     // For rewards_list: { "listName": string, "items": string[] }
     // For repeated_action_chart: { "chartName": string, "actionTaskName": string, "memberName": string }
     // For list_reveal_assignment_opportunity: { "listName": string, "items": [{ "name": string, "amount": number }] }
     // For list_reveal_assignment_draw: { "listName": string, "items": string[] }
+    // For activity_list_wizard: { "subjectName": string, "items": string[], "dailyFloor": number }
+    // For shared_task_list_wizard: { "listName": string, "items": string[] }
     // Only include fields you can confidently extract. Omit uncertain fields.
   },
   "confidence": "high" | "medium" | "low",
@@ -123,6 +133,8 @@ export function NaturalLanguageComposition({
     'repeated_action_chart',
     'list_reveal_assignment_opportunity',
     'list_reveal_assignment_draw',
+    'activity_list_wizard',
+    'shared_task_list_wizard',
   ]
 
   return (
