@@ -25,7 +25,8 @@ import { useShareList } from '@/hooks/useLists'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
-import type { OpportunityRewardType } from '@/types/lists'
+import type { OpportunityRewardType, FrequencyPeriod } from '@/types/lists'
+import { ItemRecurrenceConfig, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
 import type { GodmotherType, PresentationMode } from '@/types/contracts'
 import {
   DndContext,
@@ -57,6 +58,11 @@ interface ListItemDraft {
   rewardType: OpportunityRewardType | ''
   rewardAmount: number | null
   requireApproval: boolean
+  // Per-item recurrence (Phase 3.8)
+  isRepeatable: boolean
+  frequencyPeriod: FrequencyPeriod | null
+  cooldownHours: number | null
+  maxInstances: number | null
 }
 
 interface WizardState {
@@ -143,14 +149,14 @@ export const CONSEQUENCE_SPINNER_PREFILL: ListRevealPreFill = {
   listName: 'Consequences',
   listDescription: 'Fair, pre-decided consequences the whole family agrees on.',
   items: [
-    { id: 'c1', name: 'Wash the dishes', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c2', name: 'Clean the bathroom mirror', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c3', name: 'Vacuum the living room', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c4', name: 'Write a kind note to each family member', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c5', name: '10 minutes of reading', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c6', name: 'Organize the shoe rack', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c7', name: 'Wipe down kitchen counters', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
-    { id: 'c8', name: 'Help with dinner prep', description: '', rewardType: '', rewardAmount: null, requireApproval: false },
+    { id: 'c1', name: 'Wash the dishes', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c2', name: 'Clean the bathroom mirror', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c3', name: 'Vacuum the living room', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c4', name: 'Write a kind note to each family member', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c5', name: '10 minutes of reading', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c6', name: 'Organize the shoe rack', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c7', name: 'Wipe down kitchen counters', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c8', name: 'Help with dinner prep', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
   ],
   personPickMode: 'person_first',
   kidCanSkip: false,
@@ -162,12 +168,12 @@ export const EXTRA_EARNING_PREFILL: ListRevealPreFill = {
   listName: 'Extra Earning Opportunities',
   listDescription: 'Bonus jobs kids can claim for money.',
   items: [
-    { id: 'e1', name: 'Wash the car', description: '', rewardType: 'money', rewardAmount: 10, requireApproval: true },
-    { id: 'e2', name: 'Mow the lawn', description: '', rewardType: 'money', rewardAmount: 15, requireApproval: true },
-    { id: 'e3', name: 'Organize the pantry', description: '', rewardType: 'money', rewardAmount: 8, requireApproval: true },
-    { id: 'e4', name: 'Deep clean bedroom', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true },
-    { id: 'e5', name: 'Help with laundry', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true },
-    { id: 'e6', name: 'Weed the garden', description: '', rewardType: 'money', rewardAmount: 12, requireApproval: true },
+    { id: 'e1', name: 'Wash the car', description: '', rewardType: 'money', rewardAmount: 10, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null },
+    { id: 'e2', name: 'Mow the lawn', description: '', rewardType: 'money', rewardAmount: 15, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null },
+    { id: 'e3', name: 'Organize the pantry', description: '', rewardType: 'money', rewardAmount: 8, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'e4', name: 'Deep clean bedroom', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'e5', name: 'Help with laundry', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'e6', name: 'Weed the garden', description: '', rewardType: 'money', rewardAmount: 12, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null },
   ],
   claimLockHours: 24,
   approvalRequired: true,
@@ -456,6 +462,10 @@ export function ListRevealAssignmentWizard({
         rewardType: prev.flavor === 'opportunity' ? 'money' : '' as OpportunityRewardType | '',
         rewardAmount: null,
         requireApproval: prev.flavor === 'opportunity',
+        isRepeatable: true,
+        frequencyPeriod: null,
+        cooldownHours: null,
+        maxInstances: null,
       }],
     }))
   }, [])
@@ -496,6 +506,21 @@ export function ListRevealAssignmentWizard({
         rewardAmount: amount,
         requireApproval: type === 'money',
       })),
+    }))
+  }, [])
+
+  const handleRecurrenceChange = useCallback((id: string, val: ItemRecurrenceValue) => {
+    setState((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === id ? {
+          ...item,
+          isRepeatable: val.is_repeatable,
+          frequencyPeriod: val.frequency_period,
+          cooldownHours: val.cooldown_hours,
+          maxInstances: val.max_instances,
+        } : item,
+      ),
     }))
   }, [])
 
@@ -553,6 +578,10 @@ export function ListRevealAssignmentWizard({
           rewardType: isOpportunity ? 'money' as OpportunityRewardType : '' as OpportunityRewardType | '',
           rewardAmount: s.amount ?? null,
           requireApproval: isOpportunity,
+          isRepeatable: true,
+          frequencyPeriod: null,
+          cooldownHours: null,
+          maxInstances: null,
         }))
         setAiSuggestions(suggestions)
         setAiSelectedIds(new Set(suggestions.map((s) => s.id)))
@@ -626,8 +655,11 @@ export function ListRevealAssignmentWizard({
           content: item.name.trim(),
           notes: item.description || null,
           sort_order: idx,
-          is_repeatable: isOpportunity,
+          is_repeatable: item.isRepeatable,
           is_available: true,
+          frequency_period: item.frequencyPeriod,
+          cooldown_hours: item.cooldownHours,
+          max_instances: item.maxInstances,
         }
         if (isOpportunity && item.rewardType) {
           row.reward_type = item.rewardType
@@ -1138,12 +1170,28 @@ export function ListRevealAssignmentWizard({
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={state.items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                   {state.items.map((item) => (
-                    <SortableItemRow
-                      key={item.id}
-                      item={item}
-                      onUpdate={handleUpdateItem}
-                      onRemove={handleRemoveItem}
-                    />
+                    <div key={item.id}>
+                      <SortableItemRow
+                        item={item}
+                        onUpdate={handleUpdateItem}
+                        onRemove={handleRemoveItem}
+                      />
+                      {state.flavor === 'draw' && item.name.trim() && (
+                        <div className="px-8 pb-2">
+                          <ItemRecurrenceConfig
+                            value={{
+                              is_repeatable: item.isRepeatable,
+                              frequency_min: null,
+                              frequency_max: null,
+                              frequency_period: item.frequencyPeriod,
+                              cooldown_hours: item.cooldownHours,
+                              max_instances: item.maxInstances,
+                            }}
+                            onChange={(val) => handleRecurrenceChange(item.id, val)}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </SortableContext>
               </DndContext>
@@ -1208,14 +1256,28 @@ export function ListRevealAssignmentWizard({
             </button>
           </div>
 
-          {/* Per-item reward config */}
+          {/* Per-item reward + recurrence config */}
           <div className="space-y-2">
             {state.items.filter((i) => i.name.trim()).map((item) => (
-              <RewardConfigRow
-                key={item.id}
-                item={item}
-                onUpdate={handleUpdateItem}
-              />
+              <div key={item.id} className="space-y-1.5">
+                <RewardConfigRow
+                  item={item}
+                  onUpdate={handleUpdateItem}
+                />
+                <div className="pl-3">
+                  <ItemRecurrenceConfig
+                    value={{
+                      is_repeatable: item.isRepeatable,
+                      frequency_min: null,
+                      frequency_max: null,
+                      frequency_period: item.frequencyPeriod,
+                      cooldown_hours: item.cooldownHours,
+                      max_instances: item.maxInstances,
+                    }}
+                    onChange={(val) => handleRecurrenceChange(item.id, val)}
+                  />
+                </div>
+              </div>
             ))}
           </div>
 

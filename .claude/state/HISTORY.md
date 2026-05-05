@@ -6,6 +6,35 @@
 
 ---
 
+## 2026-05-04 — Phase 3.7 Wizards & Seeded Templates CLOSED
+
+**Type:** Phase build (Connector Architecture §8)
+**Scope:** Three outcome-named wizards + three seeded templates + NLC entry point + Drafts tab + draft persistence infrastructure
+**Duration:** Single session (Workers A-E sequential)
+**Final state:** All requirements verified. 6/6 Playwright tests pass. Migration 100229 applied to production.
+**Commit:** `0f7457b`
+
+### What shipped
+- Migration 100229: wizard_templates table, reveal_animation_pools + pool members, reveal_animations.tag column, godmother_type CHECK restoration (all 13 types), ListType CHECK extension (reward_list)
+- **Rewards List Wizard** — "Create a Rewards List" (4 steps): name → add items with BulkAddWithAI → configure reveal → assign to kids
+- **Repeated Action Chart Wizard** — "Set Up a Progress Chart" (6 steps): name → pick visual (star chart/coloring reveal) → add items → set milestones → configure rewards → assign
+- **List + Reveal + Assignment Wizard** — two flavors: "Extra Earning Opportunities" (opportunity, 6 steps) and "Consequence Spinner" (draw, 7 steps)
+- **Potty Chart** seeded template (pre-fills Repeated Action Chart wizard)
+- **Consequence Spinner** seeded template (pre-fills draw flavor)
+- **Extra Earning Opportunities** seeded template (pre-fills opportunity flavor)
+- **Natural Language Composition** entry point on Studio Browse tab
+- **Drafts tab** in Studio with localStorage persistence via `useWizardDraft`
+- TypeScript `GodmotherType` union fix (4 missing types added)
+- 6 Playwright E2E tests
+
+### Bugs found during Playwright testing (all fixed)
+1. Hidden seeded templates — card visibility logic excluded them
+2. Missing headings — wizard step headings not rendering
+3. Draft save failure — localStorage serialization error
+4. Card title mismatch — seeded template cards showing wrong names
+
+---
+
 ## 2026-04-28 — Daily Progress Marking CLOSED
 
 **Type:** PRD-driven build (PRD-09A Addendum)

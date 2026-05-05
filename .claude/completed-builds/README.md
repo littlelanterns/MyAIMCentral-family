@@ -15,6 +15,9 @@
 
 | Build | PRD | Signed off | File |
 |---|---|---|---|
+| Phase 3.7 — Wizards & Seeded Templates | Connector Architecture — 3 wizards, 3 seeded templates, NLC entry point, Drafts tab, migration 100229 | 2026-05-04 | [phase-3.7-wizards-seeded-templates.md](2026-05/phase-3.7-wizards-seeded-templates.md) |
+| Phase 3 — Connector Layer | Connector Architecture — 12 godmothers, deed_firings, contracts, IF evaluation, presentation layer, `/contracts` + `/prize-board` | 2026-05-03 | [phase-3-connector-layer.md](2026-05/phase-3-connector-layer.md) |
+| Workers 2+3 — Shared Routines + Shared Lists | PRD-09A/09B — Multi-instance FIRST-N-COMPLETERS, cross-sibling edit authority, list claim semantics, shared list modes | 2026-05-02 | [workers-2-3-shared-routines-lists.md](2026-05/workers-2-3-shared-routines-lists.md) |
 | Universal Capability Parity — Stages 1+2+3 | PRD-09A/09B cross-cutting — content edit timing, pending_changes, cron, Family Overview fix | 2026-05-01 | [universal-capability-parity-stages-1-2-3.md](2026-05/universal-capability-parity-stages-1-2-3.md) |
 
 ### 2026-04

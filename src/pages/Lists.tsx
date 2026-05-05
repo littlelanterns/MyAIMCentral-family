@@ -38,6 +38,7 @@ import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import type { ListItem, ListType, ListShare, List as ListData, VictoryMode } from '@/types/lists'
 import { Randomizer } from '@/components/lists/Randomizer'
 import { FrequencyRulesEditor, type FrequencyRules } from '@/components/lists/FrequencyRulesEditor'
+import { ItemRecurrenceConfig, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
 import { PoolModeSelector } from '@/components/lists/PoolModeSelector'
 import { DrawModeSelector } from '@/components/lists/DrawModeSelector'
 import { useRandomizerPendingMastery } from '@/hooks/useRandomizerDraws'
@@ -2217,10 +2218,11 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                     const storeParam = firstSection ? `?store=${encodeURIComponent(firstSection)}` : ''
                     navigate(`/shopping-mode${storeParam}`)
                   }}
-                  className="p-1.5 rounded-lg"
-                  style={{ color: 'var(--color-btn-primary-bg)' }}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ color: 'var(--color-btn-primary-bg)', border: '1px solid var(--color-btn-primary-bg)' }}
                 >
-                  <ShoppingCart size={16} />
+                  <ShoppingCart size={14} />
+                  <span>Shop</span>
                 </button>
               </Tooltip>
             )}
@@ -2826,6 +2828,8 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                       onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
                       showVictoryFlag={isOwnerOrParent}
                       onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
+                      showRecurrence={isOwnerOrParent && ['opportunity', 'randomizer', 'todo', 'custom'].includes(list.list_type)}
+                      onRecurrenceChange={isOwnerOrParent ? (val) => updateItem.mutate({ id: item.id, listId, is_repeatable: val.is_repeatable, frequency_period: val.frequency_period, cooldown_hours: val.cooldown_hours, max_instances: val.max_instances }) : undefined}
                       {...getCheckerProps(item)}
                       {...getClaimProps(item)}
                     />
@@ -2856,6 +2860,8 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                     onEdit={() => setEditingId(editingId === item.id ? null : item.id)}
                     showVictoryFlag={isOwnerOrParent}
                     onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
+                    showRecurrence={isOwnerOrParent && ['opportunity', 'randomizer', 'todo', 'custom'].includes(list.list_type)}
+                    onRecurrenceChange={isOwnerOrParent ? (val) => updateItem.mutate({ id: item.id, listId, is_repeatable: val.is_repeatable, frequency_period: val.frequency_period, cooldown_hours: val.cooldown_hours, max_instances: val.max_instances }) : undefined}
                   />
                 ))}
               </div>
@@ -3364,6 +3370,8 @@ interface ListItemRowProps {
   claimerName?: string | null
   claimerColor?: string | null
   onClaimToggle?: () => void
+  onRecurrenceChange?: (val: ItemRecurrenceValue) => void
+  showRecurrence?: boolean
 }
 
 function SortableListItemRow(props: Omit<ListItemRowProps, 'dragHandleProps'>) {
@@ -3411,6 +3419,8 @@ function ListItemRow({
   claimerName,
   claimerColor,
   onClaimToggle,
+  onRecurrenceChange,
+  showRecurrence,
 }: ListItemRowProps) {
   const isTodo = listType === 'todo'
   const isWishlist = listType === 'wishlist'
@@ -3547,6 +3557,21 @@ function ListItemRow({
           <p className="text-xs italic whitespace-pre-wrap mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
             {item.notes}
           </p>
+        )}
+        {showRecurrence && onRecurrenceChange && (
+          <div className="mt-1.5">
+            <ItemRecurrenceConfig
+              value={{
+                is_repeatable: item.is_repeatable,
+                frequency_min: item.frequency_min,
+                frequency_max: item.frequency_max,
+                frequency_period: item.frequency_period,
+                cooldown_hours: item.cooldown_hours,
+                max_instances: item.max_instances,
+              }}
+              onChange={onRecurrenceChange}
+            />
+          </div>
         )}
       </div>
 

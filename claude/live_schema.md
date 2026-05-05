@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-04
+> Auto-generated from live Supabase on 2026-05-05
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -872,7 +872,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 41 rows
+### `lists` — 42 rows
 
 | # | Column |
 |---|---|
@@ -924,7 +924,7 @@
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
 
-### `list_items` — 113 rows
+### `list_items` — 123 rows
 
 | # | Column |
 |---|---|
@@ -1763,7 +1763,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2480,7 +2480,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 207 rows
+### `activity_log_entries` — 208 rows
 
 | # | Column |
 |---|---|

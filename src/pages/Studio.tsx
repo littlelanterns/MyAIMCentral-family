@@ -663,6 +663,10 @@ export function StudioPage() {
               rewardType: 'money' as const,
               rewardAmount: i.amount ?? 1,
               requireApproval: true,
+              isRepeatable: true,
+              frequencyPeriod: null,
+              cooldownHours: null,
+              maxInstances: null,
             }))
           : [],
       }
@@ -682,6 +686,10 @@ export function StudioPage() {
               rewardType: '' as const,
               rewardAmount: null,
               requireApproval: false,
+              isRepeatable: true,
+              frequencyPeriod: null,
+              cooldownHours: null,
+              maxInstances: null,
             }))
           : [],
       }

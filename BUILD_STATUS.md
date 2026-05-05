@@ -1,6 +1,6 @@
 # Build Status — MyAIM Central v2
 
-> Last updated: 2026-05-03
+> Last updated: 2026-05-04
 
 ## Foundation Phases (Complete)
 
@@ -81,4 +81,4 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 |-------|-------|-------------|--------|-----------|
 | Phase 3 | Connector Architecture | Event-driven contract system: 12 godmothers, deed_firings dispatch trigger, contracts table (central switchboard), IF evaluation (8 patterns), inheritance resolution, presentation layer, `/contracts` authoring UI, `/prize-board` expansion (Allowance/Prizes/Balance tabs). Replaces hardcoded gamification/allowance/victory wiring. 14 Playwright e2e tests. Migrations 100199-100225. | **Complete** | 2026-05-03 |
 | Phase 3.5 | Multi-Pool Allowance | Restructure allowance for per-kid multi-pool support with cross-pool conditions, term-length pools, weighted combinations. | Pending | |
-| Phase 3.7 | Wizards & Templates | Friendly guided flows wrapping raw contract authoring: Potty Chart, Consequence Spinner, Extra Earning Opportunities. | Pending | |
+| Phase 3.7 | Wizards & Templates | Three outcome-named wizards (Rewards List, Repeated Action Chart, List+Reveal+Assignment) + three seeded templates (Potty Chart, Consequence Spinner, Extra Earning Opportunities) + NLC entry point + Drafts tab + draft persistence. Migration 100229. 6 Playwright tests. | **Complete** | 2026-05-04 |

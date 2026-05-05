@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Play, ExternalLink, Info } from 'lucide-react'
 import type { VaultItem } from '../../hooks/useVaultBrowse'
 import { useToolLauncher } from '@/components/lila/ToolLauncherProvider'
+import { StandaloneTaskBreakerModal } from '@/components/tasks/StandaloneTaskBreakerModal'
 
 interface Props {
   item: VaultItem
@@ -19,20 +20,27 @@ interface Props {
  * When launching a native tool, we close the parent VaultDetailView so the tool modal
  * owns the screen — otherwise the portaled VaultDetailView (z-50 on document.body) would
  * stack on top of TranslatorModal (z-50 in the shell tree), hiding it.
+ *
+ * Task Breaker is a Category 2 native utility tool (Convention 248) — it has its own
+ * Edge Function and does NOT route through lila-chat. It opens StandaloneTaskBreakerModal.
  */
 export function AIToolDetail({ item, memberId: _memberId, onCloseDetail }: Props) {
   const [launched, setLaunched] = useState(false)
+  const [taskBreakerOpen, setTaskBreakerOpen] = useState(false)
   const { openTool } = useToolLauncher()
 
+  const isTaskBreaker = item.content_type === 'ai_tool' && item.detail_title === 'Task Breaker'
+
   const handleLaunch = () => {
+    if (isTaskBreaker) {
+      setTaskBreakerOpen(true)
+      onCloseDetail?.()
+      return
+    }
     if (item.delivery_method === 'link_out' && item.tool_url) {
       window.open(item.tool_url, '_blank', 'noopener,noreferrer')
     } else if (item.delivery_method === 'native' && item.guided_mode_key) {
-      // PRD-21: Delegate to ToolLauncherProvider which dispatches to the correct modal
-      // based on guided_mode_key (translator → TranslatorModal, board_of_directors →
-      // BoardOfDirectorsModal, everything else → ToolConversationModal).
       openTool(item.guided_mode_key)
-      // Close this detail view so the tool modal is the only thing on screen.
       onCloseDetail?.()
     } else if (item.delivery_method === 'embedded') {
       setLaunched(true)
@@ -124,6 +132,13 @@ export function AIToolDetail({ item, memberId: _memberId, onCloseDetail }: Props
         <p className="text-xs mt-4" style={{ color: 'var(--color-text-secondary)' }}>
           Platform: {item.platform}
         </p>
+      )}
+
+      {taskBreakerOpen && (
+        <StandaloneTaskBreakerModal
+          isOpen={taskBreakerOpen}
+          onClose={() => setTaskBreakerOpen(false)}
+        />
       )}
     </div>
   )
