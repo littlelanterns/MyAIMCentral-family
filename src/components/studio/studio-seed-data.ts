@@ -936,3 +936,104 @@ export const PHASE37_SEEDED_TEMPLATES: StudioTemplate[] = [
     isExample: true,
   },
 ]
+
+// ─── Phase 3.8 Wizard Templates ─────────────────────────────────
+
+export const PHASE38_WIZARD_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'wizard_activity_list',
+    templateType: 'activity_list_wizard',
+    name: 'Set Up Subject Activities',
+    tagline: 'Create a subject-based activity list with daily requirements and rewards.',
+    description:
+      'Build an activity list for any subject — reading, math, PE, art, or anything else. Set a daily floor (first N required, extras count as extra credit), configure reward thresholds, and deploy to kids. Supports Random draw, Browse, or Sequential-with-browse modes. Auto-creates icon launcher tiles on Play dashboard.',
+    exampleUseCases: [
+      'Reading activities',
+      'Homeschool subject variety',
+      'PE / outdoor activities',
+      'Art & music activities',
+    ],
+    capability_tags: [
+      'activity', 'subject', 'daily_floor', 'kids',
+      'randomizer', 'browse', 'setup_wizard', 'icon_launcher',
+    ],
+    isExample: false,
+  },
+  {
+    id: 'wizard_shared_task_list',
+    templateType: 'shared_task_list_wizard',
+    name: 'Create a Shared To-Do',
+    tagline: 'A shared list where family members claim and complete items.',
+    description:
+      'Create a shared to-do list for household projects and tasks. Members claim items from the pool, optionally promoting them to personal tasks. Completion writes back to the shared list so everyone sees progress. Great for honey-do lists, home improvement projects, and shared chores between adults.',
+    exampleUseCases: [
+      'Honey-do list',
+      'Home improvement projects',
+      'Shared household tasks',
+      'Vacation prep checklist',
+    ],
+    capability_tags: [
+      'shared', 'claim', 'household', 'adults',
+      'todo', 'setup_wizard', 'collaboration', 'task_promotion',
+    ],
+    isExample: false,
+  },
+]
+
+export const PHASE38_SEEDED_TEMPLATES: StudioTemplate[] = [
+  {
+    id: 'seed_reading_fun',
+    templateType: 'activity_list_wizard',
+    name: 'Reading Fun Activities',
+    tagline: 'A ready-to-go reading activity list with 8 activities for any reader.',
+    description:
+      'Pre-filled activity list with reading-focused activities: chapter books, audiobooks, read-alouds, library visits, and more. Random draw mode with 1 activity per day required. Library visits set to weekly recurrence.',
+    exampleUseCases: [
+      'Daily reading variety',
+      'Summer reading program',
+      'Homeschool reading block',
+    ],
+    capability_tags: [
+      'activity', 'reading', 'kids', 'pre_filled',
+      'randomizer', 'setup_wizard',
+    ],
+    isExample: true,
+  },
+  {
+    id: 'seed_homeschool_variety',
+    templateType: 'activity_list_wizard',
+    name: 'Homeschool Variety Pack',
+    tagline: 'Multi-subject activity sampler — math, science, art, PE, and more.',
+    description:
+      'Pre-filled with 10 activities across multiple subjects. Browse mode lets the kid pick what they want to work on. 2 activities per day required. Great for homeschool families who want daily variety without rigid scheduling.',
+    exampleUseCases: [
+      'Homeschool daily activities',
+      'Multi-subject rotation',
+      'Summer learning variety',
+    ],
+    capability_tags: [
+      'activity', 'homeschool', 'multi_subject', 'kids',
+      'browse', 'pre_filled', 'setup_wizard',
+    ],
+    isExample: true,
+  },
+  {
+    id: 'seed_honey_do_list',
+    templateType: 'shared_task_list_wizard',
+    name: 'Honey-Do List',
+    tagline: 'Common household projects and fix-it tasks to share between partners.',
+    description:
+      'A ready-to-deploy shared to-do list with 8 common household tasks. Partners claim items and they appear on their personal task list. Completing a claimed task checks it off the shared list. Big jobs get a "Break it down" button for Task Breaker. Customize the items for your home.',
+    exampleUseCases: [
+      'Partner task sharing',
+      'Weekend projects',
+      'Home maintenance list',
+      'Fix-it tasks',
+    ],
+    capability_tags: [
+      'shared', 'claim', 'household', 'adults',
+      'honey_do', 'setup_wizard', 'pre_filled', 'task_promotion',
+    ],
+    isExample: true,
+  },
+]

@@ -311,6 +311,23 @@ export function useCompleteTask() {
         }
       }
 
+      // Phase 3.8: Completion write-back for list-promoted tasks.
+      // When a task with source='list_promotion' completes, check off the source list item.
+      if (!requireApproval && updatedTask.source === 'list_promotion' && updatedTask.source_reference_id) {
+        try {
+          await supabase
+            .from('list_items')
+            .update({
+              checked: true,
+              checked_by: memberId,
+              checked_at: new Date().toISOString(),
+            })
+            .eq('id', updatedTask.source_reference_id)
+        } catch (err) {
+          console.warn('[useCompleteTask] list promotion write-back failed (non-blocking):', err)
+        }
+      }
+
       return { completion, task: updatedTask as Task, gamificationResult: null as GamificationResult | null }
     },
     onSuccess: ({ completion, task }) => {
@@ -328,6 +345,11 @@ export function useCompleteTask() {
       if (task.counts_for_homework && task.homework_subject_ids?.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['homeschool-daily-summary', completerId] })
         queryClient.invalidateQueries({ queryKey: ['homeschool-weekly-summary', completerId] })
+      }
+
+      if (task.source === 'list_promotion' && task.source_reference_id) {
+        queryClient.invalidateQueries({ queryKey: ['list-items'] })
+        queryClient.invalidateQueries({ queryKey: ['lists', task.family_id] })
       }
 
       // Connector: deed firing triggers godmothers which may write financial,

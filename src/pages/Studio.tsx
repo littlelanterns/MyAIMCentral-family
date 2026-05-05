@@ -52,7 +52,10 @@ import {
   WIZARD_TEMPLATES,
   PHASE37_WIZARD_TEMPLATES,
   PHASE37_SEEDED_TEMPLATES,
+  PHASE38_WIZARD_TEMPLATES,
+  PHASE38_SEEDED_TEMPLATES,
 } from '@/components/studio/studio-seed-data'
+import { ActivityListWizard, type ActivityListWizardPrefill } from '@/components/studio/wizards/ActivityListWizard'
 import { useWizardDraftList, clearWizardDraft } from '@/components/studio/wizards/useWizardDraft'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
@@ -86,6 +89,7 @@ import {
   type ListRevealPreFill,
 } from '@/components/studio/wizards/ListRevealAssignmentWizard'
 import { RepeatedActionChartWizard } from '@/components/studio/wizards/RepeatedActionChartWizard'
+import { SharedTaskListWizard } from '@/components/studio/wizards/SharedTaskListWizard'
 import { NaturalLanguageComposition } from '@/components/studio/NaturalLanguageComposition'
 
 // ─────────────────────────────────────────────
@@ -338,6 +342,10 @@ export function StudioPage() {
   const [listRevealPreFill, setListRevealPreFill] = useState<ListRevealPreFill | undefined>(undefined)
   const [repeatedActionChartWizardOpen, setRepeatedActionChartWizardOpen] = useState(false)
   const [repeatedActionChartInitial, setRepeatedActionChartInitial] = useState<Record<string, unknown> | undefined>(undefined)
+  const [activityListWizardOpen, setActivityListWizardOpen] = useState(false)
+  const [activityListPrefill, setActivityListPrefill] = useState<ActivityListWizardPrefill | undefined>(undefined)
+  const [sharedTaskListWizardOpen, setSharedTaskListWizardOpen] = useState(false)
+  const [sharedTaskListInitialItems, setSharedTaskListInitialItems] = useState<Array<{ text: string; bigJob?: boolean }> | undefined>(undefined)
 
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -473,6 +481,48 @@ export function StudioPage() {
       setListWizardOpen(true)
       return
     }
+    // Phase 3.8 wizard types
+    if (template.templateType === 'activity_list_wizard') {
+      if (template.id === 'seed_reading_fun') {
+        setActivityListPrefill({
+          subjectName: 'Reading Fun',
+          displayMode: 'random',
+          dailyFloor: 1,
+          items: [
+            { text: 'Read a chapter book for 20 minutes' },
+            { text: 'Listen to an audiobook' },
+            { text: 'Read to a younger sibling' },
+            { text: 'Visit the library', recurrence: { is_repeatable: true, frequency_min: 1, frequency_max: null, frequency_period: 'week', cooldown_hours: 24, max_instances: null } },
+            { text: 'Comic book time' },
+            { text: 'Read a non-fiction article' },
+            { text: 'Poetry reading' },
+            { text: 'Read-aloud with mom' },
+          ],
+        })
+      } else if (template.id === 'seed_homeschool_variety') {
+        setActivityListPrefill({
+          subjectName: 'Homeschool Variety Pack',
+          displayMode: 'browse',
+          dailyFloor: 2,
+          items: [
+            { text: 'Math worksheet' },
+            { text: 'Science experiment' },
+            { text: 'Art project' },
+            { text: 'PE / outdoor play' },
+            { text: 'Music practice' },
+            { text: 'History reading' },
+            { text: 'Writing prompt' },
+            { text: 'Geography map work' },
+            { text: 'Typing practice' },
+            { text: 'Nature journal' },
+          ],
+        })
+      } else {
+        setActivityListPrefill(undefined)
+      }
+      setActivityListWizardOpen(true)
+      return
+    }
     // Phase 3.7 wizard types
     if (template.templateType === 'rewards_list_wizard') {
       setRewardsListWizardOpen(true)
@@ -508,6 +558,24 @@ export function StudioPage() {
         setRepeatedActionChartInitial(undefined)
       }
       setRepeatedActionChartWizardOpen(true)
+      return
+    }
+    if (template.templateType === 'shared_task_list_wizard') {
+      if (template.isExample && template.id === 'seed_honey_do_list') {
+        setSharedTaskListInitialItems([
+          { text: 'Fix the leaky faucet', bigJob: true },
+          { text: 'Clean out the garage', bigJob: true },
+          { text: 'Hang the shelf in the kids\' room' },
+          { text: 'Replace the air filter' },
+          { text: 'Fix the squeaky door' },
+          { text: 'Organize the tool shed', bigJob: true },
+          { text: 'Clean the gutters', bigJob: true },
+          { text: 'Touch up paint in the hallway' },
+        ])
+      } else {
+        setSharedTaskListInitialItems(undefined)
+      }
+      setSharedTaskListWizardOpen(true)
       return
     }
 
@@ -746,11 +814,11 @@ export function StudioPage() {
     [searchQuery],
   )
   const wizardFiltered = useMemo(
-    () => [...WIZARD_TEMPLATES, ...PHASE37_WIZARD_TEMPLATES].filter(t => matchesSearch(t, searchQuery)),
+    () => [...WIZARD_TEMPLATES, ...PHASE37_WIZARD_TEMPLATES, ...PHASE38_WIZARD_TEMPLATES].filter(t => matchesSearch(t, searchQuery)),
     [searchQuery],
   )
   const phase37SeededFiltered = useMemo(
-    () => PHASE37_SEEDED_TEMPLATES.filter(t => matchesSearch(t, searchQuery)),
+    () => [...PHASE37_SEEDED_TEMPLATES, ...PHASE38_SEEDED_TEMPLATES].filter(t => matchesSearch(t, searchQuery)),
     [searchQuery],
   )
 
@@ -987,6 +1055,8 @@ export function StudioPage() {
                   rewards_list: 'Rewards List',
                   repeated_action_chart: 'Progress Chart',
                   list_reveal_assignment: 'Opportunities / Spinner',
+                  shared_task_list: 'Shared To-Do',
+                  activity_list: 'Subject Activities',
                 }
                 return (
                   <div
@@ -1036,6 +1106,12 @@ export function StudioPage() {
                           } else if (draft.wizardType === 'repeated_action_chart') {
                             setRepeatedActionChartInitial(undefined)
                             setRepeatedActionChartWizardOpen(true)
+                          } else if (draft.wizardType === 'shared_task_list') {
+                            setSharedTaskListInitialItems(undefined)
+                            setSharedTaskListWizardOpen(true)
+                          } else if (draft.wizardType === 'activity_list') {
+                            setActivityListPrefill(undefined)
+                            setActivityListWizardOpen(true)
                           }
                         }}
                         className="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors"
@@ -1551,6 +1627,25 @@ export function StudioPage() {
           memberId={member.id}
           familyMembers={familyMembers}
           initialState={repeatedActionChartInitial}
+        />
+      )}
+
+      {sharedTaskListWizardOpen && family?.id && member?.id && (
+        <SharedTaskListWizard
+          isOpen={sharedTaskListWizardOpen}
+          onClose={() => { setSharedTaskListWizardOpen(false); setSharedTaskListInitialItems(undefined); setDraftRefreshKey(k => k + 1) }}
+          familyId={family.id}
+          memberId={member.id}
+          familyMembers={familyMembers}
+          initialItems={sharedTaskListInitialItems}
+        />
+      )}
+
+      {activityListWizardOpen && (
+        <ActivityListWizard
+          isOpen={activityListWizardOpen}
+          onClose={() => { setActivityListWizardOpen(false); setActivityListPrefill(undefined); setDraftRefreshKey(k => k + 1) }}
+          prefill={activityListPrefill}
         />
       )}
     </div>

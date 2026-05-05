@@ -258,16 +258,89 @@ export function useToggleListItem() {
 export function useClaimListItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, listId, memberId }: { id: string; listId: string; memberId: string | null }) => {
+    mutationFn: async ({ id, listId, memberId, familyId, itemContent }: {
+      id: string
+      listId: string
+      memberId: string | null
+      familyId?: string
+      itemContent?: string
+    }) => {
       const { error } = await supabase
         .from('list_items')
         .update({ in_progress_member_id: memberId })
         .eq('id', id)
       if (error) throw error
+
+      // Claim-to-promote: if the list has claim_to_promote config and we're claiming (not unclaiming)
+      if (memberId && familyId) {
+        const { data: list } = await supabase
+          .from('lists')
+          .select('schedule_config')
+          .eq('id', listId)
+          .single()
+
+        const config = list?.schedule_config as Record<string, unknown> | null
+        if (config?.claim_to_promote) {
+          const requireApproval = !!config.require_approval_on_promote
+          const { data: newTask, error: taskErr } = await supabase
+            .from('tasks')
+            .insert({
+              family_id: familyId,
+              created_by: memberId,
+              assignee_id: memberId,
+              title: itemContent || 'Claimed task',
+              task_type: 'task',
+              status: 'pending',
+              source: 'list_promotion',
+              source_reference_id: id,
+              require_approval: requireApproval,
+            })
+            .select('id')
+            .single()
+
+          if (!taskErr && newTask) {
+            await supabase
+              .from('list_items')
+              .update({ promoted_to_task: true, promoted_task_id: newTask.id })
+              .eq('id', id)
+          }
+        }
+      }
+
+      // Unclaim: if memberId is null and item was promoted, cancel the promoted task
+      if (!memberId) {
+        const { data: item } = await supabase
+          .from('list_items')
+          .select('promoted_to_task, promoted_task_id')
+          .eq('id', id)
+          .single()
+
+        if (item?.promoted_to_task && item.promoted_task_id) {
+          const { data: task } = await supabase
+            .from('tasks')
+            .select('status')
+            .eq('id', item.promoted_task_id)
+            .single()
+
+          if (task && task.status !== 'completed') {
+            await supabase
+              .from('tasks')
+              .update({ archived_at: new Date().toISOString() })
+              .eq('id', item.promoted_task_id)
+
+            await supabase
+              .from('list_items')
+              .update({ promoted_to_task: false, promoted_task_id: null })
+              .eq('id', id)
+          }
+        }
+      }
+
       return listId
     },
     onSuccess: (listId) => {
       queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })
 }

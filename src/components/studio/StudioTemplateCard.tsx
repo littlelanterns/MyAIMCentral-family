@@ -61,6 +61,9 @@ export type StudioTemplateType =
   | 'rewards_list_wizard'
   | 'repeated_action_chart_wizard'
   | 'list_reveal_assignment_wizard'
+  // Phase 3.8 Wizards
+  | 'activity_list_wizard'
+  | 'shared_task_list_wizard'
 
 export interface StudioTemplate {
   id: string
@@ -132,6 +135,9 @@ function TemplateIcon({ type, size = 22 }: { type: StudioTemplateType; size?: nu
     case 'rewards_list_wizard':    return <Award size={size} style={style} />
     case 'repeated_action_chart_wizard': return <BarChart3 size={size} style={style} />
     case 'list_reveal_assignment_wizard': return <ListPlus size={size} style={style} />
+    // Phase 3.8 Wizards
+    case 'activity_list_wizard':  return <Shuffle size={size} style={style} />
+    case 'shared_task_list_wizard': return <UsersRound size={size} style={style} />
     default:                   return <FileText size={size} style={style} />
   }
 }

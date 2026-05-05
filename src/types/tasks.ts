@@ -54,6 +54,7 @@ export type TaskSource =
   | 'randomizer_reveal'
   | 'allowance_makeup'
   | 'opportunity_list_claim'
+  | 'list_promotion'
 
 export type SequentialPromotion = 'immediate' | 'next_day' | 'manual'
 
