@@ -64,16 +64,37 @@ export function useCreateList() {
       victory_mode?: VictoryMode
       template_id?: string
       default_items?: ListTemplateItem[]
+      // Living Shopping List V1 overrides
+      is_always_on?: boolean
+      include_in_shopping_mode?: boolean
+      default_checked_visibility_hours?: number
+      default_purchase_history_days?: number
+      default_auto_archive_days?: number
     }) => {
-      const { victory_mode, template_id, default_items, ...rest } = list
+      const {
+        victory_mode, template_id, default_items,
+        is_always_on, include_in_shopping_mode,
+        default_checked_visibility_hours, default_purchase_history_days,
+        default_auto_archive_days,
+        ...rest
+      } = list
+      const insertPayload: Record<string, unknown> = {
+        ...rest,
+        tags: list.tags ?? [],
+        victory_mode: victory_mode ?? getDefaultVictoryMode(list.list_type),
+        template_id: template_id ?? null,
+      }
+      // Only include Living Shopping List overrides if explicitly provided
+      // (DB trigger handles defaults for shopping lists)
+      if (is_always_on != null) insertPayload.is_always_on = is_always_on
+      if (include_in_shopping_mode != null) insertPayload.include_in_shopping_mode = include_in_shopping_mode
+      if (default_checked_visibility_hours != null) insertPayload.default_checked_visibility_hours = default_checked_visibility_hours
+      if (default_purchase_history_days != null) insertPayload.default_purchase_history_days = default_purchase_history_days
+      if (default_auto_archive_days != null) insertPayload.default_auto_archive_days = default_auto_archive_days
+
       const { data, error } = await supabase
         .from('lists')
-        .insert({
-          ...rest,
-          tags: list.tags ?? [],
-          victory_mode: victory_mode ?? getDefaultVictoryMode(list.list_type),
-          template_id: template_id ?? null,
-        })
+        .insert(insertPayload)
         .select()
         .single()
 

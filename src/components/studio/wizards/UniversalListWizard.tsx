@@ -13,7 +13,7 @@
  * 6. Review & deploy
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardProgress } from './useWizardProgress'
 import { WizardTagPicker } from './WizardTagPicker'
@@ -53,6 +53,10 @@ interface ListWizardItem {
   priority?: string
   resource_url?: string
   notes?: string
+  store_tags?: string[]
+  store_category?: string
+  /** True when this item came from preset example data (not user-typed) */
+  fromExample?: boolean
 }
 
 interface ListWizardState {
@@ -105,6 +109,7 @@ const STEPS: WizardStep[] = [
 const PRESET_ICONS: Record<string, typeof ShoppingCart> = {
   todo: CheckSquare,
   shopping: ShoppingCart,
+  shared_shopping: ShoppingCart,
   expenses: DollarSign,
   packing: Backpack,
   wishlist: Gift,
@@ -174,6 +179,15 @@ export function UniversalListWizard({
     (key: string) => {
       const preset = LIST_PRESETS.find((p) => p.key === key)
       if (preset) {
+        const exampleItems: ListWizardItem[] = (preset.exampleItems ?? []).map((ei) => ({
+          text: ei.text,
+          section: ei.section,
+          quantity: ei.quantity,
+          notes: ei.notes,
+          store_tags: ei.store_tags,
+          store_category: ei.store_category,
+          fromExample: true,
+        }))
         setState((prev) => ({
           ...prev,
           selectedPresetKey: key,
@@ -182,11 +196,25 @@ export function UniversalListWizard({
           tags: [...preset.defaultTags],
           listTitle: '',
           freeTextDescription: '',
+          // Apply preset sharing defaults
+          ...(preset.defaultSharingMode ? { sharingMode: preset.defaultSharingMode } : {}),
+          ...(preset.defaultAnyoneCanAdd != null ? { anyoneCanAdd: preset.defaultAnyoneCanAdd } : {}),
+          // Populate example items (only if the user hasn't already added their own)
+          ...(exampleItems.length > 0 && prev.items.length === 0 ? { items: exampleItems } : {}),
         }))
       }
     },
     [setState],
   )
+
+  // Auto-select the initial preset on mount (when not restoring a draft)
+  useEffect(() => {
+    if (initialPreset && !hasRestoredDraft && !state.detectedListType) {
+      selectPreset(initialPreset)
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const detectTypeFromText = useCallback(async () => {
     if (!state.freeTextDescription.trim()) return
@@ -244,6 +272,8 @@ export function UniversalListWizard({
           priority: item.priority as string | undefined,
           resource_url: (item.url ?? item.resource_url) as string | undefined,
           notes: item.notes as string | undefined,
+          store_tags: Array.isArray(item.store_tags) ? item.store_tags as string[] : undefined,
+          store_category: item.store_category as string | undefined,
         }))
         // Extract unique sections from parsed items
         const parsedSections = [...new Set(items.map((i) => i.section).filter(Boolean))] as string[]
@@ -337,16 +367,26 @@ export function UniversalListWizard({
         activePreset?.label ||
         'My List'
 
-      // 1. Create the list
-      const list = await createList.mutateAsync({
+      // 1. Create the list (with Living Shopping List V1 overrides)
+      const createPayload: Parameters<typeof createList.mutateAsync>[0] = {
         family_id: family.id,
         owner_id: currentMember.id,
         title,
         list_type: resolvedListType,
         tags: state.tags,
-      })
+      }
+      // Respect extras toggles for Living Shopping List fields
+      // (DB trigger sets defaults for shopping lists; only override if mom explicitly unchecked)
+      if (state.extras.always_on === false) {
+        createPayload.is_always_on = false
+      }
+      if (state.extras.shopping_mode === false) {
+        createPayload.include_in_shopping_mode = false
+      }
 
-      // 2. Create list items
+      const list = await createList.mutateAsync(createPayload)
+
+      // 2. Create list items (with store_tags + store_category for shopping)
       for (let i = 0; i < state.items.length; i++) {
         const item = state.items[i]
         if (!item.text.trim()) continue
@@ -356,6 +396,8 @@ export function UniversalListWizard({
           section_name: item.section ?? undefined,
           notes: item.notes ?? undefined,
           sort_order: i,
+          store_tags: item.store_tags ?? undefined,
+          store_category: item.store_category ?? undefined,
         })
       }
 
@@ -518,7 +560,7 @@ export function UniversalListWizard({
 
       {/* Suggested starting points */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {LIST_PRESETS.filter((p) => p.key !== 'custom').map((preset) => {
+        {LIST_PRESETS.filter((p) => p.key !== 'custom' && p.key !== 'shared_shopping').map((preset) => {
           const Icon = PRESET_ICONS[preset.key] ?? LayoutList
           const isSelected = state.selectedPresetKey === preset.key
           return (
@@ -610,13 +652,25 @@ export function UniversalListWizard({
 
   // ─── Step 2: Items ───
 
+  const hasExampleItems = state.items.length > 0 && state.items.some((i) => i.fromExample)
+
+  const clearExampleItems = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      items: [],
+      rawInput: '',
+    }))
+  }, [setState])
+
   const renderItemsStep = () => (
     <div className="space-y-4">
       <p
         className="text-sm"
         style={{ color: 'var(--color-text-secondary)' }}
       >
-        List everything — one item per line, or just brain dump it all. AI will organize it for you.
+        {hasExampleItems
+          ? 'Here\'s a starting list — edit these, add your own, or clear and start fresh.'
+          : 'List everything — one item per line, or just brain dump it all. AI will organize it for you.'}
       </p>
 
       <textarea
@@ -716,14 +770,26 @@ export function UniversalListWizard({
               </button>
             </div>
           ))}
-          <button
-            onClick={addItem}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs transition-colors"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            <Plus size={12} />
-            Add item
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={addItem}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs transition-colors"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              <Plus size={12} />
+              Add item
+            </button>
+            {hasExampleItems && (
+              <button
+                onClick={clearExampleItems}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs transition-colors"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                <Trash2 size={12} />
+                Clear examples and start fresh
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1116,8 +1182,8 @@ export function UniversalListWizard({
       id="universal-list-wizard"
       isOpen={isOpen}
       onClose={onClose}
-      title="Create a List"
-      subtitle={activePreset?.label}
+      title={activePreset?.wizardTitle ?? 'Create a List'}
+      subtitle={activePreset?.wizardTitle ? undefined : activePreset?.label}
       steps={STEPS}
       currentStep={currentStep}
       onBack={handleBack}

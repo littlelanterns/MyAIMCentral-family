@@ -8,6 +8,15 @@
 
 import type { ListType } from '@/types/lists'
 
+export interface ListWizardExampleItem {
+  text: string
+  section?: string
+  quantity?: string
+  notes?: string
+  store_tags?: string[]
+  store_category?: string
+}
+
 export interface ListPreset {
   key: string
   label: string
@@ -20,6 +29,14 @@ export interface ListPreset {
   itemFields: ('price' | 'quantity' | 'url' | 'priority' | 'notes' | 'category')[]
   /** Context-specific extras shown in step 5 */
   extras: ListWizardExtra[]
+  /** Custom wizard title (overrides "Create a List") */
+  wizardTitle?: string
+  /** Pre-select a sharing mode in step 3 */
+  defaultSharingMode?: 'private' | 'specific' | 'family'
+  /** Pre-check the "Others can add items" toggle */
+  defaultAnyoneCanAdd?: boolean
+  /** Pre-filled example items shown in step 2 */
+  exampleItems?: ListWizardExampleItem[]
 }
 
 export interface ListWizardExtra {
@@ -57,6 +74,37 @@ export const LIST_PRESETS: ListPreset[] = [
     extras: [
       { key: 'auto_sort', label: 'Auto-sort items into store sections?', description: 'Items will be grouped by section so you can shop aisle by aisle.', defaultChecked: true },
       { key: 'victory_on_complete', label: 'Victory when the list is all checked off?', description: 'Checking off every item records a small win.', defaultChecked: false },
+    ],
+  },
+  {
+    key: 'shared_shopping',
+    label: 'Shared Family Shopping List',
+    description: 'A permanent grocery list the whole family adds to — always there, never done.',
+    listType: 'shopping',
+    wizardTitle: 'Set Up Your Family Shopping List',
+    suggestedSections: ['Produce', 'Dairy', 'Meat & Seafood', 'Pantry', 'Frozen', 'Snacks & Beverages', 'Household', 'Personal Care'],
+    parsePrompt:
+      'Parse these into a shopping list. Each item is something to buy. Extract quantity and unit if mentioned (e.g., "2 lbs chicken" → quantity: "2 lbs"). Suggest a store section/category for each item from: Produce, Dairy, Meat & Seafood, Pantry, Frozen, Snacks & Beverages, Household, Personal Care, Other. Also suggest a store_category (aisle name like Frozen, Dairy, Produce, Bakery, Deli, Canned Goods, Snacks, Beverages, Cleaning, Paper Products, etc.) for Shopping Mode filtering. If an item should be available at any store (like clothing, general merchandise, or opportunistic finds), set store_tags to ["__anywhere__"]. Return JSON array: [{text, quantity?, section?, store_category?, store_tags?, notes?}].',
+    defaultTags: ['shopping', 'groceries', 'family'],
+    itemFields: ['quantity', 'notes', 'category'],
+    defaultSharingMode: 'specific',
+    defaultAnyoneCanAdd: true,
+    exampleItems: [
+      { text: 'Milk (whole)', section: 'Dairy', quantity: '1 gallon', store_category: 'Dairy' },
+      { text: 'Eggs', section: 'Dairy', quantity: '1 dozen', store_category: 'Dairy' },
+      { text: 'Bananas', section: 'Produce', quantity: '1 bunch', store_category: 'Produce' },
+      { text: 'Spinach', section: 'Produce', quantity: '1 bag', store_category: 'Produce' },
+      { text: 'Chicken breasts', section: 'Meat & Seafood', quantity: '2 lbs', store_category: 'Meat' },
+      { text: 'Pasta', section: 'Pantry', quantity: '2 boxes', store_category: 'Pasta & Grains' },
+      { text: 'Rice', section: 'Pantry', quantity: '1 bag', store_category: 'Pasta & Grains' },
+      { text: 'Frozen broccoli', section: 'Frozen', quantity: '1 bag', store_category: 'Frozen Vegetables' },
+      { text: 'Paper towels', section: 'Household', quantity: '1 pack', store_category: 'Paper Products' },
+      { text: 'Dish soap', section: 'Household', store_category: 'Cleaning' },
+    ],
+    extras: [
+      { key: 'auto_sort', label: 'Auto-sort items into store sections?', description: 'Items will be grouped by section so you can shop aisle by aisle.', defaultChecked: true },
+      { key: 'always_on', label: 'Keep this list always on?', description: 'Checked items fade after a couple days, then move to Recently Purchased. The list never "completes" — it\'s permanent family infrastructure.', defaultChecked: true },
+      { key: 'shopping_mode', label: 'Include in Shopping Mode?', description: 'See items from this list when you tap "I\'m at Target" or any other store.', defaultChecked: true },
     ],
   },
   {

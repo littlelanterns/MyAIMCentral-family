@@ -545,6 +545,29 @@ export const LIST_TEMPLATES_EXAMPLES: StudioTemplate[] = [
   },
 ]
 
+// ─── Seeded List Wizards (pre-configured entry points) ───────
+
+export const LIST_WIZARD_SEEDED: StudioTemplate[] = [
+  {
+    id: 'seed_shared_shopping',
+    templateType: 'list_wizard',
+    name: 'Shared Family Shopping List',
+    tagline: 'A permanent grocery list the whole family adds to — always there, never done.',
+    description:
+      'A permanent grocery list the whole family adds to. Always-on — checked items fade, new items flow in. Use Shopping Mode at the store to see everything in one view. Pre-filled with common grocery items across 8 store sections. Share with your spouse or older kids so anyone can add what they notice is running low.',
+    exampleUseCases: [
+      'Weekly family groceries shared with your spouse',
+      'Store-organized list with sections for each aisle',
+      'Items from Notepad, MindSweep, and LiLa all land here automatically',
+    ],
+    capability_tags: [
+      'ongoing', 'store_sections', 'purchase_tracking', 'family_shared',
+      'bulk_add', 'shopping_mode', 'always_on', 'setup_wizard',
+    ],
+    isExample: true,
+  },
+]
+
 // ─── Randomizer ───────────────────────────────────────────────
 
 export const RANDOMIZER_TEMPLATE_BLANK: StudioTemplate = {

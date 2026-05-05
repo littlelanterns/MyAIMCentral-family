@@ -45,6 +45,7 @@ import {
   GUIDED_FORM_TEMPLATES_EXAMPLES,
   LIST_TEMPLATES_BLANK,
   LIST_TEMPLATES_EXAMPLES,
+  LIST_WIZARD_SEEDED,
   RANDOMIZER_TEMPLATE_BLANK,
   GAMIFICATION_TEMPLATES,
   GROWTH_TEMPLATES,
@@ -331,6 +332,7 @@ export function StudioPage() {
   const [routineBuilderWizardOpen, setRoutineBuilderWizardOpen] = useState(false)
   const [meetingSetupWizardOpen, setMeetingSetupWizardOpen] = useState(false)
   const [listWizardOpen, setListWizardOpen] = useState(false)
+  const [listWizardPreset, setListWizardPreset] = useState<string | undefined>(undefined)
   const [rewardsListWizardOpen, setRewardsListWizardOpen] = useState(false)
   const [listRevealWizardOpen, setListRevealWizardOpen] = useState(false)
   const [listRevealPreFill, setListRevealPreFill] = useState<ListRevealPreFill | undefined>(undefined)
@@ -462,6 +464,12 @@ export function StudioPage() {
       return
     }
     if (template.templateType === 'list_wizard') {
+      // Seeded list wizard templates carry a preset key derived from their ID
+      if (template.id === 'seed_shared_shopping') {
+        setListWizardPreset('shared_shopping')
+      } else {
+        setListWizardPreset(undefined)
+      }
       setListWizardOpen(true)
       return
     }
@@ -718,7 +726,7 @@ export function StudioPage() {
     [searchQuery],
   )
   const listExamplesFiltered = useMemo(
-    () => LIST_TEMPLATES_EXAMPLES.filter(t => matchesSearch(t, searchQuery)),
+    () => [...LIST_WIZARD_SEEDED, ...LIST_TEMPLATES_EXAMPLES].filter(t => matchesSearch(t, searchQuery)),
     [searchQuery],
   )
   const gamificationFiltered = useMemo(
@@ -1501,7 +1509,8 @@ export function StudioPage() {
       {listWizardOpen && (
         <UniversalListWizard
           isOpen={listWizardOpen}
-          onClose={() => setListWizardOpen(false)}
+          onClose={() => { setListWizardOpen(false); setListWizardPreset(undefined) }}
+          initialPreset={listWizardPreset}
         />
       )}
 
