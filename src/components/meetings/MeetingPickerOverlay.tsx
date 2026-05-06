@@ -1,12 +1,21 @@
-// PRD-16 Phase D: MeetingPickerOverlay
-// Reusable overlay for picking a meeting type when routing to "Agenda".
-// Used by NotepadDrawer to create meeting_agenda_items directly
-// instead of depositing to studio_queue.
+// Touch Base picker — multi-select overlay for routing items to conversations.
+// Used by NotepadDrawer and SortTab when destination='agenda'.
 
+import { useState } from 'react'
 import { X } from 'lucide-react'
-import { useMeetingSchedules, useAddAgendaItem, useMeetingTemplates } from '@/hooks/useMeetings'
+import { useAddAgendaItem, useMeetingTemplates } from '@/hooks/useMeetings'
 import { useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 import type { MeetingType } from '@/types/meetings'
+
+interface PickOption {
+  key: string
+  label: string
+  color: string
+  meetingType: MeetingType
+  relatedMemberId?: string
+  templateId?: string
+}
 
 interface MeetingPickerOverlayProps {
   isOpen: boolean
@@ -25,40 +34,88 @@ export function MeetingPickerOverlay({
   content,
   onComplete,
 }: MeetingPickerOverlayProps) {
-  const { data: schedules = [] } = useMeetingSchedules(familyId)
   const { data: templates = [] } = useMeetingTemplates(familyId)
   const { data: members = [] } = useFamilyMembers(familyId)
   const addItem = useAddAgendaItem()
 
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+
   if (!isOpen) return null
 
-  const children = members.filter((m: FamilyMember) => m.role === 'member')
+  const children = members.filter((m: FamilyMember) => m.role === 'member' && m.is_active)
   const partner = members.find((m: FamilyMember) => m.role === 'additional_adult' && m.is_active)
 
-  const PICKER_LABELS: Record<MeetingType, string> = {
-    couple: partner ? partner.display_name : 'My Partner',
-    parent_child: 'Parent-Child',
-    mentor: 'Mentor',
-    family_council: 'The Whole Family',
-    custom: 'Custom',
-  }
+  const options: PickOption[] = []
 
-  const handlePick = (meetingType: MeetingType, relatedMemberId?: string, templateId?: string) => {
-    addItem.mutate({
-      family_id: familyId,
-      meeting_type: meetingType,
-      content: content.trim(),
-      added_by: memberId,
-      template_id: templateId,
-      related_member_id: relatedMemberId,
-      source: 'notepad_route',
-    }, {
-      onSuccess: () => onComplete(),
+  if (partner) {
+    options.push({
+      key: 'couple',
+      label: partner.display_name,
+      color: getMemberColor(partner),
+      meetingType: 'couple',
     })
   }
 
-  // Build options: built-in types, expanding per-child for mentor/parent_child
-  const builtInTypes: MeetingType[] = ['couple', 'parent_child', 'mentor', 'family_council']
+  for (const child of children) {
+    options.push({
+      key: `child-${child.id}`,
+      label: child.display_name,
+      color: getMemberColor(child),
+      meetingType: 'parent_child',
+      relatedMemberId: child.id,
+    })
+  }
+
+  options.push({
+    key: 'family_council',
+    label: 'The Whole Family',
+    color: 'var(--color-accent)',
+    meetingType: 'family_council',
+  })
+
+  for (const t of templates) {
+    options.push({
+      key: `custom-${t.id}`,
+      label: t.name,
+      color: 'var(--color-text-secondary)',
+      meetingType: 'custom',
+      templateId: t.id,
+    })
+  }
+
+  const toggleOption = (key: string) => {
+    setSelectedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const handleConfirm = async () => {
+    if (selectedKeys.size === 0) return
+    setSaving(true)
+
+    const selected = options.filter(o => selectedKeys.has(o.key))
+    for (const opt of selected) {
+      await addItem.mutateAsync({
+        family_id: familyId,
+        meeting_type: opt.meetingType,
+        content: content.trim(),
+        added_by: memberId,
+        template_id: opt.templateId,
+        related_member_id: opt.relatedMemberId,
+        source: 'notepad_route',
+      })
+    }
+
+    setSaving(false)
+    setSelectedKeys(new Set())
+    onComplete()
+  }
+
+  const selectedCount = selectedKeys.size
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -75,77 +132,46 @@ export function MeetingPickerOverlay({
           </button>
         </div>
 
-        <div className="px-3 py-2 max-h-80 overflow-y-auto space-y-1">
-          {builtInTypes.map(type => {
-            const schedule = schedules.find(s => s.meeting_type === type && !s.related_member_id)
+        <div className="px-4 py-3">
+          <div className="flex flex-wrap gap-2">
+            {options.map(opt => {
+              const isSelected = selectedKeys.has(opt.key)
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => toggleOption(opt.key)}
+                  className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                  style={{
+                    background: isSelected ? opt.color : 'transparent',
+                    color: isSelected ? '#fff' : opt.color,
+                    border: `2px solid ${opt.color}`,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-            if ((type === 'mentor' || type === 'parent_child') && children.length > 0) {
-              return children.map((child: FamilyMember) => {
-                const childSchedule = schedules.find(s => s.meeting_type === type && s.related_member_id === child.id)
-                return (
-                  <PickerRow
-                    key={`${type}-${child.id}`}
-                    label={child.display_name}
-                    nextDate={childSchedule?.next_due_date ?? null}
-                    onClick={() => handlePick(type, child.id)}
-                    loading={addItem.isPending}
-                  />
-                )
-              })
+        <div className="px-4 pb-4">
+          <button
+            onClick={handleConfirm}
+            disabled={selectedCount === 0 || saving}
+            className="w-full py-2.5 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
+            style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}
+          >
+            {saving
+              ? 'Adding...'
+              : selectedCount === 0
+                ? 'Select who to touch base with'
+                : selectedCount === 1
+                  ? 'Add to 1 conversation'
+                  : `Add to ${selectedCount} conversations`
             }
-
-            return (
-              <PickerRow
-                key={type}
-                label={PICKER_LABELS[type]}
-                nextDate={schedule?.next_due_date ?? null}
-                onClick={() => handlePick(type)}
-                loading={addItem.isPending}
-              />
-            )
-          })}
-
-          {templates.map(t => (
-            <PickerRow
-              key={t.id}
-              label={t.name}
-              nextDate={schedules.find(s => s.template_id === t.id)?.next_due_date ?? null}
-              onClick={() => handlePick('custom', undefined, t.id)}
-              loading={addItem.isPending}
-            />
-          ))}
+          </button>
         </div>
       </div>
     </div>
-  )
-}
-
-function PickerRow({
-  label,
-  nextDate,
-  onClick,
-  loading,
-}: {
-  label: string
-  nextDate: string | null
-  onClick: () => void
-  loading: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50"
-      style={{ color: 'var(--color-text-primary)' }}
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{label}</p>
-        {nextDate && (
-          <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-            Next: {new Date(nextDate).toLocaleDateString()}
-          </p>
-        )}
-      </div>
-    </button>
   )
 }
