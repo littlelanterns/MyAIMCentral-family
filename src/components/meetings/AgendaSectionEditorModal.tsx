@@ -213,7 +213,7 @@ export function AgendaSectionEditorModal({
     : MEETING_TYPE_LABELS[meetingType] ?? 'Custom Meeting'
 
   // Auto-seed defaults on first access if no sections exist.
-  // Uses a ref guard to prevent double-firing in strict mode.
+  // DB check prevents duplicates even across component remounts.
   useEffect(() => {
     if (isLoading || seedingRef.current) return
     if (sections.length > 0) return
@@ -222,9 +222,20 @@ export function AgendaSectionEditorModal({
     if (!builtIn) return
 
     seedingRef.current = true
-    seedDefaults.mutate(
-      { family_id: familyId, meeting_type: meetingType, sections: builtIn },
-    )
+
+    const checkAndSeed = async () => {
+      const { count } = await supabase
+        .from('meeting_template_sections')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', familyId)
+        .eq('meeting_type', meetingType)
+        .is('template_id', null)
+      if ((count ?? 0) > 0) return
+      seedDefaults.mutate(
+        { family_id: familyId, meeting_type: meetingType, sections: builtIn },
+      )
+    }
+    checkAndSeed()
   }, [isLoading, sections.length, meetingType, familyId, seedDefaults])
 
   // Sync remote → local when sections change

@@ -83,8 +83,8 @@ export async function completeMeeting({
     await createNotification({
       family_id: familyId,
       recipient_member_id: p.family_member_id,
-      notification_type: 'system',
-      category: 'tasks',
+      notification_type: 'meeting_completed',
+      category: 'meetings',
       title: `${displayTitle} completed`,
       body: routedCount > 0
         ? `Meeting reviewed with ${routedCount} action item${routedCount !== 1 ? 's' : ''} routed.`

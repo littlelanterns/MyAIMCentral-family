@@ -338,7 +338,7 @@ function shouldAutoRoute(
 }
 
 // Queue-based destinations go through studio_queue
-const QUEUE_DESTINATIONS = new Set(['task', 'list', 'calendar'])
+const QUEUE_DESTINATIONS = new Set(['task', 'list', 'calendar', 'agenda'])
 
 async function routeDirectly(
   result: MindSweepSortResult,

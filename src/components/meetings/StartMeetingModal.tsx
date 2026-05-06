@@ -1,10 +1,9 @@
-// PRD-16 Phase C: StartMeetingModal
-// Mode selection (Live / Record After), participant picker for family_council,
-// optional facilitator designation. Creates meetings + meeting_participants rows
-// and opens the meeting conversation view.
+// PRD-16: StartMeetingModal
+// Participant picker for family_council, optional facilitator,
+// optional "Record & Transcribe" toggle. Creates meetings + meeting_participants.
 
 import React, { useState } from 'react'
-import { UsersRound, Clock, Sparkles } from 'lucide-react'
+import { UsersRound, Mic, Sparkles } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
@@ -40,13 +39,11 @@ export function StartMeetingModal({
   const { data: members = [] } = useFamilyMembers(familyId)
   const createMeeting = useCreateMeeting()
 
-  const [mode, setMode] = useState<MeetingMode>('live')
+  const [recordAndTranscribe, setRecordAndTranscribe] = useState(false)
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([])
   const [facilitatorId, setFacilitatorId] = useState<string | null>(null)
   const [hasInitializedParticipants, setHasInitializedParticipants] = useState(false)
 
-  // Populate default participants once members load (the useState initializer
-  // runs before useFamilyMembers resolves, so members is [] at mount time)
   React.useEffect(() => {
     if (members.length > 0 && !hasInitializedParticipants) {
       setSelectedParticipantIds(getDefaultParticipants(meetingType, memberId, relatedMemberId, members))
@@ -57,13 +54,10 @@ export function StartMeetingModal({
   const isFamilyCouncil = meetingType === 'family_council'
   const showParticipantPicker = isFamilyCouncil
 
-  // Filter members for participant picker:
-  // Exclude Special Adults (no meeting access per PRD-16)
   const eligibleMembers = members.filter((m: FamilyMember) =>
     m.is_active && m.role !== 'special_adult'
   )
 
-  // Children eligible for facilitator role (family council only)
   const facilitatorCandidates = members.filter((m: FamilyMember) =>
     m.is_active && m.role === 'member' && selectedParticipantIds.includes(m.id)
   )
@@ -76,14 +70,12 @@ export function StartMeetingModal({
     setSelectedParticipantIds(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     )
-    // Clear facilitator if they're deselected
     if (facilitatorId === id) setFacilitatorId(null)
   }
 
   const handleToggleAll = () => {
     const allIds = eligibleMembers.map((m: FamilyMember) => m.id)
     if (selectedParticipantIds.length === allIds.length) {
-      // Deselect all except current user
       setSelectedParticipantIds([memberId])
     } else {
       setSelectedParticipantIds(allIds)
@@ -95,6 +87,8 @@ export function StartMeetingModal({
       const customTitle = (meetingType === 'mentor' || meetingType === 'parent_child') && childName
         ? `${MEETING_TYPE_LABELS[meetingType]}: ${childName}`
         : undefined
+
+      const mode: MeetingMode = recordAndTranscribe ? 'record_after' : 'live'
 
       const meeting = await createMeeting.mutateAsync({
         family_id: familyId,
@@ -124,46 +118,9 @@ export function StartMeetingModal({
       onClose={onClose}
       type="transient"
       size="md"
-      title={`Start ${displayTitle}`}
+      title={displayTitle}
     >
-      <div className="space-y-6 p-4">
-        {/* Mode selection */}
-        <div>
-          <label className="text-sm font-medium mb-2 block" style={{ color: 'var(--color-text-secondary)' }}>
-            How are you meeting?
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setMode('live')}
-              className="p-4 rounded-lg text-left transition-all"
-              style={{
-                border: mode === 'live' ? '2px solid var(--color-accent)' : '1px solid var(--color-border-default)',
-                background: mode === 'live' ? 'color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-secondary))' : 'var(--color-surface-secondary)',
-              }}
-            >
-              <UsersRound size={20} style={{ color: mode === 'live' ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }} />
-              <p className="font-medium mt-2" style={{ color: 'var(--color-text-primary)' }}>Live Mode</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                LiLa guides you through your agenda in real time
-              </p>
-            </button>
-            <button
-              onClick={() => setMode('record_after')}
-              className="p-4 rounded-lg text-left transition-all"
-              style={{
-                border: mode === 'record_after' ? '2px solid var(--color-accent)' : '1px solid var(--color-border-default)',
-                background: mode === 'record_after' ? 'color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-secondary))' : 'var(--color-surface-secondary)',
-              }}
-            >
-              <Clock size={20} style={{ color: mode === 'record_after' ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }} />
-              <p className="font-medium mt-2" style={{ color: 'var(--color-text-primary)' }}>Record After</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                Capture what you already discussed
-              </p>
-            </button>
-          </div>
-        </div>
-
+      <div className="space-y-5 p-4">
         {/* Participant picker — family council only */}
         {showParticipantPicker && (
           <div>
@@ -221,11 +178,32 @@ export function StartMeetingModal({
                 </button>
               ))}
             </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-              LiLa adapts guidance level for child facilitators
-            </p>
           </div>
         )}
+
+        {/* Record & Transcribe option */}
+        <label
+          className="flex items-center gap-3 p-3 rounded-lg cursor-pointer"
+          style={{ background: 'var(--color-surface-tertiary)', border: '1px solid var(--color-border-default)' }}
+        >
+          <input
+            type="checkbox"
+            checked={recordAndTranscribe}
+            onChange={e => setRecordAndTranscribe(e.target.checked)}
+            className="w-4 h-4 rounded accent-(--color-accent)"
+          />
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5">
+              <Mic size={14} style={{ color: 'var(--color-text-secondary)' }} />
+              <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                Record & Transcribe
+              </span>
+            </div>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>
+              Opens Notepad for recording — start when you're ready
+            </p>
+          </div>
+        </label>
 
         {/* Start button */}
         <button
@@ -237,8 +215,8 @@ export function StartMeetingModal({
             <>Starting...</>
           ) : (
             <>
-              {mode === 'live' ? <UsersRound size={18} /> : <Clock size={18} />}
-              {mode === 'live' ? 'Start Live Meeting' : 'Start Recording'}
+              <UsersRound size={18} />
+              Open Meeting
             </>
           )}
         </button>
@@ -247,7 +225,6 @@ export function StartMeetingModal({
   )
 }
 
-/** Determine default participants for a meeting type */
 function getDefaultParticipants(
   meetingType: MeetingType,
   memberId: string,
@@ -256,7 +233,6 @@ function getDefaultParticipants(
 ): string[] {
   switch (meetingType) {
     case 'couple': {
-      // Mom + dad/additional_adult
       const adults = members.filter((m: FamilyMember) =>
         m.is_active && (m.role === 'primary_parent' || m.role === 'additional_adult')
       )
@@ -264,13 +240,11 @@ function getDefaultParticipants(
     }
     case 'parent_child':
     case 'mentor': {
-      // Current user + the specific child
       const ids = [memberId]
       if (relatedMemberId) ids.push(relatedMemberId)
       return ids
     }
     case 'family_council': {
-      // All active members except Special Adults. Play unchecked by default.
       return members
         .filter((m: FamilyMember) => m.is_active && m.role !== 'special_adult')
         .filter((m: FamilyMember) => m.dashboard_mode !== 'play')

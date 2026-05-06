@@ -7,7 +7,7 @@
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
-import { CheckSquare, List, LayoutGrid, BarChart3, Calendar as CalendarIcon } from 'lucide-react'
+import { CheckSquare, List, LayoutGrid, BarChart3, Calendar as CalendarIcon, UsersRound } from 'lucide-react'
 import { Button, Avatar } from '@/components/shared'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
@@ -65,6 +65,12 @@ const DEST_CONFIGS: Record<string, DestConfig> = {
   calendar: {
     icon: CalendarIcon,
     label: 'Calendar',
+    bgColor: 'color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-card))',
+    textColor: 'var(--color-accent)',
+  },
+  agenda: {
+    icon: UsersRound,
+    label: 'Meeting Agenda',
     bgColor: 'color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-card))',
     textColor: 'var(--color-accent)',
   },
@@ -295,7 +301,7 @@ export function QueueCard({ item, requesterMember, onConfigure, onDismiss }: Que
             size="sm"
             onClick={() => onConfigure(item)}
           >
-            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? calendarButtonLabel(item) : 'Configure'}
+            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? calendarButtonLabel(item) : item.destination === 'agenda' ? 'Add to agenda' : 'Configure'}
           </Button>
           <Button
             variant={isRequest ? 'destructive' : 'ghost'}

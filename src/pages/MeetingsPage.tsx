@@ -1,9 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { UsersRound, Plus, Clock, ChevronRight, CalendarDays, Settings, MessageSquarePlus } from 'lucide-react'
+import {
+  UsersRound, Plus, ChevronRight, CalendarDays, Settings,
+  MessageSquarePlus, Heart, Users, GraduationCap, MessageSquare,
+  X,
+} from 'lucide-react'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
-import { useMeetingSchedules, useRecentMeetings, usePendingAgendaCounts, useAddAgendaItem, useMeetingTemplates, useActiveMeetings } from '@/hooks/useMeetings'
+import {
+  useMeetingSchedules, useRecentMeetings, useMeetingAgendaItems,
+  useAddAgendaItem, useRemoveAgendaItem, useMeetingTemplates, useActiveMeetings,
+} from '@/hooks/useMeetings'
+import { supabase } from '@/lib/supabase/client'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { ScheduleEditorModal } from '@/components/meetings/ScheduleEditorModal'
@@ -15,84 +23,47 @@ import { PostMeetingReview } from '@/components/meetings/PostMeetingReview'
 import { MeetingHistoryView } from '@/components/meetings/MeetingHistoryView'
 import { MeetingSetupWizard } from '@/components/studio/wizards/MeetingSetupWizard'
 import { useFixMeetingEventAttendees } from '@/hooks/useFixMeetingEventAttendees'
-import type { MeetingType, MeetingMode, MeetingSchedule, Meeting } from '@/types/meetings'
-import { MEETING_TYPE_LABELS, getMeetingUrgency } from '@/types/meetings'
+import type { MeetingType, MeetingMode, MeetingSchedule, Meeting, MeetingAgendaItem } from '@/types/meetings'
+import { MEETING_TYPE_LABELS } from '@/types/meetings'
 
-function MeetingUpcomingCard({ schedule, agendaCount, childName, onStartMeeting }: {
-  schedule: MeetingSchedule
-  agendaCount: number
-  childName?: string
-  onStartMeeting: (meetingType: MeetingType, relatedMemberId?: string, childName?: string, schedule?: MeetingSchedule) => void
-}) {
-  const urgency = getMeetingUrgency(schedule.next_due_date)
-  const urgencyColor = urgency === 'overdue' ? 'var(--color-error)' : urgency === 'due_today' ? 'var(--color-warning)' : 'var(--color-text-tertiary)'
-  // Use local date math to avoid UTC off-by-one
-  const daysUntil = (() => {
-    if (!schedule.next_due_date) return null
-    const now = new Date()
-    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const due = new Date(schedule.next_due_date)
-    const dueLocal = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-    return Math.round((dueLocal.getTime() - todayLocal.getTime()) / (1000 * 60 * 60 * 24))
-  })()
-  const urgencyLabel = urgency === 'overdue'
-    ? `Overdue ${Math.abs(daysUntil ?? 0)}d`
-    : urgency === 'due_today' ? 'Due Today' : daysUntil !== null
-      ? `In ${daysUntil}d`
-      : 'Not scheduled'
-
-  const label = schedule.meeting_type === 'mentor' || schedule.meeting_type === 'parent_child'
-    ? `${MEETING_TYPE_LABELS[schedule.meeting_type]}${childName ? `: ${childName}` : ''}`
-    : MEETING_TYPE_LABELS[schedule.meeting_type as MeetingType] ?? 'Custom Meeting'
-
-  return (
-    <div className="rounded-lg p-4" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
-        <span className="text-xs font-medium" style={{ color: urgencyColor }}>{urgencyLabel}</span>
-      </div>
-      {agendaCount > 0 && (
-        <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          {agendaCount} agenda item{agendaCount !== 1 ? 's' : ''} pending
-        </p>
-      )}
-      <div className="flex gap-2">
-        <button
-          className="btn-primary text-sm px-3 py-1.5 rounded-md flex items-center gap-1"
-          onClick={() => onStartMeeting(schedule.meeting_type as MeetingType, schedule.related_member_id ?? undefined, childName, schedule)}
-        >
-          <UsersRound size={14} /> Live Mode
-        </button>
-        <button
-          className="text-sm px-3 py-1.5 rounded-md flex items-center gap-1"
-          style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
-          onClick={() => onStartMeeting(schedule.meeting_type as MeetingType, schedule.related_member_id ?? undefined, childName, schedule)}
-        >
-          <Clock size={14} /> Record After
-        </button>
-      </div>
-    </div>
-  )
+const TYPE_ICONS: Record<MeetingType, typeof Heart> = {
+  couple: Heart,
+  parent_child: Users,
+  mentor: GraduationCap,
+  family_council: UsersRound,
+  custom: MessageSquare,
 }
 
-function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, memberId, childName, relatedMemberId, onOpenSchedule, onOpenSections, onStartMeeting }: {
+// ── Agenda-First Meeting Card ─────────────────────────────────
+
+function MeetingCard({
+  meetingType,
+  label,
+  agendaItems,
+  schedule,
+  familyId,
+  memberId,
+  relatedMemberId,
+  onOpenSchedule,
+  onOpenSections,
+  onStartMeeting,
+}: {
   meetingType: MeetingType
   label: string
-  agendaCount: number
+  agendaItems: MeetingAgendaItem[]
   schedule?: MeetingSchedule
   familyId: string
   memberId: string
-  childName?: string
   relatedMemberId?: string
-  onOpenSchedule: (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string, childName?: string) => void
-  onOpenSections: (meetingType: MeetingType, childName?: string) => void
-  onStartMeeting: (meetingType: MeetingType, relatedMemberId?: string, childName?: string, schedule?: MeetingSchedule) => void
+  onOpenSchedule: (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string) => void
+  onOpenSections: (meetingType: MeetingType) => void
+  onStartMeeting: (meetingType: MeetingType, relatedMemberId?: string, schedule?: MeetingSchedule) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [newItem, setNewItem] = useState('')
   const addItem = useAddAgendaItem()
-
-  const displayLabel = childName ? `${label}: ${childName}` : label
+  const removeItem = useRemoveAgendaItem()
+  const Icon = TYPE_ICONS[meetingType] ?? MessageSquare
 
   const handleAddItem = () => {
     if (!newItem.trim()) return
@@ -101,108 +72,144 @@ function MeetingTypeRow({ meetingType, label, agendaCount, schedule, familyId, m
       meeting_type: meetingType,
       content: newItem.trim(),
       added_by: memberId,
-      related_member_id: relatedMemberId ?? schedule?.related_member_id ?? undefined,
+      related_member_id: relatedMemberId,
     })
     setNewItem('')
   }
 
+  const handleRemoveItem = (itemId: string) => {
+    removeItem.mutate({ id: itemId, family_id: familyId })
+  }
+
+  const scheduleLabel = schedule?.next_due_date
+    ? `${schedule.recurrence_rule === 'weekly' ? 'Weekly' : schedule.recurrence_rule === 'monthly' ? 'Monthly' : schedule.recurrence_rule ?? 'Scheduled'} — next: ${new Date(schedule.next_due_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`
+    : null
+
   return (
-    <div style={{ borderBottom: '1px solid var(--color-border-default)' }}>
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}
+    >
+      {/* Header — always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between py-3 px-2 text-left"
+        className="w-full flex items-center gap-3 p-4 text-left"
         style={{ color: 'var(--color-text-primary)' }}
       >
-        <div className="flex items-center gap-2">
-          <ChevronRight size={16} className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
-          <span className="font-medium">{displayLabel}</span>
-          {agendaCount > 0 && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}>
-              {agendaCount}
-            </span>
+        <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)' }}>
+          <Icon size={18} style={{ color: 'var(--color-accent)' }} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">{label}</span>
+            {agendaItems.length > 0 && (
+              <span
+                className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}
+              >
+                {agendaItems.length}
+              </span>
+            )}
+          </div>
+          {scheduleLabel && (
+            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>{scheduleLabel}</p>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            className="p-1 rounded hover:opacity-80"
-            style={{ color: 'var(--color-text-secondary)' }}
-            onClick={e => {
-              e.stopPropagation()
-              onOpenSchedule(meetingType, schedule, relatedMemberId, childName)
-            }}
-            title="Schedule"
-          >
-            <CalendarDays size={16} />
-          </button>
-          <button
-            className="p-1 rounded hover:opacity-80"
-            style={{ color: 'var(--color-text-secondary)' }}
-            onClick={e => {
-              e.stopPropagation()
-              onOpenSections(meetingType, childName)
-            }}
-            title="Agenda sections"
-          >
-            <Settings size={16} />
-          </button>
-        </div>
+
+        <ChevronRight
+          size={16}
+          className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          style={{ color: 'var(--color-text-tertiary)' }}
+        />
       </button>
+
+      {/* Expanded — agenda items + actions */}
       {expanded && (
-        <div className="px-4 pb-3">
-          {schedule?.next_due_date && (
-            <p className="text-xs mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
-              Next: {new Date(schedule.next_due_date).toLocaleDateString()}
+        <div className="px-4 pb-4 space-y-3" style={{ borderTop: '1px solid var(--color-border-default)' }}>
+          {/* Agenda items */}
+          {agendaItems.length > 0 ? (
+            <div className="pt-3 space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
+                On the Agenda
+              </p>
+              {agendaItems.map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-2 py-1.5 px-2 rounded-md group"
+                  style={{ background: 'var(--color-surface-primary)' }}
+                >
+                  <span className="text-sm flex-1" style={{ color: 'var(--color-text-primary)' }}>
+                    {item.content}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveItem(item.id)}
+                    className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                    title="Remove"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm pt-3 italic" style={{ color: 'var(--color-text-tertiary)' }}>
+              No agenda items yet — add some below or route items here from Notepad or MindSweep.
             </p>
           )}
-          {!schedule && (
-            <p className="text-xs mb-2 italic" style={{ color: 'var(--color-text-tertiary)' }}>
-              No schedule set — tap the calendar icon to configure
-            </p>
-          )}
-          <AgendaQuickAdd
-            value={newItem}
-            onChange={setNewItem}
-            onSubmit={handleAddItem}
-            loading={addItem.isPending}
-          />
-          <button
-            className="mt-2 w-full btn-primary text-sm py-2 rounded-md flex items-center justify-center gap-1.5"
-            onClick={() => onStartMeeting(meetingType, relatedMemberId, childName, schedule)}
-          >
-            <UsersRound size={14} /> Start Meeting
-          </button>
+
+          {/* Quick add */}
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={newItem}
+              onChange={e => setNewItem(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddItem() }}
+              placeholder="+ Add agenda item..."
+              className="flex-1 text-sm px-3 py-2 rounded-md"
+              style={{ background: 'var(--color-surface-primary)', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)' }}
+              disabled={addItem.isPending}
+            />
+            {newItem.trim() && (
+              <button onClick={handleAddItem} disabled={addItem.isPending} className="p-2 rounded-md" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}>
+                <MessageSquarePlus size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              className="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 font-medium"
+              onClick={() => onStartMeeting(meetingType, relatedMemberId, schedule)}
+            >
+              <UsersRound size={15} /> Open Meeting
+            </button>
+            <button
+              className="text-sm px-3 py-2 rounded-lg flex items-center gap-1.5"
+              style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
+              onClick={() => onOpenSections(meetingType)}
+              title="Edit agenda template sections"
+            >
+              <Settings size={14} /> Sections
+            </button>
+            <button
+              className="text-sm px-3 py-2 rounded-lg flex items-center gap-1.5"
+              style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
+              onClick={() => onOpenSchedule(meetingType, schedule, relatedMemberId)}
+              title={schedule ? 'Edit schedule' : 'Add a schedule (optional)'}
+            >
+              <CalendarDays size={14} /> {schedule ? 'Schedule' : 'Add Schedule'}
+            </button>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-function AgendaQuickAdd({ value, onChange, onSubmit, loading }: {
-  value: string
-  onChange: (v: string) => void
-  onSubmit: () => void
-  loading: boolean
-}) {
-  return (
-    <div className="flex gap-2 items-center">
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') onSubmit() }}
-        placeholder="+ Add agenda item..."
-        className="flex-1 text-sm px-3 py-2 rounded-md"
-        style={{ background: 'var(--color-surface-primary)', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)' }}
-        disabled={loading}
-      />
-      {value.trim() && (
-        <button onClick={onSubmit} disabled={loading} className="p-2 rounded-md" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}>
-          <MessageSquarePlus size={16} />
-        </button>
-      )}
-    </div>
-  )
-}
+// ── Main Page ─────────────────────────────────────────────────
 
 export function MeetingsPage() {
   const { data: family } = useFamily()
@@ -211,39 +218,58 @@ export function MeetingsPage() {
   const familyId = family?.id
   const memberId = member?.id
 
-  // One-time fix: add attendees to meeting calendar events created before the fix
   useFixMeetingEventAttendees(familyId, memberId, (members ?? []) as FamilyMember[])
 
   const { data: schedules = [] } = useMeetingSchedules(familyId)
   const { data: recentMeetings = [] } = useRecentMeetings(familyId)
-  const { data: agendaCounts = {} } = usePendingAgendaCounts(familyId)
+  const { data: allAgendaItems = [] } = useMeetingAgendaItems(familyId)
   const { data: templates = [] } = useMeetingTemplates(familyId)
   const { data: activeMeetings = [] } = useActiveMeetings(familyId)
+  const queryClient = useQueryClient()
+
+  // Auto-advance stale schedules on mount
+  useEffect(() => {
+    if (!familyId || schedules.length === 0) return
+    const now = new Date()
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    const staleSchedules = schedules.filter(s => {
+      if (!s.next_due_date) return false
+      const due = new Date(s.next_due_date)
+      const dueLocal = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+      return dueLocal < todayLocal
+    })
+
+    if (staleSchedules.length === 0) return
+
+    const advanceSchedules = async () => {
+      for (const schedule of staleSchedules) {
+        const nextDate = computeNextOccurrence(schedule, todayLocal)
+        if (nextDate) {
+          await supabase
+            .from('meeting_schedules')
+            .update({ next_due_date: nextDate })
+            .eq('id', schedule.id)
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['meeting-schedules', familyId] })
+    }
+    advanceSchedules()
+  }, [familyId, schedules, queryClient])
 
   // Modal state
   const [scheduleModal, setScheduleModal] = useState<{
-    open: boolean
-    meetingType: MeetingType
-    schedule?: MeetingSchedule
-    relatedMemberId?: string
-    childName?: string
+    open: boolean; meetingType: MeetingType; schedule?: MeetingSchedule; relatedMemberId?: string
   }>({ open: false, meetingType: 'couple' })
 
   const [sectionsModal, setSectionsModal] = useState<{
-    open: boolean
-    meetingType: MeetingType
-    childName?: string
+    open: boolean; meetingType: MeetingType
   }>({ open: false, meetingType: 'couple' })
 
   const [customTemplateOpen, setCustomTemplateOpen] = useState(false)
 
-  // Meeting start + conversation state (Phase C)
   const [startMeetingModal, setStartMeetingModal] = useState<{
-    open: boolean
-    meetingType: MeetingType
-    relatedMemberId?: string
-    childName?: string
-    schedule?: MeetingSchedule
+    open: boolean; meetingType: MeetingType; relatedMemberId?: string; schedule?: MeetingSchedule
   }>({ open: false, meetingType: 'couple' })
 
   const [activeMeetingView, setActiveMeetingView] = useState<Meeting | null>(null)
@@ -251,23 +277,28 @@ export function MeetingsPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [meetingWizardOpen, setMeetingWizardOpen] = useState(false)
 
-  const getMemberName = (id: string) => members?.find((m: FamilyMember) => m.id === id)?.display_name ?? ''
+  const getChildren = () => members?.filter((m: FamilyMember) => m.role === 'member') ?? []
 
-  const handleOpenSchedule = (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string, childName?: string) => {
-    setScheduleModal({ open: true, meetingType, schedule, relatedMemberId, childName })
+  const getAgendaForMeeting = (meetingType: MeetingType, relatedMemberId?: string) =>
+    allAgendaItems.filter(item =>
+      item.meeting_type === meetingType &&
+      (relatedMemberId ? item.related_member_id === relatedMemberId : !item.related_member_id)
+    )
+
+  const handleOpenSchedule = (meetingType: MeetingType, schedule?: MeetingSchedule, relatedMemberId?: string) => {
+    setScheduleModal({ open: true, meetingType, schedule, relatedMemberId })
   }
 
-  const handleOpenSections = (meetingType: MeetingType, childName?: string) => {
-    setSectionsModal({ open: true, meetingType, childName })
+  const handleOpenSections = (meetingType: MeetingType) => {
+    setSectionsModal({ open: true, meetingType })
   }
 
-  const handleStartMeeting = (meetingType: MeetingType, relatedMemberId?: string, childName?: string, schedule?: MeetingSchedule) => {
-    setStartMeetingModal({ open: true, meetingType, relatedMemberId, childName, schedule })
+  const handleStartMeeting = (meetingType: MeetingType, relatedMemberId?: string, schedule?: MeetingSchedule) => {
+    setStartMeetingModal({ open: true, meetingType, relatedMemberId, schedule })
   }
 
   const handleMeetingStarted = async (meetingId: string, _mode: MeetingMode) => {
-    // Fetch the created meeting to pass to the conversation view
-    const { data } = await (await import('@/lib/supabase/client')).supabase
+    const { data } = await supabase
       .from('meetings')
       .select('*')
       .eq('id', meetingId)
@@ -277,8 +308,7 @@ export function MeetingsPage() {
     }
   }
 
-  const handleMeetingEnded = (_meetingId: string) => {
-    // Keep the meeting reference for review before clearing the conversation view
+  const handleMeetingEnded = () => {
     const endedMeeting = activeMeetingView
     setActiveMeetingView(null)
     if (endedMeeting) {
@@ -286,7 +316,6 @@ export function MeetingsPage() {
     }
   }
 
-  const queryClient = useQueryClient()
   const handleReviewComplete = () => {
     setReviewMeeting(null)
     queryClient.invalidateQueries({ queryKey: ['meetings', familyId] })
@@ -294,16 +323,6 @@ export function MeetingsPage() {
     queryClient.invalidateQueries({ queryKey: ['studio-queue', familyId] })
   }
 
-  // Group upcoming schedules (within 7 days or overdue)
-  const upcomingSchedules = schedules
-    .filter(s => {
-      if (!s.next_due_date) return false
-      const diff = (new Date(s.next_due_date).getTime() - Date.now()) / 86400000
-      return diff < 7
-    })
-    .sort((a, b) => new Date(a.next_due_date!).getTime() - new Date(b.next_due_date!).getTime())
-
-  // Built-in meeting types
   const builtInTypes: Array<{ type: MeetingType; label: string }> = [
     { type: 'couple', label: 'Couple Meeting' },
     { type: 'parent_child', label: 'Parent-Child Meeting' },
@@ -311,8 +330,7 @@ export function MeetingsPage() {
     { type: 'family_council', label: 'Family Council' },
   ]
 
-  // For mentor/parent_child, expand per child
-  const getMemberChildren = () => members?.filter((m: FamilyMember) => m.role === 'member') ?? []
+  const hasAnySchedule = schedules.length > 0
 
   return (
     <div className="density-compact max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -328,7 +346,7 @@ export function MeetingsPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-text-tertiary)' }}>In Progress</h2>
           <div className="space-y-3">
             {activeMeetings.map(m => (
-              <div key={m.id} className="rounded-lg p-4" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-warning)' }}>
+              <div key={m.id} className="rounded-xl p-4" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-warning)' }}>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                     {m.custom_title ?? MEETING_TYPE_LABELS[m.meeting_type as MeetingType]}
@@ -337,75 +355,54 @@ export function MeetingsPage() {
                     {m.status === 'paused' ? 'Paused' : 'In Progress'}
                   </span>
                 </div>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
-                  Started {new Date(m.started_at).toLocaleDateString()} — resume in Phase C
-                </p>
+                <button
+                  className="mt-2 text-sm font-medium flex items-center gap-1"
+                  style={{ color: 'var(--color-btn-primary-bg)' }}
+                  onClick={async () => {
+                    const { data } = await supabase.from('meetings').select('*').eq('id', m.id).single()
+                    if (data) setActiveMeetingView(data as Meeting)
+                  }}
+                >
+                  <UsersRound size={14} /> Resume
+                </button>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* Upcoming */}
-      <PermissionGate featureKey="meetings_shared">
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-text-tertiary)' }}>Upcoming</h2>
-          {upcomingSchedules.length === 0 && schedules.length === 0 ? (
-            <div className="text-center py-8 rounded-lg" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
-              <UsersRound size={32} className="mx-auto mb-2" style={{ color: 'var(--color-accent-deep)' }} />
-              <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Set up your family meetings</p>
-              <p className="text-xs mt-1 max-w-xs mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
-                Schedule family council, 1:1 time with each kid, and couple check-ins in a few minutes.
-              </p>
-              <button
-                onClick={() => setMeetingWizardOpen(true)}
-                className="mt-4 px-5 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-2"
-                style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
-              >
-                <CalendarDays size={16} />
-                Get Started
-              </button>
-            </div>
-          ) : upcomingSchedules.length === 0 ? (
-            <div className="text-center py-8 rounded-lg" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
-              <UsersRound size={32} className="mx-auto mb-2" style={{ color: 'var(--color-text-tertiary)' }} />
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No upcoming meetings this week</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-tertiary)' }}>Your next meeting will appear here when it's due</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {upcomingSchedules.map(s => {
-                const key = s.related_member_id ? `${s.meeting_type}:${s.related_member_id}` : s.meeting_type
-                return (
-                  <MeetingUpcomingCard
-                    key={s.id}
-                    schedule={s}
-                    agendaCount={agendaCounts[key] ?? 0}
-                    childName={s.related_member_id ? getMemberName(s.related_member_id) : undefined}
-                    onStartMeeting={handleStartMeeting}
-                  />
-                )
-              })}
-            </div>
-          )}
-        </section>
-      </PermissionGate>
+      {/* Empty state — no schedules at all */}
+      {!hasAnySchedule && allAgendaItems.length === 0 && activeMeetings.length === 0 && (
+        <div className="text-center py-8 rounded-xl" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
+          <UsersRound size={32} className="mx-auto mb-2" style={{ color: 'var(--color-accent-deep)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Set up your family meetings</p>
+          <p className="text-xs mt-1 max-w-xs mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
+            Schedule family council, 1:1 time with each kid, and couple check-ins — or just start adding agenda items whenever something comes up.
+          </p>
+          <button
+            onClick={() => setMeetingWizardOpen(true)}
+            className="mt-4 px-5 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-2"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+          >
+            <CalendarDays size={16} />
+            Get Started
+          </button>
+        </div>
+      )}
 
-      {/* Meeting Types */}
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--color-text-tertiary)' }}>Meeting Types</h2>
-        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border-default)' }}>
+      {/* Meeting Cards — agenda-first */}
+      <PermissionGate featureKey="meetings_shared">
+        <section className="space-y-3">
           {builtInTypes.map(({ type, label }) => {
-            // For mentor/parent_child, expand per child
             if (type === 'mentor' || type === 'parent_child') {
-              const children = getMemberChildren()
+              const children = getChildren()
               if (children.length === 0) {
                 return (
-                  <MeetingTypeRow
+                  <MeetingCard
                     key={type}
                     meetingType={type}
                     label={label}
-                    agendaCount={agendaCounts[type] ?? 0}
+                    agendaItems={getAgendaForMeeting(type)}
                     schedule={schedules.find(s => s.meeting_type === type)}
                     familyId={familyId!}
                     memberId={memberId!}
@@ -416,18 +413,16 @@ export function MeetingsPage() {
                 )
               }
               return children.map((child: FamilyMember) => {
-                const key = `${type}:${child.id}`
                 const schedule = schedules.find(s => s.meeting_type === type && s.related_member_id === child.id)
                 return (
-                  <MeetingTypeRow
-                    key={key}
+                  <MeetingCard
+                    key={`${type}-${child.id}`}
                     meetingType={type}
-                    label={label}
-                    agendaCount={agendaCounts[key] ?? 0}
+                    label={`${label}: ${child.display_name}`}
+                    agendaItems={getAgendaForMeeting(type, child.id)}
                     schedule={schedule}
                     familyId={familyId!}
                     memberId={memberId!}
-                    childName={child.display_name}
                     relatedMemberId={child.id}
                     onOpenSchedule={handleOpenSchedule}
                     onOpenSections={handleOpenSections}
@@ -437,11 +432,11 @@ export function MeetingsPage() {
               })
             }
             return (
-              <MeetingTypeRow
+              <MeetingCard
                 key={type}
                 meetingType={type}
                 label={label}
-                agendaCount={agendaCounts[type] ?? 0}
+                agendaItems={getAgendaForMeeting(type)}
                 schedule={schedules.find(s => s.meeting_type === type)}
                 familyId={familyId!}
                 memberId={memberId!}
@@ -451,13 +446,14 @@ export function MeetingsPage() {
               />
             )
           })}
+
           {/* Custom templates */}
           {templates.map(t => (
-            <MeetingTypeRow
+            <MeetingCard
               key={t.id}
               meetingType="custom"
               label={t.name}
-              agendaCount={agendaCounts[`custom:${t.id}`] ?? 0}
+              agendaItems={allAgendaItems.filter(i => i.meeting_type === 'custom' && i.template_id === t.id)}
               familyId={familyId!}
               memberId={memberId!}
               onOpenSchedule={handleOpenSchedule}
@@ -465,15 +461,16 @@ export function MeetingsPage() {
               onStartMeeting={handleStartMeeting}
             />
           ))}
-        </div>
-        <button
-          className="mt-3 flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-md w-full justify-center hover:opacity-80"
-          style={{ border: '1px dashed var(--color-border-default)', color: 'var(--color-text-secondary)' }}
-          onClick={() => setCustomTemplateOpen(true)}
-        >
-          <Plus size={16} /> Create Custom Meeting Type
-        </button>
-      </section>
+
+          <button
+            className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg w-full justify-center hover:opacity-80"
+            style={{ border: '1px dashed var(--color-border-default)', color: 'var(--color-text-secondary)' }}
+            onClick={() => setCustomTemplateOpen(true)}
+          >
+            <Plus size={16} /> Create Custom Meeting Type
+          </button>
+        </section>
+      </PermissionGate>
 
       {/* Recent History */}
       <section>
@@ -485,7 +482,7 @@ export function MeetingsPage() {
               className="text-xs font-medium hover:opacity-80"
               style={{ color: 'var(--color-btn-primary-bg)' }}
             >
-              View All History
+              View All
             </button>
           )}
         </div>
@@ -525,7 +522,6 @@ export function MeetingsPage() {
             onClose={() => setScheduleModal(s => ({ ...s, open: false }))}
             meetingType={scheduleModal.meetingType}
             relatedMemberId={scheduleModal.relatedMemberId}
-            childName={scheduleModal.childName}
             existingSchedule={scheduleModal.schedule}
             familyId={familyId}
           />
@@ -534,7 +530,6 @@ export function MeetingsPage() {
             isOpen={sectionsModal.open}
             onClose={() => setSectionsModal(s => ({ ...s, open: false }))}
             meetingType={sectionsModal.meetingType}
-            childName={sectionsModal.childName}
             familyId={familyId}
           />
 
@@ -552,7 +547,6 @@ export function MeetingsPage() {
               familyId={familyId}
               memberId={memberId}
               relatedMemberId={startMeetingModal.relatedMemberId}
-              childName={startMeetingModal.childName}
               schedule={startMeetingModal.schedule}
               onMeetingStarted={handleMeetingStarted}
             />
@@ -560,7 +554,6 @@ export function MeetingsPage() {
         </>
       )}
 
-      {/* Full-screen meeting conversation view */}
       {activeMeetingView && (
         <MeetingConversationView
           meeting={activeMeetingView}
@@ -569,7 +562,6 @@ export function MeetingsPage() {
         />
       )}
 
-      {/* Post-meeting review modal (Phase D) */}
       {reviewMeeting && (
         <PostMeetingReview
           isOpen={!!reviewMeeting}
@@ -579,7 +571,6 @@ export function MeetingsPage() {
         />
       )}
 
-      {/* Meeting History view (Phase D) */}
       {showHistory && familyId && (
         <MeetingHistoryView
           isOpen={showHistory}
@@ -589,7 +580,6 @@ export function MeetingsPage() {
         />
       )}
 
-      {/* Meeting Setup Wizard (Phase 5) */}
       {meetingWizardOpen && familyId && member?.id && (
         <MeetingSetupWizard
           isOpen={meetingWizardOpen}
@@ -604,4 +594,33 @@ export function MeetingsPage() {
       )}
     </div>
   )
+}
+
+/**
+ * Compute the next future occurrence for a stale schedule.
+ * Steps forward by the recurrence interval until the date is today or later.
+ */
+function computeNextOccurrence(schedule: MeetingSchedule, today: Date): string | null {
+  if (!schedule.next_due_date) return null
+
+  const due = new Date(schedule.next_due_date)
+  let candidate = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+
+  const intervalDays = schedule.recurrence_rule === 'weekly' ? 7
+    : schedule.recurrence_rule === 'biweekly' ? 14
+    : schedule.recurrence_rule === 'monthly' ? 30
+    : schedule.recurrence_rule === 'quarterly' ? 90
+    : 7
+
+  while (candidate < today) {
+    if (schedule.recurrence_rule === 'monthly') {
+      candidate.setMonth(candidate.getMonth() + 1)
+    } else if (schedule.recurrence_rule === 'quarterly') {
+      candidate.setMonth(candidate.getMonth() + 3)
+    } else {
+      candidate.setDate(candidate.getDate() + intervalDays)
+    }
+  }
+
+  return candidate.toISOString()
 }

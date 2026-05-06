@@ -9,6 +9,7 @@ import {
   X,
   Check,
   Settings2,
+  UsersRound,
 } from 'lucide-react'
 import {
   useNotifications,
@@ -26,6 +27,7 @@ const CATEGORY_ICONS: Record<NotificationCategory, typeof MessageSquare> = {
   tasks: CheckSquare,
   safety: ShieldAlert,
   lila: Sparkles,
+  meetings: UsersRound,
 }
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
@@ -35,6 +37,7 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   tasks: 'Tasks',
   safety: 'Safety',
   lila: 'LiLa',
+  meetings: 'Meetings',
 }
 
 function formatTimeAgo(dateStr: string): string {

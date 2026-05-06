@@ -30,8 +30,11 @@ export type NotificationType =
   | 'lila_suggestion'
   | 'permission_change'
   | 'system'
+  | 'meeting_reminder'
+  | 'meeting_completed'
+  | 'meeting_action_routed'
 
-export type NotificationCategory = 'messages' | 'requests' | 'calendar' | 'tasks' | 'safety' | 'lila'
+export type NotificationCategory = 'messages' | 'requests' | 'calendar' | 'tasks' | 'safety' | 'lila' | 'meetings'
 
 export type NotificationDeliveryMethod = 'in_app' | 'email' | 'push' | 'email_and_push'
 

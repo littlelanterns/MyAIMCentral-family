@@ -92,6 +92,7 @@ const CLASSIFICATION_CATEGORIES = [
   { key: 'recipe', destination: 'recipe', description: 'Recipe with ingredients and instructions' },
   { key: 'travel', destination: 'calendar', detail: { event_type: 'travel' }, description: 'Flight, hotel, reservation, travel confirmation, itinerary' },
   { key: 'list_item', destination: 'list', description: 'Item for a list (packing, wishlist, to-do list, expenses)' },
+  { key: 'agenda', destination: 'agenda', description: 'Topic to discuss at a family meeting, couple meeting, parent-child meeting, or mentor meeting' },
 ]
 
 // ── Main Handler ──
@@ -304,7 +305,7 @@ Deno.serve(async (req) => {
     let itemsQueued = 0
     let itemsDirectRouted = 0
 
-    const queueDestinations = new Set(['task', 'list'])
+    const queueDestinations = new Set(['task', 'list', 'agenda'])
     const directDestinations = new Set([
       'journal', 'victory', 'guiding_stars', 'best_intentions',
       'backburner', 'innerworkings', 'archives',
@@ -532,6 +533,9 @@ Destination mapping:
 - archive -> "archives"
 - recipe -> "recipe"
 - list_item -> "list"
+- agenda -> "agenda"
+
+If an item is something to discuss at a family meeting, couple meeting, parent-child meeting, or mentor meeting, set category to "agenda" and destination to "agenda". Look for phrases like "discuss with", "talk about at meeting", "bring up", "need to address", "family decision", "agenda item".
 
 If an item is a recipe, set destination to "recipe" — the caller handles dual-routing.
 If an item has travel details (flights, hotels, reservations), set category to "travel".

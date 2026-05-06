@@ -19,6 +19,7 @@ import { useCreateEvent } from '@/hooks/useCalendarEvents'
 import { QueueCard } from './QueueCard'
 import { BatchCard } from './BatchCard'
 import { ListPickerModal } from './ListPickerModal'
+import { MeetingPickerOverlay } from '@/components/meetings/MeetingPickerOverlay'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import { EventCreationModal } from '@/components/calendar/EventCreationModal'
 import type { StudioQueueRecord } from './QueueCard'
@@ -229,6 +230,8 @@ export function SortTab() {
   const [dismissTarget, setDismissTarget] = useState<StudioQueueRecord | null>(null)
   // List picker state — opens when destination='list'
   const [listPickerItems, setListPickerItems] = useState<StudioQueueRecord[]>([])
+  // Agenda picker state — opens when destination='agenda'
+  const [agendaPickerItem, setAgendaPickerItem] = useState<StudioQueueRecord | null>(null)
   // Calendar event modal state — opens when destination='calendar'
   const [calendarItem, setCalendarItem] = useState<StudioQueueRecord | null>(null)
   const [calendarInitialEvent, setCalendarInitialEvent] = useState<(CalendarEvent & { event_attendees?: never[] }) | null>(null)
@@ -424,6 +427,10 @@ export function SortTab() {
   // ── Configure handler (dispatch by destination) ──
 
   const handleConfigure = (item: StudioQueueRecord) => {
+    if (item.destination === 'agenda') {
+      setAgendaPickerItem(item)
+      return
+    }
     if (item.destination === 'list') {
       setListPickerItems([item])
       return
@@ -635,6 +642,24 @@ export function SortTab() {
         }}
         onCancel={() => setDismissTarget(null)}
       />
+
+      {/* Agenda picker — opens when destination='agenda' */}
+      {currentMember && (
+        <MeetingPickerOverlay
+          isOpen={!!agendaPickerItem}
+          onClose={() => setAgendaPickerItem(null)}
+          familyId={currentMember.family_id}
+          memberId={currentMember.id}
+          content={agendaPickerItem?.content ?? ''}
+          onComplete={() => {
+            if (agendaPickerItem) {
+              processedMutation.mutate(agendaPickerItem.id)
+              routingToast.show({ message: `"${agendaPickerItem.content.slice(0, 40)}${agendaPickerItem.content.length > 40 ? '...' : ''}" added to meeting agenda` })
+            }
+            setAgendaPickerItem(null)
+          }}
+        />
+      )}
 
       {/* List picker — opens when destination='list' */}
       <ListPickerModal

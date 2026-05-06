@@ -5,6 +5,10 @@ import type {
   MeetingAgendaItem, MeetingParticipant, MeetingType, MeetingMode,
 } from '@/types/meetings'
 
+// Convention #232: impressions are PERSONAL — only the ender sees them.
+// These list queries intentionally exclude the `impressions` column.
+const MEETING_LIST_COLUMNS = 'id,family_id,meeting_type,template_id,custom_title,related_member_id,status,mode,facilitator_member_id,started_by,summary,lila_conversation_id,schedule_id,calendar_event_id,started_at,completed_at,duration_minutes,created_at,updated_at'
+
 // ── Meetings ─────────────────────────────────────────────────
 
 export function useMeetings(familyId: string | undefined) {
@@ -14,7 +18,7 @@ export function useMeetings(familyId: string | undefined) {
       if (!familyId) return []
       const { data, error } = await supabase
         .from('meetings')
-        .select('*')
+        .select(MEETING_LIST_COLUMNS)
         .eq('family_id', familyId)
         .order('started_at', { ascending: false })
       if (error) throw error
@@ -31,7 +35,7 @@ export function useRecentMeetings(familyId: string | undefined, limit = 5) {
       if (!familyId) return []
       const { data, error } = await supabase
         .from('meetings')
-        .select('*')
+        .select(MEETING_LIST_COLUMNS)
         .eq('family_id', familyId)
         .eq('status', 'completed')
         .order('completed_at', { ascending: false })
@@ -50,7 +54,7 @@ export function useActiveMeetings(familyId: string | undefined) {
       if (!familyId) return []
       const { data, error } = await supabase
         .from('meetings')
-        .select('*')
+        .select(MEETING_LIST_COLUMNS)
         .eq('family_id', familyId)
         .in('status', ['in_progress', 'paused'])
         .order('started_at', { ascending: false })
@@ -77,6 +81,34 @@ export function useCreateMeeting() {
       calendar_event_id?: string
       participant_ids: string[]
     }) => {
+      // SCOPE-8b.F10: Permission gate for parent_child/mentor meetings.
+      // Non-mom members need member_permissions for the related child.
+      // Couple meetings have implicit permission (Convention #235).
+      if (
+        (input.meeting_type === 'parent_child' || input.meeting_type === 'mentor') &&
+        input.related_member_id
+      ) {
+        const { data: creator } = await supabase
+          .from('family_members')
+          .select('role')
+          .eq('id', input.started_by)
+          .single()
+
+        if (creator && creator.role !== 'primary_parent') {
+          const { data: perms } = await supabase
+            .from('member_permissions')
+            .select('id')
+            .eq('family_id', input.family_id)
+            .eq('target_member_id', input.related_member_id)
+            .eq('granted_to', input.started_by)
+            .limit(1)
+
+          if (!perms || perms.length === 0) {
+            throw new Error('You do not have permission to create a meeting for this family member.')
+          }
+        }
+      }
+
       const { participant_ids, ...meetingData } = input
       const { data: meeting, error } = await supabase
         .from('meetings')
