@@ -68,7 +68,7 @@ export function MeetingPickerOverlay({
       >
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--color-border-default)' }}>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
-            Add to which meeting?
+            Add to which conversation?
           </h3>
           <button onClick={onClose} className="p-1 rounded hover:opacity-80" style={{ color: 'var(--color-text-tertiary)' }}>
             <X size={16} />

@@ -50,7 +50,7 @@ const DEST_LABELS: Record<string, { label: string; path: string }> = {
   list: { label: 'Lists', path: '/lists' },
   calendar: { label: 'Calendar', path: '/calendar' },
   track: { label: 'Dashboard', path: '/dashboard' },
-  agenda: { label: 'Meetings', path: '/meetings' },
+  agenda: { label: 'Touch Base', path: '/meetings' },
   message: { label: 'Messages', path: '/messages' },
   optimizer: { label: 'Optimizer', path: '/vault' },
   ideas: { label: 'Ideas', path: '/lists' },
@@ -581,7 +581,7 @@ export function NotepadDrawer() {
           onComplete={() => {
             setAgendaPickerOpen(false)
             setView('editor')
-            routingToast.show({ message: 'Added to meeting agenda' })
+            routingToast.show({ message: 'Added to Touch Base' })
           }}
         />
       )}

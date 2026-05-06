@@ -101,7 +101,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
   { key: 'track_this', label: 'Track This', icon: BarChart3, featureKey: 'widgets_trackers', accent: 'warm' },
   { key: 'message', label: 'Message', icon: MessageCircle, featureKey: 'messages', accent: 'rose' },
   { key: 'request', label: 'Request', icon: HandHelping, featureKey: 'requests_basic', accent: 'rose' },
-  { key: 'agenda', label: 'Agenda', icon: ListChecks, featureKey: 'meetings', accent: 'rose' },
+  { key: 'agenda', label: 'Touch Base', icon: ListChecks, featureKey: 'meetings', accent: 'rose' },
   {
     key: 'innerworkings', label: 'InnerWorkings', icon: Brain, featureKey: 'my_foundation', accent: 'teal',
     subOptions: [

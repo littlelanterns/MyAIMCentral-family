@@ -654,7 +654,7 @@ export function SortTab() {
           onComplete={() => {
             if (agendaPickerItem) {
               processedMutation.mutate(agendaPickerItem.id)
-              routingToast.show({ message: `"${agendaPickerItem.content.slice(0, 40)}${agendaPickerItem.content.length > 40 ? '...' : ''}" added to meeting agenda` })
+              routingToast.show({ message: `"${agendaPickerItem.content.slice(0, 40)}${agendaPickerItem.content.length > 40 ? '...' : ''}" added to Touch Base` })
             }
             setAgendaPickerItem(null)
           }}
