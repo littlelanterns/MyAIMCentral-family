@@ -34,7 +34,7 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import {
   useAllowanceConfigs,
   useBulkUpsertAllowanceConfig,
-  useAddGraceDay,
+  useAddGraceDayForMember,
   type GraceDayEntry,
   type GraceDayMode,
   normalizeGraceDayEntry,
@@ -116,7 +116,10 @@ export function BulkConfigureAllowanceModal({
   const members = membersData ?? []
   const { data: configs } = useAllowanceConfigs(familyId)
   const bulkUpsert = useBulkUpsertAllowanceConfig()
-  const addGraceDay = useAddGraceDay()
+  // Phase 3.5 D-gap-2: member-level grace day mutation. Each member's
+  // grace day is applied across ALL active pool periods for that member,
+  // so multi-pool kids get the day excluded from every pool simultaneously.
+  const addGraceDay = useAddGraceDayForMember()
 
   // Filter to kids (role = 'member') who have allowance-eligible state.
   const eligibleKids = useMemo(
@@ -129,6 +132,19 @@ export function BulkConfigureAllowanceModal({
   )
   const [form, setForm] = useState<BulkForm>(DEFAULT_FORM)
   const [submitting, setSubmitting] = useState(false)
+
+  // Phase 3.5: pool selector. Discover all pool names across all configs.
+  const allPoolNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const c of (configs ?? [])) {
+      names.add(c.pool_name ?? 'default')
+    }
+    if (names.size === 0) names.add('default')
+    return Array.from(names).sort()
+  }, [configs])
+  const [selectedPool, setSelectedPool] = useState('default')
+  const [addingPoolForAll, setAddingPoolForAll] = useState(false)
+  const [newPoolNameBulk, setNewPoolNameBulk] = useState('')
 
   // Reference period for the calendar — pick the active period of the
   // first selected kid (any of them works since all 4 founder kids share
@@ -228,21 +244,16 @@ export function BulkConfigureAllowanceModal({
     if (form.extra_credit_enabled.applied) configFields.extra_credit_enabled = form.extra_credit_enabled.value
 
     if (Object.keys(configFields).length > 0) {
-      // Read existing configs so upsert merge behavior is predictable and
-      // we can write correct base rows if any member has no config yet.
-      const existingById = new Map(
-        (configs ?? []).map(c => [c.family_member_id, c]),
+      const existingByKey = new Map(
+        (configs ?? []).map(c => [`${c.family_member_id}::${c.pool_name ?? 'default'}`, c]),
       )
       const rows: AllowanceConfigInput[] = []
       for (const memberId of selectedIds) {
-        const existing = existingById.get(memberId)
+        const existing = existingByKey.get(`${memberId}::${selectedPool}`)
         rows.push({
           family_id: familyId,
           family_member_id: memberId,
-          // For missing configs, supply mandatory base fields. For existing
-          // configs, upsert merges so we only need to ship the applied
-          // fields + the FK keys — but passing existing values is safe
-          // and keeps the DB return shape stable.
+          pool_name: selectedPool,
           enabled: existing?.enabled ?? true,
           weekly_amount: existing?.weekly_amount ?? 10,
           calculation_approach: existing?.calculation_approach ?? 'dynamic',
@@ -272,28 +283,13 @@ export function BulkConfigureAllowanceModal({
 
       if (drafts.length > 0) {
         for (const memberId of selectedIds) {
-          // Look up each member's active period ONCE, then fan out across all
-          // selected dates. Avoids N×D round trips when picking 5 days for 4 kids.
-          const { data: period } = await supabase
-            .from('allowance_periods')
-            .select('id')
-            .eq('family_member_id', memberId)
-            .in('status', ['active', 'makeup_window'])
-            .order('period_start', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-
-          if (!period) {
-            result.graceFailed += drafts.length
-            const member = members.find(m => m.id === memberId)
-            result.errors.push(`no active period for ${member?.display_name ?? memberId}`)
-            continue
-          }
-
+          // Phase 3.5 D-gap-2: useAddGraceDayForMember internally walks
+          // every active pool period for this member, so we no longer
+          // need to look up a single period.id here.
           for (const draft of drafts) {
             try {
               await addGraceDay.mutateAsync({
-                periodId: period.id,
+                memberId,
                 date: draft.date,
                 mode: draft.mode,
               })
@@ -476,6 +472,96 @@ export function BulkConfigureAllowanceModal({
               {selectedIds.size} of {eligibleKids.length} selected
             </p>
           </section>
+
+          {/* Phase 3.5: Pool selector */}
+          {allPoolNames.length > 1 && (
+            <section style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: '0 0 0.5rem', fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--color-text-heading)' }}>
+                Pool
+              </h3>
+              <select
+                value={selectedPool}
+                onChange={e => setSelectedPool(e.target.value)}
+                style={{
+                  ...selectStyle,
+                  width: '100%',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                {allPoolNames.map(name => (
+                  <option key={name} value={name}>
+                    {name === 'default' ? 'Main Pool' : name}
+                  </option>
+                ))}
+              </select>
+              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+                Settings below will apply to the &ldquo;{selectedPool === 'default' ? 'Main Pool' : selectedPool}&rdquo; pool for each selected kid. If a kid doesn&apos;t have this pool yet, it will be created.
+              </p>
+            </section>
+          )}
+
+          {/* Add pool to all selected kids */}
+          {!addingPoolForAll ? (
+            <button
+              type="button"
+              onClick={() => setAddingPoolForAll(true)}
+              style={{
+                ...pillStyleUnselected,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                marginBottom: '1rem',
+              }}
+            >
+              + Add pool to all selected kids
+            </button>
+          ) : (
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={newPoolNameBulk}
+                onChange={e => setNewPoolNameBulk(e.target.value)}
+                placeholder="Pool name"
+                autoFocus
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                disabled={!newPoolNameBulk.trim() || selectedIds.size === 0}
+                onClick={async () => {
+                  if (!newPoolNameBulk.trim() || selectedIds.size === 0) return
+                  const rows: AllowanceConfigInput[] = Array.from(selectedIds).map(mid => ({
+                    family_id: familyId,
+                    family_member_id: mid,
+                    pool_name: newPoolNameBulk.trim(),
+                    enabled: true,
+                    weekly_amount: 0,
+                    calculation_approach: 'dynamic' as const,
+                  }))
+                  try {
+                    await bulkUpsert.mutateAsync(rows)
+                  } catch { /* swallow — toast will surface */ }
+                  setNewPoolNameBulk('')
+                  setAddingPoolForAll(false)
+                  setSelectedPool(newPoolNameBulk.trim())
+                }}
+                style={{
+                  ...buttonPrimaryStyle,
+                  opacity: newPoolNameBulk.trim() && selectedIds.size > 0 ? 1 : 0.5,
+                  cursor: newPoolNameBulk.trim() && selectedIds.size > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAddingPoolForAll(false); setNewPoolNameBulk('') }}
+                style={{ ...buttonSecondaryStyle, padding: '0.375rem 0.625rem' }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
           {/* Schedule */}
           <Section title="Schedule">

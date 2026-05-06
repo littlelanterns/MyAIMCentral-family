@@ -752,6 +752,7 @@ export function StudioPage() {
               frequencyPeriod: null,
               cooldownHours: null,
               maxInstances: null,
+              sectionName: null,
             }))
           : [],
       }
@@ -775,6 +776,7 @@ export function StudioPage() {
               frequencyPeriod: null,
               cooldownHours: null,
               maxInstances: null,
+              sectionName: null,
             }))
           : [],
       }

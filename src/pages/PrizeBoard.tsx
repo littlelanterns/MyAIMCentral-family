@@ -1,17 +1,19 @@
-import { useState } from 'react'
-import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users } from 'lucide-react'
 import { useEarnedPrizes, useRedeemPrize } from '@/hooks/useEarnedPrizes'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
 import {
   useAllowanceConfigs,
   useCreatePayment,
-  useRunningBalance,
-  useFinancialTransactions,
+  useMemberAllowancePools,
 } from '@/hooks/useFinancial'
 import { getMemberColor } from '@/lib/memberColors'
 import { supabase } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AllowancePeriod, FinancialTransaction } from '@/types/financial'
+import type { AllowancePeriod } from '@/types/financial'
+import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { LedgerView } from '@/features/financial/LedgerView'
+import { PaymentModal } from '@/features/financial/FinancialModals'
 
 type Tab = 'allowance' | 'prizes' | 'balance'
 
@@ -52,7 +54,7 @@ export default function PrizeBoard() {
 
       {activeTab === 'allowance' && <AllowanceOwedSection familyId={familyId} />}
       {activeTab === 'prizes' && <PrizesSection familyId={familyId} currentMemberId={currentMember?.id} />}
-      {activeTab === 'balance' && <BalanceSection familyId={familyId} />}
+      {activeTab === 'balance' && <BalanceSection familyId={familyId} currentMember={currentMember ?? null} />}
     </div>
   )
 }
@@ -115,20 +117,48 @@ function KidAllowanceCard({
     },
   })
 
-  const totalOwed = unpaidPeriods.reduce((sum, p) => sum + Number(p.total_earned), 0)
+  // Phase 3.5 D-gap-3: group unpaid periods by date range so multi-pool
+  // kids show one card per (period_start, period_end) instead of one per
+  // pool row. Each group shows the combined percentage + per-pool
+  // breakdown of where the money came from.
+  const groupedPeriods = useMemo(() => {
+    const map = new Map<string, AllowancePeriod[]>()
+    for (const p of unpaidPeriods) {
+      const key = `${p.period_start}|${p.period_end}`
+      const list = map.get(key) ?? []
+      list.push(p)
+      map.set(key, list)
+    }
+    return Array.from(map.entries())
+      .map(([key, pools]) => {
+        const [period_start, period_end] = key.split('|')
+        return {
+          period_start,
+          period_end,
+          pools,
+          total_earned: pools.reduce((s, p) => s + Number(p.total_earned), 0),
+          combined_percentage: pools.find(p => p.combined_percentage != null)?.combined_percentage ?? null,
+        }
+      })
+      .sort((a, b) => b.period_start.localeCompare(a.period_start))
+  }, [unpaidPeriods])
 
-  const handlePayPeriod = async (period: AllowancePeriod) => {
+  const totalOwed = groupedPeriods.reduce((sum, g) => sum + g.total_earned, 0)
+
+  const handlePayGroup = async (group: typeof groupedPeriods[number]) => {
     try {
       await payMutation.mutateAsync({
         family_id: familyId,
         family_member_id: member.id,
-        amount: Number(period.total_earned),
-        note: `Allowance for ${formatDateRange(period.period_start, period.period_end)}`,
+        amount: group.total_earned,
+        note: `Allowance for ${formatDateRange(group.period_start, group.period_end)}`,
       })
+      // Mark every pool period in this date range as closed.
+      const ids = group.pools.map(p => p.id)
       await supabase
         .from('allowance_periods')
         .update({ status: 'closed', closed_at: new Date().toISOString() })
-        .eq('id', period.id)
+        .in('id', ids)
       queryClient.invalidateQueries({ queryKey: ['unpaid-allowance-periods', member.id] })
     } catch (err) {
       console.warn('Failed to mark period paid:', err)
@@ -136,8 +166,8 @@ function KidAllowanceCard({
   }
 
   const handlePayAll = async () => {
-    for (const period of unpaidPeriods) {
-      await handlePayPeriod(period)
+    for (const group of groupedPeriods) {
+      await handlePayGroup(group)
     }
   }
 
@@ -155,17 +185,22 @@ function KidAllowanceCard({
         )}
       </div>
 
-      {unpaidPeriods.length === 0 ? (
+      {groupedPeriods.length === 0 ? (
         <p className="text-sm text-[var(--color-text-secondary)] py-2">
           All caught up! No allowance owed.
         </p>
       ) : (
         <div className="space-y-2">
-          {unpaidPeriods.map(period => (
-            <PeriodRow key={period.id} period={period} onPay={() => handlePayPeriod(period)} isPaying={payMutation.isPending} />
+          {groupedPeriods.map(group => (
+            <PeriodGroupRow
+              key={`${group.period_start}|${group.period_end}`}
+              group={group}
+              onPay={() => handlePayGroup(group)}
+              isPaying={payMutation.isPending}
+            />
           ))}
 
-          {unpaidPeriods.length > 1 && (
+          {groupedPeriods.length > 1 && (
             <button
               onClick={handlePayAll}
               disabled={payMutation.isPending}
@@ -180,17 +215,37 @@ function KidAllowanceCard({
   )
 }
 
-function PeriodRow({
-  period,
+/**
+ * Phase 3.5 D-gap-3 — period group row.
+ * Shows ONE row per (period_start, period_end) for the kid, with a
+ * combined-percentage subtitle and an expandable per-pool breakdown
+ * underneath. Single-pool kids will see exactly one pool in the breakdown
+ * (the default pool); multi-pool kids see N pools with their individual
+ * percentages, weights, and earned amounts.
+ */
+function PeriodGroupRow({
+  group,
   onPay,
   isPaying,
 }: {
-  period: AllowancePeriod
+  group: {
+    period_start: string
+    period_end: string
+    pools: AllowancePeriod[]
+    total_earned: number
+    combined_percentage: number | null
+  }
   onPay: () => void
   isPaying: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
-  const details = period.calculation_details as Record<string, unknown> | null
+  const isMultiPool = group.pools.length > 1
+
+  // Display combined % when present (multi-pool); fallback to the single
+  // pool's completion % for single-pool members.
+  const displayPercentage = group.combined_percentage != null
+    ? group.combined_percentage
+    : group.pools[0]?.completion_percentage ?? 0
 
   return (
     <div className="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]">
@@ -201,14 +256,14 @@ function PeriodRow({
         {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium">
-            {formatDateRange(period.period_start, period.period_end)}
+            {formatDateRange(group.period_start, group.period_end)}
           </p>
           <p className="text-xs text-[var(--color-text-secondary)]">
-            {Number(period.completion_percentage).toFixed(0)}% completed
-            {period.bonus_applied && ' + bonus'}
+            {Number(displayPercentage).toFixed(0)}% completed
+            {isMultiPool && ` · ${group.pools.length} pools`}
           </p>
         </div>
-        <span className="text-sm font-semibold">${Number(period.total_earned).toFixed(2)}</span>
+        <span className="text-sm font-semibold">${group.total_earned.toFixed(2)}</span>
         <button
           onClick={(e) => { e.stopPropagation(); onPay() }}
           disabled={isPaying}
@@ -220,44 +275,37 @@ function PeriodRow({
       </div>
 
       {expanded && (
-        <div className="px-3 pb-3 pt-0 border-t border-[var(--color-border-default)]">
-          <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-            <div>
-              <span className="text-[var(--color-text-secondary)]">Tasks completed:</span>{' '}
-              {period.effective_tasks_completed}/{period.effective_tasks_assigned}
-            </div>
-            <div>
-              <span className="text-[var(--color-text-secondary)]">Base amount:</span>{' '}
-              ${Number(period.base_amount).toFixed(2)}
-            </div>
-            <div>
-              <span className="text-[var(--color-text-secondary)]">Calculated:</span>{' '}
-              ${Number(period.calculated_amount).toFixed(2)}
-            </div>
-            {period.bonus_applied && (
-              <div>
-                <span className="text-[var(--color-text-secondary)]">Bonus:</span>{' '}
-                +${Number(period.bonus_amount).toFixed(2)}
+        <div className="px-3 pb-3 pt-0 border-t border-[var(--color-border-default)] space-y-2">
+          {group.pools.map(p => (
+            <div
+              key={p.id}
+              className="text-xs rounded p-2"
+              style={{
+                background: 'color-mix(in srgb, var(--color-bg-tertiary) 40%, transparent)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
+                  {p.pool_name === 'default' ? 'Main pool' : p.pool_name}
+                </span>
+                <span className="font-semibold">${Number(p.total_earned).toFixed(2)}</span>
               </div>
-            )}
-            {period.grace_days && period.grace_days.length > 0 && (
-              <div className="col-span-2">
-                <span className="text-[var(--color-text-secondary)]">Grace days:</span>{' '}
-                {period.grace_days.length}
+              <div className="grid grid-cols-2 gap-1 text-[var(--color-text-secondary)]">
+                <span>{p.effective_tasks_completed}/{p.effective_tasks_assigned} tasks</span>
+                <span>{Number(p.completion_percentage).toFixed(0)}%</span>
+                <span>Base ${Number(p.base_amount).toFixed(2)}</span>
+                {p.bonus_applied && (
+                  <span>Bonus +${Number(p.bonus_amount).toFixed(2)}</span>
+                )}
+                {p.grace_days && p.grace_days.length > 0 && (
+                  <span>{p.grace_days.length} grace day{p.grace_days.length === 1 ? '' : 's'}</span>
+                )}
+                {p.extra_credit_completed > 0 && (
+                  <span>+{p.extra_credit_completed} extra credit</span>
+                )}
               </div>
-            )}
-            {period.extra_credit_completed > 0 && (
-              <div>
-                <span className="text-[var(--color-text-secondary)]">Extra credit:</span>{' '}
-                {period.extra_credit_completed} tasks
-              </div>
-            )}
-          </div>
-          {details && typeof details === 'object' && Object.keys(details).length > 0 && (
-            <p className="text-xs text-[var(--color-text-secondary)] mt-2">
-              Calculated {period.calculated_at ? new Date(period.calculated_at).toLocaleDateString() : 'N/A'}
-            </p>
-          )}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -365,15 +413,47 @@ function PrizesSection({
 }
 
 // ============================================================
-// Balance Section
+// Balance Section — Phase 3.5 D2: full ledger + PaymentModal wiring
 // ============================================================
 
-function BalanceSection({ familyId }: { familyId: string | undefined }) {
+function BalanceSection({
+  familyId,
+  currentMember,
+}: {
+  familyId: string | undefined
+  currentMember: FamilyMember | null
+}) {
   const { data: members = [] } = useFamilyMembers(familyId)
 
-  const kids = members.filter(m => m.role === 'member')
+  const isMom = currentMember?.role === 'primary_parent'
+  const isAdditionalAdult = currentMember?.role === 'additional_adult'
+  const isParentRole = isMom || isAdditionalAdult
+  const isPlay = currentMember?.dashboard_mode === 'play'
 
-  if (!familyId || kids.length === 0) {
+  const kids = useMemo(() => members.filter(m => m.role === 'member'), [members])
+
+  if (!familyId || !currentMember) {
+    return (
+      <EmptyState
+        icon={<Wallet size={32} />}
+        text="Loading…"
+      />
+    )
+  }
+
+  // Kid viewing their own ledger.
+  if (!isParentRole) {
+    return (
+      <KidSelfBalanceView
+        familyId={familyId}
+        member={currentMember}
+        isPlay={isPlay}
+      />
+    )
+  }
+
+  // Mom / Adult viewing.
+  if (kids.length === 0) {
     return (
       <EmptyState
         icon={<Wallet size={32} />}
@@ -383,111 +463,180 @@ function BalanceSection({ familyId }: { familyId: string | undefined }) {
   }
 
   return (
-    <div className="space-y-6">
-      {kids.map(member => (
-        <KidBalanceCard key={member.id} member={member} familyId={familyId} />
-      ))}
+    <ParentBalanceView familyId={familyId} kids={kids} />
+  )
+}
+
+// ── Kid viewing their own ledger ────────────────────────────────
+
+function KidSelfBalanceView({
+  familyId,
+  member,
+  isPlay,
+}: {
+  familyId: string
+  member: FamilyMember
+  isPlay: boolean
+}) {
+  const color = getMemberColor(member)
+  const { data: pools = [] } = useMemberAllowancePools(member.id)
+  const primaryPool = pools.find(p => p.pool_name === 'default') ?? pools[0]
+  // Convention: Play shell forces $ amounts hidden. Otherwise respect
+  // the primary pool's child_can_see_finances toggle. If no pool exists,
+  // default to hidden (most conservative).
+  const hideMoney = isPlay
+    || !primaryPool
+    || !primaryPool.child_can_see_finances
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-2 mb-3 pb-2 border-b"
+        style={{ borderColor: color }}
+      >
+        <div
+          className="w-3 h-3 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <span className="font-medium">{member.display_name} — your ledger</span>
+      </div>
+
+      <LedgerView
+        mode="self"
+        familyId={familyId}
+        memberId={member.id}
+        hideMoney={hideMoney}
+        pools={pools.map(p => ({ pool_name: p.pool_name }))}
+      />
     </div>
   )
 }
 
-function KidBalanceCard({
-  member,
+// ── Mom / Adult parent view ─────────────────────────────────────
+
+function ParentBalanceView({
   familyId,
+  kids,
 }: {
-  member: { id: string; display_name: string; assigned_color?: string | null; member_color?: string | null }
   familyId: string
+  kids: FamilyMember[]
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const color = getMemberColor(member)
-  const { data: balance = 0, isLoading: balanceLoading } = useRunningBalance(member.id)
-  const { data: transactions = [] } = useFinancialTransactions(member.id, expanded ? { type: 'all' } : undefined)
-  const payMutation = useCreatePayment()
+  type ViewMode = 'per-kid' | 'all-kids'
+  const [view, setView] = useState<ViewMode>('per-kid')
+  const [selectedKidId, setSelectedKidId] = useState<string>(kids[0]?.id ?? '')
+  const [paymentOpen, setPaymentOpen] = useState(false)
 
-  const handlePayBalance = async () => {
-    if (balance <= 0) return
-    try {
-      await payMutation.mutateAsync({
-        family_id: familyId,
-        family_member_id: member.id,
-        amount: balance,
-        note: 'Balance payout',
-      })
-    } catch (err) {
-      console.warn('Failed to pay balance:', err)
+  // Reset selected kid if the kids list changes and the current selection
+  // isn't there anymore (rare — happens after archive/unarchive).
+  useEffect(() => {
+    if (kids.length > 0 && !kids.find(k => k.id === selectedKidId)) {
+      setSelectedKidId(kids[0].id)
     }
-  }
+  }, [kids, selectedKidId])
 
-  const recentTx = transactions.slice(0, 20)
+  const selectedKid = kids.find(k => k.id === selectedKidId)
+  const { data: pools = [] } = useMemberAllowancePools(
+    view === 'per-kid' ? selectedKidId : undefined,
+  )
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: color }}>
-        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-        <span className="font-medium">{member.display_name}</span>
-        <span className="ml-auto text-sm font-semibold">
-          {balanceLoading ? '...' : `$${Number(balance).toFixed(2)}`}
-        </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* View toggle: per-kid vs all-kids */}
+      <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+        <button
+          onClick={() => setView('per-kid')}
+          style={pillStyle(view === 'per-kid')}
+        >
+          Per kid
+        </button>
+        <button
+          onClick={() => setView('all-kids')}
+          style={pillStyle(view === 'all-kids')}
+        >
+          <Users size={12} style={{ display: 'inline-block', marginRight: '0.25rem', verticalAlign: '-2px' }} />
+          All kids
+        </button>
       </div>
 
-      {balance > 0 ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]">
-            <Wallet size={18} className="text-[var(--color-accent)] shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Current balance</p>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                From allowance, opportunities, and adjustments
-              </p>
-            </div>
-            <button
-              onClick={handlePayBalance}
-              disabled={payMutation.isPending}
-              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              <Check size={14} />
-              Pay ${Number(balance).toFixed(2)}
-            </button>
-          </div>
-
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            {expanded ? 'Hide' : 'Show'} recent transactions
-          </button>
-
-          {expanded && recentTx.length > 0 && (
-            <div className="space-y-1 mt-1">
-              {recentTx.map(tx => (
-                <TransactionRow key={tx.id} tx={tx} />
-              ))}
-            </div>
-          )}
+      {/* Kid selector pill bar — per-kid mode only */}
+      {view === 'per-kid' && (
+        <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+          {kids.map(kid => {
+            const color = getMemberColor(kid)
+            const isSelected = kid.id === selectedKidId
+            return (
+              <button
+                key={kid.id}
+                onClick={() => setSelectedKidId(kid.id)}
+                style={{
+                  padding: '0.375rem 0.875rem',
+                  borderRadius: '999px',
+                  border: '2px solid',
+                  borderColor: color,
+                  background: isSelected ? color : 'transparent',
+                  color: isSelected
+                    ? 'var(--color-text-on-primary, white)'
+                    : 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                {kid.display_name}
+              </button>
+            )
+          })}
         </div>
-      ) : (
-        <p className="text-sm text-[var(--color-text-secondary)] py-2">
-          Balance at $0.00
-        </p>
+      )}
+
+      {/* Ledger */}
+      {view === 'per-kid' && selectedKid ? (
+        <LedgerView
+          mode="mom-per-kid"
+          familyId={familyId}
+          memberId={selectedKid.id}
+          onPayClick={() => setPaymentOpen(true)}
+          pools={pools.map(p => ({ pool_name: p.pool_name }))}
+        />
+      ) : view === 'all-kids' ? (
+        <LedgerView
+          mode="mom-all-kids"
+          familyId={familyId}
+        />
+      ) : null}
+
+      {/* Payment modal — wired here per Task 1 */}
+      {selectedKid && (
+        <PaymentModal
+          isOpen={paymentOpen}
+          onClose={() => setPaymentOpen(false)}
+          familyId={familyId}
+          memberId={selectedKid.id}
+          memberName={selectedKid.display_name}
+        />
       )}
     </div>
   )
 }
 
-function TransactionRow({ tx }: { tx: FinancialTransaction }) {
-  const isPositive = Number(tx.amount) > 0
-  return (
-    <div className="flex items-center gap-2 px-3 py-1.5 text-xs rounded bg-[var(--color-bg-tertiary)]">
-      <span className="flex-1 truncate">{tx.description}</span>
-      <span className={isPositive ? 'text-green-600 font-medium' : 'text-[var(--color-text-secondary)]'}>
-        {isPositive ? '+' : ''}${Number(tx.amount).toFixed(2)}
-      </span>
-      <span className="text-[var(--color-text-secondary)] shrink-0">
-        {new Date(tx.created_at).toLocaleDateString()}
-      </span>
-    </div>
-  )
+function pillStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '0.25rem 0.75rem',
+    borderRadius: '999px',
+    border: '1px solid',
+    borderColor: active
+      ? 'var(--color-btn-primary-bg)'
+      : 'var(--color-border-default, var(--color-border))',
+    background: active
+      ? 'var(--color-btn-primary-bg)'
+      : 'transparent',
+    color: active
+      ? 'var(--color-btn-primary-text)'
+      : 'var(--color-text-secondary)',
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 500,
+    cursor: 'pointer',
+  }
 }
 
 // ============================================================

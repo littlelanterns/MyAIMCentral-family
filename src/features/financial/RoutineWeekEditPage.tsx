@@ -35,7 +35,13 @@ import {
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
 import { getMemberColor } from '@/lib/memberColors'
-import { supabase } from '@/lib/supabase/client'
+import {
+  useMemberAllowancePools,
+  computeMultiPoolRecalc,
+  applyMultiPoolRecalc,
+  type MultiPoolRecalcResult,
+} from '@/hooks/useFinancial'
+import { NegativeRecalculateModal, type RecalcChoice } from './NegativeRecalculateModal'
 import {
   useRoutineWeekView,
   useAllowancePeriods,
@@ -88,48 +94,59 @@ export function RoutineWeekEditPage() {
   const [recalculating, setRecalculating] = useState(false)
   const [recalcResult, setRecalcResult] = useState<{ earned: number } | null>(null)
 
+  // Phase 3.5 D2 — pending negative-recalc state. When the computed delta
+  // is negative, we hold the result here and show the modal. Mom's choice
+  // applies the result; cancel discards.
+  const [pendingNegativeRecalc, setPendingNegativeRecalc] = useState<MultiPoolRecalcResult | null>(null)
+  const [applyingChoice, setApplyingChoice] = useState(false)
+
+  // Active pools for this member (informs single-pool vs multi-pool branch).
+  const { data: pools = [] } = useMemberAllowancePools(memberId)
+  const activePools = pools.filter(p => p.pool_status === 'active')
+
+  /**
+   * Phase 3.5 D-gap-1 — compute-then-prompt recalculate.
+   * 1. Compute new values (per-pool + combined) without writing.
+   * 2. If combined delta is negative → show modal, await mom's choice.
+   * 3. If positive or zero → write silently (more money for kid is fine).
+   */
   const handleRecalculate = async () => {
-    if (!memberId || !weekView?.period_id || !weekView.period_start || !weekView.period_end) return
+    if (!memberId || !family?.id || !weekView?.period_id || !weekView.period_start || !weekView.period_end) return
     setRecalculating(true)
     setRecalcResult(null)
     try {
-      const { data: periodRow } = await supabase
-        .from('allowance_periods')
-        .select('grace_days')
-        .eq('id', weekView.period_id)
-        .single()
-
-      const { data, error } = await supabase.rpc('calculate_allowance_progress', {
-        p_member_id: memberId,
-        p_period_start: weekView.period_start,
-        p_period_end: weekView.period_end,
-        p_grace_days: (periodRow as { grace_days: unknown } | null)?.grace_days ?? null,
+      const computed = await computeMultiPoolRecalc({
+        memberId,
+        periodStart: weekView.period_start,
+        periodEnd: weekView.period_end,
       })
-      if (error) throw error
 
-      const row = Array.isArray(data) ? data[0] : data
-      if (!row) throw new Error('No result from RPC')
+      // No active pools → nothing to recalc (degenerate case).
+      if (computed.pools.length === 0) {
+        setRecalcResult({ earned: 0 })
+        return
+      }
 
-      const { error: updateErr } = await supabase
-        .from('allowance_periods')
-        .update({
-          effective_tasks_assigned: Number(row.effective_tasks_assigned),
-          effective_tasks_completed: Number(row.effective_tasks_completed),
-          completion_percentage: Number(row.completion_percentage),
-          base_amount: Number(row.base_amount),
-          bonus_applied: Boolean(row.bonus_applied),
-          bonus_amount: Number(row.bonus_amount),
-          calculated_amount: Number(row.calculated_amount),
-          total_earned: Number(row.total_earned),
-          tasks_completed: Number(row.effective_tasks_completed),
-          calculated_at: new Date().toISOString(),
-        })
-        .eq('id', weekView.period_id)
-      if (updateErr) throw updateErr
+      const totalDelta = computed.total_delta
 
-      setRecalcResult({ earned: Number(row.total_earned) })
-      queryClient.invalidateQueries({ queryKey: ['allowance-periods-list', memberId] })
-      queryClient.invalidateQueries({ queryKey: ['live-allowance-progress'] })
+      if (totalDelta < -0.01) {
+        // Negative delta → mom-choice prompt. DO NOT write yet.
+        setPendingNegativeRecalc(computed)
+        return
+      }
+
+      // Positive or zero delta → write silently.
+      await applyMultiPoolRecalc({
+        familyId: family.id,
+        memberId,
+        periodStart: weekView.period_start,
+        periodEnd: weekView.period_end,
+        computed,
+        mode: 'apply',
+      })
+      const newTotalSum = computed.pools.reduce((s, p) => s + p.new_total_earned, 0)
+      setRecalcResult({ earned: newTotalSum })
+      invalidateAfterRecalc()
     } catch (err) {
       console.error('[RoutineWeekEditPage] recalculate failed:', err)
       alert('Recalculation failed. Please try again.')
@@ -137,6 +154,66 @@ export function RoutineWeekEditPage() {
       setRecalculating(false)
     }
   }
+
+  const invalidateAfterRecalc = () => {
+    queryClient.invalidateQueries({ queryKey: ['allowance-periods-list', memberId] })
+    queryClient.invalidateQueries({ queryKey: ['live-allowance-progress'] })
+    queryClient.invalidateQueries({ queryKey: ['running-balance', memberId] })
+    queryClient.invalidateQueries({ queryKey: ['financial-transactions', memberId] })
+    queryClient.invalidateQueries({ queryKey: ['member-ledger', memberId] })
+    queryClient.invalidateQueries({ queryKey: ['period-history', memberId] })
+    queryClient.invalidateQueries({ queryKey: ['active-period', memberId] })
+    queryClient.invalidateQueries({ queryKey: ['active-periods-all', memberId] })
+    if (family?.id) {
+      queryClient.invalidateQueries({ queryKey: ['family-financial-summary', family.id] })
+      queryClient.invalidateQueries({ queryKey: ['family-ledger', family.id] })
+    }
+  }
+
+  const handleNegativeRecalcChoice = async (choice: RecalcChoice) => {
+    const computed = pendingNegativeRecalc
+    if (!computed || !memberId || !family?.id || !weekView?.period_start || !weekView?.period_end) {
+      setPendingNegativeRecalc(null)
+      return
+    }
+    if (choice === 'cancel') {
+      setPendingNegativeRecalc(null)
+      return
+    }
+    setApplyingChoice(true)
+    try {
+      await applyMultiPoolRecalc({
+        familyId: family.id,
+        memberId,
+        periodStart: weekView.period_start,
+        periodEnd: weekView.period_end,
+        computed,
+        mode: choice, // 'apply' or 'zero'
+      })
+      const newTotalSum = computed.pools.reduce((s, p) => s + p.new_total_earned, 0)
+      setRecalcResult({ earned: newTotalSum })
+      invalidateAfterRecalc()
+    } catch (err) {
+      console.error('[RoutineWeekEditPage] apply choice failed:', err)
+      alert('Apply failed. Please try again.')
+    } finally {
+      setApplyingChoice(false)
+      setPendingNegativeRecalc(null)
+    }
+  }
+
+  // Old-total for the modal: sum across pools' old_total_earned (the
+  // displayed "before" number). For single-pool members this collapses
+  // to the same value the legacy flow would have shown.
+  const pendingOldTotal = pendingNegativeRecalc
+    ? pendingNegativeRecalc.pools.reduce((s, p) => s + p.old_total_earned, 0)
+    : 0
+  const pendingNewTotal = pendingNegativeRecalc
+    ? pendingNegativeRecalc.pools.reduce((s, p) => s + p.new_total_earned, 0)
+    : 0
+  const isMultiPool = activePools.length > 1
+  // Avoid TS warning when isMultiPool is computed but unused if pools==0.
+  void isMultiPool
 
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
@@ -395,6 +472,25 @@ export function RoutineWeekEditPage() {
           memberMap={memberMap}
         />
       ))}
+
+      {/* Phase 3.5 D-gap-1 — negative recalc mom-choice prompt */}
+      <NegativeRecalculateModal
+        isOpen={!!pendingNegativeRecalc}
+        onClose={() => setPendingNegativeRecalc(null)}
+        oldTotal={pendingOldTotal}
+        newTotal={pendingNewTotal}
+        delta={pendingNewTotal - pendingOldTotal}
+        combinedOldPercentage={pendingNegativeRecalc?.old_combined_percentage ?? null}
+        combinedNewPercentage={pendingNegativeRecalc?.new_combined_percentage ?? null}
+        poolBreakdowns={pendingNegativeRecalc?.pools.map(p => ({
+          pool_name: p.pool_name,
+          old_amount: p.old_total_earned,
+          new_amount: p.new_total_earned,
+          delta: p.delta,
+        }))}
+        onChoice={handleNegativeRecalcChoice}
+        isApplying={applyingChoice}
+      />
     </div>
   )
 }

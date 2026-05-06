@@ -10,7 +10,7 @@ import {
   useFamilyFinancialSummary,
   useFamilyTransactions,
   useActivePeriod,
-  useAddGraceDay,
+  useAddGraceDayForMember,
   useCreatePayment,
 } from '@/hooks/useFinancial'
 // getMemberColor used in TransactionRow via members prop
@@ -175,7 +175,10 @@ function WeeklyProgressCard({
   navigate: (path: string) => void
 }) {
   const { data: period } = useActivePeriod(summary.memberId)
-  const addGraceDay = useAddGraceDay()
+  // Phase 3.5 D-gap-2: member-level grace day mutation. Marks the day
+  // across ALL active pool periods for this member so multi-pool kids
+  // get the day excluded from every pool's calculation simultaneously.
+  const addGraceDay = useAddGraceDayForMember()
   const [showGracePicker, setShowGracePicker] = useState(false)
 
   const pct = period?.completion_percentage ?? 0
@@ -196,7 +199,7 @@ function WeeklyProgressCard({
     >
       <div className="flex items-center justify-between mb-2">
         <h4 className="font-semibold text-sm" style={{ color: 'var(--color-text-heading)' }}>
-          {summary.memberName}'s Week ({summary.calculationApproach === 'fixed' ? 'Fixed' : summary.calculationApproach === 'points_weighted' ? 'Points' : 'Dynamic'})
+          {summary.memberName}'s Week ({summary.calculationApproach === 'points_weighted' ? 'Points' : 'Dynamic'})
         </h4>
         <button
           onClick={() => navigate(`/finances/history?member=${summary.memberId}`)}
@@ -289,7 +292,7 @@ function WeeklyProgressCard({
                   existingGraceDays={graceDays}
                   memberId={summary.memberId}
                   onSelect={(date) => {
-                    addGraceDay.mutate({ periodId: period.id, date })
+                    addGraceDay.mutate({ memberId: summary.memberId, date })
                     setShowGracePicker(false)
                   }}
                 />

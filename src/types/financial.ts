@@ -4,7 +4,7 @@
 // Enums
 // ============================================================
 
-export type CalculationApproach = 'fixed' | 'dynamic' | 'points_weighted'
+export type CalculationApproach = 'dynamic' | 'points_weighted'
 export type TransactionType =
   | 'allowance_earned'
   | 'opportunity_earned'
@@ -14,6 +14,8 @@ export type TransactionType =
   | 'loan_repayment'
   | 'interest_accrued'
   | 'adjustment'
+  | 'contract_grant'
+  | 'pool_contribution'
 export type PeriodStatus = 'active' | 'makeup_window' | 'calculated' | 'closed'
 export type LoanStatus = 'active' | 'paid_off' | 'forgiven'
 export type RoundingBehavior = 'round_up' | 'round_down' | 'nearest_cent'
@@ -21,6 +23,11 @@ export type BonusType = 'percentage' | 'flat'
 export type PeriodStartDay = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 export type LoanInterestPeriod = 'weekly' | 'monthly'
 export type RepaymentMode = 'manual' | 'auto_deduct'
+
+// Multi-Pool Allowance (Phase 3.5)
+export type PoolType = 'percentage_pool' | 'goal_pool'
+export type PayoutMode = 'weekly' | 'biweekly' | 'monthly' | 'term' | 'event_driven' | 'measurement_only'
+export type PoolStatus = 'active' | 'paused' | 'archived'
 
 // Privilege Status Widget
 export type PrivilegeZone = 'red' | 'yellow' | 'green'
@@ -57,6 +64,17 @@ export interface AllowanceConfig {
   loan_default_interest_rate: number
   loan_interest_period: LoanInterestPeriod
   loan_max_amount: number | null
+  pool_name: string
+  pool_type: PoolType
+  payout_mode: PayoutMode
+  pool_status: PoolStatus
+  pool_weight: number | null
+  pool_owner_member_id: string | null
+  term_start_date: string | null
+  term_end_date: string | null
+  close_on_event_source_type: string | null
+  close_on_event_source_id: string | null
+  overage_cap: number
   created_at: string
   updated_at: string
 }
@@ -74,6 +92,7 @@ export interface FinancialTransaction {
   category: string | null
   note: string | null
   metadata: Record<string, unknown>
+  pool_name: string | null
   created_at: string
 }
 
@@ -101,6 +120,8 @@ export interface AllowancePeriod {
   calculated_at: string | null
   closed_at: string | null
   closed_early: boolean
+  pool_name: string
+  combined_percentage: number | null
   created_at: string
   updated_at: string
 }
@@ -198,6 +219,17 @@ export interface AllowanceConfigInput {
   loan_default_interest_rate?: number
   loan_interest_period?: LoanInterestPeriod
   loan_max_amount?: number | null
+  pool_name?: string
+  pool_type?: PoolType
+  payout_mode?: PayoutMode
+  pool_status?: PoolStatus
+  pool_weight?: number | null
+  pool_owner_member_id?: string | null
+  term_start_date?: string | null
+  term_end_date?: string | null
+  close_on_event_source_type?: string | null
+  close_on_event_source_id?: string | null
+  overage_cap?: number
 }
 
 export interface PaymentInput {
@@ -243,13 +275,11 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   loan_repayment: 'Loan Repayment',
   interest_accrued: 'Interest',
   adjustment: 'Adjustment',
+  contract_grant: 'Reward',
+  pool_contribution: 'Pool Breakdown',
 }
 
 export const CALCULATION_APPROACH_LABELS: Record<CalculationApproach, { label: string; description: string }> = {
-  fixed: {
-    label: 'Fixed Template',
-    description: 'Set a fixed weekly task schedule. Best for consistent routines.',
-  },
   dynamic: {
     label: 'Dynamic Pool',
     description: 'Tasks are counted dynamically each week. Best for variable schedules.',

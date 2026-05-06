@@ -1,19 +1,30 @@
-// PRD-28 Screen 2: Per-Child Allowance Configuration
-// 8 collapsible sections. All 3 approaches. Dual nav path.
+// PRD-28 Screen 2 + Phase 3.5: Per-Child Allowance Configuration
+// Single pool: identical to pre-3.5 UI (flat config, no pool list).
+// Multi-pool: pool list at top, expandable per-pool config cards.
 
-import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Eye, EyeOff, Users } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eye, EyeOff, Users, Plus, Pause, Play, Archive, RotateCcw } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
-import { useAllowanceConfig, useUpsertAllowanceConfig, useStartAllowancePeriod, useActivePeriod } from '@/hooks/useFinancial'
+import {
+  useAllowanceConfig,
+  useUpsertAllowanceConfig,
+  useStartAllowancePeriod,
+  useActivePeriod,
+  useMemberAllowancePools,
+  usePoolLifecycle,
+} from '@/hooks/useFinancial'
 import {
   CALCULATION_APPROACH_LABELS,
   PERIOD_START_DAY_LABELS,
+  type AllowanceConfig,
   type AllowanceConfigInput,
   type BonusType,
   type CalculationApproach,
+  type PayoutMode,
   type PeriodStartDay,
+  type PoolStatus,
   type RoundingBehavior,
 } from '@/types/financial'
 import { getMemberColor } from '@/lib/memberColors'
@@ -21,107 +32,55 @@ import { GraceDaysManager } from './GraceDaysManager'
 import { PreviewThisWeekPanel } from './PreviewThisWeekPanel'
 import { BulkConfigureAllowanceModal } from './BulkConfigureAllowanceModal'
 
+const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
+  weekly: 'Weekly',
+  biweekly: 'Biweekly',
+  monthly: 'Monthly',
+  term: 'Term',
+  event_driven: 'Event-driven',
+  measurement_only: 'Measurement only',
+}
+
 export function ChildAllowanceConfigPage() {
   const { memberId } = useParams<{ memberId: string }>()
   const { data: family } = useFamily()
   const { data: membersData } = useFamilyMembers(family?.id)
   const members = membersData ?? []
-  const { data: config, isLoading } = useAllowanceConfig(memberId)
+  const { data: defaultConfig, isLoading } = useAllowanceConfig(memberId)
   const { data: activePeriod } = useActivePeriod(memberId)
+  const { data: allPools } = useMemberAllowancePools(memberId)
   const upsert = useUpsertAllowanceConfig()
   const startPeriod = useStartAllowancePeriod()
+  const poolLifecycle = usePoolLifecycle()
 
   const member = members.find(m => m.id === memberId)
   const memberColor = member ? getMemberColor(member) : 'var(--color-btn-primary-bg)'
   const isIndependent = member?.dashboard_mode === 'independent'
 
-  // Local form state — debounced auto-save
-  const [form, setForm] = useState<Partial<AllowanceConfigInput>>({})
-  const [saveTimer, setSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const activePools = useMemo(
+    () => (allPools ?? []).filter(p => p.pool_status !== 'archived'),
+    [allPools],
+  )
+  const archivedPools = useMemo(
+    () => (allPools ?? []).filter(p => p.pool_status === 'archived'),
+    [allPools],
+  )
+  const hasMultiplePools = activePools.length > 1
+
+  const [multiPoolMode, setMultiPoolMode] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [addingPool, setAddingPool] = useState(false)
+  const [newPoolName, setNewPoolName] = useState('')
+  const [newPoolPayout, setNewPoolPayout] = useState<PayoutMode>('weekly')
   const [bulkOpen, setBulkOpen] = useState(false)
 
-  // Initialize form from config
   useEffect(() => {
-    if (config) {
-      setForm({
-        enabled: config.enabled,
-        weekly_amount: config.weekly_amount,
-        calculation_approach: config.calculation_approach,
-        default_point_value: config.default_point_value,
-        minimum_threshold: config.minimum_threshold,
-        bonus_threshold: config.bonus_threshold,
-        bonus_type: config.bonus_type ?? 'percentage',
-        bonus_percentage: config.bonus_percentage,
-        bonus_flat_amount: config.bonus_flat_amount ?? 0,
-        rounding_behavior: config.rounding_behavior,
-        grace_days_enabled: config.grace_days_enabled,
-        makeup_window_enabled: config.makeup_window_enabled,
-        makeup_window_days: config.makeup_window_days,
-        extra_credit_enabled: config.extra_credit_enabled,
-        child_can_see_finances: config.child_can_see_finances,
-        period_start_day: config.period_start_day,
-        calculation_time: config.calculation_time,
-        loans_enabled: config.loans_enabled,
-        loan_interest_enabled: config.loan_interest_enabled,
-        loan_default_interest_rate: config.loan_default_interest_rate,
-        loan_interest_period: config.loan_interest_period,
-        loan_max_amount: config.loan_max_amount,
-      })
-    } else if (member) {
-      // Defaults for new config
-      setForm({
-        enabled: true,
-        weekly_amount: member.age ? member.age * 1 : 10,
-        calculation_approach: 'dynamic',
-        default_point_value: 1,
-        minimum_threshold: 0,
-        bonus_threshold: 90,
-        bonus_type: 'flat',
-        bonus_percentage: 20,
-        bonus_flat_amount: 5,
-        rounding_behavior: 'nearest_cent',
-        grace_days_enabled: true,
-        makeup_window_enabled: false,
-        makeup_window_days: 2,
-        extra_credit_enabled: false,
-        child_can_see_finances: isIndependent,
-        period_start_day: 'sunday',
-        calculation_time: '23:59:00',
-        loans_enabled: false,
-        loan_interest_enabled: false,
-        loan_default_interest_rate: 0,
-        loan_interest_period: 'monthly',
-        loan_max_amount: null,
-      })
-    }
-  }, [config, member, isIndependent])
+    if (hasMultiplePools) setMultiPoolMode(true)
+  }, [hasMultiplePools])
 
-  const autoSave = useCallback((updates: Partial<AllowanceConfigInput>) => {
-    const next = { ...form, ...updates }
-    setForm(next)
-
-    if (saveTimer) clearTimeout(saveTimer)
-    const timer = setTimeout(() => {
-      if (!family?.id || !memberId) return
-      upsert.mutate({
-        family_id: family.id,
-        family_member_id: memberId,
-        ...next,
-      })
-    }, 800)
-    setSaveTimer(timer)
-  }, [form, family?.id, memberId, upsert, saveTimer])
-
-  // Start first period on initial save.
-  // Row 9 SCOPE-3.F14: guard against React strict-mode double-fire of the
-  // effect. Without !startPeriod.isPending, two back-to-back effect runs can
-  // both pass `!activePeriod` before the first mutation settles, producing
-  // two active rows. The partial unique index in migration 100163 is the
-  // DB-level safeguard; this guard keeps the UI from emitting the doomed
-  // second request in the first place.
   useEffect(() => {
     if (
-      config?.enabled &&
+      defaultConfig?.enabled &&
       !activePeriod &&
       !startPeriod.isPending &&
       family?.id &&
@@ -130,10 +89,33 @@ export function ChildAllowanceConfigPage() {
       startPeriod.mutate({
         familyId: family.id,
         memberId,
-        weeklyAmount: config.weekly_amount,
+        weeklyAmount: defaultConfig.weekly_amount,
       })
     }
-  }, [config?.enabled, activePeriod, family?.id, memberId, startPeriod])
+  }, [defaultConfig?.enabled, activePeriod, family?.id, memberId, startPeriod])
+
+  const handleAddPool = () => {
+    if (!newPoolName.trim() || !family?.id || !memberId) return
+    upsert.mutate({
+      family_id: family.id,
+      family_member_id: memberId,
+      pool_name: newPoolName.trim(),
+      enabled: true,
+      weekly_amount: 0,
+      calculation_approach: 'dynamic',
+      payout_mode: newPoolPayout,
+      pool_weight: 1,
+      overage_cap: 100,
+    })
+    setNewPoolName('')
+    setNewPoolPayout('weekly')
+    setAddingPool(false)
+    setMultiPoolMode(true)
+  }
+
+  const handlePoolStatusChange = (pool: AllowanceConfig, status: PoolStatus) => {
+    poolLifecycle.mutate({ configId: pool.id, poolStatus: status })
+  }
 
   if (isLoading) {
     return <div className="p-8 text-center" style={{ color: 'var(--color-text-secondary)' }}>Loading...</div>
@@ -160,414 +142,187 @@ export function ChildAllowanceConfigPage() {
         </div>
       </div>
 
-      {/* Master toggle */}
-      <div
-        className="rounded-xl p-4 flex items-center justify-between"
-        style={{ backgroundColor: 'var(--color-bg-card)', border: `2px solid ${memberColor}` }}
-      >
-        <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
-          Allowance enabled
-        </span>
-        <ToggleSwitch
-          value={form.enabled ?? true}
-          onChange={v => autoSave({ enabled: v })}
-        />
-      </div>
+      {multiPoolMode ? (
+        <>
+          {/* Multi-pool: pool list with expandable config cards */}
+          {activePools.map(pool => (
+            <PoolConfigCard
+              key={pool.id}
+              pool={pool}
+              familyId={family?.id ?? ''}
+              memberId={memberId ?? ''}
+              memberColor={memberColor}
+              isIndependent={isIndependent}
+              isDefault={pool.pool_name === 'default'}
+              activePeriod={pool.pool_name === 'default' ? activePeriod : null}
+              onStatusChange={(status) => handlePoolStatusChange(pool, status)}
+            />
+          ))}
 
-      {/* Section 1: Basic Setup */}
-      <CollapsibleSection title="Basic Setup" defaultOpen>
-        <div className="space-y-4">
-          <NumberInput
-            label="Weekly allowance amount"
-            prefix="$"
-            value={form.weekly_amount ?? 0}
-            onChange={v => autoSave({ weekly_amount: v })}
-            step={0.5}
-            min={0}
-          />
+          {showArchived && archivedPools.map(pool => (
+            <PoolConfigCard
+              key={pool.id}
+              pool={pool}
+              familyId={family?.id ?? ''}
+              memberId={memberId ?? ''}
+              memberColor={memberColor}
+              isIndependent={isIndependent}
+              isDefault={false}
+              activePeriod={null}
+              onStatusChange={(status) => handlePoolStatusChange(pool, status)}
+            />
+          ))}
 
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-heading)' }}>
-              Calculation approach
-            </label>
-            <div className="space-y-2">
-              {(['fixed', 'dynamic', 'points_weighted'] as CalculationApproach[]).map(approach => (
-                <label
-                  key={approach}
-                  className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors"
+          {archivedPools.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              className="text-xs"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--color-text-muted)',
+                padding: '0.25rem 0',
+              }}
+            >
+              {showArchived ? 'Hide archived pools' : `Show ${archivedPools.length} archived pool${archivedPools.length === 1 ? '' : 's'}`}
+            </button>
+          )}
+
+          {/* Add pool inline form */}
+          {addingPool ? (
+            <div
+              className="rounded-xl p-4 space-y-3"
+              style={{
+                backgroundColor: 'var(--color-bg-card)',
+                border: '1px dashed var(--color-btn-primary-bg)',
+              }}
+            >
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+                New Pool
+              </h3>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
+                  Pool name
+                </label>
+                <input
+                  type="text"
+                  value={newPoolName}
+                  onChange={e => setNewPoolName(e.target.value)}
+                  placeholder="e.g., School, Reading, Music"
+                  autoFocus
+                  className="w-full px-3 py-2 rounded-lg text-sm"
                   style={{
-                    backgroundColor: form.calculation_approach === approach
-                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
-                      : 'var(--color-bg-secondary)',
-                    border: form.calculation_approach === approach
-                      ? '1px solid var(--color-btn-primary-bg)'
-                      : '1px solid var(--color-border)',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
+                  Payout mode
+                </label>
+                <select
+                  value={newPoolPayout}
+                  onChange={e => setNewPoolPayout(e.target.value as PayoutMode)}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
                   }}
                 >
-                  <input
-                    type="radio"
-                    name="approach"
-                    checked={form.calculation_approach === approach}
-                    onChange={() => autoSave({ calculation_approach: approach })}
-                    className="mt-1"
-                  />
-                  <div>
-                    <div className="font-medium text-sm" style={{ color: 'var(--color-text-heading)' }}>
-                      {CALCULATION_APPROACH_LABELS[approach].label}
-                    </div>
-                    <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                      {CALCULATION_APPROACH_LABELS[approach].description}
-                    </div>
-                  </div>
-                </label>
-              ))}
+                  {Object.entries(PAYOUT_MODE_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddPool}
+                  disabled={!newPoolName.trim()}
+                  className="px-4 py-2 rounded-lg text-sm font-medium"
+                  style={{
+                    background: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-text-on-primary)',
+                    border: 'none',
+                    opacity: newPoolName.trim() ? 1 : 0.5,
+                    cursor: newPoolName.trim() ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Create Pool
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAddingPool(false); setNewPoolName('') }}
+                  className="px-4 py-2 rounded-lg text-sm"
+                  style={{
+                    background: 'transparent',
+                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-border)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      </CollapsibleSection>
-
-      {/* Section 3: Points Configuration (Points-Weighted only) */}
-      {form.calculation_approach === 'points_weighted' && (
-        <CollapsibleSection title="Points Configuration">
-          <NumberInput
-            label="Default point value per task"
-            value={form.default_point_value ?? 1}
-            onChange={v => autoSave({ default_point_value: v })}
-            min={1}
-            max={100}
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAddingPool(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px dashed var(--color-btn-primary-bg)',
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={16} />
+              Add another pool
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Single-pool view — IDENTICAL to pre-3.5 */}
+          <SinglePoolConfigInline
+            config={defaultConfig}
+            familyId={family?.id ?? ''}
+            memberId={memberId ?? ''}
+            memberColor={memberColor}
+            isIndependent={isIndependent}
+            activePeriod={activePeriod}
+            member={member}
           />
-          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-            Override per-task in the task creation modal. Higher points = more impact on allowance.
-          </p>
-        </CollapsibleSection>
+
+          {/* Entry point for adding a second pool */}
+          <button
+            type="button"
+            onClick={() => { setMultiPoolMode(true); setAddingPool(true) }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs transition-colors"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+              border: '1px dashed var(--color-border)',
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={14} />
+            Add another pool (e.g., school, reading, music)
+          </button>
+        </>
       )}
 
-      {/* Section 4: Bonus & Thresholds */}
-      <CollapsibleSection title="Bonus & Thresholds">
-        <div className="space-y-4">
-          <NumberInput
-            label="Minimum threshold (%)"
-            value={form.minimum_threshold ?? 0}
-            onChange={v => autoSave({ minimum_threshold: v })}
-            min={0}
-            max={100}
-            suffix="%"
-          />
-          <p className="text-xs -mt-2" style={{ color: 'var(--color-text-muted)' }}>
-            Below this %, child earns nothing. 0 = no minimum.
-          </p>
-
-          <NumberInput
-            label="Bonus threshold (%)"
-            value={form.bonus_threshold ?? 90}
-            onChange={v => autoSave({ bonus_threshold: v })}
-            min={0}
-            max={100}
-            suffix="%"
-          />
-
-          {/* Bonus mode: percentage or flat dollar */}
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-heading)' }}>
-              Bonus amount
-            </label>
-            <div className="flex gap-2 mb-3">
-              {([
-                { value: 'percentage' as BonusType, label: '% of allowance' },
-                { value: 'flat' as BonusType, label: 'Flat $' },
-              ]).map(opt => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm"
-                  style={{
-                    backgroundColor: form.bonus_type === opt.value
-                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)'
-                      : 'var(--color-bg-secondary)',
-                    border: form.bonus_type === opt.value
-                      ? '1px solid var(--color-btn-primary-bg)'
-                      : '1px solid var(--color-border)',
-                    color: form.bonus_type === opt.value
-                      ? 'var(--color-btn-primary-bg)'
-                      : 'var(--color-text-secondary)',
-                    fontWeight: form.bonus_type === opt.value ? 600 : 400,
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="bonus-type"
-                    checked={form.bonus_type === opt.value}
-                    onChange={() => autoSave({ bonus_type: opt.value })}
-                    style={{ accentColor: 'var(--color-btn-primary-bg)' }}
-                  />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-
-            {form.bonus_type === 'flat' ? (
-              <NumberInput
-                label="Bonus amount"
-                prefix="$"
-                value={form.bonus_flat_amount ?? 0}
-                onChange={v => autoSave({ bonus_flat_amount: v })}
-                min={0}
-                step={0.5}
-              />
-            ) : (
-              <NumberInput
-                label="Bonus percentage"
-                value={form.bonus_percentage ?? 20}
-                onChange={v => autoSave({ bonus_percentage: v })}
-                min={0}
-                max={100}
-                suffix="% extra"
-              />
-            )}
-
-            <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-              {form.bonus_type === 'flat'
-                ? `Earns an extra $${(form.bonus_flat_amount ?? 0).toFixed(2)} when completing ${form.bonus_threshold ?? 90}%+ of tasks`
-                : `Earns ${form.bonus_percentage ?? 20}% extra ($${((form.weekly_amount ?? 0) * (form.bonus_percentage ?? 20) / 100).toFixed(2)}) when completing ${form.bonus_threshold ?? 90}%+ of tasks`
-              }
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
-              Rounding
-            </label>
-            <select
-              value={form.rounding_behavior ?? 'nearest_cent'}
-              onChange={e => autoSave({ rounding_behavior: e.target.value as RoundingBehavior })}
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              <option value="round_up">Round up</option>
-              <option value="round_down">Round down</option>
-              <option value="nearest_cent">Nearest cent</option>
-            </select>
-          </div>
-        </div>
-      </CollapsibleSection>
-
-      {/* Section 5: Grace Mechanisms */}
-      <CollapsibleSection title="Grace Mechanisms">
-        <div className="space-y-4">
-          <ToggleRow
-            label="Grace Days"
-            description="Mark specific days when tasks don't count against allowance"
-            value={form.grace_days_enabled ?? true}
-            onChange={v => autoSave({ grace_days_enabled: v })}
-          />
-          {/* NEW-GG: live-period day-picker. Only renders when there is an
-              active period. Retroactive marking on past periods is filed as
-              follow-up NEW-MM per orchestrator 2026-04-24. */}
-          {activePeriod && (
-            <GraceDaysManager
-              periodId={activePeriod.id}
-              periodStart={activePeriod.period_start}
-              periodEnd={activePeriod.period_end}
-              graceDays={(activePeriod.grace_days as string[]) ?? []}
-              disabled={!(form.grace_days_enabled ?? true)}
-            />
-          )}
-          {/* NEW-RR: when mom has grace days enabled but no active period
-              exists (edge case — config save succeeded but period insert
-              failed, or mom just enabled a disabled config), the toggle
-              appears on but there's nothing to mark. Surface an inline
-              empty-state with a manual "Start period now" CTA instead of
-              showing the toggle with no picker below it. */}
-          {!activePeriod && (form.grace_days_enabled ?? true) && (
-            <div
-              data-testid="grace-days-no-period-empty"
-              style={{
-                marginTop: '0.75rem',
-                padding: '0.75rem 1rem',
-                borderRadius: 'var(--vibe-radius-input, 8px)',
-                backgroundColor: 'var(--color-bg-secondary)',
-                border: '1px dashed var(--color-border-default, var(--color-border))',
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--color-text-muted)',
-              }}
-            >
-              <div style={{ marginBottom: '0.5rem' }}>
-                Grace days are turned on, but no active allowance period
-                exists yet. Tap below to start one now, then come back to
-                mark grace days.
-              </div>
-              <button
-                type="button"
-                disabled={startPeriod.isPending}
-                onClick={() => {
-                  if (family?.id && memberId && form.weekly_amount != null) {
-                    startPeriod.mutate({
-                      familyId: family.id,
-                      memberId,
-                      weeklyAmount: form.weekly_amount,
-                    })
-                  }
-                }}
-                data-testid="grace-days-start-period"
-                style={{
-                  padding: '0.375rem 0.875rem',
-                  borderRadius: 'var(--vibe-radius-input, 6px)',
-                  background: 'var(--color-btn-primary-bg)',
-                  color: 'var(--color-text-on-primary)',
-                  border: 'none',
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 500,
-                  cursor: startPeriod.isPending ? 'not-allowed' : 'pointer',
-                  opacity: startPeriod.isPending ? 0.6 : 1,
-                }}
-              >
-                {startPeriod.isPending ? 'Starting…' : 'Start period now'}
-              </button>
-            </div>
-          )}
-          <ToggleRow
-            label="Makeup Window"
-            description="Extra time after the period ends to complete missed tasks"
-            value={form.makeup_window_enabled ?? false}
-            onChange={v => autoSave({ makeup_window_enabled: v })}
-          />
-          {form.makeup_window_enabled && (
-            <NumberInput
-              label="Makeup window (days)"
-              value={form.makeup_window_days ?? 2}
-              onChange={v => autoSave({ makeup_window_days: v })}
-              min={1}
-              max={7}
-            />
-          )}
-          <ToggleRow
-            label="Extra Credit"
-            description="Allow extra tasks to offset missed ones (capped at 100%)"
-            value={form.extra_credit_enabled ?? false}
-            onChange={v => autoSave({ extra_credit_enabled: v })}
-          />
-        </div>
-      </CollapsibleSection>
-
-      {/* Section 6: Visibility */}
-      <CollapsibleSection title="Visibility">
-        <ToggleRow
-          label="Child can see financial details"
-          description={
-            form.child_can_see_finances
-              ? 'Shows dollar amounts, balance, and transaction history'
-              : 'Shows completion percentage only — no dollar amounts'
-          }
-          value={form.child_can_see_finances ?? isIndependent}
-          onChange={v => autoSave({ child_can_see_finances: v })}
-          icon={form.child_can_see_finances ? Eye : EyeOff}
-        />
-        <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-          Play mode children always see percentage only, regardless of this setting.
-        </p>
-      </CollapsibleSection>
-
-      {/* Section 7: Period Configuration */}
-      <CollapsibleSection title="Period Configuration">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
-              Week starts on
-            </label>
-            <select
-              value={form.period_start_day ?? 'sunday'}
-              onChange={e => autoSave({ period_start_day: e.target.value as PeriodStartDay })}
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              {Object.entries(PERIOD_START_DAY_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-          </div>
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            Weekly periods only. Biweekly and monthly coming in a future update.
-          </p>
-        </div>
-      </CollapsibleSection>
-
-      {/* Section 8: Loan Settings */}
-      <CollapsibleSection title="Loan Settings">
-        <div className="space-y-4">
-          <ToggleRow
-            label="Allow loans"
-            description="Child can borrow against future earnings"
-            value={form.loans_enabled ?? false}
-            onChange={v => autoSave({ loans_enabled: v })}
-          />
-          {form.loans_enabled && (
-            <>
-              <ToggleRow
-                label="Interest enabled"
-                description="Charge interest on outstanding loans"
-                value={form.loan_interest_enabled ?? false}
-                onChange={v => autoSave({ loan_interest_enabled: v })}
-              />
-              {form.loan_interest_enabled && (
-                <>
-                  <NumberInput
-                    label="Default interest rate"
-                    value={form.loan_default_interest_rate ?? 0}
-                    onChange={v => autoSave({ loan_default_interest_rate: v })}
-                    min={0}
-                    max={50}
-                    step={0.5}
-                    suffix="%"
-                  />
-                  <div>
-                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
-                      Interest accrual period
-                    </label>
-                    <select
-                      value={form.loan_interest_period ?? 'monthly'}
-                      onChange={e => autoSave({ loan_interest_period: e.target.value as 'weekly' | 'monthly' })}
-                      className="w-full px-3 py-2 rounded-lg text-sm"
-                      style={{
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        color: 'var(--color-text-primary)',
-                        border: '1px solid var(--color-border)',
-                      }}
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                  </div>
-                </>
-              )}
-              <NumberInput
-                label="Maximum loan amount (optional)"
-                prefix="$"
-                value={form.loan_max_amount ?? 0}
-                onChange={v => autoSave({ loan_max_amount: v || null })}
-                min={0}
-              />
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Leave at $0 for no maximum.
-              </p>
-            </>
-          )}
-        </div>
-      </CollapsibleSection>
-
-      {/* NEW-FF: Preview This Week panel. PRD-28 L228. Renders at the bottom
-          of the config screen, expandable inline. */}
+      {/* Preview + history links */}
       {memberId && (
         <PreviewThisWeekPanel memberId={memberId} activePeriod={activePeriod} />
       )}
 
-      {/* ALLOWANCE-EDIT-WEEK (2026-04-25): "see full week" page entry. */}
       {memberId && activePeriod && (
         <Link
           to={`/settings/allowance/${memberId}/history`}
@@ -583,9 +338,7 @@ export function ChildAllowanceConfigPage() {
         </Link>
       )}
 
-      {/* Path X secondary entry: mom is already focused on this kid but
-          wants to "while I'm at it, also apply the same thing to the
-          others". Bulk modal opens with this kid pre-selected. */}
+      {/* Bulk configure entry */}
       {family?.id && (members.filter(m => m.role === 'member' && m.is_active).length > 1) && (
         <>
           <button
@@ -614,6 +367,708 @@ export function ChildAllowanceConfigPage() {
   )
 }
 
+// ── Single-pool inline config (pre-3.5 identical view) ───────
+
+function SinglePoolConfigInline({
+  config,
+  familyId,
+  memberId,
+  memberColor,
+  isIndependent,
+  activePeriod,
+  member,
+}: {
+  config: AllowanceConfig | null | undefined
+  familyId: string
+  memberId: string
+  memberColor: string
+  isIndependent: boolean
+  activePeriod: import('@/types/financial').AllowancePeriod | null | undefined
+  member: { display_name: string; age?: number | null } | undefined
+}) {
+  const upsert = useUpsertAllowanceConfig()
+
+  const [form, setForm] = useState<Partial<AllowanceConfigInput>>({})
+  const [saveTimer, setSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (config) {
+      setForm({
+        enabled: config.enabled,
+        weekly_amount: config.weekly_amount,
+        calculation_approach: config.calculation_approach,
+        default_point_value: config.default_point_value,
+        minimum_threshold: config.minimum_threshold,
+        bonus_threshold: config.bonus_threshold,
+        bonus_type: config.bonus_type ?? 'percentage',
+        bonus_percentage: config.bonus_percentage,
+        bonus_flat_amount: config.bonus_flat_amount ?? 0,
+        rounding_behavior: config.rounding_behavior,
+        grace_days_enabled: config.grace_days_enabled,
+        makeup_window_enabled: config.makeup_window_enabled,
+        makeup_window_days: config.makeup_window_days,
+        extra_credit_enabled: config.extra_credit_enabled,
+        child_can_see_finances: config.child_can_see_finances,
+        period_start_day: config.period_start_day,
+        calculation_time: config.calculation_time,
+        loans_enabled: config.loans_enabled,
+        loan_interest_enabled: config.loan_interest_enabled,
+        loan_default_interest_rate: config.loan_default_interest_rate,
+        loan_interest_period: config.loan_interest_period,
+        loan_max_amount: config.loan_max_amount,
+        overage_cap: config.overage_cap,
+      })
+    } else if (member) {
+      setForm({
+        enabled: true,
+        weekly_amount: member.age ? member.age * 1 : 10,
+        calculation_approach: 'dynamic',
+        default_point_value: 1,
+        minimum_threshold: 0,
+        bonus_threshold: 90,
+        bonus_type: 'flat',
+        bonus_percentage: 20,
+        bonus_flat_amount: 5,
+        rounding_behavior: 'nearest_cent',
+        grace_days_enabled: true,
+        makeup_window_enabled: false,
+        makeup_window_days: 2,
+        extra_credit_enabled: false,
+        child_can_see_finances: isIndependent,
+        period_start_day: 'sunday',
+        calculation_time: '23:59:00',
+        loans_enabled: false,
+        loan_interest_enabled: false,
+        loan_default_interest_rate: 0,
+        loan_interest_period: 'monthly',
+        loan_max_amount: null,
+        overage_cap: 100,
+      })
+    }
+  }, [config, member, isIndependent])
+
+  const autoSave = useCallback((updates: Partial<AllowanceConfigInput>) => {
+    const next = { ...form, ...updates }
+    setForm(next)
+    if (saveTimer) clearTimeout(saveTimer)
+    const timer = setTimeout(() => {
+      if (!familyId || !memberId) return
+      upsert.mutate({
+        family_id: familyId,
+        family_member_id: memberId,
+        pool_name: config?.pool_name ?? 'default',
+        ...next,
+      })
+    }, 800)
+    setSaveTimer(timer)
+  }, [form, familyId, memberId, upsert, saveTimer, config?.pool_name])
+
+  return (
+    <>
+      {/* Master toggle */}
+      <div
+        className="rounded-xl p-4 flex items-center justify-between"
+        style={{ backgroundColor: 'var(--color-bg-card)', border: `2px solid ${memberColor}` }}
+      >
+        <span className="font-medium" style={{ color: 'var(--color-text-heading)' }}>
+          Allowance enabled
+        </span>
+        <ToggleSwitch
+          value={form.enabled ?? true}
+          onChange={v => autoSave({ enabled: v })}
+        />
+      </div>
+
+      <PoolConfigSections
+        form={form}
+        autoSave={autoSave}
+        activePeriod={activePeriod}
+        isIndependent={isIndependent}
+        familyId={familyId}
+        memberId={memberId}
+      />
+    </>
+  )
+}
+
+// ── Per-pool expandable config card ──────────────────────────
+
+function PoolConfigCard({
+  pool,
+  familyId,
+  memberId,
+  memberColor,
+  isIndependent,
+  isDefault,
+  activePeriod,
+  onStatusChange,
+}: {
+  pool: AllowanceConfig
+  familyId: string
+  memberId: string
+  memberColor: string
+  isIndependent: boolean
+  isDefault: boolean
+  activePeriod: import('@/types/financial').AllowancePeriod | null | undefined
+  onStatusChange: (status: PoolStatus) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const upsert = useUpsertAllowanceConfig()
+  const [form, setForm] = useState<Partial<AllowanceConfigInput>>({})
+  const [saveTimer, setSaveTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [confirmAction, setConfirmAction] = useState<PoolStatus | null>(null)
+
+  useEffect(() => {
+    setForm({
+      enabled: pool.enabled,
+      weekly_amount: pool.weekly_amount,
+      calculation_approach: pool.calculation_approach,
+      default_point_value: pool.default_point_value,
+      minimum_threshold: pool.minimum_threshold,
+      bonus_threshold: pool.bonus_threshold,
+      bonus_type: pool.bonus_type ?? 'percentage',
+      bonus_percentage: pool.bonus_percentage,
+      bonus_flat_amount: pool.bonus_flat_amount ?? 0,
+      rounding_behavior: pool.rounding_behavior,
+      grace_days_enabled: pool.grace_days_enabled,
+      makeup_window_enabled: pool.makeup_window_enabled,
+      makeup_window_days: pool.makeup_window_days,
+      extra_credit_enabled: pool.extra_credit_enabled,
+      child_can_see_finances: pool.child_can_see_finances,
+      period_start_day: pool.period_start_day,
+      calculation_time: pool.calculation_time,
+      loans_enabled: pool.loans_enabled,
+      loan_interest_enabled: pool.loan_interest_enabled,
+      loan_default_interest_rate: pool.loan_default_interest_rate,
+      loan_interest_period: pool.loan_interest_period,
+      loan_max_amount: pool.loan_max_amount,
+      overage_cap: pool.overage_cap,
+      pool_weight: pool.pool_weight,
+      payout_mode: pool.payout_mode,
+      term_start_date: pool.term_start_date,
+      term_end_date: pool.term_end_date,
+    })
+  }, [pool])
+
+  const autoSave = useCallback((updates: Partial<AllowanceConfigInput>) => {
+    const next = { ...form, ...updates }
+    setForm(next)
+    if (saveTimer) clearTimeout(saveTimer)
+    const timer = setTimeout(() => {
+      if (!familyId || !memberId) return
+      upsert.mutate({
+        family_id: familyId,
+        family_member_id: memberId,
+        pool_name: pool.pool_name,
+        ...next,
+      })
+    }, 800)
+    setSaveTimer(timer)
+  }, [form, familyId, memberId, upsert, saveTimer, pool.pool_name])
+
+  const isPaused = pool.pool_status === 'paused'
+  const isArchived = pool.pool_status === 'archived'
+  const isMeasurement = pool.payout_mode === 'measurement_only'
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        backgroundColor: 'var(--color-bg-card)',
+        border: `1px solid ${isArchived ? 'var(--color-border)' : memberColor}`,
+        opacity: isArchived ? 0.6 : 1,
+      }}
+    >
+      {/* Pool header */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-4 py-3"
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
+            {isDefault ? 'Main Pool' : pool.pool_name}
+          </span>
+          {isPaused && (
+            <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{
+              background: 'var(--color-bg-tertiary)',
+              color: 'var(--color-text-muted)',
+            }}>
+              <Pause size={8} /> Paused
+            </span>
+          )}
+          {isArchived && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{
+              background: 'var(--color-bg-tertiary)',
+              color: 'var(--color-text-muted)',
+            }}>
+              Archived
+            </span>
+          )}
+          {isMeasurement && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{
+              background: 'var(--color-bg-tertiary)',
+              color: 'var(--color-text-muted)',
+            }}>
+              No payout
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!isMeasurement && (
+            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              ${pool.weekly_amount}/wk · w{pool.pool_weight ?? 1}
+            </span>
+          )}
+          {expanded ? <ChevronDown size={16} style={{ color: 'var(--color-text-secondary)' }} /> : <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)' }} />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4">
+          {/* Pool-level settings */}
+          <div className="flex flex-wrap gap-2">
+            <NumberInput
+              label="Weekly amount"
+              prefix="$"
+              value={form.weekly_amount ?? 0}
+              onChange={v => autoSave({ weekly_amount: v })}
+              step={0.5}
+              min={0}
+            />
+            <NumberInput
+              label="Weight"
+              value={Number(form.pool_weight ?? 1)}
+              onChange={v => autoSave({ pool_weight: v })}
+              step={0.1}
+              min={0}
+            />
+            <NumberInput
+              label="Max percentage"
+              value={form.overage_cap ?? 100}
+              onChange={v => autoSave({ overage_cap: v })}
+              min={0}
+              max={500}
+              suffix="%"
+            />
+          </div>
+
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            100% = standard cap. Set higher to reward extra effort.
+          </p>
+
+          {/* Payout mode */}
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
+              Payout mode
+            </label>
+            <select
+              value={form.payout_mode ?? 'weekly'}
+              onChange={e => autoSave({ payout_mode: e.target.value as PayoutMode })}
+              className="w-full px-3 py-2 rounded-lg text-sm"
+              style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              {Object.entries(PAYOUT_MODE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Term dates */}
+          {form.payout_mode === 'term' && (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
+                  Term start
+                </label>
+                <input
+                  type="date"
+                  value={form.term_start_date ?? ''}
+                  onChange={e => autoSave({ term_start_date: e.target.value || null })}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
+                  Term end
+                </label>
+                <input
+                  type="date"
+                  value={form.term_end_date ?? ''}
+                  onChange={e => autoSave({ term_end_date: e.target.value || null })}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {form.payout_mode === 'event_driven' && (
+            <div className="text-xs rounded-lg px-3 py-2" style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-muted)',
+              border: '1px dashed var(--color-border)',
+            }}>
+              Event-driven pool close — coming soon
+            </div>
+          )}
+
+          {/* Standard config sections */}
+          <PoolConfigSections
+            form={form}
+            autoSave={autoSave}
+            activePeriod={isDefault ? activePeriod : null}
+            isIndependent={isIndependent}
+            familyId={familyId}
+            memberId={memberId}
+          />
+
+          {/* Pool lifecycle actions */}
+          <div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+            {pool.pool_status === 'active' && (
+              <LifecycleButton
+                icon={Pause}
+                label="Pause"
+                onClick={() => setConfirmAction('paused')}
+              />
+            )}
+            {pool.pool_status === 'paused' && (
+              <LifecycleButton
+                icon={Play}
+                label="Activate"
+                onClick={() => onStatusChange('active')}
+              />
+            )}
+            {pool.pool_status !== 'archived' && !isDefault && (
+              <LifecycleButton
+                icon={Archive}
+                label="Archive"
+                onClick={() => setConfirmAction('archived')}
+              />
+            )}
+            {pool.pool_status === 'archived' && (
+              <LifecycleButton
+                icon={RotateCcw}
+                label="Re-activate"
+                onClick={() => onStatusChange('active')}
+              />
+            )}
+          </div>
+
+          {/* Confirmation prompt */}
+          {confirmAction && (
+            <div className="rounded-lg p-3 text-sm" style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+            }}>
+              <p style={{ color: 'var(--color-text-primary)' }}>
+                {confirmAction === 'paused'
+                  ? 'Paused pools stop generating new periods and are excluded from the combined payout. Current period stays open.'
+                  : 'Archived pools are hidden from active views. History is preserved. You can re-activate later.'}
+              </p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => { onStatusChange(confirmAction); setConfirmAction(null) }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{
+                    background: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-text-on-primary)',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Confirm {confirmAction === 'paused' ? 'pause' : 'archive'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="px-3 py-1.5 rounded-lg text-xs"
+                  style={{
+                    background: 'transparent',
+                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-border)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LifecycleButton({ icon: Icon, label, onClick }: {
+  icon: React.ElementType
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
+      style={{
+        background: 'transparent',
+        color: 'var(--color-text-secondary)',
+        border: '1px solid var(--color-border)',
+        cursor: 'pointer',
+      }}
+    >
+      <Icon size={12} />
+      {label}
+    </button>
+  )
+}
+
+// ── Shared config sections (used by both single + multi pool) ─
+
+function PoolConfigSections({
+  form,
+  autoSave,
+  activePeriod,
+  isIndependent,
+  familyId,
+  memberId,
+}: {
+  form: Partial<AllowanceConfigInput>
+  autoSave: (u: Partial<AllowanceConfigInput>) => void
+  activePeriod: import('@/types/financial').AllowancePeriod | null | undefined
+  isIndependent: boolean
+  familyId: string
+  memberId: string
+}) {
+  const startPeriod = useStartAllowancePeriod()
+
+  return (
+    <>
+      <CollapsibleSection title="Basic Setup" defaultOpen>
+        <div className="space-y-4">
+          <NumberInput
+            label="Weekly allowance amount"
+            prefix="$"
+            value={form.weekly_amount ?? 0}
+            onChange={v => autoSave({ weekly_amount: v })}
+            step={0.5}
+            min={0}
+          />
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-heading)' }}>
+              Calculation approach
+            </label>
+            <div className="space-y-2">
+              {(['dynamic', 'points_weighted'] as CalculationApproach[]).map(approach => (
+                <label
+                  key={approach}
+                  className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors"
+                  style={{
+                    backgroundColor: form.calculation_approach === approach
+                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
+                      : 'var(--color-bg-secondary)',
+                    border: form.calculation_approach === approach
+                      ? '1px solid var(--color-btn-primary-bg)'
+                      : '1px solid var(--color-border)',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={`approach-${memberId}`}
+                    checked={form.calculation_approach === approach}
+                    onChange={() => autoSave({ calculation_approach: approach })}
+                    className="mt-1"
+                  />
+                  <div>
+                    <div className="font-medium text-sm" style={{ color: 'var(--color-text-heading)' }}>
+                      {CALCULATION_APPROACH_LABELS[approach].label}
+                    </div>
+                    <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                      {CALCULATION_APPROACH_LABELS[approach].description}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {form.calculation_approach === 'points_weighted' && (
+        <CollapsibleSection title="Points Configuration">
+          <NumberInput
+            label="Default point value per task"
+            value={form.default_point_value ?? 1}
+            onChange={v => autoSave({ default_point_value: v })}
+            min={1}
+            max={100}
+          />
+          <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+            Override per-task in the task creation modal.
+          </p>
+        </CollapsibleSection>
+      )}
+
+      <CollapsibleSection title="Bonus & Thresholds">
+        <div className="space-y-4">
+          <NumberInput
+            label="Minimum threshold (%)"
+            value={form.minimum_threshold ?? 0}
+            onChange={v => autoSave({ minimum_threshold: v })}
+            min={0} max={100} suffix="%"
+          />
+          <NumberInput
+            label="Bonus threshold (%)"
+            value={form.bonus_threshold ?? 90}
+            onChange={v => autoSave({ bonus_threshold: v })}
+            min={0} max={100} suffix="%"
+          />
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-heading)' }}>Bonus amount</label>
+            <div className="flex gap-2 mb-3">
+              {([
+                { value: 'percentage' as BonusType, label: '% of allowance' },
+                { value: 'flat' as BonusType, label: 'Flat $' },
+              ]).map(opt => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer text-sm"
+                  style={{
+                    backgroundColor: form.bonus_type === opt.value ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)' : 'var(--color-bg-secondary)',
+                    border: form.bonus_type === opt.value ? '1px solid var(--color-btn-primary-bg)' : '1px solid var(--color-border)',
+                    color: form.bonus_type === opt.value ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                    fontWeight: form.bonus_type === opt.value ? 600 : 400,
+                  }}
+                >
+                  <input type="radio" name={`bonus-type-${memberId}`} checked={form.bonus_type === opt.value} onChange={() => autoSave({ bonus_type: opt.value })} style={{ accentColor: 'var(--color-btn-primary-bg)' }} />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+            {form.bonus_type === 'flat' ? (
+              <NumberInput label="Bonus amount" prefix="$" value={form.bonus_flat_amount ?? 0} onChange={v => autoSave({ bonus_flat_amount: v })} min={0} step={0.5} />
+            ) : (
+              <NumberInput label="Bonus percentage" value={form.bonus_percentage ?? 20} onChange={v => autoSave({ bonus_percentage: v })} min={0} max={100} suffix="% extra" />
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>Rounding</label>
+            <select value={form.rounding_behavior ?? 'nearest_cent'} onChange={e => autoSave({ rounding_behavior: e.target.value as RoundingBehavior })} className="w-full px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+              <option value="round_up">Round up</option>
+              <option value="round_down">Round down</option>
+              <option value="nearest_cent">Nearest cent</option>
+            </select>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Grace Mechanisms">
+        <div className="space-y-4">
+          <ToggleRow label="Grace Days" description="Mark specific days when tasks don't count against allowance" value={form.grace_days_enabled ?? true} onChange={v => autoSave({ grace_days_enabled: v })} />
+          {activePeriod && (
+            <GraceDaysManager
+              periodId={activePeriod.id}
+              periodStart={activePeriod.period_start}
+              periodEnd={activePeriod.period_end}
+              graceDays={(activePeriod.grace_days as string[]) ?? []}
+              disabled={!(form.grace_days_enabled ?? true)}
+            />
+          )}
+          {!activePeriod && (form.grace_days_enabled ?? true) && (
+            <div data-testid="grace-days-no-period-empty" style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', borderRadius: 'var(--vibe-radius-input, 8px)', backgroundColor: 'var(--color-bg-secondary)', border: '1px dashed var(--color-border-default, var(--color-border))', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
+              <div style={{ marginBottom: '0.5rem' }}>
+                Grace days are turned on, but no active allowance period exists yet. Tap below to start one.
+              </div>
+              <button
+                type="button"
+                disabled={startPeriod.isPending}
+                onClick={() => {
+                  if (familyId && memberId && form.weekly_amount != null) {
+                    startPeriod.mutate({ familyId, memberId, weeklyAmount: form.weekly_amount })
+                  }
+                }}
+                data-testid="grace-days-start-period"
+                style={{ padding: '0.375rem 0.875rem', borderRadius: 'var(--vibe-radius-input, 6px)', background: 'var(--color-btn-primary-bg)', color: 'var(--color-text-on-primary)', border: 'none', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: startPeriod.isPending ? 'not-allowed' : 'pointer', opacity: startPeriod.isPending ? 0.6 : 1 }}
+              >
+                {startPeriod.isPending ? 'Starting…' : 'Start period now'}
+              </button>
+            </div>
+          )}
+          <ToggleRow label="Makeup Window" description="Extra time after the period ends to complete missed tasks" value={form.makeup_window_enabled ?? false} onChange={v => autoSave({ makeup_window_enabled: v })} />
+          {form.makeup_window_enabled && (
+            <NumberInput label="Makeup window (days)" value={form.makeup_window_days ?? 2} onChange={v => autoSave({ makeup_window_days: v })} min={1} max={7} />
+          )}
+          <ToggleRow label="Extra Credit" description="Allow extra tasks to offset missed ones" value={form.extra_credit_enabled ?? false} onChange={v => autoSave({ extra_credit_enabled: v })} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Visibility">
+        <ToggleRow
+          label="Child can see financial details"
+          description={form.child_can_see_finances ? 'Shows dollar amounts, balance, and transaction history' : 'Shows completion percentage only'}
+          value={form.child_can_see_finances ?? isIndependent}
+          onChange={v => autoSave({ child_can_see_finances: v })}
+          icon={form.child_can_see_finances ? Eye : EyeOff}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Period Configuration">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>Week starts on</label>
+            <select value={form.period_start_day ?? 'sunday'} onChange={e => autoSave({ period_start_day: e.target.value as PeriodStartDay })} className="w-full px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+              {Object.entries(PERIOD_START_DAY_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Loan Settings">
+        <div className="space-y-4">
+          <ToggleRow label="Allow loans" description="Child can borrow against future earnings" value={form.loans_enabled ?? false} onChange={v => autoSave({ loans_enabled: v })} />
+          {form.loans_enabled && (
+            <>
+              <ToggleRow label="Interest enabled" description="Charge interest on outstanding loans" value={form.loan_interest_enabled ?? false} onChange={v => autoSave({ loan_interest_enabled: v })} />
+              {form.loan_interest_enabled && (
+                <>
+                  <NumberInput label="Default interest rate" value={form.loan_default_interest_rate ?? 0} onChange={v => autoSave({ loan_default_interest_rate: v })} min={0} max={50} step={0.5} suffix="%" />
+                  <div>
+                    <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>Interest accrual period</label>
+                    <select value={form.loan_interest_period ?? 'monthly'} onChange={e => autoSave({ loan_interest_period: e.target.value as 'weekly' | 'monthly' })} className="w-full px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              <NumberInput label="Maximum loan amount (optional)" prefix="$" value={form.loan_max_amount ?? 0} onChange={v => autoSave({ loan_max_amount: v || null })} min={0} />
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Leave at $0 for no maximum.</p>
+            </>
+          )}
+        </div>
+      </CollapsibleSection>
+    </>
+  )
+}
+
 // ── Shared Sub-components ──────────────────────────────────
 
 function CollapsibleSection({ title, defaultOpen = false, children }: {
@@ -623,15 +1078,8 @@ function CollapsibleSection({ title, defaultOpen = false, children }: {
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
-    >
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold"
-        style={{ color: 'var(--color-text-heading)' }}
-      >
+    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
         {title}
         {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
@@ -642,32 +1090,14 @@ function CollapsibleSection({ title, defaultOpen = false, children }: {
 
 function ToggleSwitch({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
-      onClick={() => onChange(!value)}
-      className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-      style={{
-        backgroundColor: value ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-tertiary)',
-        border: value ? 'none' : '1px solid var(--color-border-default, var(--color-border))',
-      }}
-    >
-      <span
-        className="inline-block h-4 w-4 transform rounded-full transition-transform"
-        style={{
-          backgroundColor: 'var(--color-bg-card, #ffffff)',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-          transform: value ? 'translateX(1.375rem)' : 'translateX(0.25rem)',
-        }}
-      />
+    <button onClick={() => onChange(!value)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors" style={{ backgroundColor: value ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-tertiary)', border: value ? 'none' : '1px solid var(--color-border-default, var(--color-border))' }}>
+      <span className="inline-block h-4 w-4 transform rounded-full transition-transform" style={{ backgroundColor: 'var(--color-bg-card, #ffffff)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)', transform: value ? 'translateX(1.375rem)' : 'translateX(0.25rem)' }} />
     </button>
   )
 }
 
 function ToggleRow({ label, description, value, onChange, icon: Icon }: {
-  label: string
-  description: string
-  value: boolean
-  onChange: (v: boolean) => void
-  icon?: React.ElementType
+  label: string; description: string; value: boolean; onChange: (v: boolean) => void; icon?: React.ElementType
 }) {
   return (
     <div className="flex items-start justify-between gap-3">
@@ -684,36 +1114,14 @@ function ToggleRow({ label, description, value, onChange, icon: Icon }: {
 }
 
 function NumberInput({ label, value, onChange, min, max, step, prefix, suffix }: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  min?: number
-  max?: number
-  step?: number
-  prefix?: string
-  suffix?: string
+  label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; prefix?: string; suffix?: string
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
-        {label}
-      </label>
+      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>{label}</label>
       <div className="flex items-center gap-2">
         {prefix && <span className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>{prefix}</span>}
-        <input
-          type="number"
-          value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          min={min}
-          max={max}
-          step={step ?? 1}
-          className="w-full px-3 py-2 rounded-lg text-sm"
-          style={{
-            backgroundColor: 'var(--color-bg-secondary)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)',
-          }}
-        />
+        <input type="number" value={value} onChange={e => onChange(Number(e.target.value))} min={min} max={max} step={step ?? 1} className="w-full px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }} />
         {suffix && <span className="text-sm shrink-0" style={{ color: 'var(--color-text-secondary)' }}>{suffix}</span>}
       </div>
     </div>

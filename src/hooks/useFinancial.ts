@@ -15,24 +15,43 @@ import type {
   PaymentInput,
   LoanInput,
   DeductionInput,
+  PeriodStatus,
 } from '@/types/financial'
 
 // ============================================================
 // Allowance Config
 // ============================================================
 
-export function useAllowanceConfig(memberId: string | undefined) {
+export function useAllowanceConfig(memberId: string | undefined, poolName: string = 'default') {
   return useQuery({
-    queryKey: ['allowance-config', memberId],
+    queryKey: ['allowance-config', memberId, poolName],
     queryFn: async () => {
       if (!memberId) return null
       const { data, error } = await supabase
         .from('allowance_configs')
         .select('*')
         .eq('family_member_id', memberId)
+        .eq('pool_name', poolName)
         .maybeSingle()
       if (error) throw error
       return data as AllowanceConfig | null
+    },
+    enabled: !!memberId,
+  })
+}
+
+export function useMemberAllowancePools(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['allowance-pools', memberId],
+    queryFn: async () => {
+      if (!memberId) return []
+      const { data, error } = await supabase
+        .from('allowance_configs')
+        .select('*')
+        .eq('family_member_id', memberId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as AllowanceConfig[]
     },
     enabled: !!memberId,
   })
@@ -60,7 +79,7 @@ export function useUpsertAllowanceConfig() {
     mutationFn: async (input: AllowanceConfigInput) => {
       const { data, error } = await supabase
         .from('allowance_configs')
-        .upsert(input, { onConflict: 'family_member_id' })
+        .upsert({ ...input, pool_name: input.pool_name ?? 'default' }, { onConflict: 'family_member_id,pool_name' })
         .select()
         .single()
       if (error) throw error
@@ -69,6 +88,7 @@ export function useUpsertAllowanceConfig() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['allowance-config', data.family_member_id] })
       qc.invalidateQueries({ queryKey: ['allowance-configs', data.family_id] })
+      qc.invalidateQueries({ queryKey: ['allowance-pools', data.family_member_id] })
     },
   })
 }
@@ -91,9 +111,10 @@ export function useBulkUpsertAllowanceConfig() {
   return useMutation({
     mutationFn: async (inputs: AllowanceConfigInput[]) => {
       if (inputs.length === 0) return [] as AllowanceConfig[]
+      const rows = inputs.map(i => ({ ...i, pool_name: i.pool_name ?? 'default' }))
       const { data, error } = await supabase
         .from('allowance_configs')
-        .upsert(inputs, { onConflict: 'family_member_id' })
+        .upsert(rows, { onConflict: 'family_member_id,pool_name' })
         .select()
       if (error) throw error
       return (data ?? []) as AllowanceConfig[]
@@ -101,6 +122,7 @@ export function useBulkUpsertAllowanceConfig() {
     onSuccess: (rows) => {
       for (const row of rows) {
         qc.invalidateQueries({ queryKey: ['allowance-config', row.family_member_id] })
+        qc.invalidateQueries({ queryKey: ['allowance-pools', row.family_member_id] })
       }
       if (rows.length > 0) {
         qc.invalidateQueries({ queryKey: ['allowance-configs', rows[0].family_id] })
@@ -156,6 +178,85 @@ export function useFamilyTransactions(familyId: string | undefined, limit = 20) 
         .eq('family_id', familyId)
         .order('created_at', { ascending: false })
         .limit(limit)
+      if (error) throw error
+      return (data ?? []) as FinancialTransaction[]
+    },
+    enabled: !!familyId,
+  })
+}
+
+/**
+ * Phase 3.5 D2 — full chronological ledger for a single member.
+ * Returns ALL transactions (no limit). Filter is optional and applied
+ * server-side. Use this for Balance tab full ledger view; use
+ * `useFinancialTransactions` for the legacy 20-row recent view.
+ */
+export function useMemberLedger(
+  memberId: string | undefined,
+  filter?: TransactionFilter & { poolName?: string },
+) {
+  return useQuery({
+    queryKey: ['member-ledger', memberId, filter],
+    queryFn: async () => {
+      if (!memberId) return []
+      let query = supabase
+        .from('financial_transactions')
+        .select('*')
+        .eq('family_member_id', memberId)
+        .order('created_at', { ascending: true }) // ascending for running balance compute
+
+      if (filter?.type && filter.type !== 'all') {
+        query = query.eq('transaction_type', filter.type)
+      }
+      if (filter?.poolName) {
+        query = query.eq('pool_name', filter.poolName)
+      }
+      if (filter?.dateFrom) {
+        query = query.gte('created_at', filter.dateFrom)
+      }
+      if (filter?.dateTo) {
+        query = query.lte('created_at', filter.dateTo)
+      }
+      const { data, error } = await query
+      if (error) throw error
+      return (data ?? []) as FinancialTransaction[]
+    },
+    enabled: !!memberId,
+  })
+}
+
+/**
+ * Phase 3.5 D2 — family-wide ledger (all kids, chronological).
+ * Used by Balance tab "All kids" toggle. Each row is tagged with
+ * family_member_id so the UI can render the kid name + member color.
+ */
+export function useFamilyLedger(
+  familyId: string | undefined,
+  filter?: TransactionFilter & { poolName?: string },
+) {
+  return useQuery({
+    queryKey: ['family-ledger', familyId, filter],
+    queryFn: async () => {
+      if (!familyId) return []
+      let query = supabase
+        .from('financial_transactions')
+        .select('*')
+        .eq('family_id', familyId)
+        .order('created_at', { ascending: false })
+
+      if (filter?.type && filter.type !== 'all') {
+        query = query.eq('transaction_type', filter.type)
+      }
+      if (filter?.poolName) {
+        query = query.eq('pool_name', filter.poolName)
+      }
+      if (filter?.dateFrom) {
+        query = query.gte('created_at', filter.dateFrom)
+      }
+      if (filter?.dateTo) {
+        query = query.lte('created_at', filter.dateTo)
+      }
+      const { data, error } = await query
       if (error) throw error
       return (data ?? []) as FinancialTransaction[]
     },
@@ -269,15 +370,16 @@ export function useFamilyFinancialSummary(familyId: string | undefined) {
 // Allowance Periods
 // ============================================================
 
-export function useActivePeriod(memberId: string | undefined) {
+export function useActivePeriod(memberId: string | undefined, poolName: string = 'default') {
   return useQuery({
-    queryKey: ['active-period', memberId],
+    queryKey: ['active-period', memberId, poolName],
     queryFn: async () => {
       if (!memberId) return null
       const { data, error } = await supabase
         .from('allowance_periods')
         .select('*')
         .eq('family_member_id', memberId)
+        .eq('pool_name', poolName)
         .in('status', ['active', 'makeup_window'])
         .order('period_start', { ascending: false })
         .limit(1)
@@ -289,7 +391,51 @@ export function useActivePeriod(memberId: string | undefined) {
   })
 }
 
+export function useActivePeriods(memberId: string | undefined) {
+  return useQuery({
+    queryKey: ['active-periods-all', memberId],
+    queryFn: async () => {
+      if (!memberId) return []
+      const { data, error } = await supabase
+        .from('allowance_periods')
+        .select('*')
+        .eq('family_member_id', memberId)
+        .in('status', ['active', 'makeup_window'])
+        .order('period_start', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as AllowancePeriod[]
+    },
+    enabled: !!memberId,
+  })
+}
+
+export function usePoolLifecycle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ configId, poolStatus }: {
+      configId: string
+      poolStatus: 'active' | 'paused' | 'archived'
+    }) => {
+      const { data, error } = await supabase
+        .from('allowance_configs')
+        .update({ pool_status: poolStatus })
+        .eq('id', configId)
+        .select()
+        .single()
+      if (error) throw error
+      return data as AllowanceConfig
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['allowance-config', data.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['allowance-configs', data.family_id] })
+      qc.invalidateQueries({ queryKey: ['allowance-pools', data.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
+    },
+  })
+}
+
 export interface LiveAllowanceProgress {
+  pool_name: string
   effective_tasks_assigned: number
   effective_tasks_completed: number
   completion_percentage: number
@@ -308,12 +454,9 @@ export interface LiveAllowanceProgress {
   raw_steps_available: number
   nonroutine_tasks_total: number
   nonroutine_tasks_completed: number
-  // PRD-28 NEW-EE: Extra Credit tallies (migration 100171). Count of completed
-  // tasks where is_extra_credit=true plus their weighted numerator contribution.
-  // Extra-credit tasks are excluded from the denominator; counted only in the
-  // numerator when allowance_configs.extra_credit_enabled=true.
   extra_credit_completed: number
   extra_credit_weight_added: number
+  numerator_boost_total: number
 }
 
 /**
@@ -349,31 +492,25 @@ export function useLiveAllowanceProgress(
   memberId: string | undefined,
   periodStart: string | undefined,
   periodEnd: string | undefined,
-  /**
-   * NEW-GG → NEW-TT: when provided AND the child's config has
-   * grace_days_enabled=true, the RPC consumes per-entry mode to decide
-   * whether to shrink BOTH (full_exclude) or denominator-only
-   * (numerator_keep). Plain string entries are treated as full_exclude
-   * for back-compat with existing data.
-   */
   graceDays?: GraceDayEntry[],
+  poolName: string = 'default',
 ) {
   return useQuery({
-    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd, serializeGraceDays(graceDays)],
+    queryKey: ['live-allowance-progress', memberId, periodStart, periodEnd, serializeGraceDays(graceDays), poolName],
     queryFn: async () => {
       if (!memberId || !periodStart || !periodEnd) return null
       const { data, error } = await supabase.rpc('calculate_allowance_progress', {
         p_member_id: memberId,
         p_period_start: periodStart,
         p_period_end: periodEnd,
-        // RPC accepts JSONB. Send the raw array as-is — back-compat
-        // string entries are interpreted as full_exclude server-side.
         p_grace_days: (graceDays && graceDays.length > 0) ? graceDays : null,
+        p_pool_name: poolName,
       })
       if (error) throw error
       const row = Array.isArray(data) ? data[0] : data
       if (!row) return null
       return {
+        pool_name: String(row.pool_name ?? poolName),
         effective_tasks_assigned: Number(row.effective_tasks_assigned),
         effective_tasks_completed: Number(row.effective_tasks_completed),
         completion_percentage: Number(row.completion_percentage),
@@ -394,6 +531,7 @@ export function useLiveAllowanceProgress(
         nonroutine_tasks_completed: Number(row.nonroutine_tasks_completed ?? 0),
         extra_credit_completed: Number(row.extra_credit_completed ?? 0),
         extra_credit_weight_added: Number(row.extra_credit_weight_added ?? 0),
+        numerator_boost_total: Number(row.numerator_boost_total ?? 0),
       } as LiveAllowanceProgress
     },
     enabled: !!memberId && !!periodStart && !!periodEnd,
@@ -411,12 +549,70 @@ export function usePeriodHistory(memberId: string | undefined) {
         .select('*')
         .eq('family_member_id', memberId)
         .order('period_start', { ascending: false })
-        .limit(52) // up to a year of weekly periods
+        .limit(208) // 52 weeks × up to ~4 pools per kid
       if (error) throw error
       return (data ?? []) as AllowancePeriod[]
     },
     enabled: !!memberId,
   })
+}
+
+/**
+ * Phase 3.5 D-gap-3 — period history grouped by date range.
+ * Each group is one calendar period (period_start, period_end) containing
+ * N pool entries. Sorted newest first. The combined_percentage from any
+ * non-null pool is surfaced at the group level (all pools in one period
+ * share the same combined value because it's computed across pools).
+ */
+export interface PeriodGroup {
+  period_start: string
+  period_end: string
+  combined_percentage: number | null
+  pools: AllowancePeriod[]
+  total_earned: number
+  status: PeriodStatus
+}
+
+export function useGroupedPeriodHistory(memberId: string | undefined) {
+  const { data: periods, ...rest } = usePeriodHistory(memberId)
+
+  const groups: PeriodGroup[] = groupPeriodsByDateRange(periods ?? [])
+  return { ...rest, data: groups, periods: periods ?? [] }
+}
+
+function groupPeriodsByDateRange(periods: AllowancePeriod[]): PeriodGroup[] {
+  const groupMap = new Map<string, PeriodGroup>()
+  for (const p of periods) {
+    const key = `${p.period_start}|${p.period_end}`
+    let group = groupMap.get(key)
+    if (!group) {
+      group = {
+        period_start: p.period_start,
+        period_end: p.period_end,
+        combined_percentage: null,
+        pools: [],
+        total_earned: 0,
+        status: p.status,
+      }
+      groupMap.set(key, group)
+    }
+    group.pools.push(p)
+    group.total_earned += Number(p.total_earned ?? 0)
+    if (group.combined_percentage == null && p.combined_percentage != null) {
+      group.combined_percentage = Number(p.combined_percentage)
+    }
+    // Group status: if any pool is 'active' the period is active; else use
+    // the most-progressed status (calculated > closed > makeup_window).
+    const order: Record<PeriodStatus, number> = {
+      active: 4, makeup_window: 3, calculated: 2, closed: 1,
+    }
+    if (order[p.status] > order[group.status]) {
+      group.status = p.status
+    }
+  }
+  return Array.from(groupMap.values()).sort((a, b) =>
+    b.period_start.localeCompare(a.period_start),
+  )
 }
 
 // ============================================================
@@ -527,6 +723,347 @@ export function useRemoveGraceDay() {
       qc.invalidateQueries({ queryKey: ['live-allowance-progress'] })
     },
   })
+}
+
+/**
+ * Phase 3.5 D-gap-2 — member-level grace day add.
+ * Grace days apply across ALL pools for a member (Key Decision 2).
+ * This mutation finds every active period for the member (across all
+ * pool names) and updates each one's grace_days array. If the date
+ * already exists in any period, that period is updated in-place to the
+ * new mode; otherwise it is appended.
+ */
+export function useAddGraceDayForMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      memberId,
+      date,
+      mode = 'full_exclude',
+    }: { memberId: string; date: string; mode?: GraceDayMode }) => {
+      const { data: periods, error: readError } = await supabase
+        .from('allowance_periods')
+        .select('id, grace_days, pool_name')
+        .eq('family_member_id', memberId)
+        .in('status', ['active', 'makeup_window'])
+      if (readError) throw readError
+
+      const updates: Array<{ id: string; grace_days: GraceDayEntry[] }> = []
+      for (const period of periods ?? []) {
+        const current = (period.grace_days as GraceDayEntry[]) ?? []
+        const existingIdx = current.findIndex(entry => {
+          const norm = normalizeGraceDayEntry(entry)
+          return norm.date === date
+        })
+        let next: GraceDayEntry[]
+        if (existingIdx === -1) {
+          next = [...current, { date, mode }]
+        } else {
+          const existingNorm = normalizeGraceDayEntry(current[existingIdx])
+          if (existingNorm.mode === mode) continue // no-op
+          next = current.slice()
+          next[existingIdx] = { date, mode }
+        }
+        updates.push({ id: period.id, grace_days: next })
+      }
+
+      // Apply all updates. If RLS denies any row we want to know which one,
+      // so do them sequentially rather than in a single .in() upsert.
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('allowance_periods')
+          .update({ grace_days: update.grace_days })
+          .eq('id', update.id)
+        if (error) throw error
+      }
+
+      return { memberId, updatedCount: updates.length }
+    },
+    onSuccess: ({ memberId }) => {
+      qc.invalidateQueries({ queryKey: ['active-period', memberId] })
+      qc.invalidateQueries({ queryKey: ['active-periods-all', memberId] })
+      qc.invalidateQueries({ queryKey: ['period-history', memberId] })
+      qc.invalidateQueries({ queryKey: ['live-allowance-progress'] })
+      qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
+    },
+  })
+}
+
+/** Phase 3.5 D-gap-2 — member-level grace day remove (mirror of add). */
+export function useRemoveGraceDayForMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ memberId, date }: { memberId: string; date: string }) => {
+      const { data: periods, error: readError } = await supabase
+        .from('allowance_periods')
+        .select('id, grace_days')
+        .eq('family_member_id', memberId)
+        .in('status', ['active', 'makeup_window'])
+      if (readError) throw readError
+
+      for (const period of periods ?? []) {
+        const current = (period.grace_days as GraceDayEntry[]) ?? []
+        const next = current.filter(entry => {
+          const norm = normalizeGraceDayEntry(entry)
+          return norm.date !== date
+        })
+        if (next.length === current.length) continue // nothing to remove
+        const { error } = await supabase
+          .from('allowance_periods')
+          .update({ grace_days: next })
+          .eq('id', period.id)
+        if (error) throw error
+      }
+      return { memberId }
+    },
+    onSuccess: ({ memberId }) => {
+      qc.invalidateQueries({ queryKey: ['active-period', memberId] })
+      qc.invalidateQueries({ queryKey: ['active-periods-all', memberId] })
+      qc.invalidateQueries({ queryKey: ['period-history', memberId] })
+      qc.invalidateQueries({ queryKey: ['live-allowance-progress'] })
+      qc.invalidateQueries({ queryKey: ['family-financial-summary'] })
+    },
+  })
+}
+
+// ============================================================
+// Multi-pool recalculate (D-gap-1) — pure compute helpers
+// ============================================================
+
+export interface PoolRecalcResult {
+  pool_name: string
+  pool_weight: number
+  payout_mode: string
+  old_total_earned: number
+  new_total_earned: number
+  old_completion_percentage: number
+  new_completion_percentage: number
+  delta: number
+  rpc_row: Record<string, unknown>
+}
+
+export interface MultiPoolRecalcResult {
+  pools: PoolRecalcResult[]
+  old_combined_percentage: number | null
+  new_combined_percentage: number
+  combined_pool_count: number
+  pool_details: Record<string, unknown>[]
+  total_delta: number
+}
+
+/**
+ * Phase 3.5 D-gap-1 — compute multi-pool recalculate WITHOUT writing.
+ * Returns the per-pool deltas, combined percentage delta, and the RPC
+ * rows so the caller can apply them after mom confirms via the negative
+ * adjustment prompt. This is the "compute" half of compute-then-prompt.
+ *
+ * The matching write step is `applyMultiPoolRecalc` below.
+ */
+export async function computeMultiPoolRecalc(args: {
+  memberId: string
+  periodStart: string
+  periodEnd: string
+}): Promise<MultiPoolRecalcResult> {
+  const { memberId, periodStart, periodEnd } = args
+
+  // 1. Find all active pools for this member (excludes archived; includes paused).
+  //    We re-run the calc for paused pools too because past periods that were
+  //    open while a pool was active still need to be recalculated correctly.
+  const { data: configs, error: configErr } = await supabase
+    .from('allowance_configs')
+    .select('pool_name, pool_weight, payout_mode, pool_status')
+    .eq('family_member_id', memberId)
+    .neq('pool_status', 'archived')
+    .order('pool_name', { ascending: true })
+  if (configErr) throw configErr
+
+  const activeConfigs = (configs ?? []).filter(c => c.pool_status === 'active')
+
+  // 2. Find existing period rows for the date range.
+  const { data: existingPeriods, error: periodErr } = await supabase
+    .from('allowance_periods')
+    .select('*')
+    .eq('family_member_id', memberId)
+    .eq('period_start', periodStart)
+    .eq('period_end', periodEnd)
+  if (periodErr) throw periodErr
+  const periodMap = new Map<string, AllowancePeriod>()
+  for (const p of (existingPeriods ?? []) as AllowancePeriod[]) {
+    periodMap.set(p.pool_name, p)
+  }
+
+  // 3. Per-pool recalc.
+  const pools: PoolRecalcResult[] = []
+  for (const config of activeConfigs) {
+    const existingPeriod = periodMap.get(config.pool_name)
+    const oldTotal = Number(existingPeriod?.total_earned ?? 0)
+    const oldPct = Number(existingPeriod?.completion_percentage ?? 0)
+    const graceDays = (existingPeriod?.grace_days as GraceDayEntry[] | undefined) ?? null
+
+    const { data, error } = await supabase.rpc('calculate_allowance_progress', {
+      p_member_id: memberId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_grace_days: graceDays && graceDays.length > 0 ? graceDays : null,
+      p_pool_name: config.pool_name,
+    })
+    if (error) throw error
+    const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
+    if (!row) continue
+
+    const newTotal = Number(row.total_earned ?? 0)
+    const newPct = Number(row.completion_percentage ?? 0)
+
+    pools.push({
+      pool_name: config.pool_name,
+      pool_weight: Number(config.pool_weight ?? 1.0),
+      payout_mode: String(config.payout_mode),
+      old_total_earned: oldTotal,
+      new_total_earned: newTotal,
+      old_completion_percentage: oldPct,
+      new_completion_percentage: newPct,
+      delta: newTotal - oldTotal,
+      rpc_row: row,
+    })
+  }
+
+  // 4. Combined percentage (uses RPC for canonical math).
+  const { data: combinedData, error: combinedErr } = await supabase.rpc(
+    'calculate_weighted_combination',
+    {
+      p_member_id: memberId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    },
+  )
+  if (combinedErr) throw combinedErr
+  const combinedRow = (Array.isArray(combinedData) ? combinedData[0] : combinedData) as
+    | { combined_percentage: number; pool_count: number; pool_details: unknown }
+    | null
+  const newCombinedPct = combinedRow ? Number(combinedRow.combined_percentage) : 0
+  const poolCount = combinedRow ? Number(combinedRow.pool_count) : 0
+  const poolDetails = (combinedRow?.pool_details ?? []) as Record<string, unknown>[]
+
+  // Old combined: take from any pool row (they all share the same value
+  // when stored at close time per Key Decision 15).
+  let oldCombinedPct: number | null = null
+  for (const p of periodMap.values()) {
+    if (p.combined_percentage != null) {
+      oldCombinedPct = Number(p.combined_percentage)
+      break
+    }
+  }
+
+  const totalDelta = pools.reduce((sum, p) => sum + p.delta, 0)
+
+  return {
+    pools,
+    old_combined_percentage: oldCombinedPct,
+    new_combined_percentage: newCombinedPct,
+    combined_pool_count: poolCount,
+    pool_details: poolDetails,
+    total_delta: totalDelta,
+  }
+}
+
+/**
+ * Phase 3.5 D-gap-1 — apply a previously-computed multi-pool recalc.
+ * Updates each pool's allowance_periods row, optionally writes per-pool
+ * adjustment transactions, and updates combined_percentage on every pool
+ * row in the period.
+ *
+ * `mode='apply'`  → write period updates AND adjustment transactions
+ * `mode='zero'`   → write period updates (new percentages) but NO adjustments
+ *                   (preserves the original earned amount on the period row)
+ *
+ * Caller is responsible for skipping this step entirely on Cancel.
+ */
+export async function applyMultiPoolRecalc(args: {
+  familyId: string
+  memberId: string
+  periodStart: string
+  periodEnd: string
+  computed: MultiPoolRecalcResult
+  mode: 'apply' | 'zero'
+}): Promise<void> {
+  const { familyId, memberId, periodStart, periodEnd, computed, mode } = args
+  const nowIso = new Date().toISOString()
+
+  // Find existing periods so we know which rows to update.
+  const { data: existingPeriods, error: periodErr } = await supabase
+    .from('allowance_periods')
+    .select('id, pool_name, total_earned')
+    .eq('family_member_id', memberId)
+    .eq('period_start', periodStart)
+    .eq('period_end', periodEnd)
+  if (periodErr) throw periodErr
+  const periodIdByPool = new Map<string, string>()
+  const oldTotalByPool = new Map<string, number>()
+  for (const p of existingPeriods ?? []) {
+    periodIdByPool.set(p.pool_name, p.id)
+    oldTotalByPool.set(p.pool_name, Number(p.total_earned ?? 0))
+  }
+
+  // 1. Update each per-pool period row.
+  for (const pool of computed.pools) {
+    const periodId = periodIdByPool.get(pool.pool_name)
+    if (!periodId) continue
+    const row = pool.rpc_row
+    const updatePayload: Record<string, unknown> = {
+      effective_tasks_assigned: Number(row.effective_tasks_assigned ?? 0),
+      effective_tasks_completed: Number(row.effective_tasks_completed ?? 0),
+      completion_percentage: Number(row.completion_percentage ?? 0),
+      base_amount: Number(row.base_amount ?? 0),
+      bonus_applied: Boolean(row.bonus_applied),
+      bonus_amount: Number(row.bonus_amount ?? 0),
+      calculated_amount: Number(row.calculated_amount ?? 0),
+      tasks_completed: Number(row.effective_tasks_completed ?? 0),
+      calculated_at: nowIso,
+      combined_percentage: computed.new_combined_percentage,
+    }
+    // In 'zero' mode we keep the original total_earned on the period row
+    // (mom is choosing to not claw back the dollars). In 'apply' mode we
+    // update the period row to reflect the new total too.
+    if (mode === 'apply') {
+      updatePayload.total_earned = pool.new_total_earned
+    }
+    const { error: updateErr } = await supabase
+      .from('allowance_periods')
+      .update(updatePayload)
+      .eq('id', periodId)
+    if (updateErr) throw updateErr
+  }
+
+  // 2. Adjustment transactions (only in 'apply' mode, only for nonzero deltas).
+  if (mode === 'apply') {
+    // Read balance once at the start; chain balance_after manually.
+    const { data: balance } = await supabase.rpc('calculate_running_balance', {
+      p_member_id: memberId,
+    })
+    let runningBalance = Number(balance ?? 0)
+
+    for (const pool of computed.pools) {
+      if (Math.abs(pool.delta) < 0.01) continue
+      const periodId = periodIdByPool.get(pool.pool_name)
+      runningBalance += pool.delta
+      const { error: txErr } = await supabase
+        .from('financial_transactions')
+        .insert({
+          family_id: familyId,
+          family_member_id: memberId,
+          transaction_type: 'adjustment',
+          amount: pool.delta,
+          balance_after: runningBalance,
+          description: pool.pool_name === 'default'
+            ? 'Allowance recalculation adjustment'
+            : `Allowance recalculation — ${pool.pool_name} pool`,
+          source_type: 'allowance_recalculation',
+          source_reference_id: periodId,
+          pool_name: pool.pool_name,
+        })
+      if (txErr) throw txErr
+    }
+  }
 }
 
 // ============================================================
@@ -920,7 +1457,9 @@ export function useCompletionPercentage(
       return Math.round(((completed ?? 0) / assigned) * 10000) / 100 // 2 decimal places
     },
     enabled: !!memberId && !!familyToday,
-    refetchInterval: 30000, // refresh every 30s for real-time-ish updates
+    // No polling — task completion mutations invalidate this query.
+    // Allowance percentage doesn't need 30s freshness on the dashboard.
+    staleTime: 60_000,
   })
 }
 

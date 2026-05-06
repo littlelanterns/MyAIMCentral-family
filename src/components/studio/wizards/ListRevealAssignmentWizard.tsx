@@ -13,7 +13,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Sparkles, Plus, Trash2, GripVertical, DollarSign, Star,
   Trophy, Shuffle, CheckCircle2, AlertCircle, Info,
-  Users, Zap, Gift,
+  Users, Zap, Gift, ClipboardList,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardDraft } from './useWizardDraft'
@@ -63,6 +63,7 @@ interface ListItemDraft {
   frequencyPeriod: FrequencyPeriod | null
   cooldownHours: number | null
   maxInstances: number | null
+  sectionName: string | null
 }
 
 interface WizardState {
@@ -149,14 +150,14 @@ export const CONSEQUENCE_SPINNER_PREFILL: ListRevealPreFill = {
   listName: 'Consequences',
   listDescription: 'Fair, pre-decided consequences the whole family agrees on.',
   items: [
-    { id: 'c1', name: 'Wash the dishes', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c2', name: 'Clean the bathroom mirror', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c3', name: 'Vacuum the living room', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c4', name: 'Write a kind note to each family member', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c5', name: '10 minutes of reading', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c6', name: 'Organize the shoe rack', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c7', name: 'Wipe down kitchen counters', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'c8', name: 'Help with dinner prep', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
+    { id: 'c1', name: 'Wash the dishes', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c2', name: 'Clean the bathroom mirror', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c3', name: 'Vacuum the living room', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c4', name: 'Write a kind note to each family member', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c5', name: '10 minutes of reading', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c6', name: 'Organize the shoe rack', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c7', name: 'Wipe down kitchen counters', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
+    { id: 'c8', name: 'Help with dinner prep', description: '', rewardType: '', rewardAmount: null, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: null },
   ],
   personPickMode: 'person_first',
   kidCanSkip: false,
@@ -168,12 +169,12 @@ export const EXTRA_EARNING_PREFILL: ListRevealPreFill = {
   listName: 'Extra Earning Opportunities',
   listDescription: 'Bonus jobs kids can claim for money.',
   items: [
-    { id: 'e1', name: 'Wash the car', description: '', rewardType: 'money', rewardAmount: 10, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null },
-    { id: 'e2', name: 'Mow the lawn', description: '', rewardType: 'money', rewardAmount: 15, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null },
-    { id: 'e3', name: 'Organize the pantry', description: '', rewardType: 'money', rewardAmount: 8, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'e4', name: 'Deep clean bedroom', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'e5', name: 'Help with laundry', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null },
-    { id: 'e6', name: 'Weed the garden', description: '', rewardType: 'money', rewardAmount: 12, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null },
+    { id: 'e1', name: 'Wash the car', description: '', rewardType: 'money', rewardAmount: 10, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null, sectionName: 'Weekly Jobs' },
+    { id: 'e2', name: 'Mow the lawn', description: '', rewardType: 'money', rewardAmount: 15, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null, sectionName: 'Weekly Jobs' },
+    { id: 'e3', name: 'Organize the pantry', description: '', rewardType: 'money', rewardAmount: 8, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Anytime Jobs' },
+    { id: 'e4', name: 'Deep clean bedroom', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Anytime Jobs' },
+    { id: 'e5', name: 'Help with laundry', description: '', rewardType: 'money', rewardAmount: 5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Anytime Jobs' },
+    { id: 'e6', name: 'Weed the garden', description: '', rewardType: 'money', rewardAmount: 12, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null, sectionName: 'Weekly Jobs' },
   ],
   claimLockHours: 24,
   approvalRequired: true,
@@ -367,6 +368,11 @@ export function ListRevealAssignmentWizard({
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
 
+  // Bulk paste
+  const [bulkInput, setBulkInput] = useState('')
+  const [isBulkParsing, setIsBulkParsing] = useState(false)
+  const [showBulkInput, setShowBulkInput] = useState(false)
+
   // Draft persistence
   const { draft, saveDraft, clearDraft } = useWizardDraft<WizardState>(
     'list_reveal_assignment',
@@ -466,6 +472,7 @@ export function ListRevealAssignmentWizard({
         frequencyPeriod: null,
         cooldownHours: null,
         maxInstances: null,
+        sectionName: null,
       }],
     }))
   }, [])
@@ -582,6 +589,7 @@ export function ListRevealAssignmentWizard({
           frequencyPeriod: null,
           cooldownHours: null,
           maxInstances: null,
+          sectionName: null,
         }))
         setAiSuggestions(suggestions)
         setAiSelectedIds(new Set(suggestions.map((s) => s.id)))
@@ -604,6 +612,126 @@ export function ListRevealAssignmentWizard({
     setAiSuggestions([])
     setAiSelectedIds(new Set())
   }, [aiSuggestions, aiSelectedIds])
+
+  // ── Bulk Paste + AI Parse ───────────────────────────────────
+
+  const handleBulkParse = useCallback(async () => {
+    if (!bulkInput.trim()) return
+    setIsBulkParsing(true)
+    setAiError('')
+
+    try {
+      const isOpportunity = state.flavor === 'opportunity'
+      const systemPrompt = isOpportunity
+        ? `You parse a mom's pasted list of earning opportunities / chores for kids into structured items.
+
+For each item, return a JSON object with:
+- "name": the cleaned-up task/job name (strip bullets, numbering, dashes)
+- "amount": dollar amount if mentioned ($5, 5$, 15 dollars → 15), or null
+- "description": any extra notes that are NOT timing/frequency info
+- "is_repeatable": boolean. true if the job can be done more than once. false if it's a one-time job.
+- "frequency_period": "day", "week", or "month" — how often the job resets. null if one-time or unlimited.
+- "cooldown_hours": minimum hours between completions (e.g., weekly → 168, monthly → 720, biweekly → 336). null if one-time or unlimited.
+- "max_instances": 1 for one-time jobs, null for repeatable jobs.
+
+Frequency detection rules:
+- "(can happen weekly)" or "weekly" → is_repeatable: true, frequency_period: "week", cooldown_hours: 168
+- "(once)" or "one-time" → is_repeatable: false, max_instances: 1
+- "(monthly)" or "once a month" → is_repeatable: true, frequency_period: "month", cooldown_hours: 720
+- "(every two weeks)" or "biweekly" → is_repeatable: true, frequency_period: "week", cooldown_hours: 336
+- "(daily)" or "every day" → is_repeatable: true, frequency_period: "day", cooldown_hours: 24
+- No timing mentioned → is_repeatable: true, frequency_period: null, cooldown_hours: null, max_instances: null (anytime)
+- Strip timing info from the name and description — it goes into the structured fields above
+
+Other rules:
+- Section headers / category headers → skip them, use as context
+- Grid/range patterns like "Drawer 1A through 3E" → EXPAND into individual items
+- Items with multiple price tiers (e.g., "Mow lawn $10 front / $15 back") → separate items with own amounts
+
+Return ONLY a JSON array. No markdown, no preamble.`
+        : `You parse a mom's pasted list of consequences or activities for a spinner/draw into structured items.
+
+For each item, return a JSON object with:
+- "name": the cleaned-up activity name (strip bullets, numbering, dashes)
+- "description": any extra notes
+- "is_repeatable": boolean. true unless explicitly one-time.
+- "frequency_period": "day", "week", or "month" if timing is mentioned, else null.
+- "cooldown_hours": minimum hours between draws. null if unlimited.
+- "max_instances": 1 for one-time items, null for repeatable.
+
+Rules:
+- Section headers → skip, use as context
+- Grid/range patterns → EXPAND into individual items
+- Keep the tone constructive — never add punitive language
+- Strip timing info from the name — it goes into the structured fields
+
+Return ONLY a JSON array. No markdown, no preamble.`
+
+      const response = await sendAIMessage(
+        systemPrompt,
+        [{ role: 'user', content: bulkInput }],
+        4096,
+        'haiku',
+      )
+
+      type BulkParsedItem = {
+        name: string
+        amount?: number | null
+        description?: string
+        is_repeatable?: boolean
+        frequency_period?: FrequencyPeriod | null
+        cooldown_hours?: number | null
+        max_instances?: number | null
+      }
+
+      const parsed = extractJSON<BulkParsedItem[]>(response)
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        const newItems: ListItemDraft[] = parsed
+          .filter((p) => p.name && p.name.trim())
+          .map((p) => {
+            const isOneTime = p.max_instances === 1 || p.is_repeatable === false
+            const fp = isOneTime ? null : (p.frequency_period as FrequencyPeriod | null) ?? null
+            const cd = isOneTime ? null : p.cooldown_hours ?? null
+
+            let sectionName: string | null = null
+            if (isOpportunity) {
+              if (isOneTime) sectionName = 'One-Time Jobs'
+              else if (fp === 'day') sectionName = 'Daily Jobs'
+              else if (fp === 'week' && cd && cd > 168) sectionName = 'Every Two Weeks'
+              else if (fp === 'week') sectionName = 'Weekly Jobs'
+              else if (fp === 'month') sectionName = 'Monthly Jobs'
+              else sectionName = 'Anytime Jobs'
+            }
+
+            return {
+              id: makeId(),
+              name: p.name.trim(),
+              description: p.description?.trim() || '',
+              rewardType: (isOpportunity && p.amount != null ? 'money' : '') as OpportunityRewardType | '',
+              rewardAmount: p.amount ?? null,
+              requireApproval: isOpportunity,
+              isRepeatable: !isOneTime,
+              frequencyPeriod: fp,
+              cooldownHours: cd,
+              maxInstances: isOneTime ? 1 : (p.max_instances ?? null),
+              sectionName,
+            }
+          })
+        setState((prev) => ({
+          ...prev,
+          items: [...prev.items, ...newItems],
+        }))
+        setBulkInput('')
+        setShowBulkInput(false)
+      } else {
+        setAiError('Could not parse your list. Try reformatting or adding items manually.')
+      }
+    } catch {
+      setAiError('Parsing failed. You can add items manually instead.')
+    } finally {
+      setIsBulkParsing(false)
+    }
+  }, [bulkInput, state.flavor])
 
   // ── Deploy ───────────────────────────────────────────────────
 
@@ -654,6 +782,7 @@ export function ListRevealAssignmentWizard({
           list_id: listId,
           content: item.name.trim(),
           notes: item.description || null,
+          section_name: item.sectionName || null,
           sort_order: idx,
           is_repeatable: item.isRepeatable,
           is_available: true,
@@ -1044,22 +1173,101 @@ export function ListRevealAssignmentWizard({
               : 'What goes in the draw? Add items for the spinner.'}
           </p>
 
-          {/* AI suggest button */}
-          {aiSuggestions.length === 0 && (
-            <button
-              type="button"
-              onClick={handleAISuggest}
-              disabled={aiLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center border"
+          {/* Bulk paste + AI suggest buttons */}
+          {aiSuggestions.length === 0 && !showBulkInput && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkInput(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center border"
+                style={{
+                  borderColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-bg)',
+                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
+                }}
+              >
+                <ClipboardList size={16} />
+                Bulk Add with AI
+              </button>
+              <button
+                type="button"
+                onClick={handleAISuggest}
+                disabled={aiLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center border"
+                style={{
+                  borderColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-bg)',
+                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
+                }}
+              >
+                <Sparkles size={16} />
+                {aiLoading ? 'Thinking...' : 'Let AI suggest items'}
+              </button>
+            </div>
+          )}
+
+          {/* Bulk paste panel */}
+          {showBulkInput && (
+            <div
+              className="rounded-lg border p-3 space-y-2"
               style={{
                 borderColor: 'var(--color-btn-primary-bg)',
-                color: 'var(--color-btn-primary-bg)',
-                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 3%, var(--color-bg-primary))',
               }}
             >
-              <Sparkles size={16} />
-              {aiLoading ? 'Thinking...' : 'Let AI suggest items'}
-            </button>
+              <span
+                className="text-sm font-medium flex items-center gap-1.5"
+                style={{ color: 'var(--color-text-heading)' }}
+              >
+                <ClipboardList size={14} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                Bulk Add with AI
+              </span>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {state.flavor === 'opportunity'
+                  ? 'Paste items with dollar amounts. AI extracts names, prices, and notes.'
+                  : 'Paste items for the spinner. One per line, or any format — AI figures it out.'}
+              </p>
+              <textarea
+                value={bulkInput}
+                onChange={(e) => setBulkInput(e.target.value)}
+                placeholder={state.flavor === 'opportunity'
+                  ? 'e.g.\nWash the car $10\nOrganize pantry $5 (can happen weekly)\nMow the lawn - front $10 / back $15'
+                  : 'e.g.\nWash the dishes\nVacuum the living room\n10 minutes of reading\nWrite a kind note to each family member'}
+                rows={6}
+                className="w-full px-3 py-2 rounded-lg text-sm border resize-y"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleBulkParse}
+                  disabled={isBulkParsing || !bulkInput.trim()}
+                  className="flex-1 flex items-center gap-2 justify-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-text)',
+                  }}
+                >
+                  <Sparkles size={14} />
+                  {isBulkParsing ? 'Parsing...' : 'Add to list'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowBulkInput(false); setBulkInput('') }}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
 
           {aiError && (
