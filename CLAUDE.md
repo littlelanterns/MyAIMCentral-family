@@ -501,7 +501,7 @@ This process exists because weeks of careful planning went into every PRD and ad
 237. **Schedule Editor is the Universal Scheduler** (PRD-35 addendum). `showTimeDefault={true}`. Stores RRULE JSONB in `meeting_schedules.recurrence_details`. Calendar integration is opt-in via checkbox.
 238. **Stale meeting auto-cancel is client-side**, checked on MeetingsPage load. 24h prompt → 7-day auto-cancel. No dedicated cron job.
 239. **Meeting summaries auto-save to journal** with `entry_type='meeting_notes'` on Save & Close. Automatic, not user-triggered.
-240. **MeetingPickerOverlay** is the inline overlay for Notepad "Send to → Agenda" — shows upcoming meetings grouped by type, user picks one, creates `meeting_agenda_items` record with `source='notepad_route'`.
+240. **MeetingPickerOverlay** is the multi-select grid overlay for routing items to Touch Base conversations. Shows partner, each child, "The Whole Family," and custom templates as colored pill buttons. User selects one or more, confirms, and the overlay creates `meeting_agenda_items` records with the appropriate `meeting_type` and `related_member_id`. Used by NotepadDrawer (`source='notepad_route'`), SortTab (`source='queue_route'`), and available from MindSweep (`source='mindsweep'`).
 
 ## Build Strictness (Non-Negotiable)
 

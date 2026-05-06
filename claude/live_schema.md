@@ -224,7 +224,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 203 rows
+### `feature_key_registry` — 207 rows
 
 | # | Column |
 |---|---|
@@ -392,7 +392,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 634 rows
+### `ai_usage_tracking` — 635 rows
 
 | # | Column |
 |---|---|
@@ -498,7 +498,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 64 rows
+### `journal_entries` — 79 rows
 
 | # | Column |
 |---|---|
@@ -527,7 +527,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 21 rows
+### `notepad_tabs` — 23 rows
 
 | # | Column |
 |---|---|
@@ -743,6 +743,7 @@
 | 77 | `instantiation_mode` |
 | 78 | `collaboration_mode` |
 | 79 | `life_area_tags` |
+| 80 | `pool_id` |
 
 ### `task_assignments` — 34 rows
 
@@ -785,7 +786,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 744 rows
+### `routine_step_completions` — 801 rows
 
 | # | Column |
 |---|---|
@@ -823,6 +824,7 @@
 | 18 | `default_require_evidence` |
 | 19 | `default_track_duration` |
 | 20 | `life_area_tags` |
+| 21 | `allow_out_of_order` |
 
 ### `task_claims` — 0 rows
 
@@ -1763,7 +1765,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2480,7 +2482,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 215 rows
+### `activity_log_entries` — 231 rows
 
 | # | Column |
 |---|---|
@@ -2608,6 +2610,17 @@
 | 26 | `updated_at` |
 | 27 | `bonus_type` |
 | 28 | `bonus_flat_amount` |
+| 29 | `pool_name` |
+| 30 | `pool_type` |
+| 31 | `payout_mode` |
+| 32 | `pool_status` |
+| 33 | `pool_weight` |
+| 34 | `pool_owner_member_id` |
+| 35 | `term_start_date` |
+| 36 | `term_end_date` |
+| 37 | `close_on_event_source_type` |
+| 38 | `close_on_event_source_id` |
+| 39 | `overage_cap` |
 
 ### `allowance_dispatch_audit` — 4 rows
 
@@ -2672,6 +2685,8 @@
 | 23 | `closed_early` |
 | 24 | `created_at` |
 | 25 | `updated_at` |
+| 26 | `pool_name` |
+| 27 | `combined_percentage` |
 
 ### `assign_task_godmother_configs` — 0 rows
 
@@ -2987,6 +3002,7 @@
 | 11 | `note` |
 | 12 | `metadata` |
 | 13 | `created_at` |
+| 14 | `pool_name` |
 
 ### `gamification_configs` — 18 rows
 
@@ -3172,7 +3188,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `meeting_agenda_items` — 10 rows
+### `meeting_agenda_items` — 40 rows
 
 | # | Column |
 |---|---|
@@ -3202,7 +3218,7 @@
 | 5 | `notified_at` |
 | 6 | `created_at` |
 
-### `meeting_schedules` — 9 rows
+### `meeting_schedules` — 0 rows
 
 | # | Column |
 |---|---|
@@ -3221,7 +3237,7 @@
 | 13 | `created_at` |
 | 14 | `updated_at` |
 
-### `meeting_template_sections` — 31174 rows
+### `meeting_template_sections` — 18 rows
 
 | # | Column |
 |---|---|
@@ -3534,7 +3550,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 59 rows
+### `reflection_responses` — 73 rows
 
 | # | Column |
 |---|---|
@@ -3647,7 +3663,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 22 rows
+### `rhythm_completions` — 24 rows
 
 | # | Column |
 |---|---|

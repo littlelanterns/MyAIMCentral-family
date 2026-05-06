@@ -1,23 +1,20 @@
 /**
- * calculate-allowance-period — PRD-28 Allowance Period Calculation
+ * calculate-allowance-period — PRD-28 Multi-Pool Allowance Period Calculation
  *
- * Called by pg_cron (migration 100134) via pg_net. Runs hourly at :10.
- * For each family, checks whether the current hour in the family's
- * local timezone is 0 (first hour of local midnight). If so, processes
- * every child with an active allowance_periods row whose period_end
- * has passed, calculates the final completion %, applies grace days /
- * makeup / extra credit / bonus, writes the allowance_earned transaction,
- * handles auto-deduct loan repayments, closes the period, and opens
- * the next one.
+ * Called by pg_cron via util.invoke_edge_function. Runs hourly at :10.
+ * For each family, checks whether any child has expired allowance periods
+ * across any pool. Processes per-pool independently, then computes the
+ * weighted combination for the combined payout.
  *
- * Pro-rated assignments: when a task or routine is added to the allowance
- * pool mid-period, its pool weight is scaled to (days_active / period_days)
- * where days_active is counted from max(task.created_at_date, period_start)
- * through period_end inclusive. For routines, the same shrinkage is applied
- * to the "total possible steps" denominator (total_steps × days_active). A
- * completed task still credits its full weight toward the numerator — the
- * kid gets full credit for completing something, but only a partial penalty
- * if they didn't (the thing wasn't on their list the whole week).
+ * Phase 3.5 multi-pool changes:
+ *   - Each kid can have N pools with independent configs and periods
+ *   - Each pool closes independently on its own schedule
+ *   - Combined payout = sum of individual pool payouts (non-measurement-only)
+ *   - Combined percentage = weighted average across pools (informational)
+ *   - Cross-pool penalty/multiplier contracts evaluated at period close
+ *   - Per-pool pool_contribution informational transactions for the ledger
+ *   - Measurement-only pools close (record %) but write NO financial transaction
+ *   - Backward compatible: single "default" pool behaves identically to pre-multi-pool
  *
  * Auth: service role only.
  */
@@ -35,9 +32,30 @@ interface ProcessingStats {
   periods_closed: number
   periods_opened: number
   transactions_created: number
+  pool_contributions_created: number
   loan_repayments: number
+  cross_pool_adjustments: number
   errors: string[]
 }
+
+interface PoolCloseResult {
+  poolName: string
+  periodId: string
+  configId: string
+  completionPct: number
+  totalEarned: number
+  bonusApplied: boolean
+  bonusAmount: number
+  calculatedAmount: number
+  payoutMode: string
+  poolWeight: number
+  weeklyAmount: number
+  isMeasurementOnly: boolean
+  calculationDetails: Record<string, unknown>
+}
+
+// deno-lint-ignore no-explicit-any
+type SupabaseClient = ReturnType<typeof createClient<any>>
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req)
@@ -61,12 +79,13 @@ Deno.serve(async (req) => {
     periods_closed: 0,
     periods_opened: 0,
     transactions_created: 0,
+    pool_contributions_created: 0,
     loan_repayments: 0,
+    cross_pool_adjustments: 0,
     errors: [],
   }
 
   try {
-    // 1. Load all families
     const { data: families, error: familiesError } = await supabase
       .from('families')
       .select('id, timezone')
@@ -78,15 +97,11 @@ Deno.serve(async (req) => {
     stats.families_checked = families.length
     const now = new Date()
 
-    // 2. Check each family's local time
     for (const family of families) {
       const timezone = family.timezone || 'America/Chicago'
       let currentLocalHour: number
       let currentLocalMinute: number
       try {
-        // NEW-II: capture both hour AND minute so per-child calculation_time
-        // gating can compute a minute-level window. Replaces the hard-coded
-        // `currentLocalHour !== 0` family-wide gate that ignored config.
         const parts = new Intl.DateTimeFormat('en-US', {
           hour: '2-digit',
           minute: '2-digit',
@@ -100,7 +115,6 @@ Deno.serve(async (req) => {
       }
       const currentMinutesOfDay = currentLocalHour * 60 + currentLocalMinute
 
-      // Local date in YYYY-MM-DD
       const localDateStr = new Intl.DateTimeFormat('en-CA', {
         year: 'numeric',
         month: '2-digit',
@@ -108,14 +122,9 @@ Deno.serve(async (req) => {
         timeZone: timezone,
       }).format(now)
 
-      // NEW-II: family-wide hour 0 gate removed. Per-child gating moves
-      // inside the period loop after the config is loaded, so each child's
-      // configured calculation_time is honored. The existing
-      // `period_end < localDateStr` filter still ensures we never fire
-      // before the period has actually ended.
-      stats.families_at_midnight++ // legacy stat name kept; semantic now is "families considered this hour"
+      stats.families_at_midnight++
 
-      // 3. Load active periods that have ended
+      // Load active periods that have ended (across all pools)
       const { data: periods, error: periodsError } = await supabase
         .from('allowance_periods')
         .select('*')
@@ -127,225 +136,346 @@ Deno.serve(async (req) => {
         stats.errors.push(`periods load: ${periodsError.message}`)
         continue
       }
-      if (!periods?.length) continue
+      if (!periods?.length) {
+        await processMakeupWindows(supabase, family.id, localDateStr, now)
+        continue
+      }
 
+      // Group periods by family_member_id
+      const periodsByMember = new Map<string, typeof periods>()
       for (const period of periods) {
-        stats.periods_processed++
+        const memberId = period.family_member_id as string
+        if (!periodsByMember.has(memberId)) {
+          periodsByMember.set(memberId, [])
+        }
+        periodsByMember.get(memberId)!.push(period)
+      }
 
+      // Process each member's pools
+      for (const [memberId, memberPeriods] of periodsByMember) {
         try {
-          // Load the child's allowance config
-          const { data: config } = await supabase
+          // Load ALL pool configs for this member (active + enabled)
+          const { data: configs } = await supabase
             .from('allowance_configs')
             .select('*')
-            .eq('family_member_id', period.family_member_id)
-            .maybeSingle()
+            .eq('family_member_id', memberId)
+            .eq('pool_status', 'active')
+            .eq('enabled', true)
 
-          if (!config?.enabled) continue
+          if (!configs?.length) continue
 
-          // NEW-II — calculation_time per-child precision.
-          //
-          // PRD-28 Screen 2 Section 7 (L214): calculation_time TIME NOT NULL
-          // DEFAULT '23:59:00' specifies WHEN end-of-period calculation
-          // runs. Pre-NEW-II, the function gated on `currentLocalHour === 0`
-          // (midnight family-local) regardless of config. For default 23:59
-          // that's ~10 minutes off but functionally equivalent; for any
-          // non-default value (e.g. 07:00) it was wrong by hours.
-          //
-          // New gate: cron runs hourly, so we fire when the current
-          // minutes-of-day falls in a 1-hour window starting at
-          // calculation_time. The window wraps midnight when calc_time is
-          // in the last hour of the day, which preserves the legacy default
-          // behavior (calc_time=23:59 → window covers 23:59 + the next
-          // 00:xx hour, and the existing `period_end < localDateStr` filter
-          // forces the firing to land on the day AFTER period_end).
-          //
-          // Examples (cron fires at HH:10 of each local hour):
-          // - calc_time=23:59 (= 1439 min): window = [1439, 1499 mod 1440)
-          //   = [1439, 1440) ∪ [0, 59). Cron at 23:10 local → 1390, NOT in
-          //   window. Cron at 00:10 next day → 10, IN window. period_end
-          //   < localDateStr (next day), so fires. ✓
-          // - calc_time=07:00 (= 420 min): window = [420, 480). Cron at
-          //   07:10 local → 430, IN window. Day after period_end fires. ✓
-          // - calc_time=18:30 (= 1110 min): window = [1110, 1170). Cron at
-          //   18:10 local → 1090, NOT in window. Cron at 19:10 → 1150, IN
-          //   window. (1-hour delay vs ideal 18:30; tolerated per spec.)
-          const calcTimeStr = (config.calculation_time as string) || '23:59:00'
-          const [calcHour, calcMin] = calcTimeStr.split(':').map(Number)
-          const calcMinutesOfDay = (calcHour * 60) + (calcMin || 0)
-          const windowEndExclusive = calcMinutesOfDay + 60
-          let inCalcTimeWindow: boolean
-          if (windowEndExclusive <= 1440) {
-            inCalcTimeWindow =
-              currentMinutesOfDay >= calcMinutesOfDay &&
-              currentMinutesOfDay < windowEndExclusive
-          } else {
-            // Wraparound: e.g. calc_time 23:59 means window spans into
-            // the next day's 00:xx hour.
-            const wrapEnd = windowEndExclusive % 1440
-            inCalcTimeWindow =
-              currentMinutesOfDay >= calcMinutesOfDay ||
-              currentMinutesOfDay < wrapEnd
-          }
-          if (!inCalcTimeWindow) continue
+          const poolResults: PoolCloseResult[] = []
 
-          // If makeup window is enabled and we're still in the window, skip
-          if (config.makeup_window_enabled) {
-            const windowEnd = addDays(period.period_end, config.makeup_window_days)
-            if (localDateStr <= windowEnd) {
-              // Update status to makeup_window if not already
-              if (period.status === 'active') {
-                await supabase
-                  .from('allowance_periods')
-                  .update({ status: 'makeup_window' })
-                  .eq('id', period.id)
-              }
+          // Process each pool independently
+          for (const period of memberPeriods) {
+            stats.periods_processed++
+
+            const poolName = (period.pool_name as string) ?? 'default'
+            const config = configs.find(
+              // deno-lint-ignore no-explicit-any
+              (c: any) => c.pool_name === poolName,
+            )
+
+            if (!config) {
+              stats.errors.push(`period ${period.id}: no matching config for pool '${poolName}'`)
               continue
             }
-          }
 
-          // 4. Call the shared RPC for frequency-day-aware tally.
-          // Single source of truth — same math as the live widget (see
-          // migration 100154 + 100171 + 100172 + 100175).
-          // NEW-GG: pass `period.grace_days` so denominator and numerator
-          // both respect marked grace days.
-          // NEW-TT (100175): grace_days is now JSONB (string[] or
-          // {date,mode}[]); pass through as-is. Bare strings are read as
-          // mode='full_exclude' for back-compat with pre-NEW-TT data.
-          // deno-lint-ignore no-explicit-any
-          const gracePayload: any[] = Array.isArray(period.grace_days)
-            ? (period.grace_days as unknown[])
-            : []
-          const { data: progressRows, error: progressError } = await supabase
-            .rpc('calculate_allowance_progress', {
-              p_member_id: period.family_member_id,
-              p_period_start: period.period_start,
-              p_period_end: period.period_end,
-              p_grace_days: gracePayload.length > 0 ? gracePayload : null,
-            })
+            // Check calculation_time window per config
+            if (!isInCalcTimeWindow(config.calculation_time, currentMinutesOfDay)) {
+              continue
+            }
 
-          if (progressError || !progressRows?.[0]) {
-            stats.errors.push(`period ${period.id}: progress rpc failed — ${progressError?.message ?? 'empty result'}`)
-            continue
-          }
+            // Check payout_mode readiness
+            const payoutMode = (config.payout_mode as string) ?? 'weekly'
 
-          const progress = progressRows[0]
+            if (payoutMode === 'event_driven') {
+              // Event-driven pools don't close on time
+              continue
+            }
 
-          // Count raw task rows for the display column total_tasks_assigned.
-          // Must include tasks assigned via task_assignments (shared tasks),
-          // not only tasks.assignee_id. Two queries + deduplicate since
-          // supabase-js HEAD counts can't express OR-across-tables.
-          const { count: primaryCount } = await supabase
-            .from('tasks')
-            .select('id', { count: 'exact', head: true })
-            .eq('family_id', family.id)
-            .eq('assignee_id', period.family_member_id)
-            .eq('counts_for_allowance', true)
-            .is('archived_at', null)
-            .lte('created_at', period.period_end + 'T23:59:59Z')
+            if (payoutMode === 'term') {
+              const termEnd = config.term_end_date as string | null
+              if (termEnd && localDateStr <= termEnd) {
+                continue
+              }
+            }
 
-          const { count: additionalCount } = await supabase
-            .from('task_assignments')
-            .select('task_id, tasks!inner(family_id, counts_for_allowance, archived_at, created_at, assignee_id)', { count: 'exact', head: true })
-            .eq('member_id', period.family_member_id)
-            .eq('tasks.family_id', family.id)
-            .eq('tasks.counts_for_allowance', true)
-            .is('tasks.archived_at', null)
-            .lte('tasks.created_at', period.period_end + 'T23:59:59Z')
-            .neq('tasks.assignee_id', period.family_member_id)
+            // Handle makeup window
+            if (config.makeup_window_enabled) {
+              const windowEnd = addDays(period.period_end, config.makeup_window_days ?? 2)
+              if (localDateStr <= windowEnd) {
+                if (period.status === 'active') {
+                  await supabase
+                    .from('allowance_periods')
+                    .update({ status: 'makeup_window' })
+                    .eq('id', period.id)
+                }
+                continue
+              }
+            }
 
-          const totalTasksAssignedCount = (primaryCount ?? 0) + (additionalCount ?? 0)
-
-          const completionPct = Number(progress.completion_percentage)
-          const calculatedAmount = Number(progress.calculated_amount)
-          const bonusApplied = Boolean(progress.bonus_applied)
-          const bonusAmount = Number(progress.bonus_amount)
-          const totalEarned = Number(progress.total_earned)
-          const effectiveAssigned = Math.round(Number(progress.effective_tasks_assigned))
-          const effectiveCompleted = Math.round(Number(progress.effective_tasks_completed))
-          // NEW-EE (migration 100171): RPC now returns extra_credit_completed
-          // as its own column. This call site previously hardcoded 0 on the
-          // update write. Null-coalesce to 0 so older RPC bodies still work.
-          const extraCreditCompleted = Math.round(Number(progress.extra_credit_completed ?? 0))
-          const extraCreditWeightAdded = Number(progress.extra_credit_weight_added ?? 0)
-          // NEW-TT: grace_days entries can be string OR {date,mode}.
-          // For the `calculation_details.grace_days` audit field below,
-          // we keep the raw JSONB shape (mom can inspect the audit blob
-          // and see modes if she's curious).
-          const graceDays: unknown[] = Array.isArray(period.grace_days)
-            ? (period.grace_days as unknown[])
-            : []
-
-          // NEW-GG audit: compute the `grace_day_tasks_excluded` display
-          // tally by calling the RPC a second time WITHOUT grace days and
-          // diffing the effective_tasks_assigned. Once per-period at close
-          // time; negligible cost. When no grace days are marked, skip.
-          let graceDayTasksExcluded = 0
-          if (graceDays.length > 0) {
-            const { data: noGraceRows } = await supabase
+            // Call per-pool RPC
+            // deno-lint-ignore no-explicit-any
+            const gracePayload: any[] = Array.isArray(period.grace_days)
+              ? (period.grace_days as unknown[])
+              : []
+            const { data: progressRows, error: progressError } = await supabase
               .rpc('calculate_allowance_progress', {
-                p_member_id: period.family_member_id,
+                p_member_id: memberId,
                 p_period_start: period.period_start,
                 p_period_end: period.period_end,
-                p_grace_days: null,
+                p_grace_days: gracePayload.length > 0 ? gracePayload : null,
+                p_pool_name: poolName,
               })
-            const noGrace = noGraceRows?.[0]
-            if (noGrace) {
-              const noGraceAssigned = Math.round(Number(noGrace.effective_tasks_assigned))
-              graceDayTasksExcluded = Math.max(0, noGraceAssigned - effectiveAssigned)
+
+            if (progressError || !progressRows?.[0]) {
+              stats.errors.push(
+                `period ${period.id} pool '${poolName}': progress rpc failed — ${progressError?.message ?? 'empty result'}`,
+              )
+              continue
+            }
+
+            const progress = progressRows[0]
+
+            // Count raw task rows for total_tasks_assigned display
+            const totalTasksAssignedCount = await countAssignedTasks(
+              supabase,
+              family.id,
+              memberId,
+              period.period_end,
+              config.id,
+              poolName,
+            )
+
+            const completionPct = Number(progress.completion_percentage)
+            const calculatedAmount = Number(progress.calculated_amount)
+            const bonusApplied = Boolean(progress.bonus_applied)
+            const bonusAmount = Number(progress.bonus_amount)
+            const totalEarned = Number(progress.total_earned)
+            const effectiveAssigned = Math.round(Number(progress.effective_tasks_assigned))
+            const effectiveCompleted = Math.round(Number(progress.effective_tasks_completed))
+            const extraCreditCompleted = Math.round(Number(progress.extra_credit_completed ?? 0))
+            const extraCreditWeightAdded = Number(progress.extra_credit_weight_added ?? 0)
+            const graceDays: unknown[] = Array.isArray(period.grace_days)
+              ? (period.grace_days as unknown[])
+              : []
+
+            // Grace-day exclusion audit tally
+            let graceDayTasksExcluded = 0
+            if (graceDays.length > 0) {
+              const { data: noGraceRows } = await supabase
+                .rpc('calculate_allowance_progress', {
+                  p_member_id: memberId,
+                  p_period_start: period.period_start,
+                  p_period_end: period.period_end,
+                  p_grace_days: null,
+                  p_pool_name: poolName,
+                })
+              const noGrace = noGraceRows?.[0]
+              if (noGrace) {
+                const noGraceAssigned = Math.round(Number(noGrace.effective_tasks_assigned))
+                graceDayTasksExcluded = Math.max(0, noGraceAssigned - effectiveAssigned)
+              }
+            }
+
+            // Close the period
+            const calculationDetails = {
+              approach: progress.calculation_approach,
+              total_points: Number(progress.total_points),
+              completed_points: Number(progress.completed_points),
+              grace_days: graceDays,
+              minimum_threshold: Number(progress.minimum_threshold),
+              bonus_threshold: Number(progress.bonus_threshold),
+              extra_credit_completed: extraCreditCompleted,
+              extra_credit_weight_added: extraCreditWeightAdded,
+              numerator_boost_total: Number(progress.numerator_boost_total ?? 0),
+              pool_name: poolName,
+              rpc: 'calculate_allowance_progress',
+            }
+
+            await supabase
+              .from('allowance_periods')
+              .update({
+                status: 'calculated',
+                total_tasks_assigned: totalTasksAssignedCount ?? 0,
+                grace_day_tasks_excluded: graceDayTasksExcluded,
+                effective_tasks_assigned: effectiveAssigned,
+                tasks_completed: Math.max(0, effectiveCompleted - extraCreditCompleted),
+                extra_credit_completed: extraCreditCompleted,
+                effective_tasks_completed: effectiveCompleted,
+                completion_percentage: completionPct,
+                calculated_amount: calculatedAmount,
+                bonus_applied: bonusApplied,
+                bonus_amount: bonusAmount,
+                total_earned: totalEarned,
+                calculation_details: calculationDetails,
+                calculated_at: now.toISOString(),
+                closed_at: now.toISOString(),
+              })
+              .eq('id', period.id)
+
+            stats.periods_closed++
+
+            const isMeasurementOnly = payoutMode === 'measurement_only'
+
+            poolResults.push({
+              poolName,
+              periodId: period.id,
+              configId: config.id,
+              completionPct,
+              totalEarned,
+              bonusApplied,
+              bonusAmount,
+              calculatedAmount,
+              payoutMode,
+              poolWeight: Number(config.pool_weight ?? 1.0),
+              weeklyAmount: Number(config.weekly_amount ?? 0),
+              isMeasurementOnly,
+              calculationDetails,
+            })
+
+            // Open next period for this pool
+            const nextStart = addDays(period.period_end, 1)
+            await supabase
+              .from('allowance_periods')
+              .insert({
+                family_id: family.id,
+                family_member_id: memberId,
+                pool_name: poolName,
+                period_start: nextStart,
+                status: 'active',
+                base_amount: config.weekly_amount,
+              })
+
+            stats.periods_opened++
+          }
+
+          // Skip financial transactions if no pools closed
+          if (poolResults.length === 0) continue
+
+          // Compute weighted combination (uses live progress for all pools,
+          // including any that didn't close this cycle)
+          const latestPeriod = memberPeriods[0]
+          const { data: combinationRows } = await supabase
+            .rpc('calculate_weighted_combination', {
+              p_member_id: memberId,
+              p_period_start: latestPeriod.period_start,
+              p_period_end: latestPeriod.period_end,
+            })
+
+          const combination = combinationRows?.[0]
+          const combinedPercentage = Number(combination?.combined_percentage ?? 0)
+          const poolDetails = combination?.pool_details ?? []
+
+          // Write combined_percentage on each closed pool's period row (option a)
+          for (const result of poolResults) {
+            await supabase
+              .from('allowance_periods')
+              .update({
+                combined_percentage: combinedPercentage,
+                calculation_details: {
+                  ...result.calculationDetails,
+                  combined_percentage: combinedPercentage,
+                  pool_details: poolDetails,
+                },
+              })
+              .eq('id', result.periodId)
+          }
+
+          // Sum total earned across non-measurement-only pools
+          let combinedPayoutAmount = poolResults
+            .filter((r) => !r.isMeasurementOnly)
+            .reduce((sum, r) => sum + r.totalEarned, 0)
+
+          // Evaluate cross-pool penalty/multiplier contracts
+          const crossPoolAdjustments = await evaluateCrossPoolContracts(
+            supabase,
+            memberId,
+            family.id,
+            poolResults,
+            poolDetails,
+          )
+
+          if (crossPoolAdjustments.length > 0) {
+            for (const adj of crossPoolAdjustments) {
+              if (adj.type === 'multiplicative') {
+                combinedPayoutAmount *= (1 - adj.rate)
+              } else if (adj.type === 'additive') {
+                combinedPayoutAmount += adj.amount
+              }
+              stats.cross_pool_adjustments++
+            }
+            combinedPayoutAmount = Math.max(0, Math.round(combinedPayoutAmount * 100) / 100)
+
+            // Record adjustments on the period calculation_details
+            for (const result of poolResults) {
+              const { data: periodRow } = await supabase
+                .from('allowance_periods')
+                .select('calculation_details')
+                .eq('id', result.periodId)
+                .single()
+
+              if (periodRow) {
+                await supabase
+                  .from('allowance_periods')
+                  .update({
+                    calculation_details: {
+                      ...(periodRow.calculation_details as Record<string, unknown>),
+                      cross_pool_adjustments: crossPoolAdjustments,
+                      combined_payout_after_adjustments: combinedPayoutAmount,
+                    },
+                  })
+                  .eq('id', result.periodId)
+              }
             }
           }
 
-          // 5. Close the period
-          await supabase
-            .from('allowance_periods')
-            .update({
-              status: 'calculated',
-              total_tasks_assigned: totalTasksAssignedCount ?? 0,
-              grace_day_tasks_excluded: graceDayTasksExcluded,
-              effective_tasks_assigned: effectiveAssigned,
-              // tasks_completed now reports the REGULAR (non-extra-credit)
-              // completions portion only, matching the semantic split on the
-              // table (tasks_completed + extra_credit_completed = numerator).
-              tasks_completed: Math.max(0, effectiveCompleted - extraCreditCompleted),
-              extra_credit_completed: extraCreditCompleted,
-              effective_tasks_completed: effectiveCompleted,
-              completion_percentage: completionPct,
-              calculated_amount: calculatedAmount,
-              bonus_applied: bonusApplied,
-              bonus_amount: bonusAmount,
-              total_earned: totalEarned,
-              calculation_details: {
-                approach: progress.calculation_approach,
-                total_points: Number(progress.total_points),
-                completed_points: Number(progress.completed_points),
-                grace_days: graceDays,
-                minimum_threshold: Number(progress.minimum_threshold),
-                bonus_threshold: Number(progress.bonus_threshold),
-                extra_credit_completed: extraCreditCompleted,
-                extra_credit_weight_added: extraCreditWeightAdded,
-                rpc: 'calculate_allowance_progress',
-              },
-              calculated_at: now.toISOString(),
-              closed_at: now.toISOString(),
+          // Write per-pool informational transactions
+          for (const result of poolResults) {
+            if (result.isMeasurementOnly) continue
+
+            const { data: balForContrib } = await supabase.rpc('calculate_running_balance', {
+              p_member_id: memberId,
             })
-            .eq('id', period.id)
 
-          stats.periods_closed++
+            await supabase
+              .from('financial_transactions')
+              .insert({
+                family_id: family.id,
+                family_member_id: memberId,
+                transaction_type: 'pool_contribution',
+                amount: 0,
+                balance_after: Number(balForContrib ?? 0),
+                description: `${result.poolName} pool: ${result.completionPct.toFixed(1)}% (weight ${result.poolWeight})`,
+                source_type: 'allowance_period',
+                source_reference_id: result.periodId,
+                pool_name: result.poolName,
+                metadata: {
+                  pool_percentage: result.completionPct,
+                  pool_weight: result.poolWeight,
+                  pool_earned: result.totalEarned,
+                  bonus_applied: result.bonusApplied,
+                  bonus_amount: result.bonusAmount,
+                },
+              })
 
-          // 6. Create allowance_earned transaction
-          if (totalEarned > 0) {
-            // Get current balance
+            stats.pool_contributions_created++
+          }
+
+          // Write the combined allowance_earned transaction
+          if (combinedPayoutAmount > 0) {
             const { data: balanceData } = await supabase.rpc('calculate_running_balance', {
-              p_member_id: period.family_member_id,
+              p_member_id: memberId,
             })
             let currentBalance = Number(balanceData ?? 0)
 
             // Handle auto-deduct loan repayments BEFORE recording allowance
-            let netEarned = totalEarned
+            let netEarned = combinedPayoutAmount
             const { data: activeLoans } = await supabase
               .from('loans')
               .select('id, remaining_balance, auto_deduct_amount, repayment_mode')
-              .eq('family_member_id', period.family_member_id)
+              .eq('family_member_id', memberId)
               .eq('status', 'active')
               .eq('repayment_mode', 'auto_deduct')
 
@@ -360,15 +490,14 @@ Deno.serve(async (req) => {
                 )
                 if (deductAmount <= 0) continue
 
-                // Create loan repayment transaction
-                currentBalance = currentBalance + totalEarned // add allowance first
-                currentBalance = currentBalance - deductAmount // then deduct repayment
+                currentBalance = currentBalance + combinedPayoutAmount
+                currentBalance = currentBalance - deductAmount
 
                 await supabase
                   .from('financial_transactions')
                   .insert({
                     family_id: family.id,
-                    family_member_id: period.family_member_id,
+                    family_member_id: memberId,
                     transaction_type: 'loan_repayment',
                     amount: -deductAmount,
                     balance_after: currentBalance,
@@ -377,16 +506,14 @@ Deno.serve(async (req) => {
                     source_reference_id: loan.id,
                   })
 
-                // Update loan balance
                 const newLoanBalance = Number(loan.remaining_balance) - deductAmount
                 await supabase
                   .from('loans')
                   .update({
                     remaining_balance: newLoanBalance,
-                    ...(newLoanBalance <= 0 ? {
-                      status: 'paid_off',
-                      paid_off_at: now.toISOString(),
-                    } : {}),
+                    ...(newLoanBalance <= 0
+                      ? { status: 'paid_off', paid_off_at: now.toISOString() }
+                      : {}),
                   })
                   .eq('id', loan.id)
 
@@ -395,82 +522,59 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Create allowance earned transaction (full amount before deductions)
-            const balanceAfterAllowance = (Number(balanceData ?? 0)) + totalEarned
+            // Build description showing per-pool breakdown
+            const payoutPools = poolResults.filter((r) => !r.isMeasurementOnly)
+            let description: string
+            if (payoutPools.length === 1) {
+              const p = payoutPools[0]
+              description = `Allowance — ${p.completionPct.toFixed(1)}% of $${p.weeklyAmount.toFixed(2)}${p.bonusApplied ? ' + bonus' : ''}`
+            } else {
+              const poolSummaries = payoutPools
+                .map((p) => `${p.poolName}: ${p.completionPct.toFixed(1)}%`)
+                .join(', ')
+              description = `Allowance — ${poolSummaries} (combined ${combinedPercentage.toFixed(1)}%)`
+            }
+
+            const balanceAfterAllowance = Number(balanceData ?? 0) + combinedPayoutAmount
             await supabase
               .from('financial_transactions')
               .insert({
                 family_id: family.id,
-                family_member_id: period.family_member_id,
+                family_member_id: memberId,
                 transaction_type: 'allowance_earned',
-                amount: totalEarned,
+                amount: combinedPayoutAmount,
                 balance_after: balanceAfterAllowance,
-                description: `Weekly allowance — ${completionPct}% of $${Number(config.weekly_amount).toFixed(2)}${bonusApplied ? ' + bonus' : ''}`,
+                description,
                 source_type: 'allowance_period',
-                source_reference_id: period.id,
+                source_reference_id: poolResults[0].periodId,
+                pool_name: null,
                 metadata: {
-                  period_start: period.period_start,
-                  period_end: period.period_end,
-                  completion_percentage: completionPct,
-                  bonus_applied: bonusApplied,
+                  pool_count: payoutPools.length,
+                  combined_percentage: combinedPercentage,
+                  pool_details: poolDetails,
+                  cross_pool_adjustments: crossPoolAdjustments.length > 0
+                    ? crossPoolAdjustments
+                    : undefined,
+                  per_pool: payoutPools.map((p) => ({
+                    pool_name: p.poolName,
+                    completion_percentage: p.completionPct,
+                    total_earned: p.totalEarned,
+                    bonus_applied: p.bonusApplied,
+                  })),
                 },
               })
 
             stats.transactions_created++
           }
-
-          // 7. Open next period.
-          // Row 9 SCOPE-3.F14 / migration 100163: period_end is derived by the
-          // BEFORE INSERT trigger (period_start + 6 for subsequent periods).
-          // We send period_start explicitly so the trigger's "subsequent-period
-          // respect exactly" branch kicks in rather than its
-          // "fall-back-to-prior-row" branch, keeping the inductive schedule
-          // alignment crisp.
-          const nextStart = addDays(period.period_end, 1)
-
-          await supabase
-            .from('allowance_periods')
-            .insert({
-              family_id: family.id,
-              family_member_id: period.family_member_id,
-              period_start: nextStart,
-              // period_end intentionally omitted — trigger derives.
-              status: 'active',
-              base_amount: config.weekly_amount,
-            })
-
-          stats.periods_opened++
         } catch (err) {
-          stats.errors.push(`period ${period.id}: ${err instanceof Error ? err.message : 'unknown'}`)
+          stats.errors.push(
+            `member ${memberId}: ${err instanceof Error ? err.message : 'unknown'}`,
+          )
         }
       }
 
       // Also check makeup_window periods that have expired
-      const { data: makeupPeriods } = await supabase
-        .from('allowance_periods')
-        .select('*, allowance_configs!inner(makeup_window_days)')
-        .eq('family_id', family.id)
-        .eq('status', 'makeup_window')
-
-      // Process expired makeup windows the same way as active periods above
-      // (they pass through the same calculation logic since the window has passed)
-      if (makeupPeriods?.length) {
-        for (const mp of makeupPeriods) {
-          const windowDays = (mp as Record<string, unknown>).allowance_configs
-            ? ((mp as Record<string, Record<string, number>>).allowance_configs?.makeup_window_days ?? 2)
-            : 2
-          const windowEnd = addDays(mp.period_end, windowDays)
-          if (localDateStr > windowEnd) {
-            // Window expired — recalculate and close (same logic would apply)
-            // For now, just close it. The calculation was done when it transitioned
-            // from active. The makeup window just gave extra time for completions.
-            await supabase
-              .from('allowance_periods')
-              .update({ status: 'closed', closed_at: now.toISOString() })
-              .eq('id', mp.id)
-          }
-        }
-      }
+      await processMakeupWindows(supabase, family.id, localDateStr, now)
     }
 
     return jsonResponse(stats)
@@ -481,10 +585,222 @@ Deno.serve(async (req) => {
         error: error instanceof Error ? error.message : 'unknown error',
         stats,
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
     )
   }
 })
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function isInCalcTimeWindow(
+  calcTimeRaw: unknown,
+  currentMinutesOfDay: number,
+): boolean {
+  const calcTimeStr = (calcTimeRaw as string) || '23:59:00'
+  const [calcHour, calcMin] = calcTimeStr.split(':').map(Number)
+  const calcMinutesOfDay = calcHour * 60 + (calcMin || 0)
+  const windowEndExclusive = calcMinutesOfDay + 60
+
+  if (windowEndExclusive <= 1440) {
+    return (
+      currentMinutesOfDay >= calcMinutesOfDay &&
+      currentMinutesOfDay < windowEndExclusive
+    )
+  }
+  const wrapEnd = windowEndExclusive % 1440
+  return currentMinutesOfDay >= calcMinutesOfDay || currentMinutesOfDay < wrapEnd
+}
+
+async function countAssignedTasks(
+  supabase: SupabaseClient,
+  familyId: string,
+  memberId: string,
+  periodEnd: string,
+  configId: string,
+  poolName: string,
+): Promise<number> {
+  // Primary assignee tasks for this pool
+  let primaryQuery = supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('family_id', familyId)
+    .eq('assignee_id', memberId)
+    .eq('counts_for_allowance', true)
+    .is('archived_at', null)
+    .lte('created_at', periodEnd + 'T23:59:59Z')
+
+  if (poolName === 'default') {
+    primaryQuery = primaryQuery.is('pool_id', null)
+  } else {
+    primaryQuery = primaryQuery.eq('pool_id', configId)
+  }
+  const { count: primaryCount } = await primaryQuery
+
+  // Additional assignee tasks via task_assignments
+  const { count: additionalCount } = await supabase
+    .from('task_assignments')
+    .select(
+      'task_id, tasks!inner(family_id, counts_for_allowance, archived_at, created_at, assignee_id, pool_id)',
+      { count: 'exact', head: true },
+    )
+    .eq('member_id', memberId)
+    .eq('tasks.family_id', familyId)
+    .eq('tasks.counts_for_allowance', true)
+    .is('tasks.archived_at', null)
+    .lte('tasks.created_at', periodEnd + 'T23:59:59Z')
+    .neq('tasks.assignee_id', memberId)
+
+  return (primaryCount ?? 0) + (additionalCount ?? 0)
+}
+
+interface CrossPoolAdjustment {
+  contractId: string
+  type: 'multiplicative' | 'additive'
+  rate: number
+  amount: number
+  description: string
+  conditions: Array<{
+    pool: string
+    operator: string
+    threshold: number
+    actual: number
+    met: boolean
+  }>
+}
+
+async function evaluateCrossPoolContracts(
+  supabase: SupabaseClient,
+  memberId: string,
+  familyId: string,
+  poolResults: PoolCloseResult[],
+  // deno-lint-ignore no-explicit-any
+  poolDetails: any[],
+): Promise<CrossPoolAdjustment[]> {
+  // Load contracts with multi_pool_threshold IF pattern and end_of_period timing
+  const { data: contracts } = await supabase
+    .from('contracts')
+    .select('*')
+    .eq('family_id', familyId)
+    .eq('status', 'active')
+    .eq('if_pattern', 'multi_pool_threshold')
+    .eq('stroke_of', 'end_of_period')
+
+  if (!contracts?.length) return []
+
+  // Build a pool percentage lookup from both closed results and live details
+  const poolPctMap = new Map<string, number>()
+  for (const result of poolResults) {
+    poolPctMap.set(result.poolName, result.completionPct)
+  }
+  // Fill in live details for pools that didn't close this cycle
+  if (Array.isArray(poolDetails)) {
+    for (const detail of poolDetails) {
+      const name = detail?.pool_name as string
+      if (name && !poolPctMap.has(name)) {
+        poolPctMap.set(name, Number(detail?.percentage ?? 0))
+      }
+    }
+  }
+
+  const adjustments: CrossPoolAdjustment[] = []
+
+  for (const contract of contracts) {
+    // Check if this contract targets this member
+    const contractMemberId = contract.family_member_id as string | null
+    if (contractMemberId && contractMemberId !== memberId) continue
+
+    const payloadConfig = contract.payload_config as {
+      adjustment_type?: string
+      rate?: number
+      amount?: number
+      conditions?: Array<{
+        pool: string
+        operator: string
+        threshold: number
+      }>
+    } | null
+
+    if (!payloadConfig?.conditions?.length) continue
+
+    // Evaluate all conditions
+    const evaluatedConditions = payloadConfig.conditions.map((cond) => {
+      const actual = poolPctMap.get(cond.pool) ?? 0
+      let met = false
+      switch (cond.operator) {
+        case 'lt':
+          met = actual < cond.threshold
+          break
+        case 'lte':
+          met = actual <= cond.threshold
+          break
+        case 'gt':
+          met = actual > cond.threshold
+          break
+        case 'gte':
+          met = actual >= cond.threshold
+          break
+        case 'eq':
+          met = Math.abs(actual - cond.threshold) < 0.01
+          break
+        default:
+          met = false
+      }
+      return { ...cond, actual, met }
+    })
+
+    // All conditions must be met for the contract to fire
+    const allMet = evaluatedConditions.every((c) => c.met)
+    if (!allMet) continue
+
+    const adjustmentType = (payloadConfig.adjustment_type ?? 'multiplicative') as
+      | 'multiplicative'
+      | 'additive'
+    const rate = Number(payloadConfig.rate ?? 0)
+    const amount = Number(payloadConfig.amount ?? 0)
+
+    const condDesc = evaluatedConditions
+      .map((c) => `${c.pool} ${c.operator} ${c.threshold}% (actual: ${c.actual.toFixed(1)}%)`)
+      .join(', ')
+
+    adjustments.push({
+      contractId: contract.id,
+      type: adjustmentType,
+      rate,
+      amount,
+      description: `Cross-pool ${adjustmentType}: ${condDesc}`,
+      conditions: evaluatedConditions,
+    })
+  }
+
+  return adjustments
+}
+
+async function processMakeupWindows(
+  supabase: SupabaseClient,
+  familyId: string,
+  localDateStr: string,
+  now: Date,
+) {
+  const { data: makeupPeriods } = await supabase
+    .from('allowance_periods')
+    .select('*, allowance_configs!inner(makeup_window_days)')
+    .eq('family_id', familyId)
+    .eq('status', 'makeup_window')
+
+  if (!makeupPeriods?.length) return
+
+  for (const mp of makeupPeriods) {
+    // deno-lint-ignore no-explicit-any
+    const windowDays = (mp as any).allowance_configs?.makeup_window_days ?? 2
+    const windowEnd = addDays(mp.period_end, windowDays)
+    if (localDateStr > windowEnd) {
+      await supabase
+        .from('allowance_periods')
+        .update({ status: 'closed', closed_at: now.toISOString() })
+        .eq('id', mp.id)
+    }
+  }
+}
 
 function jsonResponse(data: unknown) {
   return new Response(JSON.stringify(data), {

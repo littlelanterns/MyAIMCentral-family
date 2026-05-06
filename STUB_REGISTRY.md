@@ -112,7 +112,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Review & Route routing UI | PRD-08 | PRD-08 | ✅ Wired | Phase 09 |
 | Send to Person (messaging) | PRD-08 | PRD-15 | ✅ Wired | Phase 16 |
 | Send to Calendar | PRD-08 | PRD-14B | ✅ Wired | Phase 14 |
-| Send to Agenda | PRD-08 | PRD-16 (Build P) | ✅ Wired | 2026-04-15 — MeetingPickerOverlay wired in Phase D |
+| Send to Touch Base (Agenda) | PRD-08 | PRD-16 (Build P) | ✅ Wired | 2026-04-15 — MeetingPickerOverlay multi-select grid; also wired from SortTab + MindSweep (2026-05-06 overhaul) |
 | Reward system integration | PRD-09A | PRD-24 | ✅ Wired | Phase 29 |
 | Allowance pool calculation | PRD-09A | PRD-28 | ✅ Wired | Phase 32 |
 | Widget milestone → victory | PRD-10 | PRD-11 (AIR) | ✅ Wired | Phase 12 |
