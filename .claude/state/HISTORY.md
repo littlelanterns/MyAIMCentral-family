@@ -6,6 +6,32 @@
 
 ---
 
+## 2026-05-05 — Phase 3.8 Activity Management CLOSED
+
+**Type:** Cross-PRD infrastructure build (Connector Architecture §3.8)
+**Scope:** Per-item recurrence, Activity List wizard, Honey-Do wizard, Play/Guided/Independent surfaces, deploy-target picker, NLC routing, reveal animation picker, Task Breaker Vault fix
+**Duration:** Single long session (5 workers: A→B+D parallel→C→E + 2 bugfix passes)
+**Final state:** 68/68 requirements verified. 21+ Playwright tests pass. 3 migrations (100231-100233) applied to production.
+**Commits:** `070f6ef`, `8fcf0fe`, `c54c152`, `43dd723`, `897b79a`, `8495b29`
+
+### What shipped
+- **Worker A:** ItemRecurrenceConfig (3-mode segmented control: one-time/recurring/always), wired into ListRevealAssignmentWizard + list detail views. Task Breaker Vault fix: `guided_mode_key=NULL` on vault_items, routes to StandaloneTaskBreakerModal. Migration 100231.
+- **Worker B:** ActivityListWizard (6 steps: subject name + icon picker → activities with BulkAddWithAI + recurrence → display mode Random/Browse/Sequential-with-browse → daily floor → rewards per-subject/combined → assign). DualModeListAccess toggle. 2 seeded templates (Reading Fun Activities, Homeschool Variety Pack). `icon_launcher` widget type registered.
+- **Worker C:** Play dashboard IconLauncherGrid/Tile with tap→draw→ActivityRevealCard (sparkle reveal→Claim/Dismiss with MathGate). ActivityBrowseModal for browse mode. GuidedActivitySection with DualModeListAccess toggle. IndependentActivityCard. useIconLauncherWidgets hook.
+- **Worker D:** SharedTaskListWizard (5 steps: name → items with BulkAddWithAI + recurrence + big-job flag → share with adults → claim behavior → deploy). Claim-to-task auto-promotion in useClaimListItem. Completion write-back in useCompleteTask. Honey-Do seeded template.
+- **Worker E:** Deploy-target picker refactored Step 6 — 3 targets per kid (routine step via linked_randomizer, segment tile, dashboard card with icon_card/text_button). RoutinePicker + SegmentPicker components. Visual style fork in IconLauncherGrid + GuidedActivitySection. NLC routing for both new wizard types.
+- **Bugfix migration 100232:** Extended tasks_source_check (added list_promotion, icon_launcher, activity_list). Rebuilt contracts_unique_kid_override_idx with source_category.
+- **Post-build fixes migration 100233:** allow_out_of_order on sequential_collections. 3 feature keys. Reveal animation picker in ActivityListWizard. IndependentActivityCard wired into Dashboard.tsx. 5 stubs in STUB_REGISTRY.md.
+
+### Bugs found and fixed during E2E testing
+1. tasks_source_check missing 3 new source values — blocking all 3 creation flows
+2. contracts_unique_kid_override_idx too narrow — blocking per-subject reward contracts
+3. Test auth missing on Worker B+D tests — not a code bug
+4. Studio card locator fragility in tests — not a code bug
+5. Activity List seeded template cards missing from studio-seed-data.ts — fixed during Worker B checkpoint
+
+---
+
 ## 2026-05-04 — Phase 3.7 Wizards & Seeded Templates CLOSED
 
 **Type:** Phase build (Connector Architecture §8)
