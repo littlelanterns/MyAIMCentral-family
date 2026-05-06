@@ -1,7 +1,7 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-05-03 (Phase 3 Connector Layer close-out).
+> Updated each build session. Last updated: 2026-05-06 (Touch Base overhaul).
 
 ## RoutingStrip Destinations
 
@@ -16,7 +16,7 @@
 | Victory | Notepad, Review & Route, MindSweep | `victories` | **Wired** | PRD-11 built |
 | Track | Notepad | Widget data point | Stub | PRD-10 widget data routing not built |
 | Message | Notepad | Opens composer | Stub | PRD-15 not built |
-| Agenda | Notepad | Meeting agenda item | Stub | PRD-16 not built |
+| Agenda (Touch Base) | Notepad, MindSweep, SortTab | `meeting_agenda_items` | **Wired** | MeetingPickerOverlay multi-select grid; MindSweep `agenda` classification; SortTab intercept |
 | InnerWorkings | Notepad, MindSweep | `self_knowledge` | **Wired** | PRD-07 built |
 | Optimizer | Notepad | LiLa Optimizer | Stub | PRD-05C not built |
 | Ideas | Notepad, Review & Route | `lists` (type='ideas') | **Wired** | Creates list item in Ideas list |
