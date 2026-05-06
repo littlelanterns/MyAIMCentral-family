@@ -183,6 +183,8 @@ function SectionEditForm({
   )
 }
 
+const EMPTY_SECTIONS: MeetingTemplateSection[] = []
+
 // ── Main Modal ─────────────────────────────────────────────
 export function AgendaSectionEditorModal({
   isOpen,
@@ -193,7 +195,7 @@ export function AgendaSectionEditorModal({
   familyId,
 }: AgendaSectionEditorModalProps) {
   const queryClient = useQueryClient()
-  const { data: sections = [], isLoading } = useMeetingTemplateSections(familyId, meetingType, templateId)
+  const { data: sections = EMPTY_SECTIONS, isLoading } = useMeetingTemplateSections(familyId, meetingType, templateId)
   const upsertSection = useUpsertMeetingTemplateSection()
   const seedDefaults = useSeedDefaultSections()
 
@@ -236,7 +238,9 @@ export function AgendaSectionEditorModal({
       )
     }
     checkAndSeed()
-  }, [isLoading, sections.length, meetingType, familyId, seedDefaults])
+    // seedDefaults excluded: mutation object changes reference every render; seedingRef guards re-entry
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, sections.length, meetingType, familyId])
 
   // Sync remote → local when sections change
   useEffect(() => {

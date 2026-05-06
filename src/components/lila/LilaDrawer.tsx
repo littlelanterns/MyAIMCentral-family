@@ -442,6 +442,7 @@ export function LilaDrawer({
         <PullTab
           orientation="bottom"
           onClick={() => setDrawerState(drawerState === 'collapsed' ? 'peek' : 'collapsed')}
+          label={drawerState === 'collapsed' ? 'Open LiLa' : 'Close LiLa'}
         >
           <div className="flex items-center gap-2 text-xs font-semibold">
             <LilaAvatar avatarKey={avatarKey} size={18} />

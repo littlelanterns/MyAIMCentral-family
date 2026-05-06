@@ -9,6 +9,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import {
   useMeetingSchedules, useRecentMeetings, useMeetingAgendaItems,
+  useDiscussedAgendaItems,
   useAddAgendaItem, useRemoveAgendaItem, useMarkAgendaDiscussed, useMeetingTemplates, useActiveMeetings,
 } from '@/hooks/useMeetings'
 import { supabase } from '@/lib/supabase/client'
@@ -52,6 +53,12 @@ function MeetingCard({
 }: {
   meetingType: MeetingType
   label: string
+  /**
+   * Items from the parent's session-aware query: pending + items the user
+   * has just checked off in this browser session. Card renders them all,
+   * struck-through when status='discussed'. The badge count only reflects
+   * pending — it shouldn't tick up when an item is checked off.
+   */
   agendaItems: MeetingAgendaItem[]
   schedule?: MeetingSchedule
   familyId: string
@@ -66,10 +73,28 @@ function MeetingCard({
   const [notes, setNotes] = useState('')
   const [showNotes, setShowNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
+  const [showRecent, setShowRecent] = useState(false)
   const addItem = useAddAgendaItem()
   const removeItem = useRemoveAgendaItem()
   const markDiscussed = useMarkAgendaDiscussed()
   const Icon = TYPE_ICONS[meetingType] ?? MessageSquare
+
+  // Pending count drives the badge — checking off shouldn't change the pill.
+  const pendingCount = agendaItems.filter(i => i.status === 'pending').length
+
+  // Recently-discussed items (last 30 days), gated behind expand + toggle so
+  // we don't fetch eagerly. Excludes items already shown via session inclusion.
+  const sessionDiscussedIds = new Set(
+    agendaItems.filter(i => i.status === 'discussed').map(i => i.id),
+  )
+  const { data: recentDiscussed = [] } = useDiscussedAgendaItems(
+    familyId,
+    meetingType,
+    relatedMemberId,
+    30,
+    expanded && showRecent,
+  )
+  const olderDiscussed = recentDiscussed.filter(i => !sessionDiscussedIds.has(i.id))
 
   const handleAddItem = () => {
     if (!newItem.trim()) return
@@ -129,12 +154,12 @@ function MeetingCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{label}</span>
-            {agendaItems.length > 0 && (
+            {pendingCount > 0 && (
               <span
                 className="text-xs px-1.5 py-0.5 rounded-full font-medium"
                 style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}
               >
-                {agendaItems.length}
+                {pendingCount}
               </span>
             )}
           </div>
@@ -204,6 +229,56 @@ function MeetingCard({
               Nothing on the list yet — add things you want to remember to talk about.
             </p>
           )}
+
+          {/* Show recently discussed (last 30 days) */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowRecent(v => !v)}
+              className="text-xs underline hover:no-underline"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              {showRecent ? 'Hide recently discussed' : 'Show recently discussed (last 30 days)'}
+            </button>
+            {showRecent && (
+              <div className="mt-2 space-y-1.5">
+                {olderDiscussed.length === 0 ? (
+                  <p className="text-xs italic" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Nothing discussed in the last 30 days yet.
+                  </p>
+                ) : (
+                  olderDiscussed.map(item => (
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-2 py-1.5 px-2 rounded-md"
+                      style={{ background: 'var(--color-surface-primary)', opacity: 0.75 }}
+                    >
+                      <CheckCircle2
+                        size={16}
+                        className="shrink-0 mt-0.5"
+                        style={{ color: 'var(--color-success)' }}
+                      />
+                      <span
+                        className="text-sm flex-1 line-through"
+                        style={{ color: 'var(--color-text-tertiary)' }}
+                      >
+                        {item.content}
+                      </span>
+                      <span
+                        className="text-[10px] shrink-0 mt-0.5"
+                        style={{ color: 'var(--color-text-tertiary)' }}
+                      >
+                        {new Date(item.updated_at).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Quick add */}
           <div className="flex gap-2 items-center">
@@ -311,9 +386,14 @@ export function MeetingsPage() {
 
   useFixMeetingEventAttendees(familyId, memberId, (members ?? EMPTY_MEMBERS) as FamilyMember[])
 
+  // Session-scoped timestamp — items checked off after this moment stay
+  // visible (struck-through) on the page. Reload resets it, so previously
+  // discussed items naturally fade away. See useMeetingAgendaItems.
+  const sessionStartIso = useRef(new Date().toISOString()).current
+
   const { data: schedules = [] } = useMeetingSchedules(familyId)
   const { data: recentMeetings = [] } = useRecentMeetings(familyId)
-  const { data: allAgendaItems = [] } = useMeetingAgendaItems(familyId)
+  const { data: allAgendaItems = [] } = useMeetingAgendaItems(familyId, undefined, undefined, sessionStartIso)
   const { data: templates = [] } = useMeetingTemplates(familyId)
   const { data: activeMeetings = [] } = useActiveMeetings(familyId)
   const queryClient = useQueryClient()

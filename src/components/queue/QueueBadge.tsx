@@ -57,10 +57,17 @@ export function QueueBadge({ count, defaultTab, label, icon, compact }: QueueBad
           cursor: 'pointer',
           minHeight: 'unset',
         }}
+        // Both branches start with "Review Queue:" so mom and assistive tech
+        // can find the same element by name regardless of pending count.
         title={
           hasItems
-            ? `${count} pending item${count !== 1 ? 's' : ''} — tap to review`
-            : 'Review Queue — all caught up'
+            ? `Review Queue: ${count} pending item${count !== 1 ? 's' : ''}`
+            : 'Review Queue: all caught up'
+        }
+        aria-label={
+          hasItems
+            ? `Review Queue: ${count} pending item${count !== 1 ? 's' : ''}`
+            : 'Review Queue: all caught up'
         }
       >
         {hasItems ? (

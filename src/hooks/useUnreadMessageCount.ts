@@ -76,7 +76,11 @@ export function useUnreadMessageCount() {
       return unread
     },
     enabled: !!memberId,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    // 5-min refresh — sidebar badge freshness without chatter.
+    // useThreadRealtime/useSpacesRealtime cover the Messages page; this
+    // baseline keeps the dashboard nav badge in sync globally without a
+    // dedicated realtime subscription per shell.
+    refetchInterval: 5 * 60_000,
+    staleTime: 2 * 60_000,
   })
 }

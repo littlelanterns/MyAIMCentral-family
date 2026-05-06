@@ -313,6 +313,7 @@ export function FamilyHub({ context }: FamilyHubProps) {
             orientation="side"
             onClick={() => setMemberDrawerOpen(true)}
             className="rounded-l-none! rounded-r-lg!"
+            label="Open family member drawer"
           >
             <Users size={16} />
           </PullTab>

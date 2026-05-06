@@ -26,8 +26,8 @@ export function usePendingReveals(memberId: string | undefined) {
       return (data ?? []) as PendingReveal[]
     },
     enabled: !!memberId,
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    // No polling — Realtime subscription below invalidates this query on INSERT.
+    staleTime: 60_000,
   })
 
   useEffect(() => {

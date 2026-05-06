@@ -94,7 +94,10 @@ export function useStudioQueueCount(
       return count ?? 0
     },
     enabled: !!familyId,
-    refetchInterval: 30_000,   // refresh every 30s for badge freshness
+    // 5-min refresh — badge freshness without per-30s chatter.
+    // useStudioQueue mutations + queue routing invalidate immediately.
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
   })
 }
 

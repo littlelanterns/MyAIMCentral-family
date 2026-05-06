@@ -20,6 +20,13 @@ export interface PullTabProps {
   orientation: 'bottom' | 'side'
   onClick: () => void
   children: ReactNode
+  /**
+   * Required accessible label — surfaces this tab to assistive tech and
+   * voice navigation. Use action-form labels like "Open Notepad" /
+   * "Close Notepad" so voice users can say "open notepad" and land here.
+   * Generic strings like "Toggle drawer" defeat the purpose.
+   */
+  label: string
   className?: string
   width?: number
   height?: number
@@ -80,6 +87,7 @@ export function PullTab({
   orientation,
   onClick,
   children,
+  label,
   className = '',
   width: widthOverride,
   height: heightOverride,
@@ -109,7 +117,7 @@ export function PullTab({
         cursor: 'pointer',
         ...('transform' in styles ? { transform: (styles as Record<string, unknown>).transform as string } : {}),
       }}
-      aria-label="Toggle drawer"
+      aria-label={label}
     >
       {children}
     </button>

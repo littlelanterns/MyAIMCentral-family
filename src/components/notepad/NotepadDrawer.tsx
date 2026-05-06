@@ -361,7 +361,7 @@ export function NotepadDrawer() {
         <>
           <Tooltip content="Smart Notepad">
             <div className="fixed right-0 z-30 hidden md:block" style={{ top: '50%', transform: 'translateY(-50%)' }}>
-              <PullTab orientation="side" onClick={() => openNotepad()}>
+              <PullTab orientation="side" onClick={() => openNotepad()} label="Open Notepad">
                 <StickyNote size={16} />
               </PullTab>
             </div>
@@ -371,7 +371,7 @@ export function NotepadDrawer() {
             className="fixed right-0 z-30 md:hidden block"
             style={{ bottom: 'calc(56px + 90px)' }}
           >
-            <PullTab orientation="side" onClick={() => openNotepad()} height={70}>
+            <PullTab orientation="side" onClick={() => openNotepad()} height={70} label="Open Notepad">
               <StickyNote size={14} />
             </PullTab>
           </div>
@@ -411,7 +411,7 @@ export function NotepadDrawer() {
             className="absolute left-0 z-50 hidden md:block"
             style={{ top: '50%', transform: 'translate(-100%, -50%)' }}
           >
-            <PullTab orientation="side" onClick={closeNotepad}>
+            <PullTab orientation="side" onClick={closeNotepad} label="Close Notepad">
               <ChevronsRight size={14} />
             </PullTab>
           </div>

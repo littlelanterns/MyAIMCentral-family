@@ -339,17 +339,48 @@ export function useSeedDefaultSections() {
 
 // ── Agenda Items ─────────────────────────────────────────────
 
-export function useMeetingAgendaItems(familyId: string | undefined, meetingType?: MeetingType, relatedMemberId?: string) {
+/**
+ * Pending agenda items + (optionally) items discussed within the current
+ * browser session.
+ *
+ * `sessionStartIso` is the wall-clock moment the page was loaded. When passed,
+ * the query also returns `status='discussed'` rows with `updated_at >=
+ * sessionStartIso`, so the just-checked-off item stays visible (struck-through)
+ * while the page is mounted. After reload, `sessionStartIso` resets to the
+ * fresh page-load time and previously-discussed items naturally fade out.
+ *
+ * Omit `sessionStartIso` (or pass undefined) for pending-only behavior.
+ */
+export function useMeetingAgendaItems(
+  familyId: string | undefined,
+  meetingType?: MeetingType,
+  relatedMemberId?: string,
+  sessionStartIso?: string,
+) {
   return useQuery({
-    queryKey: ['meeting-agenda-items', familyId, meetingType, relatedMemberId],
+    queryKey: [
+      'meeting-agenda-items',
+      familyId,
+      meetingType,
+      relatedMemberId,
+      sessionStartIso ?? 'pending-only',
+    ],
     queryFn: async () => {
       if (!familyId) return []
       let query = supabase
         .from('meeting_agenda_items')
         .select('*')
         .eq('family_id', familyId)
-        .eq('status', 'pending')
         .order('created_at', { ascending: true })
+
+      if (sessionStartIso) {
+        // pending OR (discussed AND updated_at >= sessionStart)
+        query = query.or(
+          `status.eq.pending,and(status.eq.discussed,updated_at.gte.${sessionStartIso})`,
+        )
+      } else {
+        query = query.eq('status', 'pending')
+      }
 
       if (meetingType) query = query.eq('meeting_type', meetingType)
       if (relatedMemberId) query = query.eq('related_member_id', relatedMemberId)
@@ -359,6 +390,45 @@ export function useMeetingAgendaItems(familyId: string | undefined, meetingType?
       return (data ?? []) as MeetingAgendaItem[]
     },
     enabled: !!familyId,
+  })
+}
+
+/**
+ * Recently discussed agenda items for a meeting type (and optional related
+ * member). Used by the "Show recently discussed" toggle on each card and by
+ * the conversation history view.
+ *
+ * `daysBack` defaults to 30. Disabled until `enabled` flips to true so the
+ * collapsed-by-default link doesn't fetch eagerly.
+ */
+export function useDiscussedAgendaItems(
+  familyId: string | undefined,
+  meetingType?: MeetingType,
+  relatedMemberId?: string,
+  daysBack: number = 30,
+  enabled: boolean = true,
+) {
+  return useQuery({
+    queryKey: ['meeting-agenda-items-discussed', familyId, meetingType, relatedMemberId, daysBack],
+    queryFn: async () => {
+      if (!familyId) return []
+      const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString()
+      let query = supabase
+        .from('meeting_agenda_items')
+        .select('*')
+        .eq('family_id', familyId)
+        .eq('status', 'discussed')
+        .gte('updated_at', since)
+        .order('updated_at', { ascending: false })
+
+      if (meetingType) query = query.eq('meeting_type', meetingType)
+      if (relatedMemberId) query = query.eq('related_member_id', relatedMemberId)
+
+      const { data, error } = await query
+      if (error) throw error
+      return (data ?? []) as MeetingAgendaItem[]
+    },
+    enabled: !!familyId && enabled,
   })
 }
 
@@ -431,6 +501,7 @@ export function useRemoveAgendaItem() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['meeting-agenda-items', vars.family_id] })
+      qc.invalidateQueries({ queryKey: ['meeting-agenda-items-discussed', vars.family_id] })
       qc.invalidateQueries({ queryKey: ['meeting-agenda-counts', vars.family_id] })
     },
   })
@@ -451,6 +522,7 @@ export function useMarkAgendaDiscussed() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['meeting-agenda-items', vars.family_id] })
+      qc.invalidateQueries({ queryKey: ['meeting-agenda-items-discussed', vars.family_id] })
       qc.invalidateQueries({ queryKey: ['meeting-agenda-counts', vars.family_id] })
     },
   })

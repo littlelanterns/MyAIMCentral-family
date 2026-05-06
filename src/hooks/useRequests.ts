@@ -56,7 +56,9 @@ export function useRequests(familyId: string | undefined, memberId: string | und
       })
     },
     enabled: !!familyId && !!memberId,
-    refetchInterval: 30_000,
+    // No polling — RequestsTab only mounts inside the Queue Modal (gated on
+    // isOpen). Mutations (accept/decline/snooze) invalidate the cache.
+    staleTime: 60_000,
   })
 }
 

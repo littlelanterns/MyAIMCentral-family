@@ -1,4 +1,4 @@
-// Touch Base picker — multi-select overlay for routing items to conversations.
+// Touch Base picker — multi-select grid for routing items to conversations.
 // Used by NotepadDrawer and SortTab when destination='agenda'.
 
 import { useState } from 'react'
@@ -78,7 +78,7 @@ export function MeetingPickerOverlay({
     options.push({
       key: `custom-${t.id}`,
       label: t.name,
-      color: 'var(--color-text-secondary)',
+      color: 'var(--color-accent-deep)',
       meetingType: 'custom',
       templateId: t.id,
     })
@@ -120,34 +120,45 @@ export function MeetingPickerOverlay({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
       <div
-        className="rounded-xl shadow-lg w-full max-w-sm mx-4 overflow-hidden"
+        className="rounded-xl shadow-lg w-full max-w-md mx-4 overflow-hidden"
         style={{ background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-default)' }}
       >
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--color-border-default)' }}>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
             Touch Base with...
           </h3>
-          <button onClick={onClose} className="p-1 rounded hover:opacity-80" style={{ color: 'var(--color-text-tertiary)' }}>
+          <button
+            onClick={onClose}
+            aria-label="Close picker"
+            className="p-1 rounded hover:opacity-80"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
             <X size={16} />
           </button>
         </div>
 
-        <div className="px-4 py-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="px-4 py-4">
+          <div className="grid grid-cols-3 gap-2">
             {options.map(opt => {
               const isSelected = selectedKeys.has(opt.key)
               return (
                 <button
                   key={opt.key}
+                  data-testid="touch-base-pill"
                   onClick={() => toggleOption(opt.key)}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
+                  className="flex items-center justify-center px-2 py-3 rounded-xl text-sm font-medium transition-all hover:scale-[1.03]"
                   style={{
-                    background: isSelected ? opt.color : 'transparent',
+                    background: isSelected
+                      ? opt.color
+                      : `color-mix(in srgb, ${opt.color} 12%, var(--color-bg-card, transparent))`,
                     color: isSelected ? '#fff' : opt.color,
-                    border: `2px solid ${opt.color}`,
+                    border: isSelected
+                      ? 'none'
+                      : `1px solid color-mix(in srgb, ${opt.color} 25%, transparent)`,
+                    minHeight: '52px',
                   }}
                 >
-                  {opt.label}
+                  <span className="text-center leading-tight">{opt.label}</span>
                 </button>
               )
             })}

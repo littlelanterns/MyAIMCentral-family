@@ -201,7 +201,10 @@ export function useTodayFamilyIterations(
       return (data ?? []) as FamilyIntentionIteration[]
     },
     enabled: !!familyId && !!today,
-    refetchInterval: 30_000,
+    // No polling — useLogFamilyIntentionTally + iteration mutations invalidate
+    // this query. Day-rollover happens at midnight (familyToday changes the
+    // queryKey).
+    staleTime: 60_000,
   })
 }
 

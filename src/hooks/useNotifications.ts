@@ -57,7 +57,8 @@ export function useNotifications() {
       return (data ?? []) as Notification[]
     },
     enabled: !!memberId,
-    refetchInterval: 60_000,
+    // No polling — useNotificationRealtime invalidates this query on INSERT.
+    staleTime: 60_000,
   })
 }
 
@@ -89,7 +90,8 @@ export function useUnreadNotificationCount() {
       return count ?? 0
     },
     enabled: !!memberId,
-    refetchInterval: 30_000,
+    // No polling — useNotificationRealtime invalidates this query on INSERT.
+    staleTime: 60_000,
   })
 }
 

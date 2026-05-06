@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase/client'
 import { MESSAGES_KEY } from '@/hooks/useMessages'
 import { THREADS_KEY } from '@/hooks/useConversationThreads'
 import { SPACES_KEY } from '@/hooks/useConversationSpaces'
+import { UNREAD_MSG_COUNT_KEY } from '@/hooks/useUnreadMessageCount'
 
 /**
  * Subscribe to new messages in a specific thread.
@@ -43,6 +44,8 @@ export function useThreadRealtime(threadId: string | undefined) {
           // Also refresh threads (last_message_at updated by trigger)
           queryClient.invalidateQueries({ queryKey: [THREADS_KEY] })
           queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+          // Sidebar unread badge — fires anywhere the dashboard renders
+          queryClient.invalidateQueries({ queryKey: [UNREAD_MSG_COUNT_KEY] })
         }
       )
       .on(
@@ -105,6 +108,7 @@ export function useSpacesRealtime(familyId: string | undefined) {
         () => {
           queryClient.invalidateQueries({ queryKey: [THREADS_KEY] })
           queryClient.invalidateQueries({ queryKey: [SPACES_KEY] })
+          queryClient.invalidateQueries({ queryKey: [UNREAD_MSG_COUNT_KEY] })
         }
       )
       .subscribe()

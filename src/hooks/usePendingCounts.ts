@@ -29,7 +29,10 @@ export function usePendingCounts(familyId: string | undefined, memberId?: string
       return count ?? 0
     },
     enabled: !!familyId,
-    refetchInterval: 30_000,
+    // 5-min refresh keeps the badge fresh enough for awareness without
+    // chattering every 30s. User mutations invalidate immediately.
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
   })
 
   const calendarQuery = useQuery({
@@ -58,7 +61,10 @@ export function usePendingCounts(familyId: string | undefined, memberId?: string
       return pending + queued
     },
     enabled: !!familyId,
-    refetchInterval: 30_000,
+    // 5-min refresh keeps the badge fresh enough for awareness without
+    // chattering every 30s. User mutations invalidate immediately.
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
   })
 
   const requestsQuery = useQuery({
@@ -85,7 +91,10 @@ export function usePendingCounts(familyId: string | undefined, memberId?: string
       return count ?? 0
     },
     enabled: !!familyId,
-    refetchInterval: 30_000,
+    // 5-min refresh keeps the badge fresh enough for awareness without
+    // chattering every 30s. User mutations invalidate immediately.
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
   })
 
   const sort = sortQuery.data ?? 0
