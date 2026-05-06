@@ -962,7 +962,20 @@ export function StudioPage() {
             />
           ) : (
             <>
-              {/* 1. Task & Chore Templates */}
+              {/* 1. Setup Wizards — guided multi-step flows (easiest creation path) */}
+              {(wizardFiltered.length > 0 || phase37SeededFiltered.length > 0) && (
+                <StudioCategorySection
+                  title="Setup Wizards"
+                  templates={wizardFiltered}
+                  exampleTemplates={phase37SeededFiltered}
+                  onCustomize={handleCustomize}
+                  onUseAsIs={handleUseAsIs}
+                  defaultCollapsed={false}
+                  showExamplesFirst
+                />
+              )}
+
+              {/* 2. Task & Chore Templates */}
               {(taskBlanksFiltered.length > 0 || taskExamplesFiltered.length > 0) && (
                 <StudioCategorySection
                   title="Task & Chore Templates"
@@ -973,7 +986,7 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 2. Guided Forms & Worksheets */}
+              {/* 3. Guided Forms & Worksheets */}
               {(guidedBlanksFiltered.length > 0 || guidedExamplesFiltered.length > 0) && (
                 <StudioCategorySection
                   title="Guided Forms & Worksheets"
@@ -984,7 +997,7 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 3. List Templates */}
+              {/* 4. List Templates */}
               {(listBlanksFiltered.length > 0 || listExamplesFiltered.length > 0) && (
                 <StudioCategorySection
                   title="List Templates"
@@ -995,7 +1008,7 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 4. Trackers & Widgets — PRD-10 real starter configs */}
+              {/* 5. Trackers & Widgets — PRD-10 real starter configs */}
               {/* Filter to only show tracker types that have real renderers (not PlannedTrackerStub) */}
               {(
                 <StudioCategorySection
@@ -1025,7 +1038,7 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 5. Gamification & Rewards — real setup templates */}
+              {/* 6. Gamification & Rewards — real setup templates */}
               {gamificationFiltered.length > 0 && (
                 <StudioCategorySection
                   title="Gamification & Rewards"
@@ -1035,26 +1048,13 @@ export function StudioPage() {
                 />
               )}
 
-              {/* 6. Growth & Self-Knowledge */}
+              {/* 7. Growth & Self-Knowledge */}
               {growthFiltered.length > 0 && (
                 <StudioCategorySection
                   title="Growth & Self-Knowledge"
                   templates={growthFiltered}
                   onCustomize={handleCustomize}
                   defaultCollapsed={false}
-                />
-              )}
-
-              {/* 7. Setup Wizards — guided multi-step flows (includes Phase 3.7) */}
-              {(wizardFiltered.length > 0 || phase37SeededFiltered.length > 0) && (
-                <StudioCategorySection
-                  title="Setup Wizards"
-                  templates={wizardFiltered}
-                  exampleTemplates={phase37SeededFiltered}
-                  onCustomize={handleCustomize}
-                  onUseAsIs={handleUseAsIs}
-                  defaultCollapsed={false}
-                  showExamplesFirst
                 />
               )}
             </>
