@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   UsersRound, Plus, ChevronRight, CalendarDays, Settings,
   MessageSquarePlus, Heart, Users, GraduationCap, MessageSquare,
-  X,
+  X, CheckCircle2, Circle, StickyNote, Save,
 } from 'lucide-react'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import {
   useMeetingSchedules, useRecentMeetings, useMeetingAgendaItems,
-  useAddAgendaItem, useRemoveAgendaItem, useMeetingTemplates, useActiveMeetings,
+  useAddAgendaItem, useRemoveAgendaItem, useMarkAgendaDiscussed, useMeetingTemplates, useActiveMeetings,
 } from '@/hooks/useMeetings'
 import { supabase } from '@/lib/supabase/client'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
@@ -25,6 +25,8 @@ import { MeetingSetupWizard } from '@/components/studio/wizards/MeetingSetupWiza
 import { useFixMeetingEventAttendees } from '@/hooks/useFixMeetingEventAttendees'
 import type { MeetingType, MeetingMode, MeetingSchedule, Meeting, MeetingAgendaItem } from '@/types/meetings'
 import { MEETING_TYPE_LABELS } from '@/types/meetings'
+
+const EMPTY_MEMBERS: FamilyMember[] = []
 
 const TYPE_ICONS: Record<MeetingType, typeof Heart> = {
   couple: Heart,
@@ -61,8 +63,12 @@ function MeetingCard({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [newItem, setNewItem] = useState('')
+  const [notes, setNotes] = useState('')
+  const [showNotes, setShowNotes] = useState(false)
+  const [notesSaved, setNotesSaved] = useState(false)
   const addItem = useAddAgendaItem()
   const removeItem = useRemoveAgendaItem()
+  const markDiscussed = useMarkAgendaDiscussed()
   const Icon = TYPE_ICONS[meetingType] ?? MessageSquare
 
   const handleAddItem = () => {
@@ -79,6 +85,26 @@ function MeetingCard({
 
   const handleRemoveItem = (itemId: string) => {
     removeItem.mutate({ id: itemId, family_id: familyId })
+  }
+
+  const handleToggleDiscussed = (item: MeetingAgendaItem) => {
+    if (item.status === 'discussed') return
+    markDiscussed.mutate({ id: item.id, family_id: familyId })
+  }
+
+  const handleSaveNotes = async () => {
+    if (!notes.trim()) return
+    const title = `${label} — ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+    await supabase.from('journal_entries').insert({
+      family_id: familyId,
+      member_id: memberId,
+      entry_type: 'meeting_notes',
+      content: `## ${title}\n\n${notes.trim()}`,
+      visibility: 'private',
+      tags: ['meeting_notes', meetingType],
+    })
+    setNotesSaved(true)
+    setTimeout(() => setNotesSaved(false), 3000)
   }
 
   const scheduleLabel = schedule?.next_due_date
@@ -127,35 +153,55 @@ function MeetingCard({
       {/* Expanded — agenda items + actions */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3" style={{ borderTop: '1px solid var(--color-border-default)' }}>
-          {/* Agenda items */}
+          {/* Agenda items with inline check-off */}
           {agendaItems.length > 0 ? (
             <div className="pt-3 space-y-1.5">
               <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
-                On the Agenda
+                Things to talk about
               </p>
-              {agendaItems.map(item => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-2 py-1.5 px-2 rounded-md group"
-                  style={{ background: 'var(--color-surface-primary)' }}
-                >
-                  <span className="text-sm flex-1" style={{ color: 'var(--color-text-primary)' }}>
-                    {item.content}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveItem(item.id)}
-                    className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ color: 'var(--color-text-tertiary)' }}
-                    title="Remove"
+              {agendaItems.map(item => {
+                const isDone = item.status === 'discussed'
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-2 py-1.5 px-2 rounded-md group"
+                    style={{ background: 'var(--color-surface-primary)' }}
                   >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
+                    <button
+                      onClick={() => handleToggleDiscussed(item)}
+                      className="shrink-0 mt-0.5"
+                      disabled={isDone}
+                      title={isDone ? 'Discussed' : 'Mark as discussed'}
+                    >
+                      {isDone ? (
+                        <CheckCircle2 size={16} style={{ color: 'var(--color-success)' }} />
+                      ) : (
+                        <Circle size={16} style={{ color: 'var(--color-text-tertiary)' }} />
+                      )}
+                    </button>
+                    <span
+                      className={`text-sm flex-1 ${isDone ? 'line-through' : ''}`}
+                      style={{ color: isDone ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)' }}
+                    >
+                      {item.content}
+                    </span>
+                    {!isDone && (
+                      <button
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: 'var(--color-text-tertiary)' }}
+                        title="Remove"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <p className="text-sm pt-3 italic" style={{ color: 'var(--color-text-tertiary)' }}>
-              No agenda items yet — add some below or route items here from Notepad or MindSweep.
+              Nothing on the list yet — add things you want to remember to talk about.
             </p>
           )}
 
@@ -178,19 +224,64 @@ function MeetingCard({
             )}
           </div>
 
+          {/* Notes area */}
+          {showNotes && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
+                Notes
+              </p>
+              <textarea
+                value={notes}
+                onChange={e => { setNotes(e.target.value); setNotesSaved(false) }}
+                placeholder="Jot down notes, decisions, follow-ups..."
+                rows={3}
+                className="w-full text-sm px-3 py-2 rounded-md resize-none"
+                style={{ background: 'var(--color-surface-primary)', border: '1px solid var(--color-border-default)', color: 'var(--color-text-primary)' }}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={!notes.trim() || notesSaved}
+                  className="text-sm px-3 py-1.5 rounded-md flex items-center gap-1.5 disabled:opacity-40"
+                  style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-primary)' }}
+                >
+                  <Save size={13} /> {notesSaved ? 'Saved to Journal' : 'Save to Journal'}
+                </button>
+                <button
+                  onClick={() => setShowNotes(false)}
+                  className="text-xs"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  Close notes
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-1">
+            {!showNotes && (
+              <button
+                className="text-sm px-3 py-2 rounded-lg flex items-center gap-1.5"
+                style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
+                onClick={() => setShowNotes(true)}
+              >
+                <StickyNote size={14} /> Notes
+              </button>
+            )}
             <button
-              className="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 font-medium"
+              className="text-sm px-3 py-2 rounded-lg flex items-center gap-1.5"
+              style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
               onClick={() => onStartMeeting(meetingType, relatedMemberId, schedule)}
+              title="Full meeting with LiLa facilitation and post-meeting review"
             >
-              <UsersRound size={15} /> Open Meeting
+              <UsersRound size={14} /> Formal Meeting
             </button>
             <button
               className="text-sm px-3 py-2 rounded-lg flex items-center gap-1.5"
               style={{ background: 'var(--color-surface-tertiary)', color: 'var(--color-text-secondary)' }}
               onClick={() => onOpenSections(meetingType)}
-              title="Edit agenda template sections"
+              title="Edit conversation template sections"
             >
               <Settings size={14} /> Sections
             </button>
@@ -218,7 +309,7 @@ export function MeetingsPage() {
   const familyId = family?.id
   const memberId = member?.id
 
-  useFixMeetingEventAttendees(familyId, memberId, (members ?? []) as FamilyMember[])
+  useFixMeetingEventAttendees(familyId, memberId, (members ?? EMPTY_MEMBERS) as FamilyMember[])
 
   const { data: schedules = [] } = useMeetingSchedules(familyId)
   const { data: recentMeetings = [] } = useRecentMeetings(familyId)
@@ -227,9 +318,10 @@ export function MeetingsPage() {
   const { data: activeMeetings = [] } = useActiveMeetings(familyId)
   const queryClient = useQueryClient()
 
-  // Auto-advance stale schedules on mount
+  // Auto-advance stale schedules on mount (once per page load)
+  const hasAdvancedSchedules = useRef(false)
   useEffect(() => {
-    if (!familyId || schedules.length === 0) return
+    if (!familyId || schedules.length === 0 || hasAdvancedSchedules.current) return
     const now = new Date()
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
@@ -241,6 +333,7 @@ export function MeetingsPage() {
     })
 
     if (staleSchedules.length === 0) return
+    hasAdvancedSchedules.current = true
 
     const advanceSchedules = async () => {
       for (const schedule of staleSchedules) {

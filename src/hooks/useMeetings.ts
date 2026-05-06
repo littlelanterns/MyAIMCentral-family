@@ -436,14 +436,16 @@ export function useRemoveAgendaItem() {
   })
 }
 
-/** Mark agenda items as discussed during a live meeting */
+/** Mark agenda items as discussed — works inline (no meeting) or during a formal meeting */
 export function useMarkAgendaDiscussed() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; family_id: string; meeting_id: string }) => {
+    mutationFn: async (input: { id: string; family_id: string; meeting_id?: string }) => {
+      const update: Record<string, unknown> = { status: 'discussed' }
+      if (input.meeting_id) update.discussed_in_meeting_id = input.meeting_id
       const { error } = await supabase
         .from('meeting_agenda_items')
-        .update({ status: 'discussed', discussed_in_meeting_id: input.meeting_id })
+        .update(update)
         .eq('id', input.id)
       if (error) throw error
     },
