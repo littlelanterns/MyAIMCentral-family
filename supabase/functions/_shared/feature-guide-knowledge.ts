@@ -75,19 +75,17 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   AI classifies each item → routes to the right destination (task, calendar, journal, list, etc.)
   Aggressiveness modes: Always Ask, Trust Obvious, Full Autopilot.`,
 
-  '/meetings': `MEETINGS PAGE — Structured family conversations with AI facilitation.
-  4 built-in meeting types: Couple, Parent-Child, Mentor, Family Council. Custom templates supported.
-  UPCOMING section: Shows meetings due within 7 days with Live Mode and Record After buttons.
-  MEETING TYPES section: Expandable rows per type. Parent-Child and Mentor expand per child.
-  Each row has: agenda item quick-add, schedule icon (calendar), sections icon (gear), Start Meeting button.
-  AGENDA ITEMS: Add between meetings — items queue up and surface during the next meeting.
-  Add from: Meetings page quick-add, Notepad > Send to > Agenda (picks meeting type), Review & Route.
-  LIVE MODE: LiLa facilitates in real time, guiding through agenda sections. Pause/Resume/End controls.
-  RECORD AFTER: Capture meeting retrospectively — tell LiLa what was discussed, get structured summary.
-  POST-MEETING REVIEW: After ending, LiLa generates summary + extracts action items.
-  Route each action item to Tasks, Calendar, Best Intentions, Guiding Stars, or Backburner.
-  Summary auto-saves to Journal as meeting notes. Personal impressions are private.
-  HISTORY: View All History shows completed meetings with type filter and read-only detail.`,
+  '/meetings': `TOUCH BASE PAGE — Keep track of things you want to talk about with anyone.
+  Expandable cards per conversation: Couple, Parent-Child (per child), Mentor (per child), Family Council, plus custom.
+  INLINE CHECK-OFF: Tap the circle next to any item to mark it as discussed — no formal meeting needed.
+  NOTES: Tap "Notes" to jot things down during a conversation. "Save to Journal" persists it.
+  ADD ITEMS: Quick-add at the bottom of each card, or route from Notepad > Send to > Agenda, Review & Route, or MindSweep.
+  FORMAL MEETING (optional): Tap "Formal Meeting" for LiLa-facilitated conversation with agenda sidebar. Post-meeting review extracts action items → route to Tasks, Calendar, Lists, etc. Summary auto-saves to Journal.
+  RECORD & TRANSCRIBE: Optional checkbox in the Formal Meeting modal — opens Notepad for recording when ready.
+  SCHEDULING (optional): Tap "Add Schedule" for recurring reminders — but most conversations are just ongoing.
+  CUSTOM: "Add a Conversation" creates new types — IEP prep, parent-teacher notes, homeschool coordinator, etc.
+  HISTORY: "View All" shows completed sessions with search by title or summary.
+  Items carry forward: undiscussed items stay on the card until you check them off.`,
 
   '/settings/reward-reveals': `REWARD REVEALS LIBRARY — Mom's named celebration combos.
   Each combo = a reveal animation + prize content. [+ New Reveal] creates one.
@@ -402,37 +400,51 @@ Each kid sees only their current assignment on their dashboard.`,
     ],
   },
 
-  // ── Meetings (PRD-16) ──────────────────────────────────────
+  // ── Touch Base (PRD-16) ──────────────────────────────────────
   {
-    triggers: ['family meeting', 'couple meeting', 'want to meet regularly', 'talk with my husband', 'check in with my kid', 'mentor meeting', 'family council'],
-    clarifyingQuestion: "What kind of meeting are you thinking about? A one-on-one with your spouse, a check-in with a specific child, or a whole-family council?",
+    triggers: ['family meeting', 'couple meeting', 'want to meet regularly', 'talk with my husband', 'check in with my kid', 'mentor meeting', 'family council', 'touch base', 'things to discuss', 'agenda', 'iep meeting prep', 'parent teacher', 'conversation topics'],
+    clarifyingQuestion: "Who do you want to keep a running conversation with? Your spouse, a specific child, the whole family, or someone outside the home like a teacher or coordinator?",
     variants: [
       {
-        name: 'Couple Meeting',
-        description: 'Regular check-in with your spouse. Covers relationship temperature, parenting alignment, calendar coordination, and appreciation.',
-        howToSetUp: `1. Go to Meetings in the sidebar
-2. Under "Couple Meeting" tap the calendar icon to set a recurring schedule (weekly works well)
-3. Tap the gear icon to customize the agenda sections — the defaults cover Check-In, Relationship, Parenting, Calendar, Dreams, and Appreciation
-4. Between meetings, add agenda items from the Meetings page or from Notepad > Send to > Agenda
-5. When it's time, tap "Live Mode" — LiLa guides you through each section`,
+        name: 'Couple Conversations',
+        description: 'Keep a running list of things to talk about with your spouse — check them off as you discuss them over dinner, on a walk, whenever.',
+        howToSetUp: `1. Go to Touch Base in the sidebar
+2. Expand "Couple Meeting" and add things as they come to mind
+3. When you talk, tap the circle next to each item to mark it discussed
+4. Tap "Notes" to jot down decisions or follow-ups — save to journal when done
+5. Want LiLa to facilitate a structured conversation? Tap "Formal Meeting" for guided sections`,
       },
       {
-        name: 'Parent-Child Meeting',
-        description: 'Regular one-on-one with a child. Celebrate wins, discuss challenges, make commitments together.',
-        howToSetUp: `1. Go to Meetings — you'll see Parent-Child Meeting expand per child
-2. Set a schedule for each child you want to meet with
-3. Customize sections — defaults: How Are You, Wins & Growth, Discussion, Problem-Solving, Commitments
-4. Kids can add agenda items from the Guided dashboard in a future update
-5. During the meeting LiLa helps facilitate — guiding without lecturing`,
+        name: 'One-on-One with a Child',
+        description: 'Remember things you want to talk about with each kid. Check-ins, school stuff, goals, tricky situations — add items anytime and check them off when you connect.',
+        howToSetUp: `1. Go to Touch Base — you'll see a card for each child under Parent-Child Meeting
+2. Add items whenever something comes up ("talk to Gideon about screen time")
+3. Check them off during your next conversation — no formal sit-down required
+4. Use Notes to capture what you decided together`,
       },
       {
         name: 'Family Council',
-        description: 'Whole-family meeting. Old business, new business, calendar review, appreciation circle.',
-        howToSetUp: `1. Go to Meetings > Family Council
-2. Set a recurring schedule (weekly or biweekly is typical)
-3. Any family member with meeting access can add agenda items between meetings
-4. When you start, pick "Live Mode" and select all participants
-5. LiLa opens with a warm welcome and guides through each section in order`,
+        description: 'Whole-family conversations. Everyone can add items. Great for weekly check-ins, planning, or just catching up.',
+        howToSetUp: `1. Go to Touch Base > Family Council
+2. Any family member with access can add agenda items
+3. Check off items during your family time
+4. For a structured session, tap "Formal Meeting" — LiLa guides through opening, old business, new business, calendar, appreciation, and closing`,
+      },
+      {
+        name: 'Outside Conversations (IEP, Teachers, Coordinators)',
+        description: 'Track things to bring up at IEP meetings, parent-teacher conferences, homeschool co-op check-ins, or anything with contacts outside the family.',
+        howToSetUp: `1. Go to Touch Base and tap "Add a Conversation"
+2. Name it something like "IEP Meeting Prep" or "Mrs. Johnson — 4th Grade"
+3. Add items as they come up throughout the week
+4. Before the meeting, review your list. During or after, check things off and jot notes
+5. Your history is searchable — look back at what was discussed in previous sessions`,
+      },
+      {
+        name: 'Personal Reflection',
+        description: 'Keep a running list of things to think through on your own — or process with LiLa.',
+        howToSetUp: `1. Tap "Add a Conversation" and name it something like "Things on My Mind"
+2. Add items whenever something comes up you want to process
+3. Check them off as you work through them, or tap "Formal Meeting" to think through them with LiLa`,
       },
     ],
   },

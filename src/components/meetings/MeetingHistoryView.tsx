@@ -54,7 +54,7 @@ export function MeetingHistoryView({ isOpen, onClose, familyId, members }: Meeti
       onClose={onClose}
       type="transient"
       size="lg"
-      title={selectedMeeting ? 'Meeting Detail' : 'Meeting History'}
+      title={selectedMeeting ? 'Conversation Detail' : 'Conversation History'}
       subtitle={selectedMeeting ? (selectedMeeting.custom_title ?? MEETING_TYPE_LABELS[selectedMeeting.meeting_type as MeetingType]) : undefined}
       icon={Clock}
     >

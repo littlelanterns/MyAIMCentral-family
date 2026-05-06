@@ -59,7 +59,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     items: [
       { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
       { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
-      { label: 'Meetings', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Structured family meetings with agendas' },
+      { label: 'Touch Base', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Keep track of things to talk about with family, kids, and contacts' },
       { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
       { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
       { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },

@@ -430,7 +430,7 @@ export function MeetingsPage() {
       <FeatureGuide featureKey="meetings_basic" />
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Meetings</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Touching Base</h1>
       </div>
 
       {/* Active / In-Progress Meetings */}
@@ -468,9 +468,9 @@ export function MeetingsPage() {
       {!hasAnySchedule && allAgendaItems.length === 0 && activeMeetings.length === 0 && (
         <div className="text-center py-8 rounded-xl" style={{ background: 'var(--color-surface-secondary)', border: '1px solid var(--color-border-default)' }}>
           <UsersRound size={32} className="mx-auto mb-2" style={{ color: 'var(--color-accent-deep)' }} />
-          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Set up your family meetings</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Start keeping track of conversations</p>
           <p className="text-xs mt-1 max-w-xs mx-auto" style={{ color: 'var(--color-text-secondary)' }}>
-            Schedule family council, 1:1 time with each kid, and couple check-ins — or just start adding agenda items whenever something comes up.
+            Add things you want to remember to talk about — with your spouse, each kid, your whole family, or anyone else.
           </p>
           <button
             onClick={() => setMeetingWizardOpen(true)}
@@ -560,7 +560,7 @@ export function MeetingsPage() {
             style={{ border: '1px dashed var(--color-border-default)', color: 'var(--color-text-secondary)' }}
             onClick={() => setCustomTemplateOpen(true)}
           >
-            <Plus size={16} /> Create Custom Meeting Type
+            <Plus size={16} /> Add a Conversation
           </button>
         </section>
       </PermissionGate>
@@ -581,7 +581,7 @@ export function MeetingsPage() {
         </div>
         {recentMeetings.length === 0 ? (
           <p className="text-sm py-4 text-center" style={{ color: 'var(--color-text-tertiary)' }}>
-            Your meeting history will appear here after your first completed meeting.
+            Your conversation history will appear here after your first completed session.
           </p>
         ) : (
           <div className="space-y-2">
