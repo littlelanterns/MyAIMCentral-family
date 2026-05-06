@@ -3,18 +3,10 @@
 // Used by NotepadDrawer to create meeting_agenda_items directly
 // instead of depositing to studio_queue.
 
-import { UsersRound, Heart, Users, GraduationCap, MessageSquare, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useMeetingSchedules, useAddAgendaItem, useMeetingTemplates } from '@/hooks/useMeetings'
 import { useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import type { MeetingType } from '@/types/meetings'
-
-const TYPE_ICONS: Record<MeetingType, typeof Heart> = {
-  couple: Heart,
-  parent_child: Users,
-  mentor: GraduationCap,
-  family_council: UsersRound,
-  custom: MessageSquare,
-}
 
 interface MeetingPickerOverlayProps {
   isOpen: boolean
@@ -85,17 +77,14 @@ export function MeetingPickerOverlay({
 
         <div className="px-3 py-2 max-h-80 overflow-y-auto space-y-1">
           {builtInTypes.map(type => {
-            const Icon = TYPE_ICONS[type]
             const schedule = schedules.find(s => s.meeting_type === type && !s.related_member_id)
 
-            // Expand per-child for mentor/parent_child
             if ((type === 'mentor' || type === 'parent_child') && children.length > 0) {
               return children.map((child: FamilyMember) => {
                 const childSchedule = schedules.find(s => s.meeting_type === type && s.related_member_id === child.id)
                 return (
                   <PickerRow
                     key={`${type}-${child.id}`}
-                    icon={Icon}
                     label={child.display_name}
                     nextDate={childSchedule?.next_due_date ?? null}
                     onClick={() => handlePick(type, child.id)}
@@ -108,7 +97,6 @@ export function MeetingPickerOverlay({
             return (
               <PickerRow
                 key={type}
-                icon={Icon}
                 label={PICKER_LABELS[type]}
                 nextDate={schedule?.next_due_date ?? null}
                 onClick={() => handlePick(type)}
@@ -117,11 +105,9 @@ export function MeetingPickerOverlay({
             )
           })}
 
-          {/* Custom templates */}
           {templates.map(t => (
             <PickerRow
               key={t.id}
-              icon={MessageSquare}
               label={t.name}
               nextDate={schedules.find(s => s.template_id === t.id)?.next_due_date ?? null}
               onClick={() => handlePick('custom', undefined, t.id)}
@@ -135,13 +121,11 @@ export function MeetingPickerOverlay({
 }
 
 function PickerRow({
-  icon: Icon,
   label,
   nextDate,
   onClick,
   loading,
 }: {
-  icon: typeof Heart
   label: string
   nextDate: string | null
   onClick: () => void
@@ -154,7 +138,6 @@ function PickerRow({
       className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg hover:opacity-80 transition-opacity disabled:opacity-50"
       style={{ color: 'var(--color-text-primary)' }}
     >
-      <Icon size={16} style={{ color: 'var(--color-accent)' }} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{label}</p>
         {nextDate && (
