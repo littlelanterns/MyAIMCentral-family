@@ -7,7 +7,6 @@ import { UsersRound, Heart, Users, GraduationCap, MessageSquare, X } from 'lucid
 import { useMeetingSchedules, useAddAgendaItem, useMeetingTemplates } from '@/hooks/useMeetings'
 import { useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import type { MeetingType } from '@/types/meetings'
-import { MEETING_TYPE_LABELS } from '@/types/meetings'
 
 const TYPE_ICONS: Record<MeetingType, typeof Heart> = {
   couple: Heart,
@@ -42,6 +41,15 @@ export function MeetingPickerOverlay({
   if (!isOpen) return null
 
   const children = members.filter((m: FamilyMember) => m.role === 'member')
+  const partner = members.find((m: FamilyMember) => m.role === 'additional_adult' && m.is_active)
+
+  const PICKER_LABELS: Record<MeetingType, string> = {
+    couple: partner ? partner.display_name : 'My Partner',
+    parent_child: 'Parent-Child',
+    mentor: 'Mentor',
+    family_council: 'The Whole Family',
+    custom: 'Custom',
+  }
 
   const handlePick = (meetingType: MeetingType, relatedMemberId?: string, templateId?: string) => {
     addItem.mutate({
@@ -68,7 +76,7 @@ export function MeetingPickerOverlay({
       >
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--color-border-default)' }}>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
-            Add to which conversation?
+            Touch Base with...
           </h3>
           <button onClick={onClose} className="p-1 rounded hover:opacity-80" style={{ color: 'var(--color-text-tertiary)' }}>
             <X size={16} />
@@ -88,7 +96,7 @@ export function MeetingPickerOverlay({
                   <PickerRow
                     key={`${type}-${child.id}`}
                     icon={Icon}
-                    label={`${MEETING_TYPE_LABELS[type]}: ${child.display_name}`}
+                    label={child.display_name}
                     nextDate={childSchedule?.next_due_date ?? null}
                     onClick={() => handlePick(type, child.id)}
                     loading={addItem.isPending}
@@ -101,7 +109,7 @@ export function MeetingPickerOverlay({
               <PickerRow
                 key={type}
                 icon={Icon}
-                label={MEETING_TYPE_LABELS[type]}
+                label={PICKER_LABELS[type]}
                 nextDate={schedule?.next_due_date ?? null}
                 onClick={() => handlePick(type)}
                 loading={addItem.isPending}
