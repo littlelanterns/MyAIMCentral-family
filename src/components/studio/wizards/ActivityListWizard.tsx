@@ -6,7 +6,7 @@ import { SegmentPicker } from './SegmentPicker'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ItemRecurrenceConfig, DEFAULT_RECURRENCE_VALUE, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
@@ -35,6 +35,15 @@ interface DeployTarget {
   dashboardCard: { enabled: boolean; visualStyle: VisualStyle }
 }
 
+interface RevealAnimationOption {
+  id: string
+  slug: string
+  display_name: string
+  style_category: string
+  thumbnail_url: string | null
+  reveal_type: string
+}
+
 interface ActivityWizardState {
   subjectName: string
   description: string
@@ -46,6 +55,7 @@ interface ActivityWizardState {
   rewardScope: RewardScope
   rewardType: RewardType
   rewardThreshold: number
+  revealAnimationId: string | null
   assignedMemberIds: string[]
   deployTargets: Record<string, DeployTarget>
 }
@@ -67,6 +77,7 @@ const INITIAL_STATE: ActivityWizardState = {
   rewardScope: 'per_subject',
   rewardType: 'creatures',
   rewardThreshold: 5,
+  revealAnimationId: null,
   assignedMemberIds: [],
   deployTargets: {},
 }
@@ -103,6 +114,21 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
   const queryClient = useQueryClient()
   const [isDeploying, setIsDeploying] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
+
+  // Reveal animation options for the reward step picker
+  const { data: revealAnimations = [] } = useQuery({
+    queryKey: ['reveal-animations-picker'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reveal_animations')
+        .select('id, slug, display_name, style_category, thumbnail_url, reveal_type')
+        .eq('is_active', true)
+        .order('sort_order')
+      if (error) throw error
+      return (data ?? []) as RevealAnimationOption[]
+    },
+    staleTime: 5 * 60_000,
+  })
 
   const initialState = useMemo((): ActivityWizardState => {
     if (!prefill) return INITIAL_STATE
@@ -360,6 +386,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
               display_label: state.subjectName,
               display_mode: state.displayMode,
               visual_style: targets.dashboardCard.visualStyle,
+              reveal_animation_id: state.revealAnimationId,
             },
             is_active: true,
             is_on_dashboard: true,
@@ -832,6 +859,81 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
             Every {state.rewardThreshold} completions = 1 {state.rewardType === 'points' ? '10-point bonus' : state.rewardType === 'creatures' ? 'creature' : 'page unlock'}.
           </p>
+        </div>
+
+        {/* Reveal animation picker */}
+        <div>
+          <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+            Activity reveal style
+          </label>
+          <p className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-text-muted)' }}>
+            How should activities be revealed when drawn? Default is a sparkle card.
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+            {/* Default option */}
+            <button
+              type="button"
+              onClick={() => setState(prev => ({ ...prev, revealAnimationId: null }))}
+              className="shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg border transition-all"
+              style={{
+                width: '80px',
+                borderColor: state.revealAnimationId === null ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
+                backgroundColor: state.revealAnimationId === null
+                  ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
+                  : 'var(--color-bg-card)',
+              }}
+            >
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+              >
+                <Sparkles size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
+              </div>
+              <span className="text-[10px] text-center leading-tight" style={{
+                color: state.revealAnimationId === null ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                fontWeight: state.revealAnimationId === null ? 600 : 400,
+              }}>
+                Default
+              </span>
+            </button>
+
+            {revealAnimations.map(anim => {
+              const isSelected = state.revealAnimationId === anim.id
+              return (
+                <button
+                  key={anim.id}
+                  type="button"
+                  onClick={() => setState(prev => ({ ...prev, revealAnimationId: anim.id }))}
+                  className="shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg border transition-all"
+                  style={{
+                    width: '80px',
+                    borderColor: isSelected ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
+                    backgroundColor: isSelected
+                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)'
+                      : 'var(--color-bg-card)',
+                  }}
+                  title={anim.display_name}
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+                  >
+                    {anim.thumbnail_url ? (
+                      <img src={anim.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Sparkles size={18} style={{ color: 'var(--color-text-muted)' }} />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-center leading-tight truncate w-full" style={{
+                    color: isSelected ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                    fontWeight: isSelected ? 600 : 400,
+                  }}>
+                    {anim.display_name}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>

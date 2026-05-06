@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { X, Sparkles, Check } from 'lucide-react'
 import { MathGate } from '@/components/beta/MathGate'
 import { supabase } from '@/lib/supabase/client'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ListItem } from '@/types/lists'
 
 interface ActivityRevealCardProps {
@@ -11,6 +11,7 @@ interface ActivityRevealCardProps {
   familyId: string
   memberId: string
   isPlayShell: boolean
+  revealAnimationId?: string | null
   onClose: () => void
   onClaimed: () => void
 }
@@ -23,6 +24,7 @@ export function ActivityRevealCard({
   familyId,
   memberId,
   isPlayShell,
+  revealAnimationId,
   onClose,
   onClaimed,
 }: ActivityRevealCardProps) {
@@ -30,11 +32,32 @@ export function ActivityRevealCard({
   const [claiming, setClaiming] = useState(false)
   const queryClient = useQueryClient()
 
+  // Load the configured reveal animation (if any) for custom reveal rendering
+  const { data: revealAnimation } = useQuery({
+    queryKey: ['reveal-animation', revealAnimationId],
+    queryFn: async () => {
+      if (!revealAnimationId) return null
+      const { data } = await supabase
+        .from('reveal_animations')
+        .select('id, slug, display_name, video_url, css_component, thumbnail_url, duration_seconds')
+        .eq('id', revealAnimationId)
+        .single()
+      return data
+    },
+    enabled: !!revealAnimationId,
+    staleTime: 5 * 60_000,
+  })
+
+  // Transition from revealing to revealed after the animation duration
+  const revealDuration = revealAnimation?.duration_seconds
+    ? revealAnimation.duration_seconds * 1000
+    : 800
+
   useEffect(() => {
     if (!item) return
-    const timer = setTimeout(() => setPhase('revealed'), 800)
+    const timer = setTimeout(() => setPhase('revealed'), revealDuration)
     return () => clearTimeout(timer)
-  }, [item])
+  }, [item, revealDuration])
 
   const handleClaim = useCallback(async () => {
     if (!item || claiming) return
@@ -146,23 +169,44 @@ export function ActivityRevealCard({
             textAlign: 'center',
           }}
         >
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '48px',
-              height: '48px',
-              borderRadius: '9999px',
-              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-secondary))',
-              marginBottom: '1rem',
-            }}
-          >
-            <Sparkles
-              size={24}
-              style={{ color: 'var(--color-btn-primary-bg)' }}
-            />
-          </div>
+          {revealAnimation?.video_url ? (
+            <div
+              style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '1rem',
+                overflow: 'hidden',
+                marginBottom: '1rem',
+                display: 'inline-block',
+              }}
+            >
+              <video
+                src={revealAnimation.video_url}
+                autoPlay
+                muted
+                playsInline
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '48px',
+                height: '48px',
+                borderRadius: '9999px',
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-secondary))',
+                marginBottom: '1rem',
+              }}
+            >
+              <Sparkles
+                size={24}
+                style={{ color: 'var(--color-btn-primary-bg)' }}
+              />
+            </div>
+          )}
 
           <p
             style={{

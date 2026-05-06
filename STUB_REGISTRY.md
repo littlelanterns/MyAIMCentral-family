@@ -566,6 +566,16 @@ Five pre-existing items that were in the codebase before the STUB_REGISTRY conve
 |------|-----------|----------|--------|-------|
 | `require_note` on `task_template_steps` | Stage 2 Parity audit (Task 3) | — | ⏳ Unwired (MVP) | Per-step "require a note on completion" toggle. Column does not exist in schema. Would need migration + step editor UI + completion-time enforcement. No PRD assigned. |
 
+## Phase 3.8 — Activity Management
+
+| Stub | Created By | Wired By | Status | Notes |
+|------|-----------|----------|--------|-------|
+| LiLa context from activity completion patterns | Phase 3.8 | PRD-05 context assembly expansion | ⏳ Unwired (MVP) | Activity completion data not yet included in LiLa context assembly pipeline. Requires new context source loader in `_shared/context-assembler.ts`. |
+| Offline activity lists | Phase 3.8 | PRD-33 | 📌 Unwired (Post-MVP) | Activity lists and icon launcher widgets require network connectivity. Offline support deferred to PRD-33 PWA build. |
+| Cross-family sharing / community templates | Phase 3.8 | — | 📌 Unwired (Post-MVP) | Activity list templates are family-scoped only. Community sharing of activity configurations deferred. |
+| Activity list scheduling (painted/recurring) | Phase 3.8 | Phase 3 painted schedules expansion | ⏳ Unwired (MVP) | Activity lists are always-available. Painted or recurring schedule attachment (e.g., "only on Tuesdays") not yet wired. `lists.schedule_config` column exists but not connected to activity wizard. |
+| Analytics for activity patterns | Phase 3.8 | PRD-32 | 📌 Unwired (Post-MVP) | No admin-side analytics for activity completion patterns, popular activities, or daily floor achievement rates. Deferred to PRD-32 Admin Console analytics expansion. |
+
 ---
 
 ## Summary

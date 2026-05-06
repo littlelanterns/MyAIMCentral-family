@@ -130,6 +130,7 @@ export function IconLauncherGrid({
           familyId={familyId}
           memberId={memberId}
           isPlayShell={isPlayShell}
+          revealAnimationId={activeWidget.widget_config.reveal_animation_id}
           onClose={handleClose}
           onClaimed={handleClose}
         />

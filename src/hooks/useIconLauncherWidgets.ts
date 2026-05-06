@@ -10,6 +10,7 @@ export interface IconLauncherWidget extends DashboardWidget {
     display_label: string
     display_mode: 'random' | 'browse' | 'sequential_browse'
     visual_style?: 'icon_card' | 'text_button'
+    reveal_animation_id?: string | null
   }
 }
 

@@ -42,6 +42,7 @@ import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorReveal
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useArchiveExpiredRoutines } from '@/hooks/useArchiveExpiredRoutines'
+import { IndependentActivityCard } from '@/components/independent/IndependentActivityCard'
 
 interface DashboardProps {
   /** When true, this instance is inside the ViewAsModal overlay */
@@ -715,6 +716,14 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
                   memberId={displayMemberId ?? ''}
                 />
               ))}
+
+              {/* Phase 3.8: Activity card for Independent members */}
+              {memberDashboardMode === 'independent' && displayFamilyId && displayMemberId && (
+                <IndependentActivityCard
+                  familyId={displayFamilyId}
+                  memberId={displayMemberId}
+                />
+              )}
 
               {activeSections.map((section) => {
                 // Greeting: always rendered, no wrapper needed for collapse/edit
