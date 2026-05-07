@@ -402,8 +402,10 @@ export function ListRevealAssignmentWizard({
   const shareList = useShareList()
   const queryClient = useQueryClient()
 
+  // Eligible claimers — all active members, including mom (so she can earn too).
+  // Mom appears in the pill list and can opt in/out via the Specific People picker.
   const childMembers = familyMembers.filter(
-    (m) => m.id !== memberId && m.is_active !== false,
+    (m) => m.is_active !== false,
   )
 
   const steps = state.flavor === 'draw' ? DRAW_STEPS : OPPORTUNITY_STEPS
@@ -1479,9 +1481,9 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 className="shrink-0"
               />
               <div>
-                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>All kids</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Everyone</span>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  Every kid in the family can browse and claim
+                  Anyone in the family can browse and claim — including you
                 </p>
               </div>
             </label>
@@ -1500,9 +1502,9 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 className="shrink-0 mt-1"
               />
               <div className="flex-1 min-w-0 overflow-hidden">
-                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Specific kids</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Specific people</span>
                 <p className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Only selected members can see these
+                  Only selected members can see these — pick yourself too if you want a chance at the reward
                 </p>
                 {state.sharingMode === 'specific' && (
                   <MemberPillSelector
@@ -1742,7 +1744,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 }}
               >
                 <input type="radio" name="draw_sharing" checked={state.sharingMode === 'all'} onChange={() => setState((prev) => ({ ...prev, sharingMode: 'all' }))} className="shrink-0" />
-                <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>All kids</span>
+                <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Everyone</span>
               </label>
               <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer"
                 style={{
@@ -1751,8 +1753,8 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 }}
               >
                 <input type="radio" name="draw_sharing" checked={state.sharingMode === 'specific'} onChange={() => setState((prev) => ({ ...prev, sharingMode: 'specific' }))} className="shrink-0 mt-1" />
-                <div className="flex-1">
-                  <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Specific kids</span>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Specific people</span>
                   {state.sharingMode === 'specific' && (
                     <div className="mt-2">
                       <MemberPillSelector
@@ -1948,7 +1950,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
               </span>
               <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
                 {state.sharingMode === 'all'
-                  ? 'All kids'
+                  ? 'Everyone'
                   : state.selectedMemberIds.length === 0
                     ? 'No one selected yet'
                     : state.selectedMemberIds

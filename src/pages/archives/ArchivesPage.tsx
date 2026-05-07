@@ -6,7 +6,7 @@
  * Expanded FAB: Add for a Person, Voice Dump, Bulk Add & Sort.
  */
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -45,7 +45,7 @@ import { useFamily } from '@/hooks/useFamily'
 import { useAvatarUpload } from '@/hooks/useAvatarUpload'
 import { useToggleMemberPersonLevel } from '@/hooks/useArchives'
 import { supabase } from '@/lib/supabase/client'
-import { getOptimalColumnCount } from '@/lib/utils/gridColumns'
+import { useResponsiveColumns } from '@/hooks/useResponsiveColumns'
 import { ArchiveMemberCard } from '@/components/archives/ArchiveMemberCard'
 import { VoiceDumpModal } from '@/components/archives/VoiceDumpModal'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
@@ -246,27 +246,7 @@ function useViewMode(): [ViewMode, (mode: ViewMode) => void] {
   return [mode, set]
 }
 
-// ---------------------------------------------------------------------------
-// Responsive column count
-// ---------------------------------------------------------------------------
-
-function useResponsiveColumns(totalCards: number) {
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)
-
-  useEffect(() => {
-    const handleResize = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  const maxCols = width >= 1024 ? 5 : width >= 768 ? 3 : 2
-  const isMobile = width < 768
-
-  return {
-    columns: getOptimalColumnCount(totalCards, maxCols),
-    isMobile,
-  }
-}
+// Responsive column count moved to src/hooks/useResponsiveColumns.ts
 
 // ---------------------------------------------------------------------------
 // List view sub-components (from original ArchivesPage)

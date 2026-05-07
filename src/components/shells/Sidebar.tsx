@@ -65,7 +65,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
       { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
       { label: 'Studio', path: '/studio', featureKey: 'studio', icon: <Palette size={20} />, tooltip: 'Template workshop' },
       { label: 'Prize Board', path: '/prize-board', featureKey: 'gamification_basic', icon: <Gift size={20} />, tooltip: 'Unredeemed prizes and IOUs' },
-      { label: 'Contracts', path: '/contracts', featureKey: 'gamification_basic', icon: <FileText size={20} />, tooltip: 'Reward rules and automation' },
+      { label: 'RewardRules', path: '/contracts', featureKey: 'gamification_basic', icon: <FileText size={20} />, tooltip: 'Reward rules and automation' },
     ],
   }
 
