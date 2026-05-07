@@ -13,14 +13,14 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Sparkles, Plus, Trash2, GripVertical, DollarSign, Star,
   Trophy, Shuffle, CheckCircle2, AlertCircle, Info,
-  Users, Zap, Gift, ClipboardList,
+  Users, Zap, Gift, ClipboardList, Film,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardDraft } from './useWizardDraft'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
-import { AttachRevealSection } from '@/components/reward-reveals/AttachRevealSection'
 import type { RevealAttachmentConfig } from '@/components/reward-reveals/AttachRevealSection'
 import { useCreateContract } from '@/hooks/useContracts'
+import { useRevealAnimations } from '@/hooks/useRewardReveals'
 import { useShareList } from '@/hooks/useLists'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
@@ -263,21 +263,36 @@ function SortableItemRow({
 function RewardConfigRow({
   item,
   onUpdate,
+  onDelete,
 }: {
   item: ListItemDraft
   onUpdate: (id: string, field: keyof ListItemDraft, value: string | number | null | boolean) => void
+  onDelete?: (id: string) => void
 }) {
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border"
       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}
     >
-      <span
-        className="text-sm font-medium flex-1 min-w-0 truncate"
-        style={{ color: 'var(--color-text-primary)' }}
-      >
-        {item.name || 'Unnamed item'}
-      </span>
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(item.id)}
+            className="shrink-0 p-1 rounded transition-colors hover:opacity-80"
+            style={{ color: 'var(--color-text-muted)' }}
+            title="Remove item"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+        <span
+          className="text-sm font-medium flex-1 min-w-0 truncate"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          {item.name || 'Unnamed item'}
+        </span>
+      </div>
 
       <div className="flex items-center gap-2 flex-wrap">
         <select
@@ -380,6 +395,9 @@ export function ListRevealAssignmentWizard({
   )
   const draftRestored = useRef(false)
   const preFillApplied = useRef(false)
+
+  // Reveal animations for draw picker
+  const { data: revealAnimations = [] } = useRevealAnimations()
 
   // Mutations
   const createContract = useCreateContract()
@@ -1471,6 +1489,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 <RewardConfigRow
                   item={item}
                   onUpdate={handleUpdateItem}
+                  onDelete={handleRemoveItem}
                 />
                 <div className="pl-3">
                   <ItemRecurrenceConfig
@@ -1642,18 +1661,98 @@ Return ONLY a JSON array. No markdown, no preamble.`
 
     // ── Step: Reveal Animation (Draw) ──────────────────────────
     if (currentStepKey === 'reveal') {
+      const selectedAnimId = state.revealConfig?.animationIds?.[0] ?? null
+      const cssFirst = [...revealAnimations].sort((a, b) => {
+        if (a.reveal_type === 'css' && b.reveal_type !== 'css') return -1
+        if (a.reveal_type !== 'css' && b.reveal_type === 'css') return 1
+        return a.sort_order - b.sort_order
+      })
+
+      const handlePickAnim = (animId: string) => {
+        const anim = revealAnimations.find((a) => a.id === animId)
+        if (!anim) return
+        if (selectedAnimId === animId) {
+          setState((prev) => ({ ...prev, revealConfig: null }))
+          return
+        }
+        setState((prev) => ({
+          ...prev,
+          revealConfig: {
+            libraryRevealId: null,
+            animationIds: [animId],
+            animationRotation: 'sequential',
+            prizeMode: 'fixed',
+            prizeType: 'text',
+            prizeText: '',
+            prizeName: '',
+            prizeImageUrl: '',
+            prizeAssetKey: '',
+            prizePool: [],
+            triggerMode: 'on_completion' as const,
+            triggerN: null,
+            isRepeating: true,
+          },
+        }))
+      }
+
       return (
         <div className="space-y-4">
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Pick a reveal animation for the draw. The result shows with a visual flourish.
+            How should the drawn item be revealed? Pick a style.
           </p>
 
-          <AttachRevealSection
-            value={state.revealConfig}
-            onChange={(config: RevealAttachmentConfig | null) => setState((prev) => ({ ...prev, revealConfig: config }))}
-            familyId={familyId}
-            variant="section-card"
-          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {cssFirst.map((anim) => {
+              const isSelected = selectedAnimId === anim.id
+              const isCSS = anim.reveal_type === 'css'
+              return (
+                <button
+                  key={anim.id}
+                  type="button"
+                  onClick={() => handlePickAnim(anim.id)}
+                  className="relative flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-all text-center"
+                  style={{
+                    borderColor: isSelected ? 'var(--color-btn-primary-bg)' : 'var(--color-border)',
+                    backgroundColor: isSelected
+                      ? 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, var(--color-bg-card))'
+                      : 'var(--color-bg-card)',
+                  }}
+                >
+                  {isSelected && (
+                    <div
+                      className="absolute top-1.5 right-1.5 rounded-full p-0.5"
+                      style={{ backgroundColor: 'var(--color-btn-primary-bg)' }}
+                    >
+                      <CheckCircle2 size={14} style={{ color: 'var(--color-btn-primary-text)' }} />
+                    </div>
+                  )}
+                  {anim.thumbnail_url ? (
+                    <img
+                      src={anim.thumbnail_url}
+                      alt={anim.display_name}
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                  ) : (
+                    <div
+                      className="w-16 h-16 rounded flex items-center justify-center"
+                      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+                    >
+                      {isCSS ? <Sparkles size={24} style={{ color: 'var(--color-btn-primary-bg)' }} /> : <Film size={24} style={{ color: 'var(--color-text-muted)' }} />}
+                    </div>
+                  )}
+                  <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {anim.display_name}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {!selectedAnimId && (
+            <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+              Optional — skip if you want the result to appear without an animation.
+            </p>
+          )}
         </div>
       )
     }
