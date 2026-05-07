@@ -93,6 +93,27 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Named combos can be attached to any task, widget, list, or intention via the "Reward Reveal" section in their editor.
   Rotating prize pools: set mode to Sequential or Random — different prize each time!
   Prize Box: earned prizes show up for kids until mom marks them as redeemed.`,
+
+  '/prize-board': `PRIZE BOARD — 3 tabs: Allowance, Prizes, Balance.
+  ALLOWANCE TAB: Unpaid periods grouped by date range. Each group expands to show per-pool breakdown (pool name, percentage, earned amount, weight). "Paid" button marks all pools in that period as closed.
+  PRIZES TAB: Earned IOUs from reward reveals. Mark as redeemed when fulfilled.
+  BALANCE TAB: Full earnings ledger with running balance.
+  Kid selector pill bar at top — tap a kid for their ledger, "All Kids" for combined chronological stream.
+  Filters: All / Earnings / Payments / Adjustments / By Pool.
+  Pool contribution rows (informational, no money amount) show in lighter style.
+  Pay button opens PaymentModal — full or partial amount with note field.
+  Kids see their own ledger only (respects child_can_see_finances per pool). Play shell shows percentages only.`,
+
+  '/settings/allowance': `ALLOWANCE & FINANCES SETTINGS — Per-child allowance configuration.
+  SINGLE POOL (default): Weekly amount, bonus threshold, calculation approach. No pool list visible.
+  "+ Add another pool" at bottom reveals multi-pool management.
+  MULTI-POOL: Pool list with cards. Each pool has: name, payout mode (weekly/biweekly/monthly/term/measurement-only), weight, overage cap, bonus config.
+  Expand a pool card to edit all settings. Measurement-only pools track without paying out.
+  Pool lifecycle: Pause (stops new periods, current period stays open, excluded from combined math), Archive (hidden by default, "Show archived" toggle), Activate (resume).
+  Grace days: Applied at the member level (above pool list) — one grace day updates ALL pool periods.
+  Bulk Configure button: Apply same pool config across multiple kids, or add a new pool to all selected kids.
+  Term-length pools: Start/end date pickers for semester-based tracking.
+  Overage cap: Default 100%. Set higher (e.g. 150%) to allow extra-credit bonus above 100%.`,
 }
 
 // ── Use Case Recipes ──────────────────────────────────────
@@ -492,6 +513,39 @@ Each kid sees only their current assignment on their dashboard.`,
 6. Pick a label: Date, Check-in, 1:1 Time, Mentor Meeting, or your own custom name
 7. Review everything and confirm — all schedules and calendar events are created at once
 You can change any schedule later from the Meetings page in about 10 seconds.`,
+      },
+    ],
+  },
+
+  // ── Allowance & Multi-Pool (PRD-28 Phase 3.5) ──────────────
+  {
+    triggers: ['allowance', 'set up allowance', 'allowance pools', 'multiple pools', 'chores pool', 'school pool', 'earning pool', 'weekly pay', 'kid earnings', 'pay my kids'],
+    clarifyingQuestion: "I can help you set up allowance! Tell me a bit about what you're going for — is this a straightforward weekly amount based on how well they do their chores? Or are you thinking about tracking multiple areas separately (like chores AND school effort) with different weights toward the total? Some families like one simple pool, others like the flexibility of tracking things independently.",
+    variants: [
+      {
+        name: 'Simple Single Pool',
+        description: 'One weekly amount based on overall task completion percentage.',
+        howToSetUp: `Go to Settings > Allowance & Finances > [child].
+Enable allowance, set the weekly amount (e.g., $14).
+Set the bonus threshold — the percentage they need to hit for a bonus (e.g., 85%).
+Flag tasks with "counts for allowance" in the task editor.
+The system calculates their percentage each week and determines the payout automatically.
+View unpaid periods and mark them paid on the Prize Board > Allowance tab.`,
+      },
+      {
+        name: 'Multiple Pools (Chores + School + Extras)',
+        description: 'Separate tracking areas with different weights toward the total payout.',
+        howToSetUp: `Go to Settings > Allowance & Finances > [child].
+Set up the default pool first (this becomes "Chores" or whatever you call it).
+Tap "+ Add another pool" at the bottom to create more pools (e.g., "School", "Reading").
+For each pool, set:
+- Payout mode: weekly (earns money) or measurement-only (tracks percentage without paying)
+- Weight: how much this pool counts toward the combined payout (e.g., Chores=0.7, School=0.3)
+- Its own bonus threshold and calculation approach
+
+Measurement-only pools are great for tracking school effort without tying it to money.
+The widget shows each pool's percentage plus the combined weighted result.
+Pause pools seasonally — pause "School" in summer, activate "Summer Reading."`,
       },
     ],
   },

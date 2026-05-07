@@ -1,6 +1,6 @@
 # Phase 3.5 — Multi-Pool Allowance
 
-## Status: ACTIVE — Founder approved 2026-05-06 (3 amendments incorporated)
+## Status: COMPLETE — Signed off 2026-05-06
 
 ## Source Material
 

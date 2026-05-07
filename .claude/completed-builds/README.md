@@ -15,6 +15,7 @@
 
 | Build | PRD | Signed off | File |
 |---|---|---|---|
+| Phase 3.5 — Multi-Pool Allowance | PRD-28 — Per-pool configs/periods/RPCs, Edge Function per-pool close + cross-pool logic, frontend widget + config + ledger + recalculate + grace day sync, migrations 100234-100236, 17 Playwright tests | 2026-05-06 | [phase-3.5-multi-pool-allowance.md](2026-05/phase-3.5-multi-pool-allowance.md) |
 | Phase 3.8 — Activity Management | Per-item recurrence, ActivityListWizard, SharedTaskListWizard, Play icon launchers, Guided/Independent surfaces, reveal picker, NLC routing, migrations 100231-100233 | 2026-05-05 | [phase-3.8-activity-management.md](2026-05/phase-3.8-activity-management.md) |
 | Phase 3.7 — Wizards & Seeded Templates | Connector Architecture — 3 wizards, 3 seeded templates, NLC entry point, Drafts tab, migration 100229 | 2026-05-04 | [phase-3.7-wizards-seeded-templates.md](2026-05/phase-3.7-wizards-seeded-templates.md) |
 | Phase 3 — Connector Layer | Connector Architecture — 12 godmothers, deed_firings, contracts, IF evaluation, presentation layer, `/contracts` + `/prize-board` | 2026-05-03 | [phase-3-connector-layer.md](2026-05/phase-3-connector-layer.md) |

@@ -267,6 +267,23 @@ const HELP_PATTERNS: HelpPattern[] = [
     keywords: ['set up meetings', 'schedule meetings for family', 'meeting wizard', '1:1 time', 'one on one', 'date with kid', 'date with child', 'iep prep', 'parent teacher'],
     response: "**For family conversations:** Go to **Touch Base** — Couple, Parent-Child, and Family Council cards are already there. Just start adding items.\n\n**For outside contacts:** Tap \"Add a Conversation\" to create cards for IEP meetings, parent-teacher conferences, co-op coordinators, or anything else.\n\n**Scheduling is optional:** If you want a recurring reminder, tap \"Add Schedule\" on any card. Most conversations work best as ongoing lists you check off naturally.\n\n**Bulk setup:** The Setup Wizard (in Studio) can create schedules for all family meetings at once if you want structure.",
   },
+
+  // ── Allowance & Multi-Pool (PRD-28 Phase 3.5) ──────────────
+  {
+    category: 'allowance',
+    keywords: ['allowance', 'allowance pool', 'pool', 'multiple pools', 'chores pool', 'school pool', 'earning pool', 'kid money', 'weekly allowance'],
+    response: "Allowance is configured per child in **Settings > Allowance & Finances > [child]**.\n\n**Single pool (default):** Set a weekly amount, bonus threshold, and calculation approach. Tasks flagged with \"counts for allowance\" contribute to the percentage.\n\n**Multiple pools:** Tap **\"+ Add another pool\"** at the bottom of a child's allowance config to create named pools (e.g., Chores, School, Reading). Each pool has its own:\n- Weekly amount & bonus threshold\n- Calculation approach\n- Weight toward the combined payout\n- Payout mode (weekly, biweekly, monthly, term, measurement-only)\n\n**Measurement-only pools** track percentage without paying out — great for tracking school effort alongside earning pools.\n\n**Pool lifecycle:** Pause pools seasonally (e.g., pause School in summer, activate Summer Reading). Archived pools are hidden but preserved.\n\n**Bulk configure:** Use the Bulk Configure button to set up the same pool across multiple kids at once.",
+  },
+  {
+    category: 'allowance_ledger',
+    keywords: ['ledger', 'balance', 'earnings', 'transactions', 'payment', 'pay allowance', 'mark paid', 'financial', 'how much earned', 'prize board'],
+    response: "The **Prize Board** (under Plan & Do in the sidebar) has three tabs:\n\n- **Allowance:** Unpaid periods grouped by date range with per-pool breakdown. Tap \"Paid\" to mark a period complete.\n- **Prizes:** Earned prize IOUs waiting to be redeemed.\n- **Balance:** Full earnings ledger with running balance.\n\n**Balance tab features:**\n- Kid selector pills at the top — tap a kid to see their ledger, or \"All Kids\" for a combined view\n- Filter by: All, Earnings, Payments, Adjustments, or by Pool\n- Running balance column on every transaction\n- Pay button opens the Payment modal (full or partial amount)\n\n**Kids can see their own ledger** (if \"child can see finances\" is enabled per pool). Play shell shows percentages only, no dollar amounts.",
+  },
+  {
+    category: 'recalculate_allowance',
+    keywords: ['recalculate', 'recalc', 'wrong allowance', 'fix allowance', 'adjustment', 'allowance correction', 'grace day'],
+    response: "If a routine was edited after an allowance period was calculated:\n\n1. Go to **Tasks > Finances tab** or the Routine's **View this week** page\n2. Tap **Recalculate** on the period\n3. The system re-runs the math without writing anything yet\n4. If the new amount is **higher**: the positive adjustment is applied automatically\n5. If the new amount is **lower**: you'll see three options:\n   - **Apply correction** — writes the adjustment to the ledger\n   - **Zero it out** — updates percentages but keeps the original earned amount (mercy option)\n   - **Cancel** — nothing changes\n\n**Grace days** apply across ALL pools for a child. Add/remove grace days from the allowance config — they update every active pool period simultaneously.",
+  },
 ]
 
 /**

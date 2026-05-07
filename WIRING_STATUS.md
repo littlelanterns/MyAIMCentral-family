@@ -308,6 +308,33 @@
 | Contract grant log | Append-only audit trail + presentation tracking | **Wired** | `contract_grant_log` with UNIQUE idempotency. |
 | Allowance dispatch audit | Dual-logging for migration verification | **Wired** | `allowance_dispatch_audit` table. |
 
+## Multi-Pool Allowance (Phase 3.5)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Multi-pool configs per kid | `allowance_configs` one row per (member, pool_name). Default pool = `'default'`. | **Wired** | Migration 100234. |
+| Per-pool `allowance_periods` | One period row per pool per member. `pool_name` column on `allowance_periods`. | **Wired** | Migration 100234. |
+| Per-pool RPCs | `calculate_allowance_progress(pool_name)`, `get_pool_progress`, `calculate_weighted_combination` | **Wired** | Migration 100235. |
+| Per-pool widget display | AllowanceCalculatorTracker shows per-pool breakdown when 2+ pools, single-pool unchanged | **Wired** | Worker D1. |
+| PoolDetailModal | Tap pool name on widget → modal with per-pool progress, weight, contribution | **Wired** | Worker D1. |
+| ChildAllowanceConfig multi-pool | Pool list, "+ Add Pool", expand cards, overage cap, term dates, lifecycle buttons | **Wired** | Worker D1. |
+| ChildAllowanceConfig single-pool backward compat | No pool list visible for single-pool kids, "+ Add another pool" entry point at bottom | **Wired** | Worker D1. |
+| BulkConfigureAllowanceModal pool selector | Pool name dropdown + "Add pool to all selected" | **Wired** | Worker D1. |
+| Pool lifecycle UI (pause/archive/activate) | Confirmation prompts, status badges on widget, paused excluded from combined | **Wired** | Worker D1. |
+| Edge Function per-pool period close | `calculate-allowance-period` creates per-pool periods, computes weighted combination, writes `pool_contribution` informational transactions | **Wired** | Migration 100236. Worker C. |
+| Cross-pool penalty/multiplier at period close | Contracts with `multi_pool_threshold` IF pattern evaluated at period close | **Wired** | Worker C. |
+| Full earnings ledger | Balance tab: kid pills, per-kid + all-kids view, running balance, pool_contribution rows, category + pool filters | **Wired** | Worker D2. LedgerView.tsx. |
+| PaymentModal wiring fix | Pay button opens PaymentModal (was hardcoding full balance) | **Wired** | Worker D2. PrizeBoard.tsx. |
+| Compute-then-prompt recalculate | `computeMultiPoolRecalc` (no writes) → NegativeRecalculateModal (3 options) → `applyMultiPoolRecalc` | **Wired** | Worker D2. Key Decision 16. |
+| Grace day sync across pools | `useAddGraceDayForMember` / `useRemoveGraceDayForMember` updates ALL active pool periods | **Wired** | Worker D2. D-gap-2. |
+| Period history pool grouping | `useGroupedPeriodHistory` groups by (period_start, period_end), per-pool breakdown in Allowance tab | **Wired** | Worker D2. D-gap-3. |
+| Kid-visible ledger | LedgerView mode='self', respects `child_can_see_finances`, Play shell hides money | **Wired** | Worker D2. |
+| `pool_name` on `financial_transactions` | Source tracking for per-pool earnings, adjustments, payments | **Wired** | Migration 100234. |
+| `combined_percentage` on `allowance_periods` | Weighted combination stored on period (report card), not on config (rulebook) | **Wired** | Key Decision 15. |
+| Cross-pool condition authoring UI | Dedicated inline UI in ChildAllowanceConfig | Stub | D-gap-4. Mom uses `/contracts` page. |
+| Goal-based pool UX | `pool_type='goal_pool'` schema columns exist, no frontend | Stub | Post-MVP. |
+| Self-managed pool ownership UX | `pool_owner_member_id` schema exists, no frontend | Stub | Post-MVP. |
+
 ## Known Issues / TODO
 
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)

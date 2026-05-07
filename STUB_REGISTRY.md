@@ -545,6 +545,10 @@ Created 2026-04-06. Three-session sequence. Phase 1 is the foundation; Sessions 
 | Dad payment delegation | PRD-28 | — | 📌 Post-MVP | Allow additional_adult to mark payments on behalf of mom. |
 | Teen purchase deduction requests via PRD-15 | PRD-28 + PRD-15 | PRD-15 Messages | 📌 Post-MVP | Teen requests a purchase deduction through family_requests, mom approves/declines. |
 | Allowance history trend charts | PRD-28 | — | 📌 Post-MVP | Visual charts showing completion %, earnings, and balance over time per child. |
+| Goal-based pool UX (`pool_type='goal_pool'`) | Phase 3.5 | — | 📌 Post-MVP | Schema columns exist on `allowance_configs` but no frontend UX for creating or managing goal-based pools. Deferred per pre-build summary. |
+| Self-managed pool UX (teen/adult ownership) | Phase 3.5 | — | 📌 Post-MVP | Schema supports `pool_owner_member_id` on `allowance_configs` but no UX for teens/adults to own and manage their own pools. Deferred per pre-build summary. |
+| Cross-pool condition authoring UI (D-gap-4) | Phase 3.5 | — | ⏳ Unwired (MVP) | Mom can create cross-pool conditions via `/contracts` page directly. Dedicated inline UI in ChildAllowanceConfig deferred. Worker D2 gap. |
+| Hourly work earning pathway (time x rate) | Phase 3.5 | — | 📌 Post-MVP | Separate from pool percentage math. Uses `time_sessions` + `money_godmother`. Shows in same financial ledger. Deferred until founder sets up hourly jobs for older kids. |
 
 ---
 

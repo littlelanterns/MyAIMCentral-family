@@ -12,6 +12,7 @@
 
 ### Last signed-off builds
 
+- **Phase 3.5 — Multi-Pool Allowance** (2026-05-06) — 14 capabilities, 3 fold-in items, 18 key decisions. Per-pool configs/periods/RPCs, Edge Function per-pool close + cross-pool logic, frontend per-pool widget + multi-pool config + full ledger + compute-then-prompt recalculate + grace day sync + period history grouping. Migrations 100234-100236. 5 workers (A→E). 17 Playwright tests, 0 bugs. 4 stubs. Archived in `.claude/completed-builds/2026-05/phase-3.5-multi-pool-allowance.md`.
 - **Phase 3.8 — Activity Management** (2026-05-05) — Per-item recurrence, ActivityListWizard (6 steps + deploy-target picker), SharedTaskListWizard (5 steps + claim-to-promote + write-back), Play icon launchers, Guided/Independent activity surfaces, reveal animation picker, NLC routing, Task Breaker Vault fix. 5 seeded templates, 3 migrations (100231-100233), 21+ Playwright tests. 68/68 verified. Archived in `.claude/completed-builds/2026-05/phase-3.8-activity-management.md`.
 - **Phase 3.7 — Wizards & Seeded Templates** (2026-05-04) — 3 wizards, 3 seeded templates, NLC entry point, Drafts tab, draft persistence. Migration 100229. 6 Playwright tests. Archived in `.claude/completed-builds/2026-05/phase-3.7-wizards-seeded-templates.md`.
 - **Phase 3 — Connector Layer** (2026-05-03) — 25 sub-tasks wired, 0 missing. 12 godmothers, deed_firings dispatch trigger, contracts table, IF evaluation (8 patterns), inheritance resolution, presentation layer, `/contracts` UI, `/prize-board` expansion (Allowance/Prizes/Balance). 14 Playwright tests. Migrations 100199-100225. Archived in `.claude/completed-builds/2026-05/phase-3-connector-layer.md`.
@@ -22,7 +23,7 @@
 The complete set of signed-off builds and their pre-build summaries lives in `.claude/completed-builds/`, organized by month:
 
 - `.claude/completed-builds/2026-04/` — 17 build files covering Builds C through P, Phase 1b, Worker 5, and Daily Progress Marking
-- `.claude/completed-builds/2026-05/` — Phase 3.8, Phase 3.7, Phase 3 Connector Layer, Universal Capability Parity Stages 1-2-3, Workers 2+3
+- `.claude/completed-builds/2026-05/` — Phase 3.5, Phase 3.8, Phase 3.7, Phase 3 Connector Layer, Universal Capability Parity Stages 1-2-3, Workers 2+3
 - `.claude/completed-builds/README.md` — chronological completion ledger + index of all archived build files
 
 Search `.claude/completed-builds/` via mgrep when you need to recall the full pre-build summary, decisions, or stubs for a historical build. The feature-decision files in `claude/feature-decisions/` remain the authoritative post-verification record per build.
