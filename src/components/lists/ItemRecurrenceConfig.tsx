@@ -23,6 +23,12 @@ const PERIOD_OPTIONS: { value: FrequencyPeriod; label: string }[] = [
   { value: 'month', label: 'month' },
 ]
 
+const PERIOD_HOURS: Record<FrequencyPeriod, number> = {
+  day: 24,
+  week: 168,
+  month: 720,
+}
+
 function deriveMode(value: ItemRecurrenceValue): RecurrenceMode {
   if (!value.is_repeatable || value.max_instances === 1) return 'one_time'
   if (value.cooldown_hours || value.frequency_period) return 'recurring'
@@ -40,15 +46,17 @@ function buildValue(mode: RecurrenceMode, prev: ItemRecurrenceValue): ItemRecurr
         cooldown_hours: null,
         max_instances: 1,
       }
-    case 'recurring':
+    case 'recurring': {
+      const period = prev.frequency_period ?? 'week'
       return {
         is_repeatable: true,
         frequency_min: prev.frequency_min ?? 1,
         frequency_max: prev.frequency_max,
-        frequency_period: prev.frequency_period ?? 'week',
-        cooldown_hours: prev.cooldown_hours ?? 24,
+        frequency_period: period,
+        cooldown_hours: prev.cooldown_hours ?? PERIOD_HOURS[period],
         max_instances: null,
       }
+    }
     case 'always':
       return {
         is_repeatable: true,
@@ -100,7 +108,14 @@ export function ItemRecurrenceConfig({ value, onChange, compact = true }: ItemRe
           <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>every</span>
           <select
             value={value.frequency_period ?? 'week'}
-            onChange={(e) => onChange({ ...value, frequency_period: e.target.value as FrequencyPeriod })}
+            onChange={(e) => {
+              const newPeriod = e.target.value as FrequencyPeriod
+              onChange({
+                ...value,
+                frequency_period: newPeriod,
+                cooldown_hours: PERIOD_HOURS[newPeriod],
+              })
+            }}
             className="px-1.5 py-0.5 rounded text-[11px]"
             style={{
               backgroundColor: 'var(--color-bg-card)',

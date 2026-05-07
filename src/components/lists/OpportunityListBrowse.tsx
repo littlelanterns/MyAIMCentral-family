@@ -361,11 +361,15 @@ function CooldownBadge({ item }: { item: ListItem }) {
     ? new Date(item.last_completed_at).getTime()
     : null
 
+  // Active cooldown — show countdown until available again
   if (lastCompleted) {
     const cooldownEnd = lastCompleted + cooldownHours * 60 * 60 * 1000
     const now = Date.now()
     if (now < cooldownEnd) {
-      const hoursLeft = Math.ceil((cooldownEnd - now) / (60 * 60 * 1000))
+      const msLeft = cooldownEnd - now
+      const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000))
+      const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000))
+      const label = daysLeft >= 2 ? `${daysLeft}d until available` : `${hoursLeft}h until available`
       return (
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
@@ -375,11 +379,22 @@ function CooldownBadge({ item }: { item: ListItem }) {
           }}
         >
           <Clock size={9} />
-          {hoursLeft}h until available
+          {label}
         </span>
       )
     }
   }
+
+  // Idle — prefer human-readable period label when available
+  const period = item.frequency_period
+  let label: string
+  if (period === 'day') label = 'Once per day'
+  else if (period === 'week') label = 'Once per week'
+  else if (period === 'month') label = 'Once per month'
+  else if (cooldownHours >= 720) label = 'Once per month'
+  else if (cooldownHours >= 168) label = 'Once per week'
+  else if (cooldownHours >= 24) label = `${Math.round(cooldownHours / 24)}d cooldown`
+  else label = `${cooldownHours}h cooldown`
 
   return (
     <span
@@ -387,7 +402,7 @@ function CooldownBadge({ item }: { item: ListItem }) {
       style={{ color: 'var(--color-text-tertiary)' }}
     >
       <Clock size={9} />
-      {cooldownHours}h cooldown
+      {label}
     </span>
   )
 }
