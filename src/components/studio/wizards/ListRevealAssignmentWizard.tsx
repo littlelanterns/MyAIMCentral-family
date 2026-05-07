@@ -12,7 +12,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Sparkles, Plus, Trash2, GripVertical, DollarSign, Star,
-  Trophy, Shuffle, CheckCircle2, AlertCircle, Info,
+  Trophy, Shuffle, CheckCircle2, AlertCircle,
   Users, Zap, Gift, ClipboardList, Film,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
@@ -105,8 +105,7 @@ const INITIAL_STATE: WizardState = {
 
 const OPPORTUNITY_STEPS: WizardStep[] = [
   { key: 'flavor', title: 'Pick a Type' },
-  { key: 'items', title: 'Add Items' },
-  { key: 'rewards', title: 'Set Rewards' },
+  { key: 'items', title: 'Add Items & Rewards' },
   { key: 'sharing', title: 'Who Can Browse' },
   { key: 'rules', title: 'Claim Rules' },
   { key: 'review', title: 'Review' },
@@ -373,7 +372,6 @@ export function ListRevealAssignmentWizard({
   const [deployed, setDeployed] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployError, setDeployError] = useState('')
-  const [allowanceWarningKids, setAllowanceWarningKids] = useState<string[]>([])
   const stateRef = useRef(state)
   stateRef.current = state
 
@@ -450,29 +448,6 @@ export function ListRevealAssignmentWizard({
       saveDraft(state, draftTitle)
     }
   }, [step, state.listName, itemCount]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // SCOPE-3.F14: Check allowance config for assigned kids when deploying opportunity with money rewards
-  useEffect(() => {
-    if (state.flavor !== 'opportunity') return
-    const moneyItems = state.items.filter((i) => i.rewardType === 'money')
-    if (moneyItems.length === 0) return
-
-    const targetIds = state.sharingMode === 'all'
-      ? childMembers.map((m) => m.id)
-      : state.selectedMemberIds
-
-    if (targetIds.length === 0) return
-
-    supabase
-      .from('allowance_configs')
-      .select('family_member_id, enabled')
-      .in('family_member_id', targetIds)
-      .then(({ data }) => {
-        const configuredIds = new Set((data ?? []).filter((r) => r.enabled).map((r) => r.family_member_id))
-        const missing = targetIds.filter((id) => !configuredIds.has(id))
-        setAllowanceWarningKids(missing)
-      })
-  }, [state.flavor, state.items, state.sharingMode, state.selectedMemberIds, childMembers])
 
   // ── Item handlers ────────────────────────────────────────────
 
@@ -1021,7 +996,6 @@ Return ONLY a JSON array. No markdown, no preamble.`
       setAiSuggestions([])
       setAiSelectedIds(new Set())
       setAiError('')
-      setAllowanceWarningKids([])
       draftRestored.current = false
       preFillApplied.current = false
     }
@@ -1383,6 +1357,27 @@ Return ONLY a JSON array. No markdown, no preamble.`
             </div>
           )}
 
+          {/* Bulk-set controls (opportunity only) */}
+          {state.flavor === 'opportunity' && state.items.some((i) => i.name.trim()) && (
+            <div
+              className="flex flex-wrap items-center gap-2 p-3 rounded-lg border"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}
+            >
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                Set all to:
+              </span>
+              <button type="button" onClick={() => handleBulkSetReward('money', 5)}
+                className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>$5 each</button>
+              <button type="button" onClick={() => handleBulkSetReward('money', 10)}
+                className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>$10 each</button>
+              <button type="button" onClick={() => handleBulkSetReward('points', 10)}
+                className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}>10 pts each</button>
+            </div>
+          )}
+
           {/* Items list with DnD */}
           {state.items.length > 0 && (
             <div
@@ -1402,6 +1397,25 @@ Return ONLY a JSON array. No markdown, no preamble.`
                         onUpdate={handleUpdateItem}
                         onRemove={handleRemoveItem}
                       />
+                      {state.flavor === 'opportunity' && item.name.trim() && (
+                        <div className="px-8 pb-2 space-y-1.5">
+                          <RewardConfigRow
+                            item={item}
+                            onUpdate={handleUpdateItem}
+                          />
+                          <ItemRecurrenceConfig
+                            value={{
+                              is_repeatable: item.isRepeatable,
+                              frequency_min: null,
+                              frequency_max: null,
+                              frequency_period: item.frequencyPeriod,
+                              cooldown_hours: item.cooldownHours,
+                              max_instances: item.maxInstances,
+                            }}
+                            onChange={(val) => handleRecurrenceChange(item.id, val)}
+                          />
+                        </div>
+                      )}
                       {state.flavor === 'draw' && item.name.trim() && (
                         <div className="px-8 pb-2">
                           <ItemRecurrenceConfig
@@ -1440,82 +1454,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
       )
     }
 
-    // ── Step: Per-Item Rewards (Opportunity only — NEW-WW) ──────
-    if (currentStepKey === 'rewards') {
-      return (
-        <div className="space-y-4">
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Set what each item pays. You can bulk-set a default, then adjust individual items.
-          </p>
-
-          {/* Bulk-set controls */}
-          <div
-            className="flex flex-wrap items-center gap-2 p-3 rounded-lg border"
-            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}
-          >
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-              Set all to:
-            </span>
-            <button
-              type="button"
-              onClick={() => handleBulkSetReward('money', 5)}
-              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-            >
-              $5 each
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBulkSetReward('money', 10)}
-              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-            >
-              $10 each
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBulkSetReward('points', 10)}
-              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
-            >
-              10 pts each
-            </button>
-          </div>
-
-          {/* Per-item reward + recurrence config */}
-          <div className="space-y-2">
-            {state.items.filter((i) => i.name.trim()).map((item) => (
-              <div key={item.id} className="space-y-1.5">
-                <RewardConfigRow
-                  item={item}
-                  onUpdate={handleUpdateItem}
-                  onDelete={handleRemoveItem}
-                />
-                <div className="pl-3">
-                  <ItemRecurrenceConfig
-                    value={{
-                      is_repeatable: item.isRepeatable,
-                      frequency_min: null,
-                      frequency_max: null,
-                      frequency_period: item.frequencyPeriod,
-                      cooldown_hours: item.cooldownHours,
-                      max_instances: item.maxInstances,
-                    }}
-                    onChange={(val) => handleRecurrenceChange(item.id, val)}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {state.items.filter((i) => i.name.trim()).length === 0 && (
-            <p className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
-              Go back and add items first.
-            </p>
-          )}
-        </div>
-      )
-    }
+    // rewards step removed — merged into items step above
 
     // ── Step: Sharing / Who Can Browse (Opportunity) ────────────
     if (currentStepKey === 'sharing') {
@@ -1560,7 +1499,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 onChange={() => setState((prev) => ({ ...prev, sharingMode: 'specific' }))}
                 className="shrink-0 mt-1"
               />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Specific kids</span>
                 <p className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-text-muted)' }}>
                   Only selected members can see these
@@ -1578,27 +1517,6 @@ Return ONLY a JSON array. No markdown, no preamble.`
               </div>
             </label>
           </div>
-
-          {/* SCOPE-3.F14 allowance warning */}
-          {allowanceWarningKids.length > 0 && (
-            <div
-              className="flex items-start gap-2 p-3 rounded-lg border"
-              style={{
-                borderColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 40%, var(--color-border))',
-                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
-              }}
-            >
-              <Info size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--color-btn-primary-bg)' }} />
-              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                Allowance isn&apos;t set up for{' '}
-                {allowanceWarningKids
-                  .map((id) => familyMembers.find((m) => m.id === id)?.display_name?.split(' ')[0])
-                  .filter(Boolean)
-                  .join(', ')}{' '}
-                yet. Money earned will go to their balance — set up allowance in Settings to track it properly.
-              </p>
-            </div>
-          )}
         </div>
       )
     }
