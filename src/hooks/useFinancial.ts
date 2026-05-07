@@ -1,5 +1,6 @@
 // PRD-28: Tracking, Allowance & Financial — Data hooks
 
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { isoDayOfWeek, isoDaysFrom } from '@/utils/dates'
@@ -576,8 +577,14 @@ export interface PeriodGroup {
 export function useGroupedPeriodHistory(memberId: string | undefined) {
   const { data: periods, ...rest } = usePeriodHistory(memberId)
 
-  const groups: PeriodGroup[] = groupPeriodsByDateRange(periods ?? [])
-  return { ...rest, data: groups, periods: periods ?? [] }
+  // Memoize derived arrays so consumers using `data`/`periods` in dep arrays
+  // don't get a new reference every render.
+  const groups: PeriodGroup[] = useMemo(
+    () => groupPeriodsByDateRange(periods ?? []),
+    [periods],
+  )
+  const safePeriods = useMemo(() => periods ?? [], [periods])
+  return { ...rest, data: groups, periods: safePeriods }
 }
 
 function groupPeriodsByDateRange(periods: AllowancePeriod[]): PeriodGroup[] {

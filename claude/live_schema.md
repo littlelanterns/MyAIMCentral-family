@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-06
+> Auto-generated from live Supabase on 2026-05-07
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 335 rows
+### `view_as_sessions` — 337 rows
 
 | # | Column |
 |---|---|
@@ -134,7 +134,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 221 rows
+### `view_as_feature_exclusions` — 223 rows
 
 | # | Column |
 |---|---|
@@ -498,7 +498,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 79 rows
+### `journal_entries` — 84 rows
 
 | # | Column |
 |---|---|
@@ -874,7 +874,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 46 rows
+### `lists` — 47 rows
 
 | # | Column |
 |---|---|
@@ -926,7 +926,7 @@
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
 
-### `list_items` — 147 rows
+### `list_items` — 165 rows
 
 | # | Column |
 |---|---|
@@ -990,7 +990,7 @@
 | 58 | `store_category` |
 | 59 | `archived_at` |
 
-### `list_shares` — 4 rows
+### `list_shares` — 8 rows
 
 | # | Column |
 |---|---|
@@ -1002,6 +1002,7 @@
 | 6 | `member_id` |
 | 7 | `is_individual_copy` |
 | 8 | `can_edit` |
+| 9 | `is_hidden` |
 
 ### `list_templates` — 12 rows
 
@@ -2482,7 +2483,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 231 rows
+### `activity_log_entries` — 237 rows
 
 | # | Column |
 |---|---|
@@ -2578,7 +2579,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `allowance_configs` — 4 rows
+### `allowance_configs` — 5 rows
 
 | # | Column |
 |---|---|
@@ -2656,7 +2657,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 14 rows
+### `allowance_periods` — 15 rows
 
 | # | Column |
 |---|---|
@@ -2843,7 +2844,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 46 rows
+### `contracts` — 65 rows
 
 | # | Column |
 |---|---|
@@ -3550,7 +3551,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 73 rows
+### `reflection_responses` — 79 rows
 
 | # | Column |
 |---|---|
@@ -3663,7 +3664,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 24 rows
+### `rhythm_completions` — 25 rows
 
 | # | Column |
 |---|---|

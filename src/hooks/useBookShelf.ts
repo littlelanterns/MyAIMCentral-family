@@ -1,6 +1,7 @@
 /**
  * useBookShelf — fetch and manage BookShelf items (PRD-23)
  */
+import { useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from './useFamilyMember'
@@ -30,23 +31,37 @@ export function useBookShelf() {
     enabled: !!familyId,
   })
 
-  // Derived data
-  const parentBooks = books.filter(b => !b.parent_bookshelf_item_id)
-  const extractedBooks = books.filter(b => b.extraction_status === 'completed')
+  // Derived data — memoized so consumers get stable array references across renders.
+  // Without memoization, every render produced a new array, which cascaded into
+  // useMemo/useCallback/useEffect dep changes downstream and caused render loops
+  // (e.g. StudyGuideLibrary's fetch effect).
+  const parentBooks = useMemo(
+    () => books.filter(b => !b.parent_bookshelf_item_id),
+    [books],
+  )
+  const extractedBooks = useMemo(
+    () => books.filter(b => b.extraction_status === 'completed'),
+    [books],
+  )
 
-  const booksByFolder = new Map<string, BookShelfItem[]>()
-  for (const book of parentBooks) {
-    const folder = book.folder_group || 'Uncategorized'
-    const existing = booksByFolder.get(folder) || []
-    existing.push(book)
-    booksByFolder.set(folder, existing)
-  }
+  const booksByFolder = useMemo(() => {
+    const map = new Map<string, BookShelfItem[]>()
+    for (const book of parentBooks) {
+      const folder = book.folder_group || 'Uncategorized'
+      const existing = map.get(folder) || []
+      existing.push(book)
+      map.set(folder, existing)
+    }
+    return map
+  }, [parentBooks])
 
-  function getPartsForBook(parentId: string): BookShelfItem[] {
-    return books
-      .filter(b => b.parent_bookshelf_item_id === parentId)
-      .sort((a, b) => (a.part_number ?? 0) - (b.part_number ?? 0))
-  }
+  const getPartsForBook = useCallback(
+    (parentId: string): BookShelfItem[] =>
+      books
+        .filter(b => b.parent_bookshelf_item_id === parentId)
+        .sort((a, b) => (a.part_number ?? 0) - (b.part_number ?? 0)),
+    [books],
+  )
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<BookShelfItem> }) => {

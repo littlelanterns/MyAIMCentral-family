@@ -4,6 +4,7 @@
  * CRUD for countdowns table. Simple countdown events displayed on the Hub.
  */
 
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
@@ -57,12 +58,18 @@ export function useCountdowns(familyId: string | undefined) {
 export function useVisibleCountdowns(familyId: string | undefined) {
   const { data: countdowns, ...rest } = useCountdowns(familyId)
 
-  const visible = (countdowns ?? []).filter((cd) => {
-    const days = daysUntil(cd.target_date)
-    if (days > 0) return true // Future — always show
-    if (days === 0 && cd.show_on_target_day) return true // Today — show if configured
-    return false // Past — hide
-  })
+  // Memoize so consumers using `data` in dep arrays don't see a new array
+  // reference every render.
+  const visible = useMemo(
+    () =>
+      (countdowns ?? []).filter((cd) => {
+        const days = daysUntil(cd.target_date)
+        if (days > 0) return true // Future — always show
+        if (days === 0 && cd.show_on_target_day) return true // Today — show if configured
+        return false // Past — hide
+      }),
+    [countdowns],
+  )
 
   return { data: visible, ...rest }
 }

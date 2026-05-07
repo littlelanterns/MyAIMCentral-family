@@ -1,6 +1,7 @@
 /**
  * useBookShelfCollections — CRUD for collections (PRD-23)
  */
+import { useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from './useFamilyMember'
@@ -49,21 +50,28 @@ export function useBookShelfCollections() {
     enabled: !!familyId && collections.length > 0,
   })
 
-  // Map: collectionId → bookshelf_item_ids
-  const collectionBookIds = new Map<string, string[]>()
-  for (const item of collectionItems) {
-    const existing = collectionBookIds.get(item.collection_id) || []
-    existing.push(item.bookshelf_item_id)
-    collectionBookIds.set(item.collection_id, existing)
-  }
+  // Map: collectionId → bookshelf_item_ids — memoized so consumers see a
+  // stable reference until collectionItems actually changes.
+  const collectionBookIds = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const item of collectionItems) {
+      const existing = map.get(item.collection_id) || []
+      existing.push(item.bookshelf_item_id)
+      map.set(item.collection_id, existing)
+    }
+    return map
+  }, [collectionItems])
 
-  function getBookIdsForCollection(collectionId: string): string[] {
-    return collectionBookIds.get(collectionId) || []
-  }
+  const getBookIdsForCollection = useCallback(
+    (collectionId: string): string[] => collectionBookIds.get(collectionId) || [],
+    [collectionBookIds],
+  )
 
-  function getBookCountForCollection(collectionId: string): number {
-    return (collectionBookIds.get(collectionId) || []).length
-  }
+  const getBookCountForCollection = useCallback(
+    (collectionId: string): number =>
+      (collectionBookIds.get(collectionId) || []).length,
+    [collectionBookIds],
+  )
 
   // Mutations
   const createMutation = useMutation({

@@ -2,6 +2,7 @@
  * useBookShelfSettings — per-member library preferences (PRD-23)
  * Upserts a row on first access if none exists.
  */
+import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from './useFamilyMember'
@@ -60,12 +61,15 @@ export function useBookShelfSettings() {
     enabled: !!familyId && !!memberId,
   })
 
-  const settings: BookShelfSettingsState = {
-    librarySort: raw?.library_sort ?? DEFAULTS.library_sort,
-    libraryLayout: (raw?.library_layout ?? DEFAULTS.library_layout) as 'grid' | 'compact',
-    libraryGroupMode: (raw?.library_group_mode ?? DEFAULTS.library_group_mode) as 'by_folder' | 'all_books',
-    bookKnowledgeAccess: (raw?.book_knowledge_access ?? DEFAULTS.book_knowledge_access) as BookKnowledgeAccess,
-  }
+  const settings = useMemo<BookShelfSettingsState>(
+    () => ({
+      librarySort: raw?.library_sort ?? DEFAULTS.library_sort,
+      libraryLayout: (raw?.library_layout ?? DEFAULTS.library_layout) as 'grid' | 'compact',
+      libraryGroupMode: (raw?.library_group_mode ?? DEFAULTS.library_group_mode) as 'by_folder' | 'all_books',
+      bookKnowledgeAccess: (raw?.book_knowledge_access ?? DEFAULTS.book_knowledge_access) as BookKnowledgeAccess,
+    }),
+    [raw],
+  )
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<BookShelfMemberSettings>) => {
