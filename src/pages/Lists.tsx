@@ -195,10 +195,16 @@ export function ListsPage() {
   // Image Import modal — OCR → items
   const [imageImportOpen, setImageImportOpen] = useState(false)
 
-  // Handle ?create=<type>&template=<id> URL params from Studio navigation
+  // Handle ?create=<type>&template=<id> and ?list=<id> URL params
   useEffect(() => {
     const createParam = searchParams.get('create')
     const templateParam = searchParams.get('template')
+    const listParam = searchParams.get('list')
+    if (listParam) {
+      setSelectedListId(listParam)
+      setSearchParams({}, { replace: true })
+      return
+    }
     if (createParam) {
       setCreateType(createParam as ListType)
       setShowCreate(true)

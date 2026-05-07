@@ -11,7 +11,7 @@ import {
   Plus, Trash2, RotateCcw, Archive, Edit2, FileText,
   CheckCircle, List, Target, Activity, Clock, Calendar, Gift, Shuffle,
   DollarSign, Star, Trophy, Wand2, ListPlus, BellOff, Bell, Sparkles, Box, Palette, Eye,
-  ChevronDown, ChevronRight, Settings, Users,
+  ChevronDown, ChevronRight, Settings, Users, LayoutGrid, Rows3,
 } from 'lucide-react'
 import type { Contract, ContractSourceType, GodmotherType, PresentationMode } from '@/types/contracts'
 
@@ -95,6 +95,7 @@ function formatStrokeOf(c: Contract): string {
 // Page
 
 type ViewMode = 'by_source' | 'by_person'
+type LayoutMode = 'list' | 'grid'
 
 export default function ContractsPage() {
   const { data: family } = useFamily()
@@ -109,6 +110,7 @@ export default function ContractsPage() {
   const [editingContract, setEditingContract] = useState<Contract | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [view, setView] = useState<ViewMode>('by_source')
+  const [layout, setLayout] = useState<LayoutMode>('list')
 
   const activeContracts = useMemo(
     () => contracts.filter((c) => c.status === 'active'),
@@ -184,8 +186,11 @@ export default function ContractsPage() {
         </Button>
       </div>
 
-      {/* View toggle */}
-      <ViewToggle view={view} onChange={setView} />
+      {/* View + layout toggles */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <ViewToggle view={view} onChange={setView} />
+        <LayoutToggle layout={layout} onChange={setLayout} />
+      </div>
 
       {isLoading ? (
         <div className="text-center py-8" style={{ color: 'var(--color-text-secondary)' }}>
@@ -203,6 +208,7 @@ export default function ContractsPage() {
           sourceNames={sourceNames}
           getMemberName={getMemberName}
           getMemberColor={getMemberColorVal}
+          layout={layout}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -212,6 +218,7 @@ export default function ContractsPage() {
           members={members ?? []}
           sourceNames={sourceNames}
           getMemberColor={getMemberColorVal}
+          layout={layout}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -271,7 +278,7 @@ export default function ContractsPage() {
 function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode) => void }) {
   return (
     <div
-      className="inline-flex rounded-lg p-1 mb-4 border"
+      className="inline-flex rounded-lg p-1 border"
       style={{
         background: 'var(--color-bg-card)',
         borderColor: 'var(--color-border)',
@@ -283,12 +290,43 @@ function ViewToggle({ view, onChange }: { view: ViewMode; onChange: (v: ViewMode
   )
 }
 
+function LayoutToggle({ layout, onChange }: { layout: LayoutMode; onChange: (l: LayoutMode) => void }) {
+  return (
+    <div
+      className="inline-flex rounded-lg p-1 border"
+      style={{
+        background: 'var(--color-bg-card)',
+        borderColor: 'var(--color-border)',
+      }}
+      role="group"
+      aria-label="Layout"
+    >
+      <ToggleButton
+        active={layout === 'list'}
+        onClick={() => onChange('list')}
+        icon={<Rows3 size={14} />}
+        label=""
+        ariaLabel="List layout"
+      />
+      <ToggleButton
+        active={layout === 'grid'}
+        onClick={() => onChange('grid')}
+        icon={<LayoutGrid size={14} />}
+        label=""
+        ariaLabel="Grid layout"
+      />
+    </div>
+  )
+}
+
 function ToggleButton({
-  active, onClick, icon, label,
-}: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  active, onClick, icon, label, ariaLabel,
+}: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; ariaLabel?: string }) {
   return (
     <button
       onClick={onClick}
+      aria-label={ariaLabel ?? label}
+      aria-pressed={active}
       className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors"
       style={{
         background: active ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'transparent',
@@ -297,7 +335,7 @@ function ToggleButton({
       }}
     >
       {icon}
-      {label}
+      {label && <span>{label}</span>}
     </button>
   )
 }
@@ -313,15 +351,18 @@ interface SourceGroup {
   isAutoManaged: boolean
   autoManagedSettingsLink?: string
   autoManagedHint?: string
+  /** When set, this group is backed by a list — show "Open list" CTA */
+  listSourceId?: string
 }
 
 function BySourceView({
-  contracts, sourceNames, getMemberName, getMemberColor, onEdit, onDelete,
+  contracts, sourceNames, getMemberName, getMemberColor, layout, onEdit, onDelete,
 }: {
   contracts: Contract[]
   sourceNames: Map<string, { source_id: string; title: string; kind: string }> | undefined
   getMemberName: (id: string | null) => string
   getMemberColor: (id: string | null) => string | undefined
+  layout: LayoutMode
   onEdit: (c: Contract) => void
   onDelete: (c: Contract) => void
 }) {
@@ -396,6 +437,7 @@ function BySourceView({
           subtitle,
           contracts: list,
           isAutoManaged: false,
+          listSourceId: name?.kind === 'list' ? sourceId : undefined,
         })
         continue
       }
@@ -425,6 +467,10 @@ function BySourceView({
   const intentional = groups.filter((g) => !g.isAutoManaged)
   const autoManaged = groups.filter((g) => g.isAutoManaged)
 
+  const containerClass = layout === 'grid'
+    ? 'grid grid-cols-1 md:grid-cols-2 gap-2'
+    : 'space-y-2'
+
   return (
     <div className="space-y-6">
       {intentional.length > 0 && (
@@ -433,7 +479,7 @@ function BySourceView({
             title="Things you set up"
             count={intentional.reduce((sum, g) => sum + g.contracts.length, 0)}
           />
-          <div className="space-y-2">
+          <div className={containerClass}>
             {intentional.map((group) => (
               <SourceGroupCard
                 key={group.key}
@@ -451,7 +497,7 @@ function BySourceView({
       {autoManaged.length > 0 && (
         <div>
           <SectionHeader title="Auto-managed" count={autoManaged.reduce((sum, g) => sum + g.contracts.length, 0)} />
-          <div className="space-y-2">
+          <div className={containerClass}>
             {autoManaged.map((group) => (
               <SourceGroupCard
                 key={group.key}
@@ -562,19 +608,100 @@ function SourceGroupCard({
             </div>
           )}
 
-          <div className="space-y-1.5 mt-2">
-            {group.contracts.map((c) => (
-              <ContractRow
-                key={c.id}
-                contract={c}
-                memberName={getMemberName(c.family_member_id)}
-                memberColor={getMemberColor(c.family_member_id)}
-                onEdit={() => onEdit(c)}
-                onDelete={() => onDelete(c)}
-                showMember
-              />
-            ))}
-          </div>
+          {group.listSourceId ? (
+            <ListBackedGroupBody
+              listId={group.listSourceId}
+              contracts={group.contracts}
+              getMemberName={getMemberName}
+              getMemberColor={getMemberColor}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ) : (
+            <div className="space-y-1.5 mt-2">
+              {group.contracts.map((c) => (
+                <ContractRow
+                  key={c.id}
+                  contract={c}
+                  memberName={getMemberName(c.family_member_id)}
+                  memberColor={getMemberColor(c.family_member_id)}
+                  onEdit={() => onEdit(c)}
+                  onDelete={() => onDelete(c)}
+                  showMember
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Body for groups backed by a list source — shows mom-friendly "Open list"
+// CTAs and tucks the per-item contract rules behind an Advanced disclosure.
+function ListBackedGroupBody({
+  listId,
+  contracts,
+  getMemberName,
+  getMemberColor,
+  onEdit,
+  onDelete,
+}: {
+  listId: string
+  contracts: Contract[]
+  getMemberName: (id: string | null) => string
+  getMemberColor: (id: string | null) => string | undefined
+  onEdit: (c: Contract) => void
+  onDelete: (c: Contract) => void
+}) {
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  return (
+    <div className="mt-3 space-y-3">
+      <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        This list controls when these rewards fire. Edit the list to add, remove, or adjust items, amounts, and timing.
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Link
+          to={`/lists?list=${listId}`}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+            color: 'var(--color-text-on-primary, #fff)',
+          }}
+        >
+          <List size={14} />
+          Open list to edit items
+        </Link>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((v) => !v)}
+        className="text-xs underline"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        {showAdvanced ? 'Hide' : 'Show'} advanced — per-item reward rules ({contracts.length})
+      </button>
+
+      {showAdvanced && (
+        <div className="space-y-1.5">
+          <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+            One rule per item. These were created automatically when you set up the list — most moms won&apos;t need to edit them here.
+          </p>
+          {contracts.map((c) => (
+            <ContractRow
+              key={c.id}
+              contract={c}
+              memberName={getMemberName(c.family_member_id)}
+              memberColor={getMemberColor(c.family_member_id)}
+              onEdit={() => onEdit(c)}
+              onDelete={() => onDelete(c)}
+              showMember
+            />
+          ))}
         </div>
       )}
     </div>
@@ -585,12 +712,13 @@ function SourceGroupCard({
 // By Person view
 
 function ByPersonView({
-  contracts, members, sourceNames, getMemberColor, onEdit, onDelete,
+  contracts, members, sourceNames, getMemberColor, layout, onEdit, onDelete,
 }: {
   contracts: Contract[]
   members: Array<{ id: string; display_name: string; role: string }>
   sourceNames: Map<string, { source_id: string; title: string; kind: string }> | undefined
   getMemberColor: (id: string | null) => string | undefined
+  layout: LayoutMode
   onEdit: (c: Contract) => void
   onDelete: (c: Contract) => void
 }) {
@@ -609,6 +737,10 @@ function ByPersonView({
   const visibleMembers = members.filter(
     (m) => m.role !== 'primary_parent' && (perMember.has(m.id) || true),
   )
+
+  const containerClass = layout === 'grid'
+    ? 'grid grid-cols-1 md:grid-cols-2 gap-2'
+    : 'space-y-2'
 
   return (
     <div className="space-y-6">
@@ -633,7 +765,7 @@ function ByPersonView({
             title="Per-Person Overrides"
             count={Array.from(perMember.values()).reduce((sum, l) => sum + l.length, 0)}
           />
-          <div className="space-y-2">
+          <div className={containerClass}>
             {visibleMembers.map((m) => {
               const memberContracts = perMember.get(m.id) ?? []
               if (memberContracts.length === 0) return null
