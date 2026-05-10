@@ -1071,6 +1071,9 @@ export function TaskCardGuided({
 }: Pick<TaskCardProps, 'task' | 'isCompleting' | 'onToggle' | 'onWorkedOnThis'>) {
   const isCompleted = task.status === 'completed'
   const isTrackProgress = task.track_progress && !isCompleted
+  const isRoutine = task.task_type === 'routine' && !!task.template_id
+  const [routineExpanded, setRoutineExpanded] = useState(false)
+  const { data: currentMember } = useFamilyMember()
 
   const { data: practiceAgg } = useTaskPracticeAggregation(
     task.track_progress ? task.id : undefined,
@@ -1084,6 +1087,10 @@ export function TaskCardGuided({
       <button
         onClick={(e) => {
           if (isCompleting || isTrackProgress) return
+          if (isRoutine) {
+            setRoutineExpanded(!routineExpanded)
+            return
+          }
           const rect = e.currentTarget.getBoundingClientRect()
           onToggle(task, {
             x: rect.left + rect.width / 2,
@@ -1100,7 +1107,7 @@ export function TaskCardGuided({
           border: isCompleted
             ? '1.5px solid var(--color-success, #22c55e)'
             : '1.5px solid var(--color-border)',
-          borderRadius: isTrackProgress ? 'var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem) 0 0' : 'var(--vibe-radius-card, 0.75rem)',
+          borderRadius: (isTrackProgress || (isRoutine && routineExpanded)) ? 'var(--vibe-radius-card, 0.75rem) var(--vibe-radius-card, 0.75rem) 0 0' : 'var(--vibe-radius-card, 0.75rem)',
           minHeight: 'var(--touch-target-min, 48px)',
           opacity: isCompleting ? 0.6 : 1,
           cursor: isCompleting ? 'wait' : 'pointer',
@@ -1112,7 +1119,7 @@ export function TaskCardGuided({
             flexShrink: 0,
           }}
         >
-          {isCompleted ? <CheckCircle2 size={28} /> : <Circle size={28} />}
+          {isCompleted ? <CheckCircle2 size={28} /> : isRoutine ? <Repeat size={28} /> : <Circle size={28} />}
         </span>
 
         <div className="flex-1 min-w-0">
@@ -1137,10 +1144,34 @@ export function TaskCardGuided({
           <ChevronRight
             size={16}
             className="ml-auto shrink-0"
-            style={{ color: 'var(--color-text-secondary)' }}
+            style={{
+              color: 'var(--color-text-secondary)',
+              transform: isRoutine && routineExpanded ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.15s',
+            }}
           />
         )}
       </button>
+
+      {/* Routine step checklist — expands on tap instead of completing the whole task */}
+      {isRoutine && routineExpanded && currentMember && (
+        <div
+          className="px-4 py-2 rounded-b-xl"
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            borderLeft: '1.5px solid var(--color-border)',
+            borderRight: '1.5px solid var(--color-border)',
+            borderBottom: '1.5px solid var(--color-border)',
+          }}
+        >
+          <RoutineStepChecklist
+            taskId={task.id}
+            templateId={task.template_id!}
+            memberId={task.assignee_id ?? currentMember.id}
+            isShared={task.is_shared}
+          />
+        </div>
+      )}
 
       {isTrackProgress && onWorkedOnThis && (
         <div

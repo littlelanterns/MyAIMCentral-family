@@ -557,8 +557,10 @@ function SectionGroup({
   const saveEdits = async () => {
     setSaving(true)
     try {
+      // Filter out empty-title steps (mom backspaced to remove)
+      const nonEmptySteps = editSteps.filter(s => s.title.trim() !== '')
       // Update existing steps
-      for (const step of editSteps) {
+      for (const step of nonEmptySteps) {
         const original = section.steps.find(s => s.id === step.id)
         if (original && (original.title !== step.title)) {
           await supabase.from('task_template_steps')
@@ -566,10 +568,10 @@ function SectionGroup({
             .eq('id', step.id)
         }
       }
-      // Delete removed steps
-      const editIds = new Set(editSteps.map(s => s.id))
+      // Delete removed steps (explicitly removed via trash OR emptied via backspace)
+      const keepIds = new Set(nonEmptySteps.map(s => s.id))
       for (const step of section.steps) {
-        if (!editIds.has(step.id)) {
+        if (!keepIds.has(step.id)) {
           await supabase.from('task_template_steps').delete().eq('id', step.id)
         }
       }
@@ -626,8 +628,8 @@ function SectionGroup({
         {canEdit && !editing && (
           <button
             onClick={startEditing}
-            className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:opacity-100! transition-opacity"
-            style={{ minHeight: 'unset', color: 'var(--color-text-secondary)' }}
+            className="p-0.5 rounded transition-opacity"
+            style={{ minHeight: 'unset', color: 'var(--color-text-secondary)', opacity: 0.6 }}
             title="Edit steps"
           >
             <Pencil size={11} />

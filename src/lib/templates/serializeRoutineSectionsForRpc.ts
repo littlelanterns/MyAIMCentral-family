@@ -22,6 +22,7 @@
 import type { RoutineSection, RoutineStep } from '@/components/tasks/RoutineSectionEditor'
 
 export interface RpcSection {
+  id?: string
   title: string
   section_name: string
   frequency_rule: string
@@ -32,6 +33,7 @@ export interface RpcSection {
 }
 
 export interface RpcStep {
+  id?: string
   title: string
   step_name: string
   step_notes: string | null
@@ -73,6 +75,7 @@ export function resolveFrequency(
 
 function serializeStep(step: RoutineStep): RpcStep {
   return {
+    id: step.id,
     title: step.title,
     step_name: step.title,
     step_notes: step.notes && step.notes.trim() !== '' ? step.notes : null,
@@ -100,6 +103,7 @@ export function serializeRoutineSectionsForRpc(
   return sections.map(section => {
     const { frequency_rule, frequency_days } = resolveFrequency(section)
     return {
+      id: section.id,
       title: section.name,
       section_name: section.name,
       frequency_rule,

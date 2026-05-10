@@ -8,10 +8,12 @@
  */
 
 import { useState } from 'react'
-import { CheckCircle2, Circle, Play } from 'lucide-react'
+import { CheckCircle2, Circle, Play, Repeat } from 'lucide-react'
 import type { Task } from '@/hooks/useTasks'
 import { useTaskPracticeAggregation } from '@/hooks/usePractice'
 import { formatPracticeAggregation } from '@/lib/tasks/formatPracticeAggregation'
+import { RoutineStepChecklist } from './RoutineStepChecklist'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 
 export interface TaskCardPlayProps {
   task: Task
@@ -41,9 +43,12 @@ export function TaskCardPlay({
   onWorkedOnThis,
 }: TaskCardPlayProps) {
   const [isPressed, setIsPressed] = useState(false)
+  const [routineExpanded, setRoutineExpanded] = useState(false)
   const isCompleted = task.status === 'completed'
   const isTrackProgress = task.track_progress && !isCompleted
+  const isRoutine = task.task_type === 'routine' && !!task.template_id
   const color = TILE_COLORS[colorIndex % TILE_COLORS.length]
+  const { data: currentMember } = useFamilyMember()
 
   const { data: practiceAgg } = useTaskPracticeAggregation(
     task.track_progress ? task.id : undefined,
@@ -59,6 +64,10 @@ export function TaskCardPlay({
         onPointerUp={(e) => {
           setIsPressed(false)
           if (isCompleting) return
+          if (isRoutine) {
+            setRoutineExpanded(!routineExpanded)
+            return
+          }
           if (isTrackProgress && onWorkedOnThis) {
             onWorkedOnThis(task)
             return
@@ -76,7 +85,7 @@ export function TaskCardPlay({
           padding: '1.25rem 1rem',
           backgroundColor: isCompleted ? 'var(--color-play-completed-bg, #F0FFF4)' : color.bg,
           border: `2.5px solid ${isCompleted ? 'var(--color-play-completed-border, #5CC8A0)' : color.border}`,
-          borderRadius: isTrackProgress ? '1.25rem 1.25rem 0 0' : '1.25rem',
+          borderRadius: (isTrackProgress || (isRoutine && routineExpanded)) ? '1.25rem 1.25rem 0 0' : '1.25rem',
           minHeight: 56,
           transform: isPressed ? 'scale(0.97)' : 'scale(1)',
           opacity: isCompleting ? 0.6 : isCompleted ? 0.75 : 1,
@@ -94,7 +103,7 @@ export function TaskCardPlay({
         }
       >
         <div className="mb-2" aria-hidden="true" style={{ color: isCompleted ? 'var(--color-play-completed-border, #5CC8A0)' : color.border }}>
-          {isCompleted ? <CheckCircle2 size={28} /> : isTrackProgress ? <Play size={28} /> : <Circle size={28} />}
+          {isCompleted ? <CheckCircle2 size={28} /> : isRoutine ? <Repeat size={28} /> : isTrackProgress ? <Play size={28} /> : <Circle size={28} />}
         </div>
         <p
           className="font-semibold text-sm leading-snug"
@@ -117,8 +126,28 @@ export function TaskCardPlay({
         )}
       </button>
 
+      {/* Routine step checklist — expands on tap */}
+      {isRoutine && routineExpanded && currentMember && (
+        <div
+          className="px-3 py-2"
+          style={{
+            backgroundColor: color.bg,
+            border: `2.5px solid ${color.border}`,
+            borderTop: 'none',
+            borderRadius: '0 0 1.25rem 1.25rem',
+          }}
+        >
+          <RoutineStepChecklist
+            taskId={task.id}
+            templateId={task.template_id!}
+            memberId={task.assignee_id ?? currentMember.id}
+            isShared={task.is_shared}
+          />
+        </div>
+      )}
+
       {/* Track-progress tasks get a separate "Done" button below the tile */}
-      {isTrackProgress && (
+      {isTrackProgress && !isRoutine && (
         <button
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
