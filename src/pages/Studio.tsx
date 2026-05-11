@@ -173,13 +173,20 @@ function useCustomizedTemplates(familyId: string | undefined) {
           // Build deployment list item
           if (t.assignee_id) {
             const member = memberMap.get(t.assignee_id as string)
+            // End date: check due_date first, then recurrence_details.until,
+            // then last rdates entry (painted schedules store the range there)
+            const rdates = details?.rdates as string[] | undefined
+            const endDate = (t.due_date as string | undefined)?.slice(0, 10)
+              ?? (details?.until as string | undefined)?.slice(0, 10)
+              ?? (rdates && rdates.length > 1 ? rdates[rdates.length - 1]?.slice(0, 10) : null)
+              ?? null
             const dep: DeploymentListItem = {
               taskId: t.id as string,
               assigneeId: t.assignee_id as string,
               assigneeName: member?.name ?? 'Unknown',
               assigneeColor: member?.color ?? '#888',
               dtstart,
-              endDate: (t.due_date as string | undefined)?.slice(0, 10) ?? null,
+              endDate,
               isScheduled: !!dtstart && dtstart > todayStr,
               countsForAllowance: (t.counts_for_allowance as boolean) ?? false,
               countsForGamification: (t.counts_for_gamification as boolean) ?? true,
