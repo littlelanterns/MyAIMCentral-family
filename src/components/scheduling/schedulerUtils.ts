@@ -250,12 +250,12 @@ export function generatePreviewInstances(
     }))
 
     // Add RDATEs
-    for (const rd of output.rdates) {
+    for (const rd of output.rdates ?? []) {
       rruleSet.rdate(new Date(rd + 'T00:00:00'))
     }
 
     // Add EXDATEs
-    for (const ex of output.exdates) {
+    for (const ex of output.exdates ?? []) {
       rruleSet.exdate(new Date(ex + 'T00:00:00'))
     }
 
@@ -271,7 +271,7 @@ function generatePaintedInstances(
   rangeEnd: Date,
 ): Date[] {
   const dates: Date[] = []
-  for (const rd of output.rdates) {
+  for (const rd of output.rdates ?? []) {
     const d = new Date(rd + 'T00:00:00')
     if (d >= rangeStart && d <= rangeEnd) {
       dates.push(d)
@@ -356,10 +356,10 @@ function generateCompletionDependentInstances(
 
 /** Check if a specific date is active in a SchedulerOutput. Works for all schedule types. */
 export function isDateActive(output: SchedulerOutput, dateIso: string): boolean {
-  if (output.exdates.includes(dateIso)) return false
+  if (output.exdates?.includes(dateIso)) return false
 
   if (output.schedule_type === 'painted') {
-    return output.rdates.includes(dateIso)
+    return output.rdates?.includes(dateIso) ?? false
   }
 
   const target = new Date(dateIso + 'T00:00:00')
