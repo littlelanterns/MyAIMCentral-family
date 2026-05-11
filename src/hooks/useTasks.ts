@@ -7,6 +7,7 @@ import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
 import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
+import { grantMoney } from '@/lib/financial/grantMoney'
 import type {
   Task,
   CreateTask,
@@ -279,6 +280,32 @@ export function useCompleteTask() {
           },
           idempotencyKey: `task_completion:${completion.id}`,
         })
+      }
+
+      // Forward financial write: opportunity task with money reward → financial_transactions row.
+      if (!requireApproval && updatedTask.task_type?.startsWith('opportunity')) {
+        try {
+          const { data: rewards } = await supabase
+            .from('task_rewards')
+            .select('reward_type, reward_value')
+            .eq('task_id', taskId)
+            .limit(1)
+            .maybeSingle()
+
+          if (rewards?.reward_type === 'money' && rewards.reward_value?.amount) {
+            grantMoney({
+              familyId: updatedTask.family_id,
+              memberId,
+              amount: Number(rewards.reward_value.amount),
+              transactionType: 'opportunity_earned',
+              description: `Completed: ${updatedTask.title}`,
+              sourceType: 'task_completion',
+              sourceReferenceId: completion.id,
+            })
+          }
+        } catch (err) {
+          console.warn('[useCompleteTask] opportunity forward financial write failed (non-blocking):', err)
+        }
       }
 
       // 4b. PRD-28: Auto-create homeschool_time_logs when a homework-flagged task

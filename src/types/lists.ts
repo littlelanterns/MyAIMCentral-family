@@ -24,6 +24,7 @@ export type GuidedFormSubtype = 'sodas' | 'what_if' | 'apology_reflection' | 'cu
 export type PoolMode = 'individual' | 'shared'
 export type FrequencyPeriod = 'day' | 'week' | 'month'
 export type VictoryMode = 'none' | 'item_completed' | 'list_completed' | 'both'
+export type ResetMode = 'cooldown' | 'chore_cycle'
 
 // ─── PRD-09A/09B Linked Steps (Build J) ─── advancement & draw modes
 export type AdvancementMode = 'complete' | 'practice_count' | 'mastery'
@@ -119,6 +120,7 @@ export interface ListItem {
   frequency_max: number | null
   frequency_period: FrequencyPeriod | null
   cooldown_hours: number | null
+  reset_mode: ResetMode | null
   last_completed_at: string | null
   period_completion_count: number
   reward_amount: number | null

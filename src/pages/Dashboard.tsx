@@ -554,7 +554,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 
       case 'active_tasks':
         return family?.id && displayMember?.id ? (
-          <MemberTasksSection familyId={family.id} memberId={displayMember.id} />
+          <MemberTasksSection familyId={family.id} memberId={displayMember.id} isPrimaryParent={member?.role === 'primary_parent'} />
         ) : null
 
       case 'widget_grid':
@@ -837,7 +837,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   )
 }
 
-function MemberTasksSection({ familyId, memberId }: { familyId: string; memberId: string }) {
+function MemberTasksSection({ familyId, memberId, isPrimaryParent }: { familyId: string; memberId: string; isPrimaryParent?: boolean }) {
   const { data: tasks = [] } = useTasks(familyId, { assigneeId: memberId })
   const logPractice = useLogPractice()
   const routingToast = useRoutingToast()
@@ -865,6 +865,7 @@ function MemberTasksSection({ familyId, memberId }: { familyId: string; memberId
         tasks={tasks}
         familyId={familyId}
         memberId={memberId}
+        isPrimaryParent={isPrimaryParent}
         onWorkedOnThis={handleWorkedOnThis}
       />
       <DurationPromptModal

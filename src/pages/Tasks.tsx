@@ -196,6 +196,7 @@ export function TasksPage() {
   const { toggle, isCompleting } = useTaskCompletion({
     memberId: member?.id ?? '',
     familyId: family?.id ?? '',
+    isPrimaryParent: member?.role === 'primary_parent',
     onSparkle: (origin) => {
       setSparkleOrigin(origin ?? null)
       setTimeout(() => setSparkleOrigin(null), 1000)

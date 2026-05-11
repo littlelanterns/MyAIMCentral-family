@@ -8,9 +8,10 @@
 import { useState } from 'react'
 import { Star, DollarSign, Award, Check, Loader2, ChevronDown, ChevronRight, ExternalLink, Clock, Zap, Layers, Sparkles, CircleDot } from 'lucide-react'
 import type { List, ListItem, OpportunitySubtype, OpportunityRewardType } from '@/types/lists'
-import { useClaimOpportunityItem, canClaimItem } from '@/hooks/useOpportunityLists'
+import { useClaimOpportunityItem, canClaimItem, getChoreCycleStart } from '@/hooks/useOpportunityLists'
 import { useListItemClaimStatus, type ClaimStatusEntry } from '@/hooks/useListItemClaimStatus'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { getMemberColor } from '@/lib/memberColors'
 import { Tooltip } from '@/components/shared'
 
@@ -37,6 +38,7 @@ export function OpportunityListBrowse({
 
   const { data: claimStatusMap = {} } = useListItemClaimStatus(list.id)
   const { data: members = [] } = useFamilyMembers(familyId)
+  const { data: calSettings } = useCalendarSettings()
 
   async function handleClaim(item: ListItem) {
     setClaimingItemId(item.id)
@@ -104,6 +106,8 @@ export function OpportunityListBrowse({
           onClaim={() => handleClaim(item)}
           claimStatus={claimStatusMap[item.id]}
           members={members}
+          choreCycleStartDay={calSettings?.chore_cycle_start_day ?? null}
+          weekStartDay={calSettings?.week_start_day ?? 0}
         />
       ))}
 
@@ -132,6 +136,8 @@ function OpportunityItemCard({
   onClaim,
   claimStatus,
   members,
+  choreCycleStartDay,
+  weekStartDay,
 }: {
   item: ListItem
   list: List
@@ -140,6 +146,8 @@ function OpportunityItemCard({
   onClaim: () => void
   claimStatus?: ClaimStatusEntry
   members: FamilyMember[]
+  choreCycleStartDay: number | null
+  weekStartDay: number
 }) {
   const subtype = item.opportunity_subtype ?? list.default_opportunity_subtype ?? 'one_time'
   const rewardType = item.reward_type ?? list.default_reward_type
@@ -150,7 +158,7 @@ function OpportunityItemCard({
     ? (item.reward_type ?? list.default_reward_type) != null && item.reward_amount != null
     : rewardType != null && rewardAmount != null
 
-  const { canClaim, reason } = canClaimItem(item, list, memberId)
+  const { canClaim, reason } = canClaimItem(item, list, memberId, { choreCycleStartDay, weekStartDay })
 
   const isClaimed = !!claimStatus
   const isClaimedByOther = isClaimed && claimStatus.claimerMemberId !== memberId
@@ -231,9 +239,9 @@ function OpportunityItemCard({
               {subtypeLabel(subtype as OpportunitySubtype)}
             </span>
 
-            {/* Cooldown indicator */}
-            {item.cooldown_hours != null && (
-              <CooldownBadge item={item} />
+            {/* Cooldown / chore-cycle indicator */}
+            {(item.cooldown_hours != null || item.reset_mode === 'chore_cycle') && (
+              <CooldownBadge item={item} choreCycleStartDay={choreCycleStartDay} weekStartDay={weekStartDay} />
             )}
 
             {/* Mastery indicator */}
@@ -355,7 +363,45 @@ function CategoryBadge({ category }: { category: string }) {
 
 // ── Cooldown badge ──────────────────────────────────────────
 
-function CooldownBadge({ item }: { item: ListItem }) {
+function CooldownBadge({ item, choreCycleStartDay, weekStartDay }: {
+  item: ListItem
+  choreCycleStartDay: number | null
+  weekStartDay: number
+}) {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+  // Chore-cycle mode — show "Once per week" or "Done this week"
+  if (item.reset_mode === 'chore_cycle') {
+    const cycleDay = choreCycleStartDay ?? weekStartDay
+    if (item.last_completed_at) {
+      const cycleStart = getChoreCycleStart(cycleDay)
+      if (new Date(item.last_completed_at) >= cycleStart) {
+        return (
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-warning) 12%, var(--color-bg-card))',
+              color: 'var(--color-warning)',
+            }}
+          >
+            <Clock size={9} />
+            Done — resets {dayNames[cycleDay]}
+          </span>
+        )
+      }
+    }
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px]"
+        style={{ color: 'var(--color-text-tertiary)' }}
+      >
+        <Clock size={9} />
+        Once per week
+      </span>
+    )
+  }
+
+  // Cooldown mode
   const cooldownHours = item.cooldown_hours!
   const lastCompleted = item.last_completed_at
     ? new Date(item.last_completed_at).getTime()

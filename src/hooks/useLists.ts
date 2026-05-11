@@ -597,13 +597,33 @@ export function usePromoteListItem() {
     mutationFn: async ({ itemId, content, familyId, memberId, listId }: {
       itemId: string; content: string; familyId: string; memberId: string; listId: string
     }) => {
-      // Create studio_queue entry
+      // Read the full list item so recurrence/reward config travels with the queue row
+      const { data: fullItem } = await supabase
+        .from('list_items')
+        .select('cooldown_hours, frequency_period, reset_mode, max_instances, reward_amount, reward_type, claim_lock_duration, claim_lock_unit, opportunity_subtype')
+        .eq('id', itemId)
+        .maybeSingle()
+
+      const contentDetails: Record<string, unknown> = {}
+      if (fullItem) {
+        if (fullItem.cooldown_hours != null) contentDetails.cooldown_hours = fullItem.cooldown_hours
+        if (fullItem.frequency_period) contentDetails.frequency_period = fullItem.frequency_period
+        if (fullItem.reset_mode) contentDetails.reset_mode = fullItem.reset_mode
+        if (fullItem.max_instances != null) contentDetails.max_instances = fullItem.max_instances
+        if (fullItem.reward_amount != null) contentDetails.reward_amount = fullItem.reward_amount
+        if (fullItem.reward_type) contentDetails.reward_type = fullItem.reward_type
+        if (fullItem.claim_lock_duration != null) contentDetails.claim_lock_duration = fullItem.claim_lock_duration
+        if (fullItem.claim_lock_unit) contentDetails.claim_lock_unit = fullItem.claim_lock_unit
+        if (fullItem.opportunity_subtype) contentDetails.opportunity_subtype = fullItem.opportunity_subtype
+      }
+
+      // Create studio_queue entry with recurrence details
       const { error: qErr } = await supabase.from('studio_queue').insert({
         family_id: familyId,
         owner_id: memberId,
         destination: 'task',
         content,
-        content_details: {},
+        content_details: contentDetails,
         source: 'list_promoted',
         source_reference_id: itemId,
       })

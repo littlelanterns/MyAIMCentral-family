@@ -90,6 +90,7 @@ export interface CalendarSettings {
   required_intake_fields: string[]
   auto_approve_members: string[]
   week_start_day: 0 | 1
+  chore_cycle_start_day: number | null
   created_at: string
   updated_at: string
 }

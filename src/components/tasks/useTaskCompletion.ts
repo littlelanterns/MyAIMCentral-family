@@ -21,10 +21,13 @@ import type { Task } from '@/hooks/useTasks'
 import { useActedBy } from '@/hooks/useActedBy'
 import { todayLocalIso } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
+import { grantMoney } from '@/lib/financial/grantMoney'
+import { getChoreCycleStart } from '@/hooks/useOpportunityLists'
 
 interface UseTaskCompletionOptions {
   memberId: string
   familyId: string
+  isPrimaryParent?: boolean
   onSparkle?: (origin?: { x: number; y: number }) => void
   onComplete?: (task: Task) => void
 }
@@ -51,7 +54,7 @@ export async function uploadCompletionPhoto(file: File, taskId: string): Promise
   return urlData.publicUrl
 }
 
-export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }: UseTaskCompletionOptions) {
+export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSparkle, onComplete }: UseTaskCompletionOptions) {
   const queryClient = useQueryClient()
   const actedBy = useActedBy()
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
@@ -68,6 +71,57 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
       completionNote?: string | null
       photoUrl?: string | null
     }): Promise<CompletionResult> => {
+      // Guard: enforce cooldown / chore-cycle on opportunity tasks
+      if (task.task_type?.startsWith('opportunity') && task.recurrence_details) {
+        const rd = task.recurrence_details as Record<string, unknown>
+        const resetMode = rd.reset_mode as string | undefined
+        const cooldownHours = rd.cooldown_hours as number | undefined
+
+        if (resetMode !== 'chore_cycle' && cooldownHours) {
+          // Rolling cooldown — check most recent completion
+          const { data: recent } = await supabase
+            .from('task_completions')
+            .select('completed_at')
+            .eq('task_id', task.id)
+            .order('completed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (recent?.completed_at) {
+            const cooldownEnd = new Date(recent.completed_at).getTime() + cooldownHours * 60 * 60 * 1000
+            if (Date.now() < cooldownEnd) {
+              const hoursLeft = Math.ceil((cooldownEnd - Date.now()) / (60 * 60 * 1000))
+              return { success: false, error: `This job has a ${cooldownHours}-hour cooldown. Available again in ${hoursLeft}h.` }
+            }
+          }
+        }
+
+        if (resetMode === 'chore_cycle') {
+          // Fetch chore_cycle_start_day from calendar_settings
+          const { data: calSettings } = await supabase
+            .from('calendar_settings')
+            .select('chore_cycle_start_day, week_start_day')
+            .eq('family_id', familyId)
+            .maybeSingle()
+
+          const cycleDay = calSettings?.chore_cycle_start_day ?? calSettings?.week_start_day ?? 0
+          const cycleStart = getChoreCycleStart(cycleDay)
+
+          const { data: cycleCompletion } = await supabase
+            .from('task_completions')
+            .select('id')
+            .eq('task_id', task.id)
+            .gte('completed_at', cycleStart.toISOString())
+            .limit(1)
+            .maybeSingle()
+
+          if (cycleCompletion) {
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+            return { success: false, error: `Already completed this week. Resets ${dayNames[cycleDay]}.` }
+          }
+        }
+      }
+
       // Step 1 & 2: Update task status to completed
       const { error: updateError } = await supabase
         .from('tasks')
@@ -98,6 +152,18 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
         console.warn('task_completion insert failed:', completionError.message)
       }
 
+      // Mark any active claim as completed (claimable opportunities)
+      if (task.task_type?.startsWith('opportunity')) {
+        supabase
+          .from('task_claims')
+          .update({ status: 'completed', completed: true })
+          .eq('task_id', task.id)
+          .eq('status', 'claimed')
+          .then(({ error: claimErr }) => {
+            if (claimErr) console.warn('claim completion update failed:', claimErr.message)
+          })
+      }
+
       // Phase 3 connector: fire deed for gamification, victory, money, points.
       if (completionRow?.id) {
         fireDeed({
@@ -113,6 +179,30 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
           },
           idempotencyKey: `task_completion:${completionRow.id}`,
         })
+      }
+
+      // Forward financial write: when an opportunity task with a money reward
+      // is completed, create the financial_transactions row that the
+      // reverse_opportunity_earning RPC expects to find on uncomplete.
+      if (task.task_type?.startsWith('opportunity') && completionRow?.id) {
+        const { data: rewards } = await supabase
+          .from('task_rewards')
+          .select('reward_type, reward_value')
+          .eq('task_id', task.id)
+          .limit(1)
+          .maybeSingle()
+
+        if (rewards?.reward_type === 'money' && rewards.reward_value?.amount) {
+          grantMoney({
+            familyId,
+            memberId,
+            amount: Number(rewards.reward_value.amount),
+            transactionType: 'opportunity_earned',
+            description: `Completed: ${task.title}`,
+            sourceType: 'task_completion',
+            sourceReferenceId: completionRow.id,
+          })
+        }
       }
 
       // Step 5: Activity log entry (fire and forget)
@@ -167,35 +257,71 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
   })
 
   const uncompleteTask = useMutation({
-    mutationFn: async (taskId: string): Promise<CompletionResult> => {
-      // 1. Reset task status back to pending
-      const { error } = await supabase
-        .from('tasks')
-        .update({
-          status: 'pending',
-          completed_at: null,
-        })
-        .eq('id', taskId)
-
-      if (error) return { success: false, error: error.message }
-
-      // 2. Remove the most recent completion record
+    mutationFn: async (task: Task): Promise<CompletionResult> => {
+      // 1. Find the most recent completion to identify the completer
       const { data: latestCompletion } = await supabase
         .from('task_completions')
-        .select('id')
-        .eq('task_id', taskId)
-        .eq('member_id', memberId)
+        .select('id, family_member_id, approval_status')
+        .eq('task_id', task.id)
         .order('completed_at', { ascending: false })
         .limit(1)
 
-      if (latestCompletion?.[0]) {
-        await supabase
-          .from('task_completions')
-          .delete()
-          .eq('id', latestCompletion[0].id)
+      const completion = latestCompletion?.[0]
+      const isOpportunity = task.task_type?.startsWith('opportunity')
+
+      // 2. For opportunities: only the completer or mom can uncomplete
+      if (isOpportunity && completion) {
+        const completerId = completion.family_member_id
+        if (completerId !== memberId && !isPrimaryParent) {
+          return { success: false, error: 'Only the person who completed this or mom can undo it.' }
+        }
+        if (completion.approval_status === 'approved' && !isPrimaryParent) {
+          return { success: false, error: 'Mom approved this — only mom can undo it.' }
+        }
       }
 
-      // 3. Log the unmarking (fire and forget)
+      // 3. Delete the completion record
+      if (completion) {
+        await supabase.from('task_completions').delete().eq('id', completion.id)
+      }
+
+      // 4. Reset task status back to pending
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'pending', completed_at: null })
+        .eq('id', task.id)
+
+      if (error) return { success: false, error: error.message }
+
+      // 5. For opportunities: release the claim so job goes back to pool
+      if (isOpportunity) {
+        supabase
+          .from('task_claims')
+          .update({ status: 'released', released: true, released_at: new Date().toISOString() })
+          .eq('task_id', task.id)
+          .in('status', ['claimed', 'completed'])
+          .then(({ error: claimErr }) => {
+            if (claimErr) console.warn('claim release on uncomplete failed:', claimErr.message)
+          })
+      }
+
+      // 6. Reverse any financial transaction for this completion
+      if (completion) {
+        supabase
+          .rpc('reverse_opportunity_earning', { p_completion_id: completion.id })
+          .then(({ error: revError, data: revData }) => {
+            if (revError) {
+              console.warn('reverse_opportunity_earning failed:', revError.message)
+            } else if (Array.isArray(revData) && revData[0]?.status === 'reversed') {
+              queryClient.invalidateQueries({ queryKey: ['financial-transactions'] })
+              queryClient.invalidateQueries({ queryKey: ['family-transactions'] })
+              queryClient.invalidateQueries({ queryKey: ['running-balance'] })
+              queryClient.invalidateQueries({ queryKey: ['family-financial-summary'] })
+            }
+          })
+      }
+
+      // 7. Log the unmarking (fire and forget)
       supabase
         .from('activity_log_entries')
         .insert({
@@ -203,20 +329,19 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
           member_id: memberId,
           event_type: 'task_unmarked',
           source_table: 'tasks',
-          source_id: taskId,
+          source_id: task.id,
           metadata: { action: 'unmark_completion' },
         })
         .then(({ error: logError }) => {
           if (logError) console.warn('activity log insert failed:', logError.message)
         })
 
-      // STUB: Reverse gamification reward/streak — wires when PRD-24 is built
-
       return { success: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
       queryClient.invalidateQueries({ queryKey: ['task-completions'] })
+      queryClient.invalidateQueries({ queryKey: ['live-allowance-progress'] })
     },
   })
 
@@ -231,7 +356,8 @@ export function useTaskCompletion({ memberId, familyId, onSparkle, onComplete }:
       setCompletingIds((prev) => new Set(prev).add(task.id))
       try {
         if (task.status === 'completed') {
-          await uncompleteTask.mutateAsync(task.id)
+          const result = await uncompleteTask.mutateAsync(task)
+          if (!result.success) return
         } else {
           await completeTask.mutateAsync({
             task,

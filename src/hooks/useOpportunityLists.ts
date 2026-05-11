@@ -414,6 +414,7 @@ export function canClaimItem(
   item: ListItem,
   list: List,
   memberId: string,
+  opts?: { choreCycleStartDay?: number | null; weekStartDay?: number },
 ): { canClaim: boolean; reason?: string } {
   // Check eligible_members if set
   if (list.eligible_members && list.eligible_members.length > 0) {
@@ -432,7 +433,37 @@ export function canClaimItem(
     return { canClaim: false, reason: 'Maximum completions reached' }
   }
 
+  // Cooldown check (rolling hours from last completion)
+  if (item.reset_mode !== 'chore_cycle' && item.cooldown_hours && item.last_completed_at) {
+    const cooldownEnd = new Date(item.last_completed_at).getTime() + item.cooldown_hours * 60 * 60 * 1000
+    if (Date.now() < cooldownEnd) {
+      const hoursLeft = Math.ceil((cooldownEnd - Date.now()) / (60 * 60 * 1000))
+      return { canClaim: false, reason: `Cooldown active — available in ${hoursLeft}h` }
+    }
+  }
+
+  // Chore-cycle check (completed this week boundary)
+  if (item.reset_mode === 'chore_cycle' && item.last_completed_at) {
+    const cycleDay = opts?.choreCycleStartDay ?? opts?.weekStartDay ?? 0
+    const cycleStart = getChoreCycleStart(cycleDay)
+    if (new Date(item.last_completed_at) >= cycleStart) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      return { canClaim: false, reason: `Already completed this week. Resets ${dayNames[cycleDay]}` }
+    }
+  }
+
   return { canClaim: true }
+}
+
+/**
+ * Compute the start of the current chore cycle week given a start-day (0=Sun..6=Sat).
+ */
+export function getChoreCycleStart(startDay: number): Date {
+  const now = new Date()
+  const today = now.getDay()
+  let daysBack = (today - startDay + 7) % 7
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack)
+  return start
 }
 
 // ============================================================

@@ -1445,6 +1445,40 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     }
   }
 
+  function getOpportunityProps(item: ListItem) {
+    if (!list?.is_opportunity || !item.checked) return {}
+    const checker = item.checked_by ? familyMembers.find(m => m.id === item.checked_by) : null
+    const completerName = checker?.display_name ?? (item.checked_by ? 'Someone' : null)
+    const completerColor = checker ? getMemberColor(checker) : null
+
+    let availableText: string | null = null
+    if (item.is_repeatable && item.checked_at) {
+      const resetMode = item.reset_mode ?? 'cooldown'
+      if (resetMode === 'cooldown' && item.cooldown_hours) {
+        const availableAt = new Date(new Date(item.checked_at).getTime() + item.cooldown_hours * 3600000)
+        const now = new Date()
+        if (availableAt > now) {
+          const hoursLeft = Math.ceil((availableAt.getTime() - now.getTime()) / 3600000)
+          if (hoursLeft <= 24) {
+            availableText = `Available in ${hoursLeft}h`
+          } else {
+            const daysLeft = Math.ceil(hoursLeft / 24)
+            availableText = `Available in ${daysLeft}d`
+          }
+        }
+      } else if (resetMode === 'chore_cycle') {
+        availableText = 'Available next cycle'
+      }
+    }
+
+    return {
+      isOpportunity: true,
+      opportunityCompleterName: completerName,
+      opportunityCompleterColor: completerColor,
+      opportunityAvailableText: availableText,
+    }
+  }
+
   // "Leave shared list" — soft-hides the share so user can recover later
   async function handleLeaveSharedList() {
     if (!myShare) return
@@ -2835,9 +2869,10 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                       showVictoryFlag={isOwnerOrParent}
                       onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
                       showRecurrence={isOwnerOrParent && ['opportunity', 'randomizer', 'todo', 'custom'].includes(list.list_type)}
-                      onRecurrenceChange={isOwnerOrParent ? (val) => updateItem.mutate({ id: item.id, listId, is_repeatable: val.is_repeatable, frequency_period: val.frequency_period, cooldown_hours: val.cooldown_hours, max_instances: val.max_instances }) : undefined}
+                      onRecurrenceChange={isOwnerOrParent ? (val) => updateItem.mutate({ id: item.id, listId, is_repeatable: val.is_repeatable, frequency_period: val.frequency_period, cooldown_hours: val.cooldown_hours, max_instances: val.max_instances, reset_mode: val.reset_mode ?? null }) : undefined}
                       {...getCheckerProps(item)}
                       {...getClaimProps(item)}
+                      {...getOpportunityProps(item)}
                     />
                   ))}
                 </div>
@@ -2867,7 +2902,10 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
                     showVictoryFlag={isOwnerOrParent}
                     onToggleVictoryFlag={() => updateItem.mutate({ id: item.id, listId, victory_flagged: !item.victory_flagged })}
                     showRecurrence={isOwnerOrParent && ['opportunity', 'randomizer', 'todo', 'custom'].includes(list.list_type)}
-                    onRecurrenceChange={isOwnerOrParent ? (val) => updateItem.mutate({ id: item.id, listId, is_repeatable: val.is_repeatable, frequency_period: val.frequency_period, cooldown_hours: val.cooldown_hours, max_instances: val.max_instances }) : undefined}
+                    onRecurrenceChange={isOwnerOrParent ? (val) => updateItem.mutate({ id: item.id, listId, is_repeatable: val.is_repeatable, frequency_period: val.frequency_period, cooldown_hours: val.cooldown_hours, max_instances: val.max_instances, reset_mode: val.reset_mode ?? null }) : undefined}
+                    {...getCheckerProps(item)}
+                    {...getClaimProps(item)}
+                    {...getOpportunityProps(item)}
                   />
                 ))}
               </div>
@@ -3378,6 +3416,10 @@ interface ListItemRowProps {
   onClaimToggle?: () => void
   onRecurrenceChange?: (val: ItemRecurrenceValue) => void
   showRecurrence?: boolean
+  isOpportunity?: boolean
+  opportunityCompleterName?: string | null
+  opportunityCompleterColor?: string | null
+  opportunityAvailableText?: string | null
 }
 
 function SortableListItemRow(props: Omit<ListItemRowProps, 'dragHandleProps'>) {
@@ -3427,6 +3469,10 @@ function ListItemRow({
   onClaimToggle,
   onRecurrenceChange,
   showRecurrence,
+  isOpportunity,
+  opportunityCompleterName,
+  opportunityCompleterColor,
+  opportunityAvailableText,
 }: ListItemRowProps) {
   const isTodo = listType === 'todo'
   const isWishlist = listType === 'wishlist'
@@ -3444,6 +3490,7 @@ function ListItemRow({
     ? checkerColor
     : 'var(--color-btn-primary-text)'
   const toggleDisabled = item.checked && canUncheck === false
+  const isCompletedOpportunity = isOpportunity && item.checked
 
   return (
     <div
@@ -3451,7 +3498,7 @@ function ListItemRow({
       style={{
         backgroundColor: 'var(--color-bg-card)',
         border: '1px solid var(--color-border)',
-        opacity: item.checked ? 0.6 : 1,
+        opacity: isCompletedOpportunity ? 0.5 : (item.checked ? 0.6 : 1),
       }}
     >
       {/* Drag handle */}
@@ -3522,6 +3569,29 @@ function ListItemRow({
           )}
         </div>
 
+        {/* Opportunity completed/cooldown badges */}
+        {isCompletedOpportunity && opportunityCompleterName && (
+          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+            <span
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{
+                backgroundColor: opportunityCompleterColor
+                  ? `color-mix(in srgb, ${opportunityCompleterColor} 12%, transparent)`
+                  : 'color-mix(in srgb, var(--color-text-secondary) 12%, transparent)',
+                color: opportunityCompleterColor ?? 'var(--color-text-secondary)',
+              }}
+            >
+              <Check size={9} />
+              Completed by {opportunityCompleterName}
+            </span>
+            {opportunityAvailableText && (
+              <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                {opportunityAvailableText}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Type-specific fields */}
         <div className="flex flex-wrap items-center gap-2 mt-0.5">
           {isShopping && item.quantity && (
@@ -3574,6 +3644,7 @@ function ListItemRow({
                 frequency_period: item.frequency_period,
                 cooldown_hours: item.cooldown_hours,
                 max_instances: item.max_instances,
+                reset_mode: item.reset_mode ?? undefined,
               }}
               onChange={onRecurrenceChange}
             />

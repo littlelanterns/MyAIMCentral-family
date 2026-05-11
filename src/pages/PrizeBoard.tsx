@@ -52,7 +52,7 @@ export default function PrizeBoard() {
         ))}
       </div>
 
-      {activeTab === 'allowance' && <AllowanceOwedSection familyId={familyId} />}
+      {activeTab === 'allowance' && <AllowanceOwedSection familyId={familyId} currentMember={currentMember ?? null} />}
       {activeTab === 'prizes' && <PrizesSection familyId={familyId} currentMemberId={currentMember?.id} />}
       {activeTab === 'balance' && <BalanceSection familyId={familyId} currentMember={currentMember ?? null} />}
     </div>
@@ -63,13 +63,17 @@ export default function PrizeBoard() {
 // Allowance Owed Section
 // ============================================================
 
-function AllowanceOwedSection({ familyId }: { familyId: string | undefined }) {
+function AllowanceOwedSection({ familyId, currentMember }: { familyId: string | undefined; currentMember: FamilyMember | null }) {
   const { data: members = [] } = useFamilyMembers(familyId)
   const { data: configs = [] } = useAllowanceConfigs(familyId)
 
+  const isParentRole = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
+
   const kidsWithAllowance = members.filter(m => {
     const config = configs.find(c => c.family_member_id === m.id)
-    return config?.enabled
+    if (!config?.enabled) return false
+    if (!isParentRole) return m.id === currentMember?.id
+    return true
   })
 
   if (!familyId) return null
@@ -78,7 +82,10 @@ function AllowanceOwedSection({ familyId }: { familyId: string | undefined }) {
     return (
       <EmptyState
         icon={<DollarSign size={32} />}
-        text="No allowance configs enabled. Set up allowance in Settings to track what you owe."
+        text={isParentRole
+          ? "No allowance configs enabled. Set up allowance in Settings to track what you owe."
+          : "No allowance set up for you yet."
+        }
       />
     )
   }
@@ -86,7 +93,7 @@ function AllowanceOwedSection({ familyId }: { familyId: string | undefined }) {
   return (
     <div className="space-y-6">
       {kidsWithAllowance.map(member => (
-        <KidAllowanceCard key={member.id} member={member} familyId={familyId} />
+        <KidAllowanceCard key={member.id} member={member} familyId={familyId} isMom={isParentRole} />
       ))}
     </div>
   )
@@ -95,9 +102,11 @@ function AllowanceOwedSection({ familyId }: { familyId: string | undefined }) {
 function KidAllowanceCard({
   member,
   familyId,
+  isMom = true,
 }: {
   member: { id: string; display_name: string; assigned_color?: string | null; member_color?: string | null }
   familyId: string
+  isMom?: boolean
 }) {
   const color = getMemberColor(member)
   const queryClient = useQueryClient()
@@ -195,12 +204,12 @@ function KidAllowanceCard({
             <PeriodGroupRow
               key={`${group.period_start}|${group.period_end}`}
               group={group}
-              onPay={() => handlePayGroup(group)}
+              onPay={isMom ? () => handlePayGroup(group) : undefined}
               isPaying={payMutation.isPending}
             />
           ))}
 
-          {groupedPeriods.length > 1 && (
+          {isMom && groupedPeriods.length > 1 && (
             <button
               onClick={handlePayAll}
               disabled={payMutation.isPending}
@@ -235,7 +244,7 @@ function PeriodGroupRow({
     total_earned: number
     combined_percentage: number | null
   }
-  onPay: () => void
+  onPay?: () => void
   isPaying: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -264,14 +273,16 @@ function PeriodGroupRow({
           </p>
         </div>
         <span className="text-sm font-semibold">${group.total_earned.toFixed(2)}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); onPay() }}
-          disabled={isPaying}
-          className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-          <Check size={14} />
-          Paid
-        </button>
+        {onPay && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPay() }}
+            disabled={isPaying}
+            className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            <Check size={14} />
+            Paid
+          </button>
+        )}
       </div>
 
       {expanded && (

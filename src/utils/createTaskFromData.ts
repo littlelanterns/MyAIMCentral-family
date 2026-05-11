@@ -76,11 +76,13 @@ export async function createTaskFromData(
 
   // Path C inheritance: when task originates from a promoted list item and mom
   // didn't explicitly set track properties, inherit from the source list item.
+  // Also transfer recurrence config (cooldown, reset_mode) so enforcement works on the task.
   let inheritedTracking = { track_progress: data.trackProgress ?? false, track_duration: data.trackDuration ?? false }
-  if (data.source === 'list_promoted' && data.sourceReferenceId && data.trackProgress === undefined) {
+  let inheritedRecurrence: Record<string, unknown> | null = null
+  if (data.source === 'list_promoted' && data.sourceReferenceId) {
     const { data: sourceItem } = await supabase
       .from('list_items')
-      .select('track_progress, track_duration, list_id')
+      .select('track_progress, track_duration, list_id, cooldown_hours, frequency_period, reset_mode')
       .eq('id', data.sourceReferenceId)
       .maybeSingle()
     if (sourceItem) {
@@ -89,7 +91,16 @@ export async function createTaskFromData(
         .select('default_track_progress, default_track_duration')
         .eq('id', sourceItem.list_id)
         .maybeSingle()
-      inheritedTracking = resolveTrackingProperties(sourceItem, sourceList)
+      if (data.trackProgress === undefined) {
+        inheritedTracking = resolveTrackingProperties(sourceItem, sourceList)
+      }
+      if (sourceItem.cooldown_hours != null || sourceItem.reset_mode) {
+        inheritedRecurrence = {
+          reset_mode: sourceItem.reset_mode ?? 'cooldown',
+          cooldown_hours: sourceItem.cooldown_hours ?? null,
+          frequency_period: sourceItem.frequency_period ?? null,
+        }
+      }
     }
   }
 
@@ -104,7 +115,9 @@ export async function createTaskFromData(
     status: 'pending',
     due_date: scheduleFields.due_date,
     recurrence_rule: scheduleFields.recurrence_rule,
-    recurrence_details: scheduleFields.recurrence_details,
+    recurrence_details: inheritedRecurrence
+      ? { ...(scheduleFields.recurrence_details as Record<string, unknown> ?? {}), ...inheritedRecurrence }
+      : scheduleFields.recurrence_details,
     life_area_tag: data.lifeAreaTag || null,
     life_area_tags: data.lifeAreaTag ? [data.lifeAreaTag] : [],
     duration_estimate: data.durationEstimate || null,

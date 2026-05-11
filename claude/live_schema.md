@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-10
+> Auto-generated from live Supabase on 2026-05-11
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -392,7 +392,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 638 rows
+### `ai_usage_tracking` — 641 rows
 
 | # | Column |
 |---|---|
@@ -989,6 +989,7 @@
 | 57 | `store_tags` |
 | 58 | `store_category` |
 | 59 | `archived_at` |
+| 60 | `reset_mode` |
 
 ### `list_shares` — 8 rows
 
@@ -1240,6 +1241,7 @@
 | 6 | `week_start_day` |
 | 7 | `created_at` |
 | 8 | `updated_at` |
+| 9 | `chore_cycle_start_day` |
 
 ### `family_overview_configs` — 1 rows
 
@@ -2728,7 +2730,7 @@
 | 19 | `admin_notes` |
 | 20 | `resolved_at` |
 
-### `bookshelf_search_history` — 15 rows
+### `bookshelf_search_history` — 18 rows
 
 | # | Column |
 |---|---|
@@ -2986,7 +2988,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 18 rows
+### `financial_transactions` — 27 rows
 
 | # | Column |
 |---|---|

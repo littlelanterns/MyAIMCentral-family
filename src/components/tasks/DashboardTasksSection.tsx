@@ -47,6 +47,7 @@ interface DashboardTasksSectionProps {
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void
   /** Daily Progress Marking: "Worked on this today" handler */
   onWorkedOnThis?: (task: Task) => void
+  isPrimaryParent?: boolean
 }
 
 export function DashboardTasksSection({
@@ -56,6 +57,7 @@ export function DashboardTasksSection({
   defaultExpanded = true,
   onUpdateTask,
   onWorkedOnThis,
+  isPrimaryParent,
 }: DashboardTasksSectionProps) {
   const { shell } = useShell()
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
@@ -74,6 +76,7 @@ export function DashboardTasksSection({
   const { toggle, isCompleting } = useTaskCompletion({
     memberId,
     familyId,
+    isPrimaryParent,
     onSparkle: (origin) => {
       setSparkleOrigin(origin ?? null)
       setTimeout(() => setSparkleOrigin(null), 1000)

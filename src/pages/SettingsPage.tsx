@@ -9,9 +9,10 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
-  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift,
+  ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift, Calendar,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useCalendarSettings, useUpdateCalendarSettings } from '@/hooks/useCalendarEvents'
 import {
   useMindSweepSettings, useUpdateMindSweepSettings,
   useSweepEmail, useUpdateSweepEmail,
@@ -443,6 +444,51 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
           to="/family-login-name"
         />
       </div>
+
+      {/* Chore cycle start day */}
+      <ChoreCycleStartDay />
+    </div>
+  )
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+
+function ChoreCycleStartDay() {
+  const { data: settings } = useCalendarSettings()
+  const updateSettings = useUpdateCalendarSettings()
+
+  if (!settings) return null
+
+  const effectiveDay = settings.chore_cycle_start_day ?? settings.week_start_day ?? 0
+
+  return (
+    <div className="space-y-1 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="flex items-center gap-2 px-1">
+        <Calendar size={14} style={{ color: 'var(--color-text-secondary)' }} />
+        <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+          Chore week starts on
+        </label>
+      </div>
+      <select
+        value={effectiveDay}
+        onChange={(e) => {
+          const day = Number(e.target.value)
+          updateSettings.mutate({ chore_cycle_start_day: day } as Record<string, unknown>)
+        }}
+        className="w-full px-3 py-2 rounded-lg text-sm"
+        style={{
+          backgroundColor: 'var(--color-bg-card)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-text-primary)',
+        }}
+      >
+        {DAY_NAMES.map((name, i) => (
+          <option key={i} value={i}>{name}</option>
+        ))}
+      </select>
+      <p className="text-xs px-1" style={{ color: 'var(--color-text-secondary)' }}>
+        When recurring opportunity jobs reset. Defaults to your calendar week start.
+      </p>
     </div>
   )
 }
