@@ -26,7 +26,6 @@ import {
   X,
   ChevronDown,
   Layers,
-  Users,
   Check,
   Clock,
   ListPlus,
@@ -1090,10 +1089,8 @@ interface TaskListProps {
 }
 
 function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTask, onDelete, onSubmitMastery, onWorkedOnThis, segmentMemberId }: TaskListProps) {
-  const { data: fmember } = useFamilyMember()
   const { data: ffamily } = useFamily()
-  const qc = useQueryClient()
-  const [deployingTaskId, setDeployingTaskId] = useState<string | null>(null)
+  const { data: familyMembers = [] } = useFamilyMembers(ffamily?.id)
   const [collapsedSegments, setCollapsedSegments] = useState<Set<string>>(new Set())
 
   // Build M Phase 5: segment grouping for Adult/Independent
@@ -1120,57 +1117,14 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
       return next
     })
   }, [])
-  const { data: familyMembers = [] } = useQuery({
-    queryKey: ['family-members-for-deploy', ffamily?.id],
-    queryFn: async () => {
-      if (!ffamily?.id) return []
-      const { data } = await supabase
-        .from('family_members')
-        .select('id, display_name, role, assigned_color, member_color')
-        .eq('family_id', ffamily.id)
-        .eq('is_active', true)
-        .order('display_name')
-      return data ?? []
-    },
-    enabled: !!ffamily?.id,
-  })
-
-  async function handleDeploy(taskId: string, memberId: string, _memberName: string) {
-    // Update the task assignee
-    await supabase.from('tasks').update({ assignee_id: memberId }).eq('id', taskId)
-
-    // Create assignment record
-    await supabase.from('task_assignments').insert({
-      task_id: taskId,
-      member_id: memberId,
-      assigned_by: fmember?.id,
-    })
-
-    qc.invalidateQueries({ queryKey: ['tasks'] })
-    setDeployingTaskId(null)
-  }
-
-  async function handleDeployAll(taskId: string) {
-    // Deploy to every non-mom member: create a copy task for each
-    const kids = familyMembers.filter(m => m.id !== fmember?.id)
-    for (const kid of kids) {
-      await handleDeploy(taskId, kid.id, kid.display_name)
-    }
-  }
-
-  // Close dropdown when clicking outside
-  function handleBackdropClick() {
-    if (deployingTaskId) setDeployingTaskId(null)
-  }
 
   // Build member lookup for assignee pills
   const memberLookup = useMemo(() => {
     const map: Record<string, { name: string; color: string }> = {}
     for (const m of familyMembers) {
-      const mRec = m as Record<string, unknown>
       map[m.id] = {
         name: m.display_name?.split(' ')[0] ?? m.display_name ?? '',
-        color: (mRec.assigned_color as string) || (mRec.member_color as string) || '#6B7280',
+        color: m.assigned_color || m.member_color || '#6B7280',
       }
     }
     return map
@@ -1180,14 +1134,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
     const draw = taskDrawMap[task.id]
     const assignee = task.assignee_id ? memberLookup[task.assignee_id] : null
     return (
-    <div
-      key={task.id}
-      className="group"
-      style={{
-        position: 'relative',
-        zIndex: deployingTaskId === task.id ? 50 : 'auto',
-      }}
-    >
+    <div key={task.id}>
       <TaskCard
         task={task}
         isCompleting={isCompleting(task.id)}
@@ -1200,102 +1147,6 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
         assigneeName={assignee?.name ?? null}
         assigneeColor={assignee?.color ?? null}
       />
-
-      {/* Deploy/Reassign button — adults only (kids must not reassign their own chores) */}
-      {(fmember?.role === 'primary_parent' || fmember?.role === 'additional_adult') && (
-      <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ zIndex: deployingTaskId === task.id ? 51 : 1 }}
-      >
-        <div className="relative">
-          <button
-            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg"
-            style={{
-              backgroundColor: 'var(--color-btn-primary-bg)',
-              color: 'var(--color-btn-primary-text)',
-            }}
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeployingTaskId(deployingTaskId === task.id ? null : task.id)
-            }}
-          >
-            {task.assignee_id ? 'Reassign' : 'Deploy'}
-            <ChevronDown size={10} />
-          </button>
-
-          {/* Member picker dropdown — positioned above sibling cards */}
-          {deployingTaskId === task.id && (
-            <div
-              className="absolute right-0 top-full mt-1 min-w-50 rounded-lg shadow-xl overflow-hidden"
-              style={{
-                backgroundColor: 'var(--color-bg-card)',
-                border: '1px solid var(--color-border)',
-                zIndex: 52,
-                boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-              }}
-            >
-              <p
-                className="px-3 py-2 text-xs font-medium"
-                style={{
-                  color: 'var(--color-text-secondary)',
-                  borderBottom: '1px solid var(--color-border)',
-                }}
-              >
-                Assign to...
-              </p>
-
-              {/* Whole Family option */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDeployAll(task.id)
-                }}
-                className="w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 transition-colors"
-                style={{
-                  color: 'var(--color-btn-primary-bg)',
-                  borderBottom: '1px solid var(--color-border)',
-                  background: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-card))',
-                }}
-              >
-                <Users size={16} />
-                Whole Family
-              </button>
-
-              {/* Individual members */}
-              {familyMembers
-                .filter(m => m.id !== fmember?.id)
-                .map(m => (
-                <button
-                  key={m.id}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeploy(task.id, m.id, m.display_name)
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2"
-                  style={{
-                    color: 'var(--color-text-primary)',
-                    borderBottom: '1px solid color-mix(in srgb, var(--color-border) 50%, transparent)',
-                  }}
-                >
-                  <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                    style={{
-                      backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, var(--color-bg-card))',
-                      color: 'var(--color-btn-primary-bg)',
-                    }}
-                  >
-                    {m.display_name.charAt(0)}
-                  </span>
-                  {m.display_name}
-                  {task.assignee_id === m.id && (
-                    <span className="ml-auto text-[10px] opacity-60">current</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      )}
     </div>
   )}
 
@@ -1303,10 +1154,6 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
   if (hasSegments) {
     return (
       <div className="space-y-3 py-2">
-        {deployingTaskId && (
-          <div className="fixed inset-0 z-40" onClick={handleBackdropClick} />
-        )}
-
         {segmentGroups.map(({ segment, tasks: segTasks }) => {
           const status = segmentStatus[segment.id]
           return (
@@ -1346,11 +1193,6 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
   // ── Flat rendering (no segments) ─────────────────────────────
   return (
     <div className="space-y-2 py-2">
-      {/* Invisible backdrop to close dropdown */}
-      {deployingTaskId && (
-        <div className="fixed inset-0 z-40" onClick={handleBackdropClick} />
-      )}
-
       {tasks.map(renderTaskRow)}
     </div>
   )

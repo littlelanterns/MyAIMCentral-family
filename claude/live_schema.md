@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-11
+> Auto-generated from live Supabase on 2026-05-12
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
