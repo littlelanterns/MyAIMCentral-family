@@ -18,6 +18,8 @@ export interface MemberPillItem {
   member_color?: string | null
 }
 
+export type AssignMode = 'any' | 'each'
+
 interface MemberPillSelectorProps {
   members: MemberPillItem[]
   selectedIds: string[]
@@ -27,6 +29,10 @@ interface MemberPillSelectorProps {
   onToggleAll?: () => void
   /** Show the Age/A-Z sort toggle. Default true. */
   showSortToggle?: boolean
+  /** Show Any/Each segmented control when 2+ members selected. */
+  showAssignMode?: boolean
+  assignMode?: AssignMode
+  onAssignModeChange?: (mode: AssignMode) => void
 }
 
 function getColor(m: MemberPillItem): string {
@@ -41,6 +47,9 @@ export default function MemberPillSelector({
   showEveryone,
   onToggleAll,
   showSortToggle = true,
+  showAssignMode,
+  assignMode = 'each',
+  onAssignModeChange,
 }: MemberPillSelectorProps) {
   const allSelected = members.length > 0 && selectedIds.length === members.length
   const everyonePill = !!(showEveryone && onToggleAll)
@@ -108,6 +117,69 @@ export default function MemberPillSelector({
           )
         })}
       </div>
+      {showAssignMode && onAssignModeChange && selectedIds.length >= 2 && (
+        <AssignModeToggle mode={assignMode} onChange={onAssignModeChange} />
+      )}
+    </div>
+  )
+}
+
+function AssignModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: AssignMode
+  onChange: (m: AssignMode) => void
+}) {
+  return (
+    <div className="mt-2 w-full">
+      <div
+        className="inline-flex rounded-lg overflow-hidden"
+        style={{ border: '1px solid var(--color-border)' }}
+      >
+        <button
+          onClick={() => onChange('each')}
+          className="px-3 py-1.5 text-xs font-medium transition-colors"
+          style={
+            mode === 'each'
+              ? {
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text, #fff)',
+                }
+              : {
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text-secondary)',
+                }
+          }
+        >
+          Each of them
+        </button>
+        <button
+          onClick={() => onChange('any')}
+          className="px-3 py-1.5 text-xs font-medium transition-colors"
+          style={
+            mode === 'any'
+              ? {
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text, #fff)',
+                }
+              : {
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text-secondary)',
+                }
+          }
+        >
+          Any of them
+        </button>
+      </div>
+      <p
+        className="text-xs mt-1"
+        style={{ color: 'var(--color-text-tertiary)' }}
+      >
+        {mode === 'each'
+          ? 'Each person gets their own copy to complete independently.'
+          : 'One shared copy — anyone can complete it.'}
+      </p>
     </div>
   )
 }

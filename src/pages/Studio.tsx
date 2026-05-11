@@ -27,7 +27,7 @@ import { StudioCategorySection } from '@/components/studio/StudioCategorySection
 import { StudioSearch } from '@/components/studio/StudioSearch'
 import { CustomizedTemplateCard } from '@/components/studio/CustomizedTemplateCard'
 import type { StudioTemplate } from '@/components/studio/StudioTemplateCard'
-import type { CustomizedTemplate } from '@/components/studio/CustomizedTemplateCard'
+import type { CustomizedTemplate, DeploymentListItem } from '@/components/studio/CustomizedTemplateCard'
 import { RoutineDuplicateDialog } from '@/components/tasks/RoutineDuplicateDialog'
 // Worker ROUTINE-PROPAGATION (c4, founder D4 + D6 Thread 1):
 //   - Chooser dialog: single duplicate entry point (per Convention #255)
@@ -37,6 +37,8 @@ import { RoutineDuplicateDialog } from '@/components/tasks/RoutineDuplicateDialo
 import { RoutineDuplicateChooserDialog } from '@/components/templates/RoutineDuplicateChooserDialog'
 import { RoutineDuplicateTemplateDialog } from '@/components/templates/RoutineDuplicateTemplateDialog'
 import { ListDuplicateDialog } from '@/components/templates/ListDuplicateDialog'
+import { RoutineDeployModal } from '@/components/templates/RoutineDeployModal'
+import type { RoutineDeployTemplate, ActiveDeployment as DeployModalActiveDeployment } from '@/components/templates/RoutineDeployModal'
 import type { TabItem } from '@/components/shared'
 import {
   TASK_TEMPLATES_BLANK,
@@ -122,27 +124,72 @@ function useCustomizedTemplates(familyId: string | undefined) {
       // these templates, then group by template_id.
       const templateIds = (data ?? []).map(r => r.id as string)
       const dtstartByTemplateId = new Map<string, string | null>()
+      const deploymentsByTemplateId = new Map<string, DeploymentListItem[]>()
       if (templateIds.length > 0) {
         const { data: tasks } = await supabase
           .from('tasks')
-          .select('template_id, recurrence_details, status, archived_at')
+          .select('id, template_id, assignee_id, recurrence_details, due_date, status, archived_at, counts_for_allowance, counts_for_gamification, counts_for_homework, allowance_points')
           .in('template_id', templateIds)
           .eq('task_type', 'routine')
           .is('archived_at', null)
 
         const today = new Date()
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+        // Collect unique assignee IDs for member lookup
+        const assigneeIds = new Set<string>()
+        for (const t of tasks ?? []) {
+          if (t.assignee_id) assigneeIds.add(t.assignee_id as string)
+        }
+
+        // Fetch member names + colors in one query
+        const memberMap = new Map<string, { name: string; color: string }>()
+        if (assigneeIds.size > 0) {
+          const { data: memberRows } = await supabase
+            .from('family_members')
+            .select('id, display_name, member_color, assigned_color, calendar_color')
+            .in('id', Array.from(assigneeIds))
+          for (const m of memberRows ?? []) {
+            memberMap.set(m.id as string, {
+              name: (m.display_name as string) || 'Unknown',
+              color: (m.member_color as string) || (m.assigned_color as string) || (m.calendar_color as string) || '#888',
+            })
+          }
+        }
+
         for (const t of tasks ?? []) {
           if (!t.template_id) continue
           if (t.status === 'completed' || t.status === 'cancelled') continue
           const details = t.recurrence_details as Record<string, unknown> | null
-          const dtstart = (details?.dtstart as string | undefined)?.slice(0, 10)
-          if (!dtstart || dtstart <= todayStr) continue
-          // Track earliest future dtstart per template so the badge
-          // says when the next scheduled deployment kicks in.
-          const existing = dtstartByTemplateId.get(t.template_id as string)
-          if (!existing || dtstart < existing) {
-            dtstartByTemplateId.set(t.template_id as string, dtstart)
+          const dtstart = (details?.dtstart as string | undefined)?.slice(0, 10) ?? null
+
+          if (dtstart && dtstart > todayStr) {
+            const existing = dtstartByTemplateId.get(t.template_id as string)
+            if (!existing || dtstart < existing) {
+              dtstartByTemplateId.set(t.template_id as string, dtstart)
+            }
+          }
+
+          // Build deployment list item
+          if (t.assignee_id) {
+            const member = memberMap.get(t.assignee_id as string)
+            const dep: DeploymentListItem = {
+              taskId: t.id as string,
+              assigneeId: t.assignee_id as string,
+              assigneeName: member?.name ?? 'Unknown',
+              assigneeColor: member?.color ?? '#888',
+              dtstart,
+              endDate: (t.due_date as string | undefined)?.slice(0, 10) ?? null,
+              isScheduled: !!dtstart && dtstart > todayStr,
+              countsForAllowance: (t.counts_for_allowance as boolean) ?? false,
+              countsForGamification: (t.counts_for_gamification as boolean) ?? true,
+              countsForHomework: (t.counts_for_homework as boolean) ?? false,
+              allowancePoints: (t.allowance_points as number | null) ?? null,
+              status: (t.status as string) ?? 'pending',
+            }
+            const list = deploymentsByTemplateId.get(t.template_id as string) ?? []
+            list.push(dep)
+            deploymentsByTemplateId.set(t.template_id as string, list)
           }
         }
       }
@@ -150,15 +197,17 @@ function useCustomizedTemplates(familyId: string | undefined) {
       const taskResults: CustomizedTemplate[] = (data ?? []).map((row) => {
         const config = (row.config ?? {}) as Record<string, unknown>
         const templateType = mapDbTypeToStudioType(row.task_type as string)
+        const deps = deploymentsByTemplateId.get(row.id as string) ?? []
         return {
           id: row.id as string,
           name: (row.title as string) || 'Untitled Template',
           templateType,
           assignedTo: (config.assigned_to_names as string[]) ?? [],
-          activeDeployments: (config.active_deployments as number) ?? 0,
+          activeDeployments: deps.length || ((config.active_deployments as number) ?? 0),
           lastDeployedAt: (config.last_deployed_at as string) ?? null,
           createdAt: row.created_at as string,
           nextScheduledStart: dtstartByTemplateId.get(row.id as string) ?? null,
+          deployments: deps.length > 0 ? deps : undefined,
         }
       })
 
@@ -301,6 +350,12 @@ export function StudioPage() {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   /** When deploying from an existing template, link new task to this template instead of creating a duplicate */
   const [deployFromTemplateId, setDeployFromTemplateId] = useState<string | null>(null)
+
+  // RoutineDeployModal state — lightweight deploy/edit modal for routines
+  const [routineDeployOpen, setRoutineDeployOpen] = useState(false)
+  const [routineDeployTemplate, setRoutineDeployTemplate] = useState<RoutineDeployTemplate | null>(null)
+  const [routineDeployMode, setRoutineDeployMode] = useState<'create' | 'edit'>('create')
+  const [routineDeployEditTask, setRoutineDeployEditTask] = useState<DeployModalActiveDeployment | null>(null)
 
   // SequentialCreatorModal state (Phase 1: replaces sequential route through TaskCreationModal)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
@@ -1238,15 +1293,36 @@ export function StudioPage() {
                       navigate(`/lists?create=${listType}&template=${t.id}`)
                       return
                     }
+                    if (t.templateType === 'routine') {
+                      setRoutineDeployTemplate({ id: t.id, name: t.name })
+                      setRoutineDeployMode('create')
+                      setRoutineDeployEditTask(null)
+                      setRoutineDeployOpen(true)
+                      return
+                    }
                     setEditingTemplateId(null)
                     setDeployFromTemplateId(t.id)
-                    if (t.templateType === 'routine') {
-                      loadRoutineTemplate(t.id, t.name)
-                    } else {
-                      setModalDefaultTitle(t.name)
-                      setModalInitialType(t.templateType as string || 'task')
-                      setModalOpen(true)
-                    }
+                    setModalDefaultTitle(t.name)
+                    setModalInitialType(t.templateType as string || 'task')
+                    setModalOpen(true)
+                  }}
+                  onEditDeployment={(t, dep) => {
+                    setRoutineDeployTemplate({ id: t.id, name: t.name })
+                    setRoutineDeployMode('edit')
+                    setRoutineDeployEditTask({
+                      taskId: dep.taskId,
+                      assigneeId: dep.assigneeId,
+                      assigneeDisplayName: dep.assigneeName,
+                      assigneeColor: dep.assigneeColor,
+                      dtstart: dep.dtstart,
+                      endDate: dep.endDate,
+                      countsForAllowance: dep.countsForAllowance,
+                      countsForGamification: dep.countsForGamification,
+                      countsForHomework: dep.countsForHomework,
+                      allowancePoints: dep.allowancePoints,
+                      status: dep.status,
+                    })
+                    setRoutineDeployOpen(true)
                   }}
                   onEdit={(t) => {
                     if (isListTemplateType(t.templateType)) {
@@ -1341,6 +1417,21 @@ export function StudioPage() {
           editMode={!!editingTemplateId}
           editingTemplateId={editingTemplateId}
           deployFromTemplateId={deployFromTemplateId}
+        />
+      )}
+
+      {/* ── Routine Deploy Modal ────────────────────────────── */}
+      {routineDeployOpen && routineDeployTemplate && (
+        <RoutineDeployModal
+          isOpen={routineDeployOpen}
+          onClose={() => {
+            setRoutineDeployOpen(false)
+            setRoutineDeployTemplate(null)
+            setRoutineDeployEditTask(null)
+          }}
+          template={routineDeployTemplate}
+          mode={routineDeployMode}
+          editingDeployment={routineDeployEditTask}
         />
       )}
 

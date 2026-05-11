@@ -9,10 +9,25 @@
  */
 
 import { useState } from 'react'
-import { Calendar, Users, Unlink, Copy, Archive, Edit2, Play, MoreHorizontal } from 'lucide-react'
+import { Calendar, Users, Unlink, Copy, Archive, Edit2, Play, MoreHorizontal, Circle } from 'lucide-react'
 import type { StudioTemplateType } from './StudioTemplateCard'
 import { ScheduledStartBadge } from '@/components/templates/ScheduledStartBadge'
 import { PendingChangesBadge } from '@/components/templates/PendingChangesBadge'
+
+export interface DeploymentListItem {
+  taskId: string
+  assigneeId: string
+  assigneeName: string
+  assigneeColor: string
+  dtstart: string | null
+  endDate: string | null
+  isScheduled: boolean
+  countsForAllowance: boolean
+  countsForGamification: boolean
+  countsForHomework: boolean
+  allowancePoints: number | null
+  status: string
+}
 
 export interface CustomizedTemplate {
   id: string
@@ -32,6 +47,7 @@ export interface CustomizedTemplate {
    * but not yet active.
    */
   nextScheduledStart?: string | null
+  deployments?: DeploymentListItem[]
 }
 
 interface CustomizedTemplateCardProps {
@@ -40,6 +56,7 @@ interface CustomizedTemplateCardProps {
   onEdit: (template: CustomizedTemplate) => void
   onDuplicate: (template: CustomizedTemplate) => void
   onArchive: (template: CustomizedTemplate) => void
+  onEditDeployment?: (template: CustomizedTemplate, deployment: DeploymentListItem) => void
 }
 
 const TYPE_LABELS: Record<StudioTemplateType, string> = {
@@ -95,17 +112,16 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function deploymentStatus(template: CustomizedTemplate): string {
-  if (template.assignedTo.length > 0) {
-    if (template.assignedTo.length <= 3) {
-      return `Assigned to: ${template.assignedTo.join(', ')}`
-    }
-    return `Assigned to ${template.assignedTo.length} members`
+
+function formatDateRange(start: string | null, end: string | null): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso + 'T00:00:00')
+    return d.toLocaleDateString('default', { month: 'short', day: 'numeric' })
   }
-  if (template.activeDeployments > 0) {
-    return `${template.activeDeployments} active deployment${template.activeDeployments === 1 ? '' : 's'}`
-  }
-  return 'Unassigned'
+  if (!start) return 'No dates'
+  const startLabel = fmt(start)
+  if (!end) return `${startLabel} – ongoing`
+  return `${startLabel} – ${fmt(end)}`
 }
 
 export function CustomizedTemplateCard({
@@ -114,11 +130,9 @@ export function CustomizedTemplateCard({
   onEdit,
   onDuplicate,
   onArchive,
+  onEditDeployment,
 }: CustomizedTemplateCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
-
-  const status = deploymentStatus(template)
-  const isAssigned = template.assignedTo.length > 0 || template.activeDeployments > 0
 
   return (
     <div
@@ -209,20 +223,51 @@ export function CustomizedTemplateCard({
         </div>
       </div>
 
-      {/* Deployment status */}
-      <div className="flex items-center gap-1.5 mb-2">
-        {isAssigned ? (
-          <Users size={13} style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }} />
-        ) : (
+      {/* Deployments section */}
+      {template.deployments && template.deployments.length > 0 ? (
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Users size={13} style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }} />
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              Active Deployments
+            </span>
+          </div>
+          <div className="space-y-1">
+            {template.deployments.map(dep => (
+              <button
+                key={dep.taskId}
+                onClick={() => onEditDeployment?.(template, dep)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors"
+                style={{ backgroundColor: 'transparent' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Circle
+                  size={8}
+                  fill={dep.isScheduled ? 'var(--color-text-secondary)' : 'var(--color-success, #22c55e)'}
+                  stroke="none"
+                />
+                <span
+                  className="text-xs font-medium truncate"
+                  style={{ color: dep.assigneeColor }}
+                >
+                  {dep.assigneeName.split(' ')[0]}
+                </span>
+                <span className="text-[10px] ml-auto shrink-0" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {formatDateRange(dep.dtstart, dep.endDate)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 mb-3">
           <Unlink size={13} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
-        )}
-        <p
-          className="text-xs"
-          style={{ color: isAssigned ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}
-        >
-          {status}
-        </p>
-      </div>
+          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+            No active deployments
+          </p>
+        </div>
+      )}
 
       {/* Last deployed date */}
       {template.lastDeployedAt && (
