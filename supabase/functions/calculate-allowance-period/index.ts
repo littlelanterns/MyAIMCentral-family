@@ -243,6 +243,7 @@ Deno.serve(async (req) => {
               supabase,
               family.id,
               memberId,
+              period.period_start,
               period.period_end,
               config.id,
               poolName,
@@ -615,18 +616,21 @@ async function countAssignedTasks(
   supabase: SupabaseClient,
   familyId: string,
   memberId: string,
+  periodStart: string,
   periodEnd: string,
   configId: string,
   poolName: string,
 ): Promise<number> {
   // Primary assignee tasks for this pool
+  // Include tasks archived DURING the period (they were visible when the kid worked on them)
+  // Exclude tasks archived BEFORE the period started
   let primaryQuery = supabase
     .from('tasks')
     .select('id', { count: 'exact', head: true })
     .eq('family_id', familyId)
     .eq('assignee_id', memberId)
     .eq('counts_for_allowance', true)
-    .is('archived_at', null)
+    .or(`archived_at.is.null,archived_at.gt.${periodStart}`)
     .lte('created_at', periodEnd + 'T23:59:59Z')
 
   if (poolName === 'default') {
@@ -646,7 +650,7 @@ async function countAssignedTasks(
     .eq('member_id', memberId)
     .eq('tasks.family_id', familyId)
     .eq('tasks.counts_for_allowance', true)
-    .is('tasks.archived_at', null)
+    .or(`archived_at.is.null,archived_at.gt.${periodStart}`, { foreignTable: 'tasks' })
     .lte('tasks.created_at', periodEnd + 'T23:59:59Z')
     .neq('tasks.assignee_id', memberId)
 
