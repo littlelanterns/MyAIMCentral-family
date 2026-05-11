@@ -14,21 +14,40 @@ export function PaymentModal({
   familyId,
   memberId,
   memberName,
+  suggestedAmount,
+  suggestedNote,
+  onPaymentComplete,
 }: {
   isOpen: boolean
   onClose: () => void
   familyId: string
   memberId: string
   memberName: string
+  suggestedAmount?: number
+  suggestedNote?: string
+  onPaymentComplete?: (paidAmount: number) => void
 }) {
   const { data: balance } = useRunningBalance(memberId)
   const createPayment = useCreatePayment()
   const [mode, setMode] = useState<'full' | 'partial'>('full')
   const [partialAmount, setPartialAmount] = useState('')
   const [note, setNote] = useState('')
+  const [initialized, setInitialized] = useState(false)
 
   const currentBalance = balance ?? 0
-  const payAmount = mode === 'full' ? currentBalance : Number(partialAmount) || 0
+  const displayAmount = suggestedAmount ?? currentBalance
+  const payAmount = mode === 'full' ? displayAmount : Number(partialAmount) || 0
+
+  // Reset state when modal opens with new context
+  if (isOpen && !initialized) {
+    setMode('full')
+    setPartialAmount('')
+    setNote(suggestedNote ?? '')
+    setInitialized(true)
+  }
+  if (!isOpen && initialized) {
+    setInitialized(false)
+  }
 
   const handleConfirm = async () => {
     if (payAmount <= 0) return
@@ -38,6 +57,7 @@ export function PaymentModal({
       amount: payAmount,
       note: note || undefined,
     })
+    onPaymentComplete?.(payAmount)
     onClose()
   }
 
@@ -52,7 +72,7 @@ export function PaymentModal({
     >
       <div className="space-y-4 p-4">
         <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Paying: <span className="font-semibold" style={{ color: 'var(--color-text-heading)' }}>{memberName}</span> — ${currentBalance.toFixed(2)}
+          Paying: <span className="font-semibold" style={{ color: 'var(--color-text-heading)' }}>{memberName}</span> — ${displayAmount.toFixed(2)}
         </div>
 
         <div>
@@ -85,7 +105,7 @@ export function PaymentModal({
                 onChange={() => setMode('full')}
               />
               <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                Full balance (${currentBalance.toFixed(2)})
+                {suggestedAmount != null ? 'Full amount' : 'Full balance'} (${displayAmount.toFixed(2)})
               </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
@@ -94,7 +114,7 @@ export function PaymentModal({
                 checked={mode === 'partial'}
                 onChange={() => setMode('partial')}
               />
-              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Partial amount:</span>
+              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>Different amount:</span>
               {mode === 'partial' && (
                 <div className="flex items-center gap-1">
                   <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>$</span>
@@ -103,7 +123,6 @@ export function PaymentModal({
                     value={partialAmount}
                     onChange={e => setPartialAmount(e.target.value)}
                     min={0.01}
-                    max={currentBalance}
                     step={0.01}
                     className="w-24 px-2 py-1 rounded text-sm"
                     style={{

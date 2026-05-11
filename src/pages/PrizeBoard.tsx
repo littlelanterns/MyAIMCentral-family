@@ -4,7 +4,6 @@ import { useEarnedPrizes, useRedeemPrize } from '@/hooks/useEarnedPrizes'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
 import {
   useAllowanceConfigs,
-  useCreatePayment,
   useMemberAllowancePools,
 } from '@/hooks/useFinancial'
 import { getMemberColor } from '@/lib/memberColors'
@@ -99,6 +98,14 @@ function AllowanceOwedSection({ familyId, currentMember }: { familyId: string | 
   )
 }
 
+type PeriodGroup = {
+  period_start: string
+  period_end: string
+  pools: AllowancePeriod[]
+  total_earned: number
+  combined_percentage: number | null
+}
+
 function KidAllowanceCard({
   member,
   familyId,
@@ -110,7 +117,8 @@ function KidAllowanceCard({
 }) {
   const color = getMemberColor(member)
   const queryClient = useQueryClient()
-  const payMutation = useCreatePayment()
+
+  const [payTarget, setPayTarget] = useState<{ groups: PeriodGroup[]; amount: number; note: string } | null>(null)
 
   const { data: unpaidPeriods = [], isLoading } = useQuery({
     queryKey: ['unpaid-allowance-periods', member.id],
@@ -126,10 +134,6 @@ function KidAllowanceCard({
     },
   })
 
-  // Phase 3.5 D-gap-3: group unpaid periods by date range so multi-pool
-  // kids show one card per (period_start, period_end) instead of one per
-  // pool row. Each group shows the combined percentage + per-pool
-  // breakdown of where the money came from.
   const groupedPeriods = useMemo(() => {
     const map = new Map<string, AllowancePeriod[]>()
     for (const p of unpaidPeriods) {
@@ -154,29 +158,36 @@ function KidAllowanceCard({
 
   const totalOwed = groupedPeriods.reduce((sum, g) => sum + g.total_earned, 0)
 
-  const handlePayGroup = async (group: typeof groupedPeriods[number]) => {
+  const openPayForGroup = (group: PeriodGroup) => {
+    setPayTarget({
+      groups: [group],
+      amount: group.total_earned,
+      note: `Allowance for ${formatDateRange(group.period_start, group.period_end)}`,
+    })
+  }
+
+  const openPayAll = () => {
+    const dateRanges = groupedPeriods.map(g => formatDateRange(g.period_start, g.period_end))
+    setPayTarget({
+      groups: groupedPeriods,
+      amount: totalOwed,
+      note: dateRanges.length <= 2
+        ? `Allowance for ${dateRanges.join(' & ')}`
+        : `Allowance for ${dateRanges.length} periods`,
+    })
+  }
+
+  const handlePaymentComplete = async () => {
+    if (!payTarget) return
     try {
-      await payMutation.mutateAsync({
-        family_id: familyId,
-        family_member_id: member.id,
-        amount: group.total_earned,
-        note: `Allowance for ${formatDateRange(group.period_start, group.period_end)}`,
-      })
-      // Mark every pool period in this date range as closed.
-      const ids = group.pools.map(p => p.id)
+      const ids = payTarget.groups.flatMap(g => g.pools.map(p => p.id))
       await supabase
         .from('allowance_periods')
         .update({ status: 'closed', closed_at: new Date().toISOString() })
         .in('id', ids)
       queryClient.invalidateQueries({ queryKey: ['unpaid-allowance-periods', member.id] })
     } catch (err) {
-      console.warn('Failed to mark period paid:', err)
-    }
-  }
-
-  const handlePayAll = async () => {
-    for (const group of groupedPeriods) {
-      await handlePayGroup(group)
+      console.warn('Failed to mark period(s) closed:', err)
     }
   }
 
@@ -204,22 +215,32 @@ function KidAllowanceCard({
             <PeriodGroupRow
               key={`${group.period_start}|${group.period_end}`}
               group={group}
-              onPay={isMom ? () => handlePayGroup(group) : undefined}
-              isPaying={payMutation.isPending}
+              onPay={isMom ? () => openPayForGroup(group) : undefined}
+              isPaying={false}
             />
           ))}
 
           {isMom && groupedPeriods.length > 1 && (
             <button
-              onClick={handlePayAll}
-              disabled={payMutation.isPending}
-              className="w-full mt-2 px-4 py-2 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
+              onClick={openPayAll}
+              className="w-full mt-2 px-4 py-2 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity"
             >
               Pay All (${totalOwed.toFixed(2)})
             </button>
           )}
         </div>
       )}
+
+      <PaymentModal
+        isOpen={payTarget !== null}
+        onClose={() => setPayTarget(null)}
+        familyId={familyId}
+        memberId={member.id}
+        memberName={member.display_name}
+        suggestedAmount={payTarget?.amount}
+        suggestedNote={payTarget?.note}
+        onPaymentComplete={handlePaymentComplete}
+      />
     </div>
   )
 }
