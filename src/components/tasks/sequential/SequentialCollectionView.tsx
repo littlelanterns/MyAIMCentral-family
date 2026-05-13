@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2, Settings2, X } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2, Settings2, X, Sparkles } from 'lucide-react'
 import {
   useSequentialCollections,
   useSequentialCollection,
@@ -16,7 +16,8 @@ import {
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
-import { Toggle } from '@/components/shared'
+import { Toggle, BulkAddWithAI } from '@/components/shared'
+import { parseSmartList } from '@/lib/tasks/parseSmartList'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { PendingChangesBadge } from '@/components/templates/PendingChangesBadge'
 import { usePendingChangesForSource, useApplyPendingChanges, useCreatePendingChange } from '@/hooks/usePendingChanges'
@@ -232,6 +233,10 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
   const [showRedeployPicker, setShowRedeployPicker] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(collection.title)
+  const [newItemText, setNewItemText] = useState('')
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [applyingPending, setApplyingPending] = useState(false)
   const { data: detail } = useSequentialCollection(expanded ? collection.id : undefined)
   const redeploy = useRedeploySequentialCollection()
@@ -330,9 +335,19 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
+            {isEditing ? (
+              <input
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                className="text-sm font-semibold truncate px-2 py-0.5 rounded"
+                style={{ color: 'var(--color-text-heading)', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', outline: 'none' }}
+              />
+            ) : (
             <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-heading)' }}>
               {collection.title}
             </p>
+            )}
             {isAllComplete && (
               <CheckCircle2 size={14} style={{ color: 'var(--color-success, #22c55e)', flexShrink: 0 }} />
             )}
@@ -632,28 +647,177 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
               })}
           </div>
 
-          {/* Actions — hide when collection is complete (completion prompt shows instead) */}
+          {/* Bulk Add modal */}
+          {showBulkAdd && (
+            <BulkAddWithAI
+              title="Add Items — Sequential Collection"
+              placeholder={'Paste a list, table, or syllabus. Supports markdown tables, spreadsheet pastes, numbered lists, and plain text.\n\nExamples:\nChapter 1 — Introduction\nChapter 2 — Place Value\n\nOr paste a table:\n| # | Date | Assignment |\n|---|---|---|\n| 1 | 1/8 | Abraham 3 |'}
+              hint="AI will extract items. You can also paste directly — the smart parser handles tables, CSV, and numbered lists automatically."
+              parsePrompt='Parse the following text into an ordered list of sequential items (chapters, lessons, steps, etc.). Preserve the original order. Remove numbering prefixes but keep the descriptive text. Return a JSON array of strings: ["item1", "item2", ...].'
+              onSave={async (parsed) => {
+                const newItems = parsed.filter(i => i.selected).map(i => i.text)
+                if (newItems.length === 0 || !detail?.tasks) return
+                const maxPos = Math.max(0, ...detail.tasks.map((t: Task) => t.sequential_position ?? 0))
+                const firstTask = detail.tasks[0] as Task | undefined
+                const inserts = newItems.map((text, i) => {
+                  const smartParsed = parseSmartList(text)
+                  const title = smartParsed[0]?.title ?? text
+                  const description = smartParsed[0]?.description ?? null
+                  return {
+                    family_id: collection.family_id,
+                    created_by: firstTask?.created_by ?? null,
+                    assignee_id: firstTask?.assignee_id ?? null,
+                    title,
+                    description,
+                    task_type: 'sequential' as const,
+                    status: 'pending' as const,
+                    source: 'manual' as const,
+                    sequential_collection_id: collection.id,
+                    sequential_position: maxPos + 1 + i,
+                    sequential_is_active: collection.allow_out_of_order ? true : false,
+                    advancement_mode: collection.default_advancement_mode ?? 'complete',
+                    practice_count: 0,
+                    sort_order: maxPos + 1 + i,
+                    focus_time_seconds: 0,
+                    big_rock: false,
+                    incomplete_action: 'fresh_reset' as const,
+                    require_approval: false,
+                    time_tracking_enabled: false,
+                    kanban_status: 'to_do' as const,
+                    is_shared: false,
+                    victory_flagged: firstTask?.victory_flagged ?? false,
+                    counts_for_homework: firstTask?.counts_for_homework ?? false,
+                    homework_subject_ids: firstTask?.homework_subject_ids ?? [],
+                  }
+                })
+                await supabase.from('tasks').insert(inserts)
+                await supabase.from('sequential_collections').update({
+                  total_items: (collection.total_items ?? 0) + newItems.length,
+                }).eq('id', collection.id)
+                queryClient.invalidateQueries({ queryKey: ['sequential-collection', collection.id] })
+                queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
+              }}
+              onClose={() => setShowBulkAdd(false)}
+            />
+          )}
+
+          {/* Add item input — visible in edit mode */}
+          {isEditing && (
+            <div className="mt-2 space-y-1">
+            <form
+              className="flex gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                const text = newItemText.trim()
+                if (!text || !detail?.tasks) return
+                const nextPos = Math.max(...detail.tasks.map((t: Task) => t.sequential_position ?? 0)) + 1
+                const firstTask = detail.tasks[0] as Task | undefined
+                await supabase.from('tasks').insert({
+                  family_id: collection.family_id,
+                  created_by: firstTask?.created_by ?? null,
+                  assignee_id: firstTask?.assignee_id ?? null,
+                  title: text,
+                  task_type: 'sequential',
+                  status: 'pending',
+                  source: 'manual',
+                  sequential_collection_id: collection.id,
+                  sequential_position: nextPos,
+                  sequential_is_active: collection.allow_out_of_order ? true : false,
+                  advancement_mode: collection.default_advancement_mode ?? 'complete',
+                  practice_count: 0,
+                  sort_order: nextPos,
+                  focus_time_seconds: 0,
+                  big_rock: false,
+                  incomplete_action: 'fresh_reset',
+                  require_approval: false,
+                  time_tracking_enabled: false,
+                  kanban_status: 'to_do',
+                  is_shared: false,
+                  victory_flagged: firstTask?.victory_flagged ?? false,
+                  counts_for_homework: firstTask?.counts_for_homework ?? false,
+                  homework_subject_ids: firstTask?.homework_subject_ids ?? [],
+                })
+                await supabase.from('sequential_collections').update({
+                  total_items: (collection.total_items ?? 0) + 1,
+                }).eq('id', collection.id)
+                setNewItemText('')
+                queryClient.invalidateQueries({ queryKey: ['sequential-collection', collection.id] })
+                queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
+              }}
+            >
+              <input
+                value={newItemText}
+                onChange={e => setNewItemText(e.target.value)}
+                placeholder="Add an item..."
+                className="flex-1 px-3 py-1.5 rounded-lg text-sm"
+                style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+              />
+              <button
+                type="submit"
+                disabled={!newItemText.trim()}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-40"
+                style={{ background: 'var(--color-btn-primary-bg)', color: 'var(--color-btn-primary-text)' }}
+              >
+                <Plus size={14} />
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={() => setShowBulkAdd(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs w-full justify-center mt-1"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-btn-primary-bg)', border: '1px dashed var(--color-border)' }}
+            >
+              <Sparkles size={12} />
+              Paste a list or table — AI will parse it
+            </button>
+            </div>
+          )}
+
+          {/* Actions */}
           {!isAllComplete && (
             <div className="flex gap-2 mt-3 pb-1">
-              <button
-                className="text-xs px-3 py-1.5 rounded-lg"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                Edit
-              </button>
-              <button
-                className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
-                style={{
-                  background: 'var(--color-bg-secondary)',
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                <UserPlus size={12} />
-                Reassign
-              </button>
+              {isEditing ? (
+                <button
+                  onClick={async () => {
+                    if (editTitle.trim() && editTitle !== collection.title) {
+                      await supabase.from('sequential_collections').update({ title: editTitle.trim() }).eq('id', collection.id)
+                      queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
+                      queryClient.invalidateQueries({ queryKey: ['sequential-collection', collection.id] })
+                    }
+                    setIsEditing(false)
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                  style={{
+                    background: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-text)',
+                  }}
+                >
+                  Done Editing
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setIsEditing(true); setExpanded(true); setEditTitle(collection.title) }}
+                    className="text-xs px-3 py-1.5 rounded-lg"
+                    style={{
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
+                    style={{
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    <UserPlus size={12} />
+                    Reassign
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
