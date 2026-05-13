@@ -539,5 +539,34 @@ export function useRedeploySequentialCollection() {
   })
 }
 
+// ============================================================
+// useArchiveSequentialCollection — soft-archive collection + child tasks
+// ============================================================
+
+export function useArchiveSequentialCollection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (collectionId: string) => {
+      const now = new Date().toISOString()
+      await supabase
+        .from('tasks')
+        .update({ archived_at: now })
+        .eq('sequential_collection_id', collectionId)
+      const { data, error } = await supabase
+        .from('sequential_collections')
+        .update({ updated_at: now })
+        .eq('id', collectionId)
+        .select('family_id')
+        .single()
+      if (error) throw error
+      return data as { family_id: string }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
+    },
+  })
+}
+
 // Re-export types for convenience
 export type { SequentialCollection } from '@/types/tasks'

@@ -54,7 +54,7 @@ import {
   SequentialCollectionCard,
 } from '@/components/tasks/sequential/SequentialCollectionView'
 import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
-import { useSequentialCollections } from '@/hooks/useSequentialCollections'
+import { useSequentialCollections, useArchiveSequentialCollection } from '@/hooks/useSequentialCollections'
 import { isDateActive, type SchedulerOutput } from '@/components/scheduling'
 import { todayLocalIso } from '@/utils/dates'
 import { usePendingChangesForSource, useApplyPendingChanges, useCreatePendingChange } from '@/hooks/usePendingChanges'
@@ -170,6 +170,8 @@ export function ListsPage() {
   const createList = useCreateList()
   const restoreList = useRestoreList()
   const deleteList = useDeleteList()
+  const archiveSequential = useArchiveSequentialCollection()
+  const archiveList = useArchiveList()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const { data: hiddenShares = [] } = useHiddenSharedLists(activeMember?.id)
   const unhideSharedList = useUnhideSharedList()
@@ -314,14 +316,25 @@ export function ListsPage() {
     } else {
       return (
         <div className="density-compact max-w-3xl mx-auto space-y-3 p-4">
-          <button
-            onClick={() => setSelectedSequentialId(null)}
-            className="flex items-center gap-1.5 text-xs font-medium"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
-            Back to lists
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setSelectedSequentialId(null)}
+              className="flex items-center gap-1.5 text-xs font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+              Back to lists
+            </button>
+            <button
+              onClick={() => { archiveSequential.mutate(coll.id); setSelectedSequentialId(null) }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+              title="Archive this collection"
+            >
+              <Archive size={14} />
+              Archive
+            </button>
+          </div>
           <SequentialCollectionCard collection={coll} />
         </div>
       )
@@ -684,10 +697,10 @@ export function ListsPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {/* Sequential collections (only on 'all' filter — cross-surface visibility per PRD-09A/09B Phase 1) */}
           {filter === 'all' && sequentialCollections.map(coll => (
-            <button
+            <div
               key={`seq-${coll.id}`}
+              className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square relative cursor-pointer"
               onClick={() => setSelectedSequentialId(coll.id)}
-              className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square relative"
               style={{
                 backgroundColor: 'var(--color-bg-card)',
                 border: '1px solid var(--color-border)',
@@ -703,12 +716,20 @@ export function ListsPage() {
               >
                 Sequential
               </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); archiveSequential.mutate(coll.id) }}
+                className="absolute top-2 left-2 p-1 rounded-lg opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                style={{ color: 'var(--color-text-secondary)' }}
+                title="Archive"
+              >
+                <Archive size={14} />
+              </button>
               <BookOpen size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
               <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{coll.title}</p>
               <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
                 {coll.current_index}/{coll.total_items}
               </p>
-            </button>
+            </div>
           ))}
           {filtered.map(list => {
             const cfg = TYPE_CONFIG[list.list_type] ?? TYPE_CONFIG.custom
@@ -717,10 +738,10 @@ export function ListsPage() {
               ? isDateActive(list.schedule_config as unknown as SchedulerOutput, todayLocalIso())
               : false
             return (
-              <button
+              <div
                 key={list.id}
                 onClick={() => setSelectedListId(list.id)}
-                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square relative"
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-md aspect-square relative cursor-pointer"
                 style={{
                   backgroundColor: 'var(--color-bg-card)',
                   border: '1px solid var(--color-border)',
@@ -742,6 +763,14 @@ export function ListsPage() {
                     {scheduleActive ? 'Active today' : 'Scheduled'}
                   </span>
                 )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); archiveList.mutate(list.id) }}
+                  className="absolute top-2 left-2 p-1 rounded-lg opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                  title="Archive"
+                >
+                  <Archive size={14} />
+                </button>
                 <Icon size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
                 <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
                 <div className="flex items-center gap-1.5">
@@ -750,7 +779,7 @@ export function ListsPage() {
                   </p>
                   <PendingChangesBadge sourceType="list" sourceId={list.id} />
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
