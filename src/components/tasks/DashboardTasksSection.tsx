@@ -27,6 +27,8 @@ import { useTaskCompletion } from './useTaskCompletion'
 import { useShell } from '@/components/shells/ShellProvider'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
+import { SequentialDashboardCard } from './sequential/SequentialDashboardCard'
+import { useSequentialCollections } from '@/hooks/useSequentialCollections'
 import type { Task } from '@/hooks/useTasks'
 
 // Default view per shell
@@ -66,8 +68,41 @@ export function DashboardTasksSection({
   const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   const todaysTasks = useMemo(() => filterTasksForToday(tasks), [tasks])
-  const activeTasks = todaysTasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
-  const completedToday = todaysTasks.filter((t) => {
+
+  const nonSequentialTasks = useMemo(
+    () => todaysTasks.filter(t => t.task_type !== 'sequential'),
+    [todaysTasks],
+  )
+  const sequentialTasks = useMemo(
+    () => tasks.filter(t => t.task_type === 'sequential'),
+    [tasks],
+  )
+
+  const { data: seqCollections = [] } = useSequentialCollections(familyId)
+
+  const sequentialGroups = useMemo(() => {
+    const byCollection = new Map<string, Task[]>()
+    for (const t of sequentialTasks) {
+      if (!t.sequential_collection_id) continue
+      const existing = byCollection.get(t.sequential_collection_id) ?? []
+      existing.push(t)
+      byCollection.set(t.sequential_collection_id, existing)
+    }
+    return Array.from(byCollection.entries())
+      .map(([collId, tasks]) => ({
+        collection: seqCollections.find(c => c.id === collId) ?? null,
+        collectionId: collId,
+        tasks,
+      }))
+      .filter(g => g.collection !== null) as Array<{
+        collection: import('@/types/tasks').SequentialCollection
+        collectionId: string
+        tasks: Task[]
+      }>
+  }, [seqCollections, sequentialTasks])
+
+  const activeTasks = nonSequentialTasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
+  const completedToday = nonSequentialTasks.filter((t) => {
     if (t.status !== 'completed' || !t.completed_at) return false
     const completedDate = new Date(t.completed_at).toDateString()
     return completedDate === new Date().toDateString()
@@ -126,6 +161,17 @@ export function DashboardTasksSection({
             />
           ))}
         </div>
+
+        {/* Sequential collection cards */}
+        {sequentialGroups.map(g => (
+          <SequentialDashboardCard
+            key={g.collection.id}
+            collection={g.collection}
+            tasks={g.tasks}
+            onToggle={toggle}
+            isCompleting={isCompleting}
+          />
+        ))}
       </div>
     )
   }
@@ -170,6 +216,15 @@ export function DashboardTasksSection({
                 isCompleting={isCompleting(task.id)}
                 onToggle={toggle}
                 onWorkedOnThis={task.track_progress ? onWorkedOnThis : undefined}
+              />
+            ))}
+            {sequentialGroups.map(g => (
+              <SequentialDashboardCard
+                key={g.collection.id}
+                collection={g.collection}
+                tasks={g.tasks}
+                onToggle={toggle}
+                isCompleting={isCompleting}
               />
             ))}
           </div>
@@ -232,10 +287,10 @@ export function DashboardTasksSection({
           {/* View carousel */}
           <ViewCarousel shell={shell} activeView={activeView} onViewChange={handleViewChange} />
 
-          {/* Active view */}
+          {/* Active view — excludes sequential tasks (rendered as collection cards below) */}
           <ViewRenderer
             viewKey={activeView}
-            tasks={tasks}
+            tasks={nonSequentialTasks}
             onToggle={toggle}
             isCompleting={isCompleting}
             onUpdateTask={onUpdateTask}
@@ -245,6 +300,17 @@ export function DashboardTasksSection({
             isPlanned={PLANNED_VIEWS.has(activeView)}
             taskDrawMap={taskDrawMap}
           />
+
+          {/* Sequential collection cards */}
+          {sequentialGroups.map(g => (
+            <SequentialDashboardCard
+              key={g.collection.id}
+              collection={g.collection}
+              tasks={g.tasks}
+              onToggle={toggle}
+              isCompleting={isCompleting}
+            />
+          ))}
         </div>
       )}
 
