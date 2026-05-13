@@ -54,7 +54,7 @@ import {
   SequentialCollectionCard,
 } from '@/components/tasks/sequential/SequentialCollectionView'
 import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
-import { useSequentialCollections, useArchiveSequentialCollection } from '@/hooks/useSequentialCollections'
+import { useSequentialCollections, useArchiveSequentialCollection, useDeleteSequentialCollection } from '@/hooks/useSequentialCollections'
 import { isDateActive, type SchedulerOutput } from '@/components/scheduling'
 import { todayLocalIso } from '@/utils/dates'
 import { usePendingChangesForSource, useApplyPendingChanges, useCreatePendingChange } from '@/hooks/usePendingChanges'
@@ -171,8 +171,10 @@ export function ListsPage() {
   const restoreList = useRestoreList()
   const deleteList = useDeleteList()
   const archiveSequential = useArchiveSequentialCollection()
+  const deleteSequential = useDeleteSequentialCollection()
   const archiveList = useArchiveList()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDeleteCardId, setConfirmDeleteCardId] = useState<string | null>(null)
   const { data: hiddenShares = [] } = useHiddenSharedLists(activeMember?.id)
   const unhideSharedList = useUnhideSharedList()
 
@@ -716,14 +718,41 @@ export function ListsPage() {
               >
                 Sequential
               </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); archiveSequential.mutate(coll.id) }}
-                className="absolute top-2 left-2 p-1 rounded-lg opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
-                style={{ color: 'var(--color-text-secondary)' }}
-                title="Archive"
+              <div
+                className="absolute top-2 left-2 flex gap-0.5 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Archive size={14} />
-              </button>
+                <button
+                  onClick={() => archiveSequential.mutate(coll.id)}
+                  className="p-1 rounded-lg"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                  title="Archive"
+                >
+                  <Archive size={14} />
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteCardId(`seq-${coll.id}`)}
+                  className="p-1 rounded-lg"
+                  style={{ color: 'var(--color-text-error, #ef4444)' }}
+                  title="Delete permanently"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {confirmDeleteCardId === `seq-${coll.id}` && (
+                <div
+                  className="absolute inset-0 rounded-xl flex flex-col items-center justify-center gap-2 p-4 z-10"
+                  style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="text-xs font-medium text-center" style={{ color: 'var(--color-text-heading)' }}>Delete permanently?</p>
+                  <p className="text-[10px] text-center" style={{ color: 'var(--color-text-secondary)' }}>This cannot be undone.</p>
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={() => setConfirmDeleteCardId(null)} className="px-3 py-1 rounded-lg text-xs" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>Cancel</button>
+                    <button onClick={() => { deleteSequential.mutate(coll.id); setConfirmDeleteCardId(null) }} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}>Delete</button>
+                  </div>
+                </div>
+              )}
               <BookOpen size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
               <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{coll.title}</p>
               <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
@@ -763,14 +792,41 @@ export function ListsPage() {
                     {scheduleActive ? 'Active today' : 'Scheduled'}
                   </span>
                 )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); archiveList.mutate(list.id) }}
-                  className="absolute top-2 left-2 p-1 rounded-lg opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                  title="Archive"
+                <div
+                  className="absolute top-2 left-2 flex gap-0.5 opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Archive size={14} />
-                </button>
+                  <button
+                    onClick={() => archiveList.mutate(list.id)}
+                    className="p-1 rounded-lg"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                    title="Archive"
+                  >
+                    <Archive size={14} />
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteCardId(list.id)}
+                    className="p-1 rounded-lg"
+                    style={{ color: 'var(--color-text-error, #ef4444)' }}
+                    title="Delete permanently"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                {confirmDeleteCardId === list.id && (
+                  <div
+                    className="absolute inset-0 rounded-xl flex flex-col items-center justify-center gap-2 p-4 z-10"
+                    style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-xs font-medium text-center" style={{ color: 'var(--color-text-heading)' }}>Delete permanently?</p>
+                    <p className="text-[10px] text-center" style={{ color: 'var(--color-text-secondary)' }}>This cannot be undone.</p>
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => setConfirmDeleteCardId(null)} className="px-3 py-1 rounded-lg text-xs" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>Cancel</button>
+                      <button onClick={() => { deleteList.mutate(list.id); setConfirmDeleteCardId(null) }} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}>Delete</button>
+                    </div>
+                  </div>
+                )}
                 <Icon size={28} style={{ color: 'var(--color-btn-primary-bg)' }} />
                 <p className="font-medium text-sm leading-tight truncate w-full" style={{ color: 'var(--color-text-heading)' }}>{list.title}</p>
                 <div className="flex items-center gap-1.5">

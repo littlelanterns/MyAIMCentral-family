@@ -568,5 +568,34 @@ export function useArchiveSequentialCollection() {
   })
 }
 
+// ============================================================
+// useDeleteSequentialCollection — permanently remove collection + child tasks
+// ============================================================
+
+export function useDeleteSequentialCollection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (collectionId: string) => {
+      const { data: col } = await supabase
+        .from('sequential_collections')
+        .select('family_id')
+        .eq('id', collectionId)
+        .single()
+      const familyId = (col as { family_id: string } | null)?.family_id
+      await supabase.from('task_completions').delete().in(
+        'task_id',
+        (await supabase.from('tasks').select('id').eq('sequential_collection_id', collectionId)).data?.map((t: { id: string }) => t.id) ?? [],
+      )
+      await supabase.from('tasks').delete().eq('sequential_collection_id', collectionId)
+      await supabase.from('sequential_collections').delete().eq('id', collectionId)
+      return { family_id: familyId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
+      if (data?.family_id) queryClient.invalidateQueries({ queryKey: ['tasks', data.family_id] })
+    },
+  })
+}
+
 // Re-export types for convenience
 export type { SequentialCollection } from '@/types/tasks'
