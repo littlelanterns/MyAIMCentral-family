@@ -628,7 +628,7 @@ export function ListsPage() {
                     <button
                       onClick={() => setConfirmDeleteId(isConfirming ? null : list.id)}
                       className="p-1.5 rounded-lg"
-                      style={{ color: 'var(--color-text-error, #ef4444)' }}
+                      style={{ color: 'var(--color-error, #b25a58)' }}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -643,7 +643,7 @@ export function ListsPage() {
                     <button
                       onClick={() => { deleteList.mutate(list.id); setConfirmDeleteId(null) }}
                       className="px-3 py-1 rounded-lg text-xs font-medium"
-                      style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                      style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}
                     >
                       Delete
                     </button>
@@ -733,7 +733,7 @@ export function ListsPage() {
                 <button
                   onClick={() => setConfirmDeleteCardId(`seq-${coll.id}`)}
                   className="p-1 rounded-lg"
-                  style={{ color: 'var(--color-text-error, #ef4444)' }}
+                  style={{ color: 'var(--color-error, #b25a58)' }}
                   title="Delete permanently"
                 >
                   <Trash2 size={14} />
@@ -742,14 +742,14 @@ export function ListsPage() {
               {confirmDeleteCardId === `seq-${coll.id}` && (
                 <div
                   className="absolute inset-0 rounded-xl flex flex-col items-center justify-center gap-2 p-4 z-10"
-                  style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}
+                  style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-error, #b25a58)' }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <p className="text-xs font-medium text-center" style={{ color: 'var(--color-text-heading)' }}>Delete permanently?</p>
                   <p className="text-[10px] text-center" style={{ color: 'var(--color-text-secondary)' }}>This cannot be undone.</p>
                   <div className="flex gap-2 mt-1">
                     <button onClick={() => setConfirmDeleteCardId(null)} className="px-3 py-1 rounded-lg text-xs" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>Cancel</button>
-                    <button onClick={() => { deleteSequential.mutate(coll.id); setConfirmDeleteCardId(null) }} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}>Delete</button>
+                    <button onClick={() => { deleteSequential.mutate(coll.id); setConfirmDeleteCardId(null) }} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}>Delete</button>
                   </div>
                 </div>
               )}
@@ -807,7 +807,7 @@ export function ListsPage() {
                   <button
                     onClick={() => setConfirmDeleteCardId(list.id)}
                     className="p-1 rounded-lg"
-                    style={{ color: 'var(--color-text-error, #ef4444)' }}
+                    style={{ color: 'var(--color-error, #b25a58)' }}
                     title="Delete permanently"
                   >
                     <Trash2 size={14} />
@@ -816,14 +816,14 @@ export function ListsPage() {
                 {confirmDeleteCardId === list.id && (
                   <div
                     className="absolute inset-0 rounded-xl flex flex-col items-center justify-center gap-2 p-4 z-10"
-                    style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}
+                    style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-error, #b25a58)' }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <p className="text-xs font-medium text-center" style={{ color: 'var(--color-text-heading)' }}>Delete permanently?</p>
                     <p className="text-[10px] text-center" style={{ color: 'var(--color-text-secondary)' }}>This cannot be undone.</p>
                     <div className="flex gap-2 mt-1">
                       <button onClick={() => setConfirmDeleteCardId(null)} className="px-3 py-1 rounded-lg text-xs" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>Cancel</button>
-                      <button onClick={() => { deleteList.mutate(list.id); setConfirmDeleteCardId(null) }} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}>Delete</button>
+                      <button onClick={() => { deleteList.mutate(list.id); setConfirmDeleteCardId(null) }} className="px-3 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}>Delete</button>
                     </div>
                   </div>
                 )}
@@ -1147,7 +1147,7 @@ function RandomizerDetailView({
 
       {/* Delete confirmation */}
       {confirmDelete && isOwnerOrParent && (
-        <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
+        <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-error, #b25a58)' }}>
           <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
             Permanently delete "{list.title}"?
           </p>
@@ -1159,7 +1159,7 @@ function RandomizerDetailView({
             <button
               onClick={() => { deleteListMut.mutate(list.id); onBack() }}
               className="px-4 py-1.5 rounded-lg text-sm font-medium"
-              style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+              style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}
             >
               Delete
             </button>
@@ -1720,7 +1720,7 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
               <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ color: 'var(--color-text-secondary)' }}>Cancel</button>
               <button onClick={() => { deleteList.mutate(listId); onBack() }}
                 className="px-4 py-1.5 rounded-lg text-sm font-medium"
-                style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}>Delete</button>
+                style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}>Delete</button>
             </div>
           </div>
         )}
@@ -2404,7 +2404,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
 
         {/* Delete confirmation */}
         {confirmDelete && isOwnerOrParent && (
-          <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
+          <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-error, #b25a58)' }}>
             <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
               Permanently delete "{list.title}"?
             </p>
@@ -2416,7 +2416,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
               <button
                 onClick={() => { deleteList.mutate(listId); onBack() }}
                 className="px-4 py-1.5 rounded-lg text-sm font-medium"
-                style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}
               >
                 Delete
               </button>
@@ -2796,7 +2796,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
 
       {/* Delete confirmation */}
       {confirmDelete && isOwnerOrParent && (
-        <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-text-error, #ef4444)' }}>
+        <div className="rounded-lg p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-error, #b25a58)' }}>
           <p className="text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>
             Permanently delete "{list.title}"?
           </p>
@@ -2808,7 +2808,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
             <button
               onClick={() => { deleteList.mutate(listId); onBack() }}
               className="px-4 py-1.5 rounded-lg text-sm font-medium"
-              style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+              style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}
             >
               Delete
             </button>
@@ -3853,7 +3853,7 @@ function RandomizerMasteryApprovalInline({
                       setRejectionNote('')
                     }}
                     className="p-1.5 rounded-lg"
-                    style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                    style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}
                     disabled={reject.isPending}
                   >
                     <X size={14} />
@@ -3888,7 +3888,7 @@ function RandomizerMasteryApprovalInline({
                     <button
                       onClick={() => setRejectingId(item.id)}
                       className="p-1.5 rounded-lg"
-                      style={{ backgroundColor: 'var(--color-text-error, #ef4444)', color: '#fff' }}
+                      style={{ backgroundColor: 'var(--color-error, #b25a58)', color: '#fff' }}
                     >
                       <X size={14} />
                     </button>
