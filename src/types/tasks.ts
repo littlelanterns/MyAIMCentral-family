@@ -512,6 +512,7 @@ export interface SequentialCollection {
   default_require_approval: boolean
   default_require_evidence: boolean
   default_track_duration: boolean
+  allow_out_of_order: boolean
   created_at: string
   updated_at: string
 }
@@ -519,8 +520,8 @@ export interface SequentialCollection {
 // Build J: the new default_* advancement columns have DB defaults, so they are
 // optional on create. Legacy callers don't need to pass them; new callers can.
 export type CreateSequentialCollection =
-  Omit<SequentialCollection, 'id' | 'created_at' | 'updated_at' | 'default_advancement_mode' | 'default_practice_target' | 'default_require_approval' | 'default_require_evidence' | 'default_track_duration'>
-  & Partial<Pick<SequentialCollection, 'default_advancement_mode' | 'default_practice_target' | 'default_require_approval' | 'default_require_evidence' | 'default_track_duration'>>
+  Omit<SequentialCollection, 'id' | 'created_at' | 'updated_at' | 'default_advancement_mode' | 'default_practice_target' | 'default_require_approval' | 'default_require_evidence' | 'default_track_duration' | 'allow_out_of_order'>
+  & Partial<Pick<SequentialCollection, 'default_advancement_mode' | 'default_practice_target' | 'default_require_approval' | 'default_require_evidence' | 'default_track_duration' | 'allow_out_of_order'>>
 
 // ============================================================
 // Table: task_claims

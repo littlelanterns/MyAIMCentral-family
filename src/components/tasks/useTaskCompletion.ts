@@ -236,8 +236,43 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
       // Step 7: Fresh Reset for routines — handled server-side via trigger
       // The database trigger `trg_task_fresh_reset` handles routine reset logic
 
-      // Step 8: Sequential promotion — stub until sequential_collections are built
-      // STUB: If task.sequential_collection_id, promote next item
+      // Step 8: Sequential promotion — advance next item when a sequential task completes
+      if (task.sequential_collection_id && task.sequential_position != null) {
+        const { data: collection } = await supabase
+          .from('sequential_collections')
+          .select('allow_out_of_order, active_count, promotion_timing')
+          .eq('id', task.sequential_collection_id)
+          .maybeSingle()
+
+        if (collection) {
+          await supabase
+            .from('tasks')
+            .update({ sequential_is_active: false })
+            .eq('id', task.id)
+
+          if (!collection.allow_out_of_order) {
+            const nextPosition = task.sequential_position + 1
+            const { data: nextTask } = await supabase
+              .from('tasks')
+              .select('id')
+              .eq('sequential_collection_id', task.sequential_collection_id)
+              .eq('sequential_position', nextPosition)
+              .is('archived_at', null)
+              .maybeSingle()
+
+            if (nextTask) {
+              await supabase
+                .from('tasks')
+                .update({ sequential_is_active: true, status: 'pending' })
+                .eq('id', (nextTask as { id: string }).id)
+              await supabase
+                .from('sequential_collections')
+                .update({ current_index: nextPosition })
+                .eq('id', task.sequential_collection_id)
+            }
+          }
+        }
+      }
 
       // Step 9: Generate next recurrence — stub
       // STUB: If task.recurrence_details, generate next instance via Edge Function
@@ -247,6 +282,7 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', familyId] })
       queryClient.invalidateQueries({ queryKey: ['task-completions'] })
+      queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
       queryClient.invalidateQueries({ queryKey: ['victories', memberId] })
       queryClient.invalidateQueries({ queryKey: ['victory-count', memberId] })
       queryClient.invalidateQueries({ queryKey: ['family-member'] })

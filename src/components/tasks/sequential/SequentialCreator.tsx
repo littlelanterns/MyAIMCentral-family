@@ -4,11 +4,12 @@
  */
 
 import { useState } from 'react'
-import { List, Link, Camera, Sparkles, GraduationCap, BookOpen } from 'lucide-react'
+import { List, Link, Camera, Sparkles, GraduationCap, BookOpen, Trophy } from 'lucide-react'
 import { BulkAddWithAI, Toggle } from '@/components/shared'
 import { CurriculumParseModal } from '@/components/studio/CurriculumParseModal'
 import type { CurriculumParseItem } from '@/components/studio/CurriculumParseModal'
 import type { AdvancementMode } from '@/types/tasks'
+import { useHomeschoolSubjects } from '@/hooks/useHomeschool'
 
 interface SequentialCreatorProps {
   familyId: string
@@ -48,6 +49,10 @@ export interface SequentialCreateData extends SequentialCreateDefaults {
   lifeAreaTag?: string
   promotionTiming: 'immediate' | 'next_day' | 'manual'
   activeCount: number
+  allowOutOfOrder: boolean
+  victoryFlagged: boolean
+  countsForHomework: boolean
+  homeworkSubjectIds: string[]
 }
 
 export function SequentialCreator({
@@ -73,6 +78,11 @@ export function SequentialCreator({
       : 'immediate',
   )
   const [activeCount, setActiveCount] = useState(1)
+  const [allowOutOfOrder, setAllowOutOfOrder] = useState(false)
+  const [victoryFlagged, setVictoryFlagged] = useState(false)
+  const [countsForHomework, setCountsForHomework] = useState(false)
+  const [homeworkSubjectIds, setHomeworkSubjectIds] = useState<string[]>([])
+  const { data: homeschoolSubjects } = useHomeschoolSubjects(familyId)
 
   // Build J: advancement defaults (collection-level bulk-set-then-override)
   const [defaultAdvancementMode, setDefaultAdvancementMode] = useState<AdvancementMode>(
@@ -91,13 +101,18 @@ export function SequentialCreator({
     initialDefaults?.defaultTrackDuration ?? false,
   )
 
-  // Manual textarea items (one per line). These are used when parsedItems
-  // is null — i.e. mom typed items by hand or used the simple BulkAddWithAI.
+  // Manual textarea items (one per line). Supports "title | notes" two-column format.
   const manualItems: SequentialCreateItem[] = rawText
     .split('\n')
     .map(l => l.trim())
     .filter(Boolean)
-    .map(line => ({ title: line }))
+    .map(line => {
+      const pipeIdx = line.indexOf('|')
+      if (pipeIdx > 0) {
+        return { title: line.slice(0, pipeIdx).trim(), description: line.slice(pipeIdx + 1).trim() || null }
+      }
+      return { title: line }
+    })
 
   const effectiveItems: SequentialCreateItem[] = parsedItems ?? manualItems
   const itemCount = effectiveItems.length
@@ -109,7 +124,11 @@ export function SequentialCreator({
       items: effectiveItems,
       inputMethod,
       promotionTiming,
-      activeCount,
+      activeCount: allowOutOfOrder ? effectiveItems.length : activeCount,
+      allowOutOfOrder,
+      victoryFlagged,
+      countsForHomework,
+      homeworkSubjectIds,
       defaultAdvancementMode,
       defaultPracticeTarget: defaultAdvancementMode === 'practice_count' ? defaultPracticeTarget : null,
       defaultRequireApproval,
@@ -179,20 +198,18 @@ export function SequentialCreator({
       {(inputMethod === 'manual' || inputMethod === 'url') && (
         <div>
           <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {inputMethod === 'manual' ? 'Items (one per line)' : 'URLs (one per line)'}
+            {inputMethod === 'manual' ? 'Items (one per line — use | to add notes)' : 'URLs (one per line)'}
           </label>
           <textarea
             value={rawText}
             onChange={e => {
               setRawText(e.target.value)
-              // Clear curriculum-parsed items when mom manually edits the textarea
-              // so we don't ship stale metadata alongside modified titles.
               if (parsedItems) setParsedItems(null)
             }}
             rows={8}
             placeholder={
               inputMethod === 'manual'
-                ? 'Chapter 1 — Introduction\nChapter 2 — Place Value\nChapter 3 — Addition'
+                ? 'Chapter 1 — Introduction\nChapter 2 — Place Value | due Friday\nGenesis 22 | Missed 2/27'
                 : 'https://youtube.com/watch?v=...\nhttps://youtube.com/watch?v=...'
             }
             className="w-full px-3 py-2 rounded-lg text-sm resize-none"
@@ -330,25 +347,43 @@ export function SequentialCreator({
         </div>
       </div>
 
-      {/* Active count */}
-      <div>
-        <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-          Active items at once
-        </label>
-        <input
-          type="number"
-          min={1}
-          max={5}
-          value={activeCount}
-          onChange={e => setActiveCount(parseInt(e.target.value) || 1)}
-          className="w-20 px-3 py-1.5 rounded-lg text-sm text-center"
-          style={{
-            background: 'var(--color-bg-secondary)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)',
-          }}
-        />
+      {/* Work out of order toggle */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <Toggle
+            checked={allowOutOfOrder}
+            onChange={setAllowOutOfOrder}
+            label="Allow working out of order"
+            size="sm"
+          />
+          <p className="text-xs mt-1 ml-7" style={{ color: 'var(--color-text-secondary)' }}>
+            {allowOutOfOrder
+              ? 'All items visible — complete any item in any order'
+              : 'Items unlock in sequence as earlier ones are completed'}
+          </p>
+        </div>
       </div>
+
+      {/* Active count — hidden when allow_out_of_order since all items are active */}
+      {!allowOutOfOrder && (
+        <div>
+          <label className="text-xs font-medium block mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            Active items at once
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={activeCount}
+            onChange={e => setActiveCount(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-20 px-3 py-1.5 rounded-lg text-sm text-center"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+          />
+        </div>
+      )}
 
       {/* Build J: Advancement defaults section — bulk-set-then-override pattern */}
       <div
@@ -458,6 +493,77 @@ export function SequentialCreator({
             size="sm"
           />
         </div>
+      </div>
+
+      {/* Completion tracking — victory + homework */}
+      <div
+        className="pt-3 border-t"
+        style={{ borderColor: 'var(--color-border)' }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Trophy size={14} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <label
+            className="text-xs font-semibold"
+            style={{ color: 'var(--color-text-heading)' }}
+          >
+            Completion tracking
+          </label>
+        </div>
+
+        <div className="mb-2">
+          <Toggle
+            checked={victoryFlagged}
+            onChange={setVictoryFlagged}
+            label="Record a victory for each completed item"
+            size="sm"
+          />
+        </div>
+
+        <div className="mb-2">
+          <Toggle
+            checked={countsForHomework}
+            onChange={(checked) => {
+              setCountsForHomework(checked)
+              if (!checked) setHomeworkSubjectIds([])
+            }}
+            label="Count toward homework tracking"
+            size="sm"
+          />
+        </div>
+
+        {countsForHomework && homeschoolSubjects && homeschoolSubjects.length > 0 && (
+          <div className="ml-7 flex flex-wrap gap-1.5 mb-2">
+            {homeschoolSubjects.map(s => {
+              const selected = homeworkSubjectIds.includes(s.id)
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setHomeworkSubjectIds(selected
+                      ? homeworkSubjectIds.filter(id => id !== s.id)
+                      : [...homeworkSubjectIds, s.id]
+                    )
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                  style={{
+                    backgroundColor: selected ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                    color: selected ? 'var(--color-text-on-primary)' : 'var(--color-text-primary)',
+                    border: `1px solid ${selected ? 'var(--color-accent)' : 'var(--color-border-default, var(--color-border))'}`,
+                  }}
+                >
+                  {s.name}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {countsForHomework && (!homeschoolSubjects || homeschoolSubjects.length === 0) && (
+          <p className="text-xs ml-7 mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+            No subjects set up yet. Add subjects in Settings to track hours by subject.
+          </p>
+        )}
       </div>
 
       {/* Actions */}

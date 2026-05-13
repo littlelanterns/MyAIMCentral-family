@@ -89,9 +89,12 @@ export function useCreateSequentialCollection() {
   return useMutation({
     mutationFn: async ({
       collection,
-      items, // Array of task titles/content to create as sequential tasks
+      items,
       assigneeId,
       createdBy,
+      victoryFlagged,
+      countsForHomework,
+      homeworkSubjectIds,
     }: {
       // Collection accepts both legacy fields AND Build J advancement defaults.
       // Build J callers should pass default_* fields; legacy callers get 'complete' defaults.
@@ -109,8 +112,10 @@ export function useCreateSequentialCollection() {
       }>
       assigneeId: string
       createdBy: string
+      victoryFlagged?: boolean
+      countsForHomework?: boolean
+      homeworkSubjectIds?: string[]
     }) => {
-      // Build J: collection-level defaults propagate to child tasks unless overridden per item
       const defaultAdvancement = collection.default_advancement_mode ?? 'complete'
       const defaultPracticeTarget = collection.default_practice_target ?? null
       const defaultRequireApproval = collection.default_require_approval ?? true
@@ -158,9 +163,14 @@ export function useCreateSequentialCollection() {
           default_track_progress: collectionDefaults.default_track_progress,
           default_track_duration: collectionDefaults.default_track_duration,
         })
-        const reward = resolveRewardProperties(undefined, collectionDefaults)
+        const reward = resolveRewardProperties(
+          victoryFlagged ? { victory_flagged: true } : undefined,
+          collectionDefaults,
+        )
         const allowance = resolveAllowanceProperties()
-        const homework = resolveHomeworkProperties()
+        const homework = resolveHomeworkProperties(
+          countsForHomework ? { counts_for_homework: true, homework_subject_ids: homeworkSubjectIds ?? [] } : undefined,
+        )
         const categorization = resolveCategorizationProperties(undefined, collectionDefaults)
         const access = resolveAccessProperties()
 
@@ -176,7 +186,7 @@ export function useCreateSequentialCollection() {
           source_reference_id: col.id,
           sequential_collection_id: col.id,
           sequential_position: index,
-          sequential_is_active: index < (collection.active_count ?? 1),
+          sequential_is_active: collection.allow_out_of_order ? true : index < (collection.active_count ?? 1),
           focus_time_seconds: 0,
           sort_order: index,
           big_rock: false,
@@ -471,7 +481,7 @@ export function useRedeploySequentialCollection() {
           source_reference_id: newCol.id,
           sequential_collection_id: newCol.id,
           sequential_position: t.sequential_position,
-          sequential_is_active: index < col.active_count,
+          sequential_is_active: col.allow_out_of_order ? true : index < col.active_count,
           resource_url: t.resource_url,
           focus_time_seconds: 0,
           sort_order: t.sequential_position,

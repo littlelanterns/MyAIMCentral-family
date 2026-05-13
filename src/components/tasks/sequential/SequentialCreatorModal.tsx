@@ -76,22 +76,23 @@ export function SequentialCreatorModal({
           title: data.title,
           active_count: data.activeCount,
           promotion_timing: data.promotionTiming,
+          allow_out_of_order: data.allowOutOfOrder,
           life_area_tag: (data.lifeAreaTag as any) ?? null,
           life_area_tags: (data.lifeAreaTag ? [data.lifeAreaTag] : []) as any,
           reward_per_item_type: null,
           reward_per_item_amount: null,
-          // Build J: advancement defaults flow through from the creator form
           default_advancement_mode: data.defaultAdvancementMode,
           default_practice_target: data.defaultPracticeTarget,
           default_require_approval: data.defaultRequireApproval,
           default_require_evidence: data.defaultRequireEvidence,
           default_track_duration: data.defaultTrackDuration,
         },
-        // Build J: items carry optional per-item metadata from curriculum-parse.
-        // When metadata is absent the hook uses collection-level defaults.
         items: data.items,
         assigneeId,
         createdBy,
+        victoryFlagged: data.victoryFlagged,
+        countsForHomework: data.countsForHomework,
+        homeworkSubjectIds: data.homeworkSubjectIds,
       })
       onSaved?.(result.collection.id)
       handleClose()
