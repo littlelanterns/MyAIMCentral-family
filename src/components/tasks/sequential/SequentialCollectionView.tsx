@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2, Settings2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronRight, Play, UserPlus, RotateCcw, Archive, CheckCircle2, Settings2, X } from 'lucide-react'
 import {
   useSequentialCollections,
   useSequentialCollection,
@@ -577,13 +577,30 @@ export function SequentialCollectionCard({ collection }: { collection: Sequentia
                         {task.status !== 'completed' && (
                           <button
                             onClick={() => setEditingItemId(editingItemId === task.id ? null : task.id)}
-                            className="shrink-0 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="shrink-0 p-0.5"
                             style={{ background: 'transparent', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
                             title="Edit advancement settings"
                           >
                             <Settings2 size={12} style={{ color: 'var(--color-text-secondary)' }} />
                           </button>
                         )}
+                        {/* Delete item */}
+                        <button
+                          onClick={async () => {
+                            await supabase.from('tasks').delete().eq('id', task.id)
+                            await supabase.from('sequential_collections').update({
+                              total_items: Math.max(0, (detail?.tasks?.length ?? 1) - 1),
+                            }).eq('id', collection.id)
+                            queryClient.invalidateQueries({ queryKey: ['sequential-collection', collection.id] })
+                            queryClient.invalidateQueries({ queryKey: ['sequential-collections'] })
+                            queryClient.invalidateQueries({ queryKey: ['tasks'] })
+                          }}
+                          className="shrink-0 p-0.5"
+                          style={{ background: 'transparent', border: 'none', minHeight: 'unset', cursor: 'pointer' }}
+                          title="Remove item"
+                        >
+                          <X size={12} style={{ color: 'var(--color-error, #b25a58)' }} />
+                        </button>
                       </div>
                       {progressSubtitle && (
                         <div
