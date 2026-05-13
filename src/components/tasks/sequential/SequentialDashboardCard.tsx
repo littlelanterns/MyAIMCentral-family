@@ -1,12 +1,8 @@
 /**
  * Compact dashboard card for a sequential collection.
  *
- * Shows one card per collection with:
- *   - Collection title + progress (e.g., "3/32")
- *   - The current active item(s) with checkboxes
- *   - "Browse all" to expand the full list inline
- *   - Completed items shown with strikethrough + completion date
- *   - Un-complete via tap on completed items
+ * Collapsed (default): title + progress badge + the next uncompleted item with checkbox
+ * Expanded: full browsable list with completion dates and un-complete
  */
 
 import { useState, useMemo } from 'react'
@@ -27,16 +23,18 @@ export function SequentialDashboardCard({
   onToggle,
   isCompleting,
 }: SequentialDashboardCardProps) {
-  const [browsing, setBrowsing] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const sorted = useMemo(
     () => [...tasks].sort((a, b) => (a.sequential_position ?? 0) - (b.sequential_position ?? 0)),
     [tasks],
   )
 
-  const completed = sorted.filter(t => t.status === 'completed')
-  const active = sorted.filter(t => t.sequential_is_active && t.status !== 'completed')
-  const upcoming = sorted.filter(t => !t.sequential_is_active && t.status !== 'completed')
+  const completedCount = sorted.filter(t => t.status === 'completed').length
+  const nextUp = sorted.filter(t => t.status !== 'completed')
+  const activeCount = collection.allow_out_of_order ? sorted.length : (collection.active_count ?? 1)
+  const visibleNext = nextUp.slice(0, Math.max(1, activeCount - (activeCount > 1 ? 0 : 0)))
+  const allDone = completedCount === sorted.length && sorted.length > 0
 
   return (
     <div
@@ -46,9 +44,9 @@ export function SequentialDashboardCard({
         border: '1px solid var(--color-border)',
       }}
     >
-      {/* Header */}
+      {/* Header — always visible, toggles expand */}
       <button
-        onClick={() => setBrowsing(!browsing)}
+        onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2.5 px-4 py-3 text-left"
       >
         <BookOpen size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
@@ -62,9 +60,9 @@ export function SequentialDashboardCard({
             color: 'var(--color-btn-primary-bg)',
           }}
         >
-          {completed.length}/{sorted.length}
+          {completedCount}/{sorted.length}
         </span>
-        {browsing ? (
+        {expanded ? (
           <ChevronDown size={14} style={{ color: 'var(--color-text-secondary)' }} />
         ) : (
           <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)' }} />
@@ -76,7 +74,7 @@ export function SequentialDashboardCard({
         <div
           style={{
             height: '100%',
-            width: `${sorted.length > 0 ? (completed.length / sorted.length) * 100 : 0}%`,
+            width: `${sorted.length > 0 ? (completedCount / sorted.length) * 100 : 0}%`,
             backgroundColor: 'var(--color-btn-primary-bg)',
             borderRadius: 2,
             transition: 'width 0.3s ease',
@@ -84,10 +82,10 @@ export function SequentialDashboardCard({
         />
       </div>
 
-      {/* Active items — always visible */}
-      {!browsing && active.length > 0 && (
+      {/* Collapsed: show just the next assignment(s) */}
+      {!expanded && !allDone && (
         <div className="px-4 pb-3 space-y-1.5">
-          {active.map(task => (
+          {visibleNext.slice(0, collection.allow_out_of_order ? 1 : activeCount).map(task => (
             <TaskRow
               key={task.id}
               task={task}
@@ -97,29 +95,27 @@ export function SequentialDashboardCard({
               totalItems={sorted.length}
             />
           ))}
-          {(upcoming.length > 0 || completed.length > 0) && (
-            <button
-              onClick={() => setBrowsing(true)}
-              className="text-xs font-medium mt-1"
-              style={{ color: 'var(--color-btn-primary-bg)' }}
-            >
-              Browse all {sorted.length} items
-            </button>
-          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(true) }}
+            className="text-xs font-medium mt-0.5"
+            style={{ color: 'var(--color-btn-primary-bg)' }}
+          >
+            View all {sorted.length} items
+          </button>
         </div>
       )}
 
-      {/* All done state */}
-      {!browsing && active.length === 0 && completed.length === sorted.length && sorted.length > 0 && (
+      {/* Collapsed: all done */}
+      {!expanded && allDone && (
         <div className="px-4 pb-3">
-          <p className="text-xs" style={{ color: 'var(--color-success, #22c55e)' }}>
+          <p className="text-xs font-medium" style={{ color: 'var(--color-success, #22c55e)' }}>
             All {sorted.length} items complete!
           </p>
         </div>
       )}
 
-      {/* Browse mode — full list */}
-      {browsing && (
+      {/* Expanded: full browsable list */}
+      {expanded && (
         <div className="px-4 pb-3 space-y-1">
           {sorted.map(task => (
             <TaskRow
@@ -166,7 +162,7 @@ function TaskRow({
     >
       {/* Checkbox */}
       <button
-        onClick={(e) => onToggle(task, { x: e.clientX, y: e.clientY })}
+        onClick={(e) => { e.stopPropagation(); onToggle(task, { x: e.clientX, y: e.clientY }) }}
         disabled={isCompleting}
         className="flex items-center justify-center shrink-0 rounded-md transition-colors"
         style={{
@@ -216,20 +212,6 @@ function TaskRow({
       {showCompletionDate && isDone && task.completed_at && (
         <span className="text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
           {new Date(task.completed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-        </span>
-      )}
-
-      {/* Active badge (only in browse mode for non-completed) */}
-      {showCompletionDate && !isDone && task.sequential_is_active && (
-        <span
-          className="text-xs px-1.5 py-0.5 rounded-full shrink-0"
-          style={{
-            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)',
-            color: 'var(--color-btn-primary-bg)',
-            fontWeight: 500,
-          }}
-        >
-          Next
         </span>
       )}
     </div>
