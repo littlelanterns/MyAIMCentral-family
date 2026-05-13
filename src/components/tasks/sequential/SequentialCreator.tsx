@@ -10,6 +10,7 @@ import { CurriculumParseModal } from '@/components/studio/CurriculumParseModal'
 import type { CurriculumParseItem } from '@/components/studio/CurriculumParseModal'
 import type { AdvancementMode } from '@/types/tasks'
 import { useHomeschoolSubjects } from '@/hooks/useHomeschool'
+import { parseSmartList } from '@/lib/tasks/parseSmartList'
 
 interface SequentialCreatorProps {
   familyId: string
@@ -101,18 +102,7 @@ export function SequentialCreator({
     initialDefaults?.defaultTrackDuration ?? false,
   )
 
-  // Manual textarea items (one per line). Supports "title | notes" two-column format.
-  const manualItems: SequentialCreateItem[] = rawText
-    .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean)
-    .map(line => {
-      const pipeIdx = line.indexOf('|')
-      if (pipeIdx > 0) {
-        return { title: line.slice(0, pipeIdx).trim(), description: line.slice(pipeIdx + 1).trim() || null }
-      }
-      return { title: line }
-    })
+  const manualItems: SequentialCreateItem[] = parseSmartList(rawText)
 
   const effectiveItems: SequentialCreateItem[] = parsedItems ?? manualItems
   const itemCount = effectiveItems.length
