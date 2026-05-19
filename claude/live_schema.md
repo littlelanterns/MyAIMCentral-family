@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-12
+> Auto-generated from live Supabase on 2026-05-19
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 351 rows
+### `view_as_sessions` — 371 rows
 
 | # | Column |
 |---|---|
@@ -134,7 +134,7 @@
 | 5 | `started_at` |
 | 6 | `ended_at` |
 
-### `view_as_feature_exclusions` — 234 rows
+### `view_as_feature_exclusions` — 253 rows
 
 | # | Column |
 |---|---|
@@ -392,7 +392,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 641 rows
+### `ai_usage_tracking` — 650 rows
 
 | # | Column |
 |---|---|
@@ -461,7 +461,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 32 rows
+### `intention_iterations` — 34 rows
 
 | # | Column |
 |---|---|
@@ -498,7 +498,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 96 rows
+### `journal_entries` — 105 rows
 
 | # | Column |
 |---|---|
@@ -660,7 +660,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 99 rows
+### `tasks` — 158 rows
 
 | # | Column |
 |---|---|
@@ -745,7 +745,7 @@
 | 79 | `life_area_tags` |
 | 80 | `pool_id` |
 
-### `task_assignments` — 35 rows
+### `task_assignments` — 42 rows
 
 | # | Column |
 |---|---|
@@ -762,7 +762,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 37 rows
+### `task_completions` — 36 rows
 
 | # | Column |
 |---|---|
@@ -786,7 +786,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 947 rows
+### `routine_step_completions` — 1144 rows
 
 | # | Column |
 |---|---|
@@ -800,7 +800,7 @@
 | 8 | `period_date` |
 | 9 | `photo_url` |
 
-### `sequential_collections` — 0 rows
+### `sequential_collections` — 2 rows
 
 | # | Column |
 |---|---|
@@ -826,7 +826,7 @@
 | 20 | `life_area_tags` |
 | 21 | `allow_out_of_order` |
 
-### `task_claims` — 1 rows
+### `task_claims` — 2 rows
 
 | # | Column |
 |---|---|
@@ -841,7 +841,7 @@
 | 9 | `released` |
 | 10 | `released_at` |
 
-### `task_rewards` — 1 rows
+### `task_rewards` — 2 rows
 
 | # | Column |
 |---|---|
@@ -874,7 +874,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 47 rows
+### `lists` — 48 rows
 
 | # | Column |
 |---|---|
@@ -926,7 +926,7 @@
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
 
-### `list_items` — 173 rows
+### `list_items` — 197 rows
 
 | # | Column |
 |---|---|
@@ -1768,7 +1768,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2485,7 +2485,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 256 rows
+### `activity_log_entries` — 271 rows
 
 | # | Column |
 |---|---|
@@ -2659,7 +2659,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 20 rows
+### `allowance_periods` — 25 rows
 
 | # | Column |
 |---|---|
@@ -2705,7 +2705,7 @@
 | 8 | `due_date_offset_days` |
 | 9 | `created_at` |
 
-### `beta_glitch_reports` — 73 rows
+### `beta_glitch_reports` — 74 rows
 
 | # | Column |
 |---|---|
@@ -2827,7 +2827,7 @@
 | 6 | `sort_order` |
 | 7 | `created_at` |
 
-### `contract_grant_log` — 3 rows
+### `contract_grant_log` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2914,7 +2914,7 @@
 | 13 | `source` |
 | 14 | `created_at` |
 
-### `deed_firings` — 1 rows
+### `deed_firings` — 4 rows
 
 | # | Column |
 |---|---|
@@ -2928,7 +2928,7 @@
 | 8 | `idempotency_key` |
 | 9 | `created_at` |
 
-### `deferred_grants` — 1 rows
+### `deferred_grants` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2988,7 +2988,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 27 rows
+### `financial_transactions` — 39 rows
 
 | # | Column |
 |---|---|
@@ -3191,7 +3191,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `meeting_agenda_items` — 40 rows
+### `meeting_agenda_items` — 42 rows
 
 | # | Column |
 |---|---|
@@ -3455,7 +3455,7 @@
 | 8 | `creature_roll_chance` |
 | 9 | `created_at` |
 
-### `practice_log` — 10 rows
+### `practice_log` — 12 rows
 
 | # | Column |
 |---|---|
@@ -3553,7 +3553,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 87 rows
+### `reflection_responses` — 96 rows
 
 | # | Column |
 |---|---|
@@ -3666,7 +3666,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 27 rows
+### `rhythm_completions` — 28 rows
 
 | # | Column |
 |---|---|

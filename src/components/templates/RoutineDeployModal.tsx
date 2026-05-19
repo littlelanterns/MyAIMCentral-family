@@ -127,8 +127,12 @@ export function RoutineDeployModal({
   })
 
   // ── State: Allowance ──
+  // Defaults for routines: counts_for_allowance defaults to TRUE (most chore routines
+  // earn allowance). In edit mode, prefer the existing deployment's value. In create
+  // mode, we override from the template's own defaults via the effect below once they
+  // load — see loadTemplateDefaults.
   const [countsForAllowance, setCountsForAllowance] = useState(
-    editingDeployment?.countsForAllowance ?? false,
+    editingDeployment?.countsForAllowance ?? true,
   )
   const [countsForGamification, setCountsForGamification] = useState(
     editingDeployment?.countsForGamification ?? true,
@@ -140,6 +144,32 @@ export function RoutineDeployModal({
     editingDeployment?.allowancePoints?.toString() ?? '',
   )
   const [selectedPoolName, setSelectedPoolName] = useState('default')
+
+  // In create mode, prime the checkboxes from the template's own defaults so mom
+  // doesn't have to re-check the box every deployment. Only runs once on mount;
+  // user edits after that win. Edit mode is initialized from editingDeployment above.
+  useEffect(() => {
+    if (mode !== 'create') return
+    let cancelled = false
+    void (async () => {
+      const { data } = await supabase
+        .from('task_templates')
+        .select('counts_for_allowance, counts_for_gamification, counts_for_homework, allowance_points')
+        .eq('id', template.id)
+        .maybeSingle()
+      if (cancelled || !data) return
+      // Only override defaults if the template has explicitly set them. Null/undefined
+      // falls back to the constructor defaults (true for allowance + gamification).
+      if (data.counts_for_allowance != null) setCountsForAllowance(data.counts_for_allowance)
+      if (data.counts_for_gamification != null) setCountsForGamification(data.counts_for_gamification)
+      if (data.counts_for_homework != null) setCountsForHomework(data.counts_for_homework)
+      if (data.allowance_points != null) setAllowancePoints(String(data.allowance_points))
+    })()
+    return () => { cancelled = true }
+    // Intentionally only on template.id + mode — we don't want this to fire when
+    // mom toggles a checkbox manually.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template.id, mode])
 
   // Pool picker — only relevant when one member selected
   const singleMemberId = selectedIds.length === 1 ? selectedIds[0] : undefined
@@ -164,7 +194,7 @@ export function RoutineDeployModal({
     }
     const { data: tasks } = await supabase
       .from('tasks')
-      .select('id, assignee_id, recurrence_details, due_date, status, archived_at')
+      .select('id, assignee_id, recurrence_details, due_date, status, archived_at, counts_for_allowance, counts_for_gamification, counts_for_homework, allowance_points')
       .eq('template_id', template.id)
       .eq('task_type', 'routine')
       .is('archived_at', null)
@@ -181,10 +211,10 @@ export function RoutineDeployModal({
         assigneeColor: member ? getMemberColor(member) : '#888',
         dtstart: (details?.dtstart as string | undefined)?.slice(0, 10) ?? null,
         endDate: (t.due_date as string | undefined)?.slice(0, 10) ?? null,
-        countsForAllowance: false,
-        countsForGamification: true,
-        countsForHomework: false,
-        allowancePoints: null,
+        countsForAllowance: t.counts_for_allowance ?? false,
+        countsForGamification: t.counts_for_gamification ?? true,
+        countsForHomework: t.counts_for_homework ?? false,
+        allowancePoints: t.allowance_points ?? null,
         status: t.status ?? 'pending',
       }
     }))

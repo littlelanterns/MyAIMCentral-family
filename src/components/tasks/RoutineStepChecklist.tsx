@@ -29,7 +29,7 @@ import {
   useCompleteRoutineStep,
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
-import { todayLocalIso } from '@/utils/dates'
+import { todayLocalIso, localIso } from '@/utils/dates'
 import { useLogPractice } from '@/hooks/usePractice'
 import { useFamily } from '@/hooks/useFamily'
 import { DurationPromptModal } from './DurationPromptModal'
@@ -507,6 +507,7 @@ function SectionGroup({
   taskId,
   memberId,
   completedStepIds,
+  weekCompletedStepIds,
   onToggleStep,
   togglingStepId,
   canEdit,
@@ -524,6 +525,7 @@ function SectionGroup({
   taskId: string
   memberId: string
   completedStepIds: Set<string>
+  weekCompletedStepIds?: Set<string>
   onToggleStep: (stepId: string, completed: boolean) => void
   togglingStepId: string | null
   canEdit: boolean
@@ -542,10 +544,21 @@ function SectionGroup({
   const [editSteps, setEditSteps] = useState<{ id: string; title: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [newStepTitle, setNewStepTitle] = useState('')
-  const completedCount = section.steps.filter(s => completedStepIds.has(s.id)).length
+
+  // For carry-over sections (show_until_complete=true, today is NOT a scheduled
+  // day), the row's period_date is the section's scheduled day (per migration
+  // 100245's trigger). Today's completedStepIds set is filtered by period_date
+  // = today, so it misses the carry-over completion. Fall back to the week-range
+  // set in that case so the checkmark stays visible after the kid taps it.
+  const isCarryOver = !isSectionScheduledToday(section) && section.show_until_complete === true
+  const effectiveCompletedStepIds = isCarryOver && weekCompletedStepIds
+    ? weekCompletedStepIds
+    : completedStepIds
+
+  const completedCount = section.steps.filter(s => effectiveCompletedStepIds.has(s.id)).length
   const totalCount = section.steps.length
 
-  const isActiveToday = isSectionActiveToday(section, completedStepIds)
+  const isActiveToday = isSectionActiveToday(section, effectiveCompletedStepIds)
   if (!isActiveToday) return null
 
   const startEditing = () => {
@@ -641,7 +654,7 @@ function SectionGroup({
         <div className="pl-1">
           {section.steps.map(step => {
             const otherCompleter = stepCompleterMap?.get(step.id)
-            const myCompletion = completedStepIds.has(step.id)
+            const myCompletion = effectiveCompletedStepIds.has(step.id)
             const isMulti = (step.instance_count ?? 1) > 1
             const sharedInstances = sharedInstancesByStep?.get(step.id)
             const allInstancesClaimed = isMulti && sharedInstances && sharedInstances.size >= (step.instance_count ?? 1)
@@ -825,6 +838,61 @@ export function isSectionActiveToday(
 }
 
 /**
+ * Returns true if today's day-of-week matches one of the section's scheduled
+ * days. Daily and weekdays-only sections are handled separately.
+ * Used by the checklist to distinguish a section being shown on its scheduled
+ * day vs. a carry-over (show_until_complete) day.
+ */
+function isSectionScheduledToday(section: RoutineSection): boolean {
+  const today = new Date().getDay()
+  if (!section.frequency_rule || section.frequency_rule === 'daily') return true
+  if (section.frequency_rule === 'weekdays') return today >= 1 && today <= 5
+  const days = section.frequency_days?.map(Number) ?? []
+  return days.includes(today)
+}
+
+/**
+ * Compute the section's most recent scheduled day on or before today.
+ * Mirrors the migration 100245 trigger logic so the client and DB agree on
+ * which `period_date` a completion belongs to. Used by toggle handlers when
+ * a kid checks/unchecks a step in a carry-over section — we need to write
+ * to (or delete) the row with the right period_date, not today's.
+ *
+ * For sections scheduled today, returns today.
+ * For carry-over sections, walks back up to 7 days to find a scheduled day.
+ * Returns today as a last resort (matches trigger fallback).
+ */
+function getSectionScheduledDay(section: RoutineSection): string {
+  const today = new Date()
+  const todayDow = today.getDay()
+
+  if (!section.frequency_rule || section.frequency_rule === 'daily') {
+    return localIso(today)
+  }
+
+  let scheduledDays: number[]
+  if (section.frequency_rule === 'weekdays') {
+    scheduledDays = [1, 2, 3, 4, 5]
+  } else {
+    scheduledDays = section.frequency_days?.map(Number) ?? []
+  }
+
+  if (scheduledDays.length === 0 || scheduledDays.includes(todayDow)) {
+    return localIso(today)
+  }
+
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    if (scheduledDays.includes(d.getDay())) {
+      return localIso(d)
+    }
+  }
+
+  return localIso(today)
+}
+
+/**
  * Derive the carry-forward boundary from the routine's BROADEST section —
  * the section with the most scheduled days. show_until_complete only carries
  * forward to days within this boundary.
@@ -1001,8 +1069,18 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
       .filter((id): id is string => id !== null),
   )
 
+  // Find the section that owns a step. Used to compute the scheduled day so the
+  // client agrees with migration 100245's trigger about which period_date the
+  // completion belongs to. Without this, the uncomplete DELETE wouldn't match
+  // carry-over rows (their period_date is the section's scheduled day, not today).
+  function findSectionForStep(stepId: string): RoutineSection | undefined {
+    return (sections ?? []).find(s => s.steps.some(st => st.id === stepId))
+  }
+
   async function handleToggleInstance(stepId: string, instanceNumber: number, isCurrentlyCompleted: boolean) {
     setTogglingStepId(stepId)
+    const section = findSectionForStep(stepId)
+    const scheduledDay = section ? getSectionScheduledDay(section) : todayLocalIso()
     try {
       if (isCurrentlyCompleted) {
         await uncompleteStep.mutateAsync({
@@ -1010,13 +1088,14 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
           stepId,
           memberId,
           instanceNumber,
+          periodDate: scheduledDay,
         })
       } else {
         await completeStep.mutateAsync({
           task_id: taskId,
           step_id: stepId,
           member_id: memberId,
-          period_date: todayLocalIso(),
+          period_date: scheduledDay,
           instance_number: instanceNumber,
         })
       }
@@ -1030,6 +1109,8 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
   async function handleToggleStep(stepId: string, isCurrentlyCompleted: boolean) {
     const otherCompleter = stepCompleterMap?.get(stepId)
     const uncompleteTarget = otherCompleter && isMom ? otherCompleter.memberId : memberId
+    const section = findSectionForStep(stepId)
+    const scheduledDay = section ? getSectionScheduledDay(section) : todayLocalIso()
 
     setTogglingStepId(stepId)
     try {
@@ -1038,13 +1119,14 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
           taskId,
           stepId,
           memberId: uncompleteTarget,
+          periodDate: scheduledDay,
         })
       } else {
         await completeStep.mutateAsync({
           task_id: taskId,
           step_id: stepId,
           member_id: memberId,
-          period_date: todayLocalIso(),
+          period_date: scheduledDay,
         })
 
         // Daily Progress Marking: for linked steps, also write to practice_log.
@@ -1088,13 +1170,15 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
   async function handleReattribute(stepId: string, fromMemberId: string, toMemberId: string) {
     if (fromMemberId === toMemberId) return
     setTogglingStepId(stepId)
+    const section = findSectionForStep(stepId)
+    const scheduledDay = section ? getSectionScheduledDay(section) : todayLocalIso()
     try {
-      await uncompleteStep.mutateAsync({ taskId, stepId, memberId: fromMemberId })
+      await uncompleteStep.mutateAsync({ taskId, stepId, memberId: fromMemberId, periodDate: scheduledDay })
       await completeStep.mutateAsync({
         task_id: taskId,
         step_id: stepId,
         member_id: toMemberId,
-        period_date: todayLocalIso(),
+        period_date: scheduledDay,
       })
     } catch (err) {
       console.error('Failed to reattribute step:', err)
@@ -1132,6 +1216,7 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
             taskId={taskId}
             memberId={memberId}
             completedStepIds={completedStepIds}
+            weekCompletedStepIds={weekCompletedStepIds}
             onToggleStep={handleToggleStep}
             togglingStepId={togglingStepId}
             canEdit={!!canEdit}
@@ -1149,7 +1234,10 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
           <div key={section.id}>
             {section.steps.map(step => {
               const otherCompleter = stepCompleterMap?.get(step.id)
-              const myCompletion = completedStepIds.has(step.id)
+              // Same carry-over fallback as SectionGroup — see note there.
+              const isCarryOver = !isSectionScheduledToday(section) && section.show_until_complete === true
+              const effectiveSet = isCarryOver ? weekCompletedStepIds : completedStepIds
+              const myCompletion = effectiveSet.has(step.id)
               const isMulti = (step.instance_count ?? 1) > 1
               const sharedInstances = sharedInstancesByStep?.get(step.id)
               const allInstancesClaimed = isMulti && sharedInstances && sharedInstances.size >= (step.instance_count ?? 1)
