@@ -9,6 +9,7 @@ import { AdultShell } from '@/components/shells/AdultShell'
 import { IndependentShell } from '@/components/shells/IndependentShell'
 import { GuidedShell } from '@/components/shells/GuidedShell'
 import { PlayShell } from '@/components/shells/PlayShell'
+import { getSidebarSections } from '@/components/shells/Sidebar'
 
 // Page imports
 import { Dashboard } from '@/pages/Dashboard'
@@ -163,9 +164,36 @@ export function ViewAsModal() {
 
   const [currentPath, setCurrentPath] = useState('/dashboard')
 
+  const targetShell: ShellType = useMemo(() => {
+    if (!viewingAsMember) return 'mom'
+    const dm = viewingAsMember.dashboard_mode as string | null
+    if (dm === 'play') return 'play'
+    if (dm === 'guided') return 'guided'
+    if (dm === 'independent') return 'independent'
+    if (dm === 'adult') return 'adult'
+    return 'mom'
+  }, [viewingAsMember])
+
+  // Build allowed routes from the target shell's sidebar sections
+  const allowedPaths = useMemo(() => {
+    const sections = getSidebarSections(targetShell)
+    const paths = new Set<string>(['/dashboard', '/settings'])
+    for (const section of sections) {
+      for (const item of section.items) {
+        paths.add(item.path.split('?')[0])
+      }
+    }
+    return paths
+  }, [targetShell])
+
   const navigate = useCallback((path: string) => {
-    setCurrentPath(path)
-  }, [])
+    const cleanPath = path.split('?')[0]
+    if (allowedPaths.has(cleanPath)) {
+      setCurrentPath(path)
+    } else {
+      setCurrentPath('/dashboard')
+    }
+  }, [allowedPaths])
 
   // Reset to dashboard when switching members
   useEffect(() => {
@@ -176,16 +204,6 @@ export function ViewAsModal() {
     theme: string; vibe: string; colorMode: string
     gradientEnabled: boolean; fontScale: string; shell: string
   } | null>(null)
-
-  const targetShell: ShellType = useMemo(() => {
-    if (!viewingAsMember) return 'mom'
-    const dm = viewingAsMember.dashboard_mode as string | null
-    if (dm === 'play') return 'play'
-    if (dm === 'guided') return 'guided'
-    if (dm === 'independent') return 'independent'
-    if (dm === 'adult') return 'adult'
-    return 'mom'
-  }, [viewingAsMember])
 
   // Apply target member's theme on enter
   useEffect(() => {

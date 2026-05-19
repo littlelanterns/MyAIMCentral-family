@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Home, CheckSquare, Library, Gem, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useShell } from './ShellProvider'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from '@/lib/theme'
+import type { ShellType } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
 import { getSidebarSections, type NavSection } from './Sidebar'
 
@@ -66,8 +68,22 @@ export function BottomNav() {
   const [showDescriptions, setShowDescriptions] = useState(false)
   const location = useLocation()
   const { data: member } = useFamilyMember()
-  const { shell } = useShell()
+  const { shell: realShell } = useShell()
+  const { isViewingAs, viewingAsMember } = useViewAs()
   const iconUrls = useBottomNavIcons()
+
+  // When viewing as another member, show their shell's navigation
+  const shell: ShellType = useMemo(() => {
+    if (!isViewingAs || !viewingAsMember) return realShell
+    const role = viewingAsMember.role as string
+    if (role === 'primary_parent') return 'mom'
+    const dm = viewingAsMember.dashboard_mode as string | null
+    if (dm === 'play') return 'play'
+    if (dm === 'guided') return 'guided'
+    if (dm === 'independent') return 'independent'
+    if (dm === 'adult') return 'adult'
+    return 'adult'
+  }, [realShell, isViewingAs, viewingAsMember])
 
   // Guided and play shells handle their own navigation
   if (shell === 'guided' || shell === 'play') return null

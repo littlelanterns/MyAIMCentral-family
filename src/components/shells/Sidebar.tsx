@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Tooltip } from '@/components/shared'
 import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
@@ -298,9 +298,23 @@ function SidebarNavItem({
 }
 
 export function Sidebar() {
-  const { shell } = useShell()
+  const { shell: realShell } = useShell()
+  const { isViewingAs, viewingAsMember } = useViewAs()
   const location = useLocation()
   const { data: member } = useFamilyMember()
+
+  // When viewing as another member, show their shell's navigation sections
+  const shell: ShellType = useMemo(() => {
+    if (!isViewingAs || !viewingAsMember) return realShell
+    const role = viewingAsMember.role as string
+    if (role === 'primary_parent') return 'mom'
+    const dm = viewingAsMember.dashboard_mode as string | null
+    if (dm === 'play') return 'play'
+    if (dm === 'guided') return 'guided'
+    if (dm === 'independent') return 'independent'
+    if (dm === 'adult') return 'adult'
+    return 'adult'
+  }, [realShell, isViewingAs, viewingAsMember])
   const { collapsed, setCollapsed } = useSidebarPersistence(member?.id ?? null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
