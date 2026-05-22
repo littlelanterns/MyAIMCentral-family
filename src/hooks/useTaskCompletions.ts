@@ -418,6 +418,16 @@ export function useCompleteRoutineStep() {
       queryClient.invalidateQueries({
         queryKey: ['routine-step-completions-shared', data.task_id],
       })
+      // Carry-over rendering reads from the weekly set. Without these the
+      // checkmark won't appear when a kid checks a step whose period_date is
+      // not today (e.g., Monday's section checked off on Thursday — the
+      // trigger writes period_date=Monday, today's query never picks it up).
+      queryClient.invalidateQueries({
+        queryKey: ['routine-step-completions-week', data.task_id, data.member_id],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['routine-step-completions-shared-week', data.task_id],
+      })
       queryClient.invalidateQueries({
         queryKey: ['live-allowance-progress', data.member_id],
       })
@@ -469,6 +479,14 @@ export function useUncompleteRoutineStep() {
       })
       queryClient.invalidateQueries({
         queryKey: ['routine-step-completions-shared', taskId],
+      })
+      // Mirror the complete mutation — week cache must refetch so a
+      // carry-over uncheck visibly clears the checkmark.
+      queryClient.invalidateQueries({
+        queryKey: ['routine-step-completions-week', taskId, memberId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['routine-step-completions-shared-week', taskId],
       })
       queryClient.invalidateQueries({
         queryKey: ['live-allowance-progress', memberId],
