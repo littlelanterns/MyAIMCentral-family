@@ -24,6 +24,31 @@ export function buildTaskScheduleFields(
   // Routines never get a due_date. The "Run until" end date lives in
   // recurrence_details.until so it doesn't trigger deadline display logic.
   if (data.taskType === 'routine') {
+    // Painted: preserve full SchedulerOutput shape so rdates round-trip.
+    // Without this branch, RoutineDeployModal's painted dates would be silently
+    // stripped to a recurring-shape envelope and the dashboard would render
+    // the routine every day after dtstart instead of only on painted days.
+    if (
+      data.schedule?.schedule_type === 'painted' &&
+      Array.isArray(data.schedule.rdates) &&
+      data.schedule.rdates.length > 0
+    ) {
+      const sortedRdates = [...data.schedule.rdates].sort()
+      const details: Record<string, unknown> = {
+        dtstart: data.startDate || sortedRdates[0],
+        schedule_type: 'painted',
+        rdates: sortedRdates,
+      }
+      if (Array.isArray(data.schedule.exdates) && data.schedule.exdates.length > 0) {
+        details.exdates = data.schedule.exdates
+      }
+      if (data.schedule.timezone) details.timezone = data.schedule.timezone
+      return {
+        due_date: null,
+        recurrence_rule: null,
+        recurrence_details: details,
+      }
+    }
     const dtstart = data.startDate || familyToday
     const details: Record<string, unknown> = { dtstart, schedule_type: 'recurring' }
     if (data.dueDate) details.until = data.dueDate

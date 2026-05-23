@@ -10,6 +10,9 @@
 
 import { RRule } from 'rrule'
 import type { Task } from '@/types/tasks'
+import { isDateActive } from '@/components/scheduling/schedulerUtils'
+import type { SchedulerOutput } from '@/components/scheduling/types'
+import { localIso } from '@/utils/dates'
 
 /**
  * Check whether a recurring task should be visible today.
@@ -53,6 +56,14 @@ export function isRecurringTaskVisibleToday(task: Task, today?: Date): boolean {
     if (dtstartDate > new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)) {
       return false
     }
+  }
+
+  // Painted: only visible on days the user explicitly painted (minus exdates).
+  // Without this, painted routines would render every day from rdates[0] forever
+  // because they have no recurrence_rule and would fall through to the
+  // "no recurrence at all" pass below.
+  if (advanceDetails?.schedule_type === 'painted') {
+    return isDateActive(advanceDetails as unknown as SchedulerOutput, localIso(now))
   }
 
   // No recurrence at all — always visible (after advance-start check above)

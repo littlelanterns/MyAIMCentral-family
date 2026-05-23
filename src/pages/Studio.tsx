@@ -173,21 +173,35 @@ function useCustomizedTemplates(familyId: string | undefined) {
           // Build deployment list item
           if (t.assignee_id) {
             const member = memberMap.get(t.assignee_id as string)
-            // End date: check due_date first, then recurrence_details.until,
-            // then last rdates entry (painted schedules store the range there)
-            const rdates = details?.rdates as string[] | undefined
-            const endDate = (t.due_date as string | undefined)?.slice(0, 10)
-              ?? (details?.until as string | undefined)?.slice(0, 10)
-              ?? (rdates && rdates.length > 1 ? rdates[rdates.length - 1]?.slice(0, 10) : null)
-              ?? null
+            // Painted schedules carry the full date range in rdates — including
+            // single-date deployments where start === end. Recurring/one-time
+            // fall back to the legacy due_date / until path.
+            const scheduleType = details?.schedule_type as string | undefined
+            let depDtstart: string | null = dtstart
+            let endDate: string | null
+            if (scheduleType === 'painted') {
+              const rdates = ((details?.rdates as string[] | undefined) ?? [])
+                .map(d => d.slice(0, 10))
+                .sort()
+              if (rdates.length > 0) {
+                depDtstart = rdates[0]
+                endDate = rdates[rdates.length - 1]
+              } else {
+                endDate = null
+              }
+            } else {
+              endDate = (t.due_date as string | undefined)?.slice(0, 10)
+                ?? (details?.until as string | undefined)?.slice(0, 10)
+                ?? null
+            }
             const dep: DeploymentListItem = {
               taskId: t.id as string,
               assigneeId: t.assignee_id as string,
               assigneeName: member?.name ?? 'Unknown',
               assigneeColor: member?.color ?? '#888',
-              dtstart,
+              dtstart: depDtstart,
               endDate,
-              isScheduled: !!dtstart && dtstart > todayStr,
+              isScheduled: !!depDtstart && depDtstart > todayStr,
               countsForAllowance: (t.counts_for_allowance as boolean) ?? false,
               countsForGamification: (t.counts_for_gamification as boolean) ?? true,
               countsForHomework: (t.counts_for_homework as boolean) ?? false,

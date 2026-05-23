@@ -118,10 +118,11 @@ function formatDateRange(start: string | null, end: string | null): string {
     const d = new Date(iso + 'T00:00:00')
     return d.toLocaleDateString('default', { month: 'short', day: 'numeric' })
   }
-  if (!start) return 'No dates'
-  const startLabel = fmt(start)
-  if (!end) return `${startLabel} – ongoing`
-  return `${startLabel} – ${fmt(end)}`
+  if (!start && !end) return 'Always on'
+  if (!start && end) return fmt(end)
+  if (start && !end) return `${fmt(start)} – ongoing`
+  if (start === end) return fmt(start!)
+  return `${fmt(start!)} – ${fmt(end!)}`
 }
 
 export function CustomizedTemplateCard({

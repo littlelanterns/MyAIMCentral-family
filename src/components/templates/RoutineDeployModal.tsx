@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Users, Calendar, DollarSign, Rocket } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
@@ -129,8 +129,8 @@ export function RoutineDeployModal({
   // ── State: Allowance ──
   // Defaults for routines: counts_for_allowance defaults to TRUE (most chore routines
   // earn allowance). In edit mode, prefer the existing deployment's value. In create
-  // mode, we override from the template's own defaults via the effect below once they
-  // load — see loadTemplateDefaults.
+  // mode, we hydrate from the template's defaults ONCE, only if mom hasn't already
+  // touched the checkbox — see the effect below.
   const [countsForAllowance, setCountsForAllowance] = useState(
     editingDeployment?.countsForAllowance ?? true,
   )
@@ -145,9 +145,32 @@ export function RoutineDeployModal({
   )
   const [selectedPoolName, setSelectedPoolName] = useState('default')
 
+  // Tracks whether mom has interacted with any tracking flag. Once true, the
+  // async template-defaults hydration below stops writing — visible UI is the
+  // saved value, no silent overrides after mom's first tap. Bug fixed: a flag
+  // mom checked could previously be flipped back by a late template fetch.
+  const trackingInteractedRef = useRef(false)
+  const handleSetCountsForAllowance = useCallback((v: boolean) => {
+    trackingInteractedRef.current = true
+    setCountsForAllowance(v)
+  }, [])
+  const handleSetCountsForGamification = useCallback((v: boolean) => {
+    trackingInteractedRef.current = true
+    setCountsForGamification(v)
+  }, [])
+  const handleSetCountsForHomework = useCallback((v: boolean) => {
+    trackingInteractedRef.current = true
+    setCountsForHomework(v)
+  }, [])
+  const handleSetAllowancePoints = useCallback((v: string) => {
+    trackingInteractedRef.current = true
+    setAllowancePoints(v)
+  }, [])
+
   // In create mode, prime the checkboxes from the template's own defaults so mom
-  // doesn't have to re-check the box every deployment. Only runs once on mount;
-  // user edits after that win. Edit mode is initialized from editingDeployment above.
+  // doesn't have to re-check the box every deployment. Runs once on mount; if mom
+  // has already touched a flag by the time the fetch resolves, we bail entirely
+  // so her input wins.
   useEffect(() => {
     if (mode !== 'create') return
     let cancelled = false
@@ -158,16 +181,13 @@ export function RoutineDeployModal({
         .eq('id', template.id)
         .maybeSingle()
       if (cancelled || !data) return
-      // Only override defaults if the template has explicitly set them. Null/undefined
-      // falls back to the constructor defaults (true for allowance + gamification).
+      if (trackingInteractedRef.current) return
       if (data.counts_for_allowance != null) setCountsForAllowance(data.counts_for_allowance)
       if (data.counts_for_gamification != null) setCountsForGamification(data.counts_for_gamification)
       if (data.counts_for_homework != null) setCountsForHomework(data.counts_for_homework)
       if (data.allowance_points != null) setAllowancePoints(String(data.allowance_points))
     })()
     return () => { cancelled = true }
-    // Intentionally only on template.id + mode — we don't want this to fire when
-    // mom toggles a checkbox manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template.id, mode])
 
@@ -537,7 +557,7 @@ export function RoutineDeployModal({
               <ToggleRow
                 label="Count toward allowance"
                 checked={countsForAllowance}
-                onChange={setCountsForAllowance}
+                onChange={handleSetCountsForAllowance}
               />
               {countsForAllowance && activePools.length > 1 && singleMemberId && (
                 <div className="ml-6">
@@ -570,7 +590,7 @@ export function RoutineDeployModal({
                   <input
                     type="number"
                     value={allowancePoints}
-                    onChange={e => setAllowancePoints(e.target.value)}
+                    onChange={e => handleSetAllowancePoints(e.target.value)}
                     placeholder="Default"
                     className="text-sm rounded-lg px-2 py-1.5 w-24"
                     style={{
@@ -585,12 +605,12 @@ export function RoutineDeployModal({
               <ToggleRow
                 label="Count toward gamification"
                 checked={countsForGamification}
-                onChange={setCountsForGamification}
+                onChange={handleSetCountsForGamification}
               />
               <ToggleRow
                 label="Count toward homework"
                 checked={countsForHomework}
-                onChange={setCountsForHomework}
+                onChange={handleSetCountsForHomework}
               />
             </div>
           </section>
