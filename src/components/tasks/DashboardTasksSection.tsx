@@ -343,6 +343,10 @@ export function DashboardTasksSection({
           defaultTitle={editingTask.title}
           defaultDescription={editingTask.description ?? ''}
           editMode
+          // Checkbox-honesty fix (2026-05-25): stable identity signal that
+          // distinguishes a real edit-target swap from parent-render noise.
+          // See TaskCreationModal.tsx editTaskId prop docstring.
+          editTaskId={editingTask.id}
           editTaskValues={{
             incompleteAction: editingTask.incomplete_action ?? undefined,
             lifeAreaTag: editingTask.life_area_tags?.[0] ?? editingTask.life_area_tag ?? undefined,

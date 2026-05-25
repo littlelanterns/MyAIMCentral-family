@@ -219,6 +219,21 @@ interface TaskCreationModalProps {
      *  recurrence_details.dtstart on the live tasks row. */
     startDate?: string
   } | null
+  /**
+   * Stable identity of the task being edited. Callers that may swap the modal's
+   * edit target without unmounting (Tasks.tsx Edit modal, DashboardTasksSection
+   * Edit modal) MUST pass `editingTask.id` here. The re-init effect listens on
+   * this prop (not on `editTaskValues`, which is an inline object literal in
+   * both callers and produces a fresh reference on every parent re-render).
+   * Omit for callers that don't need stable-identity edit-target signaling
+   * (Studio Customize, SortTab batch, Tasks Create modal).
+   *
+   * Checkbox-honesty fix (2026-05-25): together with `hasUserInteractedRef`
+   * below, this prop is what distinguishes a legitimate edit-target swap
+   * (re-init the form) from a parent-render-noise reference change (do NOT
+   * clobber mom's in-progress edits).
+   */
+  editTaskId?: string | null
   /** When deploying from Studio, pass the source template ID to link (not duplicate) */
   deployFromTemplateId?: string | null
 }
@@ -612,6 +627,7 @@ export function TaskCreationModal({
   initialRoutineSections,
   editingTemplateId,
   editTaskValues,
+  editTaskId,
   deployFromTemplateId,
 }: TaskCreationModalProps) {
   const { data: currentMember } = useFamilyMember()
@@ -667,9 +683,45 @@ export function TaskCreationModal({
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
     return d
   })
+
+  // ─── Checkbox-honesty fix (2026-05-25) ───────────────────────
+  //
+  // Tracks whether mom has interacted with ANY form field. Once true, the
+  // re-init useEffect below stops writing — visible UI is the saved value,
+  // no silent overrides after her first tap. Bug fixed: a checkbox mom
+  // flipped could previously be flipped back by a parent re-render that
+  // produced a fresh `editTaskValues` reference. Same pattern as
+  // RoutineDeployModal.tsx commit 9523faa, adapted for this modal's
+  // legitimate re-init triggers (batch advancement + edit-target swap).
+  //
+  // Reset to `false` inside the re-init effect when a *legitimate* trigger
+  // fires (queueItem.id change, activeBatchItem.id change, or editTaskId
+  // change). That ensures batch advancement and task-swap correctly
+  // re-hydrate the form from the new defaults.
+  const hasUserInteractedRef = useRef(false)
+
+  // Wrapper around setData that flips the interaction ref. Use this for
+  // every user-driven mutation. Internal effects (re-init, makeupConfig,
+  // initialRoutineSections merge) call raw setData and must NOT flip the
+  // ref — otherwise the legitimate hydration paths would self-poison.
+  const updateData = useCallback(
+    (updater: (d: CreateTaskData) => CreateTaskData) => {
+      hasUserInteractedRef.current = true
+      setData(updater)
+    },
+    [],
+  )
+
   // PRD-28: Apply makeup work pre-configuration
+  //
+  // Checkbox-honesty fix: skip when mom has already interacted with any
+  // field. The previous behavior re-applied the makeup defaults every time
+  // `makeupConfig` or `isOpen` changed reference, which could clobber a
+  // flag mom had already toggled (e.g. unchecking `countsForAllowance` on
+  // a makeup task to make it count differently).
   useEffect(() => {
     if (makeupConfig && isOpen) {
+      if (hasUserInteractedRef.current) return
       setData(prev => ({
         ...prev,
         taskType: 'makeup' as TaskType,
@@ -726,7 +778,25 @@ export function TaskCreationModal({
   const activeBatchItem = batchMode === 'sequential' && batchItems ? batchItems[batchIndex] : undefined
   const batchTotal = batchItems?.length ?? 0
 
-  // Re-init on queue item change (NOT on routine section load — that's handled separately)
+  // Re-init on legitimate identity-change triggers only (NOT on routine
+  // section load — that's handled separately below).
+  //
+  // Checkbox-honesty fix (2026-05-25):
+  //   - Dep array narrowed from 7 props to 3: [queueItem.id, activeBatchItem.id, editTaskId].
+  //     The previous shape included `editTaskValues` (an inline JSX object literal
+  //     in both edit callers, so its reference changed on every parent re-render),
+  //     `defaultTitle`/`defaultDescription` (usually stable, but mount-only intent),
+  //     `initialTaskType` (mount-only intent), and `deployFromTemplateId` (mount-only
+  //     intent). All five are read inside the effect body but no longer trigger it.
+  //   - `editTaskId` is a new optional prop (`string | null`) passed by Tasks.tsx
+  //     Edit modal and DashboardTasksSection.tsx Edit modal. It signals a real
+  //     edit-target swap (task A → task B) as distinct from parent-render noise.
+  //   - On every legitimate fire, reset hasUserInteractedRef.current = false BEFORE
+  //     setData(d). That makes batch advancement (q1 → q2) and task swap correctly
+  //     re-hydrate from the new defaults.
+  //   - First mount: all three deps are stable from prop init → effect runs once with
+  //     ref=false → setData(d) is a no-op overwrite of the useState initializer output
+  //     (because the initializer already ran with the same `editTaskValues`/etc.).
   useEffect(() => {
     const d = defaultTaskData(queueItem ?? activeBatchItem)
     // Phase 1 guard: same sequential skip as the initial useState, applied here
@@ -756,6 +826,11 @@ export function TaskCreationModal({
       if (editTaskValues.isExtraCredit !== undefined) d.isExtraCredit = editTaskValues.isExtraCredit
     }
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
+    // Reset interaction ref BEFORE writing — this is a legitimate identity-change
+    // re-init, so any previous interaction on the prior edit-target is forfeit
+    // (mom is now editing a different thing). On a no-op first mount where all
+    // three identity deps were stable, the ref was already false.
+    hasUserInteractedRef.current = false
     setData(d)
     setScheduleMode('one_time')
     setQuickDays([])
@@ -765,7 +840,8 @@ export function TaskCreationModal({
     setShowTaskBreaker(false)
     setShowTaskBreakerPanel(false)
     setSelectedIcon(null)
-  }, [queueItem?.id, activeBatchItem?.id, initialTaskType, defaultTitle, defaultDescription, editTaskValues, deployFromTemplateId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueItem?.id, activeBatchItem?.id, editTaskId])
 
   // Merge routine sections when they arrive (async load) without resetting the rest of the form
   useEffect(() => {
@@ -796,8 +872,12 @@ export function TaskCreationModal({
     assigneeIsPlayMember,
   )
 
+  // Checkbox-honesty fix (2026-05-25): every user-driven mutation flows through
+  // `updateData` (which flips `hasUserInteractedRef.current = true`). The legacy
+  // `update<K>(key, val)` helper now delegates to `updateData` so all single-field
+  // input paths are covered without rewriting their call sites.
   const update = <K extends keyof CreateTaskData>(key: K, val: CreateTaskData[K]) =>
-    setData((d) => ({ ...d, [key]: val }))
+    updateData((d) => ({ ...d, [key]: val }))
 
   // Worker ROUTINE-PROPAGATION (c6): toast helper. Wraps useRoutingToast
   // so save sites can call showToast(message) without remembering the
@@ -1059,15 +1139,15 @@ export function TaskCreationModal({
     const next = exists
       ? data.assignments.filter((a) => a.memberId !== id)
       : [...data.assignments, { memberId: id, copyMode: 'individual' as const }]
-    setData((d) => ({ ...d, assignments: next, wholeFamily: false }))
+    updateData((d) => ({ ...d, assignments: next, wholeFamily: false }))
   }
 
   const toggleFamily = () => {
-    setData((d) => ({ ...d, wholeFamily: !d.wholeFamily, assignments: [] }))
+    updateData((d) => ({ ...d, wholeFamily: !d.wholeFamily, assignments: [] }))
   }
 
   const setAssignMode = (mode: 'any' | 'each') => {
-    setData((d) => ({ ...d, assignMode: mode }))
+    updateData((d) => ({ ...d, assignMode: mode }))
   }
 
   const hasUnsavedChanges = data.title.trim().length > 0 || data.description.trim().length > 0
@@ -1209,7 +1289,7 @@ export function TaskCreationModal({
                   if (data.wholeFamily) {
                     // Switching from Everyone to individual selection — select all except this one
                     const others = assignableMembers.filter(x => x.id !== m.id)
-                    setData(d => ({ ...d, wholeFamily: false, assignments: others.map(x => ({ memberId: x.id, copyMode: 'individual' as const })) }))
+                    updateData(d => ({ ...d, wholeFamily: false, assignments: others.map(x => ({ memberId: x.id, copyMode: 'individual' as const })) }))
                   } else {
                     toggleMember(m.id)
                   }
@@ -1315,14 +1395,14 @@ export function TaskCreationModal({
                   opacity: selectedCount >= 2 ? 1 : 0.5,
                   cursor: selectedCount >= 2 ? 'pointer' : 'default',
                 }}
-                onClick={selectedCount >= 2 ? () => setData(d => ({ ...d, rotationEnabled: !d.rotationEnabled, ...(!d.rotationEnabled ? { assignMode: 'any' as const } : {}) })) : undefined}
+                onClick={selectedCount >= 2 ? () => updateData(d => ({ ...d, rotationEnabled: !d.rotationEnabled, ...(!d.rotationEnabled ? { assignMode: 'any' as const } : {}) })) : undefined}
               >
                 <RefreshCw size={14} style={{ color: data.rotationEnabled && selectedCount >= 2 ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }} />
                 <input
                   type="checkbox"
                   checked={data.rotationEnabled && selectedCount >= 2}
                   disabled={selectedCount < 2}
-                  onChange={(e) => setData(d => ({ ...d, rotationEnabled: e.target.checked, ...(e.target.checked ? { assignMode: 'any' as const } : {}) }))}
+                  onChange={(e) => updateData(d => ({ ...d, rotationEnabled: e.target.checked, ...(e.target.checked ? { assignMode: 'any' as const } : {}) }))}
                   style={{ accentColor: 'var(--color-btn-primary-bg)' }}
                 />
                 <span style={{
@@ -1345,7 +1425,7 @@ export function TaskCreationModal({
               <div style={{ marginTop: '0.375rem', paddingLeft: '2.125rem' }}>
                 <select
                   value={data.rotationFrequency}
-                  onChange={(e) => setData(d => ({ ...d, rotationFrequency: e.target.value }))}
+                  onChange={(e) => updateData(d => ({ ...d, rotationFrequency: e.target.value }))}
                   style={{
                     padding: '0.25rem 0.5rem',
                     fontSize: 'var(--font-size-xs, 0.75rem)',
@@ -1445,7 +1525,7 @@ export function TaskCreationModal({
                 type="button"
                 onClick={() => {
                   const dbType = tt.key === 'long_term' ? 'task' : tt.key
-                  setData((d) => ({
+                  updateData((d) => ({
                     ...d,
                     taskType: dbType as TaskType,
                     incompleteAction: tt.key === 'routine' ? 'fresh_reset' : 'auto_reschedule',
@@ -2001,7 +2081,7 @@ export function TaskCreationModal({
                 taskDescription={data.description}
                 lifeAreaTag={data.lifeAreaTag}
                 onApply={(subtasks) => {
-                  setData(d => ({ ...d, taskBreakerSubtasks: subtasks }))
+                  updateData(d => ({ ...d, taskBreakerSubtasks: subtasks }))
                   setShowTaskBreakerPanel(false)
                 }}
                 onCancel={() => setShowTaskBreakerPanel(false)}
@@ -2034,7 +2114,7 @@ export function TaskCreationModal({
                   <Button variant="secondary" size="sm" onClick={() => setShowTaskBreakerPanel(true)}>
                     Redo
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setData(d => ({ ...d, taskBreakerSubtasks: undefined }))}>
+                  <Button variant="ghost" size="sm" onClick={() => updateData(d => ({ ...d, taskBreakerSubtasks: undefined }))}>
                     Clear Subtasks
                   </Button>
                 </div>
@@ -2403,6 +2483,7 @@ export function TaskCreationModal({
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
             <input
               type="checkbox"
+              data-testid="track-progress-checkbox"
               checked={data.trackProgress ?? false}
               onChange={(e) => update('trackProgress', e.target.checked)}
               style={{ accentColor: 'var(--color-btn-primary-bg)' }}
@@ -2412,6 +2493,7 @@ export function TaskCreationModal({
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
             <input
               type="checkbox"
+              data-testid="track-duration-checkbox"
               checked={data.trackDuration ?? false}
               onChange={(e) => update('trackDuration', e.target.checked)}
               style={{ accentColor: 'var(--color-btn-primary-bg)' }}
@@ -2423,6 +2505,7 @@ export function TaskCreationModal({
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
             <input
               type="checkbox"
+              data-testid="counts-for-allowance-checkbox"
               checked={data.countsForAllowance ?? false}
               onChange={(e) => {
                 update('countsForAllowance', e.target.checked)
@@ -2514,6 +2597,7 @@ export function TaskCreationModal({
           >
             <input
               type="checkbox"
+              data-testid="is-extra-credit-checkbox"
               disabled={!data.countsForAllowance}
               checked={data.isExtraCredit ?? false}
               onChange={(e) => update('isExtraCredit', e.target.checked)}
@@ -2526,6 +2610,7 @@ export function TaskCreationModal({
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
                 <input
                   type="checkbox"
+                  data-testid="counts-for-homework-checkbox"
                   checked={data.countsForHomework ?? false}
                   onChange={(e) => {
                     update('countsForHomework', e.target.checked)
@@ -2573,6 +2658,7 @@ export function TaskCreationModal({
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
             <input
               type="checkbox"
+              data-testid="counts-for-gamification-checkbox"
               checked={data.countsForGamification ?? true}
               onChange={(e) => update('countsForGamification', e.target.checked)}
               style={{ accentColor: 'var(--color-btn-primary-bg)' }}

@@ -973,6 +973,12 @@ export function TasksPage() {
           defaultDescription={editingTask.description ?? ''}
           initialRoutineSections={editRoutineSections}
           editingTemplateId={editingTask.template_id ?? undefined}
+          // Checkbox-honesty fix (2026-05-25): stable identity signal that
+          // distinguishes a real edit-target swap from parent-render noise.
+          // The modal's re-init effect listens on this prop (not on
+          // editTaskValues, which is an inline object literal below and
+          // changes reference on every parent render).
+          editTaskId={editingTask.id}
           editTaskValues={{
             incompleteAction: editingTask.incomplete_action ?? undefined,
             lifeAreaTag: editingTask.life_area_tags?.[0] ?? editingTask.life_area_tag ?? undefined,
