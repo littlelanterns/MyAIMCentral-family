@@ -38,6 +38,7 @@ export function buildTaskScheduleFields(
         dtstart: data.startDate || sortedRdates[0],
         schedule_type: 'painted',
         rdates: sortedRdates,
+        until: sortedRdates[sortedRdates.length - 1],
       }
       if (Array.isArray(data.schedule.exdates) && data.schedule.exdates.length > 0) {
         details.exdates = data.schedule.exdates

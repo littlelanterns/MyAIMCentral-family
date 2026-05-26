@@ -194,6 +194,7 @@ function useCustomizedTemplates(familyId: string | undefined) {
                 ?? (details?.until as string | undefined)?.slice(0, 10)
                 ?? null
             }
+            if (endDate && endDate < todayStr) continue
             const dep: DeploymentListItem = {
               taskId: t.id as string,
               assigneeId: t.assignee_id as string,
