@@ -15,7 +15,8 @@ import { FeatureIcon } from '@/components/shared'
 import { HScrollArrows } from '@/components/shared/HScrollArrows'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { filterKidPrivate } from '@/lib/permissions'
 import { useNotepadContext } from '@/components/notepad/NotepadContext'
 import {
   useJournalEntries,
@@ -33,13 +34,17 @@ const VISIBILITY_ICONS: Record<string, typeof Lock> = {
 export function JournalPage() {
   const { data: member } = useFamilyMember()
   const { data: _family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember, origin } = useEffectiveMember()
   const { data: rawEntries = [], isLoading } = useJournalEntries(activeMember?.id)
-  // PRD-20: In View As mode, filter out private journal entries
-  const entries = isViewingAs
-    ? rawEntries.filter((e) => (e as { visibility?: string }).visibility !== 'private')
-    : rawEntries
+  // Kid-private filter (Convention #39, founder Q4): when mom is viewing the
+  // kid's surface (origin='mom_viewing'), hide private journal entries AND LiLa
+  // conversations saved to the journal. The kid viewing their own surface at
+  // the hub (member_session) — and any non-View-As session (origin=null) — see
+  // everything. Keyed on origin via filterKidPrivate, not the coarse isViewingAs.
+  const entries = filterKidPrivate(rawEntries, {
+    origin,
+    isKidPrivate: (e) => e.visibility === 'private' || e.entry_type === 'lila_conversation',
+  })
   const deleteEntry = useDeleteJournalEntry()
   const { openNotepad } = useNotepadContext()
   const location = useLocation()

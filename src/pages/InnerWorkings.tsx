@@ -17,7 +17,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { filterKidPrivate } from '@/lib/permissions'
 import { supabase } from '@/lib/supabase/client'
 import {
   useSelfKnowledge,
@@ -50,9 +51,18 @@ type PageMode = 'list' | 'create' | 'edit' | 'review' | 'bulk'
 export function InnerWorkingsPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
-  const { data: entries = [], isLoading } = useSelfKnowledge(activeMember?.id)
+  const { member: activeMember, isViewAs: isViewingAs, origin } = useEffectiveMember()
+  const { data: rawEntries = [], isLoading } = useSelfKnowledge(activeMember?.id)
+  // Kid-private filter (Convention #39, founder Q4): when mom is viewing the
+  // kid's surface (origin='mom_viewing'), hide self-knowledge the kid chose NOT
+  // to share with mom (share_with_mom === false). The kid viewing their own
+  // surface at the hub (member_session) and any non-View-As session (null) see
+  // everything. Mom's own private observations are a separate surface
+  // (MomObservationsSection) and are unaffected.
+  const entries = filterKidPrivate(rawEntries, {
+    origin,
+    isKidPrivate: (e) => e.share_with_mom === false,
+  })
   const { data: archivedEntries = [] } = useArchivedSelfKnowledge(activeMember?.id)
   const createEntry = useCreateSelfKnowledge()
   const updateEntry = useUpdateSelfKnowledge()

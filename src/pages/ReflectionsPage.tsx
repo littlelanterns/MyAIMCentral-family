@@ -11,9 +11,8 @@ import { BookHeart, Eye } from 'lucide-react'
 import { FeatureGuide } from '@/components/shared'
 import { FeatureIcon } from '@/components/shared'
 import { Tooltip } from '@/components/shared'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useShell } from '@/components/shells/ShellProvider'
 import { ReflectionsTodayTab } from '@/components/reflections/ReflectionsTodayTab'
 import { ReflectionsPastTab } from '@/components/reflections/ReflectionsPastTab'
@@ -28,10 +27,8 @@ const TABS: { key: TabKey; label: string }[] = [
 ]
 
 export function ReflectionsPage() {
-  const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember } = useEffectiveMember()
   const { shell } = useShell()
   const [activeTab, setActiveTab] = useState<TabKey>('today')
 
