@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, RefreshCw, X, ListTodo } from 'lucide-react'
+import { Eye, RefreshCw, X, ListTodo, Home } from 'lucide-react'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { ViewAsMemberPicker } from './ViewAsMemberPicker'
 
@@ -27,7 +27,7 @@ function getModeLabel(
  * Only renders when `isViewingAs === true`.
  */
 export function ViewAsBanner() {
-  const { isViewingAs, viewingAsMember, stopViewAs } = useViewAs()
+  const { isViewingAs, viewingAsMember, stopViewAs, origin } = useViewAs()
   const [pickerOpen, setPickerOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -35,8 +35,17 @@ export function ViewAsBanner() {
 
   const modeLabel = getModeLabel(viewingAsMember.dashboard_mode, viewingAsMember.role)
 
-  // Kid shells (Play/Guided) have no adult task-management UI. Offer a fast
-  // exit to the adult Tasks page pre-filtered to this child.
+  // Convention #39: member_session is the hub-initiated kid flow — the real
+  // human at the device IS the kid. Mom-y affordances are hidden:
+  //   - "Manage Tasks" jumps to mom's adult Tasks page (not for a kid).
+  //   - "Switch" opens the member picker; because the real viewer is mom, that
+  //     picker would list ALL members, letting a kid hop into a sibling's
+  //     session. Hide it so the hub session stays scoped to the one kid.
+  // Exit becomes "Return to Hub" (the modal closes back onto /hub).
+  const isMemberSession = origin === 'member_session'
+
+  // Kid shells (Play/Guided/Independent) have no adult task-management UI. Offer
+  // a fast exit to the adult Tasks page pre-filtered to this child — mom only.
   const childMode = viewingAsMember.dashboard_mode === 'play'
     || viewingAsMember.dashboard_mode === 'guided'
     || viewingAsMember.dashboard_mode === 'independent'
@@ -72,7 +81,7 @@ export function ViewAsBanner() {
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {childMode && (
+          {!isMemberSession && childMode && (
             <button
               onClick={goManageTasks}
               className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
@@ -87,38 +96,44 @@ export function ViewAsBanner() {
               <span className="hidden sm:inline">Manage Tasks</span>
             </button>
           )}
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.25)',
-              color: 'var(--color-text-on-primary, #fff)',
-              border: '1px solid rgba(255, 255, 255, 0.4)',
-            }}
-            aria-label="Switch to a different family member"
-          >
-            <RefreshCw size={12} />
-            <span className="hidden sm:inline">Switch</span>
-          </button>
+          {!isMemberSession && (
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                color: 'var(--color-text-on-primary, #fff)',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+              }}
+              aria-label="Switch to a different family member"
+            >
+              <RefreshCw size={12} />
+              <span className="hidden sm:inline">Switch</span>
+            </button>
+          )}
 
           <button
             onClick={() => stopViewAs()}
+            data-testid="view-as-exit"
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all hover:scale-105 active:scale-95"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.25)',
               color: 'var(--color-text-on-primary, #fff)',
               border: '1px solid rgba(255, 255, 255, 0.4)',
             }}
-            aria-label="Exit View As and return to your own view"
+            aria-label={isMemberSession ? 'Return to the family hub' : 'Exit View As and return to your own view'}
           >
-            <X size={12} />
-            <span className="hidden sm:inline">Exit</span>
+            {isMemberSession ? <Home size={12} /> : <X size={12} />}
+            <span className="hidden sm:inline">{isMemberSession ? 'Return to Hub' : 'Exit'}</span>
           </button>
         </div>
       </div>
 
-      {/* Picker modal — opened by [Switch] */}
-      <ViewAsMemberPicker open={pickerOpen} onClose={() => setPickerOpen(false)} />
+      {/* Picker modal — opened by [Switch]. Not rendered in member_session
+          (the Switch button is hidden there). */}
+      {!isMemberSession && (
+        <ViewAsMemberPicker open={pickerOpen} onClose={() => setPickerOpen(false)} />
+      )}
     </>
   )
 }

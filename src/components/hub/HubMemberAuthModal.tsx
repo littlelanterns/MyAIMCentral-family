@@ -10,7 +10,6 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Lock, ArrowLeft, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -40,7 +39,6 @@ interface HubMemberAuthModalProps {
 }
 
 export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthModalProps) {
-  const navigate = useNavigate()
   const { startViewAs } = useViewAs()
   const { data: currentMember } = useFamilyMember()
   const { data: family } = useFamily()
@@ -67,18 +65,22 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
     }
   }, [isOpen, member?.id])
 
-  // Members without auth go directly to ViewAs
+  // Members without auth go directly to ViewAs.
+  // Convention #39: this is the hub-initiated (member_session) flow. The kid is
+  // already on /hub; we open the View-As modal layered over it and do NOT
+  // navigate. Closing the modal returns the kid to /hub. Navigating to
+  // /dashboard here was the original bug — it jumped the kid off the hub onto
+  // mom's auth dashboard.
   useEffect(() => {
     if (!isOpen || !member || !currentMember || !family) return
     const authMethod = member.auth_method as string | null
     if (!authMethod || authMethod === 'none') {
       ;(async () => {
-        await startViewAs(member, currentMember.id, family.id)
+        await startViewAs(member, currentMember.id, family.id, { origin: 'member_session' })
         onClose()
-        navigate('/dashboard')
       })()
     }
-  }, [isOpen, member, currentMember, family, startViewAs, onClose, navigate])
+  }, [isOpen, member, currentMember, family, startViewAs, onClose])
 
   const startLockoutCountdown = useCallback((seconds: number) => {
     setIsLocked(true)
@@ -114,9 +116,10 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
       const result = data as unknown as PinVerifyResult
 
       if (result.success) {
-        await startViewAs(member, currentMember.id, family.id)
+        // Convention #39: hub-initiated member_session. Open the modal over
+        // /hub; do not navigate (the navigate-to-/dashboard here was the bug).
+        await startViewAs(member, currentMember.id, family.id, { origin: 'member_session' })
         onClose()
-        navigate('/dashboard')
         return
       }
 
@@ -261,6 +264,7 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                 disabled={isLocked}
+                data-testid="hub-pin-input"
                 className="w-full pl-10 pr-3 py-3 rounded-lg outline-none text-center text-2xl tracking-widest disabled:opacity-40"
                 style={{
                   backgroundColor: 'var(--color-bg-secondary)',
@@ -275,6 +279,7 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
             <button
               type="submit"
               disabled={loading || pin.length < 4 || isLocked}
+              data-testid="hub-pin-submit"
               className="w-full py-3 rounded-lg font-semibold text-sm disabled:opacity-50"
               style={{
                 background: 'var(--gradient-primary, var(--color-btn-primary-bg))',

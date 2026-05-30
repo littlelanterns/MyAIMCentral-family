@@ -45,6 +45,7 @@ function MemberCard({
     <button
       onClick={onClick}
       disabled={isCurrentlyViewing}
+      data-testid={`view-as-member-${member.id}`}
       className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-default disabled:hover:scale-100"
       style={{
         backgroundColor: isCurrentlyViewing
@@ -175,11 +176,14 @@ export function ViewAsMemberPicker({ open, onClose }: ViewAsMemberPickerProps) {
     if (!selfMember || !family) return
 
     if (isViewingAs) {
-      // Already viewing someone — switch to the new member
+      // Already viewing someone — switch to the new member. switchViewAs carries
+      // the current origin forward (Convention #39): a mom-viewing switch stays
+      // mom_viewing; a hub member_session switch stays member_session.
       switchViewAs(member)
     } else {
-      // Fresh start — use selfMember as the real viewer
-      startViewAs(member, selfMember.id, family.id)
+      // Fresh start from the picker — this is always the mom-initiated flow.
+      // Pass origin explicitly so the provider default is a pure safety net.
+      startViewAs(member, selfMember.id, family.id, { origin: 'mom_viewing' })
     }
     onClose()
   }
