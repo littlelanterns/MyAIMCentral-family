@@ -31,7 +31,10 @@ export function useTodayEventsForMembers(memberIds: string[]) {
         .eq('event_date', dateStr)
         .in('status', ['approved', 'pending_approval'])
         .order('start_time', { ascending: true, nullsFirst: false })
-      if (error) throw error
+      if (error) {
+        console.error('useTodayEventsForMembers query failed:', error)
+        return []
+      }
       return data ?? []
     },
     enabled: !!familyId && memberIds.length > 0 && !!dateStr,
@@ -59,7 +62,10 @@ export function useTodayTasksForMembers(memberIds: string[]) {
         .or(`due_date.eq.${dateStr},and(due_date.is.null,status.neq.completed,created_at.gte.${weekAgoStr})`)
         .in('status', ['pending', 'in_progress', 'completed', 'pending_approval'])
         .order('sort_order', { ascending: true })
-      if (error) throw error
+      if (error) {
+        console.error('useTodayTasksForMembers query failed:', error)
+        return []
+      }
       const rows = data ?? []
       return rows.filter(t => isRecurringTaskVisibleToday(t as Parameters<typeof isRecurringTaskVisibleToday>[0]))
     },
@@ -81,7 +87,10 @@ export function useTaskAssignmentsForMembers(memberIds: string[]) {
         .select('task_id, family_member_id')
         .in('family_member_id', memberIds)
         .eq('is_active', true)
-      if (error) throw error
+      if (error) {
+        console.error('useTaskAssignmentsForMembers query failed:', error)
+        return []
+      }
       return data ?? []
     },
     enabled: !!familyId && memberIds.length > 0,
@@ -102,7 +111,10 @@ export function useBestIntentionsForMembers(memberIds: string[]) {
         .eq('is_active', true)
         .is('archived_at', null)
         .order('sort_order', { ascending: true })
-      if (error) throw error
+      if (error) {
+        console.error('useBestIntentionsForMembers query failed:', error)
+        return []
+      }
       return data ?? []
     },
     enabled: memberIds.length > 0,
@@ -121,7 +133,10 @@ export function useTodayIterationsForMembers(memberIds: string[]) {
         .select('intention_id, member_id')
         .in('member_id', memberIds)
         .eq('day_date', dateStr)
-      if (error) throw error
+      if (error) {
+        console.error('useTodayIterationsForMembers query failed:', error)
+        return []
+      }
       return data ?? []
     },
     enabled: memberIds.length > 0 && !!dateStr,
@@ -135,14 +150,23 @@ export function useTrackersForMembers(familyId: string | undefined, memberIds: s
     queryKey: ['fo-trackers', familyId, memberIds],
     queryFn: async () => {
       if (!familyId || memberIds.length === 0) return []
+      // `config` is an alias for the real `widget_config` column so the
+      // consumer (TrackersSection) can keep reading `w.config`. There is no
+      // `widget_template_id` column on dashboard_widgets; `template_type` is
+      // the real discriminator if it's ever needed.
       const { data, error } = await supabase
         .from('dashboard_widgets')
-        .select('id, family_member_id, config, widget_template_id')
+        .select('id, family_member_id, config:widget_config, template_type')
         .eq('family_id', familyId)
         .in('family_member_id', memberIds)
         .is('archived_at', null)
         .order('sort_order', { ascending: true })
-      if (error) throw error
+      // Degrade gracefully: a widget-data failure must never crash the
+      // Family Overview render (it surfaces inside View-As of any member).
+      if (error) {
+        console.error('useTrackersForMembers query failed:', error)
+        return []
+      }
       return data ?? []
     },
     enabled: !!familyId && memberIds.length > 0,
@@ -167,7 +191,10 @@ export function useTodayOpportunityCompletions(familyId: string | undefined, mem
         .eq('status', 'completed')
         .gte('completed_at', `${dateStr}T00:00:00`)
         .lte('completed_at', `${dateStr}T23:59:59`)
-      if (error) throw error
+      if (error) {
+        console.error('useTodayOpportunityCompletions query failed:', error)
+        return []
+      }
       return data ?? []
     },
     enabled: !!familyId && memberIds.length > 0 && !!dateStr,
