@@ -4,6 +4,7 @@ import { useTheme } from '@/lib/theme'
 import type { ShellType } from '@/lib/theme'
 import { ViewAsBanner } from './ViewAsBanner'
 import { ViewAsTimeoutWarningBanner } from './ViewAsTimeoutWarningBanner'
+import { ErrorBoundary } from '@/components/shared'
 import { SettingsProvider } from '@/components/settings'
 import { MomShell } from '@/components/shells/MomShell'
 import { AdultShell } from '@/components/shells/AdultShell'
@@ -296,22 +297,48 @@ export function ViewAsModal() {
           <ViewAsTimeoutWarningBanner />
         </div>
 
-        {/* Shell + page content — scrollable area */}
+        {/* Shell + page content — scrollable area.
+            Wrapped in an ErrorBoundary so a render-time throw inside the kid's
+            view (e.g. a duplicate-mount assumption like the NotificationBell
+            realtime collision) degrades to a friendly fallback instead of
+            black-screening the whole app. The ViewAsBanner above stays OUTSIDE
+            the boundary so Exit/Return-to-Hub remains usable even if the inner
+            content fails; the fallback also offers its own Exit affordance. */}
         <div className="flex-1 overflow-y-auto">
-          <ViewAsNavContext.Provider value={{ currentPath, navigate }}>
-            <SettingsProvider>
-              <ShellWrapper shell={targetShell}>
-                {(() => {
-                  const cleanPath = currentPath.split('?')[0]
-                  const featureKey = PRIVACY_ROUTE_MAP[cleanPath]
-                  if (featureKey && excludedFeatures.includes(featureKey)) {
-                    return <PrivacyBlockedPage />
-                  }
-                  return renderPage(currentPath)
-                })()}
-              </ShellWrapper>
-            </SettingsProvider>
-          </ViewAsNavContext.Provider>
+          <ErrorBoundary
+            // Re-mount the boundary (clearing its error state) when the
+            // View-As target or the current page changes, so navigating away
+            // from a crashed view recovers automatically.
+            key={`${viewingAsMember.id}:${currentPath.split('?')[0]}`}
+            action={
+              <button
+                type="button"
+                onClick={() => stopViewAs()}
+                className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                Exit View As
+              </button>
+            }
+          >
+            <ViewAsNavContext.Provider value={{ currentPath, navigate }}>
+              <SettingsProvider>
+                <ShellWrapper shell={targetShell}>
+                  {(() => {
+                    const cleanPath = currentPath.split('?')[0]
+                    const featureKey = PRIVACY_ROUTE_MAP[cleanPath]
+                    if (featureKey && excludedFeatures.includes(featureKey)) {
+                      return <PrivacyBlockedPage />
+                    }
+                    return renderPage(currentPath)
+                  })()}
+                </ShellWrapper>
+              </SettingsProvider>
+            </ViewAsNavContext.Provider>
+          </ErrorBoundary>
         </div>
       </div>
     </>

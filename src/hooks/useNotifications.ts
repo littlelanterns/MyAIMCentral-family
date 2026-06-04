@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import type { Notification, NotificationCategory } from '@/types/messaging'
@@ -166,12 +166,21 @@ export function useNotificationRealtime() {
   const { data: currentMember } = useFamilyMember()
   const memberId = currentMember?.id
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  // Stable per-hook-instance id. Two NotificationBell instances can be mounted
+  // at once (e.g. mom's bell behind the View-As modal + the View-As kid's bell
+  // inside it). Supabase reuses a channel by exact topic name, so a shared
+  // `notifications:${memberId}` topic causes the second instance to grab an
+  // already-subscribed channel and call `.on()` after `.subscribe()` →
+  // "cannot add postgres_changes callbacks after subscribe()" → black screen.
+  // A unique suffix per instance guarantees each consumer owns its own channel.
+  const instanceId = useId()
 
   useEffect(() => {
     if (!memberId) return
 
+    // `.on('postgres_changes', ...)` MUST be registered before `.subscribe()`.
     const channel = supabase
-      .channel(`notifications:${memberId}`)
+      .channel(`notifications:${memberId}:${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -190,8 +199,11 @@ export function useNotificationRealtime() {
     channelRef.current = channel
 
     return () => {
-      channel.unsubscribe()
+      // removeChannel both unsubscribes and removes the channel from the client
+      // registry so a remount creates a fresh channel rather than reusing a
+      // stale (still-subscribed) one.
+      supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [memberId, queryClient])
+  }, [memberId, instanceId, queryClient])
 }
