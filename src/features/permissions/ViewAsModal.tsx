@@ -3,6 +3,7 @@ import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from '@/lib/theme'
 import type { ShellType } from '@/lib/theme'
 import { ViewAsBanner } from './ViewAsBanner'
+import { ViewAsTimeoutWarningBanner } from './ViewAsTimeoutWarningBanner'
 import { SettingsProvider } from '@/components/settings'
 import { MomShell } from '@/components/shells/MomShell'
 import { AdultShell } from '@/components/shells/AdultShell'
@@ -37,6 +38,8 @@ import {
 } from '@/pages/placeholder'
 import { MessagesPage } from '@/pages/MessagesPage'
 import { MeetingsPage } from '@/pages/MeetingsPage'
+import { MyRewardsPage } from '@/pages/MyRewardsPage'
+import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 
 // ─── Simple state-based navigation for the modal ─────────────
 // Avoids nested Router issues entirely. Sidebar/nav links call
@@ -84,6 +87,7 @@ function renderPage(path: string): ReactNode {
     // Plan & Do
     case '/tasks': return <TasksPage />
     case '/lists': return <ListsPage />
+    case '/my-rewards': return <MyRewardsPage />
     case '/studio': return <StudioPage />
     case '/calendar': return <CalendarPage />
     case '/victories': return <VictoriesPage />
@@ -164,6 +168,12 @@ export function ViewAsModal() {
 
   const [currentPath, setCurrentPath] = useState('/dashboard')
 
+  // Match the rendered shell's sidebar: the per-child "My Rewards" entry is
+  // gated by preferences.show_my_rewards on the View-As target (data subject).
+  // Without threading this through, the modal's allowedPaths would redirect
+  // /my-rewards to /dashboard even though Sidebar.tsx renders the entry.
+  const showMyRewards = useShowMyRewards(viewingAsMember?.id)
+
   const targetShell: ShellType = useMemo(() => {
     if (!viewingAsMember) return 'mom'
     const dm = viewingAsMember.dashboard_mode as string | null
@@ -176,7 +186,7 @@ export function ViewAsModal() {
 
   // Build allowed routes from the target shell's sidebar sections
   const allowedPaths = useMemo(() => {
-    const sections = getSidebarSections(targetShell)
+    const sections = getSidebarSections(targetShell, { showMyRewards })
     const paths = new Set<string>(['/dashboard', '/settings'])
     for (const section of sections) {
       for (const item of section.items) {
@@ -184,7 +194,7 @@ export function ViewAsModal() {
       }
     }
     return paths
-  }, [targetShell])
+  }, [targetShell, showMyRewards])
 
   const navigate = useCallback((path: string) => {
     const cleanPath = path.split('?')[0]
@@ -281,6 +291,9 @@ export function ViewAsModal() {
         {/* View As banner pinned to top */}
         <div className="shrink-0" style={{ zIndex: 2, position: 'relative' }}>
           <ViewAsBanner />
+          {/* Inactivity warning — mounted only here (inside the open modal) so
+              its idle timers arm exactly while the modal is visible (Conv. #39). */}
+          <ViewAsTimeoutWarningBanner />
         </div>
 
         {/* Shell + page content — scrollable area */}
