@@ -160,6 +160,84 @@ export async function loginAsRiley(page: Page): Promise<void> {
   )
 }
 
+// ─── Real founder-family helpers (View As Identity-Scope build, Worker 5D) ───
+// These authenticate against the REAL founder family (mom = the live Supabase
+// account) and drive the Family Hub kid-PIN flow. Used by the two
+// view_as_sessions.origin smoke tests that verify both write paths in
+// production. Credentials live in .env.local (gitignored).
+
+/**
+ * Log in as the real founder (mom) account via Supabase auth.
+ * Sibling to loginAsMom (which uses the Sarah test family).
+ */
+export async function loginAsMomReal(page: Page): Promise<void> {
+  const email = process.env.E2E_MOM_EMAIL
+  const password = process.env.E2E_MOM_PASSWORD
+  if (!email || !password) {
+    throw new Error(
+      'Missing E2E_MOM_EMAIL or E2E_MOM_PASSWORD in .env.local — ' +
+        'required by loginAsMomReal for the view_as_sessions.origin smoke tests.'
+    )
+  }
+  await loginAs(page, email, password, 'mom-real')
+}
+
+/**
+ * Drive the Family Hub kid-PIN flow as the currently-authenticated mom.
+ *
+ * Navigates to /hub (if not already there), opens the member-access card
+ * matching `memberName`, types `pin` into the HubMemberAuthModal, and waits
+ * for the ViewAsModal (banner) to mount. On return, the View-As modal is
+ * layered over /hub with origin='member_session'.
+ *
+ * Selectors (verified against FamilyHub.tsx / HubMemberAuthModal.tsx / PullTab.tsx):
+ *   - getByRole('button', { name: /family member drawer/i }) — the left-edge
+ *     pull tab that opens the member drawer (standalone /hub uses a slide-in
+ *     <aside>, NOT an inline section)
+ *   - aside button containing the member's full display name — the member row
+ *   - [data-testid="hub-pin-input"] / [data-testid="hub-pin-submit"] — PIN form
+ *
+ * Completion signal: the PIN modal closes (hub-pin-input detaches) once
+ * startViewAs() fires and the auth modal's onClose runs. The View-As modal
+ * itself mounts only briefly here (see the spec note on the modal auto-closing
+ * when the target shell differs from mom's), so the PIN-input detach is the
+ * reliable signal that the member_session row was created.
+ */
+export async function hubPinLogin(
+  page: Page,
+  memberName: string,
+  pin: string
+): Promise<void> {
+  if (!page.url().includes('/hub')) {
+    await page.goto('/hub')
+  }
+  await page.waitForLoadState('networkidle')
+
+  // Dismiss the first-visit onboarding card if it's covering the hub.
+  const gotIt = page.getByText('Got it')
+  if (await gotIt.isVisible().catch(() => false)) {
+    await gotIt.click()
+  }
+
+  // Open the member drawer via the left-edge pull tab.
+  const drawerTab = page.getByRole('button', { name: /family member drawer/i })
+  await drawerTab.waitFor({ state: 'visible', timeout: 15000 })
+  await drawerTab.click()
+
+  // The drawer (<aside>) lists each member as a button labelled with their name.
+  const memberBtn = page.locator('aside button').filter({ hasText: memberName })
+  await memberBtn.first().click()
+
+  // PIN-protected member → the modal renders the PIN form.
+  const pinInput = page.locator('[data-testid="hub-pin-input"]')
+  await pinInput.waitFor({ state: 'visible', timeout: 10000 })
+  await pinInput.fill(pin)
+  await page.locator('[data-testid="hub-pin-submit"]').click()
+
+  // Completion signal: PIN modal closes once startViewAs() + onClose run.
+  await pinInput.waitFor({ state: 'detached', timeout: 15000 })
+}
+
 // ─── Admin-only test helper (SCOPE-2.F48) ────────────────────────────────────
 // DO NOT expand beyond admin-shell tests. This bypasses real Supabase auth
 // by writing a synthetic session to localStorage — it does NOT create an
