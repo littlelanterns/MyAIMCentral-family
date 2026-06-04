@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useId } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { PendingReveal, PresentationMode } from '@/types/contracts'
@@ -6,6 +6,13 @@ import type { PendingReveal, PresentationMode } from '@/types/contracts'
 export function usePendingReveals(memberId: string | undefined) {
   const queryClient = useQueryClient()
   const [activeReveal, setActiveReveal] = useState<PendingReveal | null>(null)
+  // Stable per-hook-instance id. ContractRevealWatcher mounts in every shell, so
+  // View-As (which mounts the target's shell while the viewer's shell is live)
+  // double-mounts this hook. Supabase reuses a channel by exact topic name, so a
+  // shared `pending-reveals-${memberId}` topic causes the second instance to grab
+  // an already-subscribed channel and call `.on()` after `.subscribe()` →
+  // "cannot add postgres_changes callbacks after subscribe()" → black screen.
+  const instanceId = useId()
 
   const { data: pendingReveals = [] } = useQuery({
     queryKey: ['pending-reveals', memberId],
@@ -32,8 +39,9 @@ export function usePendingReveals(memberId: string | undefined) {
 
   useEffect(() => {
     if (!memberId) return
+    // `.on('postgres_changes', ...)` MUST be registered before `.subscribe()`.
     const channel = supabase
-      .channel(`pending-reveals-${memberId}`)
+      .channel(`pending-reveals-${memberId}:${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -56,9 +64,12 @@ export function usePendingReveals(memberId: string | undefined) {
       )
       .subscribe()
     return () => {
+      // removeChannel both unsubscribes and removes the channel from the client
+      // registry so a remount creates a fresh channel rather than reusing a
+      // stale (still-subscribed) one.
       supabase.removeChannel(channel)
     }
-  }, [memberId, queryClient])
+  }, [memberId, instanceId, queryClient])
 
   useEffect(() => {
     if (pendingReveals.length > 0 && !activeReveal) {

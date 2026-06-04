@@ -8,7 +8,7 @@
  * First chat-style Realtime usage in the codebase.
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { MESSAGES_KEY } from '@/hooks/useMessages'
@@ -24,12 +24,19 @@ import { UNREAD_MSG_COUNT_KEY } from '@/hooks/useUnreadMessageCount'
 export function useThreadRealtime(threadId: string | undefined) {
   const queryClient = useQueryClient()
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  // Stable per-hook-instance id. View-As mounts the target's shell while the
+  // viewer's shell is live, so the messages page (and this hook) can double-mount
+  // on the same thread. Supabase reuses a channel by exact topic name, so a shared
+  // `thread-messages:${threadId}` topic causes the second instance to grab an
+  // already-subscribed channel and call `.on()` after `.subscribe()` →
+  // "cannot add postgres_changes callbacks after subscribe()" → black screen.
+  const instanceId = useId()
 
   useEffect(() => {
     if (!threadId) return
 
     const channel = supabase
-      .channel(`thread-messages:${threadId}`)
+      .channel(`thread-messages:${threadId}:${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -66,10 +73,13 @@ export function useThreadRealtime(threadId: string | undefined) {
     channelRef.current = channel
 
     return () => {
-      channel.unsubscribe()
+      // removeChannel both unsubscribes and removes the channel from the client
+      // registry so a remount creates a fresh channel rather than reusing a
+      // stale (still-subscribed) one.
+      supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [threadId, queryClient])
+  }, [threadId, instanceId, queryClient])
 }
 
 /**
@@ -80,12 +90,18 @@ export function useThreadRealtime(threadId: string | undefined) {
 export function useSpacesRealtime(familyId: string | undefined) {
   const queryClient = useQueryClient()
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  // Stable per-hook-instance id. View-As double-mounts this hook (viewer's shell
+  // + the target's shell inside the modal) on the same family. Supabase reuses a
+  // channel by exact topic name, so a shared `spaces-activity:${familyId}` topic
+  // causes the second instance to call `.on()` after `.subscribe()` →
+  // "cannot add postgres_changes callbacks after subscribe()" → black screen.
+  const instanceId = useId()
 
   useEffect(() => {
     if (!familyId) return
 
     const channel = supabase
-      .channel(`spaces-activity:${familyId}`)
+      .channel(`spaces-activity:${familyId}:${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -116,8 +132,11 @@ export function useSpacesRealtime(familyId: string | undefined) {
     channelRef.current = channel
 
     return () => {
-      channel.unsubscribe()
+      // removeChannel both unsubscribes and removes the channel from the client
+      // registry so a remount creates a fresh channel rather than reusing a
+      // stale (still-subscribed) one.
+      supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [familyId, queryClient])
+  }, [familyId, instanceId, queryClient])
 }
