@@ -16,7 +16,6 @@ import { ThemeSelector } from '@/components/ThemeSelector'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { TimerProvider } from '@/features/timer'
 import { RoutingToastProvider } from '@/components/shared'
-import { ViewAsShellWrapper } from '@/features/permissions'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from '@/lib/theme'
 import { useSettings } from '@/components/settings'
@@ -124,7 +123,6 @@ export function MomShell({ children }: MomShellProps) {
     >
       <Sidebar />
 
-      <ViewAsShellWrapper>
       <div ref={mainRef} className="flex-1 flex flex-col min-w-0">
         {/* Floating buttons (top-right) — desktop: full row, mobile: icons only */}
         <div className={`fixed ${isViewingAs ? 'top-12' : 'top-3'} right-3 md:right-12 z-30 flex items-center gap-1.5 md:gap-2 transition-[top] duration-200`}>
@@ -217,7 +215,6 @@ export function MomShell({ children }: MomShellProps) {
           </div>
         )}
       </div>
-      </ViewAsShellWrapper>
 
       {/* Smart Notepad right drawer — desktop pull tab, mobile hidden (accessible via More menu) */}
       <NotepadDrawer />
