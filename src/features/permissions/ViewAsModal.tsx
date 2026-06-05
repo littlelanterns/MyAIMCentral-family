@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useState, useCallback, createContext, useContext, type ReactNode } from 'react'
+import { Lock } from 'lucide-react'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from '@/lib/theme'
 import type { ShellType } from '@/lib/theme'
@@ -147,7 +148,7 @@ function PrivacyBlockedPage() {
         className="w-16 h-16 rounded-full flex items-center justify-center"
         style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)' }}
       >
-        <span className="text-2xl" style={{ color: 'var(--color-btn-primary-bg)' }}>🔒</span>
+        <Lock size={24} style={{ color: 'var(--color-btn-primary-bg)' }} />
       </div>
       <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
         Private Feature
