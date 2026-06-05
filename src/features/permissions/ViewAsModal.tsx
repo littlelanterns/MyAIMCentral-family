@@ -12,6 +12,7 @@ import { IndependentShell } from '@/components/shells/IndependentShell'
 import { GuidedShell } from '@/components/shells/GuidedShell'
 import { PlayShell } from '@/components/shells/PlayShell'
 import { getSidebarSections } from '@/components/shells/Sidebar'
+import { getShellForMember } from '@/components/shells/ShellProvider'
 
 // Page imports
 import { Dashboard } from '@/pages/Dashboard'
@@ -40,6 +41,11 @@ import {
 import { MessagesPage } from '@/pages/MessagesPage'
 import { MeetingsPage } from '@/pages/MeetingsPage'
 import { MyRewardsPage } from '@/pages/MyRewardsPage'
+import { ShoppingModePage } from '@/pages/ShoppingMode'
+import { RhythmsSettingsPage } from '@/pages/RhythmsSettingsPage'
+import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
+import PrizeBoard from '@/pages/PrizeBoard'
+import ContractsPage from '@/pages/ContractsPage'
 import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 
 // ─── Simple state-based navigation for the modal ─────────────
@@ -88,8 +94,11 @@ function renderPage(path: string): ReactNode {
     // Plan & Do
     case '/tasks': return <TasksPage />
     case '/lists': return <ListsPage />
+    case '/shopping-mode': return <ShoppingModePage />
     case '/my-rewards': return <MyRewardsPage />
     case '/studio': return <StudioPage />
+    case '/prize-board': return <PrizeBoard />
+    case '/contracts': return <ContractsPage />
     case '/calendar': return <CalendarPage />
     case '/victories': return <VictoriesPage />
     case '/trackers': return <TrackersPage />
@@ -103,6 +112,7 @@ function renderPage(path: string): ReactNode {
     case '/messages': return <MessagesPage />
     case '/meetings': return <MeetingsPage />
     case '/safe-harbor': return <SafeHarborPage />
+    case '/feeds': return <FamilyFeedsStub />
     case '/family-feed': return <FamilyFeedPage />
 
     // AI & Tools
@@ -112,6 +122,7 @@ function renderPage(path: string): ReactNode {
     case '/bookshelf/prompts': return <JournalPromptsPage />
 
     // Rhythms
+    case '/rhythms/settings': return <RhythmsSettingsPage />
     case '/rhythms/morning': return <MorningRhythmPage />
     case '/rhythms/evening': return <EveningReviewPage />
 
@@ -175,14 +186,17 @@ export function ViewAsModal() {
   // /my-rewards to /dashboard even though Sidebar.tsx renders the entry.
   const showMyRewards = useShowMyRewards(viewingAsMember?.id)
 
+  // Derive the modal's shell from the SAME role-aware mapping the sidebar
+  // uses (getShellForMember). The previous inline derivation keyed on
+  // dashboard_mode ONLY, which disagreed with the sidebar for a
+  // primary_parent target (role → 'mom', but a non-null dashboard_mode like
+  // 'adult' fell through to 'adult'). That mismatch made allowedPaths exclude
+  // mom-only routes the sidebar still rendered (Studio, Prize Board,
+  // RewardRules), so clicking them silently bounced to /dashboard. Single
+  // source of truth fixes the disagreement.
   const targetShell: ShellType = useMemo(() => {
     if (!viewingAsMember) return 'mom'
-    const dm = viewingAsMember.dashboard_mode as string | null
-    if (dm === 'play') return 'play'
-    if (dm === 'guided') return 'guided'
-    if (dm === 'independent') return 'independent'
-    if (dm === 'adult') return 'adult'
-    return 'mom'
+    return getShellForMember(viewingAsMember.role, viewingAsMember.dashboard_mode)
   }, [viewingAsMember])
 
   // Build allowed routes from the target shell's sidebar sections
