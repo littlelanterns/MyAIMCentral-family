@@ -1,5 +1,7 @@
 # Feature Decision: TaskCreationModal — Checkbox Honesty (Visible UI = Saved DB State)
 
+> **CLOSED 2026-06-04 (close-out tidy; build-file status was stale).** Code shipped 2026-05-25 (`970e175`), committed + pushed, in production. Fix verified present: `hasUserInteractedRef` + `editTaskId` instrumentation (13 markers in TaskCreationModal.tsx); vitest harness `tests/task-creation-modal-checkbox-honesty.test.tsx` present. Planned Playwright E2E intentionally dropped per plan ("drop if flaky" — vitest invariant is the proof). Build file archived to `.claude/completed-builds/2026-06/`.
+
 > **Created:** 2026-05-25
 > **PRD:** Not PRD-driven. Bug fix. Reference convention: founder rule "visible UI state IS the saved DB state. No silent overrides."
 > **Companion / proven pattern:** `src/components/templates/RoutineDeployModal.tsx` + `tests/routine-deploy-tracking-honesty.test.tsx` (commit `9523faa`, 2026-05-23).

@@ -16,6 +16,8 @@
 | Build | PRD | Signed off | File |
 |---|---|---|---|
 | View-As — Identity-Scope Architecture | PRD-02 + PRD-14D — View As / Hub PIN re-architected as a modal overlay with identity-scoped data: `useEffectiveMember/Shell/Viewer` hooks, `view_as_sessions.origin` column, `<MomOnlyRoute>` backstop (16 routes), `filterKidPrivate()` helper, hub `member_session` flow, modal inactivity timeout, My Rewards kid stub. Convention #39 rewrite + #272 (realtime channels). 5 crash-detour fixes + cross-shell shell-derivation fix + emoji removal. Migrations 100246 + 100248. 48 reqs / 45 Wired / 2 Stub / 0 Missing. | 2026-06-04 | [view-as-identity-scope-architecture.md](2026-06/view-as-identity-scope-architecture.md) |
+| Living Shopping List & Shopping Mode V1 | PRD-09B — Always-on shopping lists, Recently Purchased tab, purchase history, auto-archive cron, per-section timing + Shopping Mode (cross-list store selection/view + aisle lens). Migration 100230. Code shipped 2026-05-04 (`f2569b7`); closed under opportunistic-eyes-on basis (shipped + pushed + in production). | 2026-06-04 | [prd-09b-living-shopping-list-shopping-mode.md](2026-06/prd-09b-living-shopping-list-shopping-mode.md) |
+| TaskCreationModal — Checkbox Honesty | PRD-09A — Fixes silent revert of task tracking checkboxes (allowance/gamification/homework/etc.) on parent re-render via `hasUserInteractedRef` + `editTaskId`. Vitest invariant; E2E dropped per plan. Code shipped 2026-05-25 (`970e175`). | 2026-06-04 | [taskcreationmodal-checkbox-honesty.md](2026-06/taskcreationmodal-checkbox-honesty.md) |
 
 ### 2026-05
 

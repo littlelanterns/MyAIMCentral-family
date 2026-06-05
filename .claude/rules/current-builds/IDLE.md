@@ -4,15 +4,17 @@
 >
 > Build files in this folder **must not include YAML `paths:` frontmatter** — frontmatter with `paths:` makes the file path-conditional, which breaks the unconditional auto-load pattern this folder relies on.
 
-## Status: ACTIVE BUILDS IN FLIGHT
+## Status: NO ACTIVE BUILDS IN FLIGHT
 
 ### Active builds
 
-- **PRD-09B Living Shopping List & Shopping Mode V1** — parallel build, committed (`f2569b7`), post-build verification pending. Build file: `prd-09b-living-shopping-list-shopping-mode.md` (in this folder).
+- None in flight. **Member-Day Task State** (`member-day-task-state-canonical-source.md`) is PRE-BUILD — awaiting founder sign-off on its decision file + summary before any worker is dispatched.
 
 ### Last signed-off builds
 
 - **View-As — Identity-Scope Architecture** (2026-06-04) — View As + Family Hub PIN flow re-architected as a modal overlay with identity-scoped data. `useEffectiveMember/Shell/Viewer` hooks, `view_as_sessions.origin` column, `<MomOnlyRoute>` backstop (16 routes), `filterKidPrivate()` helper, hub `member_session` flow, modal inactivity timeout + warning banner, My Rewards kid stub. Convention #39 rewritten + #272 (realtime per-instance channels). 5 crash-detour fixes (realtime channel collisions, ErrorBoundary around modal, hub-route modal mount, Family Overview columns, banner theming) + cross-shell shell-derivation fix + emoji removal. Migrations 100246 + 100248. Post-build audit: 48 reqs / 45 Wired / 2 Stub / 0 Missing. Workers 1–7 + 5A–5E. Archived in `.claude/completed-builds/2026-06/view-as-identity-scope-architecture.md`.
+- **PRD-09B — Living Shopping List & Shopping Mode V1** (signed off 2026-06-04; code shipped 2026-05-04 `f2569b7`) — Always-on shopping lists, Recently Purchased tab, purchase history, auto-archive cron, per-section timing; Shopping Mode (cross-list store selection + store view + aisle lens). Migration 100230. V2/V3 items documented as stubs. Closed under opportunistic-eyes-on basis (code shipped + pushed + in production use). Archived in `.claude/completed-builds/2026-06/prd-09b-living-shopping-list-shopping-mode.md`.
+- **TaskCreationModal — Checkbox Honesty** (signed off 2026-06-04; code shipped 2026-05-25 `970e175`) — Fixes silent revert of task tracking checkboxes (allowance/gamification/homework/extra-credit/track-progress/track-duration) on parent re-render, via `hasUserInteractedRef` + `editTaskId` instrumentation. Vitest invariant is the proof; planned E2E intentionally dropped per plan. Archived in `.claude/completed-builds/2026-06/taskcreationmodal-checkbox-honesty.md`.
 - **Phase 3.5 — Multi-Pool Allowance** (2026-05-06) — 14 capabilities, 3 fold-in items, 18 key decisions. Per-pool configs/periods/RPCs, Edge Function per-pool close + cross-pool logic, frontend per-pool widget + multi-pool config + full ledger + compute-then-prompt recalculate + grace day sync + period history grouping. Migrations 100234-100236. 5 workers (A→E). 17 Playwright tests, 0 bugs. 4 stubs. Archived in `.claude/completed-builds/2026-05/phase-3.5-multi-pool-allowance.md`.
 - **Phase 3.8 — Activity Management** (2026-05-05) — Per-item recurrence, ActivityListWizard (6 steps + deploy-target picker), SharedTaskListWizard (5 steps + claim-to-promote + write-back), Play icon launchers, Guided/Independent activity surfaces, reveal animation picker, NLC routing, Task Breaker Vault fix. 5 seeded templates, 3 migrations (100231-100233), 21+ Playwright tests. 68/68 verified. Archived in `.claude/completed-builds/2026-05/phase-3.8-activity-management.md`.
 - **Phase 3.7 — Wizards & Seeded Templates** (2026-05-04) — 3 wizards, 3 seeded templates, NLC entry point, Drafts tab, draft persistence. Migration 100229. 6 Playwright tests. Archived in `.claude/completed-builds/2026-05/phase-3.7-wizards-seeded-templates.md`.

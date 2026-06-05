@@ -1,6 +1,8 @@
 # TaskCreationModal — Checkbox Honesty (Visible UI = Saved DB State)
 
-## Status: ACTIVE (pending founder approval to dispatch code)
+## Status: COMPLETE — signed off 2026-06-04 (close-out tidy; status line was stale)
+
+Code shipped 2026-05-25 (`970e175`), committed + pushed, in production. Fix verified present: `hasUserInteractedRef` + `editTaskId` instrumentation in `TaskCreationModal.tsx` (13 markers); vitest harness `tests/task-creation-modal-checkbox-honesty.test.tsx` present. The planned Playwright E2E was intentionally dropped per the build plan ("drop if flaky" — the vitest invariant is the proof). Archived to `.claude/completed-builds/2026-06/`.
 
 > Frontend bug fix. Same bug class as RoutineDeployModal commit `9523faa` (2026-05-23). Companion build: `prd-09b-living-shopping-list-shopping-mode.md` (post-build verification deferred — do not touch).
 > Feature decision file: `claude/feature-decisions/TaskCreationModal-Checkbox-Honesty.md`.

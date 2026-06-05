@@ -1,5 +1,7 @@
 # Feature Decision File: PRD-09B — Living Shopping List & Shopping Mode
 
+> **CLOSED 2026-06-04 (close-out tidy).** V1 code shipped 2026-05-04 (`f2569b7`), committed + pushed, in production use. Deliverables verified present: migration 100230 (all 6 schema pieces), ShoppingMode page + StoreSelection/StoreView components, `/shopping-mode` route. V2/V3 items remain documented stubs. Mom-UI formal eyes-on not separately recorded — closed under the opportunistic-eyes-on basis (same as View-As Option B). Build file archived to `.claude/completed-builds/2026-06/`.
+
 > **Created:** 2026-05-04
 > **PRD:** `prds/personal-growth/PRD-09B-Lists-Studio-Templates.md`
 > **Addenda read:**

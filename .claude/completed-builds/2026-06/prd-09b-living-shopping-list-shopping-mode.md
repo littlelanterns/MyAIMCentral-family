@@ -1,6 +1,8 @@
 # PRD-09B — Living Shopping List & Shopping Mode (V1)
 
-## Status: ACTIVE
+## Status: COMPLETE — signed off 2026-06-04 (close-out tidy)
+
+Code shipped 2026-05-04 (`f2569b7`), committed + pushed, in production use. V1 deliverables verified present in code: migration `100230` with all 6 schema pieces (`purchase_history`, `list_section_settings`, `is_always_on`, `store_tags`/`store_category`, `include_in_shopping_mode`); `ShoppingMode` page + `ShoppingModeStoreSelection` + `ShoppingModeStoreView` components; `/shopping-mode` route wired. V2/V3 items remain documented stubs (see scope below). Mom-UI formal eyes-on checklist not separately recorded — closed under the opportunistic-eyes-on basis (same as the View-As Option B close). Archived to `.claude/completed-builds/2026-06/`.
 
 ## Source Material
 
