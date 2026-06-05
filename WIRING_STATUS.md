@@ -335,6 +335,21 @@
 | Goal-based pool UX | `pool_type='goal_pool'` schema columns exist, no frontend | Stub | Post-MVP. |
 | Self-managed pool ownership UX | `pool_owner_member_id` schema exists, no frontend | Stub | Post-MVP. |
 
+## View-As Identity-Scope Architecture (2026-05)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| `useEffectiveMember()` / `useEffectiveShell()` / `useEffectiveViewer()` hooks | Return the data-subject (and their shell) inside the View-As modal scope; fall back to `useFamilyMember()` / `useShell()` outside it. `useFamilyMember()`'s 119 callers untouched. | **Wired** | Worker 1. `src/hooks/useEffective*.ts`. ~27 page-level consumers migrated (Workers 3+4). |
+| `view_as_sessions.origin` column | `'mom_viewing' \| 'member_session'` with `DEFAULT 'mom_viewing' CHECK(...)`. Distinguishes mom-initiated vs hub-PIN flows for audit + close behavior. 394 existing rows backfilled. | **Wired** | Worker 1. Migration `00000000100246`. Both values DB-verified in production by 5D Playwright runs. |
+| `<MomOnlyRoute>` backstop | SECONDARY enforcement — renders a friendly blocked card (origin-aware copy, Lucide Lock icon) when a non-mom data subject reaches one of 16 mom-only routes by direct URL/deep-link. PRIMARY enforcement is sidebar invisibility. | **Wired** | Worker 4. `src/lib/permissions/MomOnlyRoute.tsx`. 16 routes guarded in `App.tsx`. |
+| `filterKidPrivate()` helper | Pure helper keyed on `origin`: hides Journal `visibility='private'`, self_knowledge `share_with_mom=false`, and `journal_entries(entry_type='lila_conversation')` from mom-via-View-As; visible to kid-via-hub. | **Wired** | Worker 5A. `src/lib/permissions/filterKidPrivate.ts`. Reflection privacy deferred (Follow-Up G); Safe Harbor stays feature-gated via `PRIVACY_EXCLUSIONS`/`PRIVACY_ROUTE_MAP`. |
+| Hub PIN flow → modal-over-`/hub` | `HubMemberAuthModal` no longer `navigate('/dashboard')`; passes `origin='member_session'` to `startViewAs()`. Modal renders over `/hub`; close returns to `/hub`. | **Wired** | Worker 5B. Commit `d057a6d`. Origin-aware `ViewAsBanner` hides Manage Tasks + Switch in member_session (lateral-escalation gap closed, founder-confirmed KEEP). |
+| `useViewAsTimeout` + warning banner | Modal-only 15-min inactivity timeout with a 2-min non-blocking warning banner + "I'm still here" reset. Separate from `useSessionTimeout`; does not touch mom's auth session. | **Wired** | Worker 5C. `src/hooks/useViewAsTimeout.ts`, `ViewAsTimeoutWarningBanner.tsx`. |
+| My Rewards stub route + `show_my_rewards` toggle | `/my-rewards` (kid-facing `<ProtectedRoute>`) renders `<PlannedExpansionCard featureKey="my_rewards_page" />`. Sidebar entry gated by per-child `family_members.preferences.show_my_rewards` (default false, schema-less default-on-read). | **Wired (stub page)** | Worker 4. Feature key migration `00000000100248` (applied — registry 207→208). Real page content = Follow-Up Build A. |
+| ErrorBoundary around ViewAsModal | New `src/components/shared/ErrorBoundary.tsx` wraps the modal-rendered shell/page (banner + Exit OUTSIDE the boundary). Keyed on `target.id:path` for auto-recovery. Any render crash degrades to a friendly card, never black-screens. | **Wired** | Cross-shell crash detour. Commit `939b730`. Permanent architecture improvement. |
+| Hub-route ViewAsModal mount | `<ViewAsModal />` mounted in `src/pages/Hub.tsx` (HubPage uses `ProtectedRouteNoShell`, outside RoleRouter). `/hub` and shell routes are mutually exclusive → no double-mount. | **Wired** | Cross-shell crash detour. Commit `9d63b1f`. Permanent architecture improvement. |
+| Realtime channel collision sweep | All 4 `postgres_changes` hooks (`useNotifications`, `usePendingReveals`, `useThreadRealtime`, `useSpacesRealtime`) made per-instance-safe (`useId()` channel name, `.on()` before `.subscribe()`, `removeChannel` cleanup). | **Wired** | Cross-shell crash detour. Commits `939b730` + `fa5f644`. Codified as Convention #272. |
+
 ## Known Issues / TODO
 
 - LiLa help button in GuidedFormFillView is a stub (PRD-05 dependency)

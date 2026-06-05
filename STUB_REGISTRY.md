@@ -32,7 +32,7 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Transparency panel (mom side) | PRD-02 | PRD-02 | ✅ Wired | Phase 02 |
 | Teen transparency panel (teen side) | PRD-02 | PRD-02 | ✅ Wired | Remediation |
 | View As sessions | PRD-02 | PRD-02 | ✅ Wired | Phase 02 |
-| View As full-shell mode + banner | PRD-02 | PRD-02 | ✅ Wired | Remediation |
+| View As (modal overlay + identity scope + origin flag) + banner | PRD-02 | View-As Identity-Scope | ✅ Wired | View-As Identity-Scope (2026-05) |
 | View As feature exclusions | PRD-02 | PRD-02 Repair | ✅ Wired | Repair 2026-03-25 |
 | Special Adult Shift View | PRD-02 | PRD-02 | ✅ Wired | Remediation |
 | Shift schedule config | PRD-02 | PRD-35 (access_schedules) | ✅ Wired | Phase 05 |
@@ -44,6 +44,22 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 | Recalculate tier blocks Edge Function | PRD-02/PRD-31 | — | ⏳ Unwired (MVP) | Phase 38 (Stripe) |
 | SA Log Activity form during shifts | PRD-02 | PRD-27 | ⏳ Unwired (MVP) | Phase 31 |
 | Admin user management | PRD-02 | PRD-32 | ✅ Wired | Phase 39 |
+
+## View-As Identity-Scope Architecture Follow-Ups (2026-05)
+
+These are scoped follow-up builds surfaced during the View-As Identity-Scope Architecture build (PRD-02 / PRD-14D / PRD-28, 2026-05). Each awaits its own pre-build audit and feature-decision doc.
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| **A.** My Rewards page content (kid-facing prize/allowance/balance UI) — route `/my-rewards` + sidebar entry + per-child `show_my_rewards` toggle shipped; page is a `PlannedExpansionCard` stub (`my_rewards_page` feature key) | View-As Identity-Scope | — | ⏳ Unwired (MVP) | Follow-up build (own feature-decision doc) |
+| **B.** Special Adult sidebar audit (Convention #40 invisibility follow-up) — reconcile `getSidebarSections('special_adult')` against `permission_level_profiles role_group='special_adult'` | View-As Identity-Scope | — | ⏳ Unwired (MVP) | Follow-up build |
+| **C.** Safe Harbor decommission — PRD-20 status change, convention sweep (#6/#7/#56-59/#243), schema + edge-function + route cleanup. Until then, Safe Harbor stays gated via `PRIVACY_EXCLUSIONS` + `PRIVACY_ROUTE_MAP` | View-As Identity-Scope | — | ⏳ Unwired (MVP) | Follow-up build |
+| **D.** Generated Supabase TypeScript types adoption — add `Database` generic to `createClient`, regenerate `src/types/supabase.ts`, fix surfaced type errors. Closes the typo-safety gap that motivated build-wide Disciplines 1+2 | View-As Identity-Scope | — | 📌 Post-MVP | Follow-up build (own pre-build audit) |
+| **E.** Per-member sidebar customization — layer `member_feature_toggles` (Permission Hub overrides) over the `permission_level_profiles` baseline in `getSidebarSections()`. Foundational dep of Permission Hub usability. Doc: `claude/follow-up-builds/per-member-sidebar-customization.md` | View-As Identity-Scope | — | ⏳ Unwired (MVP) | Follow-up build |
+| **F.** Shopping Mode & Lists visibility scoping — list-level visibility (owner + `list_shares`) on `useShoppingModeStores` so mom's private lists don't leak to teens. Doc: `claude/follow-up-builds/shopping-mode-and-lists-visibility-scoping.md` | View-As Identity-Scope | — | ⏳ Unwired (MVP) | Follow-up build |
+| **G.** Reflections revamp (privacy + Past tab + render shape) — `reflection_responses` has no privacy column; decide whether kid-private support is added, audit the "Visible to parent" indicator, revisit Past tab UX | View-As Identity-Scope | — | ⏳ Unwired (MVP) | Follow-up build |
+
+**Permanent View-As architecture improvements (✅ Wired, not stubs — recorded for traceability):** the ErrorBoundary wrap around the ViewAsModal-rendered shell/page (commit `939b730`, friendly fallback instead of black-screen) and the hub-route ViewAsModal mount in `src/pages/Hub.tsx` (commit `9d63b1f`, so the `/hub` member_session flow can render the kid's view). Both surfaced during the cross-shell crash detour and are permanent.
 
 ## LiLa AI Stubs
 
