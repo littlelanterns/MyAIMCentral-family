@@ -11,7 +11,8 @@ import { useNavigate } from 'react-router-dom'
 import {
   MessageCircle, Search, PenSquare, Loader2, UsersRound,
 } from 'lucide-react'
-import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useConversationSpaces, SPACES_KEY } from '@/hooks/useConversationSpaces'
 import { useAllThreads } from '@/hooks/useConversationThreads'
@@ -130,7 +131,10 @@ function ChatRow({
 
 export function MessagesPage() {
   const navigate = useNavigate()
-  const { data: currentMember } = useFamilyMember()
+  // Data subject for the messaging surface. Inside View-As this is the target;
+  // RLS still evaluates the auth user (mom), so non-participant spaces resolve
+  // empty (Convention #141 boundary preserved). Q5 / Convention #39.
+  const { member: currentMember } = useEffectiveMember()
   const { data: currentFamily } = useFamily()
   const { data: allMembers } = useFamilyMembers(currentFamily?.id)
   const queryClient = useQueryClient()

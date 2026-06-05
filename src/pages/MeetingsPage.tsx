@@ -6,7 +6,8 @@ import {
   X, CheckCircle2, Circle, StickyNote, Save,
 } from 'lucide-react'
 import { useFamily } from '@/hooks/useFamily'
-import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import {
   useMeetingSchedules, useRecentMeetings, useMeetingAgendaItems,
   useDiscussedAgendaItems,
@@ -379,7 +380,12 @@ function MeetingCard({
 
 export function MeetingsPage() {
   const { data: family } = useFamily()
-  const { data: member } = useFamilyMember()
+  // Page-level data subject. Inside View-As this is the target so the meetings
+  // surface identity reflects the viewed member. Meeting sub-components
+  // (conversation/review/schedule editor) keep useFamilyMember() for actor /
+  // facilitator / personal-impression attribution — that must stay the real
+  // human. Convention #39.
+  const { member } = useEffectiveMember()
   const { data: members } = useFamilyMembers(family?.id)
   const familyId = family?.id
   const memberId = member?.id

@@ -62,6 +62,8 @@ import { ApprovalsPlaceholder } from '@/pages/admin/ApprovalsPlaceholder'
 import { PersonasAdminPage } from '@/pages/admin/PersonasAdminPage'
 import { AdminGate } from '@/components/AdminGate'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
+import { MomOnlyRoute } from '@/lib/permissions'
+import { MyRewardsPage } from '@/pages/MyRewardsPage'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
 import { SettingsProvider } from '@/components/settings'
@@ -123,10 +125,14 @@ function App() {
 
               {/* Protected routes — AuthGuard + ShellProvider + RoleRouter */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/family-setup" element={<ProtectedRoute><FamilySetup /></ProtectedRoute>} />
-              <Route path="/family-login-name" element={<ProtectedRoute><FamilyLoginNameSetup /></ProtectedRoute>} />
-              <Route path="/family-members" element={<ProtectedRoute><FamilyMembers /></ProtectedRoute>} />
-              <Route path="/permissions" element={<ProtectedRoute><PermissionHub /></ProtectedRoute>} />
+              {/* Mom-only management surfaces — <MomOnlyRoute> is the SECONDARY
+                  backstop (Convention #39). Primary enforcement is sidebar
+                  invisibility (Worker 2). These block only inside a View-As
+                  session whose data subject is not the primary parent. */}
+              <Route path="/family-setup" element={<MomOnlyRoute><FamilySetup /></MomOnlyRoute>} />
+              <Route path="/family-login-name" element={<MomOnlyRoute><FamilyLoginNameSetup /></MomOnlyRoute>} />
+              <Route path="/family-members" element={<MomOnlyRoute><FamilyMembers /></MomOnlyRoute>} />
+              <Route path="/permissions" element={<MomOnlyRoute><PermissionHub /></MomOnlyRoute>} />
               <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />
               <Route path="/best-intentions" element={<ProtectedRoute><BestIntentionsPage /></ProtectedRoute>} />
               <Route path="/inner-workings" element={<ProtectedRoute><InnerWorkingsPage /></ProtectedRoute>} />
@@ -138,7 +144,7 @@ function App() {
               <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
               <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
               <Route path="/shopping-mode" element={<ProtectedRoute><ShoppingModePage /></ProtectedRoute>} />
-              <Route path="/studio" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
+              <Route path="/studio" element={<MomOnlyRoute><StudioPage /></MomOnlyRoute>} />
               <Route path="/victories" element={<ProtectedRoute><VictoriesPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/trackers" element={<ProtectedRoute><TrackersPage /></ProtectedRoute>} />
@@ -146,9 +152,9 @@ function App() {
               <Route path="/family-context" element={<ProtectedRoute><FamilyContextPage /></ProtectedRoute>} />
               <Route path="/archives" element={<ProtectedRoute><ArchivesPage /></ProtectedRoute>} />
               <Route path="/archives/member/:memberId" element={<ProtectedRoute><MemberArchiveDetail /></ProtectedRoute>} />
-              <Route path="/archives/family-overview" element={<ProtectedRoute><FamilyOverviewDetail /></ProtectedRoute>} />
-              <Route path="/archives/privacy-filtered" element={<ProtectedRoute><PrivacyFilteredPage /></ProtectedRoute>} />
-              <Route path="/archives/export" element={<ProtectedRoute><ContextExportPage /></ProtectedRoute>} />
+              <Route path="/archives/family-overview" element={<MomOnlyRoute><FamilyOverviewDetail /></MomOnlyRoute>} />
+              <Route path="/archives/privacy-filtered" element={<MomOnlyRoute><PrivacyFilteredPage /></MomOnlyRoute>} />
+              <Route path="/archives/export" element={<MomOnlyRoute><ContextExportPage /></MomOnlyRoute>} />
               <Route path="/vault" element={<ProtectedRoute><VaultBrowsePage /></ProtectedRoute>} />
               <Route path="/vault/my-prompts" element={<ProtectedRoute><PersonalPromptLibraryPage /></ProtectedRoute>} />
               <Route path="/reflections" element={<ProtectedRoute><ReflectionsPage /></ProtectedRoute>} />
@@ -162,20 +168,23 @@ function App() {
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               {/* PRD-28: Allowance & Financial routes */}
-              <Route path="/settings/allowance" element={<ProtectedRoute><AllowanceSettingsPage /></ProtectedRoute>} />
-              <Route path="/settings/allowance/:memberId" element={<ProtectedRoute><ChildAllowanceConfigPage /></ProtectedRoute>} />
-              <Route path="/settings/allowance/:memberId/history" element={<ProtectedRoute><RoutineWeekEditPage /></ProtectedRoute>} />
+              <Route path="/settings/allowance" element={<MomOnlyRoute><AllowanceSettingsPage /></MomOnlyRoute>} />
+              <Route path="/settings/allowance/:memberId" element={<MomOnlyRoute><ChildAllowanceConfigPage /></MomOnlyRoute>} />
+              <Route path="/settings/allowance/:memberId/history" element={<MomOnlyRoute><RoutineWeekEditPage /></MomOnlyRoute>} />
               {/* PRD-28: Homework tracking route */}
-              <Route path="/settings/homework" element={<ProtectedRoute><HomeworkSettingsPage /></ProtectedRoute>} />
+              <Route path="/settings/homework" element={<MomOnlyRoute><HomeworkSettingsPage /></MomOnlyRoute>} />
               {/* PRD-24/PRD-26: Gamification settings */}
-              <Route path="/settings/gamification" element={<ProtectedRoute><GamificationSettingsPage /></ProtectedRoute>} />
+              <Route path="/settings/gamification" element={<MomOnlyRoute><GamificationSettingsPage /></MomOnlyRoute>} />
               {/* Reward Reveals library */}
-              <Route path="/settings/reward-reveals" element={<ProtectedRoute><RewardRevealLibrary /></ProtectedRoute>} />
+              <Route path="/settings/reward-reveals" element={<MomOnlyRoute><RewardRevealLibrary /></MomOnlyRoute>} />
               {/* SCOPE-3.F22: Play shell "Fun" tab — dedicated rewards surface */}
               <Route path="/rewards" element={<ProtectedRoute><PlayRewards /></ProtectedRoute>} />
-              {/* Phase 3: Mom-facing prize IOU board */}
-              <Route path="/prize-board" element={<ProtectedRoute><PrizeBoard /></ProtectedRoute>} />
-              <Route path="/contracts" element={<ProtectedRoute><ContractsPage /></ProtectedRoute>} />
+              {/* Kid-facing rewards surface (stub) — visibility gated per-child by
+                  preferences.show_my_rewards (founder Q2a). NOT mom-only. */}
+              <Route path="/my-rewards" element={<ProtectedRoute><MyRewardsPage /></ProtectedRoute>} />
+              {/* Phase 3: Mom-facing prize IOU board — mom-only (Convention #39) */}
+              <Route path="/prize-board" element={<MomOnlyRoute><PrizeBoard /></MomOnlyRoute>} />
+              <Route path="/contracts" element={<MomOnlyRoute><ContractsPage /></MomOnlyRoute>} />
               <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />

@@ -43,7 +43,7 @@ import { useCreateRequest } from '@/hooks/useRequests'
 import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySubmissionModal'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useArchiveExpiredRoutines } from '@/hooks/useArchiveExpiredRoutines'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -121,8 +121,7 @@ type FilterStatus = 'all' | 'active' | 'completed' | 'unassigned' | 'archived'
 export function TasksPage() {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember, isViewAs: isViewingAs } = useEffectiveMember()
   const { data: familyMembers } = useFamilyMembers(family?.id)
   useArchiveExpiredRoutines(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)

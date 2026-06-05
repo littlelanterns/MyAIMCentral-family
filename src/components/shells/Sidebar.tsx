@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Tooltip } from '@/components/shared'
 import { useEdgeSwipe } from '@/hooks/useSwipeGesture'
 import { NavLink, useLocation } from 'react-router-dom'
@@ -10,11 +10,18 @@ import {
   Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle, UsersRound,
   ChevronLeft, ChevronRight, Gift, FileText, ShoppingCart,
 } from 'lucide-react'
-import { useShell } from './ShellProvider'
+import { useEffectiveShell } from '@/hooks/useEffectiveShell'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
+
+// `useShell` is intentionally not imported here — Sidebar derives its
+// shell exclusively via `useEffectiveShell()` so the View-As modal renders
+// the target's nav. ShellProvider still drives shell for the outer
+// MomShell/AdultShell/etc. components.
 
 export interface NavItem {
   label: string
@@ -31,7 +38,85 @@ export interface NavSection {
   collapsible?: boolean
 }
 
-export function getSidebarSections(shell: ShellType): NavSection[] {
+/**
+ * Sidebar sections per shell.
+ *
+ * Mom branch is FROZEN — never touch the items list without explicit
+ * founder approval. Mom is the auth user; her sidebar is the source of
+ * truth for what the platform offers, period.
+ *
+ * Non-mom branches are PRIMARY ENFORCEMENT for *mom-only* surfaces per
+ * the View As Identity-Scope Architecture (Convention #39, founder Q2
+ * locked 2026-05-28). Invisibility-over-blocking applies to **mom-only
+ * management surfaces** — Studio, Prize Board (mom-side admin), and
+ * RewardRules / Contracts. Those three NEVER appear in non-mom shells.
+ *
+ * Everything else stays VISIBLE in the non-mom shell. The founder's
+ * vision is permissive: each non-mom shell shows the items the role
+ * could plausibly use, and the existing layered gating handles whether
+ * a given member can actually use a given item right now:
+ *
+ *   - Layer 1 (tier) — `feature_access_v2` + `useCanAccess()`. Items
+ *     not available at the family's tier render with the existing
+ *     `tierLocked` Lock icon. Once `useCanAccess` is wired post-beta,
+ *     this layer naturally hides/locks items the tier doesn't allow.
+ *   - Layer 2 (mom-toggle, sparse) — `member_feature_toggles`.
+ *     Per-kid Permission Hub overrides flow through this table. The
+ *     authoring UI is a future follow-up build (Follow-Up Build E,
+ *     `claude/follow-up-builds/per-member-sidebar-customization.md`).
+ *   - Layer 3 (granular) — `member_permissions`. Per-target-child
+ *     verb-level access for items mom has toggled on.
+ *
+ * The sidebar config IS NOT a per-kid customizer. It is the shell-wide
+ * default surface for the role. PRD-31 Balanced / Maximum tables are
+ * mom's *suggested defaults for member_feature_toggles*, NOT a ceiling
+ * the sidebar enforces. Conflating the two is the bug this revision
+ * corrects.
+ *
+ * Specific drops vs prior config (founder Q2 — mom-only):
+ *   - Studio — DROPPED from adult + independent. Mom's template
+ *     workshop per PRD-09A/09B Convention #149.
+ *   - Prize Board — DROPPED. Mom's allowance audit + IOU admin per
+ *     Phase 3 Connector Layer. Kid version is the `/my-rewards` stub
+ *     (Worker 4).
+ *   - RewardRules (`/contracts`) — DROPPED. Mom's automation
+ *     switchboard per Phase 3.
+ *
+ * Items NOT in default non-mom config (left alone; not restored):
+ *   - Adult: Archives — Dad does not get Archives by default. Mom can
+ *     toggle on via Permission Hub when Follow-Up Build E ships.
+ *   - Independent: Archives — same. People — left alone, not in prior
+ *     independent config; not adding net-new in this revision.
+ *
+ * New entries (per founder Q2a, per-child gated):
+ *   - "My Rewards" (`/my-rewards`, `my_rewards_page`) — adult,
+ *     independent, and guided shells. Gated by per-child preference
+ *     `family_members.preferences.show_my_rewards` (default false).
+ *     When toggle is OFF, entry stays INVISIBLE. Worker 4 builds the
+ *     page stub, the toggle UI, and registers the feature key.
+ *     PlayShell uses its own bottom nav with the existing "Fun" tab
+ *     (→ /rewards → PlayRewards), which already surfaces per-kid
+ *     sticker book + earned prizes; no separate My Rewards entry
+ *     needed there.
+ *
+ * Revision history:
+ *   - 2026-05-28 (initial Worker 2): over-pruned by treating PRD-31
+ *     Balanced as a strict ceiling. Removed Journal, InnerWorkings,
+ *     LifeLantern, AI Vault, BookShelf from Adult; Touch Base, Shopping
+ *     Mode, InnerWorkings, LifeLantern, AI Vault, BookShelf from
+ *     Independent. Tests codified the absences.
+ *   - 2026-05-28 (revision pass): founder corrected — the sidebar is
+ *     NOT a ceiling; gating is layered. Restored items above. Tests
+ *     rewritten to assert presence of restored items + absence of the
+ *     three mom-only drops.
+ */
+export function getSidebarSections(
+  shell: ShellType,
+  options?: { showMyRewards?: boolean }
+): NavSection[] {
+  const showMyRewards = options?.showMyRewards ?? false
+
+  // -- Reusable nav items ----------------------------------------------------
   const home: NavSection = {
     title: 'Home',
     collapsible: false,
@@ -40,7 +125,16 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const capture: NavSection = {
+  const myRewardsItem: NavItem = {
+    label: 'My Rewards',
+    path: '/my-rewards',
+    featureKey: 'my_rewards_page',
+    icon: <Gift size={20} />,
+    tooltip: 'Your prizes, balance, and earnings',
+  }
+
+  // -- Mom-only constants (used only in the mom branch) ----------------------
+  const momCapture: NavSection = {
     title: 'Capture & Reflect',
     collapsible: true,
     items: [
@@ -53,7 +147,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const plan: NavSection = {
+  const momPlan: NavSection = {
     title: 'Plan & Do',
     collapsible: true,
     items: [
@@ -69,7 +163,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const grow: NavSection = {
+  const momGrow: NavSection = {
     title: 'Grow',
     collapsible: true,
     items: [
@@ -81,7 +175,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const family: NavSection = {
+  const momFamily: NavSection = {
     title: 'Family',
     collapsible: true,
     items: [
@@ -91,7 +185,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const tools: NavSection = {
+  const momTools: NavSection = {
     title: 'AI & Tools',
     collapsible: true,
     items: [
@@ -100,7 +194,7 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
     ],
   }
 
-  const bookshelf: NavSection = {
+  const momBookshelf: NavSection = {
     title: 'BookShelf',
     collapsible: true,
     items: [
@@ -112,44 +206,166 @@ export function getSidebarSections(shell: ShellType): NavSection[] {
 
   switch (shell) {
     case 'mom':
-      return [home, tools, bookshelf, capture, plan, grow, family]
-    case 'adult':
-      return [home, capture, plan, grow, family, {
-        title: 'AI & Tools',
+      // FROZEN — do not modify without explicit founder approval.
+      return [home, momTools, momBookshelf, momCapture, momPlan, momGrow, momFamily]
+
+    case 'adult': {
+      // Adult shell. Mom-only management surfaces dropped (Studio, Prize
+      // Board, RewardRules) per founder Q2. Everything else stays
+      // VISIBLE; tier + per-kid toggle gating is layered elsewhere.
+      const adultCapture: NavSection = {
+        title: 'Capture & Reflect',
+        collapsible: true,
         items: [
-          { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
+          { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
+          { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
+          { label: 'Rhythms', path: '/rhythms/settings', featureKey: 'rhythms_basic', icon: <Sun size={20} />, tooltip: 'Configure morning, evening, and periodic rhythms' },
         ],
-      }, bookshelf]
-    case 'independent':
-      return [home, capture, plan, {
-        ...grow,
-        items: grow.items.filter(i => i.label !== 'LifeLantern'),
-      }, {
+      }
+
+      const adultPlanItems: NavItem[] = [
+        { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
+        { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
+        { label: 'Touch Base', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Keep track of things to talk about with family, kids, and contacts' },
+        { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
+        { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
+        { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
+        // Studio, Prize Board, RewardRules dropped — mom-only per Q2.
+      ]
+      if (showMyRewards) adultPlanItems.push(myRewardsItem)
+
+      const adultPlan: NavSection = { title: 'Plan & Do', collapsible: true, items: adultPlanItems }
+
+      const adultGrow: NavSection = {
+        title: 'Grow',
+        collapsible: true,
+        items: [
+          { label: 'Guiding Stars', path: '/guiding-stars', featureKey: 'guiding_stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
+          { label: 'BestIntentions', path: '/best-intentions', featureKey: 'best_intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
+          { label: 'InnerWorkings', path: '/inner-workings', featureKey: 'my_foundation', icon: <Brain size={20} />, tooltip: 'Self-knowledge and growth' },
+          { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
+          { label: 'LifeLantern', path: '/life-lantern', featureKey: 'lifelantern', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
+        ],
+      }
+
+      const adultFamily: NavSection = {
         title: 'Family',
         collapsible: true,
         items: [
           { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
+          { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
+          { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
         ],
-      }, {
+      }
+
+      // AI & Tools — AI Vault restored. Archives intentionally NOT
+      // included: Dad does not get Archives by default. Mom can add via
+      // Permission Hub when Follow-Up Build E ships.
+      const adultTools: NavSection = {
+        title: 'AI & Tools',
+        collapsible: true,
+        items: [
+          { label: 'AI Vault', path: '/vault', featureKey: 'vault_browse', icon: <Gem size={20} />, tooltip: 'Tutorials, tools, and prompts' },
+        ],
+      }
+
+      // BookShelf section restored — audience-scoped per PRD-23.
+      return [home, adultCapture, adultPlan, adultGrow, adultFamily, adultTools, momBookshelf]
+    }
+
+    case 'independent': {
+      // Independent shell. Mom-only management surfaces dropped
+      // (Studio, Prize Board, RewardRules) per founder Q2. Everything
+      // else stays VISIBLE; tier + per-kid toggle gating is layered.
+      const indCapture: NavSection = {
+        title: 'Capture & Reflect',
+        collapsible: true,
+        items: [
+          { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Capture thoughts and reflect' },
+          { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
+          { label: 'Rhythms', path: '/rhythms/settings', featureKey: 'rhythms_basic', icon: <Sun size={20} />, tooltip: 'Configure morning, evening, and periodic rhythms' },
+        ],
+      }
+
+      const indPlanItems: NavItem[] = [
+        { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
+        { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
+        { label: 'Touch Base', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Meeting agenda and things to talk about' },
+        { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
+        { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
+        { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
+        // Studio, Prize Board, RewardRules dropped — mom-only per Q2.
+      ]
+      if (showMyRewards) indPlanItems.push(myRewardsItem)
+
+      const indPlan: NavSection = { title: 'Plan & Do', collapsible: true, items: indPlanItems }
+
+      const indGrow: NavSection = {
+        title: 'Grow',
+        collapsible: true,
+        items: [
+          { label: 'Guiding Stars', path: '/guiding-stars', featureKey: 'guiding_stars', icon: <Star size={20} />, tooltip: 'Your values and direction' },
+          { label: 'BestIntentions', path: '/best-intentions', featureKey: 'best_intentions', icon: <Target size={20} />, tooltip: 'Your intentions and iterations' },
+          { label: 'InnerWorkings', path: '/inner-workings', featureKey: 'my_foundation', icon: <Brain size={20} />, tooltip: 'Self-knowledge and growth' },
+          { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Celebrate your wins' },
+          // LifeLantern restored — `life_lantern_teen` feature key
+          // exists exactly for this surface.
+          { label: 'LifeLantern', path: '/life-lantern', featureKey: 'life_lantern_teen', icon: <Compass size={20} />, tooltip: 'Life vision and assessment' },
+        ],
+      }
+
+      const indFamily: NavSection = {
+        title: 'Family',
+        collapsible: true,
+        items: [
+          { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
+          // Family Feeds — stub / coming-soon entry per PRD-32A demand
+          // validation. Renders PlannedExpansionCard until PRD-37 ships.
+          { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
+        ],
+      }
+
+      // AI & Tools — AI Vault restored. Archives intentionally NOT
+      // included: teens do not get Archives by default.
+      const indTools: NavSection = {
         title: 'AI & Tools',
         collapsible: true,
         items: [
           { label: 'AI Vault', path: '/vault', featureKey: 'vault_consume', icon: <Gem size={20} />, tooltip: 'AI tutorials and tools' },
         ],
-      }, bookshelf]
-    case 'guided':
-      return [home, {
-        title: 'My Day',
-        items: [
-          { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
-          { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Talk to your family' },
-          { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
-          { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
-          { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
-        ],
-      }, bookshelf]
+      }
+
+      // BookShelf section restored — audience-scoped per PRD-23.
+      return [home, indCapture, indPlan, indGrow, indFamily, indTools, momBookshelf]
+    }
+
+    case 'guided': {
+      // Guided shell verified against PRD-31 Maximum Guided profile.
+      // Existing items (Tasks, Messages, Journal, Reflections, Victories)
+      // confirmed reasonable per audit "OK" classification. BookShelf
+      // retained — audit didn't flag, audience-scoped per PRD-23 build.
+      const guidedMyDayItems: NavItem[] = [
+        { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
+        { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Talk to your family' },
+        { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
+        { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
+        { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
+      ]
+      if (showMyRewards) guidedMyDayItems.push(myRewardsItem)
+
+      return [
+        home,
+        { title: 'My Day', collapsible: false, items: guidedMyDayItems },
+        momBookshelf,
+      ]
+    }
+
     case 'play':
-      return [] // Play shell has no sidebar
+      // Play shell has no sidebar — its own bottom nav handles everything.
+      // The existing "Fun" tab (→ /rewards → PlayRewards) already surfaces
+      // per-kid sticker book + earned prizes, so no separate My Rewards
+      // entry is needed here.
+      return []
   }
 }
 
@@ -298,23 +514,25 @@ function SidebarNavItem({
 }
 
 export function Sidebar() {
-  const { shell: realShell } = useShell()
-  const { isViewingAs, viewingAsMember } = useViewAs()
+  // Effective shell — inside View-As scope this is the target member's
+  // shell; outside, it's the auth user's. Single source of truth in
+  // `useEffectiveShell()`; do NOT re-derive `dashboard_mode → shell` here.
+  // Convention #39 (View As Identity-Scope Architecture).
+  const shell = useEffectiveShell()
   const location = useLocation()
+  // `member` here is the AUTH user, used to persist mom's sidebar
+  // collapsed/expanded preferences regardless of who is being viewed.
+  // Sidebar layout preferences are mom-owned, not target-owned.
   const { data: member } = useFamilyMember()
 
-  // When viewing as another member, show their shell's navigation sections
-  const shell: ShellType = useMemo(() => {
-    if (!isViewingAs || !viewingAsMember) return realShell
-    const role = viewingAsMember.role as string
-    if (role === 'primary_parent') return 'mom'
-    const dm = viewingAsMember.dashboard_mode as string | null
-    if (dm === 'play') return 'play'
-    if (dm === 'guided') return 'guided'
-    if (dm === 'independent') return 'independent'
-    if (dm === 'adult') return 'adult'
-    return 'adult'
-  }, [realShell, isViewingAs, viewingAsMember])
+  // Effective member drives the per-child My Rewards visibility toggle.
+  // Inside View-As mom-viewing: target's preference governs (so mom sees
+  // the same sidebar shape the kid would see). Inside hub member-session:
+  // same. Outside View-As: auth user's preference (mom never sees My
+  // Rewards because her mom-branch shell is FROZEN to ignore it).
+  const { member: effectiveMember } = useEffectiveMember()
+  const showMyRewards = useShowMyRewards(effectiveMember?.id ?? null)
+
   const { collapsed, setCollapsed } = useSidebarPersistence(member?.id ?? null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -328,7 +546,7 @@ export function Sidebar() {
   const isPreview = location.pathname.startsWith('/preview')
   const pathPrefix = isPreview ? '/preview' : ''
 
-  const rawSections = getSidebarSections(shell)
+  const rawSections = getSidebarSections(shell, { showMyRewards })
   const sections = rawSections.map(section => ({
     ...section,
     items: section.items.map(item => ({

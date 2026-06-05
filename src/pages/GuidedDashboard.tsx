@@ -7,7 +7,7 @@
 import { useMemo } from 'react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useGuidedDashboardConfig } from '@/hooks/useGuidedDashboardConfig'
 import { FeatureGuide } from '@/components/shared'
 import {
@@ -36,9 +36,9 @@ interface GuidedDashboardProps {
 export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { viewingAsMember } = useViewAs()
+  const { member: effectiveMember } = useEffectiveMember()
 
-  const displayMember = isViewAsOverlay && viewingAsMember ? viewingAsMember : member
+  const displayMember = isViewAsOverlay ? effectiveMember : member
   const displayMemberId = displayMember?.id
   const displayFamilyId = family?.id
 

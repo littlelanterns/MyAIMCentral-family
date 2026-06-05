@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Plus, Search, Copy, Pencil, Trash2, Sparkles } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { useSavedPrompts } from '../hooks/useSavedPrompts'
 
 export function PersonalPromptLibraryPage() {
-  const { data: member } = useFamilyMember()
+  // Data subject — saved prompts scope to the viewed member inside View-As.
+  // Convention #39.
+  const { member } = useEffectiveMember()
   const {
     prompts,
     loading,

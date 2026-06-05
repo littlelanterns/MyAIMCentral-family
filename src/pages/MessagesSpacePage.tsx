@@ -6,7 +6,7 @@
 
 import { useParams, useNavigate } from 'react-router-dom'
 import { useConversationSpaces } from '@/hooks/useConversationSpaces'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { ConversationSpaceView } from '@/components/messaging/ConversationSpaceView'
 import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -15,7 +15,8 @@ export function MessagesSpacePage() {
   const { spaceId } = useParams<{ spaceId: string }>()
   const navigate = useNavigate()
   const { data: spaces, isLoading } = useConversationSpaces()
-  const { data: currentMember } = useFamilyMember()
+  // Data subject — inside View-As this is the target (Convention #39 / Q5).
+  const { member: currentMember } = useEffectiveMember()
 
   const space = useMemo(() => {
     return spaces?.find(s => s.id === spaceId)

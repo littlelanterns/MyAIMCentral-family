@@ -8,7 +8,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
-import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamily } from '@/hooks/useFamily'
 import { ChatThreadView } from '@/components/messaging/ChatThreadView'
 import { Loader2 } from 'lucide-react'
@@ -18,7 +19,8 @@ import { COACHING_SETTINGS_KEY } from '@/hooks/useMessagingSettings'
 export function MessagesThreadPage() {
   const { threadId } = useParams<{ threadId: string }>()
   const navigate = useNavigate()
-  const { data: currentMember } = useFamilyMember()
+  // Data subject — inside View-As this is the target (Convention #39 / Q5).
+  const { member: currentMember } = useEffectiveMember()
   const { data: currentFamily } = useFamily()
   const { data: allMembers } = useFamilyMembers(currentFamily?.id)
 

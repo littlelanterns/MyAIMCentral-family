@@ -5,9 +5,8 @@
 
 import { useState } from 'react'
 import { Trophy } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { DailyCelebration } from '@/components/victories/DailyCelebration'
 
 interface CelebrateSectionProps {
@@ -19,11 +18,8 @@ interface CelebrateSectionProps {
 
 export function CelebrateSection({ overrideMemberId, overrideMemberName, overrideFamilyId }: CelebrateSectionProps) {
   const [showCelebration, setShowCelebration] = useState(false)
-  const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { viewingAsMember } = useViewAs()
-
-  const displayMember = viewingAsMember ?? member
+  const { member: displayMember } = useEffectiveMember()
   const memberId = overrideMemberId ?? displayMember?.id
   const memberName = overrideMemberName ?? displayMember?.display_name ?? 'Friend'
   const familyId = overrideFamilyId ?? family?.id

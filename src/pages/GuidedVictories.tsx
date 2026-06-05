@@ -7,13 +7,15 @@
 
 import { useState } from 'react'
 import { Trophy, Plus, Sparkles } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useRecentVictories, useCreateVictory, useVictoryCount } from '@/hooks/useVictories'
 import { SimplifiedRecordVictory } from '@/components/victories/SimplifiedRecordVictory'
 import type { VictorySource } from '@/types/victories'
 
 export function GuidedVictories() {
-  const { data: member } = useFamilyMember()
+  // Data subject — victories belong to the viewed member inside View-As, and
+  // recording attributes to them (acting-as semantics). Convention #39.
+  const { member } = useEffectiveMember()
   const [showRecord, setShowRecord] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
 

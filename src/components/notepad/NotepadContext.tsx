@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import {
   useNotepadTabs,
   useCreateNotepadTab,
@@ -43,12 +42,9 @@ const NotepadCtx = createContext<NotepadContextValue | null>(null)
 // ─── Provider ────────────────────────────────────────────────
 
 export function NotepadProvider({ children }: { children: ReactNode }) {
-  const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-
   // In View As mode, load the viewed-as member's notepad
-  const effectiveMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: effectiveMember } = useEffectiveMember()
   const memberId = effectiveMember?.id
   const familyId = family?.id
 

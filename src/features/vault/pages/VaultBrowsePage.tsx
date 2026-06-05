@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Sparkles, MessageSquarePlus, MessageSquare, Library } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 import { VaultHeroSpotlight } from '../components/VaultHeroSpotlight'
 import { VaultCategoryRow } from '../components/VaultCategoryRow'
@@ -16,7 +16,9 @@ import type { VaultItem } from '../hooks/useVaultBrowse'
 type VaultTab = 'browse' | 'conversations'
 
 export function VaultBrowsePage() {
-  const { data: member } = useFamilyMember()
+  // Data subject — vault progress/continue items scope to the viewed member
+  // inside View-As. Convention #39.
+  const { member } = useEffectiveMember()
   const [activeTab, setActiveTab] = useState<VaultTab>('browse')
   const {
     categories,

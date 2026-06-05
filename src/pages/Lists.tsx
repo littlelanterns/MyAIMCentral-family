@@ -22,7 +22,7 @@ import { getMemberColor } from '@/lib/memberColors'
 import { SharedWithHeader } from '@/components/shared/SharedWithHeader'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
@@ -160,8 +160,7 @@ export function ListsPage() {
   const navigate = useNavigate()
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember, isViewAs: isViewingAs } = useEffectiveMember()
   const { data: allLists = [], isLoading } = useLists(family?.id)
   const { data: sharedListIds = [] } = useSharedListIds(isViewingAs ? activeMember?.id : undefined)
   // PRD-09A/09B Studio Intelligence Phase 1: surface sequential collections on the Lists page
@@ -1386,6 +1385,12 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   const { data: list } = useList(listId)
   const { data: items = [], isLoading } = useListItems(listId)
   const { data: member } = useFamilyMember()
+  // Data subject — drives the shell-variant pick (getMemberType) so mom viewing
+  // as a guided/play/teen kid sees the kid's list variant, not the adult one.
+  // All other member.id usages below stay on useFamilyMember() (the auth user)
+  // because they are write-attribution (ownership, claims, save-as-template).
+  // Convention #39.
+  const { member: effectiveMember } = useEffectiveMember()
   const { data: family } = useFamily()
   const createItem = useCreateListItem()
   const toggleItem = useToggleListItem()
@@ -1840,10 +1845,10 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   }
 
   function getMemberType() {
-    if (!member) return 'adult' as const
-    if (member.dashboard_mode === 'guided') return 'guided' as const
-    if (member.dashboard_mode === 'play') return 'play' as const
-    if (member.dashboard_mode === 'independent') return 'teen' as const
+    if (!effectiveMember) return 'adult' as const
+    if (effectiveMember.dashboard_mode === 'guided') return 'guided' as const
+    if (effectiveMember.dashboard_mode === 'play') return 'play' as const
+    if (effectiveMember.dashboard_mode === 'independent') return 'teen' as const
     return 'adult' as const
   }
 

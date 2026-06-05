@@ -22,7 +22,7 @@ import { getMemberColor } from '@/lib/memberColors'
 import { MiniCalendarPicker } from '@/components/shared/MiniCalendarPicker'
 import { useEventsForRange, useTasksDueInRange, useCalendarSettings } from '@/hooks/useCalendarEvents'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useUpdateTask, useCompleteTask } from '@/hooks/useTasks'
 import { DateDetailModal } from './DateDetailModal'
@@ -114,7 +114,10 @@ export function CalendarPage() {
   const navigate = useNavigate()
   const { data: settings } = useCalendarSettings()
   const { data: family } = useFamily()
-  const { data: member } = useFamilyMember()
+  // Data subject for the calendar surface. Inside View-As this is the target
+  // (so the "me" filter, pending counts, and primary_parent-only affordances
+  // reflect the viewed member); outside, the auth user. Convention #39.
+  const { member } = useEffectiveMember()
   const { data: familyMembers } = useFamilyMembers(family?.id)
   const weekStartDay = (settings?.week_start_day ?? 0) as 0 | 1
   const dayHeaders = weekStartDay === 1 ? DAY_HEADERS_MON : DAY_HEADERS_SUN

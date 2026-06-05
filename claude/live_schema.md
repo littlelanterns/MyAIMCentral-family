@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-19
+> Auto-generated from live Supabase on 2026-05-28
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 371 rows
+### `view_as_sessions` — 394 rows
 
 | # | Column |
 |---|---|
@@ -133,8 +133,9 @@
 | 4 | `viewing_as_id` |
 | 5 | `started_at` |
 | 6 | `ended_at` |
+| 7 | `origin` |
 
-### `view_as_feature_exclusions` — 253 rows
+### `view_as_feature_exclusions` — 276 rows
 
 | # | Column |
 |---|---|
@@ -224,7 +225,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 207 rows
+### `feature_key_registry` — 208 rows
 
 | # | Column |
 |---|---|
@@ -392,7 +393,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 650 rows
+### `ai_usage_tracking` — 657 rows
 
 | # | Column |
 |---|---|
@@ -461,7 +462,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 34 rows
+### `intention_iterations` — 36 rows
 
 | # | Column |
 |---|---|
@@ -498,7 +499,7 @@
 | 17 | `sort_order` |
 | 18 | `archived_at` |
 
-### `journal_entries` — 105 rows
+### `journal_entries` — 108 rows
 
 | # | Column |
 |---|---|
@@ -527,7 +528,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 23 rows
+### `notepad_tabs` — 24 rows
 
 | # | Column |
 |---|---|
@@ -660,7 +661,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 158 rows
+### `tasks` — 162 rows
 
 | # | Column |
 |---|---|
@@ -745,7 +746,7 @@
 | 79 | `life_area_tags` |
 | 80 | `pool_id` |
 
-### `task_assignments` — 42 rows
+### `task_assignments` — 46 rows
 
 | # | Column |
 |---|---|
@@ -786,7 +787,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1144 rows
+### `routine_step_completions` — 1436 rows
 
 | # | Column |
 |---|---|
@@ -851,7 +852,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 27 rows
+### `studio_queue` — 28 rows
 
 | # | Column |
 |---|---|
@@ -1156,7 +1157,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 37 rows
+### `calendar_events` — 38 rows
 
 | # | Column |
 |---|---|
@@ -2391,7 +2392,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 10 rows
+### `mindsweep_events` — 11 rows
 
 | # | Column |
 |---|---|
@@ -2485,7 +2486,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 271 rows
+### `activity_log_entries` — 281 rows
 
 | # | Column |
 |---|---|
@@ -2659,7 +2660,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 25 rows
+### `allowance_periods` — 30 rows
 
 | # | Column |
 |---|---|
@@ -2914,7 +2915,7 @@
 | 13 | `source` |
 | 14 | `created_at` |
 
-### `deed_firings` — 4 rows
+### `deed_firings` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2988,7 +2989,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 39 rows
+### `financial_transactions` — 54 rows
 
 | # | Column |
 |---|---|
@@ -3553,7 +3554,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `reflection_responses` — 96 rows
+### `reflection_responses` — 99 rows
 
 | # | Column |
 |---|---|
@@ -3666,7 +3667,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 28 rows
+### `rhythm_completions` — 33 rows
 
 | # | Column |
 |---|---|

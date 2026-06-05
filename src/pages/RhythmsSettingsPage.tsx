@@ -15,7 +15,7 @@ import { Settings, Sun, Moon, Calendar as CalendarIcon, Eye } from 'lucide-react
 import { FeatureGuide } from '@/components/shared'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import {
   useRhythmConfigs,
   useUpdateRhythmConfig,
@@ -36,9 +36,8 @@ export function RhythmsSettingsPage() {
   const { data: family } = useFamily()
   const { data: viewer } = useFamilyMember()
   const { data: familyMembers = [] } = useFamilyMembers(family?.id)
-  const { isViewingAs, viewingAsMember } = useViewAs()
   const isMom = viewer?.role === 'primary_parent'
-  const activeViewer = isViewingAs && viewingAsMember ? viewingAsMember : viewer
+  const { member: activeViewer } = useEffectiveMember()
 
   // Mom can configure any family member; others see only their own
   const [selectedMemberId, setSelectedMemberId] = useState<string | undefined>(activeViewer?.id)

@@ -1,7 +1,6 @@
 import { Trophy, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useRecentVictories } from '@/hooks/useVictories'
 import type { DashboardWidget } from '@/types/widgets'
 
@@ -23,9 +22,15 @@ function timeAgo(dateStr: string): string {
 
 export function InfoRecentVictories({ widget, isCompact: _isCompact }: Props) {
   const navigate = useNavigate()
-  const { data: member } = useFamilyMember()
-  const { viewingAsMember } = useViewAs()
-  const memberId = viewingAsMember?.id ?? widget.family_member_id ?? member?.id
+  // Q8 (View-As Identity-Scope, 2026-05-28): widget intent is "data subject for
+  // the current render." `useEffectiveMember()` resolves to the View-As target
+  // inside the modal, falling back to the auth user otherwise — so the
+  // widget config (`widget.family_member_id`) still takes precedence when the
+  // dashboard owner has pinned the widget to a specific member.
+  const { member: effectiveMember, isViewAs } = useEffectiveMember()
+  const memberId = isViewAs
+    ? effectiveMember?.id
+    : (widget.family_member_id ?? effectiveMember?.id)
   const { data: victories = [] } = useRecentVictories(memberId, 3)
 
   return (

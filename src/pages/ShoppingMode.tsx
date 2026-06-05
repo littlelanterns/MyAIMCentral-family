@@ -7,18 +7,15 @@
 
 import { useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useShoppingModeStores, useShoppingModeItems } from '@/hooks/useShoppingMode'
 import { ShoppingModeStoreSelection } from '@/components/shopping-mode/ShoppingModeStoreSelection'
 import { ShoppingModeStoreView } from '@/components/shopping-mode/ShoppingModeStoreView'
 
 export function ShoppingModePage() {
-  const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember } = useEffectiveMember()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 

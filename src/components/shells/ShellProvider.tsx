@@ -28,8 +28,12 @@ export function useShell() {
  * Role = structural identity (4 values). Dashboard mode = experience shell.
  * primary_parent always gets MomShell (no dashboard_mode needed).
  * All others use dashboard_mode to determine shell.
+ *
+ * Exported so View-As consumers (useEffectiveShell) can derive a target
+ * member's shell without duplicating the mapping. Single source of truth
+ * for role × dashboard_mode → ShellType.
  */
-function getShellForMember(role: string, dashboardMode: string | null): ShellType {
+export function getShellForMember(role: string, dashboardMode: string | null): ShellType {
   if (role === 'primary_parent') return 'mom'
   if (dashboardMode === 'independent') return 'independent'
   if (dashboardMode === 'guided') return 'guided'

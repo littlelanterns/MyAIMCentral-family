@@ -5,7 +5,7 @@ import { FeatureIcon, BulkAddWithAI, CollapsibleGroup, SparkleOverlay, Badge, To
 import type { TrackerAnalyticsDataSeries } from '@/components/shared'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useWidgets, useCreateWidget } from '@/hooks/useWidgets'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import { getMemberColor } from '@/lib/memberColors'
@@ -809,8 +809,7 @@ export function BestIntentionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember } = useEffectiveMember()
   const { data: intentions = [], isLoading } = useBestIntentions(activeMember?.id)
   const { data: archivedIntentions = [] } = useArchivedIntentions(activeMember?.id)
   const createIntention = useCreateBestIntention()

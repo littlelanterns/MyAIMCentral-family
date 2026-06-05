@@ -7,9 +7,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, PenLine, MessageCircle, Sparkles } from 'lucide-react'
 import { useWriteDrawer } from '@/hooks/useWriteDrawer'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useGuidedDashboardConfig } from '@/hooks/useGuidedDashboardConfig'
 import { WriteDrawerNotepad } from './WriteDrawerNotepad'
 import { WriteDrawerMessages } from './WriteDrawerMessages'
@@ -17,10 +16,8 @@ import { WriteDrawerReflections } from './WriteDrawerReflections'
 
 export function WriteDrawer() {
   const { isOpen, activeTab, setActiveTab, closeDrawer } = useWriteDrawer()
-  const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember } = useEffectiveMember()
   const { preferences } = useGuidedDashboardConfig(family?.id, activeMember?.id)
   const drawerRef = useRef<HTMLDivElement>(null)
 

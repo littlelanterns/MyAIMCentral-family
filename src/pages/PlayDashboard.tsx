@@ -34,7 +34,7 @@ import { useGamificationTheme } from '@/hooks/useGamificationTheme'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamilyToday } from '@/hooks/useFamilyToday'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
 import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
 import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBookWidget'
@@ -61,13 +61,12 @@ import {
 } from '@/types/gamification'
 
 export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashboardProps) {
-  const { viewingAsMember } = useViewAs()
   const { data: ownMember } = useFamilyMember()
+  const { member: effectiveMember } = useEffectiveMember()
 
   // When inside View As, prefer the viewed member; otherwise the
   // member resolved by useFamilyMember (the logged-in user).
-  const displayMember =
-    isViewAsOverlay && viewingAsMember ? viewingAsMember : ownMember
+  const displayMember = isViewAsOverlay ? effectiveMember : ownMember
 
   // Adults viewing a kid's dashboard can redraw randomizer activities
   const isAdultViewing = ownMember?.role === 'primary_parent' || ownMember?.role === 'additional_adult'

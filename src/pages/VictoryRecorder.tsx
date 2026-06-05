@@ -2,7 +2,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Trophy, Plus, Star, Sparkles, Clock, ChevronRight, ChevronDown, MessageSquarePlus, Archive } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useVictories, useVictoryCount, useLifeAreaBreakdown, useArchivedVictories } from '@/hooks/useVictories'
 import { startOfLocalDayUtc, endOfLocalDayUtc } from '@/utils/dates'
 import { RecordVictory } from '@/components/victories/RecordVictory'
@@ -38,7 +38,9 @@ function formatDate(dateStr: string): string {
 }
 
 export function VictoryRecorder() {
-  const { data: member } = useFamilyMember()
+  // Data subject — victories belong to the viewed member inside View-As, and
+  // recording attributes to them (acting-as semantics). Convention #39.
+  const { member } = useEffectiveMember()
   const [searchParams] = useSearchParams()
   const [filters, setFilters] = useState<VictoryFilters>({
     period: 'today',

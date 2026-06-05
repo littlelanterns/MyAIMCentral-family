@@ -10,8 +10,7 @@
  */
 
 import { Moon } from 'lucide-react'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 
 interface Props {
   /**
@@ -22,9 +21,7 @@ interface Props {
 }
 
 export function EveningGreetingSection({ variant = 'adult' }: Props) {
-  const { data: member } = useFamilyMember()
-  const { isViewingAs, viewingAsMember } = useViewAs()
-  const activeMember = isViewingAs && viewingAsMember ? viewingAsMember : member
+  const { member: activeMember } = useEffectiveMember()
   const name = activeMember?.display_name?.split(' ')[0] ?? ''
 
   const headline =

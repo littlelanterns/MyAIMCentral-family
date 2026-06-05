@@ -1,13 +1,18 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Home, CheckSquare, Library, Gem, MoreHorizontal, X, ChevronRight, Info } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useShell } from './ShellProvider'
-import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveShell } from '@/hooks/useEffectiveShell'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 import { useTheme } from '@/lib/theme'
-import type { ShellType } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
 import { getSidebarSections, type NavSection } from './Sidebar'
+
+// `useShell` is intentionally not imported here — BottomNav derives its
+// shell exclusively via `useEffectiveShell()` so the View-As modal
+// renders the target's More menu. ShellProvider still drives shell for
+// the outer shells. Convention #39.
 
 /**
  * Mobile-only bottom navigation bar (PRD-04).
@@ -67,31 +72,28 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [showDescriptions, setShowDescriptions] = useState(false)
   const location = useLocation()
+  // Auth user — drives the "member" pill at the top of the More menu
+  // (whose avatar appears, etc.). Stays as the auth user even inside
+  // View-As because the More menu header reflects the human at the
+  // device, not the viewed target.
   const { data: member } = useFamilyMember()
-  const { shell: realShell } = useShell()
-  const { isViewingAs, viewingAsMember } = useViewAs()
+  // Effective shell — drives WHICH sections render in the More menu.
+  // Single source of truth in `useEffectiveShell()`. Convention #39.
+  const shell = useEffectiveShell()
+  // Effective member — drives the per-child My Rewards toggle in the
+  // More menu, mirroring Sidebar.tsx exactly per Convention #16.
+  const { member: effectiveMember } = useEffectiveMember()
+  const showMyRewards = useShowMyRewards(effectiveMember?.id ?? null)
   const iconUrls = useBottomNavIcons()
-
-  // When viewing as another member, show their shell's navigation
-  const shell: ShellType = useMemo(() => {
-    if (!isViewingAs || !viewingAsMember) return realShell
-    const role = viewingAsMember.role as string
-    if (role === 'primary_parent') return 'mom'
-    const dm = viewingAsMember.dashboard_mode as string | null
-    if (dm === 'play') return 'play'
-    if (dm === 'guided') return 'guided'
-    if (dm === 'independent') return 'independent'
-    if (dm === 'adult') return 'adult'
-    return 'adult'
-  }, [realShell, isViewingAs, viewingAsMember])
 
   // Guided and play shells handle their own navigation
   if (shell === 'guided' || shell === 'play') return null
 
   // Mirror the desktop sidebar exactly — same sections, same items, same
   // order — and just drop anything already pinned to the bottom tab bar.
-  // This is the only place the More menu structure should ever be defined.
-  const moreSections: NavSection[] = getSidebarSections(shell)
+  // Convention #16: this is the only place the More menu structure should
+  // ever be defined; both navs read from `getSidebarSections`.
+  const moreSections: NavSection[] = getSidebarSections(shell, { showMyRewards })
     .map(section => ({
       ...section,
       items: section.items.filter(item => !BOTTOM_NAV_PATHS.has(item.path)),

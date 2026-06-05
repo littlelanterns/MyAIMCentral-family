@@ -5,6 +5,7 @@ import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useShell } from '@/components/shells/ShellProvider'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { PerspectiveSwitcher } from '@/components/shells/PerspectiveSwitcher'
 import type { DashboardView } from '@/components/shells/PerspectiveSwitcher'
 import { DashboardTasksSection } from '@/components/tasks/DashboardTasksSection'
@@ -55,7 +56,8 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   const { data: family } = useFamily()
   const { data: familyMembers } = useFamilyMembers(member?.family_id)
   const { shell: _shell } = useShell()
-  const { isViewingAs, viewingAsMember, startViewAs, stopViewAs: _stopViewAs } = useViewAs()
+  const { startViewAs, stopViewAs: _stopViewAs } = useViewAs()
+  const { member: effectiveMember, isViewAs: isViewingAs } = useEffectiveMember()
   const [perspective, setPerspective] = useState<DashboardView>('personal')
   // PRD-14D: Hub renders INLINE on perspective tab — no navigation to /hub
 
@@ -69,7 +71,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
 
   // When isViewAsOverlay=true (inside ViewAsModal), show the viewed member's data.
   // When false (main page underneath), always show mom's own data.
-  const displayMemberId = (isViewAsOverlay && viewingAsMember?.id) || member?.id
+  const displayMemberId = isViewAsOverlay ? effectiveMember?.id : member?.id
   const displayFamilyId = family?.id
   useArchiveExpiredRoutines(displayFamilyId)
 
@@ -452,7 +454,7 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
     return 'Good evening'
   })()
 
-  const displayMember = isViewAsOverlay && viewingAsMember ? viewingAsMember : member
+  const displayMember = isViewAsOverlay ? effectiveMember : member
   const otherMembers = familyMembers?.filter((m) => m.id !== member?.id) ?? []
   const hasFamily = otherMembers.length > 0
   const isMom = member?.role === 'primary_parent'
