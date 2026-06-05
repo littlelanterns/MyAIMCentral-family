@@ -23,6 +23,7 @@ playwright-report/
 test-results/
 tests/e2e/.auth/
 tests/e2e/.screenshots/
+tests/e2e/screenshots/
 
 # IDE
 .vscode/*
