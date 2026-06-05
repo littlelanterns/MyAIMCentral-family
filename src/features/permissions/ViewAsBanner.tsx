@@ -63,8 +63,9 @@ export function ViewAsBanner() {
         aria-live="polite"
         className="fixed top-0 left-0 right-0 z-45 flex items-center justify-between gap-2 px-4 py-2 text-sm font-medium select-none"
         style={{
-          backgroundColor: 'var(--color-golden-honey, #d6a461)',
+          backgroundColor: 'var(--surface-primary, var(--color-btn-primary-bg))',
           color: 'var(--color-text-on-primary, #fff)',
+          borderBottom: '1px solid var(--color-accent-deep, var(--color-border-default))',
           zIndex: 45,
         }}
       >

@@ -46,13 +46,13 @@ export function ViewAsTimeoutWarningBanner() {
       aria-live="polite"
       className="flex items-center justify-between gap-3 px-4 py-2 text-xs font-medium"
       style={{
-        backgroundColor: 'color-mix(in srgb, var(--color-golden-honey, #d6a461) 18%, var(--color-bg-card))',
+        backgroundColor: 'color-mix(in srgb, var(--color-accent-deep) 18%, var(--color-bg-card))',
         color: 'var(--color-text-primary)',
-        borderBottom: '1px solid var(--color-golden-honey, #d6a461)',
+        borderBottom: '1px solid var(--color-accent-deep)',
       }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <Clock size={14} className="shrink-0" style={{ color: 'var(--color-golden-honey, #d6a461)' }} />
+        <Clock size={14} className="shrink-0" style={{ color: 'var(--color-accent-deep)' }} />
         <span className="truncate">View As session will end in 2 minutes. Tap to keep going.</span>
       </div>
       <button
