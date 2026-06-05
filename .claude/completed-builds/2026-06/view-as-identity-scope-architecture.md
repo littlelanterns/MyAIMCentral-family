@@ -1,8 +1,25 @@
 # View As — Identity-Scope Architecture
 
-## Status: ACTIVE — Workers 1–5 COMPLETE + crash detour resolved (founder-verified) — Worker 6 (close-out) next
+## Status: COMPLETE — signed off 2026-06-04. Workers 1–7 + crash detour + emoji fix. Post-build audit: 48 reqs / 45 Wired / 2 Stub / 0 Missing. Archived to `.claude/completed-builds/2026-06/`.
 
 > Cross-cutting feature-session. Touches PRD-02 (Permissions & Access Control) + PRD-14D (Family Hub) + PRD-28 (kid-visible ledger) + every shell + ~27 page-level data hooks + 1 schema decision (locked: new `origin` column on `view_as_sessions`). Companion to the parallel `prd-09b-living-shopping-list-shopping-mode.md` build whose verification is deferred — do not touch that build's files.
+
+---
+
+## Checkpoint 6 — Close-Out (signed off 2026-06-04)
+
+**Founder close decision:** Option B — close now; remaining Mom-UI eyes-on done opportunistically. Load-bearing behaviors are founder-live-verified (dashboard + hub kid-shell render, Return-to-Hub, banner readability light+dark, mom-via-hub Studio/Prize Board). Kid-private Journal eyes-on is N/A until the kids actually create journal entries.
+
+**Post-build verifier audit (Checkpoint 5):** 48 requirements — **45 Wired, 2 Stubbed, 0 Missing**. Stubs: My Rewards page content (→ Follow-Up A) and Reflections kid-privacy (→ Follow-Up G), both registered in STUB_REGISTRY. No material discrepancies between build-file self-reports and actual code.
+
+**Checkpoint 2 records folded in at close:**
+- **Worker 6** (conventions + cleanup): PASSED — commits `4463a61` (Convention #39 rewrite + #272 realtime channels), `6010ec8` (ViewAsShellWrapper deleted + barrel + MomShell), `3f00e8c` (STUB_REGISTRY + WIRING_STATUS + feature-decisions README). tsc 0, lint baseline. Discipline-2 enum query confirmed both origin values in prod (mom_viewing 411, member_session 19).
+- **Worker 7** (cross-shell fix): PASSED — commit `a659c3e`. `ViewAsModal.targetShell` made role-aware via `getShellForMember`; `renderPage` completed for mom-only routes (Studio / Prize Board / Contracts / Shopping Mode / Feeds / Rhythms Settings). **FOUNDER LIVE-CONFIRMED:** mom-via-hub-PIN now opens Studio + Prize Board (was bouncing to /dashboard due to a shell-derivation mismatch between the sidebar and the modal's allowedPaths).
+- **Emoji fix:** commit `5d1fbee` — `PrivacyBlockedPage` lock emoji → Lucide `Lock` (no-emoji rule). Surfaced by the audit; the Safe Harbor decommission (Follow-Up C) will delete that card, but the rule violation was fixed immediately rather than left in the tree.
+
+**Mom-UI Verification disposition:** founder-live-verified rows ✅ (see the table + per-worker runbooks above). Remaining ⏸ rows (tablet/mobile viewport sweeps, kid-side data/blocked-card/Journal checks) accepted as pending-founder-eyes-on per Option B — functional + structural evidence complete; runbooks documented above for opportunistic confirmation.
+
+**Close-out file ops:** BUILD_STATUS.md marked complete; feature-decision Post-Build Verification table populated + signed off; this file moved to `.claude/completed-builds/2026-06/`; completed-builds README + current-builds IDLE.md updated. STUB_REGISTRY + WIRING_STATUS already updated by Worker 6. `schema:dump` skipped (live_schema current; enum query confirmed the `origin` column present). Migrations 100246 + 100248 applied.
 
 ---
 

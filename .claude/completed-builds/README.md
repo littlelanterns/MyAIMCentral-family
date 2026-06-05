@@ -11,6 +11,12 @@
 
 ## Index
 
+### 2026-06
+
+| Build | PRD | Signed off | File |
+|---|---|---|---|
+| View-As — Identity-Scope Architecture | PRD-02 + PRD-14D — View As / Hub PIN re-architected as a modal overlay with identity-scoped data: `useEffectiveMember/Shell/Viewer` hooks, `view_as_sessions.origin` column, `<MomOnlyRoute>` backstop (16 routes), `filterKidPrivate()` helper, hub `member_session` flow, modal inactivity timeout, My Rewards kid stub. Convention #39 rewrite + #272 (realtime channels). 5 crash-detour fixes + cross-shell shell-derivation fix + emoji removal. Migrations 100246 + 100248. 48 reqs / 45 Wired / 2 Stub / 0 Missing. | 2026-06-04 | [view-as-identity-scope-architecture.md](2026-06/view-as-identity-scope-architecture.md) |
+
 ### 2026-05
 
 | Build | PRD | Signed off | File |

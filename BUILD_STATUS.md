@@ -1,6 +1,6 @@
 # Build Status — MyAIM Central v2
 
-> Last updated: 2026-05-05
+> Last updated: 2026-06-04
 
 ## Foundation Phases (Complete)
 
@@ -83,3 +83,4 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | Phase 3.5 | Multi-Pool Allowance | Restructure allowance for per-kid multi-pool support with cross-pool conditions, term-length pools, weighted combinations. Per-pool configs, periods, RPCs; Edge Function per-pool close + cross-pool logic; frontend per-pool widget, multi-pool config, full ledger, compute-then-prompt recalculate, grace day sync, period history grouping. Migrations 100234-100236. 17 Playwright tests. | **Complete** | 2026-05-06 |
 | Phase 3.7 | Wizards & Templates | Three outcome-named wizards (Rewards List, Repeated Action Chart, List+Reveal+Assignment) + three seeded templates (Potty Chart, Consequence Spinner, Extra Earning Opportunities) + NLC entry point + Drafts tab + draft persistence. Migration 100229. 6 Playwright tests. | **Complete** | 2026-05-04 |
 | Phase 3.8 | Activity Management | Per-item recurrence, ActivityListWizard (6 steps + deploy-target picker), SharedTaskListWizard (5 steps + claim-to-promote + write-back), Play icon launchers, Guided/Independent activity surfaces, reveal animation picker, NLC routing, Task Breaker Vault fix. 5 seeded templates, 3 migrations (100231-100233), 21+ Playwright tests. | **Complete** | 2026-05-05 |
+| View-As | Identity-Scope Architecture | View As + Family Hub PIN flow re-architected as a modal overlay with identity-scoped data: `useEffectiveMember/Shell/Viewer` hooks, `view_as_sessions.origin` column, `<MomOnlyRoute>` backstop (16 routes), `filterKidPrivate()` helper, hub `origin='member_session'` flow, modal inactivity timeout + warning banner, My Rewards kid stub. Convention #39 rewritten + #272 (realtime per-instance channels). 5 detour fixes (realtime channel collisions, ErrorBoundary around modal, hub-route modal mount, Family Overview columns, banner theming) + cross-shell shell-derivation fix + emoji removal. Migrations 100246 + 100248. Post-build audit: 48 reqs / 45 Wired / 2 Stub / 0 Missing. Archived `.claude/completed-builds/2026-06/`. | **Complete** | 2026-06-04 |

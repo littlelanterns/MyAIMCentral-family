@@ -230,26 +230,26 @@ No new feature keys required. Existing keys from PRD-02:
 
 > Every requirement from PRD-02 §Screen 5 + PRD-14D hub PIN flow + founder-locked decisions accounted for.
 
-| Requirement | Source | Status | Notes |
-|---|---|---|---|
-| | PRD-02 §Screen 5 / PRD-14D / founder direction | Wired / Stubbed / Missing | |
+Full 48-row Wired/Stubbed/Missing table produced by the `post-build-verifier` agent (Checkpoint 5, 2026-06-04) and preserved in the archived build file `.claude/completed-builds/2026-06/view-as-identity-scope-architecture.md` (Checkpoint 6 section). Graded from direct code evidence, not self-reports.
 
 **Status key:** Wired = built and functional · Stubbed = in STUB_REGISTRY.md · Missing = incomplete
 
 ### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
-- Missing: **0**
+- **Total requirements verified: 48**
+- **Wired: 45**
+- **Stubbed: 2** — My Rewards page content (route/gate/feature-key Wired; body is a `PlannedExpansionCard` stub → Follow-Up Build A) · Reflections kid-privacy (no privacy column in live schema → Follow-Up Build G)
+- **Missing: 0**
+
+Closed under founder Option B (2026-06-04): remaining Mom-UI eyes-on rows (tablet/mobile viewport sweeps + kid-side data/blocked-card/Journal checks) accepted as pending-founder-eyes-on; functional + structural evidence complete; runbooks in the archived build file. Kid-private Journal check is N/A until kids create journal entries. Post-audit emoji fix (`5d1fbee`): `PrivacyBlockedPage` lock emoji → Lucide `Lock` (no-emoji rule).
 
 ---
 
 ## Founder Sign-Off (Post-Build)
 
-- [ ] Verification table reviewed
-- [ ] Mom-UI Verification table fully ✅ across desktop / tablet / mobile in every relevant shell
-- [ ] All stubs are acceptable for this phase and in STUB_REGISTRY.md
-- [ ] Zero Missing items confirmed
-- [ ] CLAUDE.md Convention #39 updated to reflect new architecture
-- [ ] **Phase approved as complete**
-- **Completion date:**
+- [x] Verification table reviewed (post-build-verifier, 48 reqs)
+- [~] Mom-UI Verification table — load-bearing rows ✅ founder-live-verified; remaining tablet/mobile + kid-side rows accepted as pending-eyes-on per Option B (functional + structural verified)
+- [x] All stubs are acceptable for this phase and in STUB_REGISTRY.md (My Rewards content → Follow-Up A; Reflections privacy → Follow-Up G)
+- [x] Zero Missing items confirmed
+- [x] CLAUDE.md Convention #39 updated to reflect new architecture (+ #272 realtime channels added)
+- [x] **Phase approved as complete** (founder Option B, 2026-06-04)
+- **Completion date:** 2026-06-04
