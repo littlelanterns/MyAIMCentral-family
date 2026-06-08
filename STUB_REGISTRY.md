@@ -598,6 +598,25 @@ Five pre-existing items that were in the codebase before the STUB_REGISTRY conve
 
 ---
 
+## Member-Day Obligations — Grandfathered (Convention #271 — 2026-05-28)
+
+These surfaces re-derive "what counts for a member on a given date" inline instead of calling `get_member_day_obligations`. They are grandfathered as-is by Convention #271. **Any change to one of them MUST refactor it to consume the canonical query as part of that change.** The Member-Day Task State build (2026-05-28) wired the three painted-affected callers (`useRoutineWeekView`, `calculate_allowance_progress`, `calculate-allowance-period`); the rest below await their own touch.
+
+| Surface | Created By | Wired By | Status | Notes |
+|------|-----------|----------|--------|-------|
+| `roll_creature_for_completion` RPC (gamification) | Build M | next gamification-math change | ⏳ Unwired (MVP) | Keyed on `task_completions.id`. Next change to gamification math MUST consume `get_member_day_obligations`. |
+| Homework time log writes (`homeschool_time_logs`) | PRD-28 | next homework change | ⏳ Unwired (MVP) | `useFinancial` and related. Next change MUST consume the function. Layer 2 `source_type='homework_log'` not yet populated. |
+| Victory creation paths (`createVictoryForCompletion`, `createVictoryForDeed`, victory_godmother) | PRD-11 / Phase 3 | next victory change | ⏳ Unwired (MVP) | Next change MUST consume the function. Layer 2 `source_type='victory'` not yet populated. |
+| Tracker widget event recording (`widget_data_points`) | PRD-10 | next tracker change | ⏳ Unwired (MVP) | Various trackers write inline. Layer 2 `source_type='tracker_event'` not yet populated. |
+| Best Intention tally writes (`intention_iterations`) | PRD-06 | next intention change | ⏳ Unwired (MVP) | Layer 2 `source_type='intention_tally'` not yet populated. |
+| Practice log writes (`practice_log` from `useLogPractice`) | PRD-09A Build J | next practice change | ⏳ Unwired (MVP) | Next change MUST consume the function. |
+| Non-routine "is this assigned today" in `useTasks`, `useOpportunityLists`, `useSequentialCollections`, `useFinancial`, `useFamilyOverviewData` | various | per-surface follow-up | ⏳ Unwired (MVP) | Each gets its own follow-up build that extends Layer 2 with the matching `source_type` and refactors the surface in. |
+| `countAssignedTasks` non-routine portion (`calculate-allowance-period`) | this build | Layer 2 `source_type='task'` build | ⏳ Unwired (MVP) | The routine portion now goes through `get_member_day_obligations`; non-routine tasks are still counted via a direct query until Layer 2 populates `source_type='task'`. |
+| `recurringTaskFilter` refactor to consume the RPC | this build | architectural follow-up | ⏳ Unwired (MVP) | Currently the TS reference implementation for the invariant test. A future build replaces it with a thin wrapper around the RPC; until then the invariant test (`tests/routine-day-state-invariant.test.ts`) catches drift. |
+| Extending `get_member_day_obligations` to non-routine `source_type` values | this build | per-source follow-up builds | ⏳ Unwired (MVP) | One source_type at a time (`task`, `opportunity_claim`, `sequential_item`, `randomizer_draw`, `intention_tally`, `tracker_event`, `homework_log`, `victory`) as the surfaces are touched. The function and its return shape already exist. |
+
+---
+
 ## Summary
 
 | Status | Count |

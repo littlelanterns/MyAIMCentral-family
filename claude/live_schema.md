@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-05-28
+> Auto-generated from live Supabase on 2026-06-08
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 394 rows
+### `view_as_sessions` — 434 rows
 
 | # | Column |
 |---|---|
@@ -135,7 +135,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 276 rows
+### `view_as_feature_exclusions` — 315 rows
 
 | # | Column |
 |---|---|
@@ -393,7 +393,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 657 rows
+### `ai_usage_tracking` — 660 rows
 
 | # | Column |
 |---|---|
@@ -787,7 +787,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1436 rows
+### `routine_step_completions` — 1553 rows
 
 | # | Column |
 |---|---|
@@ -2660,7 +2660,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 30 rows
+### `allowance_periods` — 40 rows
 
 | # | Column |
 |---|---|
@@ -2989,7 +2989,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 54 rows
+### `financial_transactions` — 70 rows
 
 | # | Column |
 |---|---|

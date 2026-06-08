@@ -1,21 +1,25 @@
 // PRD-28 ALLOWANCE-EDIT-WEEK (2026-04-25) — data hook for the per-kid
 // see-full-week routine edit page.
 //
-// Loads:
-//   - The kid's active period (period_start..period_end)
-//   - All routine tasks counts_for_allowance OR not (mom may want to
-//     edit non-allowance routines too; we show all routines for context)
-//   - Their template sections + steps
-//   - All routine_step_completions inside the active period
+// Convention #271 (Member-Day Task State, 2026-05-28): the per-day "what is
+// scheduled for this kid on this date" derivation now comes from the single
+// canonical query `get_member_day_obligations`, NOT from re-deriving the
+// schedule rules inline. The old inline filter (lines ~175-195) only checked
+// `until`/`dtstart` and never honored painted `rdates`, so past-end-date
+// painted routines silently appeared in the denominator. The RPC gates each
+// day through `obligation_active_for_member_on_date` (Layer 1), which honors
+// painted rdates/exdates, until, dtstart, archived, created, and assignee.
 //
-// Returns a structured `WeekViewData` the page renders against.
+// This hook:
+//   - Resolves the period (requested → active → 7-day fallback; Convention #270)
+//   - Calls get_member_day_obligations(member, period_start, period_end) to get
+//     the (date, task, section, step) rows that count
+//   - Joins task titles / section names / step names (the RPC returns IDs)
+//   - Loads routine_step_completions in the period for the checked state +
+//     completer attribution (shared routines load all members; Convention #266)
+//   - Assembles the same `WeekViewData` shape the page renders against
 //
-// Hard rule per founder 2026-04-25: no backend changes. The trigger
-// keeps period_date = local-day-of-completion. This view DISPLAYS
-// per-day breakdowns by intersecting (scheduled-for-this-day-DOW)
-// with (completions on this day). Stale "wrong-day" checks (steps
-// from a section not scheduled for the click day) live in the DB but
-// don't render here — mom only sees the day's actual scheduled work.
+// Display layout, columns, copy, day grouping — all unchanged. Data source swap.
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -128,99 +132,79 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         periodId = null
       }
 
-      // 2. Routine tasks for this kid (including shared via task_assignments).
-      // For past periods, include routines that were archived AFTER the period
-      // started — they were active during that period even if archived now.
-      // Then client-side filter to only routines whose active date range
-      // (dtstart..until) overlaps the viewed period.
-      const isCurrentPeriod = !selectedPeriodId
-      let directQuery = supabase
-        .from('tasks')
-        .select('id, title, template_id, is_shared, created_at, recurrence_details, archived_at')
-        .eq('assignee_id', memberId)
-        .eq('task_type', 'routine')
-      if (isCurrentPeriod) {
-        directQuery = directQuery.is('archived_at', null)
-      } else {
-        directQuery = directQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
+      // 2. Canonical obligations for this kid across the period (Convention #271).
+      // ONE round-trip to get_member_day_obligations replaces the inline
+      // task-filter + per-DOW day-walk. Each row is a (date, task, section, step)
+      // that counts for this kid on that day — painted rdates, until, dtstart,
+      // archived, created, and assignee are all honored server-side by Layer 1.
+      type ObligationRow = {
+        date: string
+        source_type: string
+        task_id: string
+        template_id: string | null
+        section_id: string | null
+        step_id: string | null
       }
-      const { data: directTasks } = await directQuery
+      const { data: obligationsRaw, error: obligationsError } = await supabase
+        .rpc('get_member_day_obligations', {
+          p_member_id: memberId,
+          p_period_start: periodStart,
+          p_period_end: periodEnd,
+        })
+      if (obligationsError) throw obligationsError
+      const obligations = ((obligationsRaw ?? []) as ObligationRow[])
+        .filter(o => o.source_type === 'routine_step')
 
-      const { data: sharedAssignments } = await supabase
-        .from('task_assignments')
-        .select('task_id')
-        .eq('family_member_id', memberId)
-      const sharedTaskIds = (sharedAssignments ?? []).map(a => a.task_id)
-      const directList = directTasks ?? []
-      const directIds = new Set(directList.map(t => t.id))
-      let extraShared: typeof directList = []
-      if (sharedTaskIds.length > 0) {
-        const missing = sharedTaskIds.filter(id => !directIds.has(id))
-        if (missing.length > 0) {
-          let sharedQuery = supabase
-            .from('tasks')
-            .select('id, title, template_id, is_shared, created_at, recurrence_details, archived_at')
-            .in('id', missing)
-            .eq('task_type', 'routine')
-          if (isCurrentPeriod) {
-            sharedQuery = sharedQuery.is('archived_at', null)
-          } else {
-            sharedQuery = sharedQuery.or(`archived_at.is.null,archived_at.gte.${periodStart}`)
-          }
-          const { data: extra } = await sharedQuery
-          extraShared = extra ?? []
+      // 3. Join human-readable names (the RPC returns IDs only).
+      const taskIds = [...new Set(obligations.map(o => o.task_id))]
+      const sectionIds = [...new Set(obligations.map(o => o.section_id).filter((x): x is string => !!x))]
+      const stepIds = [...new Set(obligations.map(o => o.step_id).filter((x): x is string => !!x))]
+
+      const taskTitleById = new Map<string, string>()
+      const taskIsSharedById = new Map<string, boolean>()
+      if (taskIds.length > 0) {
+        const { data: taskRows } = await supabase
+          .from('tasks')
+          .select('id, title, is_shared')
+          .in('id', taskIds)
+        for (const t of taskRows ?? []) {
+          taskTitleById.set(t.id as string, t.title as string)
+          taskIsSharedById.set(t.id as string, !!t.is_shared)
         }
       }
 
-      // Filter to only routines that were actually active during this period:
-      // - created before the period ended
-      // - dtstart (if set) is on or before the period end
-      // - until (if set) is on or after the period start
-      // - if archived, must have been archived on or after the period start
-      //   (archived before the period = mom removed it before this week)
-      const allTasks = [...directList, ...extraShared]
-      const taskList = allTasks.filter(t => {
-        const createdDate = t.created_at ? (t.created_at as string).slice(0, 10) : '2020-01-01'
-        if (createdDate > periodEnd) return false
-        const archivedDate = t.archived_at ? (t.archived_at as string).slice(0, 10) : null
-        if (archivedDate && archivedDate < periodStart) return false
-        const details = t.recurrence_details as Record<string, unknown> | null
-        if (details) {
-          const dtstart = details.dtstart as string | undefined
-          if (dtstart && dtstart > periodEnd) return false
-          const until = details.until as string | undefined
-          if (until && until < periodStart) return false
+      const sectionNameById = new Map<string, string>()
+      const sectionSortById = new Map<string, number>()
+      if (sectionIds.length > 0) {
+        const { data: sectionRows } = await supabase
+          .from('task_template_sections')
+          .select('id, section_name, sort_order')
+          .in('id', sectionIds)
+        for (const s of sectionRows ?? []) {
+          sectionNameById.set(s.id as string, s.section_name as string)
+          sectionSortById.set(s.id as string, (s.sort_order ?? 0) as number)
         }
-        return true
-      })
-      const templateIds = taskList.map(t => t.template_id).filter((x): x is string => !!x)
+      }
 
-      // 3. Sections for those templates
-      const { data: sections } = templateIds.length > 0
-        ? await supabase
-            .from('task_template_sections')
-            .select('id, template_id, section_name, frequency_days')
-            .in('template_id', templateIds)
-            .order('sort_order')
-        : { data: [] as Array<{ id: string; template_id: string; section_name: string; frequency_days: string[] }> }
-      const sectionList = sections ?? []
+      const stepNameById = new Map<string, string>()
+      const stepSortById = new Map<string, number>()
+      if (stepIds.length > 0) {
+        const { data: stepRows } = await supabase
+          .from('task_template_steps')
+          .select('id, step_name, title, sort_order')
+          .in('id', stepIds)
+        for (const s of stepRows ?? []) {
+          stepNameById.set(s.id as string, (s.step_name ?? s.title ?? 'Step') as string)
+          stepSortById.set(s.id as string, (s.sort_order ?? 0) as number)
+        }
+      }
 
-      // 4. Steps for those sections
-      const sectionIds = sectionList.map(s => s.id)
-      const { data: steps } = sectionIds.length > 0
-        ? await supabase
-            .from('task_template_steps')
-            .select('id, section_id, step_name, title, sort_order')
-            .in('section_id', sectionIds)
-            .order('sort_order')
-        : { data: [] as Array<{ id: string; section_id: string; step_name: string | null; title: string | null; sort_order: number }> }
-      const stepList = steps ?? []
+      // 4. Completions in this period — for shared tasks, load ALL members
+      //    so completer attribution renders in the completer's color (#266).
+      const sharedIds = taskIds.filter(id => taskIsSharedById.get(id))
+      const personalIds = taskIds.filter(id => !taskIsSharedById.get(id))
 
-      // 5. Completions in this period — for shared tasks, load ALL members
-      const sharedIds = taskList.filter(t => t.is_shared).map(t => t.id)
-      const personalIds = taskList.filter(t => !t.is_shared).map(t => t.id)
-
-      let completionList: Array<{ id: string; task_id: string; step_id: string; period_date: string; family_member_id: string }> = []
+      const completionList: Array<{ id: string; task_id: string; step_id: string; period_date: string; family_member_id: string }> = []
       if (personalIds.length > 0) {
         const { data } = await supabase
           .from('routine_step_completions')
@@ -250,7 +234,38 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         }
       }
 
-      // 6. Walk the period day-by-day, building cells
+      // 5. Group obligation rows into (date → cell(task+section) → steps).
+      type CellAccum = {
+        task_id: string
+        section_id: string
+        section_sort: number
+        steps: Array<{ step_id: string; step_sort: number }>
+      }
+      const dayCellMap = new Map<string, Map<string, CellAccum>>() // iso → cellKey → accum
+      for (const o of obligations) {
+        if (!o.section_id || !o.step_id) continue
+        let cellMap = dayCellMap.get(o.date)
+        if (!cellMap) {
+          cellMap = new Map()
+          dayCellMap.set(o.date, cellMap)
+        }
+        const cellKey = `${o.task_id}|${o.section_id}`
+        let cell = cellMap.get(cellKey)
+        if (!cell) {
+          cell = {
+            task_id: o.task_id,
+            section_id: o.section_id,
+            section_sort: sectionSortById.get(o.section_id) ?? 0,
+            steps: [],
+          }
+          cellMap.set(cellKey, cell)
+        }
+        if (!cell.steps.some(s => s.step_id === o.step_id)) {
+          cell.steps.push({ step_id: o.step_id, step_sort: stepSortById.get(o.step_id) ?? 0 })
+        }
+      }
+
+      // 6. Walk the period day-by-day, assembling cells from the grouped map.
       const days: RoutineWeekDay[] = []
       const start = new Date(periodStart + 'T12:00:00Z')
       const end = new Date(periodEnd + 'T12:00:00Z')
@@ -258,20 +273,18 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
         // eslint-disable-next-line no-restricted-syntax -- d is explicitly UTC-constructed via 'T12:00:00Z' + setUTCDate; UTC slice is correct here
         const iso = d.toISOString().slice(0, 10)
         const dow = d.getUTCDay()
-        const dowStr = String(dow)
 
         const cells: RoutineWeekDayCell[] = []
-        for (const task of taskList) {
-          const taskSections = sectionList.filter(
-            s => s.template_id === task.template_id && (s.frequency_days as string[]).includes(dowStr),
-          )
-          for (const section of taskSections) {
-            const sectionSteps = stepList.filter(s => s.section_id === section.id)
-            const cellSteps: RoutineWeekStep[] = sectionSteps.map(s => {
-              const completion = completionByKey.get(`${s.id}|${iso}`)
+        const cellMap = dayCellMap.get(iso)
+        if (cellMap) {
+          const sortedCells = [...cellMap.values()].sort((a, b) => a.section_sort - b.section_sort)
+          for (const accum of sortedCells) {
+            const sortedSteps = [...accum.steps].sort((a, b) => a.step_sort - b.step_sort)
+            const cellSteps: RoutineWeekStep[] = sortedSteps.map(s => {
+              const completion = completionByKey.get(`${s.step_id}|${iso}`)
               return {
-                step_id: s.id,
-                step_name: (s.step_name ?? s.title ?? 'Step') as string,
+                step_id: s.step_id,
+                step_name: stepNameById.get(s.step_id) ?? 'Step',
                 is_checked: !!completion,
                 completion_id: completion?.id ?? null,
                 completed_by_member_id: completion?.family_member_id ?? null,
@@ -279,10 +292,10 @@ export function useRoutineWeekView(memberId: string | undefined, todayIso: strin
             })
             const checkedCount = cellSteps.filter(s => s.is_checked).length
             cells.push({
-              task_id: task.id,
-              task_title: task.title,
-              section_id: section.id,
-              section_name: section.section_name,
+              task_id: accum.task_id,
+              task_title: taskTitleById.get(accum.task_id) ?? 'Routine',
+              section_id: accum.section_id,
+              section_name: sectionNameById.get(accum.section_id) ?? 'Section',
               steps: cellSteps,
               scheduled_count: cellSteps.length,
               checked_count: Math.min(checkedCount, cellSteps.length),

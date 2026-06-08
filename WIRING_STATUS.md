@@ -1,7 +1,22 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-05-06 (Touch Base overhaul).
+> Updated each build session. Last updated: 2026-05-28 (Member-Day Task State canonical source).
+
+## Member-Day Obligations — Canonical Source (Convention #271, 2026-05-28)
+
+New shared infrastructure: `get_member_day_obligations(member_id, period_start, period_end)` is the single canonical query for "what counts for a member on a given date." Backed by the internal Layer 1 predicate `obligation_active_for_member_on_date(task_id, member_id, date)` which honors painted rdates/exdates, until, dtstart, archived, created, and assignee. Migration `00000000100247`.
+
+| Consumer | How It Works | Status | Notes |
+|---|---|---|---|
+| `get_member_day_obligations` (Layer 2 RPC) | One round-trip returns (date, source_type, task/section/step ids + pool/segment/extra-credit/homework grouping fields) per active routine step in the period | **Wired** | Populates `source_type='routine_step'` only this build; return shape carries future-source grouping fields. |
+| `obligation_active_for_member_on_date` (Layer 1 predicate) | Atomic "is this task active for this member on this date" — mirrors `src/lib/tasks/recurringTaskFilter.ts` exactly, enforced by `tests/routine-day-state-invariant.test.ts` | **Wired** | Internal; called only by Layer 2 + the invariant test mirror. |
+| `useRoutineWeekView` (Allowance History page) | Replaced inline task-filter + per-DOW day-walk with one `get_member_day_obligations` call; joins names + completions for the same `WeekViewData` shape | **Wired** | Painted-blind bug fixed — past-end-date painted routines no longer appear in the history denominator. |
+| `calculate_allowance_progress` RPC | Routine denominator day-loop + completion counting now gate each day through Layer 1 (painted-aware), preserving all prior fairness logic | **Wired** | Fixes silent allowance erosion from expired painted routines. |
+| `calculate-allowance-period` Edge Function (`countAssignedTasks`) | Routine portion of `total_tasks_assigned` aggregated from `get_member_day_obligations` by task_id; non-routine portion still direct-counted (grandfathered) | **Wired** | Deployed `--no-verify-jwt` (Convention #246, cron-invoked). |
+| Backfill: 3 painted production rows | `recurrence_details.until = last(rdates)` set where missing (idempotent) | **Wired** | Verified 0 painted routines remain without `until`. |
+| Orphan Kitchen Zone row (`c06c706c…`, assignee_id=NULL) | Archived by idempotent migration step | **Wired** | Verified `archived_at IS NOT NULL`. |
+| Other measurement/reward surfaces (gamification, homework, victories, trackers, intentions, practice, non-routine task derivations) | Re-derive measurement logic inline | **Grandfathered (Convention #271)** | Listed in STUB_REGISTRY.md → "Member-Day Obligations — Grandfathered." Each MUST refactor to the RPC when next touched. |
 
 ## RoutingStrip Destinations
 

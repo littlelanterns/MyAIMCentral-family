@@ -621,15 +621,44 @@ async function countAssignedTasks(
   configId: string,
   poolName: string,
 ): Promise<number> {
-  // Primary assignee tasks for this pool
-  // Include tasks archived DURING the period (they were visible when the kid worked on them)
-  // Exclude tasks archived BEFORE the period started
+  // Convention #271: the routine portion of "tasks assigned" comes from the
+  // single canonical query get_member_day_obligations, aggregated by task_id.
+  // This is what fixes the painted bug for the displayed count — a past-end-date
+  // painted routine produces ZERO obligation rows in the period, so it no longer
+  // inflates total_tasks_assigned. Counting distinct task_ids that have at least
+  // one active day in the period gives the set of routines that were genuinely
+  // assigned during the period.
+  const { data: obligations, error: obligationsError } = await supabase
+    .rpc('get_member_day_obligations', {
+      p_member_id: memberId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    })
+  if (obligationsError) {
+    console.warn('[calculate-allowance-period] get_member_day_obligations failed', obligationsError.message)
+  }
+  const routineTaskIds = new Set<string>()
+  for (const row of (obligations ?? []) as Array<{ source_type: string; task_id: string; pool_id: string | null }>) {
+    if (row.source_type !== 'routine_step') continue
+    // Pool affiliation: default pool counts pool_id IS NULL; named pool matches configId.
+    const inPool = poolName === 'default' ? row.pool_id == null : row.pool_id === configId
+    if (inPool) routineTaskIds.add(row.task_id)
+  }
+  const routineCount = routineTaskIds.size
+
+  // Non-routine tasks are NOT yet populated by Layer 2 (Convention #271 stub —
+  // future build extends get_member_day_obligations with source_type='task').
+  // Until then the non-routine portion of the display count is a grandfathered
+  // direct count, scoped to non-routine task rows so it doesn't double-count the
+  // routines already tallied above. Non-routine tasks have no painted schedule,
+  // so the painted bug does not apply to them.
   let primaryQuery = supabase
     .from('tasks')
     .select('id', { count: 'exact', head: true })
     .eq('family_id', familyId)
     .eq('assignee_id', memberId)
     .eq('counts_for_allowance', true)
+    .neq('task_type', 'routine')
     .or(`archived_at.is.null,archived_at.gt.${periodStart}`)
     .lte('created_at', periodEnd + 'T23:59:59Z')
 
@@ -638,23 +667,23 @@ async function countAssignedTasks(
   } else {
     primaryQuery = primaryQuery.eq('pool_id', configId)
   }
-  const { count: primaryCount } = await primaryQuery
+  const { count: primaryNonRoutine } = await primaryQuery
 
-  // Additional assignee tasks via task_assignments
-  const { count: additionalCount } = await supabase
+  const { count: additionalNonRoutine } = await supabase
     .from('task_assignments')
     .select(
-      'task_id, tasks!inner(family_id, counts_for_allowance, archived_at, created_at, assignee_id, pool_id)',
+      'task_id, tasks!inner(family_id, counts_for_allowance, archived_at, created_at, assignee_id, pool_id, task_type)',
       { count: 'exact', head: true },
     )
     .eq('member_id', memberId)
     .eq('tasks.family_id', familyId)
     .eq('tasks.counts_for_allowance', true)
+    .neq('tasks.task_type', 'routine')
     .or(`archived_at.is.null,archived_at.gt.${periodStart}`, { foreignTable: 'tasks' })
     .lte('tasks.created_at', periodEnd + 'T23:59:59Z')
     .neq('tasks.assignee_id', memberId)
 
-  return (primaryCount ?? 0) + (additionalCount ?? 0)
+  return routineCount + (primaryNonRoutine ?? 0) + (additionalNonRoutine ?? 0)
 }
 
 interface CrossPoolAdjustment {
