@@ -6,6 +6,41 @@
 
 ---
 
+## 2026-06-08 — Member-Day Task State (Single Source of Truth) CLOSED
+
+**Type:** Architectural refactor + money-math bug fix + named convention (#271)
+**Scope:** Fix silent allowance erosion from past-end-date painted routines; establish one canonical query for "what counts for a member on a date."
+**Duration:** Single session, single worker (build order steps 1–13).
+**Final state:** Checkpoint 5 audit 12/12 Wired, 0 Missing, 3/3 Discipline-2 prod checks pass. Invariant test 19/19 deterministic. Founder eyes-on confirmed phantom routines gone on affected weeks.
+**Commit:** `6143b5a` (pushed to main). Migration `00000000100247` applied to production.
+
+### What shipped
+- **Layer 1 `obligation_active_for_member_on_date(task, member, date)→bool`** — atomic activity predicate; mirrors `src/lib/tasks/recurringTaskFilter.ts` exactly (painted rdates/exdates, until, dtstart, archived, created, assignee direct+via task_assignments, RRULE day-membership). SECURITY DEFINER.
+- **Layer 2 `get_member_day_obligations(member, start, end)→TABLE`** — public canonical query. Auth guard admits service_role + same-family authenticated members. `source_type='routine_step'` this build; return shape **pre-carries** `pool_id`, `task_segment_id`, `is_extra_credit`, `homework_subject_ids` (Checkpoint-1 lock) so future reward surfaces refactor in without amending the signature.
+- **3 callers refactored:** `useRoutineWeekView` (→ Layer 2), `calculate-allowance-period` Edge Function `countAssignedTasks` (→ Layer 2, redeployed `--no-verify-jwt`), `calculate_allowance_progress` (gates each day + completion through Layer 1 — faithful realization of D3 accepted at Checkpoint 2; preserves all prior fairness logic 100243/100244/100239/100241/100235 + grace days).
+- **Convention #271** added to CLAUDE.md (dashboard-truth invariant + privacy boundary + grandfathered-surfaces list).
+- **Invariant test** `tests/routine-day-state-invariant.test.ts` — asserts SQL Layer 1 == TS reference across a 30-day synthetic corpus; fails CI on drift.
+- **Data:** backfilled `until` on 3 painted production rows; archived 1 orphan Kitchen Zone row (`c06c706c…`).
+
+### Checkpoint-1 locks (founder, 2026-06-08)
+1. Broad canonical names everywhere (stale `..._routine_steps_...` superseded).
+2. D2 return shape expanded by 4 grouping fields (pool_id, task_segment_id, is_extra_credit, homework_subject_ids).
+3. D3 Layer-1 substitution accepted (gates through canonical predicate; preserves fairness math).
+
+### Viewport decision
+Tablet/Mobile eyes-on waived for cause — data-only change, no layout modification (founder: "more of a data issue, not physical or visual"). Desktop confirmed.
+
+### Open follow-ups (non-blocking)
+- Founder continued testing through the current week.
+- Capture per-kid old→corrected allowance deltas (Gideon/Miriam/Mosiah); decide honor-old-vs-corrected per kid. **Default: corrected.**
+- **Grandfathered surfaces** (Convention #271) refactor into `get_member_day_obligations` when next touched: `roll_creature_for_completion`, homework time logs, victory creation, tracker widget events, intention tallies, practice log, non-routine task derivations, and `countAssignedTasks` non-routine portion.
+- Future builds extend Layer 2 to non-routine `source_type` values (one per build).
+- Separate sweep: find/prevent the deploy flow that created the orphan `assignee_id=NULL` row.
+
+**Archived:** `.claude/completed-builds/2026-06/member-day-task-state-canonical-source.md`
+
+---
+
 ## 2026-05-05 — Phase 3.8 Activity Management CLOSED
 
 **Type:** Cross-PRD infrastructure build (Connector Architecture §3.8)

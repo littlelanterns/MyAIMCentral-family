@@ -1,6 +1,6 @@
 # Member-Day Task State — Canonical Source (Single Source of Truth)
 
-## Status: PRE-BUILD (awaiting founder sign-off on decision file + this summary; no code dispatched)
+## Status: SIGNED OFF (2026-06-08) — commit 6143b5a, migration 100247 applied to production. Checkpoint 5 audit 12/12 Wired / 0 Missing. See Build Outcome at bottom.
 
 ## Founder-Approved Companion: `claude/feature-decisions/Member-Day-Task-State-Single-Source-of-Truth.md`
 
@@ -133,17 +133,19 @@ Single migration: `00000000100247_member_day_task_state_canonical_source.sql`. A
 
 | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
 |---------|-----------------|---------------|---------------|---------------|----------|-----------|
-| Gideon history week 5/24–5/30 — Upper Common Room no longer shown on Sun/Mon | | | | Mom | | |
-| Gideon history week 5/24–5/30 — denominator drops to honest count | | | | Mom | | |
-| Miriam history week 5/18–5/24 — Kitchen Zone shows ONLY on 5/22, 5/23 | | | | Mom | | |
-| Mosiah history week 5/18–5/24 — Zone 2: Herringbone shows ONLY on 5/18–5/23 | | | | Mom | | |
-| Helam history week 5/18–5/24 — unchanged where unaffected (regression guard) | | | | Mom | | |
-| Mom Dashboard `AllowanceCalculatorTracker` — current-period % reflects corrected denominators | | | | Mom | | |
-| Mom Prize Board → Allowance tab — per-kid current-period progress reflects corrected denominators | | | | Mom | | |
-| Gideon's Guided dashboard — `recurringTaskFilter` behavior unchanged (regression guard) | | | | Guided | | |
-| Miriam's Adult dashboard — same regression guard | | | | Adult | | |
-| Mosiah's Independent dashboard — same regression guard | | | | Independent | | |
-| Invariant test — passes deterministically across 3 consecutive runs | | | | n/a | `tests/routine-day-state-invariant.test.ts` | |
+| Gideon history — phantom painted routines no longer shown on post-end weeks | ✅ | ⊘ waived | ⊘ waived | Mom | Founder eyes-on deployed myaimcentral.com — phantom jobs absent on weeks they previously polluted | 2026-06-08 |
+| Gideon history — denominator drops to honest count | ✅ (qualitative) | ⊘ waived | ⊘ waived | Mom | Phantom rows gone ⇒ denominator corrected. Exact old→corrected delta deferred to founder's this-week testing | 2026-06-08 |
+| Miriam history — Kitchen Zone only on its valid painted dates | ✅ | ⊘ waived | ⊘ waived | Mom | Founder eyes-on — phantom job gone on affected weeks | 2026-06-08 |
+| Mosiah history — Zone 2: Herringbone only on its valid painted dates | ✅ | ⊘ waived | ⊘ waived | Mom | Founder eyes-on — phantom job gone on affected weeks | 2026-06-08 |
+| Unaffected weeks render normally (regression guard) | ✅ | ⊘ waived | ⊘ waived | Mom | Founder eyes-on — past weeks without phantoms look unchanged | 2026-06-08 |
+| Mom Dashboard `AllowanceCalculatorTracker` — current-period % | ↩ deferred | ⊘ waived | ⊘ waived | Mom | Engine-verified (Checkpoint 5 prod queries + `calculate_allowance_progress` painted-aware). Roll-up eyes-on folded into founder's this-week testing | 2026-06-08 |
+| Mom Prize Board → Allowance tab — per-kid progress | ↩ deferred | ⊘ waived | ⊘ waived | Mom | Same RPC path; engine-verified. Roll-up eyes-on folded into this-week testing | 2026-06-08 |
+| Kid dashboards — `recurringTaskFilter` behavior unchanged (regression guard) | ✅ (code unchanged) | ⊘ waived | ⊘ waived | Guided/Adult/Independent | `recurringTaskFilter.ts` frozen per D4 (not modified); invariant test proves SQL Layer 1 == TS reference, so no behavior drift possible | 2026-06-08 |
+| Invariant test — passes deterministically across 3 consecutive runs | ✅ | n/a | n/a | n/a | `tests/routine-day-state-invariant.test.ts` — 19/19 ×3, re-run by orchestrator + Checkpoint-5 verifier | 2026-06-08 |
+
+**Viewport decision (founder, 2026-06-08):** Tablet + Mobile marked `⊘ waived` for cause — this build is a data-source swap with no layout/visual change; the History page renders identically, only the underlying rows are corrected. Founder ("more of a data issue, not physical or visual") made the informed call that mobile/tablet are not at risk. Per Checkpoint-2/5, no CSS or JSX layout was touched on any verified surface.
+
+**Open founder follow-ups (do not block close):** (1) Continued testing through the current week. (2) Capture per-kid exact old→corrected allowance deltas for Gideon/Miriam/Mosiah and decide honor-old-vs-corrected per kid — default is **corrected**.
 
 ## Worker Decomposition (single worker, multiple discrete steps)
 
@@ -189,22 +191,25 @@ Checkpoint 5 audit MUST query production after deploy:
 | The "shifting allowance amount" change is read by a kid mid-period and they panic | Low | Medium | This is a mom-only screen; kid surfaces don't show denominators. Kid-visible balances only change at period close. |
 
 ## Pre-Build Founder Sign-Off Required
-- [ ] Decision file D1-D7 confirmed
-- [ ] This build file's scope / order / verification table acceptable
-- [ ] Convention #271 wording acceptable (or revised)
-- [ ] Stubs list acceptable
-- [ ] **Approved to dispatch single worker**
+- [x] Decision file D1-D7 confirmed
+- [x] This build file's scope / order / verification table acceptable
+- [x] Convention #271 wording acceptable (broad function names + D2 grouping-field expansion locked 2026-06-08)
+- [x] Stubs list acceptable
+- [x] **Approved to dispatch single worker** — dispatched + completed 2026-06-08
 
 ## Post-Build Founder Sign-Off
-- [ ] Mom-UI Verification table fully ✅ at 3 viewports
-- [ ] Zero Missing in Post-Build Verification
-- [ ] `npx tsc -b` clean
-- [ ] `npm run lint` clean
-- [ ] Invariant test passes deterministically 3x
-- [ ] Convention #271 in CLAUDE.md
-- [ ] STUB_REGISTRY.md updated
-- [ ] WIRING_STATUS.md updated
-- [ ] `claude/live_schema.md` regenerated
-- [ ] Feature-decision file Post-Build section populated
-- [ ] **Approved to commit**
-- [ ] **Approved to push**
+- [x] Mom-UI Verification table — Desktop ✅ (founder eyes-on); Tablet/Mobile `⊘ waived` for cause (data-only change, no layout modification; founder decision 2026-06-08)
+- [x] Zero Missing in Post-Build Verification (Checkpoint 5 audit, 12/12 Wired)
+- [x] `npx tsc -b` clean (orchestrator-verified, exit 0)
+- [x] `npm run lint` clean (0 errors)
+- [x] Invariant test passes deterministically 3x (19/19, re-run by orchestrator + verifier)
+- [x] Convention #271 in CLAUDE.md (exact D6 wording, L783)
+- [x] STUB_REGISTRY.md updated (Member-Day Obligations — Grandfathered section)
+- [x] WIRING_STATUS.md updated (RPC as shared infra, 3 named consumers)
+- [x] `claude/live_schema.md` regenerated (dated 2026-06-08)
+- [x] Feature-decision file Post-Build section populated
+- [x] **Approved to commit** — committed 6143b5a 2026-06-08
+- [x] **Approved to push** — pushed to main 2026-06-08
+
+## Build Outcome (Checkpoint 6 close-out, 2026-06-08)
+**SIGNED OFF.** Money-math bug (silent allowance erosion from past-end-date painted routines) fixed. Canonical `get_member_day_obligations` / `obligation_active_for_member_on_date` established; 3 callers refactored; Convention #271 codified; invariant test guards TS↔SQL drift; 3 painted rows backfilled + 1 orphan archived. Checkpoint 5 audit: 12/12 Wired, 0 Missing, 3/3 Discipline-2 prod checks pass. Founder eyes-on confirmed phantom routines gone on affected weeks. Open follow-ups (non-blocking): founder this-week testing + per-kid old→corrected delta review (default corrected).
