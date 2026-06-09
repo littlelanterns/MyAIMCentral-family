@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { isThreadUnread, countUnreadMessages } from '@/lib/messaging/unreadThread'
 import type {
   ConversationSpace,
   ConversationSpaceWithPreview,
@@ -95,16 +96,16 @@ export function useConversationSpaces() {
       // 6. Get read status for current member
       const { data: readStatuses, error: rsErr } = await supabase
         .from('message_read_status')
-        .select('thread_id, last_read_message_id')
+        .select('thread_id, last_read_at')
         .eq('family_member_id', memberId)
         .in('thread_id', threadIds)
 
       if (rsErr) throw rsErr
 
-      // 7. Get all messages for unread count (messages after last_read)
-      // We need message counts per thread where message.id > last_read_message_id
-      // For simplicity, count unread per thread using created_at comparison
-      const readMap = new Map((readStatuses ?? []).map(rs => [rs.thread_id, rs.last_read_message_id]))
+      // 7. Unread is computed per thread via the canonical isThreadUnread()
+      // predicate (NEW-DDD) — shared with the sidebar badge so the page and
+      // the badge can never disagree about what counts as unread.
+      const readMap = new Map((readStatuses ?? []).map(rs => [rs.thread_id, rs.last_read_at]))
 
       // Build a map: spaceId → { lastMessage, unreadCount }
       const spaceThreadMap = new Map<string, string[]>()
@@ -144,19 +145,25 @@ export function useConversationSpaces() {
           }
         }
 
-        // Calculate unread count: count messages in threads where message was created after
-        // the last read message. For threads with no read status, all messages are unread.
+        // Unread count for the space: number of unread messages across its
+        // threads, gated per-thread by the canonical isThreadUnread()
+        // predicate (NEW-DDD — same definition the sidebar badge uses).
         let unreadCount = 0
         for (const tid of spaceThreadIds) {
-          const lastReadId = readMap.get(tid)
-          if (!lastReadId) {
-            // Never read this thread — count all messages
-            const msgs = latestMessages.filter(m => m.thread_id === tid)
-            // Only count messages from other people
-            unreadCount += msgs.filter(m => m.sender_member_id !== memberId).length
+          const lastReadAt = readMap.get(tid)
+          const latest = latestMsgPerThread.get(tid)
+          if (isThreadUnread({
+            latestMessageCreatedAt: latest?.created_at,
+            latestMessageSenderId: latest?.sender_member_id,
+            lastReadAt,
+            viewerId: memberId,
+          })) {
+            unreadCount += countUnreadMessages(
+              latestMessages.filter(m => m.thread_id === tid),
+              lastReadAt,
+              memberId,
+            )
           }
-          // With lastReadId, we'd need ordering comparison — approximate by checking
-          // if the latest message is newer than the read marker
         }
 
         // Build members list

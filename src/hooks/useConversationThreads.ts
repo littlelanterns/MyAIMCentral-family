@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { SPACES_KEY } from '@/hooks/useConversationSpaces'
+import { isThreadUnread, countUnreadMessages } from '@/lib/messaging/unreadThread'
 import type {
   ConversationThread,
   ConversationThreadWithPreview,
@@ -65,13 +66,13 @@ export function useConversationThreads(spaceId: string | undefined) {
       // 3. Get read status
       const { data: readStatuses, error: rsErr } = await supabase
         .from('message_read_status')
-        .select('thread_id, last_read_message_id')
+        .select('thread_id, last_read_at')
         .eq('family_member_id', memberId)
         .in('thread_id', threadIds)
 
       if (rsErr) throw rsErr
 
-      const readMap = new Map((readStatuses ?? []).map(rs => [rs.thread_id, rs.last_read_message_id]))
+      const readMap = new Map((readStatuses ?? []).map(rs => [rs.thread_id, rs.last_read_at]))
 
       // 4. Get sender names for preview
       const senderIds = [...new Set((messages ?? []).map(m => m.sender_member_id).filter(Boolean))] as string[]
@@ -95,14 +96,22 @@ export function useConversationThreads(spaceId: string | undefined) {
       // Assemble
       return (threads as ConversationThread[]).map(thread => {
         const latestMsg = latestPerThread.get(thread.id)
-        const lastReadId = readMap.get(thread.id)
+        const lastReadAt = readMap.get(thread.id)
 
-        // Simple unread: if latest message exists and isn't from us and we haven't read it
+        // Canonical unread predicate (NEW-DDD) — shared with the sidebar
+        // badge and the space list so all surfaces agree.
         let unreadCount = 0
-        if (latestMsg && latestMsg.sender_member_id !== memberId && !lastReadId) {
-          unreadCount = (messages ?? []).filter(m =>
-            m.thread_id === thread.id && m.sender_member_id !== memberId
-          ).length
+        if (isThreadUnread({
+          latestMessageCreatedAt: latestMsg?.created_at,
+          latestMessageSenderId: latestMsg?.sender_member_id,
+          lastReadAt,
+          viewerId: memberId,
+        })) {
+          unreadCount = countUnreadMessages(
+            (messages ?? []).filter(m => m.thread_id === thread.id),
+            lastReadAt,
+            memberId,
+          )
         }
 
         const preview = latestMsg
@@ -200,20 +209,30 @@ export function useAllThreads() {
       // Read status
       const { data: readStatuses } = await supabase
         .from('message_read_status')
-        .select('thread_id, last_read_message_id')
+        .select('thread_id, last_read_at')
         .eq('family_member_id', memberId)
         .in('thread_id', threadIds)
 
-      const readMap = new Map((readStatuses ?? []).map(rs => [rs.thread_id, rs.last_read_message_id]))
+      const readMap = new Map((readStatuses ?? []).map(rs => [rs.thread_id, rs.last_read_at]))
 
       return threads.map(thread => {
         const spaceInfo = thread.conversation_spaces as unknown as { name: string | null; space_type: string }
         const latestMsg = latestPerThread.get(thread.id)
-        const lastReadId = readMap.get(thread.id)
+        const lastReadAt = readMap.get(thread.id)
 
+        // Canonical unread predicate (NEW-DDD) — shared with the sidebar badge.
         let unreadCount = 0
-        if (latestMsg && latestMsg.sender_member_id !== memberId && !lastReadId) {
-          unreadCount = 1 // Simplified — at least 1 unread
+        if (isThreadUnread({
+          latestMessageCreatedAt: latestMsg?.created_at,
+          latestMessageSenderId: latestMsg?.sender_member_id,
+          lastReadAt,
+          viewerId: memberId,
+        })) {
+          unreadCount = countUnreadMessages(
+            (messages ?? []).filter(m => m.thread_id === thread.id),
+            lastReadAt,
+            memberId,
+          )
         }
 
         const preview = latestMsg
