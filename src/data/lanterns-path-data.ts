@@ -615,18 +615,10 @@ export const JOURNEY_STAGES: JourneyStage[] = [
         connections: 'Items route to Studio Queue for processing. Approval patterns learn from your corrections. PWA entry point for quick capture. Email forwarding integration.',
         lookForward: 'Voice, text, scan, and email capture. Three aggressiveness modes. Auto-routing with approval pattern learning. PWA for standalone brain dump capture. Email-to-MindSweep forwarding.',
       },
-      {
-        key: 'safe_harbor',
-        prdNumber: 'PRD-20',
-        name: 'Safe Harbor — Emotional Processing',
-        iconName: 'Shield',
-        route: null,
-        status: 'in_production',
-        description:
-          'Your teenager is going through something hard and they need to process it. Not with you — not because they don\'t love you, but because some processing needs safety to happen. Safe Harbor is a completely private, AI-guided emotional space. Completely isolated: you cannot see it. It doesn\'t feed into any reports, any context, any aggregation. The only exception is immediate safety. This exists because you love your kids enough to give them space.',
-        connections: 'Completely isolated from all data aggregation, reports, and context. Crisis override still applies (safety first). Parent consent flow with AI literacy orientation for teens. Guided mode for younger children.',
-        lookForward: 'Completely private conversations exempt from all reporting. Parent consent flow with scenario-based orientation. AI literacy building for teens. Guided mode for younger children. Crisis detection always active.',
-      },
+      // Safe Harbor (PRD-20) removed 2026-06-09 — founder backburnered the feature
+      // (other platforms better suited for dedicated emotional processing; crisis
+      // override + PRD-30 safety monitoring + bridge-to-human remain the safety story).
+      // See claude/feature-decisions/Safe-Harbor-Backburner-Decision.md
       {
         key: 'universal_timer',
         prdNumber: 'PRD-36',

@@ -24,7 +24,7 @@ import { GamificationShowcase } from '@/components/gamification/demo/Gamificatio
 import {
   VictoriesPage, TrackersPage, LifeLanternPage,
   FamilyContextPage,
-  SafeHarborPage, BigPlansPage,
+  BigPlansPage,
   ThoughtSiftPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
 import { RhythmsSettingsPage } from '@/pages/RhythmsSettingsPage'
@@ -207,7 +207,7 @@ function App() {
               </Route>
 
               {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
-              <Route path="/safe-harbor" element={<ProtectedRoute><SafeHarborPage /></ProtectedRoute>} />
+              {/* /safe-harbor route removed 2026-06-09 — Safe Harbor (PRD-20) backburnered by founder decision */}
               <Route path="/bigplans" element={<ProtectedRoute><BigPlansPage /></ProtectedRoute>} />
               <Route path="/thoughtsift" element={<ProtectedRoute><ThoughtSiftPage /></ProtectedRoute>} />
               <Route path="/family-feed" element={<ProtectedRoute><FamilyFeedPage /></ProtectedRoute>} />

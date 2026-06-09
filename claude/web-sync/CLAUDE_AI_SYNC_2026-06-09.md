@@ -152,4 +152,28 @@ The accurate recent sequence is:
 
 **New conventions since claude.ai's snapshot:** #271 (member-day obligations single source of
 truth + dashboard-truth invariant) and #272 (per-instance Realtime channel names,
-bind-before-subscribe). Convention #39 rewritten. Next migration number: `100249`.
+bind-before-subscribe). Convention #39 rewritten. Next migration number: `100250`.
+
+## 6. MAJOR PRODUCT DECISION (2026-06-09): Safe Harbor backburnered
+
+The founder backburnered **PRD-20 Safe Harbor entirely** — the private AI
+emotional-processing space for teens/kids will not be built. Rationale: other platforms
+are better suited for dedicated emotional processing, and she doesn't want the moral
+responsibility of doing it right in a product where it isn't the primary focus.
+
+What changed:
+- The 4 `safe_harbor*` guided modes deactivated in production (migration `100249`).
+- All user-facing promises removed: `/safe-harbor` placeholder route, Lanterns Path entry,
+  feature-expansion registry card, PermissionHub toggle.
+- **Defensive plumbing intentionally KEPT:** `is_safe_harbor` filters (Conventions #6/#243),
+  View-As privacy exclusions, context-assembly exclusion. Reversible by design.
+- **The locked safety sequence is now PRD-41 → PRD-30** (was PRD-41 → PRD-20 → PRD-30).
+  Crisis Override stays global and mandatory (Convention #7) — the platform's safety story
+  is detection + bridge-to-human, never AI-as-therapist.
+- This resolves Follow-Up Build C from the View-As close-out.
+- Decision record: `claude/feature-decisions/Safe-Harbor-Backburner-Decision.md`.
+
+When designing or amending PRDs in claude.ai: any spec that assumes Safe Harbor exists
+(consent flows, SH-exempt aggregation surfaces, SH entries in mode lists) should treat it
+as backburnered and route heavy-emotional-content design through crisis override +
+PRD-30 monitoring + bridge-to-human instead.

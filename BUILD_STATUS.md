@@ -53,7 +53,7 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 18 | PRD-17, PRD-17B | Universal Queue (PRD-17) + MindSweep Sprint 1+2 (PRD-17B Phase A + partial B) | Phase 10, 16 | **Partial** — PRD-17 complete 2026-04-03; PRD-17B Phase B remainder + Phase C pending |
 | 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | **Complete** | 2026-04-07 |
 | 20 | PRD-19 | Family Context & Relationships | Phase 13 | Pending |
-| 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | Pending |
+| 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | **Backburnered** (founder decision 2026-06-09 — see `claude/feature-decisions/Safe-Harbor-Backburner-Decision.md`; 4 guided modes deactivated via migration 100249, user-facing surfaces removed, defensive `is_safe_harbor` plumbing kept) |
 | 22 | PRD-12A, PRD-12B | LifeLantern & Family Vision Quest | Phase 07, 08, 13 | Pending |
 | 23 | PRD-05C | LiLa Optimizer | Phase 06, 13 | Pending |
 | 24 | PRD-21 | Communication & Relationship Tools (Cyrano/Higgins) | Phase 06, 20 | **Complete** | 2026-03-26 |

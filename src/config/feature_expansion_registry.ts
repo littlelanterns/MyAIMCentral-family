@@ -152,12 +152,10 @@ export const FEATURE_EXPANSION_REGISTRY: Record<string, FeatureExpansionEntry> =
     location_hint: 'LiLa guided modes, relationship tools',
   },
 
-  safe_harbor: {
-    name: 'Safe Harbor — Emotional Processing',
-    description:
-      'A completely private emotional space for your teens to process hard feelings with LiLa. You cannot see it. It doesn\'t feed into any reports. It\'s exempt from all data aggregation and spousal transparency. Because you love your kids enough to give them space. Parent consent and AI literacy orientation required first — safety is never compromised.',
-    location_hint: 'Personal Dashboard, dedicated entry point',
-  },
+  // safe_harbor entry removed 2026-06-09 — Safe Harbor (PRD-20) backburnered by founder
+  // decision (dedicated emotional-processing space is better served by other platforms;
+  // crisis override + PRD-30 safety monitoring + bridge-to-human remain the safety story).
+  // See claude/feature-decisions/Safe-Harbor-Backburner-Decision.md
 
   // ── BookShelf ────────────────────────────────────────────────────
 

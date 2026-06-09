@@ -68,7 +68,7 @@ const DAD_PERSONAL_FEATURES = [
   { key: 'best_intentions', label: 'Best Intentions' },
   { key: 'innerworkings_basic', label: 'InnerWorkings' },
   { key: 'rhythms_basic', label: 'Rhythms' },
-  { key: 'safe_harbor', label: 'Safe Harbor' },
+  // safe_harbor removed 2026-06-09 — PRD-20 backburnered by founder decision
 ]
 
 const ACCESS_LEVELS = ['none', 'view', 'contribute', 'manage'] as const

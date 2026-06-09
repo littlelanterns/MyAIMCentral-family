@@ -36,7 +36,7 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { JournalPromptsPage } from '@/components/bookshelf/JournalPromptsPage'
 import {
   VictoriesPage, TrackersPage, MorningRhythmPage, EveningReviewPage,
-  LifeLanternPage, FamilyContextPage, SafeHarborPage,
+  LifeLanternPage, FamilyContextPage,
   BigPlansPage, FamilyFeedPage, NotepadPage,
 } from '@/pages/placeholder'
 import { MessagesPage } from '@/pages/MessagesPage'
@@ -112,7 +112,7 @@ function renderPage(path: string): ReactNode {
     case '/archives/family-overview': return <FamilyOverviewDetail />
     case '/messages': return <MessagesPage />
     case '/meetings': return <MeetingsPage />
-    case '/safe-harbor': return <SafeHarborPage />
+    // '/safe-harbor' removed 2026-06-09 — PRD-20 backburnered (PRIVACY_ROUTE_MAP entry kept as defensive gate)
     case '/feeds': return <FamilyFeedsStub />
     case '/family-feed': return <FamilyFeedPage />
 
