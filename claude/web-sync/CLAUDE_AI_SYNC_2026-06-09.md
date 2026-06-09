@@ -106,20 +106,32 @@ widget events, intention tallies, practice log, non-routine task derivations.
 
 ---
 
-## 4. Where we are right now (2026-06-09)
+## 4. Where we are right now (2026-06-09, end of close-out session)
 
 - **No active builds.** `.claude/rules/current-builds/` holds only `IDLE.md`.
-- **Working tree has light uncommitted test work:** a new `tests/e2e/features/phase3.8-full-flow.spec.ts`,
-  a new `tests/unit/parseSmartList.test.ts`, a one-line `package.json` change, and refreshed
-  Workers-2/3 screenshots — looks like an in-flight test/verification pass, not a feature build.
+- **Working tree fully clean, main = origin/main** (commit `e2df15c`). The close-out session on
+  06-09 swept the strays: committed two orphaned test files (parseSmartList unit test, 15/15
+  pass; Phase 3.8 full-flow e2e spec), removed an accidental `@anthropic-ai/claude-code`
+  runtime dependency from package.json (founder decision — the CLI is not an app dependency),
+  and untracked 4 legacy e2e screenshots so the 06-04 gitignore fix fully takes effect.
+- **Beta bug-report backlog fully triaged (2026-06-09):** all 17 open reports resolved into
+  buckets — **7 marked fixed** (each verified in code or production data, including two
+  VERIFY-FIRST items: the "Goals!" book now has 827 platform extractions, and the Task Breaker
+  vault item's `guided_mode_key=NULL` fix from Phase 3.8 confirmed in prod), **4 confirmed
+  still-open real bugs** held at `reviewed` (/sweep image-save error `16e94c3b`, phantom
+  message indicator `30f77dd9`, calendar add-event date default `1186a977`, mobile Notepad
+  send-to hidden `8779cc41`), and **6 feature-request/partial reports** annotated at
+  `reviewed` (notably: edit-past-reflections maps to Follow-Up Build G; BookShelf→Messages
+  is half-shipped — Notepad routing wired, Messages half waits on PRD-15). All prior
+  triage-worksheet stamps preserved.
 - **Open follow-ups carried forward:**
   - Founder testing through the current week + per-kid old→corrected allowance delta review
     (Gideon/Miriam/Mosiah); default is honor-the-corrected numbers.
   - Convention #271 grandfathered-surface refactors (when touched).
   - Layer 2 `source_type` extension, one source type per future build.
   - Sweep to find/prevent whatever deploy flow created the orphan `assignee_id=NULL` row.
-- **Standing queues for picking the next build:** Follow-Up Builds A–G, `/bug-triage-merge`
-  (beta_glitch_reports — 74 rows), and `claude/web-sync/TRIAGE_WORKSHEET.md`.
+- **Standing queues for picking the next build:** Follow-Up Builds A–G, the 4 confirmed-open
+  bugs above, and `claude/web-sync/TRIAGE_WORKSHEET.md`.
 
 ## 5. Corrected timeline (fixing claude.ai's stale memory)
 
@@ -136,7 +148,7 @@ The accurate recent sequence is:
 | 2026-05-28→06-04 | View-As Workers 5A–5E + hotfix detour | Closed 06-04 |
 | 2026-06-04 | View-As sign-off; PRD-09B + Checkbox Honesty sign-offs | Closed |
 | 2026-06-08 | Member-Day Task State / Convention #271 | Closed |
-| 2026-06-09 | Idle; test-pass work in working tree | — |
+| 2026-06-09 | Close-out sweep: 17 bug reports triaged (7 fixed / 4 open / 6 feature-req), working tree cleaned, all pushed | Closed |
 
 **New conventions since claude.ai's snapshot:** #271 (member-day obligations single source of
 truth + dashboard-truth invariant) and #272 (per-instance Realtime channel names,
