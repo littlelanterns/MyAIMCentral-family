@@ -1,7 +1,16 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-05-28 (Member-Day Task State canonical source).
+> Updated each build session. Last updated: 2026-06-09 (BUG-PASS-0609 — embedding pipeline restored).
+
+## Embedding Pipeline Restoration (BUG-PASS-0609, 2026-06-09)
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| `embed` Edge Function cron invocation | `process-embeddings` cron (every minute) → `util.invoke_edge_function('embed')` → NULL-embedding poll across TABLE_CONFIG | **Wired** (was silently dead) | Function was deployed `verify_jwt=true`; every cron run 401'd `UNAUTHORIZED_INVALID_JWT_FORMAT` (Silent Tooling Failure Pattern #7). Redeployed `--no-verify-jwt` with in-code service-role bearer check (fire-painted-schedules pattern). Commit `d28b861`. |
+| MindSweep embedding-first classification | `mindsweep-sort` → `classify_by_embedding` RPC across guiding_stars / best_intentions / self_knowledge / journal_entries / archive_context_items | **Wired** (was silently broken) | `archive_context_items.embedding` never existed → RPC errored on EVERY call → 100% of items fell to the paid Haiku path with zero telemetry. Migration 100250 added column + HNSW + trigger; 173/173 rows backfilled async; RPC verified returning matches. Structured logging added so this class can't hide again (Row 31 SCOPE-4.F1). |
+| `ai_parse` per-site telemetry | `sendAIMessage` optional telemetry param → `ai-parse` logs `ai_parse:review_route` / `ai_parse:smart_list` / `ai_parse:meeting_action` to `ai_usage_tracking` | **Wired** | Other `sendAIMessage` call sites remain catchall (row 176 scope). |
+| Messaging unread definition | `src/lib/messaging/unreadThread.ts` `isThreadUnread()` shared by sidebar badge + space list + thread list | **Wired** | NEW-DDD — badge and page can no longer disagree. 8-test pin. |
 
 ## Member-Day Obligations — Canonical Source (Convention #271, 2026-05-28)
 
