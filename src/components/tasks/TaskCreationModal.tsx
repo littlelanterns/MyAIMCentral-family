@@ -834,7 +834,13 @@ export function TaskCreationModal({
     setData(d)
     setScheduleMode('one_time')
     setQuickDays([])
-    setQuickDate('')
+    // NEW-FFF (bug 4e9b96c3): surface the existing due date in the edit
+    // flow. The one_time date picker reads quickDate (not data.dueDate) —
+    // without this seed the field rendered EMPTY when editing a task that
+    // already had a due date, making due-date editing nearly
+    // undiscoverable AND a no-touch save silently cleared the date via the
+    // `quickDate || undefined` derivation in handleSave.
+    setQuickDate(d.taskType !== 'routine' && editTaskValues?.dueDate ? editTaskValues.dueDate : '')
     setShowScheduler(false)
     setShowTypesExplained(false)
     setShowTaskBreaker(false)
@@ -2164,9 +2170,13 @@ export function TaskCreationModal({
       {/* 4. Who's Responsible */}
       <SectionCard>
         <SectionHeading icon={Users}>Who's Responsible?</SectionHeading>
+        {/* NEW-HHH (bug e8a8d506): the "Save to Studio" button only renders in
+            create mode — don't point at it from edit mode where it doesn't exist. */}
         {data.taskType === 'routine' && (
           <HelperText>
-            Pick who to assign this routine to now, or skip and use "Save to Studio" to assign later.
+            {editMode
+              ? 'Changes to who this routine is assigned to apply when you save.'
+              : 'Pick who to assign this routine to now, or skip and use "Save to Studio" to assign later.'}
           </HelperText>
         )}
         {renderAssignmentRows()}
@@ -2729,7 +2739,8 @@ export function TaskCreationModal({
           <p style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)', margin: 0, lineHeight: 1.5 }}>
             Routines are automatically saved to your <strong style={{ color: 'var(--color-text-primary)' }}>Studio library</strong>.
             You can redeploy them to other kids anytime from Studio &rarr; My Customized.
-            {(data.assignments.length === 0 && !data.wholeFamily) &&
+            {/* NEW-HHH: only mention the "Save to Studio" button where it actually renders (create mode) */}
+            {(!editMode && data.assignments.length === 0 && !data.wholeFamily) &&
               ' Or use "Save to Studio" below to save this routine without assigning it yet.'
             }
           </p>
