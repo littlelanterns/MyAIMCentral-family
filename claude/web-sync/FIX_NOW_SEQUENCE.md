@@ -1,9 +1,40 @@
 # FIX_NOW_SEQUENCE.md
 
-> **Status:** DRAFT v20 — Worker ROUTINE-PROPAGATION shipped routine deployment + propagation 2026-04-25
-> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165, v19 Worker ALLOWANCE-COMPLETE 7-row landing, **v20 Worker ROUTINE-PROPAGATION 7-row routine landing + lists deferral**) by orchestrator
+> **Status:** DRAFT v21 — bug-triage-merge landed 2026-06-08 (19 bug-report rows filed)
+> **Generated:** 2026-04-21 by Dependency-Graph worker; revised 2026-04-21 (v2), 2026-04-22 (v3), 2026-04-23 (v13 NEW-DD resolve), 2026-04-24 (v14 Wave 1 landing, v15 Row 9 B1a, v16 V-A verification, v17 Row 9 V-B1a + NEW-JJ/KK/LL, v18 NEW-JJ+NEW-KK resolved via migration 100165, v19 Worker ALLOWANCE-COMPLETE 7-row landing, v20 Worker ROUTINE-PROPAGATION 7-row routine landing + lists deferral, **v21 bug-triage-merge intake — 19 bug-report rows + 1 linked + 0 regressions**) by orchestrator
 > **Purpose:** Session 2 adjudication aid — orders Fix Now + Fix Next Build findings so the execution queue respects real dependencies. Reads alongside [TRIAGE_WORKSHEET.md](TRIAGE_WORKSHEET.md) and [AUDIT_REPORT_v1.md](AUDIT_REPORT_v1.md).
-> **Scope:** 205 rows total (v20 adds NEW-ZZ Lists template propagation gap, filed by Worker ROUTINE-PROPAGATION 2026-04-25). v20 lands 7 founder-flagged routine deployment + propagation pieces (advance-start gating, "Schedule to start later" toggle, master-template edit confirmation, duplicate-and-rename chooser flow, scheduled-to-start badge, post-save toasts, overlap detection per founder D5 rescope). Beta Readiness blocker count: 26 unchanged from v19 (this worker's pieces were not previously filed as worksheet rows — direct founder dispatch).
+> **Scope:** 224 rows total (v21 adds 19 bug-report-derived rows NEW-PP, NEW-AAA…NEW-RRR from the `/bug-triage-merge` pass 2026-06-08). These are real-world reproductions from `beta_glitch_reports`; 7 of the 14 Beta=Y rows are flagged VERIFY-FIRST (likely already fixed by later WIRING_STATUS sessions). v20 landed 7 founder-flagged routine deployment + propagation pieces. Beta Readiness blocker count: 40 (was 26; +14 from bug-triage-merge, expected to drop as VERIFY-FIRST rows are confirmed in-browser).
+
+---
+
+## What changed from v20 → v21 (bug-triage-merge landed 2026-06-08)
+
+**`/bug-triage-merge`** pulled all 74 rows from `beta_glitch_reports` (the table's lifecycle uses `new`/`reviewed`/`fixed`/`wont_fix`, not `resolved`/`dismissed`/`duplicate`, so the skill's `status NOT IN (...)` filter returned every row). The 54 `fixed`/`wont_fix` reports are documented-resolved-in-place (admin_notes carry the fix) — they served as regression context only and were NOT re-filed. The **20 actionable reports** (14 `new` + 6 unresolved `reviewed`) were categorized, cross-referenced, and clustered.
+
+**Filed (19 new rows):**
+- **NEW-PP** (Allowance, High, Y, VERIFY-FIRST) — teen sees siblings' allowance on Prize Board (likely already scoped-fixed)
+- **NEW-AAA** (Notepad, High, Y) — Send-to / Review & Route hidden on mobile
+- **NEW-BBB** (Family Overview, High, Y, VERIFY-FIRST) — today-tasks drill-down shows all-time tasks
+- **NEW-CCC** (Calendar, Medium, Y) — one-time date prefill confusing + can't edit leave-by time
+- **NEW-DDD** (Messaging, Medium, Y, NEEDS-REVIEW) — phantom "you have a message" indicator
+- **NEW-EEE** (Reflections, Medium, Y) — no inline edit of past responses
+- **NEW-FFF** (Tasks, Medium, Y) — due-date editing hard to discover from card menu
+- **NEW-GGG** (Settings, Low, N) — collapsible settings sections
+- **NEW-HHH** (Studio, Low, N) — phantom "Save to Studio" hint in routine edit
+- **NEW-III / JJJ / KKK / LLL / MMM** (BookShelf, High, Y, all VERIFY-FIRST) — study-guide flash, inaccurate summaries, scrambled chapters, View-As audience scoping, morning-rhythm dead link, + a content-ethics concern (secrecy action step) inside JJJ that is NOT auto-fixed by the rework
+- **NEW-NNN** (BookShelf, Medium, N) — bug button dead during library search + search layout
+- **NEW-OOO** (Task Breaker/Vault, High, Y, VERIFY-FIRST) — opens a conversation instead of breaking into steps
+- **NEW-PPP** (Play/Tasks, High, Y) — "Other" tasks bucket full of stale tasks that never clear
+- **NEW-QQQ** (MindSweep, Medium, N) — sweep-all errors after a saved-for-later image
+- **NEW-RRR** (BookShelf, Low, N) — send extraction+note to Messages / open in Notepad (anchor for the bucket-A link to row 76)
+
+**Linked (1, bucket A):** report `af9ade3b` → row 76 SCOPE-3.F19 (BookShelf outbound handoffs). Row 76 Notes annotated.
+
+**Regressions (bucket C):** 0. No open report matched a worksheet row marked RESOLVED.
+
+**Clarification-needed:** 1 — NEW-DDD (which surface showed the phantom message count).
+
+**Notes for the next feature-anchored session:** the BookShelf cluster (NEW-III/JJJ/KKK/LLL/MMM + NNN + RRR, plus existing NEW-A) is the single biggest cluster (7 bug reports + 2 audit rows). Most are VERIFY-FIRST — a BookShelf session should START by confirming what the 2026-05-01 fix session already resolved, then scope only the genuine remainders (content-ethics pass, library search layout, Messages handoff).
 
 ---
 
