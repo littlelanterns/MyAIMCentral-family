@@ -126,6 +126,7 @@ export function PostMeetingReview({ isOpen, onClose, meeting, onSaveComplete }: 
         [{ role: 'user', content: `Here is the meeting transcript:\n\n${transcript}` }],
         4096,
         'sonnet',
+        { featureKey: 'ai_parse:meeting_action', familyId: meeting.family_id, memberId: member?.id },
       )
 
       const parsed = extractJSON<{ summary: string; action_items: Array<{ content: string; suggested_destination: string; suggested_assignee_name?: string | null }> }>(result)

@@ -11,11 +11,25 @@ interface ChatMessage {
   content: string
 }
 
+/**
+ * Optional per-call-site telemetry. When familyId + memberId are provided the
+ * ai-parse Edge Function logs cost to ai_usage_tracking under featureKey —
+ * Row 31 SCOPE-4.F1 split the `ai_parse` catchall into per-sub-function keys
+ * (`ai_parse:review_route`, `ai_parse:smart_list`, `ai_parse:meeting_action`)
+ * so audits can measure per-site Haiku-vs-embedding rates cleanly.
+ */
+export interface AIMessageTelemetry {
+  featureKey: string
+  familyId?: string | null
+  memberId?: string | null
+}
+
 export async function sendAIMessage(
   systemPrompt: string,
   messages: ChatMessage[],
   maxTokens = 2048,
   modelTier: 'sonnet' | 'haiku' = 'haiku',
+  telemetry?: AIMessageTelemetry,
 ): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
@@ -35,6 +49,9 @@ export async function sendAIMessage(
       messages,
       max_tokens: maxTokens,
       model_tier: modelTier,
+      ...(telemetry?.featureKey ? { feature_key: telemetry.featureKey } : {}),
+      ...(telemetry?.familyId ? { family_id: telemetry.familyId } : {}),
+      ...(telemetry?.memberId ? { member_id: telemetry.memberId } : {}),
     }),
   })
 

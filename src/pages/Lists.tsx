@@ -2007,6 +2007,7 @@ Example: {"Produce": ["Bananas", "Spinach"], "Dairy": ["Milk", "Cheese"]}`,
         [{ role: 'user', content: itemNames.join('\n') }],
         2048,
         'haiku',
+        { featureKey: 'ai_parse:smart_list', familyId: list?.family_id, memberId: member?.id },
       )
 
       const parsed = extractJSON<Record<string, string[]>>(response)

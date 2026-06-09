@@ -336,9 +336,10 @@ export function useExtractContent() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ tabId, familyId, content }: {
+    mutationFn: async ({ tabId, familyId, memberId, content }: {
       tabId: string
       familyId: string
+      memberId?: string
       content: string
     }) => {
       const systemPrompt = `You are an AI extraction assistant for a family management app. Analyze the user's text and extract discrete actionable items.
@@ -363,6 +364,7 @@ Return ONLY a JSON array. No other text.`
         [{ role: 'user', content }],
         2048,
         'haiku',
+        { featureKey: 'ai_parse:review_route', familyId, memberId },
       )
 
       const items = extractJSON<ExtractedItemRaw[]>(response)

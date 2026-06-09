@@ -40,6 +40,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     await extractMutation.mutateAsync({
       tabId: tab.id,
       familyId,
+      memberId: tab.member_id,
       content: tab.content,
     })
     setHasExtracted(true)

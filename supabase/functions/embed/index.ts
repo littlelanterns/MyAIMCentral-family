@@ -315,6 +315,17 @@ async function processBookChunks(limit: number): Promise<{ processed: number; fa
 // Main handler
 // ============================================================
 Deno.serve(async (req) => {
+  // Cron-invoked function (Convention #246): deployed with --no-verify-jwt
+  // because the sb_secret_... service key is not a JWT and the gateway would
+  // reject it (this exact failure silently killed the embedding pipeline —
+  // every cron run 401'd with UNAUTHORIZED_INVALID_JWT_FORMAT until
+  // 2026-06-09). The function code validates the service-role bearer itself,
+  // same pattern as fire-painted-schedules / calculate-allowance-period.
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.includes(SUPABASE_SERVICE_ROLE_KEY)) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   try {
     // Parse batch_size from request body (optional)
     let batchSize = DEFAULT_BATCH_SIZE

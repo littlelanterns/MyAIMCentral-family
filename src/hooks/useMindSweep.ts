@@ -5,6 +5,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { mapContentTypeToInputType } from '@/lib/mindsweep/contentTypeMapping'
 import type {
   MindSweepSettings,
   MindSweepHoldingItem,
@@ -585,26 +586,9 @@ export function useMarkHoldingProcessed() {
 // ── Shared Sweep Runner ──
 // Used by both NotepadDrawer and MindSweepCapture to avoid duplicating the orchestration.
 
-/** Map holding-queue content_type → Edge Function input_type.
- *  Holding uses fine-grained types (voice_short, scan_extracted) but the
- *  Edge Function Zod schema expects coarse categories (voice, image, text). */
-function mapContentTypeToInputType(contentType: string): SweepInputType {
-  switch (contentType) {
-    case 'voice_short':
-    case 'voice_long':
-      return 'voice'
-    case 'scan_extracted':
-      return 'image'
-    case 'link':
-      return 'link'
-    case 'email':
-      return 'email'
-    case 'calendar_file':
-      return 'text'
-    default:
-      return 'text'
-  }
-}
+// (content_type → input_type mapping now lives in
+// src/lib/mindsweep/contentTypeMapping.ts — pure module with a pinning test,
+// NEW-QQQ regression guard. Imported at the top of this file.)
 
 export function useRunSweep() {
   const triggerSweep = useTriggerSweep()
@@ -655,7 +639,17 @@ export function useRunSweep() {
 
       sweepStatus.completeSweep(routeResult)
       return { ...routeResult, totalItems: response.results.length }
-    } catch {
+    } catch (err) {
+      // Surface the real failure in the console (Row 31 SCOPE-4.F1 class:
+      // this catch was fully silent, which is why bug 16e94c3b took an
+      // Edge-log archaeology session to diagnose). UI still shows the
+      // friendly error state — but the cause is now one DevTools tab away.
+      console.error('[MindSweep] sweep failed:', {
+        sourceChannel: params.sourceChannel,
+        itemCount: params.items.length,
+        contentTypes: params.items.map(i => i.content_type),
+        error: err instanceof Error ? err.message : String(err),
+      })
       sweepStatus.errorSweep()
       return null
     }

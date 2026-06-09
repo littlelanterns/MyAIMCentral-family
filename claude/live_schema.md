@@ -123,7 +123,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 435 rows
+### `view_as_sessions` — 437 rows
 
 | # | Column |
 |---|---|
@@ -135,7 +135,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 316 rows
+### `view_as_feature_exclusions` — 318 rows
 
 | # | Column |
 |---|---|
@@ -528,7 +528,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 24 rows
+### `notepad_tabs` — 22 rows
 
 | # | Column |
 |---|---|
@@ -1438,6 +1438,7 @@
 | 19 | `created_at` |
 | 20 | `updated_at` |
 | 21 | `is_negative_preference` |
+| 22 | `embedding` |
 
 ### `archive_member_settings` — 18 rows
 
@@ -1769,7 +1770,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 0 rows
+### `bookshelf_items` — 562 rows
 
 | # | Column |
 |---|---|

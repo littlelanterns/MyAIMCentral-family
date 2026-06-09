@@ -131,12 +131,27 @@ Deno.serve(async (req) => {
         const embedding = await generateEmbedding(item.text)
         totalEmbeddingTokens += Math.ceil(item.text.length / 4)
 
-        const { data: matches } = await supabase.rpc('classify_by_embedding', {
+        const { data: matches, error: rpcError } = await supabase.rpc('classify_by_embedding', {
           query_embedding: JSON.stringify(embedding),
           p_family_id: input.family_id,
           match_threshold: 0.85,
           match_count: 1,
         })
+
+        // Row 31 SCOPE-4.F1: structured logging — never let embedding-first
+        // classification fail invisibly again. An RPC error here means EVERY
+        // item silently falls through to the (paid) Haiku path.
+        if (rpcError) {
+          console.error(JSON.stringify({
+            at: 'mindsweep-sort.classify_by_embedding',
+            family_id: input.family_id,
+            item_index: i,
+            content_type: item.contentType,
+            rpc_error_code: rpcError.code ?? null,
+            rpc_error_message: rpcError.message,
+            rpc_error_details: rpcError.details ?? null,
+          }))
+        }
 
         if (matches && matches.length > 0) {
           const match = matches[0]
@@ -152,8 +167,18 @@ Deno.serve(async (req) => {
           embeddingClassifiedCount++
           continue
         }
-      } catch {
-        // Embedding failed for this item, fall through to LLM
+      } catch (err) {
+        // Embedding failed for this item — fall through to LLM, but log
+        // structured detail so the failure class is visible in Edge logs
+        // (Row 31 SCOPE-4.F1: this catch was silent for months while the
+        // classify_by_embedding RPC errored on every call).
+        console.error(JSON.stringify({
+          at: 'mindsweep-sort.embedding_classification',
+          family_id: input.family_id,
+          item_index: i,
+          content_type: item.contentType,
+          error: err instanceof Error ? err.message : String(err),
+        }))
       }
 
       needsLlm.push({ index: i, content: item.text, contentType: item.contentType })
