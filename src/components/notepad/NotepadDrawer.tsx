@@ -394,8 +394,8 @@ export function NotepadDrawer() {
           onTouchEnd={handleDrawerTouchEnd}
           className={`fixed z-40 flex flex-col ${
             isFullPage
-              ? 'inset-0 md:left-[220px]'
-              : 'top-0 right-0 bottom-0'
+              ? 'top-0 left-0 right-0 bottom-14 md:bottom-0 md:left-[220px]'
+              : 'top-0 right-0 bottom-14 md:bottom-0'
           }`}
           style={{
             width: isFullPage ? undefined : 'min(380px, 100vw)',
