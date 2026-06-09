@@ -208,20 +208,54 @@ export function SettingsPage() {
 }
 
 // ── Section Wrapper ──────────────────────────────────────────────
+// NEW-GGG (bug cefc6ca8): sections are collapsible and DEFAULT CLOSED so the
+// Settings page doesn't sprawl. Reuses the Sidebar Collapsible Sections
+// pattern from claude/conventions.md — max-height transition, 200ms,
+// session-only state (no persistence).
 
 function SettingsSection({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
   return (
     <div
       className="rounded-xl overflow-hidden"
       style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
     >
-      <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(o => !o)}
+        aria-expanded={isOpen}
+        className="flex items-center gap-2 px-4 py-3 w-full text-left"
+        style={{
+          background: 'transparent',
+          border: 'none',
+          borderBottom: isOpen ? '1px solid var(--color-border)' : 'none',
+          cursor: 'pointer',
+          minHeight: 'unset',
+        }}
+      >
         <Icon size={18} style={{ color: 'var(--color-btn-primary-bg)' }} />
-        <h2 className="font-semibold text-sm" style={{ color: 'var(--color-text-heading)' }}>
+        <h2 className="font-semibold text-sm flex-1" style={{ color: 'var(--color-text-heading)' }}>
           {title}
         </h2>
+        <ChevronRight
+          size={16}
+          style={{
+            color: 'var(--color-text-secondary)',
+            transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 200ms ease',
+          }}
+        />
+      </button>
+      <div
+        style={{
+          maxHeight: isOpen ? '4000px' : '0px',
+          overflow: 'hidden',
+          transition: 'max-height 200ms ease',
+        }}
+      >
+        <div className="p-4">{children}</div>
       </div>
-      <div className="p-4">{children}</div>
     </div>
   )
 }
