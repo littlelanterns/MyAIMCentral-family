@@ -113,7 +113,8 @@ export interface CreateEventInput {
   transportation_needed?: boolean
   transportation_notes?: string
   items_to_bring?: ItemToBring[]
-  leave_by_time?: string
+  /** 'HH:MM' — null explicitly clears the stored leave-by time on update */
+  leave_by_time?: string | null
   notes?: string
   reminder_minutes?: number[]
   attendees?: AttendeeInput[]

@@ -33,6 +33,7 @@ export function UniversalScheduler({
   onChange,
   showTimeDefault = false,
   compactMode = false,
+  oneTimeDateNote,
   allowedFrequencies: _allowedFrequencies,
   timezone = 'America/Chicago',
   weekStartDay = 0,
@@ -145,7 +146,14 @@ export function UniversalScheduler({
               </label>
 
               {/* ── Inline detail pickers below selected option ── */}
-              {activeOption === opt.key && opt.key === 'one_time' && (
+              {activeOption === opt.key && opt.key === 'one_time' && oneTimeDateNote && (
+                <div className="pl-8 pb-2">
+                  <p className="text-xs italic" style={{ color: 'var(--color-text-secondary)' }}>
+                    {oneTimeDateNote}
+                  </p>
+                </div>
+              )}
+              {activeOption === opt.key && opt.key === 'one_time' && !oneTimeDateNote && (
                 <div className="pl-8 pb-2 flex items-center gap-2 flex-wrap">
                   <input
                     type="date"

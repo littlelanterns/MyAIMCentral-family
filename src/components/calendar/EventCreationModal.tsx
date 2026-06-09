@@ -77,6 +77,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
   const [attendees, setAttendees] = useState<Map<string, string>>(new Map()) // memberId → role
   const [transportationNeeded, setTransportationNeeded] = useState(false)
   const [transportationNotes, setTransportationNotes] = useState('')
+  const [leaveByInput, setLeaveByInput] = useState('') // 'HH:MM' — editable leave-by time (NEW-CCC)
   const [itemsToBring, setItemsToBring] = useState<ItemToBring[]>([])
   const [newItemText, setNewItemText] = useState('')
   const [notes, setNotes] = useState('')
@@ -107,6 +108,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
         setAttendees(initialAttendees)
         setTransportationNeeded(initialEvent.transportation_needed ?? false)
         setTransportationNotes(initialEvent.transportation_notes ?? '')
+        setLeaveByInput(initialEvent.leave_by_time?.slice(0, 5) ?? '')
         setItemsToBring(initialEvent.items_to_bring ?? [])
         setNotes(initialEvent.notes ?? '')
         setShowOnHub(initialEvent.show_on_hub ?? true)
@@ -133,6 +135,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
         setAttendees(new Map())
         setTransportationNeeded(false)
         setTransportationNotes('')
+        setLeaveByInput('')
         setItemsToBring([])
         setNotes(prefillNotes ?? '')
         setShowOnHub(true)
@@ -200,6 +203,9 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
       reminder_minutes: selectedReminders.length > 0 ? selectedReminders : undefined,
       transportation_needed: transportationNeeded,
       transportation_notes: transportationNotes || undefined,
+      // Editable leave-by time (NEW-CCC). Cleared (null) when transportation
+      // is off or the field is emptied — undefined would skip the update.
+      leave_by_time: transportationNeeded && leaveByInput ? leaveByInput : null,
       items_to_bring: itemsToBring.length > 0 ? itemsToBring : undefined,
       notes: notes || undefined,
       attendees: attendeeInputs.length > 0 ? attendeeInputs : undefined,
@@ -226,21 +232,23 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
       onCreated?.()
     }
     onClose()
-  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, itemsToBring, notes, showOnHub, isPenciledIn, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose, onCreated])
+  }, [title, eventDate, endDate, isMultiDay, startTime, endTime, isAllDay, location, description, categoryId, selectedReminders, attendees, transportationNeeded, transportationNotes, leaveByInput, itemsToBring, notes, showOnHub, isPenciledIn, scheduleValue, isEditing, initialEvent, createEvent, updateEvent, onClose, onCreated])
 
   const isSaving = createEvent.isPending || updateEvent.isPending
   const hasUnsavedChanges = title.trim().length > 0
 
-  // Calculate leave-by time
-  const leaveByTime = transportationNeeded && startTime && settings?.default_drive_time_minutes
+  // Suggested leave-by time from start time + default drive time (NEW-CCC:
+  // suggestion only — the editable leaveByInput below is what saves).
+  const suggestedLeaveBy = transportationNeeded && startTime && settings?.default_drive_time_minutes
     ? (() => {
         const [h, m] = startTime.split(':').map(Number)
-        const totalMin = h * 60 + m - settings.default_drive_time_minutes
-        const lh = Math.floor(((totalMin % 1440) + 1440) % 1440 / 60)
-        const lm = ((totalMin % 1440) + 1440) % 1440 % 60
+        const totalMin = ((h * 60 + m - settings.default_drive_time_minutes) % 1440 + 1440) % 1440
+        const lh = Math.floor(totalMin / 60)
+        const lm = totalMin % 60
+        const raw = `${String(lh).padStart(2, '0')}:${String(lm).padStart(2, '0')}`
         const ampm = lh >= 12 ? 'PM' : 'AM'
         const hour = lh % 12 || 12
-        return `${hour}:${String(lm).padStart(2, '0')} ${ampm}`
+        return { raw, display: `${hour}:${String(lm).padStart(2, '0')} ${ampm}` }
       })()
     : null
 
@@ -410,6 +418,7 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
             onChange={setScheduleValue}
             showTimeDefault={false}
             compactMode
+            oneTimeDateNote="Happens once — on the date set in Date & Time above."
           />
         </SectionCard>
 
@@ -515,11 +524,29 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
           </label>
           {transportationNeeded && (
             <div className="space-y-2 pl-6">
-              {leaveByTime && (
-                <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                  Leave by: <strong>{leaveByTime}</strong> (based on {settings?.default_drive_time_minutes} min drive)
-                </p>
-              )}
+              {/* Editable leave-by time (NEW-CCC) — saves to leave_by_time */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <label className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                  Leave by
+                </label>
+                <input
+                  type="time"
+                  value={leaveByInput}
+                  onChange={(e) => setLeaveByInput(e.target.value)}
+                  className="text-sm rounded-lg px-3 py-1.5"
+                  style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', minHeight: 'unset' }}
+                />
+                {suggestedLeaveBy && leaveByInput !== suggestedLeaveBy.raw && (
+                  <button
+                    type="button"
+                    onClick={() => setLeaveByInput(suggestedLeaveBy.raw)}
+                    className="text-xs rounded-full px-2.5 py-1"
+                    style={{ background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', minHeight: 'unset', cursor: 'pointer' }}
+                  >
+                    Use {suggestedLeaveBy.display} ({settings?.default_drive_time_minutes} min drive)
+                  </button>
+                )}
+              </div>
               <input
                 value={transportationNotes}
                 onChange={(e) => setTransportationNotes(e.target.value)}

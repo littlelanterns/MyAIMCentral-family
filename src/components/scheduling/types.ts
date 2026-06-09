@@ -70,6 +70,14 @@ export interface UniversalSchedulerProps {
   showTimeDefault?: boolean
   /** Compact mode: day-of-week circles only, no advanced options, no calendar preview */
   compactMode?: boolean
+  /**
+   * When the consuming feature owns the one-time date in its own field
+   * (e.g. EventCreationModal's Date & Time card), pass an explanatory note
+   * here. The One-Time option then shows this note INSTEAD of its inline
+   * date/time picker — preventing a second, today-prefilled date input from
+   * misleading the user about which date the item lands on (NEW-CCC).
+   */
+  oneTimeDateNote?: string
   /** Restrict available frequency types */
   allowedFrequencies?: FrequencyType[]
   /** Family timezone (defaults to America/Chicago) */
