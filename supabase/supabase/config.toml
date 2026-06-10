@@ -557,6 +557,14 @@ verify_jwt = false
 [functions.shopping-list-auto-archive]
 verify_jwt = false
 
+# ── Family Auth Two-Door (PRD-01 amendment) ──
+# Invoked pre-auth from FamilyLogin (family_door_sync) — publishable keys are
+# not JWTs (Silent Tooling Failure Pattern #7). Authorization happens in code:
+# mom actions verify the JWT via authenticateRequest; family_door_sync requires
+# the family password (server-verified with lockout).
+[functions.family-auth-admin]
+verify_jwt = false
+
 # Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)
