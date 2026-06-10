@@ -2,7 +2,7 @@
 
 ## Status: SIGNED OFF 2026-06-09 — founder verified in-app ("That all seems to work!" on the grant flows; "Looks great!" on the Balance arrangement). Final scope: base build (34 Wired / 3 Stubbed / 0 Missing) + two founder-requested follow-ons same session: FAMILY-WIDE finance grant (migration 100261) and Balance tab By-child/By-date arrangement. E2E 14/14 + leak-pass 10/10. Convention #274.
 
-> Residual real-life check (non-blocking, noted for whenever it naturally happens): one Mark Paid from dad's actual device → confirm mom's notification + "paid by" ledger attribution on her phone.
+> Residual real-life check CONFIRMED by founder 2026-06-09: dad recorded a real payment from his own device — "paid by Jerrod" ledger attribution verified working. Every Mom-UI verification item is now founder-confirmed or browser-test-evidenced; nothing outstanding.
 
 ## Founder decisions (Checkpoint 1 gate, 2026-06-09)
 
