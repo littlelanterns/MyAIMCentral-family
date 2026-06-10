@@ -1,4 +1,9 @@
-// PRD-28 Screen 4: Tasks Page → Finances Tab (Mom only)
+// PRD-28 Screen 4: Finances Tab — relocated to the Family Overview command
+// center (FO-COMMAND-CENTER, founder Q7 2026-06-10). Mom = full surface;
+// finance-granted dads (Convention #274) get a scoped, level-gated view:
+//   view        → read-only (no payments, no grace days, no makeup)
+//   contribute  → + payments (Pay All)
+//   manage      → + grace days / makeup work (period ops)
 // Shows: What I Owe summary, per-child WeeklyProgressCard, recent transactions
 
 import { useState } from 'react'
@@ -17,12 +22,36 @@ import {
 import { todayLocalIso, localIso } from '@/utils/dates'
 import type { ChildFinancialSummary, FinancialTransaction } from '@/types/financial'
 
-export function FinancesTab({ familyId }: { familyId: string }) {
-  const { data: summaries = [], isLoading } = useFamilyFinancialSummary(familyId)
-  const { data: recentTransactions = [] } = useFamilyTransactions(familyId, 10)
+export type FinanceAccessLevel = 'view' | 'contribute' | 'manage'
+
+export function FinancesTab({
+  familyId,
+  filterMemberIds,
+  accessLevel = 'manage',
+}: {
+  familyId: string
+  /** FO-COMMAND-CENTER: scope the display to finance-granted kids (dads). */
+  filterMemberIds?: string[]
+  /** PERMISSIONS-WIRING levels — gates payments (contribute+) and grace/makeup (manage). */
+  accessLevel?: FinanceAccessLevel
+}) {
+  const { data: allSummaries = [], isLoading } = useFamilyFinancialSummary(familyId)
+  const { data: allTransactions = [] } = useFamilyTransactions(familyId, 10)
   const { data: members } = useFamilyMembers(familyId)
   const navigate = useNavigate()
   const createPayment = useCreatePayment()
+
+  // Display scoping for granted dads — RLS already scopes the underlying rows
+  // (migrations 100260/100261); this keeps ungranted kids ABSENT, not $0
+  // (Hub-honesty parity: never show a row you can't actually read).
+  const visibleSet = filterMemberIds ? new Set(filterMemberIds) : null
+  const summaries = visibleSet ? allSummaries.filter(s => visibleSet.has(s.memberId)) : allSummaries
+  const recentTransactions = visibleSet
+    ? allTransactions.filter(tx => visibleSet.has(tx.family_member_id))
+    : allTransactions
+
+  const canPay = accessLevel === 'contribute' || accessLevel === 'manage'
+  const canManage = accessLevel === 'manage'
 
   const totalOwed = summaries.reduce((sum, s) => sum + s.balance, 0)
   const childrenWithBalance = summaries.filter(s => s.balance > 0)
@@ -92,7 +121,7 @@ export function FinancesTab({ familyId }: { familyId: string }) {
           <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
             Total: ${totalOwed.toFixed(2)}
           </span>
-          {childrenWithBalance.length > 0 && (
+          {canPay && childrenWithBalance.length > 0 && (
             <div className="flex gap-2">
               <button
                 onClick={async () => {
@@ -130,6 +159,7 @@ export function FinancesTab({ familyId }: { familyId: string }) {
               summary={summary}
               familyId={familyId}
               navigate={navigate}
+              canManage={canManage}
             />
           ))}
       </div>
@@ -169,10 +199,13 @@ export function FinancesTab({ familyId }: { familyId: string }) {
 function WeeklyProgressCard({
   summary,
   navigate,
+  canManage,
 }: {
   summary: ChildFinancialSummary
   familyId: string
   navigate: (path: string) => void
+  /** manage-level only: grace days + makeup work (period ops, Convention #274) */
+  canManage: boolean
 }) {
   const { data: period } = useActivePeriod(summary.memberId)
   // Phase 3.5 D-gap-2: member-level grace day mutation. Marks the day
@@ -251,7 +284,8 @@ function WeeklyProgressCard({
         </div>
       )}
 
-      {/* Action buttons — Mom only */}
+      {/* Action buttons — manage level (mom / manage-granted dad) */}
+      {canManage && (
       <div className="flex flex-wrap gap-2 mt-3">
         {/* Mark Grace Day */}
         {period && (
@@ -316,6 +350,7 @@ function WeeklyProgressCard({
           Assign Makeup Work
         </button>
       </div>
+      )}
     </div>
   )
 }

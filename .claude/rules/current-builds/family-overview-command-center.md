@@ -112,10 +112,10 @@ migrations 100262+; I expect zero. Both stage only own files.
 | 24 | Convention #275 added; #150 amended | Convention #14 | **Wired** | CLAUDE.md |
 | 25 | Nav parity check | Convention #16 | **N/A** | No sidebar/BottomNav entry added, removed, or renamed (FO lives behind PerspectiveSwitcher; /tasks route unchanged) |
 | 26 | "Deploy all" button on Queue surface | Founder request via coordination | **Wired** | Engine landed mid-session; button in SortTab serves modal + FO Queue tab; calendar/context items skipped by design; E2E test 3b |
-| 27 | FO Finances tab for finance-granted dads | parity choice | **Stubbed** | Kept mom-only (parity with prior Tasks-page gating); granted dads keep Prize Board. Candidate follow-up via `financeMaxLevel` |
-| 28 | PRD-14C per-column long-press collapse override + section/column drag-reorder | PRD-14C (pre-existing gap) | **Stubbed** | Was never built in the original FO build; unchanged by this build; flagged for a FO polish pass |
+| 27 | FO Finances tab for finance-granted dads | founder add-on (eyes-on session 2026-06-10) | **Wired** | `useManagementGrants` gating; display scoped to granted kids (per-kid wins incl. 'none' carve-out); levels: view = read-only, contribute = + Pay All, manage = + grace/makeup. E2E test 8b |
+| 28 | PRD-14C per-column long-press collapse override + section/column drag-reorder | PRD-14C gap, founder add-on | **Wired** | Long-press (500ms/8px slop) per-column override + dot indicator; ⠿ grips for global section reorder + horizontal column reorder (@dnd-kit, persisted). selectedMembers memo append-fix. E2E test 8c |
 
-**Summary: 26 Wired · 2 Stubbed · 0 Missing.** (Row 26 flipped to Wired same-session — the REVIEW-ROUTE engine landed mid-build; E2E fo-command-center now 10/10.)
+**Summary: 28 Wired · 0 Stubbed · 0 Missing.** (Rows 26-28 flipped to Wired same-session: the REVIEW-ROUTE engine landed mid-build, and the founder pulled both stubs into scope at the eyes-on gate. E2E fo-command-center now 12 tests.)
 
 ## Mom-UI Verification
 

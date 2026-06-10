@@ -2,7 +2,11 @@
 // Horizontally-swipeable member columns with collapsible sections.
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen, GripVertical } from 'lucide-react'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '@/lib/supabase/client'
 import { getMemberColor } from '@/lib/memberColors'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -41,7 +45,8 @@ import {
   filterVisiblePendingApprovals,
 } from '@/components/tasks/PendingApprovalsSection'
 import { SortTab } from '@/components/queue/SortTab'
-import { FinancesTab } from '@/features/financial/FinancesTab'
+import { FinancesTab, type FinanceAccessLevel } from '@/features/financial/FinancesTab'
+import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 import { MemberSpotCheck } from './MemberSpotCheck'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import PendingItemsBar from './PendingItemsBar'
@@ -96,39 +101,132 @@ function SectionHeader({
   count,
   hasOverride,
   onToggle,
+  onOverrideToggle,
+  dragHandleProps,
 }: {
   sectionKey: FamilyOverviewSectionKey
   collapsed: boolean
   count?: number
   hasOverride?: boolean
   onToggle: () => void
+  /** PRD-14C: long-press toggles THIS column's section only (override). */
+  onOverrideToggle?: () => void
+  /** dnd-kit listeners for the section reorder grip (Universal UX: ⠿ handle). */
+  dragHandleProps?: Record<string, unknown>
 }) {
   const meta = SECTION_META[sectionKey]
+
+  // ── Long-press detection (PRD-14C per-column override) ──
+  const pressTimer = useRef<number | null>(null)
+  const longPressFired = useRef(false)
+  const pressStart = useRef<{ x: number; y: number } | null>(null)
+
+  const cancelPress = () => {
+    if (pressTimer.current !== null) {
+      window.clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
+    pressStart.current = null
+  }
+  const startPress = (e: React.PointerEvent) => {
+    if (!onOverrideToggle) return
+    longPressFired.current = false
+    cancelPress()
+    pressStart.current = { x: e.clientX, y: e.clientY }
+    pressTimer.current = window.setTimeout(() => {
+      longPressFired.current = true
+      pressTimer.current = null
+      onOverrideToggle()
+    }, 500)
+  }
+  // Cancel only on real movement (8px slop) — finger tremor shouldn't kill
+  // the hold on touch devices.
+  const movePress = (e: React.PointerEvent) => {
+    if (!pressStart.current) return
+    const dx = e.clientX - pressStart.current.x
+    const dy = e.clientY - pressStart.current.y
+    if (dx * dx + dy * dy > 64) cancelPress()
+  }
+  const handleClick = () => {
+    if (longPressFired.current) {
+      // The long-press already toggled the override — swallow the click
+      longPressFired.current = false
+      return
+    }
+    onToggle()
+  }
+
   return (
-    <button
-      onClick={onToggle}
-      data-testid={`section-header-${sectionKey}`}
-      className="w-full flex items-center gap-1.5 py-1.5 px-2 text-xs font-semibold"
-      style={{ color: 'var(--color-text-secondary)' }}
-    >
-      {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-      {meta.icon}
-      <span>{meta.label}</span>
-      {count !== undefined && (
+    <div className="flex items-center">
+      <button
+        onClick={handleClick}
+        onPointerDown={startPress}
+        onPointerUp={cancelPress}
+        onPointerLeave={cancelPress}
+        onPointerMove={movePress}
+        onContextMenu={(e) => e.preventDefault()}
+        data-testid={`section-header-${sectionKey}`}
+        className="flex-1 flex items-center gap-1.5 py-1.5 px-2 text-xs font-semibold"
+        style={{ color: 'var(--color-text-secondary)', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'manipulation' }}
+        title={onOverrideToggle ? 'Tap: collapse everywhere · Hold: just this column' : undefined}
+      >
+        {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+        {meta.icon}
+        <span>{meta.label}</span>
+        {count !== undefined && (
+          <span
+            className="ml-auto text-xs font-normal"
+            style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}
+          >
+            {count}
+          </span>
+        )}
+        {hasOverride && (
+          <span
+            className="w-1.5 h-1.5 rounded-full ml-1"
+            style={{ backgroundColor: 'var(--color-btn-primary-bg)' }}
+          />
+        )}
+      </button>
+      {dragHandleProps && (
         <span
-          className="ml-auto text-xs font-normal"
-          style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}
+          {...dragHandleProps}
+          data-testid={`section-drag-${sectionKey}`}
+          className="px-1.5 py-1.5 shrink-0"
+          style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))', cursor: 'grab', touchAction: 'none' }}
+          aria-label={`Reorder ${meta.label} section`}
         >
-          {count}
+          <GripVertical size={12} />
         </span>
       )}
-      {hasOverride && (
-        <span
-          className="w-1.5 h-1.5 rounded-full ml-1"
-          style={{ backgroundColor: 'var(--color-btn-primary-bg)' }}
-        />
-      )}
-    </button>
+    </div>
+  )
+}
+
+// ─── Sortable section wrapper (global section reorder, persists) ────────────
+
+function SortableSection({
+  id,
+  children,
+}: {
+  id: string
+  children: (dragHandleProps: Record<string, unknown>) => React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+        position: 'relative',
+        zIndex: isDragging ? 5 : undefined,
+        backgroundColor: isDragging ? 'var(--color-bg-card)' : undefined,
+      }}
+    >
+      {children({ ...attributes, ...listeners })}
+    </div>
   )
 }
 
@@ -550,6 +648,8 @@ function MemberColumn({
   sequential,
   victories,
   onToggleSection,
+  onToggleSectionOverride,
+  onSectionReorder,
   onCompleteTask,
   onSpotCheck,
 }: {
@@ -567,10 +667,22 @@ function MemberColumn({
   sequential: MemberSequentialSummary[]
   victories: Array<Record<string, unknown>>
   onToggleSection: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
+  onToggleSectionOverride: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
+  onSectionReorder: (activeKey: string, overKey: string) => void
   onCompleteTask: (taskId: string, memberId: string) => void
   onSpotCheck: (member: FamilyMember) => void
 }) {
   const color = member.calendar_color || getMemberColor(member)
+
+  // Column reorder (PRD-14C: drag column headers left/right; persists)
+  const {
+    attributes: colAttributes,
+    listeners: colListeners,
+    setNodeRef: setColumnRef,
+    transform: colTransform,
+    transition: colTransition,
+    isDragging: colDragging,
+  } = useSortable({ id: member.id })
 
   const isSectionCollapsed = (key: FamilyOverviewSectionKey) => {
     const state = sectionStates[key]
@@ -582,6 +694,20 @@ function MemberColumn({
   const hasOverride = (key: FamilyOverviewSectionKey) => {
     const state = sectionStates[key]
     return state?.overrides?.[member.id] !== undefined
+  }
+
+  // Section drag-and-drop (global reorder — same order in every column).
+  // Each column hosts its OWN DndContext (nested under the column-reorder
+  // context); ids are namespaced per column so dnd-kit instances don't clash.
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  )
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const activeKey = String(active.id).split('|')[1]
+    const overKey = String(over.id).split('|')[1]
+    if (activeKey && overKey) onSectionReorder(activeKey, overKey)
   }
 
   const renderSection = (key: string) => {
@@ -611,16 +737,22 @@ function MemberColumn({
     }
 
     return (
-      <div key={key}>
-        <SectionHeader
-          sectionKey={sectionKey}
-          collapsed={collapsed}
-          count={count}
-          hasOverride={hasOverride(sectionKey)}
-          onToggle={() => onToggleSection(sectionKey, member.id)}
-        />
-        {!collapsed && renderSectionContent(sectionKey)}
-      </div>
+      <SortableSection key={key} id={`${member.id}|${key}`}>
+        {(dragHandleProps) => (
+          <>
+            <SectionHeader
+              sectionKey={sectionKey}
+              collapsed={collapsed}
+              count={count}
+              hasOverride={hasOverride(sectionKey)}
+              onToggle={() => onToggleSection(sectionKey, member.id)}
+              onOverrideToggle={() => onToggleSectionOverride(sectionKey, member.id)}
+              dragHandleProps={dragHandleProps}
+            />
+            {!collapsed && renderSectionContent(sectionKey)}
+          </>
+        )}
+      </SortableSection>
     )
   }
 
@@ -664,6 +796,7 @@ function MemberColumn({
 
   return (
     <div
+      ref={setColumnRef}
       className="shrink-0 snap-start rounded-lg overflow-hidden"
       data-testid={`member-column-${member.id}`}
       data-member-name={member.display_name.split(' ')[0]}
@@ -671,36 +804,61 @@ function MemberColumn({
         width: 'var(--fo-column-width, 280px)',
         backgroundColor: 'var(--color-bg-card)',
         border: '1px solid var(--color-border-default)',
+        transform: CSS.Transform.toString(colTransform),
+        transition: colTransition,
+        opacity: colDragging ? 0.7 : 1,
+        zIndex: colDragging ? 10 : undefined,
       }}
     >
-      {/* Sticky column header — tap to spot-check (FO-COMMAND-CENTER) */}
-      <button
-        className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2 w-full text-left"
-        data-testid={`column-header-${member.id}`}
-        onClick={() => onSpotCheck(member)}
-        aria-label={`Open ${member.display_name.split(' ')[0]}'s items`}
+      {/* Sticky column header — grip to reorder, tap to spot-check */}
+      <div
+        className="sticky top-0 z-10 flex items-center px-1 py-2"
         style={{
           borderBottom: `3px solid ${color}`,
           backgroundColor: 'var(--color-bg-card)',
-          cursor: 'pointer',
         }}
       >
         <span
-          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-          style={{ backgroundColor: color, color: 'var(--color-text-on-primary, #fff)' }}
+          {...colAttributes}
+          {...colListeners}
+          data-testid={`column-drag-${member.id}`}
+          className="px-1 shrink-0"
+          style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))', cursor: 'grab', touchAction: 'none' }}
+          aria-label={`Reorder ${member.display_name.split(' ')[0]}'s column`}
         >
-          {member.display_name.charAt(0)}
+          <GripVertical size={14} />
         </span>
-        <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-          {member.display_name.split(' ')[0]}
-        </span>
-        <ChevronRight size={14} className="ml-auto shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
-      </button>
-
-      {/* Sections */}
-      <div className="divide-y" style={{ borderColor: 'var(--color-border-default)' }}>
-        {sectionOrder.map(renderSection)}
+        <button
+          className="flex-1 flex items-center gap-2 pr-2 text-left min-w-0"
+          data-testid={`column-header-${member.id}`}
+          onClick={() => onSpotCheck(member)}
+          aria-label={`Open ${member.display_name.split(' ')[0]}'s items`}
+          style={{ cursor: 'pointer' }}
+        >
+          <span
+            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ backgroundColor: color, color: 'var(--color-text-on-primary, #fff)' }}
+          >
+            {member.display_name.charAt(0)}
+          </span>
+          <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+            {member.display_name.split(' ')[0]}
+          </span>
+          <ChevronRight size={14} className="ml-auto shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
+        </button>
       </div>
+
+      {/* Sections — nested DndContext for global section reorder */}
+      <DndContext sensors={sectionSensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+        <SortableContext
+          items={sectionOrder.map((k) => `${member.id}|${k}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="divide-y" style={{ borderColor: 'var(--color-border-default)' }}>
+            {sectionOrder.map(renderSection)}
+          </div>
+        </SortableContext>
+      </DndContext>
     </div>
   )
 }
@@ -873,6 +1031,24 @@ export default function FamilyOverview() {
 
   const { data: queueItems = [] } = usePendingQueueCount(family?.id, member?.id, member?.role)
 
+  // ── Finances tab access (founder add-on 2026-06-10): finance-granted dads
+  // get the SAME tab, scoped + level-gated per Convention #274. Per-kid row
+  // wins (incl. 'none' carve-out); family-wide row covers role='member' kids.
+  const grants = useManagementGrants(
+    member ? { id: member.id, family_id: member.family_id, role: member.role } : null,
+  )
+  const financeAccess: FinanceAccessLevel | 'none' = isPrimaryParent ? 'manage' : grants.financeMaxLevel
+  const financeMemberIds = useMemo(() => {
+    if (isPrimaryParent) return undefined // mom: unscoped
+    const kids = (allMembers ?? []).filter((m) => m.role === 'member' && m.is_active && !m.out_of_nest)
+    return kids
+      .filter((k) => {
+        const level = grants.financeLevels[k.id] !== undefined ? grants.financeLevels[k.id] : grants.financeFamilyLevel
+        return level !== 'none'
+      })
+      .map((k) => k.id)
+  }, [isPrimaryParent, allMembers, grants.financeLevels, grants.financeFamilyLevel])
+
   // ── Dad's scoped view: granted-permission member list ──
   // FO-COMMAND-CENTER Phase 4: replaced the stale pre-leak-pass
   // `view_as_permissions` read with `useViewableMembers` — the same
@@ -912,13 +1088,18 @@ export default function FamilyOverview() {
     return [...FAMILY_OVERVIEW_SECTION_KEYS]
   }, [config])
 
-  const sectionStates = config?.section_states ?? {}
+  const sectionStates = useMemo(() => config?.section_states ?? {}, [config?.section_states])
   const calendarCollapsed = config?.calendar_collapsed ?? false
 
-  // Selected members in column order
+  // Selected members in column order. Members selected AFTER a custom
+  // column_order was saved append at the end (they're missing from the saved
+  // array — without the append they'd silently vanish from the columns).
   const selectedMembers = useMemo(() => {
     const memberMap = new Map((allMembers ?? []).map((m) => [m.id, m]))
-    const order = config?.column_order?.length ? config.column_order : selectedMemberIds
+    const saved = config?.column_order ?? []
+    const order = saved.length
+      ? [...saved, ...selectedMemberIds.filter((id) => !saved.includes(id))]
+      : selectedMemberIds
     return order.filter((id) => selectedMemberIds.includes(id)).map((id) => memberMap.get(id)).filter(Boolean) as FamilyMember[]
   }, [allMembers, selectedMemberIds, config?.column_order])
 
@@ -992,6 +1173,69 @@ export default function FamilyOverview() {
       })
     },
     [family?.id, member?.id, sectionStates, updateConfig]
+  )
+
+  // PRD-14C: long-press on a section header toggles JUST that column's
+  // section (per-column override). Row-level toggles clear overrides.
+  const handleToggleSectionOverride = useCallback(
+    (sectionKey: FamilyOverviewSectionKey, targetMemberId: string) => {
+      if (!family?.id || !member?.id) return
+      const current = sectionStates[sectionKey] ?? { collapsed: false }
+      const effective =
+        current.overrides?.[targetMemberId] !== undefined
+          ? current.overrides[targetMemberId]
+          : current.collapsed
+      const newStates = {
+        ...sectionStates,
+        [sectionKey]: {
+          ...current,
+          overrides: { ...(current.overrides ?? {}), [targetMemberId]: !effective },
+        },
+      }
+      updateConfig.mutate({
+        familyId: family.id,
+        memberId: member.id,
+        sectionStates: newStates,
+      })
+    },
+    [family?.id, member?.id, sectionStates, updateConfig]
+  )
+
+  // PRD-14C: section order is GLOBAL across columns; persists.
+  const handleSectionReorder = useCallback(
+    (activeKey: string, overKey: string) => {
+      if (!family?.id || !member?.id) return
+      const fromIdx = sectionOrder.indexOf(activeKey)
+      const toIdx = sectionOrder.indexOf(overKey)
+      if (fromIdx === -1 || toIdx === -1) return
+      updateConfig.mutate({
+        familyId: family.id,
+        memberId: member.id,
+        sectionOrder: arrayMove(sectionOrder, fromIdx, toIdx),
+      })
+    },
+    [family?.id, member?.id, sectionOrder, updateConfig]
+  )
+
+  // PRD-14C: column order — drag column grips left/right; persists.
+  const columnSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
+  const handleColumnDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!family?.id || !member?.id || !over || active.id === over.id) return
+      const ids = selectedMembers.map((m) => m.id)
+      const fromIdx = ids.indexOf(String(active.id))
+      const toIdx = ids.indexOf(String(over.id))
+      if (fromIdx === -1 || toIdx === -1) return
+      updateConfig.mutate({
+        familyId: family.id,
+        memberId: member.id,
+        columnOrder: arrayMove(ids, fromIdx, toIdx),
+      })
+    },
+    [family?.id, member?.id, selectedMembers, updateConfig]
   )
 
   const handleCompleteTask = useCallback(
@@ -1071,8 +1315,7 @@ export default function FamilyOverview() {
       label: `Approvals${visiblePendingApprovals.length > 0 ? ` (${visiblePendingApprovals.length})` : ''}`,
       icon: <ClipboardCheck size={15} />,
     },
-    // Queue + Finances stay mom-scoped (queue RLS is primary_parent family-wide;
-    // Finances parity with the prior Tasks-page gating)
+    // Queue stays mom-scoped (queue RLS is primary_parent family-wide)
     ...(isPrimaryParent
       ? [
           {
@@ -1080,8 +1323,12 @@ export default function FamilyOverview() {
             label: `Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`,
             icon: <Inbox size={15} />,
           },
-          { key: 'finances' as const, label: 'Finances', icon: <DollarSign size={15} /> },
         ]
+      : []),
+    // Finances: mom OR finance-granted dad (Convention #274, founder add-on
+    // 2026-06-10) — scoped + level-gated inside FinancesTab
+    ...(financeAccess !== 'none'
+      ? [{ key: 'finances' as const, label: 'Finances', icon: <DollarSign size={15} /> }]
       : []),
   ]
 
@@ -1114,8 +1361,15 @@ export default function FamilyOverview() {
       {/* ── Queue tab (relocated studio_queue decision inbox — full SortTab) ── */}
       {activeTab === 'queue' && isPrimaryParent && <SortTab />}
 
-      {/* ── Finances tab (relocated from Tasks page, founder Q7) ── */}
-      {activeTab === 'finances' && isPrimaryParent && <FinancesTab familyId={family.id} />}
+      {/* ── Finances tab (relocated from Tasks page, founder Q7) — mom full;
+            finance-granted dads scoped + level-gated (founder add-on) ── */}
+      {activeTab === 'finances' && financeAccess !== 'none' && (
+        <FinancesTab
+          familyId={family.id}
+          filterMemberIds={financeMemberIds}
+          accessLevel={financeAccess}
+        />
+      )}
 
       {activeTab === 'overview' && (
         <>
@@ -1154,45 +1408,51 @@ export default function FamilyOverview() {
         <OnboardingCard onDismiss={handleDismissOnboarding} />
       )}
 
-      {/* Member Columns */}
-      <div
-        ref={containerRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2"
-        style={
-          {
-            '--fo-column-width': `${columnWidth}px`,
-            scrollbarWidth: 'thin',
-          } as React.CSSProperties
-        }
-      >
-        {selectedMembers.length === 0 ? (
-          <div className="text-sm py-8 text-center w-full" style={{ color: 'var(--color-text-secondary)' }}>
-            Select family members above to see their activity
+      {/* Member Columns — horizontal DnD for column reorder (PRD-14C) */}
+      <DndContext sensors={columnSensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
+        <SortableContext items={selectedMembers.map((m) => m.id)} strategy={horizontalListSortingStrategy}>
+          <div
+            ref={containerRef}
+            className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2"
+            style={
+              {
+                '--fo-column-width': `${columnWidth}px`,
+                scrollbarWidth: 'thin',
+              } as React.CSSProperties
+            }
+          >
+            {selectedMembers.length === 0 ? (
+              <div className="text-sm py-8 text-center w-full" style={{ color: 'var(--color-text-secondary)' }}>
+                Select family members above to see their activity
+              </div>
+            ) : (
+              selectedMembers.map((m) => (
+                <MemberColumn
+                  key={m.id}
+                  member={m}
+                  sectionOrder={sectionOrder}
+                  sectionStates={sectionStates}
+                  events={events as Array<Record<string, unknown>>}
+                  tasks={tasks as Array<Record<string, unknown>>}
+                  assignments={assignments as Array<{ task_id: string; family_member_id: string }>}
+                  intentions={intentions as Array<Record<string, unknown>>}
+                  iterationCounts={iterationCounts}
+                  trackers={trackers as Array<Record<string, unknown>>}
+                  opportunities={opportunities as Array<Record<string, unknown>>}
+                  routines={routinesByMember[m.id] ?? []}
+                  sequential={sequentialByMember[m.id] ?? []}
+                  victories={victories as Array<Record<string, unknown>>}
+                  onToggleSection={handleToggleSection}
+                  onToggleSectionOverride={handleToggleSectionOverride}
+                  onSectionReorder={handleSectionReorder}
+                  onCompleteTask={handleCompleteTask}
+                  onSpotCheck={setSpotCheckMember}
+                />
+              ))
+            )}
           </div>
-        ) : (
-          selectedMembers.map((m) => (
-            <MemberColumn
-              key={m.id}
-              member={m}
-              sectionOrder={sectionOrder}
-              sectionStates={sectionStates}
-              events={events as Array<Record<string, unknown>>}
-              tasks={tasks as Array<Record<string, unknown>>}
-              assignments={assignments as Array<{ task_id: string; family_member_id: string }>}
-              intentions={intentions as Array<Record<string, unknown>>}
-              iterationCounts={iterationCounts}
-              trackers={trackers as Array<Record<string, unknown>>}
-              opportunities={opportunities as Array<Record<string, unknown>>}
-              routines={routinesByMember[m.id] ?? []}
-              sequential={sequentialByMember[m.id] ?? []}
-              victories={victories as Array<Record<string, unknown>>}
-              onToggleSection={handleToggleSection}
-              onCompleteTask={handleCompleteTask}
-              onSpotCheck={setSpotCheckMember}
-            />
-          ))
-        )}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {/* Mobile dot indicators */}
       {selectedMembers.length > 1 && (

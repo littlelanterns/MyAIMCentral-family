@@ -318,6 +318,69 @@ test.describe('FO Command Center', () => {
     }
   })
 
+  // ── 8b. Finance-granted dad gets the FO Finances tab (founder add-on) ─────
+  test('Finance-granted dad sees the Finances tab scoped to granted kid, read-only at view level', async ({ page }) => {
+    const sarah = await memberId('Sarah')
+    const mark = await memberId('Mark')
+    const jordan = await memberId('Jordan')
+
+    // tasks_basic grant so FO itself is reachable + finance view for Jordan
+    const { error: g1 } = await supabase.from('member_permissions').insert([
+      { family_id: familyId, granting_member_id: sarah, granted_to: mark, target_member_id: jordan, permission_key: 'tasks_basic', access_level: 'view' },
+      { family_id: familyId, granting_member_id: sarah, granted_to: mark, target_member_id: jordan, permission_key: 'financial_tracking', access_level: 'view' },
+    ])
+    if (g1) throw new Error(`grants: ${g1.message}`)
+
+    try {
+      await loginAsDad(page)
+      await page.goto('/dashboard')
+      await waitForAppReady(page)
+      await page.getByRole('tab', { name: 'Family Overview' }).click()
+      await expect(page.getByTestId('family-overview')).toBeVisible({ timeout: 15000 })
+
+      // Finances tab present for the finance-granted dad
+      await page.getByRole('tab', { name: 'Finances' }).click()
+      // View level: read-only — no Pay All, no grace/makeup actions
+      await expect(page.getByRole('button', { name: 'Pay All' })).not.toBeVisible()
+      await expect(page.getByRole('button', { name: 'Mark Grace Day' })).not.toBeVisible()
+      await expect(page.getByRole('button', { name: 'Assign Makeup Work' })).not.toBeVisible()
+    } finally {
+      await supabase.from('member_permissions')
+        .delete().eq('family_id', familyId).eq('granted_to', mark)
+        .in('permission_key', ['tasks_basic', 'financial_tracking'])
+    }
+  })
+
+  // ── 8c. Section drag handles + column grips render (reorder affordances) ──
+  test('Section + column drag grips render; long-press override dot appears', async ({ page }) => {
+    await loginAsMom(page)
+    await gotoFamilyOverview(page)
+
+    const jordan = await memberId('Jordan')
+    await expect(page.getByTestId(`column-drag-${jordan}`)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('section-drag-tasks').first()).toBeVisible()
+
+    // Long-press a section header in Jordan's column → per-column override.
+    // victories is the LAST section — scroll it into the viewport first, or
+    // the raw mouse coordinates land below the fold and hit nothing.
+    const jordanColumn = page.getByTestId(`member-column-${jordan}`)
+    const header = jordanColumn.getByTestId('section-header-victories')
+    await header.scrollIntoViewIfNeeded()
+    const box = await header.boundingBox()
+    if (!box) throw new Error('header not laid out')
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.waitForTimeout(700)
+    await page.mouse.up()
+    // Override collapses ONLY Jordan's victories section; other columns keep theirs.
+    // The override indicator dot is rendered inside the header (w-1.5 h-1.5 span).
+    await expect(header.locator('span.w-1\\.5')).toBeVisible({ timeout: 10000 })
+
+    // Row-level tap clears the override again (cleanup so config stays sane)
+    await header.click()
+    await header.click()
+  })
+
   // ── 9. Deep links ─────────────────────────────────────────────────────────
   test('Finances deep link + legacy /tasks?tab=finances redirect land on FO Finances', async ({ page }) => {
     await loginAsMom(page)
