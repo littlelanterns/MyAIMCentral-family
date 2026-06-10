@@ -6,18 +6,52 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
 // ─── Section keys ────────────────────────────────────────────────────────────
+// FO-COMMAND-CENTER (2026-06-10): added 'routines' + 'sequential' (registered
+// TEXT constants per PRD-14C extensibility — no migration). Default order is
+// founder-approved Q5: timeline-bound sections rank higher; Best Intentions
+// sits right above Trackers.
 
 export const FAMILY_OVERVIEW_SECTION_KEYS = [
   'events',
   'tasks',
+  'routines',
+  'sequential',
+  'opportunities',
   'best_intentions',
   'trackers',
   'weekly_completion',
-  'opportunities',
   'victories',
 ] as const
 
 export type FamilyOverviewSectionKey = (typeof FAMILY_OVERVIEW_SECTION_KEYS)[number]
+
+/**
+ * Merge a saved section_order with the registered key set: the saved order is
+ * preserved; any registered key missing from it (e.g. 'routines'/'sequential'
+ * added after the row was saved) is inserted at its canonical position —
+ * right after the nearest preceding default-order key present in the saved
+ * array. Read-time only; never rewrites the stored row.
+ */
+export function mergeSectionOrder(saved: string[]): string[] {
+  if (saved.length === 0) return [...FAMILY_OVERVIEW_SECTION_KEYS]
+  const merged = [...saved]
+  for (let i = 0; i < FAMILY_OVERVIEW_SECTION_KEYS.length; i++) {
+    const key = FAMILY_OVERVIEW_SECTION_KEYS[i]
+    if (merged.includes(key)) continue
+    // Find nearest preceding default key already in merged
+    let insertAt = 0
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = FAMILY_OVERVIEW_SECTION_KEYS[j]
+      const idx = merged.indexOf(prev)
+      if (idx !== -1) {
+        insertAt = idx + 1
+        break
+      }
+    }
+    merged.splice(insertAt, 0, key)
+  }
+  return merged
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

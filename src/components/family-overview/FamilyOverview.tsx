@@ -2,7 +2,7 @@
 // Horizontally-swipeable member columns with collapsible sections.
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { getMemberColor } from '@/lib/memberColors'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
@@ -10,6 +10,7 @@ import { useFamily } from '@/hooks/useFamily'
 import {
   useFamilyOverviewConfig,
   useUpdateFamilyOverviewConfig,
+  mergeSectionOrder,
   FAMILY_OVERVIEW_SECTION_KEYS,
   type FamilyOverviewSectionKey,
   type SectionCollapseState,
@@ -22,7 +23,13 @@ import {
   useTodayIterationsForMembers,
   useTrackersForMembers,
   useTodayOpportunityCompletions,
+  useTodayRoutinesForMembers,
+  useSequentialForMembers,
+  useTodayVictoriesForMembers,
+  type MemberRoutineToday,
+  type MemberSequentialSummary,
 } from '@/hooks/useFamilyOverviewData'
+import { useActivePeriod, useLiveAllowanceProgress, type GraceDayEntry } from '@/hooks/useFinancial'
 import { useCompleteTask } from '@/hooks/useTasks'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import PendingItemsBar from './PendingItemsBar'
@@ -33,10 +40,12 @@ import type { FamilyMember } from '@/hooks/useFamilyMember'
 const SECTION_META: Record<FamilyOverviewSectionKey, { label: string; icon: React.ReactNode }> = {
   events: { label: "Today's Events", icon: <Calendar size={14} /> },
   tasks: { label: "Today's Tasks", icon: <Check size={14} /> },
+  routines: { label: 'Routines', icon: <RefreshCw size={14} /> },
+  sequential: { label: 'Sequential', icon: <BookOpen size={14} /> },
+  opportunities: { label: 'Opportunities', icon: <Zap size={14} /> },
   best_intentions: { label: 'Best Intentions', icon: <Star size={14} /> },
   trackers: { label: 'Active Trackers', icon: <BarChart3 size={14} /> },
   weekly_completion: { label: 'Weekly Completion', icon: <Target size={14} /> },
-  opportunities: { label: 'Opportunities', icon: <Zap size={14} /> },
   victories: { label: 'Victories', icon: <Trophy size={14} /> },
 }
 
@@ -303,6 +312,161 @@ function OpportunitiesSection({
   )
 }
 
+// ─── Section: Routines (FO-COMMAND-CENTER) ───────────────────────────────────
+// Data comes from get_member_day_obligations (Convention #271) — never re-derive
+// "what counts today" inline.
+
+function RoutinesSection({ routines }: { routines: MemberRoutineToday[] }) {
+  if (routines.length === 0) {
+    return <EmptySection />
+  }
+
+  return (
+    <div className="space-y-1 px-2 pb-2">
+      {routines.map((r) => {
+        const allDone = r.total_steps > 0 && r.done_steps === r.total_steps
+        return (
+          <div key={r.task_id} className="flex items-center gap-1.5 text-xs">
+            <RefreshCw
+              size={10}
+              style={{ color: allDone ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+            />
+            <span
+              className={`truncate ${allDone ? 'line-through' : ''}`}
+              style={{ color: allDone ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}
+            >
+              {r.title}
+            </span>
+            <span
+              className="ml-auto shrink-0 font-medium"
+              style={{ color: allDone ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+            >
+              {r.done_steps}/{r.total_steps}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Section: Sequential (FO-COMMAND-CENTER) ─────────────────────────────────
+
+function SequentialSection({ items }: { items: MemberSequentialSummary[] }) {
+  if (items.length === 0) {
+    return <EmptySection />
+  }
+
+  return (
+    <div className="space-y-1.5 px-2 pb-2">
+      {items.map((s) => (
+        <div key={s.collection_id} className="text-xs">
+          <div className="flex items-center gap-1.5">
+            <BookOpen size={10} style={{ color: 'var(--color-text-secondary)' }} />
+            <span className="truncate font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              {s.collection_title}
+            </span>
+            <span className="ml-auto shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+              {s.completed_count}/{s.total_items}
+            </span>
+          </div>
+          {s.current_item_title && (
+            <div className="pl-4 truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              Next: {s.current_item_title}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Section: Victories (FO-COMMAND-CENTER — wired, was stub) ────────────────
+
+function VictoriesSection({
+  memberId,
+  victories,
+}: {
+  memberId: string
+  victories: Array<Record<string, unknown>>
+}) {
+  const memberVictories = victories.filter((v) => v.family_member_id === memberId)
+
+  if (memberVictories.length === 0) {
+    return <EmptySection />
+  }
+
+  return (
+    <div className="space-y-0.5 px-2 pb-2">
+      {memberVictories.map((v) => (
+        <div key={v.id as string} className="flex items-start gap-1.5 text-xs">
+          <Trophy size={10} className="shrink-0 mt-0.5" style={{ color: 'var(--color-btn-primary-bg)' }} />
+          <span style={{ color: 'var(--color-text-primary)' }}>
+            {(v.description as string) || (v.celebration_text as string)}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Section: Weekly Completion (FO-COMMAND-CENTER — wired, was stub) ────────
+// PRD-14C Section 5: completion percentage + on-track payout. Reads the live
+// allowance progress RPC (PRD-28) for the member's default pool active period.
+
+function WeeklyCompletionSection({ memberId }: { memberId: string }) {
+  const { data: period } = useActivePeriod(memberId)
+  const { data: progress } = useLiveAllowanceProgress(
+    memberId,
+    period?.period_start,
+    period?.period_end,
+    (period?.grace_days as GraceDayEntry[] | undefined) ?? undefined,
+  )
+
+  if (!period) {
+    return (
+      <div className="px-2 pb-2 text-xs" style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}>
+        (no allowance period)
+      </div>
+    )
+  }
+
+  if (!progress) {
+    return (
+      <div className="px-2 pb-2 text-xs" style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}>
+        …
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-2 pb-2 space-y-1">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          {Math.round(progress.completion_percentage)}%
+        </span>
+        {/* Progress bar */}
+        <div
+          className="flex-1 h-1.5 rounded-full overflow-hidden"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)' }}
+        >
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(100, Math.max(0, progress.completion_percentage))}%`,
+              backgroundColor: 'var(--color-btn-primary-bg)',
+            }}
+          />
+        </div>
+      </div>
+      <div className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        ${progress.total_earned.toFixed(2)} on track
+        {progress.bonus_applied && ' · bonus!'}
+      </div>
+    </div>
+  )
+}
+
 // ─── Stub sections ───────────────────────────────────────────────────────────
 
 function StubSection({ label }: { label: string }) {
@@ -343,6 +507,9 @@ function MemberColumn({
   iterationCounts,
   trackers,
   opportunities,
+  routines,
+  sequential,
+  victories,
   onToggleSection,
   onCompleteTask,
 }: {
@@ -356,6 +523,9 @@ function MemberColumn({
   iterationCounts: Map<string, number>
   trackers: Array<Record<string, unknown>>
   opportunities: Array<Record<string, unknown>>
+  routines: MemberRoutineToday[]
+  sequential: MemberSequentialSummary[]
+  victories: Array<Record<string, unknown>>
   onToggleSection: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
   onCompleteTask: (taskId: string, memberId: string) => void
 }) {
@@ -391,6 +561,12 @@ function MemberColumn({
         if (ev.created_by === member.id) return true
         return ((ev.event_attendees as Array<{ family_member_id: string }>) ?? []).some((a) => a.family_member_id === member.id)
       }).length
+    } else if (sectionKey === 'routines') {
+      count = routines.length
+    } else if (sectionKey === 'sequential') {
+      count = sequential.length
+    } else if (sectionKey === 'victories') {
+      count = victories.filter((v) => v.family_member_id === member.id).length
     }
 
     return (
@@ -428,14 +604,18 @@ function MemberColumn({
             iterationCounts={iterationCounts}
           />
         )
+      case 'routines':
+        return <RoutinesSection routines={routines} />
+      case 'sequential':
+        return <SequentialSection items={sequential} />
       case 'trackers':
         return <TrackersSection memberId={member.id} trackers={trackers} />
       case 'weekly_completion':
-        return <StubSection label="Weekly Completion" />
+        return <WeeklyCompletionSection memberId={member.id} />
       case 'opportunities':
         return <OpportunitiesSection memberId={member.id} opportunities={opportunities} />
       case 'victories':
-        return <StubSection label="Victories" />
+        return <VictoriesSection memberId={member.id} victories={victories} />
       default:
         return <StubSection label={key} />
     }
@@ -662,8 +842,10 @@ export default function FamilyOverview() {
       .map((m) => m.id)
   }, [config, availableMembers])
 
+  // mergeSectionOrder: saved orders predating the routines/sequential keys
+  // gain them at their canonical positions (read-time, never rewrites the row)
   const sectionOrder = useMemo(() => {
-    if (config && config.section_order.length > 0) return config.section_order
+    if (config && config.section_order.length > 0) return mergeSectionOrder(config.section_order)
     return [...FAMILY_OVERVIEW_SECTION_KEYS]
   }, [config])
 
@@ -686,6 +868,9 @@ export default function FamilyOverview() {
   const { data: iterations = [] } = useTodayIterationsForMembers(selectedMemberIds)
   const { data: trackers = [] } = useTrackersForMembers(family?.id, selectedMemberIds)
   const { data: opportunities = [] } = useTodayOpportunityCompletions(family?.id, selectedMemberIds)
+  const { data: routinesByMember = {} } = useTodayRoutinesForMembers(selectedMemberIds)
+  const { data: sequentialByMember = {} } = useSequentialForMembers(family?.id, selectedMemberIds)
+  const { data: victories = [] } = useTodayVictoriesForMembers(family?.id, selectedMemberIds)
 
   // Map iteration counts per intention
   const iterationCounts = useMemo(() => {
@@ -856,6 +1041,9 @@ export default function FamilyOverview() {
               iterationCounts={iterationCounts}
               trackers={trackers as Array<Record<string, unknown>>}
               opportunities={opportunities as Array<Record<string, unknown>>}
+              routines={routinesByMember[m.id] ?? []}
+              sequential={sequentialByMember[m.id] ?? []}
+              victories={victories as Array<Record<string, unknown>>}
               onToggleSection={handleToggleSection}
               onCompleteTask={handleCompleteTask}
             />
