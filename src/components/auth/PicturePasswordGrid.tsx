@@ -218,10 +218,11 @@ export function PicturePasswordGrid({ memberId, mode, onSuccess, onEmailLoginReq
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3" data-testid="picture-grid">
         {displayImages.map((img) => (
           <button
             key={img.id}
+            data-asset-id={img.id}
             onClick={() => handleTap(img.id)}
             disabled={busy || isLocked}
             className="aspect-square rounded-xl overflow-hidden transition-transform active:scale-95 disabled:opacity-40"
