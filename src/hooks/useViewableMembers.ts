@@ -74,9 +74,12 @@ export function useViewableMembers(
   const isMom = member?.role === 'primary_parent'
 
   // Bulk grant lookup — only needed for additional_adult.
-  const { data: grantedEntries, isLoading: grantsLoading } = useQuery({
+  // Rows with target_member_id NULL are FAMILY-WIDE grants (migration 100261):
+  // they cover every kid (role='member'), with per-kid rows winning as
+  // exceptions in both directions (incl. an explicit per-kid 'none' carve-out).
+  const { data: grantRows, isLoading: grantsLoading } = useQuery({
     queryKey: ['viewable-member-grants', member?.id, featureKey],
-    queryFn: async (): Promise<Array<[string, ViewableAccessLevel]>> => {
+    queryFn: async (): Promise<Array<{ target: string | null; level: ViewableAccessLevel }>> => {
       if (!member) return []
       const { data, error } = await supabase
         .from('member_permissions')
@@ -84,14 +87,11 @@ export function useViewableMembers(
         .eq('family_id', member.family_id)
         .eq('granted_to', member.id)
         .eq('permission_key', featureKey)
-        .not('target_member_id', 'is', null)
       if (error) throw error
-      return (data ?? [])
-        .map(p => [
-          p.target_member_id as string,
-          (p.access_level || p.permission_value?.access_level || 'none') as ViewableAccessLevel,
-        ] as [string, ViewableAccessLevel])
-        .filter(([, level]) => level !== 'none')
+      return (data ?? []).map(p => ({
+        target: p.target_member_id as string | null,
+        level: (p.access_level || p.permission_value?.access_level || 'none') as ViewableAccessLevel,
+      }))
     },
     enabled: !!member && member.role === 'additional_adult',
     staleTime: 1000 * 60 * 2,
@@ -114,7 +114,23 @@ export function useViewableMembers(
     } else if (memberRole === 'additional_adult') {
       ids = new Set([memberId])
       levels[memberId] = 'manage'
-      for (const [id, level] of grantedEntries ?? []) {
+      const familyWide = (grantRows ?? []).find(g => g.target === null)?.level
+      const perKid = new Map(
+        (grantRows ?? []).filter(g => g.target !== null).map(g => [g.target as string, g.level]),
+      )
+      // Family-wide grant covers every kid; per-kid rows win for their kid.
+      if (familyWide && familyWide !== 'none') {
+        for (const m of rosterArr) {
+          if (m.role !== 'member' || m.id === memberId) continue
+          const effective = perKid.get(m.id) ?? familyWide
+          if (effective !== 'none') {
+            ids.add(m.id)
+            levels[m.id] = effective
+          }
+        }
+      }
+      for (const [id, level] of perKid) {
+        if (level === 'none') continue
         ids.add(id)
         levels[id] = level
       }
@@ -128,7 +144,7 @@ export function useViewableMembers(
       viewableMembers: rosterArr.filter(m => ids.has(m.id)),
       viewableLevels: levels,
     }
-  }, [roster, memberId, memberRole, grantedEntries])
+  }, [roster, memberId, memberRole, grantRows])
 
   return {
     viewableIds,

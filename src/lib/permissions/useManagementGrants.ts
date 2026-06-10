@@ -27,10 +27,16 @@ export interface ManagementGrants {
   studioLevel: ViewableAccessLevel
   /** Family-wide Reward Rules (contracts) grant level. */
   rewardRulesLevel: ViewableAccessLevel
-  /** Highest financial_tracking level held across any kid. */
+  /** Highest financial_tracking level held across any kid OR family-wide. */
   financeMaxLevel: ViewableAccessLevel
   /** Per-kid financial_tracking levels (memberId → level). */
   financeLevels: Record<string, ViewableAccessLevel>
+  /**
+   * FAMILY-WIDE financial_tracking level (target_member_id IS NULL,
+   * migration 100261). Covers every kid incl. future ones; per-kid rows in
+   * financeLevels win as exceptions for their kid.
+   */
+  financeFamilyLevel: ViewableAccessLevel
   isLoading: boolean
 }
 
@@ -69,6 +75,7 @@ export function useManagementGrants(forMember?: ViewableScopeMember | null): Man
       rewardRulesLevel: 'manage',
       financeMaxLevel: 'manage',
       financeLevels: {},
+      financeFamilyLevel: 'manage',
       isLoading: false,
     }
   }
@@ -79,6 +86,7 @@ export function useManagementGrants(forMember?: ViewableScopeMember | null): Man
       rewardRulesLevel: 'none',
       financeMaxLevel: 'none',
       financeLevels: {},
+      financeFamilyLevel: 'none',
       isLoading: memberLoading,
     }
   }
@@ -86,6 +94,7 @@ export function useManagementGrants(forMember?: ViewableScopeMember | null): Man
   let studioLevel: ViewableAccessLevel = 'none'
   let rewardRulesLevel: ViewableAccessLevel = 'none'
   let financeMaxLevel: ViewableAccessLevel = 'none'
+  let financeFamilyLevel: ViewableAccessLevel = 'none'
   const financeLevels: Record<string, ViewableAccessLevel> = {}
 
   for (const row of data ?? []) {
@@ -97,6 +106,9 @@ export function useManagementGrants(forMember?: ViewableScopeMember | null): Man
       studioLevel = level
     } else if (row.permission_key === 'reward_rules' && row.target_member_id === null) {
       rewardRulesLevel = level
+    } else if (row.permission_key === 'financial_tracking' && row.target_member_id === null) {
+      financeFamilyLevel = level
+      if (LEVEL_RANK[level] > LEVEL_RANK[financeMaxLevel]) financeMaxLevel = level
     } else if (row.permission_key === 'financial_tracking' && row.target_member_id) {
       financeLevels[row.target_member_id] = level
       if (LEVEL_RANK[level] > LEVEL_RANK[financeMaxLevel]) financeMaxLevel = level
@@ -108,6 +120,7 @@ export function useManagementGrants(forMember?: ViewableScopeMember | null): Man
     rewardRulesLevel,
     financeMaxLevel,
     financeLevels,
+    financeFamilyLevel,
     isLoading: memberLoading || grantsLoading,
   }
 }

@@ -211,3 +211,14 @@ Browser evidence = Playwright runs 2026-06-09 (12/12 `permissions-wiring.spec.ts
 | `tsc -b` clean / lint 0 errors / schema:dump regenerated | Conventions #121/#244 | **Wired** | All green 2026-06-09 |
 
 **Zero Missing.** Stubbed (founder-acknowledged): mom self-restriction ENFORCEMENT; Special Adult Experience (dedicated follow-up build filed); IndependentShell still lacks RoutingToastProvider (teens are never cross-member actors, so no gate fires there — noted, not load-bearing).
+
+## Follow-on (founder-requested post-close, 2026-06-09): FAMILY-WIDE finance grant
+
+| Requirement | Status | Notes |
+|---|---|---|
+| Migration 100261: `util.finance_grant_level(kid)` helper + 4 policies recreated on it | **Wired** | Applied to production. Per-kid row wins (both directions, incl. 'none' carve-out); family-wide covers role='member' kids only |
+| `useViewableMembers` family-wide expansion (generic NULL-target handling, per-kid override) | **Wired** | Mirrors the SQL resolution exactly |
+| `useManagementGrants.financeFamilyLevel` (+ feeds financeMaxLevel → GrantedRoute/sidebar) | **Wired** | |
+| Hub: "Finances & Prize Board — whole family" picker in Family Management | **Wired** | 4-level picker; explains future-kids coverage + per-kid override |
+| Hub: per-kid finance row shows "Following the whole-family setting (Level)" when inheriting | **Wired** | Shared query cache key with FamilyManagementGrants |
+| E2E test 2b: family-wide covers Jordan AND Alex; per-kid 'none' carves Jordan out | **Wired** | Suite 13/13 (1 known auth-helper flake passed on retry) |

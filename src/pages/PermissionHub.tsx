@@ -570,7 +570,7 @@ function FamilyManagementGrants({
         .eq('family_id', familyId)
         .eq('granted_to', adultId)
         .is('target_member_id', null)
-        .in('permission_key', ['studio', 'reward_rules'])
+        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking'])
       return data ?? []
     },
   })
@@ -600,6 +600,7 @@ function FamilyManagementGrants({
     }
     queryClient.invalidateQueries({ queryKey: ['family-wide-grants', adultId] })
     queryClient.invalidateQueries({ queryKey: ['management-grants', adultId] })
+    queryClient.invalidateQueries({ queryKey: ['viewable-member-grants', adultId] })
     queryClient.invalidateQueries({ queryKey: ['permission'] })
   }
 
@@ -614,6 +615,28 @@ function FamilyManagementGrants({
           <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{hint}</p>
         </div>
       ))}
+
+      {/* FAMILY-WIDE finance grant (migration 100261, founder-approved
+          2026-06-09): one row covers every kid — including kids added later.
+          The per-kid Finances row below stays as the exception mechanism
+          (a kid's own setting always wins, in both directions). */}
+      <div className="py-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+            Finances & Prize Board — whole family
+          </span>
+          <AccessLevelPicker
+            value={getLevel('financial_tracking')}
+            onChange={(level) => setLevel('financial_tracking', level)}
+            maxLevel="manage"
+          />
+        </div>
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          View = see all kids' balances & history · Contribute = + record payments / Mark Paid ·
+          Manage = + allowance period tools. Covers kids you add later too.
+          A child's own Finances setting below overrides this for that child.
+        </p>
+      </div>
     </div>
   )
 }
@@ -671,6 +694,28 @@ function KidPermissionBlock({
       return data ?? []
     },
   })
+
+  // Family-wide grants (shared cache key with FamilyManagementGrants) — used
+  // to show "following whole-family setting" on rows without an explicit
+  // per-kid value (migration 100261 inheritance).
+  const { data: familyWideGrants } = useQuery({
+    queryKey: ['family-wide-grants', adult.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('member_permissions')
+        .select('id, permission_key, access_level, permission_value')
+        .eq('family_id', familyId)
+        .eq('granted_to', adult.id)
+        .is('target_member_id', null)
+        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking'])
+      return data ?? []
+    },
+  })
+
+  function familyWideLevel(featureKey: string): string {
+    const g = familyWideGrants?.find((r) => r.permission_key === featureKey)
+    return g?.access_level || g?.permission_value?.access_level || 'none'
+  }
 
   // Issue 17: Load feature_access_v2 to show never/tier-locked states
   const roleGroup = adult.role === 'additional_adult' ? 'dad_adults' : 'special_adults'
@@ -796,6 +841,10 @@ function KidPermissionBlock({
                     )
                   }
 
+                  const explicitLevel = permissions?.find((p) => p.permission_key === key)
+                  const inheritedLevel = familyWideLevel(key)
+                  const showsInheritance = !explicitLevel && inheritedLevel !== 'none'
+
                   return (
                     <div key={key} className="py-1">
                       <div className="flex items-center justify-between">
@@ -806,6 +855,11 @@ function KidPermissionBlock({
                           maxLevel="manage"
                         />
                       </div>
+                      {showsInheritance && (
+                        <p className="text-[11px] mt-0.5 italic" style={{ color: 'var(--color-sage-teal)' }}>
+                          Following the whole-family setting ({ACCESS_LEVEL_LABELS[inheritedLevel]}) — pick a level here to override for {kid.display_name}.
+                        </p>
+                      )}
                       {hint && (
                         <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                           {hint}

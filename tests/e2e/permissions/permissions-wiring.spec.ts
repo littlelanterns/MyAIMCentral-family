@@ -74,17 +74,20 @@ async function clearGrants() {
     .in('permission_key', GRANT_KEYS)
 }
 
-/** Insert (or update) a grant for Mark. target=null → family-wide. */
+/** Insert (or update) a grant for Mark. target=null → family-wide.
+ *  Only replaces the SAME-TARGET row, so a family-wide row and per-kid
+ *  exception rows can coexist (migration 100261 semantics). */
 async function grant(key: string, target: string | null, level: string) {
   const sarah = await memberId('Sarah')
   const mark = await memberId('Mark')
-  // Remove any existing row for this key first (target may differ)
-  await supabase
+  let del = supabase
     .from('member_permissions')
     .delete()
     .eq('family_id', familyId)
     .eq('granted_to', mark)
     .eq('permission_key', key)
+  del = target === null ? del.is('target_member_id', null) : del.eq('target_member_id', target)
+  await del
   const { error } = await supabase.from('member_permissions').insert({
     family_id: familyId,
     granting_member_id: sarah,
@@ -194,6 +197,34 @@ test.describe('Permissions Wiring', () => {
     // Alex is not granted — his rows and pill never appear
     await expect(page.getByText(ALEX_TX)).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Alex' })).not.toBeVisible()
+
+    await clearGrants()
+  })
+
+  // ── 2b. FAMILY-WIDE finance grant (migration 100261) ─────────────────────
+  test('Family-wide finance grant covers ALL kids; per-kid none carves out', async ({ page }) => {
+    const jordan = await memberId('Jordan')
+    // One NULL-target row — no per-kid grants at all
+    await grant('financial_tracking', null, 'view')
+
+    await loginAsDad(page)
+    await page.goto('/finances/history')
+    await page.waitForLoadState('networkidle')
+
+    // Both kids covered by the single family-wide grant
+    await expect(page.getByRole('heading', { name: 'Parent-only area' })).not.toBeVisible()
+    await page.getByRole('button', { name: 'Jordan', exact: true }).click()
+    await expect(page.getByText(JORDAN_TX)).toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name: 'Alex', exact: true }).click()
+    await expect(page.getByText(ALEX_TX)).toBeVisible({ timeout: 15000 })
+
+    // Per-kid 'none' exception carves Jordan OUT of the family-wide grant
+    await grant('financial_tracking', jordan, 'none')
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText(ALEX_TX)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('button', { name: 'Jordan', exact: true })).not.toBeVisible()
+    await expect(page.getByText(JORDAN_TX)).not.toBeVisible()
 
     await clearGrants()
   })

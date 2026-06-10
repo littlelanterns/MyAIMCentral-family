@@ -101,7 +101,7 @@
 | 4 | `child_id` |
 | 5 | `created_at` |
 
-### `member_permissions` — 168 rows
+### `member_permissions` — 169 rows
 
 | # | Column |
 |---|---|
@@ -790,7 +790,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1629 rows
+### `routine_step_completions` — 1638 rows
 
 | # | Column |
 |---|---|
@@ -2212,7 +2212,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 233 rows
+### `vault_user_visits` — 234 rows
 
 | # | Column |
 |---|---|
