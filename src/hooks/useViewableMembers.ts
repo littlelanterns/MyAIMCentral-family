@@ -25,11 +25,30 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from './useFamilyMember'
 
+export type ViewableAccessLevel = 'none' | 'view' | 'contribute' | 'manage'
+
+const LEVEL_ORDER: ViewableAccessLevel[] = ['none', 'view', 'contribute', 'manage']
+
+/** True when `level` is at or above `min` in the PRD-02 four-level ladder. */
+export function accessLevelAtLeast(
+  level: ViewableAccessLevel | undefined,
+  min: ViewableAccessLevel,
+): boolean {
+  return LEVEL_ORDER.indexOf(level ?? 'none') >= LEVEL_ORDER.indexOf(min)
+}
+
 export interface ViewableMembersResult {
   /** Member ids the current member may view (always includes self when loaded). */
   viewableIds: Set<string>
   /** The viewable members' full records, in roster sort order. */
   viewableMembers: FamilyMember[]
+  /**
+   * Access level per viewable member id (PERMISSIONS-WIRING build):
+   * mom → 'manage' for everyone; self → 'manage'; granted additional_adult →
+   * the grant's level. Lets surfaces distinguish "can see" (view) from
+   * "can act" (contribute/manage) — founder Decision 9, 2026-06-09.
+   */
+  viewableLevels: Record<string, ViewableAccessLevel>
   /** True when the current member is the primary parent. */
   isMom: boolean
   isLoading: boolean
@@ -55,9 +74,9 @@ export function useViewableMembers(
   const isMom = member?.role === 'primary_parent'
 
   // Bulk grant lookup — only needed for additional_adult.
-  const { data: grantedIds, isLoading: grantsLoading } = useQuery({
+  const { data: grantedEntries, isLoading: grantsLoading } = useQuery({
     queryKey: ['viewable-member-grants', member?.id, featureKey],
-    queryFn: async (): Promise<string[]> => {
+    queryFn: async (): Promise<Array<[string, ViewableAccessLevel]>> => {
       if (!member) return []
       const { data, error } = await supabase
         .from('member_permissions')
@@ -65,13 +84,14 @@ export function useViewableMembers(
         .eq('family_id', member.family_id)
         .eq('granted_to', member.id)
         .eq('permission_key', featureKey)
+        .not('target_member_id', 'is', null)
       if (error) throw error
       return (data ?? [])
-        .filter(p => {
-          const level = p.access_level || p.permission_value?.access_level || 'none'
-          return level !== 'none'
-        })
-        .map(p => p.target_member_id as string)
+        .map(p => [
+          p.target_member_id as string,
+          (p.access_level || p.permission_value?.access_level || 'none') as ViewableAccessLevel,
+        ] as [string, ViewableAccessLevel])
+        .filter(([, level]) => level !== 'none')
     },
     enabled: !!member && member.role === 'additional_adult',
     staleTime: 1000 * 60 * 2,
@@ -81,26 +101,39 @@ export function useViewableMembers(
   const memberId = member?.id
   const memberRole = member?.role
 
-  const { viewableIds, viewableMembers } = useMemo(() => {
+  const { viewableIds, viewableMembers, viewableLevels } = useMemo(() => {
     const rosterArr = roster ?? []
     let ids: Set<string>
+    const levels: Record<string, ViewableAccessLevel> = {}
     if (!memberId) {
       ids = new Set<string>()
     } else if (memberRole === 'primary_parent') {
       ids = new Set(rosterArr.map(m => m.id))
       ids.add(memberId)
+      ids.forEach(id => { levels[id] = 'manage' })
     } else if (memberRole === 'additional_adult') {
-      ids = new Set([memberId, ...(grantedIds ?? [])])
+      ids = new Set([memberId])
+      levels[memberId] = 'manage'
+      for (const [id, level] of grantedEntries ?? []) {
+        ids.add(id)
+        levels[id] = level
+      }
     } else {
       // special_adult / member — self only
       ids = new Set([memberId])
+      levels[memberId] = 'manage'
     }
-    return { viewableIds: ids, viewableMembers: rosterArr.filter(m => ids.has(m.id)) }
-  }, [roster, memberId, memberRole, grantedIds])
+    return {
+      viewableIds: ids,
+      viewableMembers: rosterArr.filter(m => ids.has(m.id)),
+      viewableLevels: levels,
+    }
+  }, [roster, memberId, memberRole, grantedEntries])
 
   return {
     viewableIds,
     viewableMembers,
+    viewableLevels,
     isMom,
     isLoading:
       memberLoading ||

@@ -49,7 +49,7 @@ interface MomOnlyBlockedCardProps {
   onBack: () => void
 }
 
-function MomOnlyBlockedCard({ origin, isViewAs, onExit, onBack }: MomOnlyBlockedCardProps) {
+export function MomOnlyBlockedCard({ origin, isViewAs, onExit, onBack }: MomOnlyBlockedCardProps) {
   // "Exit View As" only makes sense when mom is the real human behind a
   // View-As session. Kid-at-hub sessions and non-mom members on their own
   // login both get the gentle "Go back" path.

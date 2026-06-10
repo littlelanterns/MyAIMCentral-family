@@ -228,7 +228,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 208 rows
+### `feature_key_registry` — 210 rows
 
 | # | Column |
 |---|---|
@@ -239,7 +239,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 359 rows
+### `feature_access_v2` — 361 rows
 
 | # | Column |
 |---|---|

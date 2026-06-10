@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Shield, ChevronDown, ChevronRight, Eye, EyeOff, Users, UserCog,
   Zap, Layers, Crown, AlertTriangle, Lock, Unlock, Clock, ClipboardList,
-  Globe, BookOpen, StopCircle,
+  BookOpen, StopCircle, Wrench,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { FeatureGuide } from '@/components/shared'
+import { isKeyActive, INACTIVE_PERMISSION_NOTE } from '@/lib/permissions/keyWiringStatus'
 
 /**
  * PRD-02: Permission Management Hub
@@ -21,15 +22,22 @@ import { FeatureGuide } from '@/components/shared'
  */
 
 // ─── Feature categories for the permission grid ───────────────────────────────
+//
+// PERMISSIONS-WIRING build (founder gate 2026-06-09). Every row here is either
+// enforced by a real surface or rendered inactive per keyWiringStatus — the
+// Hub never offers a live control that does nothing.
+// Removed rows (founder-approved): Routines (rides on Tasks), Calendar
+// (family-shared by design; approval lives in Calendar Settings), LiLa Tools +
+// AI Vault (personal features, not per-kid grants), Higgins (deferred to
+// PRD-19), Messages (PRD-15 has its own permission system), Requests (bypass
+// permissions by design — PRD-02 Decision 16).
 
 const PERMISSION_CATEGORIES = [
   {
     label: 'Daily Life',
     keys: [
       { key: 'tasks_basic', label: 'Tasks & Chores' },
-      { key: 'tasks_routines', label: 'Routines' },
       { key: 'lists_basic', label: 'Lists' },
-      { key: 'calendar_basic', label: 'Calendar' },
       { key: 'journal_basic', label: 'Journal / Log' },
     ],
   },
@@ -43,22 +51,22 @@ const PERMISSION_CATEGORIES = [
     ],
   },
   {
-    label: 'AI & Tools',
+    label: 'Finances',
     keys: [
-      { key: 'lila_modal_access', label: 'LiLa Tools (Modal)' },
-      { key: 'tool_higgins_say', label: 'Higgins (Communication)' },
-      { key: 'vault_browse', label: 'AI Vault' },
+      {
+        key: 'financial_tracking',
+        label: 'Finances & Allowance',
+        hint: 'View = see balances & history · Contribute = record payments / Mark Paid · Manage = full allowance period tools',
+      },
     ],
   },
   {
     label: 'Family Features',
     keys: [
-      { key: 'messaging_basic', label: 'Messages' },
-      { key: 'requests_basic', label: 'Requests' },
       { key: 'archives_browse', label: 'Archives' },
     ],
   },
-]
+] as Array<{ label: string; keys: Array<{ key: string; label: string; hint?: string }> }>
 
 // Dad's personal features (Issue 7) — separate from per-kid permissions
 const DAD_PERSONAL_FEATURES = [
@@ -155,8 +163,10 @@ export function PermissionHub() {
 
       {activeTab === 'overview' ? (
         <>
-          {/* Issue 8: Global Permissions Section */}
-          <GlobalPermissionsSection familyId={member!.family_id} />
+          {/* Family-Wide Rules card removed (PERMISSIONS-WIRING, founder gate
+              2026-06-09): its three switches never persisted. Calendar event
+              approval lives in Calendar Settings; teen-messaging and
+              family-feed rules ship inside their own sections (PRD-15/PRD-37). */}
 
           {/* Additional Adults Section */}
           {adults.length > 0 && (
@@ -185,7 +195,7 @@ export function PermissionHub() {
                 <UserCog size={16} /> Special Adults / Caregivers
               </h2>
               {specialAdults.map((sa) => (
-                <SpecialAdultCard key={sa.id} specialAdult={sa} familyId={member!.family_id} />
+                <SpecialAdultCard key={sa.id} specialAdult={sa} />
               ))}
             </section>
           )}
@@ -225,107 +235,6 @@ export function PermissionHub() {
         <ShiftLogSection familyId={member!.family_id} />
       )}
     </div>
-  )
-}
-
-// ─── Issue 8: Global Permissions Section ──────────────────────────────────────
-
-function GlobalPermissionsSection({ familyId }: { familyId: string }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
-    >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-center gap-3 text-left"
-      >
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ backgroundColor: 'color-mix(in srgb, var(--color-sage-teal) 15%, transparent)' }}
-        >
-          <Globe size={18} style={{ color: 'var(--color-sage-teal)' }} />
-        </div>
-        <div className="flex-1">
-          <p className="font-medium" style={{ color: 'var(--color-text-heading)' }}>Family-Wide Rules</p>
-          <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-            Settings that apply across the whole family
-          </p>
-        </div>
-        {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-      </button>
-
-      {expanded && (
-        <div className="px-4 pb-4 border-t space-y-3" style={{ borderColor: 'var(--color-border)' }}>
-          <p className="text-xs pt-2" style={{ color: 'var(--color-text-secondary)' }}>
-            These rules set the baseline for the whole family. Individual member settings override these.
-          </p>
-          <div className="space-y-2">
-            <GlobalToggleRow
-              label="Independent members can message each other"
-              description="Allow independent family members to send direct messages to each other"
-              familyId={familyId}
-              settingKey="teens_can_message_peers"
-            />
-            <GlobalToggleRow
-              label="Adults can see Family Feed"
-              description="Additional adults can view and post to the family feed"
-              familyId={familyId}
-              settingKey="adults_see_family_feed"
-            />
-            <GlobalToggleRow
-              label="Require approval for calendar events"
-              description="Children's calendar events need mom's approval before appearing"
-              familyId={familyId}
-              settingKey="require_calendar_approval"
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function GlobalToggleRow({
-  label,
-  description,
-  familyId: _familyId,
-  settingKey: _settingKey,
-}: {
-  label: string
-  description: string
-  familyId: string
-  settingKey: string
-}) {
-  // Global settings stored in families.hub_config JSONB or a dedicated table
-  // For now, these are client-side toggles — will wire to DB when global settings table exists
-  const [enabled, setEnabled] = useState(true)
-
-  return (
-    <button
-      onClick={() => setEnabled(!enabled)}
-      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors text-left"
-      style={{
-        backgroundColor: enabled ? 'color-mix(in srgb, var(--color-sage-teal) 8%, transparent)' : 'var(--color-bg-primary)',
-        border: `1px solid ${enabled ? 'color-mix(in srgb, var(--color-sage-teal) 25%, transparent)' : 'var(--color-border)'}`,
-      }}
-    >
-      <div className="flex-1">
-        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{description}</p>
-      </div>
-      <div
-        className="w-10 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0 ml-3"
-        style={{ backgroundColor: enabled ? 'var(--color-sage-teal)' : 'var(--color-border)' }}
-      >
-        <div
-          className="w-5 h-5 rounded-full bg-white transition-transform"
-          style={{ transform: enabled ? 'translateX(16px)' : 'translateX(0)' }}
-        />
-      </div>
-    </button>
   )
 }
 
@@ -484,8 +393,24 @@ function AdultPermissionCard({
             </p>
             <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
               These are {adult.display_name}'s own tools — separate from what they see about kids.
+              Turning one off removes it from their navigation.
             </p>
             <DadPersonalFeatures adultId={adult.id} familyId={familyId} />
+          </div>
+
+          {/* PERMISSIONS-WIRING: family-level management surfaces (founder
+              ruling 2026-06-09 — "default to invisible, but permissions
+              available"). Grants here are family-wide (no specific kid). */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"
+               style={{ color: 'var(--color-text-secondary)' }}>
+              <Wrench size={12} /> Family Management
+            </p>
+            <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+              Hand off parts of your system. Granted surfaces appear in {adult.display_name}'s navigation;
+              ungranted ones stay invisible. Prize Board access follows the per-child Finances permission below.
+            </p>
+            <FamilyManagementGrants adultId={adult.id} familyId={familyId} momId={momId} />
           </div>
 
           {/* Per-kid permission grids */}
@@ -554,14 +479,18 @@ function DadPersonalFeatures({ adultId, familyId }: { adultId: string; familyId:
     },
   })
 
-  function isEnabled(featureKey: string): boolean {
+  // PERMISSIONS-WIRING semantics fix: NO row = role default = ON. The old
+  // display treated no-row as "Off" while the member's shell showed the
+  // feature anyway — the Hub now reports the same resolution the sidebar
+  // layer (useResolvedFeatureAccess) actually enforces.
+  function resolveToggle(featureKey: string): { enabled: boolean; isDefault: boolean } {
     const toggle = toggles?.find((t) => t.feature_key === featureKey)
-    if (!toggle) return false // No toggle = not configured yet
-    return toggle.enabled === true && toggle.is_disabled === false
+    if (!toggle) return { enabled: true, isDefault: true }
+    return { enabled: toggle.enabled === true && toggle.is_disabled === false, isDefault: false }
   }
 
   async function toggleFeature(featureKey: string) {
-    const currentlyEnabled = isEnabled(featureKey)
+    const { enabled: currentlyEnabled } = resolveToggle(featureKey)
     const existing = toggles?.find((t) => t.feature_key === featureKey)
 
     if (existing) {
@@ -571,23 +500,25 @@ function DadPersonalFeatures({ adultId, familyId }: { adultId: string; familyId:
         .eq('member_id', adultId)
         .eq('feature_key', featureKey)
     } else {
+      // First explicit choice — no-row meant ON, so the first tap records OFF.
       await supabase.from('member_feature_toggles').insert({
         family_id: familyId,
         member_id: adultId,
         feature_key: featureKey,
-        enabled: true,
-        is_disabled: false,
+        enabled: false,
+        is_disabled: true,
         disabled_by: adultId,
       })
     }
     queryClient.invalidateQueries({ queryKey: ['dad-personal-toggles', adultId] })
+    queryClient.invalidateQueries({ queryKey: ['resolved-feature-access', adultId] })
     queryClient.invalidateQueries({ queryKey: ['can-access'] })
   }
 
   return (
     <div className="space-y-1">
       {DAD_PERSONAL_FEATURES.map(({ key, label }) => {
-        const enabled = isEnabled(key)
+        const { enabled, isDefault } = resolveToggle(key)
         return (
           <button
             key={key}
@@ -600,11 +531,113 @@ function DadPersonalFeatures({ adultId, familyId }: { adultId: string; familyId:
           >
             <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
             <span className="text-xs font-medium" style={{ color: enabled ? 'var(--color-sage-teal)' : 'var(--color-text-secondary)' }}>
-              {enabled ? 'On' : 'Off'}
+              {enabled ? (isDefault ? 'On · default' : 'On') : 'Off'}
             </span>
           </button>
         )
       })}
+    </div>
+  )
+}
+
+// ─── PERMISSIONS-WIRING: family-level management grants ──────────────────────
+// Studio + Reward Rules are FAMILY-WIDE surfaces — one grant row with
+// target_member_id = NULL (founder Decision 1: nullable target shape,
+// migration 00000000100260). Levels: View = see, Manage = create/edit/deploy.
+
+const FAMILY_MANAGEMENT_SURFACES = [
+  { key: 'studio', label: 'Studio', hint: 'View = browse templates · Manage = create, edit & deploy' },
+  { key: 'reward_rules', label: 'RewardRules', hint: 'View = see reward rules · Manage = create & edit rules' },
+] as const
+
+function FamilyManagementGrants({
+  adultId,
+  familyId,
+  momId,
+}: {
+  adultId: string
+  familyId: string
+  momId: string
+}) {
+  const queryClient = useQueryClient()
+
+  const { data: grants } = useQuery({
+    queryKey: ['family-wide-grants', adultId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('member_permissions')
+        .select('id, permission_key, access_level, permission_value')
+        .eq('family_id', familyId)
+        .eq('granted_to', adultId)
+        .is('target_member_id', null)
+        .in('permission_key', ['studio', 'reward_rules'])
+      return data ?? []
+    },
+  })
+
+  function getLevel(key: string): string {
+    const grant = grants?.find((g) => g.permission_key === key)
+    return grant?.access_level || grant?.permission_value?.access_level || 'none'
+  }
+
+  async function setLevel(key: string, level: string) {
+    const existing = grants?.find((g) => g.permission_key === key)
+    if (existing) {
+      await supabase
+        .from('member_permissions')
+        .update({ access_level: level, permission_value: { access_level: level } })
+        .eq('id', existing.id)
+    } else {
+      await supabase.from('member_permissions').insert({
+        family_id: familyId,
+        granting_member_id: momId,
+        granted_to: adultId,
+        target_member_id: null,
+        permission_key: key,
+        permission_value: { access_level: level },
+        access_level: level,
+      })
+    }
+    queryClient.invalidateQueries({ queryKey: ['family-wide-grants', adultId] })
+    queryClient.invalidateQueries({ queryKey: ['management-grants', adultId] })
+    queryClient.invalidateQueries({ queryKey: ['permission'] })
+  }
+
+  return (
+    <div className="space-y-1">
+      {FAMILY_MANAGEMENT_SURFACES.map(({ key, label, hint }) => (
+        <div key={key} className="py-1">
+          <div className="flex items-center justify-between">
+            <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+            <FamilyGrantLevelPicker value={getLevel(key)} onChange={(level) => setLevel(key, level)} />
+          </div>
+          <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{hint}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** None / View / Manage picker for family-wide management grants. */
+function FamilyGrantLevelPicker({ value, onChange }: { value: string; onChange: (level: string) => void }) {
+  const levels = ['none', 'view', 'manage'] as const
+  return (
+    <div className="flex gap-0.5">
+      {levels.map((level) => (
+        <button
+          key={level}
+          onClick={() => onChange(level)}
+          className={`px-2 py-0.5 text-xs rounded transition-colors ${value === level ? 'font-semibold' : 'opacity-40'}`}
+          style={{
+            backgroundColor: value === level ? ACCESS_LEVEL_COLORS[level] + '20' : 'transparent',
+            color: ACCESS_LEVEL_COLORS[level],
+            border: value === level ? `1px solid ${ACCESS_LEVEL_COLORS[level]}40` : '1px solid transparent',
+          }}
+          title={ACCESS_LEVEL_LABELS[level]}
+        >
+          {ACCESS_LEVEL_LABELS[level]}
+        </button>
+      ))}
     </div>
   )
 }
@@ -720,7 +753,7 @@ function KidPermissionBlock({
                 {category.label}
               </p>
               <div className="space-y-1">
-                {category.keys.map(({ key, label }) => {
+                {category.keys.map(({ key, label, hint }) => {
                   const state = getFeatureState(key)
 
                   // Issue 17: Never-available shows de-emphasized non-interactive
@@ -745,14 +778,39 @@ function KidPermissionBlock({
                     )
                   }
 
+                  // PERMISSIONS-WIRING: keys not yet enforced by a real
+                  // surface render inactive — visible, non-interactive,
+                  // honest (founder Decision 4 / single-source-of-truth
+                  // ruling, 2026-06-09). Same treatment mirrors in the teen
+                  // What's-Shared panel via keyWiringStatus.
+                  if (!isKeyActive(key)) {
+                    return (
+                      <div key={key} className="py-1 opacity-50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+                          <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                            <Wrench size={11} /> {INACTIVE_PERMISSION_NOTE}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   return (
-                    <div key={key} className="flex items-center justify-between py-1">
-                      <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
-                      <AccessLevelPicker
-                        value={getLevel(key)}
-                        onChange={(level) => setPermission(key, level)}
-                        maxLevel="manage"
-                      />
+                    <div key={key} className="py-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
+                        <AccessLevelPicker
+                          value={getLevel(key)}
+                          onChange={(level) => setPermission(key, level)}
+                          maxLevel="manage"
+                        />
+                      </div>
+                      {hint && (
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+                          {hint}
+                        </p>
+                      )}
                     </div>
                   )
                 })}
@@ -806,10 +864,8 @@ function AccessLevelPicker({
 
 function SpecialAdultCard({
   specialAdult,
-  familyId,
 }: {
   specialAdult: FamilyMember
-  familyId: string
 }) {
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(false)
@@ -949,14 +1005,34 @@ function SpecialAdultCard({
             </p>
           ) : (
             <div className="space-y-2">
-              {assignments.map((assignment: { id: string; child: { id: string; display_name: string; member_color: string | null } }) => (
-                <SpecialAdultKidPerms
-                  key={assignment.id}
-                  assignmentId={assignment.id}
-                  child={assignment.child}
-                  familyId={familyId}
-                />
-              ))}
+              {/* PERMISSIONS-WIRING (founder ruling 2026-06-09): the per-kid
+                  caregiver toggle grid is HIDDEN until shift-based access
+                  ships (Special Adult Experience follow-up build). Shift Log
+                  and Emergency Lock stay — they work today. */}
+              <div className="flex flex-wrap gap-1.5">
+                {assignments.map((assignment: { id: string; child: { id: string; display_name: string; member_color: string | null } }) => (
+                  <span
+                    key={assignment.id}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs"
+                    style={{
+                      backgroundColor: 'var(--color-bg-primary)',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    <span
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] text-white"
+                      style={{ backgroundColor: assignment.child.member_color || 'var(--color-dusty-rose)' }}
+                    >
+                      {assignment.child.display_name.charAt(0)}
+                    </span>
+                    {assignment.child.display_name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
+                <Wrench size={11} /> Per-child feature controls arrive with shift-based access in a future update.
+              </p>
             </div>
           )}
         </div>
@@ -965,79 +1041,10 @@ function SpecialAdultCard({
   )
 }
 
-function SpecialAdultKidPerms({
-  assignmentId,
-  child,
-  familyId,
-}: {
-  assignmentId: string
-  child: { id: string; display_name: string; member_color: string | null }
-  familyId: string
-}) {
-  const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(false)
-
-  const SA_FEATURES = [
-    { key: 'tasks_basic', label: 'Tasks & Routines' },
-    { key: 'calendar_basic', label: 'Calendar' },
-    { key: 'notes_instructions', label: 'Notes & Instructions' },
-  ]
-
-  const { data: perms } = useQuery({
-    queryKey: ['sa-permissions', assignmentId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('special_adult_permissions')
-        .select('*')
-        .eq('assignment_id', assignmentId)
-      return data ?? []
-    },
-  })
-
-  async function setLevel(featureKey: string, level: string) {
-    const existing = perms?.find((p) => p.feature_key === featureKey)
-    if (existing) {
-      await supabase.from('special_adult_permissions').update({ access_level: level }).eq('id', existing.id)
-    } else {
-      await supabase.from('special_adult_permissions').insert({
-        family_id: familyId,
-        assignment_id: assignmentId,
-        feature_key: featureKey,
-        access_level: level,
-      })
-    }
-    queryClient.invalidateQueries({ queryKey: ['sa-permissions', assignmentId] })
-  }
-
-  return (
-    <div className="rounded-lg" style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)' }}>
-      <button onClick={() => setExpanded(!expanded)} className="w-full px-3 py-2 flex items-center gap-2 text-left">
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
-          style={{ backgroundColor: child.member_color || 'var(--color-dusty-rose)' }}
-        >
-          {child.display_name.charAt(0)}
-        </div>
-        <span className="flex-1 text-sm font-medium" style={{ color: 'var(--color-text-heading)' }}>{child.display_name}</span>
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-      </button>
-      {expanded && (
-        <div className="px-3 pb-3 space-y-1">
-          {SA_FEATURES.map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between py-1">
-              <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
-              <AccessLevelPicker
-                value={perms?.find((p) => p.feature_key === key)?.access_level || 'none'}
-                onChange={(level) => setLevel(key, level)}
-                maxLevel="contribute"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+// SpecialAdultKidPerms removed (PERMISSIONS-WIRING, 2026-06-09): the per-kid
+// caregiver toggle grid wrote special_adult_permissions rows that nothing
+// enforced (shift-based access was never mounted). Hidden until the Special
+// Adult Experience follow-up build ships shift gating for real.
 
 // ─── PRD-02 Screen 4 (mom's view): Teen self-restriction ─────────────────────
 
@@ -1119,14 +1126,25 @@ function MomSelfRestrictionCard({
             Toggle features off to restrict YOUR visibility into {teen.display_name}'s data.
             {teen.display_name} will be notified when you increase your visibility (turn a feature back on).
           </p>
+          {/* PERMISSIONS-WIRING (2026-06-09): self-restriction ENFORCEMENT is
+              not wired yet — these rows render inactive per the same
+              keyWiringStatus registry the teen panel reads, so neither screen
+              over-promises. Saved restrictions are preserved for when
+              enforcement ships. */}
+          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
+            <Wrench size={11} /> {INACTIVE_PERMISSION_NOTE} — previously saved restrictions are kept and will apply when this ships.
+          </p>
           {RESTRICTABLE_FEATURES.map(({ key, label }) => {
             const restricted = isRestricted(key)
+            const active = isKeyActive(key)
             return (
               <button
                 key={key}
-                onClick={() => toggleRestriction(key)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors"
+                onClick={() => { if (active) void toggleRestriction(key) }}
+                disabled={!active}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors disabled:cursor-default"
                 style={{
+                  opacity: active ? 1 : 0.5,
                   backgroundColor: restricted ? 'var(--color-bg-primary)' : 'color-mix(in srgb, var(--color-sage-teal) 6%, transparent)',
                   border: `1px solid ${restricted ? 'var(--color-border)' : 'color-mix(in srgb, var(--color-sage-teal) 20%, transparent)'}`,
                 }}

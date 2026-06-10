@@ -10,8 +10,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
   ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift, Calendar,
-  Lock,
+  Lock, Eye,
 } from 'lucide-react'
+import { TeenTransparencyPanel } from '@/features/permissions'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useCalendarSettings, useUpdateCalendarSettings } from '@/hooks/useCalendarEvents'
 import {
@@ -118,6 +119,16 @@ export function SettingsPage() {
       <SettingsSection title="Appearance" icon={Palette}>
         <AppearanceSection />
       </SettingsSection>
+
+      {/* What's Shared — teen transparency panel (PRD-02 Screen 4).
+          Mounted by the PERMISSIONS-WIRING build (2026-06-09): the Permission
+          Hub has always promised teens this panel; now it exists. The panel
+          self-guards on dashboard_mode === 'independent'. */}
+      {member?.dashboard_mode === 'independent' && (
+        <SettingsSection title="What's Shared" icon={Eye}>
+          <TeenTransparencyPanel />
+        </SettingsSection>
+      )}
 
       {/* Family Management (Mom only) */}
       {shell === 'mom' && (

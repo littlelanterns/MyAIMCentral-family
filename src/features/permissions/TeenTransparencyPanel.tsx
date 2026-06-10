@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, X, Share2, Lock, Info } from 'lucide-react'
+import { Check, X, Share2, Lock, Info, Wrench } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { FeatureGuide } from '@/components/shared'
+import { isKeyActive } from '@/lib/permissions/keyWiringStatus'
 
 /**
  * PRD-02 Screen 4 — Teen-facing transparency panel.
@@ -264,13 +265,34 @@ function TransparencyGrid({
   })
 
   // ── Derived helpers ──────────────────────────────────────────────────────────
+  //
+  // SINGLE SOURCE OF TRUTH (founder ruling 2026-06-09): this panel reports
+  // EFFECTIVE visibility, consulting the same keyWiringStatus registry as the
+  // Permission Hub. A saved-but-unenforced setting never displays as if it
+  // were live — the panel must not tell a teen "mom can't see your journal"
+  // while enforcement hasn't shipped.
+
+  /** Keys whose surfaces are family-shared by design (PRD-14B: the family
+   *  calendar is visible to parents regardless of grants). */
+  const FAMILY_SHARED_KEYS = new Set(['calendar_basic'])
 
   function momCanSee(featureKey: string): boolean {
-    return !momRestrictions.some((r) => r.feature_key === featureKey)
+    const restricted = momRestrictions.some((r) => r.feature_key === featureKey)
+    if (!restricted) return true
+    // Restriction saved but enforcement not wired yet → mom can still see.
+    return !isKeyActive(featureKey) ? true : false
+  }
+
+  /** Restriction recorded but not yet enforced — show a pending marker. */
+  function momRestrictionPending(featureKey: string): boolean {
+    return momRestrictions.some((r) => r.feature_key === featureKey) && !isKeyActive(featureKey)
   }
 
   function dadCanSee(featureKey: string): boolean {
+    if (FAMILY_SHARED_KEYS.has(featureKey)) return true
     if (!dadId) return false
+    // No enforced surface exists → dad genuinely cannot see it, grant or not.
+    if (!isKeyActive(featureKey)) return false
     const perm = dadPermissions.find((p) => p.permission_key === featureKey)
     return !!(perm && perm.access_level !== 'none')
   }
@@ -363,7 +385,16 @@ function TransparencyGrid({
 
                 {/* Mom column — read-only, always */}
                 <td className="text-center px-2 py-3">
-                  {momCanSee(key) ? <CheckCell /> : <CrossCell />}
+                  <span className="inline-flex items-center gap-1">
+                    {momCanSee(key) ? <CheckCell /> : <CrossCell />}
+                    {momRestrictionPending(key) && (
+                      <Wrench
+                        size={11}
+                        style={{ color: 'var(--color-text-secondary)', opacity: 0.7 }}
+                        aria-label="Mom saved a restriction — it applies in a future update"
+                      />
+                    )}
+                  </span>
                 </td>
 
                 {/* Dad column — read-only, only if a dad exists */}
