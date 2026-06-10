@@ -13,6 +13,8 @@
  */
 
 import { useShell } from './ShellProvider'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -35,12 +37,21 @@ interface Segment {
 
 export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwitcherProps) {
   const { role, shell } = useShell()
+  // FO-COMMAND-CENTER (founder Q3, 2026-06-10): dad gets a granted-scoped
+  // Family Overview — the tab appears only when he can actually view someone
+  // beyond himself. Special Adults are NOT present on FO (PRD-14C).
+  const { data: member } = useFamilyMember()
+  const { viewableMembers } = useViewableMembers(
+    'tasks_basic',
+    member ? { id: member.id, family_id: member.family_id, role: member.role } : null,
+  )
 
   // Guided/Play: no perspective switcher
   if (shell === 'guided' || shell === 'play') return null
 
   const isMom = role === 'primary_parent'
-  const isAdult = role === 'additional_adult' || role === 'special_adult'
+  // additional_adult with at least one granted member beyond self
+  const isGrantedAdult = role === 'additional_adult' && viewableMembers.length > 1
 
   // Build role-appropriate tabs
   const segments: Segment[] = []
@@ -48,8 +59,8 @@ export function PerspectiveSwitcher({ activeView, onViewChange }: PerspectiveSwi
   // My Dashboard — always first for everyone
   segments.push({ view: 'personal', label: 'My Dashboard', shortLabel: 'Me' })
 
-  // Family Overview — mom always, dad if permitted (default: show it)
-  if (isMom || isAdult) {
+  // Family Overview — mom always; dad when mom has granted him visibility
+  if (isMom || isGrantedAdult) {
     segments.push({ view: 'family_overview', label: 'Family Overview', shortLabel: 'Overview' })
   }
 

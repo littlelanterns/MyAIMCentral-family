@@ -872,43 +872,20 @@ export default function FamilyOverview() {
 
   const { data: queueItems = [] } = usePendingQueueCount(family?.id, member?.id, member?.role)
 
-  // ── Dad's scoped view: permission-gated member list ──
+  // ── Dad's scoped view: granted-permission member list ──
+  // FO-COMMAND-CENTER Phase 4: replaced the stale pre-leak-pass
+  // `view_as_permissions` read with `useViewableMembers` — the same
+  // member_permissions-backed scoping the rest of the platform uses
+  // (mom → all; additional_adult → self + granted; others → self).
 
-  const isMom = member?.role === 'primary_parent'
-  const [permittedMemberIds, setPermittedMemberIds] = useState<Set<string> | null>(null)
+  const isMom = isPrimaryParent
 
-  useEffect(() => {
-    if (!member || !family) return
-    if (isMom) {
-      setPermittedMemberIds(null) // null = no filtering (mom sees all)
-      return
-    }
-    // Non-mom: load view_as_permissions to determine visible children
-    supabase
-      .from('view_as_permissions')
-      .select('target_member_id')
-      .eq('family_id', family.id)
-      .eq('viewer_id', member.id)
-      .eq('enabled', true)
-      .then(({ data }) => {
-        if (data) {
-          // Dad can see permitted children + himself
-          const ids = new Set(data.map((r: { target_member_id: string }) => r.target_member_id))
-          ids.add(member.id)
-          setPermittedMemberIds(ids)
-        } else {
-          setPermittedMemberIds(new Set([member.id]))
-        }
-      })
-  }, [member?.id, family?.id, isMom])
-
-  // Members available for pill selection (permission-filtered for dad)
   const availableMembers = useMemo(() => {
     if (!allMembers) return []
     const active = allMembers.filter((m) => m.is_active && !m.out_of_nest)
-    if (permittedMemberIds === null) return active // mom sees all
-    return active.filter((m) => permittedMemberIds.has(m.id))
-  }, [allMembers, permittedMemberIds])
+    if (isMom) return active // mom sees all
+    return active.filter((m) => viewableIds.has(m.id))
+  }, [allMembers, isMom, viewableIds])
 
   // ── Derived state ──
 
@@ -1018,9 +995,17 @@ export default function FamilyOverview() {
 
   const handleCompleteTask = useCallback(
     (taskId: string, targetMemberId: string) => {
+      // PERMISSIONS-WIRING Decision 9: view-only grants see, never act.
+      if (
+        !isPrimaryParent &&
+        targetMemberId !== member?.id &&
+        !accessLevelAtLeast(viewableLevels[targetMemberId], 'contribute')
+      ) {
+        return
+      }
       completeTask.mutate({ taskId, memberId: targetMemberId })
     },
-    [completeTask]
+    [completeTask, isPrimaryParent, member?.id, viewableLevels]
   )
 
   const handleDismissOnboarding = useCallback(() => {
