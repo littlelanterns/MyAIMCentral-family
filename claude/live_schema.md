@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-06-09
+> Auto-generated from live Supabase on 2026-06-10
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -2209,7 +2209,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 232 rows
+### `vault_user_visits` — 233 rows
 
 | # | Column |
 |---|---|

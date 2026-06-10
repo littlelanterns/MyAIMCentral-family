@@ -34,6 +34,10 @@ type Step = 'family-name' | 'member-select' | 'pin-entry' | 'visual-password'
 export function FamilyLogin() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('family-name')
+  // Phase 1 security gate (Family-Auth-Two-Door): the roster RPCs now require
+  // an authenticated session. Until Phase 2 ships the family password, a
+  // signed-out device cannot use family login — show a friendly notice.
+  const [hasSession, setHasSession] = useState<boolean | null>(null)
   const [familyName, setFamilyName] = useState('')
   const [_familyId, setFamilyId] = useState<string | null>(null)
   const [familyDisplayName, setFamilyDisplayName] = useState('')
@@ -56,6 +60,18 @@ export function FamilyLogin() {
   useEffect(() => {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current)
+    }
+  }, [])
+
+  // Detect whether this device already has a session (family login currently
+  // requires one — see Phase 1 note above)
+  useEffect(() => {
+    let cancelled = false
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setHasSession(!!data.session)
+    })
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -331,8 +347,28 @@ export function FamilyLogin() {
           </p>
         )}
 
+        {/* Phase 1 security gate: signed-out devices can't use family login
+            until the family password ships (Phase 2) */}
+        {step === 'family-name' && hasSession === false && (
+          <div
+            className="rounded-lg px-4 py-4 text-sm space-y-2"
+            style={{
+              backgroundColor: AUTH_COLORS.card,
+              border: `1px solid ${AUTH_COLORS.border}`,
+              color: AUTH_COLORS.text,
+            }}
+          >
+            <p className="font-medium">Family login is getting a security upgrade.</p>
+            <p style={{ color: AUTH_COLORS.textMuted }}>
+              For now, family login only works on a device that&apos;s already signed in
+              (like your family tablet). On a new device, sign in with email below — or
+              ask mom for help.
+            </p>
+          </div>
+        )}
+
         {/* Step: family name */}
-        {step === 'family-name' && (
+        {step === 'family-name' && hasSession !== false && (
           <form onSubmit={handleFamilyLookup} className="space-y-4">
             <div>
               <label

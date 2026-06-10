@@ -48,22 +48,22 @@ export function FamilyLoginNameSetup() {
 
       setChecking(true)
       try {
-        const { data } = await supabase.rpc('lookup_family_by_login_name', {
-          login_name: name,
-        })
-
-        // If found and it's not our own family, it's taken
-        if (data && data.length > 0 && data[0].family_id !== family?.id) {
-          setAvailable(false)
+        // Boolean-only availability RPC (own family counts as available)
+        const { data, error: rpcError } = await supabase.rpc(
+          'check_family_login_name_available',
+          { p_login_name: name },
+        )
+        if (rpcError) {
+          setAvailable(null)
         } else {
-          setAvailable(true)
+          setAvailable(data === true)
         }
       } catch {
         setAvailable(null)
       }
       setChecking(false)
     },
-    [family?.id],
+    [],
   )
 
   useEffect(() => {

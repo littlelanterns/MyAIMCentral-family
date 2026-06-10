@@ -68,3 +68,16 @@ export async function getFamilyLoginMembers(familyId: string) {
   })
   return { data, error }
 }
+
+/**
+ * Boolean-only uniqueness check for family login names.
+ * Returns true if the name is unused OR used by the caller's own family.
+ * Replaces the previous (leaky) use of lookup_family_by_login_name for
+ * availability checking — never exposes family IDs or names.
+ */
+export async function checkFamilyLoginNameAvailable(loginName: string) {
+  const { data, error } = await supabase.rpc('check_family_login_name_available', {
+    p_login_name: loginName,
+  })
+  return { data: data as boolean | null, error }
+}
