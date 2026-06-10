@@ -22,6 +22,10 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
+| Personal-device member timeout → PIN relock (family layer must persist on device; today timeout = full sign-out, kid re-enters family password) | Family-Auth-Two-Door (2026-06-09, Founder Decision 4) | Unwired | ⏳ Unwired (MVP) | Follow-up build |
+| 'None'-members direct resting member session from choice screen (currently routes via /hub avatar dip-in — safe, just indirect) | Family-Auth-Two-Door (2026-06-09) | Unwired | 📌 Unwired (Post-MVP) | — |
+| PIN flow requires_email_login guard (picture flow has it; PIN flow would mint an unresolvable session for an email-linked member) | Family-Auth-Two-Door (2026-06-09) | Unwired | 📌 Unwired (Post-MVP) | — |
+| Revoke transitional public set_family_password RPC grant (Edge Function path is canonical; bare RPC skips shadow rotation → drift) | Family-Auth-Two-Door (2026-06-09) | Unwired | ⏳ Unwired (MVP) | Follow-up build |
 | PIN verification (FamilyLogin) | PRD-01 (Phase 01) | Remediation | ✅ Wired | Remediation |
 | Accept-invite flow (/auth/accept-invite) | PRD-01 | PRD-01 | ✅ Wired | Remediation |
 | Session duration per role | PRD-01 | PRD-01 | ✅ Wired | Remediation |

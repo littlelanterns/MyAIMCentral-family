@@ -28,7 +28,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const TESTWORTH_FAMILY_ID = '1f6200a7-df82-4ac4-bce3-3edcafe66bc5'
 const TESTWORTH_LOGIN = 'testworthfamily'
-const TESTWORTH_PASSWORD = 'Lanterns2026'
+const TESTWORTH_PASSWORD = process.env.E2E_TESTWORTH_FAMILY_PASSWORD || 'Lanterns2026'
 const SARAH = { email: 'testmom@testworths.com', password: 'Demo2026!' }
 
 const GENERIC_ERROR = "That family name and password didn't match"

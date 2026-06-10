@@ -1,9 +1,23 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-06-09 (role-scoping leak pass).
+> Updated each build session. Last updated: 2026-06-09 (family-auth-two-door close-out).
 
-## Role-Scoping Leak Pass (2026-06-09)
+## Family-Auth-Two-Door (2026-06-09, Phases 1-4)
+
+Two-door umbrella login model (PRD-01/PRD-02 amendment, founder-approved 2026-06-09). E2E: `tests/e2e/features/family-auth-two-door.spec.ts` — 8/8.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Roster enumeration sealed | `lookup_family_by_login_name` + `get_family_login_members` gated to authenticated family members; EXECUTE revoked from anon | **Wired** | Was a live prod hole — anyone could harvest member names/avatars by guessing family names. Migration 100251. |
+| Family password door | `verify_family_login(name, password)` — combined check, byte-identical failures (no enumeration), roster released ONLY on verified password, 5/15 lockout | **Wired** | Migrations 100252-100253. Set/change via family-auth-admin Edge Function (`setFamilyPassword`), Settings → Family Password, forced one-time setup modal in MomShell, `npm run family:password` script. |
+| Choice screen (two resting places) | Post-door: Hub tile → family device rests on /hub; name+PIN/picture → that member's personal device (real session) | **Wired** | FamilyLogin.tsx. Mom's tile always routes to her email sign-in (Decision 5). |
+| Family identity | Per-family shadow account (`{family_id}@family.myaimcentral.app`) + hidden `family_members` row (`role='family'`) — first-class identity with own permission scope; future hub config hangs off it | **Wired** | Migrations 100254/100256/100257. Hidden from all rosters (central hook filter + 7-file sweep + dashboard_enabled=false). RoleRouter redirects family sessions to /hub. Self-healing provisioning via `family_door_sync` on first login. |
+| Kill switch | Changing the family password rotates the shadow account + global sign-out → every resting family device bounced to the door | **Wired** | E2E test 7 exercises the full pipeline. Mom's remote answer to a lost device. |
+| Picture password (single-picture) | Kid's ONE secret picture among 8 FIXED decoys; tap verified server-side (`verify_member_picture_password`, 5/15 lockout); correct answer never reaches the browser; session minted via server-derived HMAC secret | **Wired** | Migration 100258. Replaces the client-side 4-picture SEQUENCE (which downloaded the answer to the browser). Mom sets via Family Members image icon (PictureModal incl. "No login needed"). Hub dip-in supported (verify-only mode). Email-linked members route to email sign-in. |
+| PIN login account creation | PIN set (PinModal) + family setup auto-PINs now call `ensure_pin_shadow_account` | **Wired** | Closes the historic FamilyMembers.tsx:428 TODO — PINs verified but couldn't create sessions for new members. |
+| Personal-device timeout → PIN relock (no family password re-entry) | — | Stub | Member inactivity timeout still fully signs out; kid re-enters the family password. Follow-up build. |
+| 'None'-members direct resting session from choice screen | Routes to /hub for avatar dip-in instead | Stub | Refinement; safe behavior today. |
 
 PRD-02 read-scoping enforcement: mom sees all; everyone else sees own + explicitly shared + mom-granted (`member_permissions`). Origin: founder report — dad saw mom's tasks/info.
 

@@ -50,6 +50,11 @@ const HELP_PATTERNS: HelpPattern[] = [
     response: "To add family members, go to Family Members (gear icon > Family Members) and tap \"Add Member.\" You can describe your family in natural language and I'll parse it, or add members one at a time. Each member gets a PIN based on their birthday (MMDD).",
   },
   {
+    category: 'family_login',
+    keywords: ['family login', 'family password', 'kids log in', 'kid login', 'child login', 'login on tablet', 'family device', 'picture password', 'picture login', 'shared device', 'how do my kids sign in'],
+    response: "Family login is two steps. On any new device, your family enters your Family Login Name AND Family Password together (manage both in Settings > Family Management) — once per device. Then they pick what the device becomes: tap \"Family Hub\" for a shared family screen, or tap a name + that person's PIN or secret picture for their own dashboard. You choose each child's login style in Family Members: a PIN (key icon), a secret picture they tap from a grid (image icon), or no login at all. Changing the Family Password signs out every family device — your kill switch if one goes missing.",
+  },
+  {
     category: 'pin',
     keywords: ['pin', 'pin number', 'forgot pin', 'change pin', 'reset pin', 'locked out', 'wrong pin'],
     response: "PINs are set by the primary parent. The default PIN is the member's birthday as MMDD (e.g., March 15 = 0315). To change a PIN, go to Family Members > tap the member > Change PIN. If you're locked out after 5 attempts, wait 15 minutes and try again.",

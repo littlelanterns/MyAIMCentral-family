@@ -137,17 +137,35 @@ No new feature keys required.
 
 ---
 
-## Post-Build PRD Verification
+## Post-Build PRD Verification (2026-06-09 — founder sign-off at close-out)
 
-| Requirement | Source | Status | Notes |
-|---|---|---|---|
-| | | Wired / Stubbed / Missing | |
+> Full row-by-row table lives in the archived build file
+> (`.claude/completed-builds/2026-06/family-auth-two-door.md`). E2E proof:
+> `tests/e2e/features/family-auth-two-door.spec.ts` — 8/8 passing against
+> production Supabase (enumeration sealed, choice screen, hub resting, mom-tile
+> gating, picture grid + server verification, kill-switch pipeline, real-family
+> PIN personal-device login).
 
 ### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
+- Total requirements verified: 28
+- Wired: 26
+- Stubbed: 2 (registered in STUB_REGISTRY.md)
+  1. **Personal-device member timeout falls back to full sign-out** — kid must
+     re-enter the family password after inactivity timeout, contradicting the
+     two-layer-stickiness intent. PIN-relock screen = follow-up build.
+  2. **Mobile (375px) eyes-on verification** — founder accepted close-out with
+     E2E (desktop) evidence; mobile visual pass is a follow-up.
 - Missing: 0
+
+### Founder sign-off
+- [x] Verification reviewed, close-out approved (Tenise, 2026-06-09 chat — "I'm ready to run close out")
+
+### Known follow-ups filed
+- PIN-relock on personal-device timeout (two-layer stickiness completion)
+- 'None'-members direct resting session from choice screen (currently routes via hub)
+- PIN flow lacks the requires_email_login guard the picture flow has (only affects members with real email accounts — none in practice use PIN login)
+- Transitional public `set_family_password` RPC grant can be revoked once all clients confirmed on the Edge Function path
+- Phase 2 of PRD-01 amendment: record the two-door model in PRD-01 at next PRD revision pass
 
 ---
 

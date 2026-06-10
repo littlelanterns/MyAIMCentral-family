@@ -114,6 +114,20 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Bulk Configure button: Apply same pool config across multiple kids, or add a new pool to all selected kids.
   Term-length pools: Start/end date pickers for semester-based tracking.
   Overage cap: Default 100%. Set higher (e.g. 150%) to allow extra-credit bonus above 100%.`,
+
+  '/family-password': `FAMILY PASSWORD PAGE — Set or change the family's shared login password (mom only).
+  Reached via Settings > Family Management > Family Password.
+  The family password is the outer door for family login: on a NEW device, family members enter the Family Login Name AND this password together — member names only appear after both are correct. Entered once per device.
+  Requirements: at least 8 characters with a letter and a number.
+  Changing it signs out EVERY device using family login — the kill switch for a lost or stolen device. Mom's own email login is unaffected.
+  Mom's email/password is the recovery path — there is no separate family-password reset email.`,
+
+  '/family-members#login': `FAMILY MEMBER LOGIN OPTIONS — Per-child login style (mom only, Family Members page).
+  Each member row has: Key icon = set a PIN (4 digits; default is their birthday MMDD). Image icon = set a Picture Login OR choose "No login needed."
+  Picture Login: mom picks the child's ONE secret picture from a grid. At login the child taps their picture from a grid of 9 (theirs + decoys). Wrong taps count toward the same 5-try/15-minute lockout as PINs.
+  "No login needed" is safe on family devices because the device already passed the Family Password door.
+  After the family door, the device shows a choice screen: tap "Family Hub" to make it a shared family screen (kids dip in with PIN/picture from the hub), or tap a name + their PIN/picture to make it that person's own device.
+  Mom's own tile always asks for HER email sign-in — the family password never opens mom's dashboard.`,
 }
 
 // ── Use Case Recipes ──────────────────────────────────────
@@ -133,6 +147,27 @@ export interface UseCaseRecipe {
 }
 
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
+  {
+    triggers: ['set up the tablet', 'family device', 'kids own device', 'kids log in', 'shared computer', 'how do my kids sign in', 'set up logins'],
+    clarifyingQuestion: "Happy to walk you through it! Quick question first — is this a shared device the whole family will use (like a kitchen tablet), or one child's own device? And for your kids: would each do better with a 4-digit PIN, or a secret picture they tap (great for pre-readers), or no login at all once the device is unlocked?",
+    variants: [
+      {
+        name: 'Shared family device (hub)',
+        description: 'A kitchen tablet or living room screen the whole family uses.',
+        howToSetUp: `First make sure your Family Login Name and Family Password are set (Settings > Family Management).
+On the device: go to the Family Login page, enter the Family Login Name + Family Password (once per device), then tap "Family Hub."
+The device now rests on the Hub. Kids tap their avatar + PIN or secret picture to open their own dashboard, and it returns to the Hub when they're done.
+If the device is ever lost, change the Family Password in Settings — every family device signs out immediately.`,
+      },
+      {
+        name: "A child's own device",
+        description: 'A kid keeps their own tablet signed in as themselves.',
+        howToSetUp: `On their device: Family Login page → Family Login Name + Family Password → tap THEIR name → their PIN or secret picture.
+The device stays signed in as them. Set their login style first in Family Members: key icon for a PIN, image icon for a secret picture (you pick their one picture; at login they tap it from a grid), or "No login needed."
+Their session follows their age-based rules; the family layer stays on the device until signed out.`,
+      },
+    ],
+  },
   {
     triggers: ['before they leave home', 'life skills', 'before 18', 'adulting', 'independence skills', 'launch list'],
     clarifyingQuestion: "I'd love to help you implement this! Tell me more about what you're picturing. Is this more like practical skills they need to actually learn and practice — like managing money or cooking — where they'd need to do it multiple times before they've really got it? Or is it more of a collection of experiences and memories you want to make sure happen before they're on their own? Give me a few examples of what's on your mind and I can figure out the best way to set it up for you.",

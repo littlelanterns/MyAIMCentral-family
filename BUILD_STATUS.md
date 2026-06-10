@@ -1,12 +1,12 @@
-# Build Status — MyAIM Central v2
+﻿# Build Status â€” MyAIM Central v2
 
-> Last updated: 2026-06-08
+> Last updated: 2026-06-09
 
 ## Foundation Phases (Complete)
 
 | Phase | PRDs | Description | Status | Completed |
 |-------|------|-------------|--------|-----------|
-| 00 | — | Project Setup & Infrastructure | Complete | 2026-03-23 |
+| 00 | â€” | Project Setup & Infrastructure | Complete | 2026-03-23 |
 | 01 | PRD-01 | Auth & Family Setup | Complete | 2026-03-23 |
 | 02 | PRD-02 | Permissions & Access Control | Complete | 2026-03-23 |
 | 03 | PRD-03 | Design System & Themes | Complete | 2026-03-23 |
@@ -31,8 +31,8 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | PRD-04 | Shell Routing: BottomNav, QuickTasks strip, PerspectiveSwitcher, Play/Guided fixes, Notepad in Adult/Independent, Settings gear | 2026-03-24 |
 | PRD-05 | LiLa AI: HumanInTheMix wired, FAQ patterns, context stubs, permission/privacy filtering, voice, opening messages, page context | 2026-03-24 |
 | PRD-01 | Auth Gaps: Accept-invite flow + RPC, session duration per role, inactivity warning banner | 2026-03-24 |
-| PRD-02 | Permissions Repair: 21 audit findings — RPC role mapping, trigger defaults, teen panel column fix, Permission Hub UI (emergency lockout, global permissions, dad personal features, shift log, View As exclusions, profile Layer 3) | 2026-03-25 |
-| PRD-04 | Shell Routing Repair: 11 audit findings — Settings overlay stub, Hub layout, sidebar persistence, auto-collapse, tier-locking, Guided notepad, journal sub-routes, QuickTasks auto-sort, View As full shell+theme, gradient consistency | 2026-03-25 |
+| PRD-02 | Permissions Repair: 21 audit findings â€” RPC role mapping, trigger defaults, teen panel column fix, Permission Hub UI (emergency lockout, global permissions, dad personal features, shift log, View As exclusions, profile Layer 3) | 2026-03-25 |
+| PRD-04 | Shell Routing Repair: 11 audit findings â€” Settings overlay stub, Hub layout, sidebar persistence, auto-collapse, tier-locking, Guided notepad, journal sub-routes, QuickTasks auto-sort, View As full shell+theme, gradient consistency | 2026-03-25 |
 | UX S1-S5 | UX Overhaul: density system, ModalV2, hardcoded color audit, QuickCreate FAB, calendar visual overhaul, DateDetailModal, calendar settings, tooltip conversion, list task type, tracker quick-create, element size | 2026-03-28 |
 | PRD-14 | Dashboard Reconciliation: data-driven section system, Guiding Stars greeting, starter widgets, perspective switcher expansion, View As full shell modal, acted_by attribution, theme persistence per member, BookShelf + ThemeSelector for Independent/Adult | 2026-03-30 |
 
@@ -50,30 +50,30 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | 15 | PRD-14C, PRD-14D, PRD-14E | Family Overview, Hub & TV Mode | Phase 14 | Pending |
 | 16 | PRD-15 | Messages, Requests & Notifications (12 tables, NotificationBell, Realtime, 4 Edge Functions, cross-cutting infrastructure) | Phase 06 | **Complete** | 2026-04-06 |
 | 17 | PRD-16 | Meetings | Phase 10, 16 | **Complete** | 2026-04-16 |
-| 18 | PRD-17, PRD-17B | Universal Queue (PRD-17) + MindSweep Sprint 1+2 (PRD-17B Phase A + partial B) | Phase 10, 16 | **Partial** — PRD-17 complete 2026-04-03; PRD-17B Phase B remainder + Phase C pending |
+| 18 | PRD-17, PRD-17B | Universal Queue (PRD-17) + MindSweep Sprint 1+2 (PRD-17B Phase A + partial B) | Phase 10, 16 | **Partial** â€” PRD-17 complete 2026-04-03; PRD-17B Phase B remainder + Phase C pending |
 | 19 | PRD-18 | Rhythms & Reflections | Phase 07, 09, 12, 14 | **Complete** | 2026-04-07 |
 | 20 | PRD-19 | Family Context & Relationships | Phase 13 | Pending |
-| 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | **Backburnered** (founder decision 2026-06-09 — see `claude/feature-decisions/Safe-Harbor-Backburner-Decision.md`; 4 guided modes deactivated via migration 100249, user-facing surfaces removed, defensive `is_safe_harbor` plumbing kept) |
+| 21 | PRD-20 | Safe Harbor | Phase 06, 13, 20 | **Backburnered** (founder decision 2026-06-09 â€” see `claude/feature-decisions/Safe-Harbor-Backburner-Decision.md`; 4 guided modes deactivated via migration 100249, user-facing surfaces removed, defensive `is_safe_harbor` plumbing kept) |
 | 22 | PRD-12A, PRD-12B | LifeLantern & Family Vision Quest | Phase 07, 08, 13 | Pending |
 | 23 | PRD-05C | LiLa Optimizer | Phase 06, 13 | Pending |
 | 24 | PRD-21 | Communication & Relationship Tools (Cyrano/Higgins) | Phase 06, 20 | **Complete** | 2026-03-26 |
 | 25 | PRD-21A | AI Vault Browse & Content Delivery | Phase 06, 23 | **Complete** | 2026-03-25 |
 | 26 | PRD-21C | AI Vault Engagement & Community | Phase 25 | Pending |
 | 27 | PRD-22 | Settings | Phase 04, 16 | Pending |
-| 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | **Complete** — Fix Session 2026-05-01: 8 bug reports, 6 audit items, migrations 100194-100195. Study Guide Rework 2026-05-01: Sonnet-from-chunks backfill replacing Haiku-from-extractions, audience toggle (Adult/Teen/Kid), resume-safe generation, migrations 100197-100198. Verified on Lion Witch & Wardrobe. | 2026-05-01 |
+| 28 | PRD-23 | BookShelf | Phase 06, 13, 25 | **Complete** â€” Fix Session 2026-05-01: 8 bug reports, 6 audit items, migrations 100194-100195. Study Guide Rework 2026-05-01: Sonnet-from-chunks backfill replacing Haiku-from-extractions, audience toggle (Adult/Teen/Kid), resume-safe generation, migrations 100197-100198. Verified on Lion Witch & Wardrobe. | 2026-05-01 |
 | 29 | PRD-24, PRD-24A, PRD-24B | Gamification | Phase 10, 12 | **Complete** | 2026-04-16 |
 | 30 | PRD-25, PRD-26 | Guided & Play Dashboards | Phase 14, 29 | Pending |
 | 31 | PRD-27 | Caregiver Tools | Phase 02, 05 | Pending |
-| 32 | PRD-28, PRD-28B | Tracking, Allowance & Compliance | Phase 05, 10, 11 | **Partial** — PRD-28 complete 2026-04-13 (Sub-phase A: allowance system + financial ledger + Privilege Status Widget; Sub-phase B: homework subjects + time logging + Log Learning widget). Universal Capability Parity Stage 2 complete 2026-04-30 (step rendering, shared completion UX, victory pipeline, allowance E2E). Stage 3 complete 2026-05-01 (content edit timing Now/Next cycle, pending_changes table + cron, Family Overview bug fix, 5/6 paused bugs verified fixed). PRD-28B (Compliance & Progress Reporting) pending. | 2026-05-01 |
+| 32 | PRD-28, PRD-28B | Tracking, Allowance & Compliance | Phase 05, 10, 11 | **Partial** â€” PRD-28 complete 2026-04-13 (Sub-phase A: allowance system + financial ledger + Privilege Status Widget; Sub-phase B: homework subjects + time logging + Log Learning widget). Universal Capability Parity Stage 2 complete 2026-04-30 (step rendering, shared completion UX, victory pipeline, allowance E2E). Stage 3 complete 2026-05-01 (content edit timing Now/Next cycle, pending_changes table + cron, Family Overview bug fix, 5/6 paused bugs verified fixed). PRD-28B (Compliance & Progress Reporting) pending. | 2026-05-01 |
 | 33 | PRD-29 | BigPlans | Phase 06, 10, 12 | Pending |
 | 34 | PRD-30 | Safety Monitoring | Phase 06, 16 | Pending |
-| 35 | PRD-34 | ThoughtSift — Decision & Thinking Tools (5 tools, 6 tables, 5 Edge Functions) | Phase 06, 20 | **Complete** | 2026-03-26 |
+| 35 | PRD-34 | ThoughtSift â€” Decision & Thinking Tools (5 tools, 6 tables, 5 Edge Functions) | Phase 06, 20 | **Complete** | 2026-03-26 |
 | 36 | PRD-37 | Family Feeds | Phase 09, 15, 16 | Pending |
 | 37 | PRD-38 | Blog (Cookie Dough) | Phase 03, 26 | Pending |
 | 38 | PRD-31 | Subscription Tier System | Phase 02, 27 | Pending |
 | 39 | PRD-32, PRD-32A | Admin Console & Demand Validation | Phase 25, 34, 38 | Pending |
 | 40 | PRD-33 | Offline / PWA | All phases | Pending |
-| 41 | — | Tier Assignment Review | Phase 38 | Pending |
+| 41 | â€” | Tier Assignment Review | Phase 38 | Pending |
 
 ## Cross-PRD Infrastructure Phases
 
@@ -85,4 +85,5 @@ All remediation work brought Phases 01-06 up to full PRD compliance.
 | Phase 3.8 | Activity Management | Per-item recurrence, ActivityListWizard (6 steps + deploy-target picker), SharedTaskListWizard (5 steps + claim-to-promote + write-back), Play icon launchers, Guided/Independent activity surfaces, reveal animation picker, NLC routing, Task Breaker Vault fix. 5 seeded templates, 3 migrations (100231-100233), 21+ Playwright tests. | **Complete** | 2026-05-05 |
 | View-As | Identity-Scope Architecture | View As + Family Hub PIN flow re-architected as a modal overlay with identity-scoped data: `useEffectiveMember/Shell/Viewer` hooks, `view_as_sessions.origin` column, `<MomOnlyRoute>` backstop (16 routes), `filterKidPrivate()` helper, hub `origin='member_session'` flow, modal inactivity timeout + warning banner, My Rewards kid stub. Convention #39 rewritten + #272 (realtime per-instance channels). 5 detour fixes (realtime channel collisions, ErrorBoundary around modal, hub-route modal mount, Family Overview columns, banner theming) + cross-shell shell-derivation fix + emoji removal. Migrations 100246 + 100248. Post-build audit: 48 reqs / 45 Wired / 2 Stub / 0 Missing. Archived `.claude/completed-builds/2026-06/`. | **Complete** | 2026-06-04 |
 | PRD-09B | Living Shopping List & Shopping Mode V1 | Always-on shopping lists (Recently Purchased tab, purchase history, auto-archive cron, per-section timing) + Shopping Mode (cross-list store selection/view + aisle lens). Migration 100230. Code shipped 2026-05-04 (`f2569b7`); closed 2026-06-04 (close-out tidy, opportunistic-eyes-on basis). V2/V3 items documented as stubs. | **Complete** | 2026-06-04 |
-| Member-Day Task State | Single Source of Truth | Fixes silent allowance erosion: 3 painted-blind read paths (`useRoutineWeekView`, `calculate_allowance_progress`, `calculate-allowance-period`) counted past-end-date painted routines in kids' allowance denominators. Establishes canonical `get_member_day_obligations` (Layer 2 public) / `obligation_active_for_member_on_date` (Layer 1 predicate, mirrors `recurringTaskFilter.ts`); 3 callers refactored; Convention #271 codified; invariant test (`tests/routine-day-state-invariant.test.ts`, 19/19) guards TS↔SQL drift; 3 painted rows backfilled + 1 orphan archived. Migration 100247. Commit `6143b5a`. Checkpoint 5 audit: 12/12 Wired, 0 Missing, 3/3 Discipline-2 prod checks. Founder eyes-on confirmed phantom routines gone. Return shape pre-carries pool_id/task_segment_id/is_extra_credit/homework_subject_ids for future reward surfaces. | **Complete** | 2026-06-08 |
+| Member-Day Task State | Single Source of Truth | Fixes silent allowance erosion: 3 painted-blind read paths (`useRoutineWeekView`, `calculate_allowance_progress`, `calculate-allowance-period`) counted past-end-date painted routines in kids' allowance denominators. Establishes canonical `get_member_day_obligations` (Layer 2 public) / `obligation_active_for_member_on_date` (Layer 1 predicate, mirrors `recurringTaskFilter.ts`); 3 callers refactored; Convention #271 codified; invariant test (`tests/routine-day-state-invariant.test.ts`, 19/19) guards TSâ†”SQL drift; 3 painted rows backfilled + 1 orphan archived. Migration 100247. Commit `6143b5a`. Checkpoint 5 audit: 12/12 Wired, 0 Missing, 3/3 Discipline-2 prod checks. Founder eyes-on confirmed phantom routines gone. Return shape pre-carries pool_id/task_segment_id/is_extra_credit/homework_subject_ids for future reward surfaces. | **Complete** | 2026-06-08 |
+| Family-Auth | Two-Door Umbrella Model | PRD-01/PRD-02 amendment (founder-approved 2026-06-09): closes a live roster-enumeration hole (anyone could harvest member names by guessing family names), adds the family password door (combined no-enumeration verify + 5/15 lockout + Settings page + forced setup + kill switch), choice screen with two resting places (Hub device vs personal device), first-class Family identity (shadow account + hidden role='family' row, own permission scope), single-picture password rebuilt server-side (replaces client-side sequence), PIN login account creation fixed (historic TODO). family-auth-admin Edge Function; migrations 100251-100254, 100256-100258. Convention #273. E2E suite 8/8 (`family-auth-two-door.spec.ts`). Post-build audit: 28 reqs / 26 Wired / 2 Stubbed / 0 Missing. Archived `.claude/completed-builds/2026-06/`. | **Complete** | 2026-06-09 |

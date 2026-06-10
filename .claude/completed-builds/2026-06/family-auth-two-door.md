@@ -202,10 +202,37 @@ Backend-only deliverables (no UI verification needed):
 
 ---
 
-## Post-Build Verification (filled at Checkpoint 5)
+## Post-Build Verification (Checkpoint 5 — 2026-06-09)
 
 | Requirement | Source | Status | Notes |
 |---|---|---|---|
-| | | Wired/Stubbed/Missing | |
+| Roster enumeration sealed (lookup RPCs gated, EXECUTE revoked from anon) | Security finding | **Wired** | Migration 100251; prod-verified 401; E2E tests 1-2 |
+| Boolean-only login-name availability check | Security finding | **Wired** | check_family_login_name_available; FamilyLoginNameSetup migrated |
+| Family password: bcrypt column + 5/15 lockout on families | Decision 1 | **Wired** | Migration 100252 |
+| Combined name+password verify, byte-identical failures, roster only behind verified password | Decision 2 | **Wired** | Migrations 100252+100253 (attempts_remaining leak found in prod testing and sealed); E2E 1-3 |
+| Choice screen: Hub tile + member tiles | Decision 3 | **Wired** | E2E 3-4 |
+| Personal device: name+PIN → persistent real session | Decision 3 | **Wired** | E2E 8 (Ruthie, real family) |
+| Hub device: rests on /hub under Family identity session | Decision 3 | **Wired** | E2E 4; RoleRouter redirects family sessions to /hub |
+| Two-layer stickiness: family layer persists until sign-out/uninstall/password change | Decision 4 | **Wired** (family layer) | Supabase session persistence + kill switch |
+| Member timeout falls back to name-tile/PIN, never the family-password prompt | Decision 4 | **Stubbed** | useSessionTimeout still does a FULL sign-out on personal devices — kid returns to the family door, must re-enter family password. Hub-device dip-ins fall back to hub correctly. PIN-relock follow-up registered in STUB_REGISTRY. |
+| Mom tile always requires HER auth | Decision 5 | **Wired** | Routes to /auth/sign-in; E2E 5 |
+| Family-password-only visibility = hub surface | Decision 6 | **Wired** | Family identity = member-grade family-scoped read; mom-only/private data excluded by existing RLS; UI surface is the hub |
+| Per-kid auth method: PIN / picture / none | Decision 7 | **Wired** | PictureModal (image icon) incl. "No login needed"; PIN via existing Key icon |
+| 'None' members under family session | Decision 7 | **Wired** (via hub) | Choice-screen tap routes to /hub for avatar dip-in; direct resting member session for none-members is a noted refinement |
+| Picture password server-side + lockout | Decision 8 / 13 | **Wired** | Migration 100258; correct answer never reaches browser; E2E 6 |
+| Single-picture design (never sequence) | Decision 13 | **Wired** | Fixed decoy set per member (anti-intersection); client shuffles display only |
+| Picture members get personal-device sessions | Decision 13 / Q5 | **Wired** | picture_login mints session via server-derived secret; email-linked members route to email sign-in (requires_email_login guard) |
+| Settings → Family Password (set/change) | Decision 9 | **Wired** | /family-password page + nav row; E2E 7 |
+| Forced one-time setup at mom's next login | Decision 9 | **Wired** | FamilyPasswordSetupModal in MomShell; code-reviewed (not E2E-testable — both prod families have passwords) |
+| Family-login locked until password set | Decision 9 | **Wired** | verify_family_login returns generic invalid when hash NULL |
+| Testworth seed + founder family password | Decision 9 + chat | **Wired** | Both seeded Lanterns2026; `npm run family:password` script for changes |
+| Email-invited members unchanged | Decision 10 | **Wired** | accept-invite untouched; email-linked members guarded in picture_login |
+| Leak closure ships first | Decision 11 | **Wired** | Commit c4e04a8 shipped alone, prod-verified same hour |
+| Family identity: first-class, own permission scope | Decision 12 | **Wired** | role='family' + shadow account; trigger guards; View As policies; hidden from all rosters (central hook + 7-file sweep); E2E 3 confirms invisibility |
+| Kill switch: password change boots all family devices | Decision 4/9 | **Wired** | Edge Function rotates shadow account + global sign-out; E2E 7 exercises full pipeline |
+| PIN-set creates working login accounts (TODO fixed) | Audit finding | **Wired** | PinModal + FamilySetup both call ensure_pin_shadow_account |
+| 2 "broken" PIN members backfilled | Audit finding | **Wired** (n/a) | Audit showed they're adults with real email accounts — nothing broken; all 7 PIN-only kids verified working |
+| PIN auto-default (birthday MMDD / 0000) | PRD-01 + founder | **Wired** | Pre-existing in FamilySetup; now also creates the login account |
+| Mobile/desktop eyes-on at 375px | Visual Verification Standard | **Stubbed** (founder follow-up) | E2E ran desktop Chrome; founder accepted close-out with mobile eyes-on as follow-up |
 
-Zero Missing required before close-out.
+**Summary: 26 Wired · 2 Stubbed (registered) · 0 Missing.**
