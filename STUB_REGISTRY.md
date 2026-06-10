@@ -22,6 +22,10 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
+| Mom self-restriction ENFORCEMENT (rows saved + displayed inactive via keyWiringStatus; no mom-side surface filters by them yet) | PRD-02 / PERMISSIONS-WIRING (2026-06-09) | Unwired | ⏳ Unwired (MVP) | Follow-up build (target-aware filtering on journal/stars/intentions/innerworkings mom views) |
+| Special Adult Experience (mount ShiftView PRD-02 Screen 6, SA sidebar branch, shift-gated visibility; SA Hub per-kid grid hidden until then) | PRD-02 / PERMISSIONS-WIRING (2026-06-09) | Unwired | ⏳ Unwired (MVP) | `claude/follow-up-builds/special-adult-experience.md` |
+| Inactive Hub permission keys (journal/guiding_stars/best_intentions/innerworkings/victory_recorder per-kid dad grants — marked "takes effect in a future update") | PERMISSIONS-WIRING (2026-06-09, founder Decision 4) | Unwired | 📌 Unwired (Post-MVP) | Each needs a real dad-views-kid surface first; flip in keyWiringStatus.ts when wired |
+| IndependentShell RoutingToastProvider (teen shell toasts are silent noops; no permission gate fires there so not load-bearing) | PERMISSIONS-WIRING (2026-06-09) | Unwired | 📌 Unwired (Post-MVP) | — |
 | Personal-device member timeout → PIN relock (family layer must persist on device; today timeout = full sign-out, kid re-enters family password) | Family-Auth-Two-Door (2026-06-09, Founder Decision 4) | Unwired | ⏳ Unwired (MVP) | Follow-up build |
 | 'None'-members direct resting member session from choice screen (currently routes via /hub avatar dip-in — safe, just indirect) | Family-Auth-Two-Door (2026-06-09) | Unwired | 📌 Unwired (Post-MVP) | — |
 | PIN flow requires_email_login guard (picture flow has it; PIN flow would mint an unresolvable session for an email-linked member) | Family-Auth-Two-Door (2026-06-09) | Unwired | 📌 Unwired (Post-MVP) | — |

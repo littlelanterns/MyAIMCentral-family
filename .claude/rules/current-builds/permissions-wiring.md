@@ -1,6 +1,6 @@
 # PERMISSIONS-WIRING (Permission Hub Wiring Audit + Dad Finance/Management Access + Sidebar Layer)
 
-## Status: ACTIVE — Phase 1 audit complete; founder decisions collected 2026-06-09; awaiting final go on consolidated Phase 2 plan (no code written)
+## Status: BUILD COMPLETE 2026-06-09 — awaiting founder post-build sign-off (Checkpoint 5 table below: 34 Wired / 3 Stubbed / 0 Missing; E2E 12/12 + leak-pass 10/10; Convention #274 added). On sign-off: move this file to `.claude/completed-builds/2026-06/`.
 
 ## Founder decisions (Checkpoint 1 gate, 2026-06-09)
 
@@ -152,16 +152,62 @@ Decisions: **Wired** (already real) / **Wire** (surface exists; connect it) / **
 
 ## Mom-UI Verification
 
+Browser evidence = Playwright runs 2026-06-09 (12/12 `permissions-wiring.spec.ts` + 10/10 `role-scoping-leak-pass.spec.ts` regression), Chromium 1280px + 375px viewports with failure screenshots reviewed. Founder eyes-on rows pending (granted-dad flows need Jerrod-style device verification, same basis as the leak pass).
+
 | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
 |---------|-----------------|---------------|---------------|---------------|----------|-----------|
-| Permission Hub (cleaned grid, finance row) | | | | Mom | | |
-| /finances/history as granted dad | | | | Adult | | |
-| Prize Board as granted dad (Mark Paid) | | | | Adult | | |
-| Studio in granted dad's sidebar + route | | | | Adult | | |
-| Ungranted dad regression (invisible + Parent-only card) | | | | Adult | | |
-| Sidebar per-member toggle (toggle off → item gone, 375px More menu parity) | | | | Adult/Independent | | |
-| Archives scoping as dad (granted vs not) | | | | Adult | | |
+| Permission Hub (dead card gone, finance row, inactive marks, Family Management) | ✅ browser test 9 | pending founder | pending founder | Mom | Playwright test 9 + screenshot review | 2026-06-09 |
+| /finances/history as granted dad (scoped pills + rows) | ✅ browser test 2 | pending founder | pending founder | Adult | Playwright test 2 | 2026-06-09 |
+| Prize Board as granted dad (view hides Allowance tab; manage shows it) | ✅ browser test 3 | pending founder | pending founder | Adult | Playwright test 3 | 2026-06-09 |
+| Mark Paid by granted dad (attribution + mom notification) | code-wired; eyes-on pending | pending founder | pending founder | Adult | RLS verified in prod; not click-tested | 2026-06-09 |
+| Studio in granted dad's sidebar + route | ✅ browser test 4 | — | ✅ 375px More menu test 11a | Adult | Playwright tests 4 + 11a | 2026-06-09 |
+| Ungranted dad regression (invisible + Parent-only card on all 4 routes) | ✅ browser test 1 | — | — | Adult | Playwright test 1 | 2026-06-09 |
+| View-only completion gate (toast) + approvals "View only" | ✅ browser tests 6+7 (screenshot reviewed) | — | — | Adult | Playwright tests 6/7 | 2026-06-09 |
+| Archives scoping (granted vs not + detail bounce) | ✅ browser test 8 | — | — | Adult | Playwright test 8 | 2026-06-09 |
+| Teen What's Shared panel in Settings | ✅ browser test 10 | pending founder | pending founder | Independent | Playwright test 10 | 2026-06-09 |
+| Mom regression (/studio, Prize Board Allowance tab, /finances/history) | ✅ tests 11 + leak-pass 10 | — | — | Mom | Playwright | 2026-06-09 |
 
-## Post-Build Verification
+## Post-Build Verification (Checkpoint 5, 2026-06-09)
 
-(to be filled at Checkpoint 5 — zero Missing required)
+| Requirement | Source | Status | Notes |
+|---|---|---|---|
+| `member_permissions.target_member_id` nullable + family-wide partial unique index | Decision 1 | **Wired** | Migration 100260, applied + DB-verified (`target_nullable=YES`, `uq_mp_family_wide` present) |
+| `financial_tracking` profile rows = explicit-grant-only | dad-finance doc §1 | **Wired** | 3 rows, feature_enabled=false; profile apply never auto-grants |
+| `apply_permission_profile` preserves explicit grants + stops per-kid `settings_basic` | gate hygiene | **Wired** | Replaced in 100260; finance/studio/reward_rules excluded from DELETE + INSERT |
+| `safe_harbor` purged from profile seeds | gate hygiene (PRD-20 backburner) | **Wired** | DB-verified 0 rows |
+| RLS granted finance read (`ft_scoped_read`, `loans_scoped_read`) | dad-finance doc §2 | **Wired** | pg_policies verified; browser test 2 proves scoping (granted kid visible, ungranted absent) |
+| RLS granted payment insert (`ft_parent_insert` contribute+) | dad-finance doc §2 | **Wired** | pg_policies verified; append-only preserved (no UPDATE/DELETE policies added) |
+| RLS `ap_granted_manage_update` (Allowance period ops, manage only) | Decision 2 | **Wired** | pg_policies verified |
+| `studio` + `reward_rules` feature keys + dad_adults tier rows | dad-finance doc | **Wired** | DB-verified (2 registry rows) |
+| `keyWiringStatus` single-source registry | Decision 7 ruling | **Wired** | Consumed by Hub grid, self-restriction card, AND teen panel |
+| `useViewableMembers.viewableLevels` | Decision 9 | **Wired** | Tests 6/7 prove view≠contribute |
+| `useResolvedFeatureAccess` + sidebar-key alias map | sidebar doc Worker 1 | **Wired** | No-row = role default; explicit toggle wins; beta tier bypass |
+| `GrantedRoute` (studio / reward_rules / financial_tracking) | dad-finance doc §3 | **Wired** | Tests 1/2/4/5/11 |
+| Routes moved MomOnlyRoute → GrantedRoute (4 routes) | dad-finance doc §3 | **Wired** | /studio, /prize-board, /contracts, /finances/history |
+| Hub: Family-Wide Rules card REMOVED | Decision 8 | **Wired** | Test 9 asserts absence |
+| Hub: per-kid rows removed (calendar, routines, lila_modal_access, vault_browse, messaging, requests, higgins) | gate-approved removals | **Wired** | Test 9 asserts Higgins absence |
+| Hub: growth rows kept, marked inactive | Decision 4 | **Wired** | Test 9 asserts the inactive note |
+| Hub: Finances & Allowance row with level hint | dad-finance doc §1 | **Wired** | Test 9 |
+| Hub: Family Management section (family-wide Studio/RewardRules pickers, None/View/Manage) | founder ruling | **Wired** | Test 9; writes NULL-target rows |
+| Hub: SA per-kid grid HIDDEN (Shift Log + Emergency Lock kept) | Decision 6 | **Wired** | Assigned-kid chips + future-update note replace the dead grid |
+| Hub: DadPersonalFeatures no-row = ON (role default) | finding 9 fix | **Wired** | Matches useResolvedFeatureAccess resolution; first tap writes OFF |
+| Mom self-restriction rows marked inactive (enforcement deferred) | single-source ruling | **Wired (display)** / enforcement **Stubbed** | STUB_REGISTRY entry; saved rows preserved |
+| TeenTransparencyPanel mounted in teen Settings | Decision 7 | **Wired** | Test 10; reports EFFECTIVE visibility (pending restrictions marked, dad column false for inactive keys, calendar family-shared ✓) |
+| Payment attribution (description suffix + metadata actor) | Decision 3 | **Wired** | Code path; founder eyes-on for the visible ledger line pending |
+| Quiet mom notification on dad payment | Decision 3 | **Wired** | Fire-and-forget; never blocks the payment |
+| TransactionHistory kid pills scoped + deep-link sanitized | dad-finance doc §3 | **Wired** | Test 2 |
+| PrizeBoard: Allowance tab manage-only; Prizes/Balance scoped; Pay gated contribute+ | Decision 2 | **Wired** | Test 3 (view hides tab, manage shows) |
+| Sidebar layer: mom toggles drive adult/independent sidebars | sidebar doc | **Wired** | Behavior note: dads with an applied Balanced profile now lose Journal/InnerWorkings from nav (= mom's configured profile, PRD-31-correct); mom can re-enable per-member in the Hub |
+| Granted management entries in dad's sidebar | founder ruling | **Wired** | Tests 4 + 11a |
+| BottomNav More-menu parity (Convention #16) | Convention #16 | **Wired** | Test 11a at 375px |
+| ViewAsModal allowedPaths mirrors toggles + grants | regression guard | **Wired** | Code-verified; prevents sidebar-renders-but-bounces inside View-As |
+| Tasks: view-only completion gate (toast + no write) | Decision 9 | **Wired** | Test 6 (incl. DB assert task stays pending) |
+| Tasks: approvals "View only" (no approve/reject at view) | Decision 9 | **Wired** | Test 7 + screenshot |
+| Lists: view-only item-check gate | Decision 9 | **Wired** | `canCheckItems` in handleToggle; not E2E-clicked (code-verified) |
+| Archives member cards + detail-URL scoping via archives_browse | audit table row | **Wired** | Test 8 (grant appears, ungranted detail bounces) |
+| AdultShell RoutingToastProvider | found by test 6 | **Wired** | Pre-existing gap: ALL adult-shell routing toasts were silent noops |
+| CLAUDE.md Prize Board convention amendment | dad-finance doc §5 | **Wired** | Convention #274 added this close-out (founder sign-off = this verification review) |
+| Playwright proof per wired grant + leak-pass regression | dispatch | **Wired** | 12/12 new + 10/10 regression |
+| `tsc -b` clean / lint 0 errors / schema:dump regenerated | Conventions #121/#244 | **Wired** | All green 2026-06-09 |
+
+**Zero Missing.** Stubbed (founder-acknowledged): mom self-restriction ENFORCEMENT; Special Adult Experience (dedicated follow-up build filed); IndependentShell still lacks RoutingToastProvider (teens are never cross-member actors, so no gate fires there — noted, not load-bearing).

@@ -1,6 +1,6 @@
 # Dad Finance & Management Access (granted view/pay/manage surfaces)
 
-**Status:** Follow-up build candidate — scope locked by founder 2026-06-09 (expanded same day)
+**Status:** ✅ SHIPPED 2026-06-09 — PERMISSIONS-WIRING build (Convention #274, migration 100260). Open questions resolved at the gate: Q1 = mom chooses via level (view/contribute/manage; Allowance tab = manage); Q2 = yes, quiet in-app notification + ledger attribution. Grant shape = nullable target_member_id.
 **Filed:** 2026-06-09, during the Role-Scoping Leak Pass close-out
 **Estimated workers:** 1-2
 **Depends on:** Role-Scoping Leak Pass (shipped 2026-06-09 — migrations 100255/100259, `useViewableMembers`, MomOnlyRoute own-login enforcement)

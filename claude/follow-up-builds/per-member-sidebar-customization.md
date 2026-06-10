@@ -1,6 +1,6 @@
 # Per-Member Sidebar Customization
 
-**Status:** Follow-up build candidate — not yet scoped
+**Status:** ✅ SHIPPED 2026-06-09 — folded into PERMISSIONS-WIRING (Convention #274). `useResolvedFeatureAccess` + `getSidebarSections(shell, options)`; Sidebar/BottomNav/ViewAsModal share identical options. Open Qs resolved: sync = render-time; profile apply stays a full reset (PRD-31); beta keeps per-member toggles active (tier layer only bypassed); no-row = role default (Hub display fixed to match).
 **Filed:** 2026-05-28
 **Filed from:** View As Identity-Scope Architecture build (Worker 2 Checkpoint 2 review — section-level filter gap)
 **Estimated workers:** 2-3

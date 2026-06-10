@@ -1,6 +1,6 @@
 # Permission Hub Wiring Audit (every grant drives a real surface)
 
-**Status:** Follow-up build candidate — founder-approved for the queue 2026-06-09
+**Status:** ✅ SHIPPED 2026-06-09 — PERMISSIONS-WIRING build (Convention #274, migration 100260, `claude/feature-decisions/Permissions-Wiring.md`). Audit table in the build file; every Hub key now enforced or visibly inactive via `keyWiringStatus.ts`.
 **Filed:** 2026-06-09, during the Role-Scoping Leak Pass close-out
 **Estimated workers:** 1-2 (audit pass first, then wiring pass)
 **Depends on:** Role-Scoping Leak Pass (shipped 2026-06-09 — `useViewableMembers` is the wiring primitive)

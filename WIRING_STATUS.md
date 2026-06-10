@@ -1,7 +1,25 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-06-09 (family-auth-two-door close-out).
+> Updated each build session. Last updated: 2026-06-09 (PERMISSIONS-WIRING close-out).
+
+## PERMISSIONS-WIRING (2026-06-09)
+
+Permission Hub wiring audit + dad finance/management access + per-member sidebar layer. Founder-gated; Convention #274; migration 100260; E2E `tests/e2e/permissions/permissions-wiring.spec.ts` 12/12 + leak-pass regression 10/10.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| keyWiringStatus registry | Single source of truth for active vs inactive permission keys; consumed by Hub grid + teen panel | **Wired** | `src/lib/permissions/keyWiringStatus.ts` |
+| Dad finance access (`financial_tracking` per-kid grants) | view = ledger read / contribute = + Mark Paid / manage = + Allowance tab. RLS granted paths on `financial_transactions`, `loans` (read), `allowance_periods` (manage UPDATE) | **Wired** | Migration 100260. Append-only preserved. Loan creation + allowance config stay mom. |
+| Granted management surfaces (Studio / Prize Board / RewardRules) | Family-wide grants (`target_member_id IS NULL`) for studio/reward_rules; Prize Board follows per-kid finance grants. `<GrantedRoute>` + sidebar entries appear only when granted | **Wired** | Default unchanged: invisible + Parent-only card for ungranted dads. |
+| Payment attribution + mom notification | `useCreatePayment` records actor in description + metadata; quiet in-app notification to mom when actor isn't mom | **Wired** | Fire-and-forget; never blocks payment. |
+| Per-member sidebar layer | `useResolvedFeatureAccess` (mom's Hub toggles) + `useManagementGrants` feed `getSidebarSections(shell, options)`; Sidebar + BottomNav + ViewAsModal pass identical options | **Wired** | Mom FROZEN; guided/play untouched. Dads with applied Balanced profiles now correctly lose Journal/InnerWorkings (mom's configured state). |
+| View-vs-Contribute enforcement | `viewableLevels` on useViewableMembers; Tasks completion/approvals + Lists item-checks require contribute+; view = see only | **Wired** | Toast feedback (AdultShell now has RoutingToastProvider — was a silent noop for ALL adult toasts). |
+| Archives grant scoping (`archives_browse`) | Member cards + detail-URL reach scoped via useViewableMembers | **Wired** | Display-layer (archives RLS is family-read by design). |
+| Permission Hub honesty pass | Fake Family-Wide Rules card removed; dead per-kid rows removed (calendar/routines/lila/vault/messages/requests/higgins); growth rows marked inactive; SA per-kid grid hidden; Finances row + Family Management section added; no-row personal toggles display role default | **Wired** | Hub never offers a dead control. |
+| Teen What's Shared panel (PRD-02 Screen 4) | Mounted in teen Settings; reports EFFECTIVE visibility via the registry (unenforced restrictions show pending marker, not a false ✗) | **Wired** | Was built-but-unmounted since the PRD-02 build. |
+| Mom self-restriction ENFORCEMENT | Restrictions saved + displayed (inactive) but no surface enforces them | Stub | Needs target-aware filtering on mom-side journal/stars/intentions/innerworkings surfaces. |
+| Special Adult Experience (ShiftView mount, SA sidebar, shift-gated access) | ShiftView (PRD-02 Screen 6) still unmounted; SA gets full adult shell | Stub | Filed: `claude/follow-up-builds/special-adult-experience.md`. SA Hub grid hidden until then. |
 
 ## Family-Auth-Two-Door (2026-06-09, Phases 1-4)
 
