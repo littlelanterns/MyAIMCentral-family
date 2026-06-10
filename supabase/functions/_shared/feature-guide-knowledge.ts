@@ -82,7 +82,20 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
 
   '/sweep': `MINDSWEEP — Quick-capture brain dump. Text, voice, scan (OCR), link import.
   AI classifies each item → routes to the right destination (task, calendar, journal, list, etc.)
-  Aggressiveness modes: Always Ask, Trust Obvious, Full Autopilot.`,
+  Aggressiveness modes: Always Ask, Trust Obvious, Full Autopilot.
+  DIRECT DEPLOY (2026-06-10): when Trust Obvious / Full Autopilot auto-routes a task or list item, it's created IMMEDIATELY — tasks land on your Tasks page, list items in your list. Calendar items and anything uncertain still go to the Queue for review. Always Ask = everything goes to the Queue.`,
+
+  'notepad-review-route': `REVIEW & ROUTE (Smart Notepad) — AI extracts individual items from a brain dump into review cards.
+  Each card shows the suggested destination (Task, List, Journal, Victory...). Tap the suggestion to accept, "Change" to pick a different destination, the pencil to edit text, or skip.
+  For List items, "Change" → List shows YOUR LISTS so you pick exactly which list it lands in.
+  [Route All N Pending] approves everything at its suggested destination.
+  DIRECT DEPLOY: approved tasks and list items are created instantly (tasks assigned to YOU on your Tasks page). A summary confirms where everything went ("8 tasks added · 1 sent to your Queue"). Calendar items go to the Queue for date review. You can open any created task afterward to add a due date or details.`,
+
+  'task-assignment-permissions': `WHO CAN ASSIGN TASKS TO WHOM (2026-06-10):
+  Mom: can assign tasks to anyone (full roster + Everyone pill).
+  Other adults (dad/partner): create tasks for THEMSELVES only by default. Mom can grant assignment access in the Permission Hub: "Assign tasks to kids — whole family" (one switch, covers kids added later) or per-child "Assign tasks to this child" (a child's own setting overrides the whole-family one, including an explicit Off).
+  Teens: themselves only — to get something on someone else's plate they send a Request ("Ask someone").
+  This is enforced at the database too, not just the buttons. Granting: Permission Hub → adult's card → Family Management section (whole-family) or the child's permission grid (per-child).`,
 
   '/meetings': `TOUCH BASE PAGE — Keep track of things you want to talk about with anyone.
   Expandable cards per conversation: Couple, Parent-Child (per child), Mentor (per child), Family Council, plus custom.

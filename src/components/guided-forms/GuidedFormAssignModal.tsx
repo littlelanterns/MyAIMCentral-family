@@ -27,6 +27,7 @@ import {
 } from './guidedFormTypes'
 import type { GuidedFormTemplate, GuidedFormSubtype } from './guidedFormTypes'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import { supabase } from '@/lib/supabase/client'
 
 // ─── Props ────────────────────────────────────────────────────────
@@ -64,6 +65,12 @@ export function GuidedFormAssignModal({
   onAssigned,
 }: GuidedFormAssignModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
+
+  // RR-DEPLOY-SCOPING: assignment creates tasks per child — intersect the
+  // caller-provided list with the task_assignment authority so a granted-
+  // Studio adult without assignment grants cannot target ungranted kids.
+  const { assignableIds } = useAssignableMembers()
+  const scopedChildren = eligibleChildren.filter((c) => assignableIds.has(c.id))
 
   // Mom's filled values keyed by section_key
   const [momValues, setMomValues] = useState<Record<string, string>>({})
@@ -313,13 +320,13 @@ export function GuidedFormAssignModal({
               Each child gets an independent copy of this assignment.
             </p>
 
-            {eligibleChildren.length === 0 ? (
+            {scopedChildren.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 No children available. Make sure family members are set up in Settings.
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                {eligibleChildren.map(child => {
+                {scopedChildren.map(child => {
                   const selected = selectedChildIds.includes(child.id)
                   return (
                     <button

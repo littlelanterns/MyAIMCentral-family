@@ -6,6 +6,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { mapContentTypeToInputType } from '@/lib/mindsweep/contentTypeMapping'
+import { deployQueueItem } from '@/lib/queue/deployQueueItem'
 import type {
   MindSweepSettings,
   MindSweepHoldingItem,
@@ -338,8 +339,12 @@ function shouldAutoRoute(
   }
 }
 
-// Queue-based destinations go through studio_queue
-const QUEUE_DESTINATIONS = new Set(['task', 'list', 'calendar', 'agenda'])
+// Queue-based destinations go through studio_queue.
+// RR-DEPLOY-SCOPING (2026-06-10): task + list removed from this set — when the
+// user's aggressiveness setting says auto-route, tasks and list items are now
+// created DIRECTLY (the setting promised automation it never delivered for
+// these two). Calendar (date parsing) and agenda stay queued.
+const QUEUE_DESTINATIONS = new Set(['calendar', 'agenda'])
 
 async function routeDirectly(
   result: MindSweepSortResult,
@@ -348,6 +353,24 @@ async function routeDirectly(
   eventId: string | undefined,
 ) {
   const destination = result.destination
+
+  // Direct deploy via the shared engine (same writer as Review & Route and the
+  // Queue "Deploy all" button). 'recipe' keeps its dual-routing queue path.
+  if (destination === 'task' || destination === 'list') {
+    const outcome = await deployQueueItem({
+      destination,
+      content: result.extracted_text,
+      ownerId: memberId,
+      familyId,
+      source: 'mindsweep_auto',
+      sourceReferenceId: eventId ?? null,
+    })
+    if (outcome.status === 'error') {
+      throw new Error(`direct deploy failed: ${outcome.error}`)
+    }
+    // 'deployed' or 'queued' (no-list fallback) both count as handled.
+    return
+  }
 
   if (QUEUE_DESTINATIONS.has(destination) || destination === 'recipe') {
     // Even "auto-routed" queue destinations go to studio_queue with pre-filled details

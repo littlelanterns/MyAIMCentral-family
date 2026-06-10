@@ -9,6 +9,7 @@
 import { Users } from 'lucide-react'
 import { Avatar, Toggle } from '@/components/shared'
 import MemberSortToggle from '@/components/shared/MemberSortToggle'
+import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 
 export interface MemberAssignment {
@@ -42,6 +43,12 @@ export function AssignmentSelector({
   rotationFrequency = 'weekly',
   onRotationFrequencyChange,
 }: AssignmentSelectorProps) {
+  // RR-DEPLOY-SCOPING: assignment targeting is scoped INSIDE the selector so
+  // no caller can bypass it. Mom: full roster; granted additional_adult:
+  // self + granted kids; everyone else: self only. DB enforces the same rule
+  // (util.task_assign_allowed WITH CHECK, migration 100262).
+  const { assignableIds, isMom } = useAssignableMembers()
+
   const assignedIds = new Set(assignments.map((a) => a.memberId))
 
   const toggleMember = (memberId: string) => {
@@ -58,11 +65,15 @@ export function AssignmentSelector({
     )
   }
 
-  const activeMembers = familyMembers.filter((m) => m.is_active && !m.out_of_nest)
+  const activeMembers = familyMembers.filter(
+    (m) => m.is_active && !m.out_of_nest && assignableIds.has(m.id),
+  )
 
   return (
     <div className="space-y-3">
-      {/* Whole Family shortcut */}
+      {/* Whole Family shortcut — mom only (whole-family assignment is a
+          primary-parent capability; granted adults pick members explicitly) */}
+      {isMom && (
       <label
         style={{
           display: 'flex',
@@ -94,6 +105,7 @@ export function AssignmentSelector({
           Whole Family
         </span>
       </label>
+      )}
 
       {/* Individual member list */}
       {!wholeFamily && (

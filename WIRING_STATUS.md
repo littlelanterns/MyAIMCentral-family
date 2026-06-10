@@ -1,7 +1,26 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-06-10 (FO-COMMAND-CENTER close-out).
+> Updated each build session. Last updated: 2026-06-10 (RR-DEPLOY-SCOPING close-out; same-day as FO-COMMAND-CENTER).
+
+## RR-DEPLOY-SCOPING (2026-06-10)
+
+Review & Route / MindSweep direct deploy + task assignment scoping + family-device write restoration. Founder-approved same day; Convention #276; migrations 100262-100264; E2E `tests/e2e/permissions/task-assignment-scoping.spec.ts` 8/8 + `tests/e2e/features/review-route-direct-deploy.spec.ts` 1/1 + regression (leak-pass + permissions-wiring) 24/24.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Review & Route → tasks DIRECT deploy | Approved task cards become real `tasks` rows (assignee = routing user, source='review_route') via shared engine. Card review = the HITM step; queue = unreviewed intake only. | **Wired** | Was: every task card dumped into studio_queue for a second per-item review (origin bug: dad's 11 approved tasks). |
+| Review & Route → list DIRECT deploy | Which-list drill-down on the List tile (`dynamicSubOptions` on RoutingStrip — user's lists) → `list_items` insert; no pick → shopping-list fallback → queue fallback. | **Wired** | |
+| Review & Route summary toast | Route All reports "N tasks added to your Tasks · N sent to your Queue" (+ failure counts; failed items stay pending). | **Wired** | |
+| MindSweep auto-route task/list direct | `routeDirectly` task/list branches use the shared engine (source='mindsweep_auto', new tasks_source_check value). always_ask + low-confidence queue paths unchanged. Calendar/agenda/recipe still queue. | **Wired** | Closes "autopilot promised automation it never delivered for tasks/lists." |
+| `deployQueueItem()` shared engine | `src/lib/queue/deployQueueItem.ts` — task/list creation with sensible defaults, never-throws per-item outcomes, marks studio_queue rows processed. | **Wired** | FO-COMMAND-CENTER wires the Queue "Deploy all" button on it (sequenced, their table). |
+| `task_assignment` grant — single authority for assigning NEW tasks | `util.task_assign_allowed()` + `useAssignableMembers()` TS mirror. Mom: all; additional_adult: self + granted kids (per-kid AND family-wide NULL-target rows; per-kid wins incl. 'none' carve-out); teens: self only. | **Wired** | Acting on EXISTING tasks stays on contribute-level `viewableLevels` (FO Q1 boundary). |
+| Assignee picker scoping (6 surfaces) | AssignmentSelector (internal), TaskCreationModal (create+edit; Everyone pill + Whole Family mom-only), RoutineDeployModal, SequentialCreatorModal, GuidedFormAssignModal, ActivityListWizard. SharedTaskListWizard verified: no task inserts. | **Wired** | Was: every adult AND teen saw the full family roster as assignable. |
+| Tasks/task_assignments WRITE-side RLS | WITH CHECK on assignee targeting (tasks INSERT/UPDATE, ta INSERT granted path); shared-task update policy tightened against assignee redirect; 100152 ta set preserved (100263 corrective). | **Wired** | E2E probes against production RLS. READ-side stays deferred (Convention #39). |
+| Permission Hub: Assign-tasks grant rows | Family-wide binary Off/Allowed row in Family Management + per-kid row with inheritance note. Profiles NEVER touch the key (`apply_permission_profile` exclusions, migration 100264). | **Wired** | |
+| Family-device write restoration | `util.is_family_shadow_of()` additive policies on tasks, task_assignments, task_completions, routine_step_completions, intention_iterations, family_intention_iterations, lists, list_items. | **Wired** | Pre-existing regression: two-door family-shadow sessions were silently RLS-blocked from ALL these writes (pre-two-door hub devices rode mom's session). Kid identity on family devices = app layer (PIN-verified member_session). |
+| Family-device write audit — remaining tables | journal_entries, victories, widget_data_points, practice_log, messages, etc. under family-shadow sessions | Stub | Follow-up in STUB_REGISTRY — same fix pattern where confirmed needed. |
+| Tasks/Lists READ-side RLS | DB-level read scoping | Stub | Unchanged — Convention #39 per-member-auth migration point. |
 
 ## FO-COMMAND-CENTER (2026-06-10)
 

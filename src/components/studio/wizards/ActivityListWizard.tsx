@@ -5,6 +5,7 @@ import { RoutinePicker } from './RoutinePicker'
 import { SegmentPicker } from './SegmentPicker'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
+import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import { supabase } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ItemRecurrenceConfig, DEFAULT_RECURRENCE_VALUE, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
@@ -153,11 +154,15 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
     initialState,
   })
 
+  // RR-DEPLOY-SCOPING: deploy creates tasks per member — limit targets to who
+  // the current member may assign tasks to (util.task_assign_allowed mirror).
+  const { assignableIds: taskAssignableIds } = useAssignableMembers()
+
   const assignableMembers = useMemo(
     () => familyMembers.filter((m: FamilyMember) =>
-      m.role !== 'primary_parent' && m.is_active && !m.out_of_nest
+      m.role !== 'primary_parent' && m.is_active && !m.out_of_nest && taskAssignableIds.has(m.id)
     ),
-    [familyMembers],
+    [familyMembers, taskAssignableIds],
   )
 
   const canAdvance = useMemo(() => {

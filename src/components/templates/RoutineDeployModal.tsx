@@ -13,6 +13,7 @@ import { createTaskFromData } from '@/utils/createTaskFromData'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { RewardType } from '@/components/tasks/RewardConfig'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
+import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import { useFamily } from '@/hooks/useFamily'
 import { useMemberAllowancePools } from '@/hooks/useFinancial'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
@@ -84,9 +85,14 @@ export function RoutineDeployModal({
   const queryClient = useQueryClient()
   const toast = useRoutingToast()
 
+  // RR-DEPLOY-SCOPING: deploy targets limited to who the current member may
+  // assign tasks to (mom: everyone; granted additional_adult: self + granted
+  // kids; others: self). DB mirrors via util.task_assign_allowed WITH CHECK.
+  const { assignableIds } = useAssignableMembers()
+
   const nonMomMembers = useMemo(
-    () => members.filter(m => m.role !== 'primary_parent' && m.is_active),
-    [members],
+    () => members.filter(m => m.role !== 'primary_parent' && m.is_active && assignableIds.has(m.id)),
+    [members, assignableIds],
   )
 
   const pillMembers: MemberPillItem[] = useMemo(

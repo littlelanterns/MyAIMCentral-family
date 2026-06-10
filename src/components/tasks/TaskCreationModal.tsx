@@ -31,6 +31,7 @@ import type { MemberAssignment } from './AssignmentSelector'
 import type { RoutineSection } from './RoutineSectionEditor'
 import type { SchedulerOutput } from '@/components/scheduling/types'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
 import { useHomeschoolSubjects } from '@/hooks/useHomeschool'
 import { TaskIconPicker } from './TaskIconPicker'
@@ -1160,8 +1161,11 @@ export function TaskCreationModal({
 
   const srcLabel = sourceLabel(queueItem?.source)
 
-  // Assignable members — includes mom (self-assign for personal tasks)
-  const assignableMembers = familyMembers.filter((m) => m.is_active)
+  // Assignable members — RR-DEPLOY-SCOPING: scoped by the task_assignment
+  // authority (mom: full roster; granted additional_adult: self + granted
+  // kids; everyone else: self only). DB mirrors this via WITH CHECK
+  // (util.task_assign_allowed, migration 100262).
+  const { assignableMembers, isMom: canAssignWholeFamily } = useAssignableMembers()
 
   // ─── Quick Mode ─────────────────────────────────────────────
 
@@ -1316,7 +1320,9 @@ export function TaskCreationModal({
               </button>
             )
           })}
-          {/* Everyone toggle */}
+          {/* Everyone toggle — mom only (whole-family assignment is a
+              primary-parent capability) */}
+          {canAssignWholeFamily && (
           <button
             type="button"
             onClick={toggleFamily}
@@ -1334,6 +1340,7 @@ export function TaskCreationModal({
           >
             Everyone
           </button>
+          )}
         </div>
 
         {/* Any / Each toggle — appears when 2+ people selected */}

@@ -34,6 +34,13 @@ interface RoutingStripProps {
   routingStats?: NotepadRoutingStat[]
   showReviewRoute?: boolean
   onReviewRoute?: () => void
+  /**
+   * RR-DEPLOY-SCOPING: caller-supplied DYNAMIC sub-options per destination key
+   * (e.g. the user's actual lists for the 'list' tile so Review & Route can
+   * direct-deploy into a chosen list). Overrides the static subOptions for
+   * that destination. Contexts that don't pass this are unaffected.
+   */
+  dynamicSubOptions?: Record<string, { key: string; label: string }[]>
 }
 
 // ─── Full Destination Catalog ────────────────────────────────
@@ -162,12 +169,16 @@ export function RoutingStrip({
   routingStats = [],
   showReviewRoute = false,
   onReviewRoute,
+  dynamicSubOptions,
 }: RoutingStripProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const iconUrls = useRoutingIcons()
 
   const allowedKeys = CONTEXT_FILTERS[context]
-  const destinations = ALL_DESTINATIONS.filter(d => allowedKeys.includes(d.key))
+  const destinations = ALL_DESTINATIONS.filter(d => allowedKeys.includes(d.key)).map(d => {
+    const dynamic = dynamicSubOptions?.[d.key]
+    return dynamic && dynamic.length > 0 ? { ...d, subOptions: dynamic } : d
+  })
 
   // Compute favorites: top 3 by usage count
   const topStats = routingStats

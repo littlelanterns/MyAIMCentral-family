@@ -37,6 +37,12 @@ const PERMISSION_CATEGORIES = [
     label: 'Daily Life',
     keys: [
       { key: 'tasks_basic', label: 'Tasks & Chores' },
+      {
+        key: 'task_assignment',
+        label: 'Assign tasks to this child',
+        hint: 'Allowed = this adult can create and assign new tasks to this child. Off = they create tasks only for themselves. Overrides the whole-family setting for this child.',
+        binary: true,
+      },
       { key: 'lists_basic', label: 'Lists' },
       { key: 'journal_basic', label: 'Journal / Log' },
     ],
@@ -66,7 +72,7 @@ const PERMISSION_CATEGORIES = [
       { key: 'archives_browse', label: 'Archives' },
     ],
   },
-] as Array<{ label: string; keys: Array<{ key: string; label: string; hint?: string }> }>
+] as Array<{ label: string; keys: Array<{ key: string; label: string; hint?: string; binary?: boolean }> }>
 
 // Dad's personal features (Issue 7) — separate from per-kid permissions
 const DAD_PERSONAL_FEATURES = [
@@ -570,7 +576,7 @@ function FamilyManagementGrants({
         .eq('family_id', familyId)
         .eq('granted_to', adultId)
         .is('target_member_id', null)
-        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking'])
+        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking', 'task_assignment'])
       return data ?? []
     },
   })
@@ -637,6 +643,60 @@ function FamilyManagementGrants({
           A child's own Finances setting below overrides this for that child.
         </p>
       </div>
+
+      {/* FAMILY-WIDE task assignment grant (RR-DEPLOY-SCOPING, migration
+          100262): Allowed = this adult can assign new tasks to every kid —
+          including kids added later. A child's own "Assign tasks" setting
+          below overrides this for that child (including an explicit Off). */}
+      <div className="py-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+            Assign tasks to kids — whole family
+          </span>
+          <BinaryGrantPicker
+            value={getLevel('task_assignment')}
+            onChange={(level) => setLevel('task_assignment', level)}
+          />
+        </div>
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          Allowed = this adult can create and assign new tasks to every child (covers kids
+          you add later too). Off = they create tasks only for themselves. A child's own
+          "Assign tasks" setting below overrides this for that child.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** Off / Allowed two-state picker for binary grants (task_assignment).
+ *  "Allowed" writes 'manage' — util.task_assign_allowed treats any
+ *  non-'none' level as granted; 'manage' is the canonical on-value. */
+function BinaryGrantPicker({ value, onChange }: { value: string; onChange: (level: string) => void }) {
+  const options = [
+    { level: 'none', label: 'Off' },
+    { level: 'manage', label: 'Allowed' },
+  ] as const
+  const isOn = value !== 'none'
+  return (
+    <div className="flex gap-0.5">
+      {options.map(({ level, label }) => {
+        const selected = level === 'none' ? !isOn : isOn
+        return (
+          <button
+            key={level}
+            onClick={() => onChange(level)}
+            className={`px-2 py-0.5 text-xs rounded transition-colors ${selected ? 'font-semibold' : 'opacity-40'}`}
+            style={{
+              backgroundColor: selected ? ACCESS_LEVEL_COLORS[level] + '20' : 'transparent',
+              color: ACCESS_LEVEL_COLORS[level],
+              border: selected ? `1px solid ${ACCESS_LEVEL_COLORS[level]}40` : '1px solid transparent',
+            }}
+            title={label}
+          >
+            {label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -707,7 +767,7 @@ function KidPermissionBlock({
         .eq('family_id', familyId)
         .eq('granted_to', adult.id)
         .is('target_member_id', null)
-        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking'])
+        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking', 'task_assignment'])
       return data ?? []
     },
   })
@@ -752,6 +812,9 @@ function KidPermissionBlock({
     }
     queryClient.invalidateQueries({ queryKey: ['member-permissions', adult.id, kid.id] })
     queryClient.invalidateQueries({ queryKey: ['permission'] })
+    // RR-DEPLOY-SCOPING: per-kid task_assignment grants feed
+    // useViewableMembers/useAssignableMembers caches too.
+    queryClient.invalidateQueries({ queryKey: ['viewable-member-grants', adult.id] })
   }
 
   function getLevel(featureKey: string): string {
@@ -798,7 +861,7 @@ function KidPermissionBlock({
                 {category.label}
               </p>
               <div className="space-y-1">
-                {category.keys.map(({ key, label, hint }) => {
+                {category.keys.map(({ key, label, hint, binary }) => {
                   const state = getFeatureState(key)
 
                   // Issue 17: Never-available shows de-emphasized non-interactive
@@ -849,15 +912,22 @@ function KidPermissionBlock({
                     <div key={key} className="py-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{label}</span>
-                        <AccessLevelPicker
-                          value={getLevel(key)}
-                          onChange={(level) => setPermission(key, level)}
-                          maxLevel="manage"
-                        />
+                        {binary ? (
+                          <BinaryGrantPicker
+                            value={getLevel(key)}
+                            onChange={(level) => setPermission(key, level)}
+                          />
+                        ) : (
+                          <AccessLevelPicker
+                            value={getLevel(key)}
+                            onChange={(level) => setPermission(key, level)}
+                            maxLevel="manage"
+                          />
+                        )}
                       </div>
                       {showsInheritance && (
                         <p className="text-[11px] mt-0.5 italic" style={{ color: 'var(--color-sage-teal)' }}>
-                          Following the whole-family setting ({ACCESS_LEVEL_LABELS[inheritedLevel]}) — pick a level here to override for {kid.display_name}.
+                          Following the whole-family setting ({binary ? 'Allowed' : ACCESS_LEVEL_LABELS[inheritedLevel]}) — pick a level here to override for {kid.display_name}.
                         </p>
                       )}
                       {hint && (

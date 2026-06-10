@@ -101,7 +101,7 @@
 | 4 | `child_id` |
 | 5 | `created_at` |
 
-### `member_permissions` — 169 rows
+### `member_permissions` — 170 rows
 
 | # | Column |
 |---|---|
@@ -228,7 +228,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 210 rows
+### `feature_key_registry` — 211 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 660 rows
+### `ai_usage_tracking` — 662 rows
 
 | # | Column |
 |---|---|
@@ -531,7 +531,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 22 rows
+### `notepad_tabs` — 23 rows
 
 | # | Column |
 |---|---|
@@ -551,7 +551,7 @@
 | 14 | `sort_order` |
 | 15 | `archived_at` |
 
-### `notepad_extracted_items` — 7 rows
+### `notepad_extracted_items` — 18 rows
 
 | # | Column |
 |---|---|
@@ -855,7 +855,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 28 rows
+### `studio_queue` — 39 rows
 
 | # | Column |
 |---|---|
@@ -1623,7 +1623,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 0 rows
+### `notifications` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2993,7 +2993,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 70 rows
+### `financial_transactions` — 71 rows
 
 | # | Column |
 |---|---|

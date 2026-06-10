@@ -92,7 +92,17 @@ const HELP_PATTERNS: HelpPattern[] = [
   {
     category: 'notepad',
     keywords: ['notepad', 'note', 'quick note', 'capture', 'smart notepad', 'send to', 'review and route'],
-    response: "The Smart Notepad is your capture workspace — open it from the bottom nav or the QuickTasks bar. Write anything, and it auto-saves. When ready, use \"Send to...\" to route content to Journal, Tasks, Lists, or 10+ other destinations. \"Review & Route\" uses AI to extract and sort items automatically.",
+    response: "The Smart Notepad is your capture workspace — open it from the bottom nav or the QuickTasks bar. Write anything, and it auto-saves. When ready, use \"Send to...\" to route content to Journal, Tasks, Lists, or 10+ other destinations. \"Review & Route\" uses AI to extract and sort items — you review each card, change anything that's mis-sorted, then approve. Approved tasks and list items are created instantly: tasks land on your Tasks page assigned to you, list items go into the list you pick. Only items that need more details (like calendar events needing a date check) go to your Queue.",
+  },
+  {
+    category: 'review_route_deploy',
+    keywords: ['where did my tasks go', 'brain dump tasks', 'route all', 'approved items', 'items in queue', 'why is it in the queue', 'deploy', 'extracted items'],
+    response: "When you approve items in Review & Route, they're created immediately — tasks appear on your Tasks page (assigned to you), and list items land in the list you chose. A summary pops up telling you exactly where everything went. Calendar items still go to your Queue so you can double-check the date and time before they hit the family calendar. You can open any created task afterward and add details like due dates or descriptions.",
+  },
+  {
+    category: 'task_assignment_permission',
+    keywords: ['assign tasks to kids', 'husband assign', 'dad assign tasks', 'who can assign', 'assign to others', 'why can’t he assign', 'cant assign tasks', "can't assign", 'task assignment permission'],
+    response: "Only you (mom) can assign tasks to anyone in the family. Other adults and teens create tasks for themselves only — unless you grant assignment access. To let your spouse assign tasks to the kids: open the Permission Hub, find his card, and either flip \"Assign tasks to kids — whole family\" to Allowed (covers every child, including ones you add later), or use the per-child \"Assign tasks to this child\" setting for finer control. A child's own setting always overrides the whole-family one — so you can allow everyone except one child, or just one child.",
   },
   {
     category: 'theme',

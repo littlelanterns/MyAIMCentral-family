@@ -29,6 +29,12 @@ const KEY_WIRING: Record<string, KeyWiringStatus> = {
   studio: 'active',
   reward_rules: 'active',
 
+  // Wired — RR-DEPLOY-SCOPING build 2026-06-10
+  // Single authority for assigning NEW tasks (useAssignableMembers +
+  // util.task_assign_allowed WITH CHECK). Acting on existing tasks stays
+  // on the contribute-level viewableLevels check.
+  task_assignment: 'active',
+
   // Recorded but not enforced — no dad-views-kid surface exists yet.
   // Founder ruling: keep visible in the Hub, marked inactive.
   journal_basic: 'inactive',

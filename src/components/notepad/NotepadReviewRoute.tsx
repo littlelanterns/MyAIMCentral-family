@@ -2,8 +2,13 @@ import { useState } from 'react'
 import { ArrowLeft, Wand2, Loader2, CheckCircle2, XCircle, SkipForward, Pencil, Save, StickyNote } from 'lucide-react'
 import { RoutingStrip } from '@/components/shared/RoutingStrip'
 import { useNotepadContext } from './NotepadContext'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+// RR-DEPLOY-SCOPING (2026-06-10): approved cards deploy DIRECTLY — the
+// card-by-card review IS the Human-in-the-Mix step. The queue is for
+// unreviewed intake, never re-review.
+import { deployQueueItem } from '@/lib/queue/deployQueueItem'
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import {
   useExtractContent,
   useRouteExtractedItem,
@@ -31,9 +36,37 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
   const { setView, setActiveTabId } = useNotepadContext()
   const [hasExtracted, setHasExtracted] = useState(false)
   const [routingItemId, setRoutingItemId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const routingToast = useRoutingToast()
 
   const pendingItems = items.filter(i => i.status === 'pending')
   const routedCount = items.filter(i => i.status === 'routed').length
+
+  // RR-DEPLOY-SCOPING: the routing user's lists feed the 'List' tile's
+  // which-list drill-down so list items deploy directly into a chosen list.
+  const { data: memberLists = [] } = useQuery({
+    queryKey: ['review-route-lists', familyId, tab.member_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('lists')
+        .select('id, list_name, title, list_type')
+        .eq('family_id', familyId)
+        .eq('owner_id', tab.member_id)
+        .is('archived_at', null)
+        .order('updated_at', { ascending: false })
+      return data ?? []
+    },
+  })
+  const listSubOptions = memberLists
+    .filter(l => l.list_type !== 'randomizer')
+    .map(l => ({ key: l.id as string, label: (l.list_name || l.title || 'Untitled list') as string }))
+
+  function invalidateDeployTargets() {
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    queryClient.invalidateQueries({ queryKey: ['lists'] })
+    queryClient.invalidateQueries({ queryKey: ['list-items'] })
+    queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+  }
 
   async function handleExtract() {
     if (!tab.content?.trim()) return
@@ -46,8 +79,82 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     setHasExtracted(true)
   }
 
-  async function handleRouteItem(item: NotepadExtractedItem, destination: string, _subType?: string) {
+  type RouteResultKind = 'task' | 'list_item' | 'queued' | 'other' | 'error'
+
+  async function handleRouteItem(
+    item: NotepadExtractedItem,
+    destination: string,
+    _subType?: string,
+    options?: { silent?: boolean },
+  ): Promise<RouteResultKind> {
     let referenceId: string | undefined
+    let resultKind: RouteResultKind = 'other'
+
+    // ── RR-DEPLOY-SCOPING direct deploy ─────────────────────────
+    // Approved task/list cards become REAL records immediately (the card
+    // review is the HITM step). Power sub-options ('individual' batch,
+    // 'ai_sort') keep the queue path. Calendar and other context-needing
+    // destinations keep the queue path below.
+    const normalizedDest = destination === 'tasks' ? 'task' : destination
+    const isDirectTask = normalizedDest === 'task' && _subType !== 'individual' && _subType !== 'ai_sort'
+    const isDirectList = normalizedDest === 'list'
+
+    if (isDirectTask || isDirectList) {
+      const outcome = await deployQueueItem({
+        destination: normalizedDest,
+        content: item.extracted_content,
+        ownerId: tab.member_id,
+        familyId,
+        source: 'review_route',
+        sourceReferenceId: item.id,
+        targetListId: isDirectList && _subType ? _subType : null,
+      })
+
+      if (outcome.status === 'error') {
+        routingToast.show({ message: "Couldn't route that item. Please try again.", variant: 'error' })
+        setRoutingItemId(null)
+        return 'error' // item stays pending — nothing was created
+      }
+
+      if (outcome.status === 'deployed') {
+        referenceId = outcome.recordId
+        resultKind = outcome.recordType === 'task' ? 'task' : 'list_item'
+      } else if (outcome.status === 'queued') {
+        referenceId = outcome.queueId
+        resultKind = 'queued'
+      } else {
+        // 'skipped' (empty content) — treat as queue-less no-op
+        setRoutingItemId(null)
+        return 'error'
+      }
+
+      invalidateDeployTargets()
+
+      await routeItemMutation.mutateAsync({
+        id: item.id,
+        status: 'routed',
+        actual_destination: destination,
+        routed_reference_id: referenceId,
+      })
+      setRoutingItemId(null)
+
+      if (!options?.silent) {
+        routingToast.show({
+          message:
+            resultKind === 'task'
+              ? 'Added to your Tasks'
+              : resultKind === 'list_item'
+                ? 'Added to your list'
+                : 'Sent to your Queue to finish later',
+        })
+      }
+
+      const remainingPending = pendingItems.filter(i => i.id !== item.id)
+      if (remainingPending.length === 0) {
+        onAllRouted()
+      }
+      return resultKind
+    }
 
     // Create actual records at the destination
     switch (destination) {
@@ -143,7 +250,10 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
           })
           .select('id')
           .single()
-        if (!error && data) referenceId = data.id
+        if (!error && data) {
+          referenceId = data.id
+          resultKind = 'queued' // landed in studio_queue for later review
+        }
         break
       }
     }
@@ -160,6 +270,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     if (remainingPending.length === 0) {
       onAllRouted()
     }
+    return resultKind
   }
 
   async function handleSkipItem(item: NotepadExtractedItem) {
@@ -170,10 +281,30 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
   }
 
   async function handleRouteAll() {
+    // Per-item isolation: one failure never blocks the rest. Tally outcomes
+    // for the confirmation summary so the user knows exactly where things went.
+    const tally: Record<RouteResultKind, number> = { task: 0, list_item: 0, queued: 0, other: 0, error: 0 }
     for (const item of pendingItems) {
       const dest = item.suggested_destination || item.routing_destination
-      await handleRouteItem(item, dest)
+      try {
+        const kind = await handleRouteItem(item, dest, undefined, { silent: true })
+        tally[kind] += 1
+      } catch {
+        tally.error += 1
+      }
     }
+
+    const parts: string[] = []
+    if (tally.task > 0) parts.push(`${tally.task} task${tally.task === 1 ? '' : 's'} added to your Tasks`)
+    if (tally.list_item > 0) parts.push(`${tally.list_item} list item${tally.list_item === 1 ? '' : 's'} added`)
+    if (tally.other > 0) parts.push(`${tally.other} routed`)
+    if (tally.queued > 0) parts.push(`${tally.queued} sent to your Queue`)
+    if (tally.error > 0) parts.push(`${tally.error} failed — still pending`)
+    routingToast.show({
+      message: parts.length > 0 ? parts.join(' · ') : 'Nothing to route',
+      variant: tally.error > 0 ? 'error' : 'success',
+    })
+
     onAllRouted()
   }
 
@@ -307,6 +438,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
             onRoute={(dest, sub) => handleRouteItem(item, dest, sub)}
             onSkip={() => handleSkipItem(item)}
             onEditInNotepad={() => handleEditInNotepad(item)}
+            listSubOptions={listSubOptions}
           />
         ))}
       </div>
@@ -383,13 +515,15 @@ function Header({ onBack }: { onBack: () => void }) {
 
 // ─── Extracted Card (with inline editing — Issue #4) ─────────
 
-function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip, onEditInNotepad }: {
+function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip, onEditInNotepad, listSubOptions }: {
   item: NotepadExtractedItem
   isShowingRoutes: boolean
   onToggleRoutes: () => void
   onRoute: (dest: string, sub?: string) => void
   onSkip: () => void
   onEditInNotepad: () => void
+  /** The routing user's lists — feeds the 'List' tile which-list drill-down. */
+  listSubOptions?: { key: string; label: string }[]
 }) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -602,6 +736,7 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip,
           context="review_route_card"
           onRoute={onRoute}
           onCancel={onToggleRoutes}
+          dynamicSubOptions={listSubOptions && listSubOptions.length > 0 ? { list: listSubOptions } : undefined}
         />
       )}
     </div>

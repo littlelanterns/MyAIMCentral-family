@@ -18,6 +18,16 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
+## RR-DEPLOY-SCOPING Follow-Ups (2026-06-10)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Comprehensive family-device write audit — remaining tables (journal_entries, victories, widget_data_points, practice_log, messages, reflection_responses, etc.) under family-shadow sessions. Migration 100262 restored the tasks/lists/hub-tally domain (`util.is_family_shadow_of` additive policies); every OTHER table a family-device dip-in writes to needs the same check. Same fix pattern. | Two-door build (Convention #273) exposed; RR-DEPLOY-SCOPING fixed the tasks domain | Unwired | ⏳ Unwired (MVP) | Dedicated audit pass — symptom: kid action on family tablet silently does nothing |
+| FO Queue "Deploy all" button on `deployQueueItem()` engine | RR-DEPLOY-SCOPING (engine shipped) | FO-COMMAND-CENTER (same day — button shipped on the engine) | ✅ Wired | Done 2026-06-10 |
+| Tasks/Lists READ-side RLS (unchanged — Convention #39 per-member-auth migration point) | Role-scoping leak pass | Unwired | ⏳ Unwired (MVP) | Per-member-auth migration |
+
+---
+
 ## Foundation Stubs
 
 | Stub | Created By | Wired By | Status | Build Phase |

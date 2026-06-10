@@ -21,6 +21,7 @@ import { ModalV2 } from '@/components/shared'
 import { SequentialCreator, type SequentialCreateData, type SequentialCreateDefaults } from './SequentialCreator'
 import { useCreateSequentialCollection } from '@/hooks/useSequentialCollections'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
 
@@ -55,12 +56,17 @@ export function SequentialCreatorModal({
   const [assigneeId, setAssigneeId] = useState<string | null>(defaultAssigneeId ?? null)
   const [error, setError] = useState<string | null>(null)
 
+  // RR-DEPLOY-SCOPING: limit to who the current member may assign tasks to
+  // (DB mirrors via util.task_assign_allowed WITH CHECK, migration 100262).
+  const { assignableIds } = useAssignableMembers()
+
   // Prefer children for assignment (typical case). Fall back to any active member.
   const assignableMembers = useMemo<FamilyMember[]>(() => {
-    const children = familyMembers.filter(m => m.role === 'member' && m.is_active)
+    const scoped = familyMembers.filter(m => m.is_active && assignableIds.has(m.id))
+    const children = scoped.filter(m => m.role === 'member')
     if (children.length > 0) return children
-    return familyMembers.filter(m => m.is_active)
-  }, [familyMembers])
+    return scoped
+  }, [familyMembers, assignableIds])
 
   async function handleSave(data: SequentialCreateData) {
     setError(null)
