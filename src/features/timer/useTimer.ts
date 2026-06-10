@@ -33,19 +33,28 @@ const timerKeys = {
 export function useActiveTimers() {
   const { data: member } = useFamilyMember()
   const familyId = member?.family_id
+  const isMom = member?.role === 'primary_parent'
 
   return useQuery({
     queryKey: timerKeys.activeTimers(familyId ?? ''),
     queryFn: async (): Promise<TimeSession[]> => {
       if (!familyId) return []
 
-      const { data, error } = await supabase
+      // PRD-02 read scoping made explicit (2026-06-09 leak pass): mom sees the
+      // whole family's running timers (she quick-starts Play countdowns); every
+      // other member sees only their own. RLS (ts_select_own /
+      // ts_manage_primary_parent) already enforces this — the explicit filter
+      // keeps the code honest instead of relying on silent RLS narrowing.
+      let query = supabase
         .from('time_sessions')
         .select('*')
         .eq('family_id', familyId)
         .is('ended_at', null)
         .is('deleted_at', null)
         .order('started_at', { ascending: false })
+      if (!isMom && member?.id) query = query.eq('family_member_id', member.id)
+
+      const { data, error } = await query
 
       if (error) throw error
       return (data ?? []) as TimeSession[]

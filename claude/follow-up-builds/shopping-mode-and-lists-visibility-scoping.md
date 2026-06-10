@@ -1,6 +1,11 @@
 # Shopping Mode & Lists Visibility Scoping
 
-**Status:** Follow-up build candidate — not yet scoped
+**Status:** ✅ SHIPPED 2026-06-09 — folded into the Role-Scoping Leak Pass (founder-approved in chat).
+Delivered: `useShoppingModeStores/Items(scopeToOwner)` own+shared scoping (mom keeps family-wide),
+Lists.tsx own+shared+granted scoping, shares loaded in every session. See
+`.claude/rules/current-builds/role-scoping-leak-pass.md` and WIRING_STATUS.md.
+**Residuals NOT shipped:** (a) automated test pin for the visibility rules (doc §Worker 1 tests),
+(b) Q4 — Notepad/route list-picker parity audit. Both tracked in WIRING_STATUS as stubs.
 **Filed:** 2026-05-28
 **Filed from:** View As Identity-Scope Architecture build (Worker 3 Checkpoint 2 Surprise #2)
 **Estimated workers:** 1-2

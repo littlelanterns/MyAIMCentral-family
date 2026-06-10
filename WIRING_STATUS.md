@@ -1,7 +1,26 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-06-09 (BUG-PASS-0609 — embedding pipeline restored).
+> Updated each build session. Last updated: 2026-06-09 (role-scoping leak pass).
+
+## Role-Scoping Leak Pass (2026-06-09)
+
+PRD-02 read-scoping enforcement: mom sees all; everyone else sees own + explicitly shared + mom-granted (`member_permissions`). Origin: founder report — dad saw mom's tasks/info.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| `useViewableMembers(featureKey, forMember?)` | Shared hook: mom→all members, additional_adult→self + non-`none` grants, others→self. View-As-aware via `forMember`. | **Wired** | `src/hooks/useViewableMembers.ts`. Reuse on any page listing member data. |
+| Tasks page scoping | Non-mom sees own + shared + created-by-me + granted assignees; pill bar limited to viewable members; deep-link `?member=` sanitized. Default filter = OWN member for every role incl. mom (founder: "my tasks page should be mine"). | **Wired** | Replaced `isMomOrDad` mom-equivalence. |
+| Tasks PendingApprovalsSection scoping | Mom all; others own/created/granted only. | **Wired** | Was family-wide for everyone. |
+| Lists page scoping | Non-mom: own + `list_shares` + granted members' lists. Shares now loaded in EVERY session (was View-As-only). | **Wired** | Also closes kids-on-PIN-sessions seeing all family lists. |
+| Sequential collections scoping | `useSequentialCollections(familyId, visibleMemberIds?)` — visible iff ≥1 task assigned to viewable member. Applied on Lists page + Tasks Sequential tab. | **Wired** | Lookup-only consumers unchanged. |
+| /finances/history mom-only | `<MomOnlyRoute>` + RLS `ft_scoped_read` / `loans_scoped_read` (migration 100255, applied + pg_policies verified). Mom family-wide; others own rows. | **Wired** | Was: any family member could read every child's full ledger. |
+| studio_queue read scoping | RLS family-wide SELECT/UPDATE/DELETE narrowed to primary_parent (migration 100255). Own-rows path + cross-member INSERT (MindSweep routing) unchanged. | **Wired** | Was: dad/special adults could read mom's whole queue. |
+| Shopping Mode scoping | `scopeToOwner` param — non-mom base query limited to owned lists; shared lists validated (shopping + include_in_shopping_mode) before merge. Mom family-wide. | **Wired** | Closes follow-up queue item 7 ("F"). Founder ruling: shopping lists NOT family-shared by default — mom shares the grocery list explicitly via ShareListModal. |
+| Active timers explicit scoping | Non-mom query adds `.eq('family_member_id', me)`; mom keeps family view (RLS `ts_manage_primary_parent`). | **Wired** | Hygiene — RLS already enforced; code now honest. |
+| Scoping test pin | Automated tests for viewable-member rules | Stub | Residual — founder eyes-on is the verification layer for this pass. |
+| Notepad/route list-picker parity | Write-destination list pickers (route-to-list) scoping audit | Stub | Follow-up doc Q4 residual. |
+| Tasks/Lists RLS hardening | DB-level read scoping for tasks/lists tables | Stub | Convention #39 per-member-auth migration point. Display-layer scoping in place. |
 
 ## Embedding Pipeline Restoration (BUG-PASS-0609, 2026-06-09)
 

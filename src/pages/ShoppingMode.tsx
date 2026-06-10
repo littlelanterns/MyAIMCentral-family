@@ -25,9 +25,13 @@ export function ShoppingModePage() {
 
   const familyId = family?.id
   const memberId = activeMember?.id
+  // PRD-02 read scoping (2026-06-09 leak pass, founder ruling): shopping lists
+  // are NOT family-shared by default. Mom sees all; everyone else sees only
+  // lists they own or that were explicitly shared with them.
+  const scopeToOwner = activeMember?.role !== 'primary_parent'
 
-  const { data: storeData, isLoading: storesLoading } = useShoppingModeStores(familyId, memberId)
-  const { data: items = [], isLoading: itemsLoading } = useShoppingModeItems(familyId, memberId, selectedStore)
+  const { data: storeData, isLoading: storesLoading } = useShoppingModeStores(familyId, memberId, scopeToOwner)
+  const { data: items = [], isLoading: itemsLoading } = useShoppingModeItems(familyId, memberId, selectedStore, scopeToOwner)
 
   function handleClose() {
     navigate('/lists')

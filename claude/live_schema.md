@@ -664,7 +664,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 165 rows
+### `tasks` — 166 rows
 
 | # | Column |
 |---|---|
@@ -830,7 +830,7 @@
 | 20 | `life_area_tags` |
 | 21 | `allow_out_of_order` |
 
-### `task_claims` — 2 rows
+### `task_claims` — 3 rows
 
 | # | Column |
 |---|---|
@@ -845,7 +845,7 @@
 | 9 | `released` |
 | 10 | `released_at` |
 
-### `task_rewards` — 2 rows
+### `task_rewards` — 3 rows
 
 | # | Column |
 |---|---|

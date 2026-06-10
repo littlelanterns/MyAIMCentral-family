@@ -187,7 +187,10 @@ function App() {
               {/* Phase 3: Mom-facing prize IOU board — mom-only (Convention #39) */}
               <Route path="/prize-board" element={<MomOnlyRoute><PrizeBoard /></MomOnlyRoute>} />
               <Route path="/contracts" element={<MomOnlyRoute><ContractsPage /></MomOnlyRoute>} />
-              <Route path="/finances/history" element={<ProtectedRoute><TransactionHistoryPage /></ProtectedRoute>} />
+              {/* PRD-28 financial audit surface — mom-only (2026-06-09 leak pass).
+                  Kid-facing balance view is LedgerView mode='self', gated by
+                  child_can_see_finances; this page's free member-picker is mom's. */}
+              <Route path="/finances/history" element={<MomOnlyRoute><TransactionHistoryPage /></MomOnlyRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
               <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />

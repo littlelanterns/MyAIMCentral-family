@@ -44,6 +44,7 @@ import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySub
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useArchiveExpiredRoutines } from '@/hooks/useArchiveExpiredRoutines'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -168,6 +169,17 @@ export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [makeupConfig, setMakeupConfig] = useState<{ assigneeId: string } | null>(null)
 
+  // Default the member filter to OWN tasks once the member resolves (founder
+  // ruling 2026-06-09: "my tasks page should be mine" — applies to every role,
+  // including mom; the whole family stays one pill-tap away for mom).
+  // Functional update so a deep-linked ?member= param (effect below) wins.
+  const [filterInitialized, setFilterInitialized] = useState(false)
+  useEffect(() => {
+    if (filterInitialized || !activeMember?.id) return
+    setFilterMemberId(prev => (prev === null ? activeMember.id : prev))
+    setFilterInitialized(true)
+  }, [activeMember?.id, filterInitialized])
+
   useEffect(() => {
     if (searchParams.get('new') === '1' && searchParams.get('type') === 'makeup') {
       const assigneeId = searchParams.get('assignee')
@@ -206,7 +218,14 @@ export function TasksPage() {
 
   // Role detection for UI filtering
   const isGuidedMember = activeMember?.dashboard_mode === 'guided'
-  const isMomOrDad = activeMember?.role === 'primary_parent' || activeMember?.role === 'additional_adult'
+  // PRD-02 read scoping (2026-06-09 leak pass): mom sees all; additional_adult
+  // sees self + member_permissions grants; everyone else sees self only.
+  // Scoped to the EFFECTIVE member so View-As shows what the member would see.
+  const isEffectiveMom = activeMember?.role === 'primary_parent'
+  const { viewableIds, viewableMembers } = useViewableMembers(
+    'tasks_basic',
+    activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
+  )
 
   // Guided quick-create: simple title-only task, assigned to self
   const handleGuidedCreate = useCallback(async () => {
@@ -515,23 +534,31 @@ export function TasksPage() {
     const myId = activeMember?.id
 
     if (myId && activeTab !== 'queue') {
-      if (filterMemberId) {
-        // Specific member selected: show their tasks + tasks created by mom for them
+      // Sanitize the pill selection: non-mom may only filter to members they can
+      // view (guards deep-linked ?member= params pointing at non-granted members).
+      const effectiveFilterId =
+        filterMemberId && !isEffectiveMom && !viewableIds.has(filterMemberId)
+          ? myId
+          : filterMemberId
+
+      if (effectiveFilterId) {
+        // Specific member selected: show their tasks + tasks created by the viewer for them
         filtered = filtered.filter(
           (t) =>
-            t.assignee_id === filterMemberId ||
-            (!t.assignee_id && t.created_by === filterMemberId) ||
-            (isMomOrDad && t.created_by === myId && t.assignee_id === filterMemberId)
+            t.assignee_id === effectiveFilterId ||
+            (!t.assignee_id && t.created_by === effectiveFilterId) ||
+            (t.created_by === myId && t.assignee_id === effectiveFilterId)
         )
-      } else if (isMomOrDad) {
-        // "All" selected by mom/dad: show everything in the family (no filter)
+      } else if (isEffectiveMom) {
+        // "All" selected by mom: show everything in the family (no filter)
       } else {
-        // Non-parent with "All": show own tasks + shared tasks
+        // Non-mom with "All": own + shared + created-by-me + granted members' tasks
         filtered = filtered.filter(
           (t) =>
             t.assignee_id === myId ||
-            (!t.assignee_id && t.created_by === myId) ||
-            myAssignedTaskIds.has(t.id)
+            t.created_by === myId ||
+            myAssignedTaskIds.has(t.id) ||
+            (!!t.assignee_id && viewableIds.has(t.assignee_id))
         )
       }
     }
@@ -592,7 +619,21 @@ export function TasksPage() {
     }
 
     return filtered
-  }, [allTasks, activeMember?.id, activeMember?.role, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds])
+  }, [allTasks, activeMember?.id, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds, isEffectiveMom, viewableIds])
+
+  // Pending approvals the viewer may see: mom → all; others → own submissions,
+  // tasks they created, or tasks assigned to members they hold grants for.
+  const visiblePendingApprovals = useMemo(() => {
+    if (isEffectiveMom) return pendingApprovalTasks
+    const myId = activeMember?.id
+    if (!myId) return []
+    return pendingApprovalTasks.filter(
+      (t) =>
+        t.created_by === myId ||
+        t.assignee_id === myId ||
+        (!!t.assignee_id && viewableIds.has(t.assignee_id))
+    )
+  }, [pendingApprovalTasks, isEffectiveMom, activeMember?.id, viewableIds])
 
   return (
     <div className="max-w-3xl mx-auto space-y-0">
@@ -668,10 +709,10 @@ export function TasksPage() {
         onChange={(key) => setActiveTab(key as TaskTab)}
       />
 
-      {/* ── Pending Approvals ── */}
-      {pendingApprovalTasks.length > 0 && (
+      {/* ── Pending Approvals — scoped to members the viewer may see (PRD-02) ── */}
+      {visiblePendingApprovals.length > 0 && (
         <PendingApprovalsSection
-          tasks={pendingApprovalTasks}
+          tasks={visiblePendingApprovals}
           familyMembers={familyMembers ?? []}
           approverId={member?.id ?? ''}
         />
@@ -707,10 +748,11 @@ export function TasksPage() {
         </form>
       )}
 
-      {/* ── Member pill filter (below tabs) — adults only ── */}
-      {activeTab !== 'queue' && activeTab !== 'finances' && !isGuidedMember && isMomOrDad && familyMembers && familyMembers.length > 1 && (
+      {/* ── Member pill filter (below tabs) — only members the viewer may see
+            (PRD-02 read scoping: mom = everyone; dad = self + granted; kids none) ── */}
+      {activeTab !== 'queue' && activeTab !== 'finances' && !isGuidedMember && viewableMembers.length > 1 && (
         <div className="flex items-center gap-1.5 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {/* "All" pill */}
+          {/* "All" pill — all viewable members */}
           <button
             onClick={() => setFilterMemberId(null)}
             className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
@@ -723,7 +765,7 @@ export function TasksPage() {
             All
           </button>
           {/* Per-member pills */}
-          {familyMembers
+          {viewableMembers
             .filter(m => m.is_active !== false && !(m as unknown as Record<string, unknown>).out_of_nest)
             .map(m => {
               const color = getMemberColor(m as { assigned_color?: string | null; member_color?: string | null })

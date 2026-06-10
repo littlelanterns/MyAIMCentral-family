@@ -14,6 +14,8 @@ import {
   useRedeploySequentialCollection,
 } from '@/hooks/useSequentialCollections'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { Toggle, BulkAddWithAI } from '@/components/shared'
@@ -183,7 +185,18 @@ interface SequentialCollectionViewProps {
 }
 
 export function SequentialCollectionView({ familyId, onCreateCollection }: SequentialCollectionViewProps) {
-  const { data: collections = [] } = useSequentialCollections(familyId)
+  // PRD-02 read scoping (2026-06-09 leak pass): non-mom viewers only see
+  // collections containing tasks assigned to members they may view.
+  const { member: activeMember } = useEffectiveMember()
+  const isEffectiveMom = activeMember?.role === 'primary_parent'
+  const { viewableIds } = useViewableMembers(
+    'tasks_basic',
+    activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
+  )
+  const { data: collections = [] } = useSequentialCollections(
+    familyId,
+    isEffectiveMom ? null : [...viewableIds],
+  )
 
   return (
     <div className="flex flex-col gap-4 p-4">

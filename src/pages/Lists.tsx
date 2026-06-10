@@ -23,6 +23,7 @@ import { SharedWithHeader } from '@/components/shared/SharedWithHeader'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
@@ -162,10 +163,25 @@ export function ListsPage() {
   const { data: family } = useFamily()
   const { member: activeMember, isViewAs: isViewingAs } = useEffectiveMember()
   const { data: allLists = [], isLoading } = useLists(family?.id)
-  const { data: sharedListIds = [] } = useSharedListIds(isViewingAs ? activeMember?.id : undefined)
+  // PRD-02 read scoping (2026-06-09 leak pass): shares are loaded for EVERY
+  // session now (not just View-As) — non-mom visibility is own + shared + granted.
+  const { data: sharedListIds = [] } = useSharedListIds(activeMember?.id)
+  const isEffectiveMom = activeMember?.role === 'primary_parent'
+  const { viewableIds } = useViewableMembers(
+    'lists_basic',
+    activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
+  )
   // PRD-09A/09B Studio Intelligence Phase 1: surface sequential collections on the Lists page
   // alongside regular lists. Cross-surface visibility (also available on Tasks → Sequential tab).
-  const { data: sequentialCollections = [] } = useSequentialCollections(family?.id)
+  // Sequential collections are task-backed, so they scope by tasks_basic grants.
+  const { viewableIds: taskViewableIds } = useViewableMembers(
+    'tasks_basic',
+    activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
+  )
+  const { data: sequentialCollections = [] } = useSequentialCollections(
+    family?.id,
+    isEffectiveMom ? null : [...taskViewableIds],
+  )
   const createList = useCreateList()
   const restoreList = useRestoreList()
   const deleteList = useDeleteList()
@@ -226,14 +242,23 @@ export function ListsPage() {
     }
   }, [])
 
-  // When viewing as another member, show only their owned + shared-with lists.
-  // In mom's normal view, hide other members' auto-provisioned system lists
-  // (Ideas, Backburner) — each member gets their own via auto_provision_member_resources.
+  // PRD-02 read scoping (2026-06-09 leak pass):
+  //  - Mom (normal view): all family lists, minus other members' auto-provisioned
+  //    system lists (Ideas, Backburner) — each member gets their own via
+  //    auto_provision_member_resources.
+  //  - Everyone else (and View-As): own lists + lists shared with them + lists
+  //    owned by members mom has granted them lists_basic access to.
   const SYSTEM_LIST_TYPES = new Set(['ideas', 'backburner'])
-  const lists = isViewingAs && activeMember
-    ? allLists.filter(l => l.owner_id === activeMember.id || sharedListIds.includes(l.id))
-    : allLists.filter(l =>
+  const lists = isEffectiveMom && !isViewingAs
+    ? allLists.filter(l =>
         !SYSTEM_LIST_TYPES.has(l.list_type) || l.owner_id === member?.id
+      )
+    : allLists.filter(l =>
+        l.owner_id === activeMember?.id ||
+        sharedListIds.includes(l.id) ||
+        (!!l.owner_id && l.owner_id !== activeMember?.id && viewableIds.has(l.owner_id) &&
+          // granted members' lists: exclude their personal system lists
+          !SYSTEM_LIST_TYPES.has(l.list_type))
       )
 
   // Filter lists

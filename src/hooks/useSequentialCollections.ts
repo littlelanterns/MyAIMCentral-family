@@ -18,9 +18,19 @@ import { resolveAccessProperties } from '@/lib/tasks/resolveAccessProperties'
 // useSequentialCollections — list all sequential collections for a family
 // ============================================================
 
-export function useSequentialCollections(familyId: string | undefined) {
+export function useSequentialCollections(
+  familyId: string | undefined,
+  /**
+   * PRD-02 read scoping (2026-06-09 leak pass). When provided, only collections
+   * containing at least one task assigned to one of these member ids are
+   * returned. Pass null/undefined for unscoped (mom, or pure lookup usage where
+   * collections only enrich the member's own already-scoped tasks).
+   */
+  visibleMemberIds?: string[] | null,
+) {
+  const scopeKey = visibleMemberIds ? [...visibleMemberIds].sort().join(',') : 'all'
   return useQuery({
-    queryKey: ['sequential-collections', familyId],
+    queryKey: ['sequential-collections', familyId, scopeKey],
     queryFn: async () => {
       if (!familyId) return []
 
@@ -31,7 +41,25 @@ export function useSequentialCollections(familyId: string | undefined) {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return data as SequentialCollection[]
+      const collections = data as SequentialCollection[]
+      if (!visibleMemberIds || collections.length === 0) return collections
+
+      // Scope: keep collections with >=1 task assigned to a visible member.
+      const visible = new Set(visibleMemberIds)
+      const { data: taskRows, error: taskError } = await supabase
+        .from('tasks')
+        .select('sequential_collection_id, assignee_id')
+        .eq('family_id', familyId)
+        .not('sequential_collection_id', 'is', null)
+
+      if (taskError) throw taskError
+      const visibleCollectionIds = new Set<string>()
+      for (const row of taskRows ?? []) {
+        if (row.sequential_collection_id && row.assignee_id && visible.has(row.assignee_id)) {
+          visibleCollectionIds.add(row.sequential_collection_id)
+        }
+      }
+      return collections.filter(c => visibleCollectionIds.has(c.id))
     },
     enabled: !!familyId,
   })

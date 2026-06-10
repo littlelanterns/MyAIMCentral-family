@@ -45,23 +45,31 @@ function itemMatchesStore(item: ListItem, store: string): boolean {
 export function useShoppingModeStores(
   familyId: string | undefined,
   memberId: string | undefined,
+  /**
+   * PRD-02 read scoping (2026-06-09 leak pass, founder ruling: shopping lists
+   * are NOT family-shared by default). When true (non-mom viewers), the base
+   * query is limited to lists the member OWNS; shared lists merge in below.
+   * Mom (false) keeps the family-wide view.
+   */
+  scopeToOwner: boolean = false,
 ) {
   return useQuery({
-    queryKey: ['shopping-mode-stores', familyId, memberId],
+    queryKey: ['shopping-mode-stores', familyId, memberId, scopeToOwner],
     queryFn: async () => {
       if (!familyId || !memberId) return { stores: [] as string[], recentStores: [] as string[] }
 
-      // Load all shopping lists included in shopping mode
-      const { data: lists, error: listsErr } = await supabase
+      // Load shopping lists included in shopping mode (own-only for non-mom)
+      let listsQuery = supabase
         .from('lists')
         .select('id')
         .eq('family_id', familyId)
         .eq('list_type', 'shopping')
         .eq('include_in_shopping_mode', true)
         .is('archived_at', null)
+      if (scopeToOwner) listsQuery = listsQuery.eq('owner_id', memberId)
+      const { data: lists, error: listsErr } = await listsQuery
 
       if (listsErr) throw listsErr
-      if (!lists || lists.length === 0) return { stores: [], recentStores: [] }
 
       // Also include shared lists the member can access
       const { data: shares } = await supabase
@@ -70,11 +78,23 @@ export function useShoppingModeStores(
         .eq('shared_with', memberId)
         .or('is_hidden.eq.false,is_hidden.is.null')
 
-      const sharedIds = new Set((shares ?? []).map(s => s.list_id))
-      const listIds = [...new Set([
-        ...lists.map(l => l.id),
-        ...sharedIds,
-      ])]
+      const ownIds = new Set((lists ?? []).map(l => l.id))
+      // Validate shared lists: only shopping lists included in shopping mode
+      const candidateSharedIds = [...new Set((shares ?? []).map(s => s.list_id))]
+        .filter(id => !ownIds.has(id))
+      let validSharedIds: string[] = []
+      if (candidateSharedIds.length > 0) {
+        const { data: sharedLists } = await supabase
+          .from('lists')
+          .select('id')
+          .in('id', candidateSharedIds)
+          .eq('list_type', 'shopping')
+          .eq('include_in_shopping_mode', true)
+          .is('archived_at', null)
+        validSharedIds = (sharedLists ?? []).map(l => l.id)
+      }
+      const listIds = [...ownIds, ...validSharedIds]
+      if (listIds.length === 0) return { stores: [], recentStores: [] }
 
       // Load unchecked items from those lists
       const { data: items, error: itemsErr } = await supabase
@@ -120,23 +140,27 @@ export function useShoppingModeItems(
   familyId: string | undefined,
   memberId: string | undefined,
   selectedStore: string | null,
+  /** PRD-02 read scoping (2026-06-09 leak pass): true for non-mom viewers —
+   *  base query limited to OWNED lists; shared lists merge in below. */
+  scopeToOwner: boolean = false,
 ) {
   return useQuery({
-    queryKey: ['shopping-mode-items', familyId, memberId, selectedStore],
+    queryKey: ['shopping-mode-items', familyId, memberId, selectedStore, scopeToOwner],
     queryFn: async (): Promise<ShoppingModeItem[]> => {
       if (!familyId || !memberId || !selectedStore) return []
 
-      // Load all shopping lists included in shopping mode
-      const { data: lists, error: listsErr } = await supabase
+      // Load shopping lists included in shopping mode (own-only for non-mom)
+      let listsQuery = supabase
         .from('lists')
         .select('id, title, owner_id, is_shared, default_checked_visibility_hours')
         .eq('family_id', familyId)
         .eq('list_type', 'shopping')
         .eq('include_in_shopping_mode', true)
         .is('archived_at', null)
+      if (scopeToOwner) listsQuery = listsQuery.eq('owner_id', memberId)
+      const { data: lists, error: listsErr } = await listsQuery
 
       if (listsErr) throw listsErr
-      if (!lists || lists.length === 0) return []
 
       // Also include shared shopping lists
       const { data: shares } = await supabase
@@ -148,8 +172,8 @@ export function useShoppingModeItems(
       const sharedIds = new Set((shares ?? []).map(s => s.list_id))
       const listsMap = new Map<string, Pick<List, 'id' | 'title' | 'owner_id' | 'is_shared'> & { default_checked_visibility_hours: number }>()
 
-      for (const l of lists) {
-        listsMap.set(l.id, l as typeof lists[0])
+      for (const l of lists ?? []) {
+        listsMap.set(l.id, l as NonNullable<typeof lists>[0])
       }
       // Add shared lists that are shopping lists and included in shopping mode
       if (sharedIds.size > 0) {
@@ -164,7 +188,7 @@ export function useShoppingModeItems(
             .is('archived_at', null)
           if (sharedLists) {
             for (const sl of sharedLists) {
-              listsMap.set(sl.id, sl as typeof lists[0])
+              listsMap.set(sl.id, sl as NonNullable<typeof lists>[0])
             }
           }
         }
