@@ -174,18 +174,22 @@ Backend-only deliverables (no UI verification needed):
 ---
 ## Mom-UI Verification (populate during build)
 
+> E2E: `tests/e2e/features/family-auth-two-door.spec.ts` — 8/8 passing 2026-06-09 (desktop Chrome, dev server + production Supabase). E2E covers FUNCTION; founder eyes-on still owed for visual quality + mobile widths per the Visual Verification Standard.
+
 | Surface | Desktop >=1024px | Tablet ~768px | Mobile <=640px | Shells Tested | Evidence | Timestamp |
 |---------|------------------|---------------|----------------|---------------|----------|-----------|
-| FamilyLogin family-door (name + password) | | | | pre-auth | | |
-| Choice screen (Hub + member tiles) | | | | pre-auth / family-session | | |
-| Mom tile auth gate (her PIN/email) | | | | pre-auth | | |
-| Settings - Family - Family Password section | | | | Mom | | |
-| Forced family-password setup prompt | | | | Mom | | |
-| Hub resting state under family session | | | | /hub standalone | | |
-| Member dip-in from Hub (avatar+PIN) | | | | hub overlay | | |
-| Visual-password gate (server-verified) | | | | pre-auth | | |
-| Generic-error/no-enumeration on bad name OR bad password | | | | pre-auth | | |
-| Member timeout falls back to name-tile/PIN or Hub (never family-password) | | | | all member shells | | |
+| FamilyLogin family-door (name + password) | E2E ✅ | founder | founder | pre-auth | spec tests 1-3 | 2026-06-09 |
+| Choice screen (Hub + member tiles; Family identity hidden) | E2E ✅ | founder | founder | pre-auth / family-session | spec test 3 | 2026-06-09 |
+| Mom tile auth gate (routes to her email sign-in) | E2E ✅ | founder | founder | pre-auth | spec test 5 | 2026-06-09 |
+| Settings - Family Password page (set/change incl. kill-switch pipeline) | E2E ✅ | founder | founder | Mom | spec test 7 (Sarah) | 2026-06-09 |
+| Forced family-password setup prompt | — | — | — | Mom | NOT E2E-testable (both prod families have passwords set); code-reviewed; founder can verify by clearing a test family hash | |
+| Hub resting state under family session | E2E ✅ | founder | founder | /hub standalone | spec test 4 ("The Testworth Family Hub" renders) | 2026-06-09 |
+| Member dip-in from Hub (avatar+PIN / picture) | — | — | — | hub overlay | founder eyes-on (not in suite; View As machinery covered by existing view-as specs) | |
+| Picture password gate (server-verified single picture) | E2E ✅ | founder | founder | pre-auth | spec test 6 (grid 9 unmarked, wrong-tap rejected, correct-tap detected) | 2026-06-09 |
+| Picture picker modal (mom sets kid's picture, "no login" option) | — | — | — | Mom | founder eyes-on (mom-side UI not in suite) | |
+| Generic-error/no-enumeration on bad name OR bad password | E2E ✅ | E2E ✅ (server-side property) | E2E ✅ | pre-auth | spec tests 1-2 + prod API tests | 2026-06-09 |
+| PIN personal-device login (real kid, real session) | E2E ✅ | founder | founder | pre-auth → kid shell | spec test 8 (Ruthie, env-gated) | 2026-06-09 |
+| Member timeout falls back to name-tile/PIN or Hub (never family-password) | — | — | — | all member shells | founder eyes-on over time (timeout windows are hours) | |
 
 ---
 
