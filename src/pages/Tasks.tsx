@@ -26,15 +26,17 @@ import {
   X,
   ChevronDown,
   Layers,
-  Check,
-  Clock,
   ListPlus,
-  GraduationCap,
   DollarSign,
 } from 'lucide-react'
-import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner, Tooltip } from '@/components/shared'
-import { useTasks, useArchiveTask, useTasksWithPendingApprovals, useApproveTaskCompletion, useRejectTaskCompletion, fetchSharedTaskIds } from '@/hooks/useTasks'
-import { useApproveMasterySubmission, useRejectMasterySubmission, useSubmitMastery, useLogPractice } from '@/hooks/usePractice'
+import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner } from '@/components/shared'
+import { useTasks, useArchiveTask, useTasksWithPendingApprovals, fetchSharedTaskIds } from '@/hooks/useTasks'
+import { useSubmitMastery, useLogPractice } from '@/hooks/usePractice'
+// FO-COMMAND-CENTER: approvals + edit flow extracted to shared components
+// (they also mount on the Family Overview command center)
+import { PendingApprovalsSection, filterVisiblePendingApprovals } from '@/components/tasks/PendingApprovalsSection'
+import { useTaskEditor } from '@/hooks/useTaskEditor'
+import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
 import { useRoutingToast } from '@/components/shared'
 import { SoftClaimCrossClaimModal, SoftClaimDoneBlockedModal } from '@/components/tasks/SoftClaimWarningModal'
@@ -51,7 +53,6 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
-import type { RoutineSection } from '@/components/tasks/RoutineSectionEditor'
 import { SequentialCollectionView } from '@/components/tasks/sequential/SequentialCollectionView'
 import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
 import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
@@ -62,9 +63,6 @@ import type { Task } from '@/hooks/useTasks'
 import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
-import { buildTaskScheduleFields } from '@/utils/buildTaskScheduleFields'
-import { fetchFamilyToday } from '@/hooks/useFamilyToday'
-import { serializeRoutineSectionsForRpc } from '@/lib/templates/serializeRoutineSectionsForRpc'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import { getMemberColor } from '@/lib/memberColors'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
@@ -145,8 +143,8 @@ export function TasksPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
-  const [editRoutineSections, setEditRoutineSections] = useState<RoutineSection[] | undefined>(undefined)
+  // FO-COMMAND-CENTER: edit flow shared with the Family Overview spot-check
+  const editor = useTaskEditor()
   const [guidedNewTask, setGuidedNewTask] = useState('')
   const [guidedCreating, setGuidedCreating] = useState(false)
   const [completedTask, setCompletedTask] = useState<Task | null>(null)
@@ -391,138 +389,10 @@ export function TasksPage() {
     setDurationPromptTask(null)
   }, [durationPromptTask, member?.id, family?.id, logPractice, routingToast])
 
-  // ── Edit existing task ──
-  const handleEditTask = useCallback(
-    async (data: CreateTaskData) => {
-      if (!editingTask) return
-      if (!member?.id) {
-        console.error('Cannot edit task: member not loaded')
-        return
-      }
-
-      // Row 184 NEW-DD Path 2: family-timezone-derived "today" for due_date writes.
-      const familyToday = await fetchFamilyToday(member.id)
-      const scheduleFields = buildTaskScheduleFields(data, familyToday)
-
-      // Update the deployment task row (snapshot fields per Convention #259).
-      const { error: taskUpdateError } = await supabase
-        .from('tasks')
-        .update({
-          title: data.title,
-          description: data.description || null,
-          life_area_tag: data.lifeAreaTag || null,
-          life_area_tags: data.lifeAreaTag ? [data.lifeAreaTag] : [],
-          duration_estimate: data.durationEstimate || null,
-          incomplete_action: data.incompleteAction,
-          require_approval: data.reward?.requireApproval ?? false,
-          victory_flagged: data.reward?.flagAsVictory ?? false,
-          due_date: scheduleFields.due_date,
-          recurrence_rule: scheduleFields.recurrence_rule,
-          recurrence_details: scheduleFields.recurrence_details,
-          counts_for_allowance: data.countsForAllowance ?? false,
-          counts_for_homework: data.countsForHomework ?? false,
-          counts_for_gamification: data.countsForGamification ?? true,
-        })
-        .eq('id', editingTask.id)
-
-      if (taskUpdateError) {
-        // Worker ROUTINE-SAVE-FIX (c3): throw so TaskCreationModal's
-        // catch block (c2) surfaces the failure via error toast. The
-        // previous `console.error + return` pattern silently dropped
-        // the failure on the floor.
-        throw new Error(`Failed to update task: ${taskUpdateError.message}`)
-      }
-
-      // Update routine template sections via the atomic RPC (migration
-      // 100178). Replaces the previous non-transactional rewrite chain
-      // that diverged from createTaskFromData and silently swallowed
-      // FK errors. Now both call sites share the same RPC; partial
-      // commits are impossible.
-      if (data.editingTemplateId && data.routineSections?.length) {
-        const rpcSections = serializeRoutineSectionsForRpc(data.routineSections)
-        const { error: rpcError } = await supabase.rpc('update_routine_template_atomic', {
-          p_template_id: data.editingTemplateId,
-          p_title: data.title,
-          p_description: data.description || null,
-          p_sections: rpcSections,
-        })
-        if (rpcError) {
-          throw new Error(`Atomic template rewrite failed: ${rpcError.message}`)
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar'] })
-      queryClient.invalidateQueries({ queryKey: ['task_templates_customized'] })
-      queryClient.invalidateQueries({ queryKey: ['routine-template-steps'] })
-      setEditingTask(null)
-      setEditRoutineSections(undefined)
-    },
-    [editingTask, member?.id, queryClient]
-  )
-
-  // ── Open task for editing (loads routine sections if applicable) ──
-  const openEditTask = useCallback(async (task: Task) => {
-    setEditingTask(task)
-
-    // For routines, load the template sections so the editor is pre-filled
-    if (task.task_type === 'routine' && task.template_id) {
-      const { data: sections } = await supabase
-        .from('task_template_sections')
-        .select('id, title, section_name, frequency_rule, frequency_days, show_until_complete, sort_order')
-        .eq('template_id', task.template_id)
-        .order('sort_order')
-
-      if (sections?.length) {
-        const routineSections: RoutineSection[] = []
-        for (const sec of sections) {
-          const { data: steps } = await supabase
-            .from('task_template_steps')
-            .select('id, title, step_name, step_notes, instance_count, require_photo, sort_order, step_type, linked_source_id, linked_source_type, display_name_override')
-            .eq('section_id', sec.id)
-            .order('sort_order')
-
-          let frequency: RoutineSection['frequency'] = 'daily'
-          const days = (sec.frequency_days as number[]) ?? []
-          if (sec.frequency_rule === 'custom') {
-            const sorted = [...days].sort().join(',')
-            if (sorted === '1,2,3,4,5') frequency = 'weekdays'
-            else if (sorted === '1,3,5') frequency = 'mwf'
-            else if (sorted === '2,4') frequency = 't_th'
-            else frequency = 'custom'
-          } else {
-            frequency = (sec.frequency_rule as typeof frequency) ?? 'daily'
-          }
-
-          routineSections.push({
-            id: sec.id,
-            name: sec.section_name ?? sec.title ?? '',
-            frequency,
-            customDays: days.map(Number),
-            showUntilComplete: sec.show_until_complete ?? false,
-            sort_order: sec.sort_order ?? 0,
-            isEditing: false,
-            steps: (steps ?? []).map(st => ({
-              id: st.id,
-              title: st.title ?? st.step_name ?? '',
-              notes: st.step_notes ?? '',
-              showNotes: !!(st.step_notes),
-              instanceCount: st.instance_count ?? 1,
-              requirePhoto: st.require_photo ?? false,
-              sort_order: st.sort_order ?? 0,
-              step_type: (st.step_type as 'static' | 'linked_sequential' | 'linked_randomizer' | 'linked_task') ?? 'static',
-              linked_source_id: st.linked_source_id ?? null,
-              linked_source_type: st.linked_source_type ?? null,
-              display_name_override: st.display_name_override ?? null,
-            })),
-          })
-        }
-        setEditRoutineSections(routineSections)
-      }
-    } else {
-      setEditRoutineSections(undefined)
-    }
-  }, [])
+  // ── Edit existing task — shared flow (useTaskEditor / TaskEditModal).
+  // FO-COMMAND-CENTER: extracted so the Family Overview spot-check mounts the
+  // identical edit modal. One save path (atomic RPC), two mount points.
+  const openEditTask = editor.openEditTask
 
   // ── Tab definitions ──
   // Guided members get only My Tasks + Opportunities (PRD-25 Phase C)
@@ -643,19 +513,12 @@ export function TasksPage() {
     return filtered
   }, [allTasks, activeMember?.id, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds, isEffectiveMom, viewableIds])
 
-  // Pending approvals the viewer may see: mom → all; others → own submissions,
-  // tasks they created, or tasks assigned to members they hold grants for.
-  const visiblePendingApprovals = useMemo(() => {
-    if (isEffectiveMom) return pendingApprovalTasks
-    const myId = activeMember?.id
-    if (!myId) return []
-    return pendingApprovalTasks.filter(
-      (t) =>
-        t.created_by === myId ||
-        t.assignee_id === myId ||
-        (!!t.assignee_id && viewableIds.has(t.assignee_id))
-    )
-  }, [pendingApprovalTasks, isEffectiveMom, activeMember?.id, viewableIds])
+  // Pending approvals the viewer may see (shared helper — also used by the
+  // Family Overview Approvals tab).
+  const visiblePendingApprovals = useMemo(
+    () => filterVisiblePendingApprovals(pendingApprovalTasks, isEffectiveMom, activeMember?.id, viewableIds),
+    [pendingApprovalTasks, isEffectiveMom, activeMember?.id, viewableIds]
+  )
 
   return (
     <div className="max-w-3xl mx-auto space-y-0">
@@ -1025,39 +888,8 @@ export function TasksPage() {
         holderName={doneBlockedTask?.holderName ?? null}
       />
 
-      {/* TaskCreationModal — Edit */}
-      {editingTask && (
-        <TaskCreationModal
-          isOpen={true}
-          onClose={() => { setEditingTask(null); setEditRoutineSections(undefined) }}
-          onSave={handleEditTask}
-          editMode
-          initialTaskType={editingTask.task_type}
-          defaultTitle={editingTask.title}
-          defaultDescription={editingTask.description ?? ''}
-          initialRoutineSections={editRoutineSections}
-          editingTemplateId={editingTask.template_id ?? undefined}
-          // Checkbox-honesty fix (2026-05-25): stable identity signal that
-          // distinguishes a real edit-target swap from parent-render noise.
-          // The modal's re-init effect listens on this prop (not on
-          // editTaskValues, which is an inline object literal below and
-          // changes reference on every parent render).
-          editTaskId={editingTask.id}
-          editTaskValues={{
-            incompleteAction: editingTask.incomplete_action ?? undefined,
-            lifeAreaTag: editingTask.life_area_tags?.[0] ?? editingTask.life_area_tag ?? undefined,
-            durationEstimate: editingTask.duration_estimate ?? undefined,
-            dueDate: editingTask.due_date ?? undefined,
-            requireApproval: editingTask.require_approval ?? undefined,
-            victoryFlagged: editingTask.victory_flagged ?? undefined,
-            trackProgress: editingTask.track_progress ?? undefined,
-            trackDuration: editingTask.track_duration ?? undefined,
-            countsForAllowance: editingTask.counts_for_allowance ?? undefined,
-            countsForHomework: editingTask.counts_for_homework ?? undefined,
-            countsForGamification: editingTask.counts_for_gamification ?? undefined,
-          }}
-        />
-      )}
+      {/* TaskCreationModal — Edit (shared instance, FO-COMMAND-CENTER) */}
+      <TaskEditModal editor={editor} />
 
       {/* Bulk AI Quick Add modal */}
       {showBulkAdd && (
@@ -1604,244 +1436,6 @@ function OpportunityGroup({ label, tasks, onToggle, isCompleting }: OpportunityG
             compact
           />
         ))}
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────
-// PendingApprovalsSection sub-component
-// ─────────────────────────────────────────────
-interface PendingApprovalsSectionProps {
-  tasks: Task[]
-  familyMembers: { id: string; display_name: string }[]
-  approverId: string
-  /**
-   * PERMISSIONS-WIRING (founder Decision 9): may the viewer approve/reject
-   * this task's submission? View-only grants see the row, no action buttons.
-   * Defaults to allowed (mom path).
-   */
-  canActOnTask?: (task: Task) => boolean
-}
-
-function PendingApprovalsSection({ tasks, familyMembers, approverId, canActOnTask }: PendingApprovalsSectionProps) {
-  const approveCompletion = useApproveTaskCompletion()
-  const rejectCompletion = useRejectTaskCompletion()
-  // Build J: mastery submissions use dedicated hooks that set mastery_status correctly
-  const approveMastery = useApproveMasterySubmission()
-  const rejectMastery = useRejectMasterySubmission()
-  const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null)
-  const [rejectionNote, setRejectionNote] = useState('')
-
-  // Fetch pending completions for these tasks.
-  // Build J: also pull completion_type + mastery_evidence columns so we can fork
-  // the rendering and approval logic for mastery submissions.
-  const taskIds = tasks.map(t => t.id)
-  const { data: pendingCompletions = [] } = useQuery({
-    queryKey: ['pending-completions', taskIds],
-    queryFn: async () => {
-      if (taskIds.length === 0) return []
-      const { data, error } = await supabase
-        .from('task_completions')
-        .select('id, task_id, member_id, completed_at, approval_status, completion_type, mastery_evidence_url, mastery_evidence_note')
-        .in('task_id', taskIds)
-        .eq('approval_status', 'pending')
-      if (error) throw error
-      return data ?? []
-    },
-    enabled: taskIds.length > 0,
-  })
-
-  const memberName = (id: string | null | undefined) => {
-    if (!id) return 'Unknown'
-    return familyMembers.find(m => m.id === id)?.display_name ?? 'Unknown'
-  }
-
-  async function handleApprove(task: Task) {
-    const completion = pendingCompletions.find(c => c.task_id === task.id)
-    if (!completion) return
-
-    // Build J: mastery submissions go through the mastery approval hook which
-    // sets mastery_status='approved' + promotes next sequential item.
-    if ((completion as { completion_type?: string }).completion_type === 'mastery_submit') {
-      await approveMastery.mutateAsync({
-        sourceType: 'sequential_task',
-        sourceId: task.id,
-        approverId,
-        completionId: completion.id,
-      })
-      return
-    }
-
-    await approveCompletion.mutateAsync({
-      completionId: completion.id,
-      taskId: task.id,
-      approvedById: approverId,
-    })
-  }
-
-  async function handleReject(task: Task) {
-    const completion = pendingCompletions.find(c => c.task_id === task.id)
-    if (!completion) return
-
-    // Build J: mastery rejections reset mastery_status to 'practicing' so the
-    // child continues practicing — NOT a permanent rejection.
-    if ((completion as { completion_type?: string }).completion_type === 'mastery_submit') {
-      await rejectMastery.mutateAsync({
-        sourceType: 'sequential_task',
-        sourceId: task.id,
-        completionId: completion.id,
-        rejectionNote: rejectionNote || null,
-      })
-      setRejectingTaskId(null)
-      setRejectionNote('')
-      return
-    }
-
-    await rejectCompletion.mutateAsync({
-      completionId: completion.id,
-      taskId: task.id,
-      rejectionNote: rejectionNote || null,
-    })
-    setRejectingTaskId(null)
-    setRejectionNote('')
-  }
-
-  return (
-    <div
-      className="rounded-xl overflow-hidden my-3"
-      style={{ border: '2px solid var(--color-warning, var(--color-btn-primary-bg))', backgroundColor: 'var(--color-bg-card)' }}
-    >
-      <div
-        className="px-4 py-2.5 flex items-center gap-2"
-        style={{ backgroundColor: 'color-mix(in srgb, var(--color-warning, var(--color-btn-primary-bg)) 10%, var(--color-bg-card))', borderBottom: '1px solid var(--color-border)' }}
-      >
-        <Clock size={16} style={{ color: 'var(--color-warning, var(--color-btn-primary-bg))' }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-heading)' }}>
-          Pending Approvals ({tasks.length})
-        </span>
-      </div>
-      <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
-        {tasks.map((task) => {
-          const completion = pendingCompletions.find(c => c.task_id === task.id)
-          const completedBy = completion ? memberName(completion.member_id) : null
-          const completedAt = completion ? new Date(completion.completed_at).toLocaleDateString() : null
-          // Build J: detect mastery submissions for distinct rendering
-          const isMasterySubmission = (completion as { completion_type?: string } | undefined)?.completion_type === 'mastery_submit'
-          const masteryEvidenceNote = (completion as { mastery_evidence_note?: string | null } | undefined)?.mastery_evidence_note
-          const masteryEvidenceUrl = (completion as { mastery_evidence_url?: string | null } | undefined)?.mastery_evidence_url
-          const practiceCount = (task as unknown as { practice_count?: number }).practice_count ?? 0
-
-          return (
-            <div key={task.id} className="px-4 py-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {isMasterySubmission && (
-                    <GraduationCap
-                      size={14}
-                      style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }}
-                    />
-                  )}
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-heading)' }}>
-                    {task.title}
-                  </p>
-                </div>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-                  {isMasterySubmission
-                    ? `Submitted for mastery by ${completedBy ?? 'Unknown'} · ${practiceCount} practice${practiceCount === 1 ? '' : 's'} logged`
-                    : (
-                      <>
-                        {completedBy && `Completed by ${completedBy}`}
-                        {completedAt && ` · ${completedAt}`}
-                      </>
-                    )}
-                </p>
-                {isMasterySubmission && masteryEvidenceNote && (
-                  <p
-                    className="text-xs mt-1 italic"
-                    style={{
-                      color: 'var(--color-text-primary)',
-                      background: 'var(--color-bg-secondary)',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--color-border)',
-                    }}
-                  >
-                    "{masteryEvidenceNote}"
-                  </p>
-                )}
-                {isMasterySubmission && masteryEvidenceUrl && (
-                  <a
-                    href={masteryEvidenceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs mt-1 inline-flex items-center gap-1 underline-offset-2 hover:underline"
-                    style={{ color: 'var(--color-btn-primary-bg)' }}
-                  >
-                    View evidence
-                  </a>
-                )}
-              </div>
-
-              {rejectingTaskId === task.id ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={rejectionNote}
-                    onChange={e => setRejectionNote(e.target.value)}
-                    placeholder="Reason (optional)"
-                    className="px-2 py-1 rounded text-xs w-36"
-                    style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
-                    autoFocus
-                    onKeyDown={e => e.key === 'Enter' && handleReject(task)}
-                  />
-                  <button
-                    onClick={() => handleReject(task)}
-                    className="p-1.5 rounded-lg"
-                    style={{ backgroundColor: 'var(--color-error, #ef4444)', color: '#fff' }}
-                    disabled={rejectCompletion.isPending}
-                  >
-                    <X size={14} />
-                  </button>
-                  <button
-                    onClick={() => { setRejectingTaskId(null); setRejectionNote('') }}
-                    className="text-xs px-2 py-1"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : canActOnTask && !canActOnTask(task) ? (
-                // View-only grant: row visible, actions hidden (Decision 9)
-                <span className="text-xs whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                  View only
-                </span>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <Tooltip content="Approve">
-                  <button
-                    onClick={() => handleApprove(task)}
-                    disabled={approveCompletion.isPending}
-                    className="p-1.5 rounded-lg"
-                    style={{ backgroundColor: 'var(--color-success, #22c55e)', color: '#fff' }}
-                  >
-                    <Check size={14} />
-                  </button>
-                  </Tooltip>
-                  <Tooltip content="Reject">
-                  <button
-                    onClick={() => setRejectingTaskId(task.id)}
-                    className="p-1.5 rounded-lg"
-                    style={{ backgroundColor: 'var(--color-error, #ef4444)', color: '#fff' }}
-                  >
-                    <X size={14} />
-                  </button>
-                  </Tooltip>
-                </div>
-              )}
-            </div>
-          )
-        })}
       </div>
     </div>
   )

@@ -30,10 +30,48 @@ import {
   type MemberSequentialSummary,
 } from '@/hooks/useFamilyOverviewData'
 import { useActivePeriod, useLiveAllowanceProgress, type GraceDayEntry } from '@/hooks/useFinancial'
-import { useCompleteTask } from '@/hooks/useTasks'
+import { useCompleteTask, useTasksWithPendingApprovals, type Task } from '@/hooks/useTasks'
+import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
+import { useQuery } from '@tanstack/react-query'
+import { Tabs, type TabItem } from '@/components/shared'
+import { LayoutGrid, ClipboardCheck, Inbox, DollarSign } from 'lucide-react'
+import {
+  PendingApprovalsSection,
+  filterVisiblePendingApprovals,
+} from '@/components/tasks/PendingApprovalsSection'
+import { SortTab } from '@/components/queue/SortTab'
+import { FinancesTab } from '@/features/financial/FinancesTab'
+import { MemberSpotCheck } from './MemberSpotCheck'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import PendingItemsBar from './PendingItemsBar'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+
+// ─── FO page tabs (FO-COMMAND-CENTER relocations) ───────────────────────────
+
+type FamilyOverviewTab = 'overview' | 'approvals' | 'queue' | 'finances'
+
+/** Pending studio_queue count for the Queue tab badge (RLS scopes non-mom). */
+function usePendingQueueCount(familyId: string | undefined, memberId: string | undefined, role?: string) {
+  return useQuery({
+    queryKey: ['studio_queue', familyId, memberId, role],
+    queryFn: async () => {
+      if (!familyId || !memberId) return []
+      let query = supabase
+        .from('studio_queue')
+        .select('id, owner_id')
+        .eq('family_id', familyId)
+        .is('processed_at', null)
+        .is('dismissed_at', null)
+      if (role === 'member' || role === 'additional_adult' || role === 'special_adult') {
+        query = query.eq('owner_id', memberId)
+      }
+      const { data, error } = await query
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: !!familyId && !!memberId,
+  })
+}
 
 // ─── Section metadata ────────────────────────────────────────────────────────
 
@@ -512,6 +550,7 @@ function MemberColumn({
   victories,
   onToggleSection,
   onCompleteTask,
+  onSpotCheck,
 }: {
   member: FamilyMember
   sectionOrder: string[]
@@ -528,6 +567,7 @@ function MemberColumn({
   victories: Array<Record<string, unknown>>
   onToggleSection: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
   onCompleteTask: (taskId: string, memberId: string) => void
+  onSpotCheck: (member: FamilyMember) => void
 }) {
   const color = member.calendar_color || getMemberColor(member)
 
@@ -632,13 +672,16 @@ function MemberColumn({
         border: '1px solid var(--color-border-default)',
       }}
     >
-      {/* Sticky column header */}
-      <div
-        className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2"
+      {/* Sticky column header — tap to spot-check (FO-COMMAND-CENTER) */}
+      <button
+        className="sticky top-0 z-10 flex items-center gap-2 px-3 py-2 w-full text-left"
         data-testid={`column-header-${member.id}`}
+        onClick={() => onSpotCheck(member)}
+        aria-label={`Open ${member.display_name.split(' ')[0]}'s items`}
         style={{
           borderBottom: `3px solid ${color}`,
           backgroundColor: 'var(--color-bg-card)',
+          cursor: 'pointer',
         }}
       >
         <span
@@ -650,7 +693,8 @@ function MemberColumn({
         <span className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
           {member.display_name.split(' ')[0]}
         </span>
-      </div>
+        <ChevronRight size={14} className="ml-auto shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
+      </button>
 
       {/* Sections */}
       <div className="divide-y" style={{ borderColor: 'var(--color-border-default)' }}>
@@ -786,6 +830,33 @@ export default function FamilyOverview() {
   const { data: config } = useFamilyOverviewConfig(family?.id, member?.id)
   const updateConfig = useUpdateFamilyOverviewConfig()
   const completeTask = useCompleteTask()
+
+  // ── FO-COMMAND-CENTER: page tabs + relocated surfaces ──
+  const [activeTab, setActiveTab] = useState<FamilyOverviewTab>('overview')
+  const [spotCheckMember, setSpotCheckMember] = useState<FamilyMember | null>(null)
+  const isPrimaryParent = member?.role === 'primary_parent'
+
+  // PERMISSIONS-WIRING scoping for the relocated Approvals surface
+  const { viewableIds, viewableLevels } = useViewableMembers(
+    'tasks_basic',
+    member ? { id: member.id, family_id: member.family_id, role: member.role } : null,
+  )
+  const canActOnTask = useCallback(
+    (task: Task): boolean => {
+      if (isPrimaryParent) return true
+      if (!task.assignee_id || task.assignee_id === member?.id) return true
+      return accessLevelAtLeast(viewableLevels[task.assignee_id], 'contribute')
+    },
+    [isPrimaryParent, member?.id, viewableLevels],
+  )
+
+  const { data: pendingApprovalTasks = [] } = useTasksWithPendingApprovals(family?.id)
+  const visiblePendingApprovals = useMemo(
+    () => filterVisiblePendingApprovals(pendingApprovalTasks, isPrimaryParent, member?.id, viewableIds),
+    [pendingApprovalTasks, isPrimaryParent, member?.id, viewableIds],
+  )
+
+  const { data: queueItems = [] } = usePendingQueueCount(family?.id, member?.id, member?.role)
 
   // ── Dad's scoped view: permission-gated member list ──
 
@@ -988,8 +1059,62 @@ export default function FamilyOverview() {
     member_color: m.member_color,
   }))
 
+  // ── FO-COMMAND-CENTER page tabs ──
+  const pageTabs: TabItem[] = [
+    { key: 'overview', label: 'Overview', icon: <LayoutGrid size={15} /> },
+    {
+      key: 'approvals',
+      label: `Approvals${visiblePendingApprovals.length > 0 ? ` (${visiblePendingApprovals.length})` : ''}`,
+      icon: <ClipboardCheck size={15} />,
+    },
+    // Queue + Finances stay mom-scoped (queue RLS is primary_parent family-wide;
+    // Finances parity with the prior Tasks-page gating)
+    ...(isPrimaryParent
+      ? [
+          {
+            key: 'queue' as const,
+            label: `Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`,
+            icon: <Inbox size={15} />,
+          },
+          { key: 'finances' as const, label: 'Finances', icon: <DollarSign size={15} /> },
+        ]
+      : []),
+  ]
+
   return (
     <div className="space-y-3 density-compact" data-testid="family-overview">
+      {/* FO-COMMAND-CENTER: command center tabs (relocated from Tasks page) */}
+      <Tabs
+        tabs={pageTabs}
+        activeKey={activeTab}
+        onChange={(key) => setActiveTab(key as FamilyOverviewTab)}
+      />
+
+      {/* ── Approvals tab (relocated PendingApprovalsSection, mastery fork intact) ── */}
+      {activeTab === 'approvals' && (
+        visiblePendingApprovals.length > 0 ? (
+          <PendingApprovalsSection
+            tasks={visiblePendingApprovals}
+            familyMembers={allMembers ?? []}
+            approverId={member.id}
+            canActOnTask={canActOnTask}
+          />
+        ) : (
+          <div className="text-sm py-12 text-center" style={{ color: 'var(--color-text-secondary)' }}>
+            <p>Nothing waiting for approval.</p>
+            <p className="mt-1">When someone submits work for review, it will appear here.</p>
+          </div>
+        )
+      )}
+
+      {/* ── Queue tab (relocated studio_queue decision inbox — full SortTab) ── */}
+      {activeTab === 'queue' && isPrimaryParent && <SortTab />}
+
+      {/* ── Finances tab (relocated from Tasks page, founder Q7) ── */}
+      {activeTab === 'finances' && isPrimaryParent && <FinancesTab familyId={family.id} />}
+
+      {activeTab === 'overview' && (
+        <>
       {/* Pending Items Bar */}
       <PendingItemsBar familyId={family.id} />
 
@@ -1046,6 +1171,7 @@ export default function FamilyOverview() {
               victories={victories as Array<Record<string, unknown>>}
               onToggleSection={handleToggleSection}
               onCompleteTask={handleCompleteTask}
+              onSpotCheck={setSpotCheckMember}
             />
           ))
         )}
@@ -1065,6 +1191,24 @@ export default function FamilyOverview() {
             />
           ))}
         </div>
+      )}
+        </>
+      )}
+
+      {/* ── Member spot-check (FO-COMMAND-CENTER deep view, founder Q4) ── */}
+      {spotCheckMember && (
+        <MemberSpotCheck
+          member={spotCheckMember}
+          familyId={family.id}
+          viewerId={member.id}
+          viewerIsPrimaryParent={isPrimaryParent}
+          canAct={
+            isPrimaryParent ||
+            spotCheckMember.id === member.id ||
+            accessLevelAtLeast(viewableLevels[spotCheckMember.id], 'contribute')
+          }
+          onClose={() => setSpotCheckMember(null)}
+        />
       )}
     </div>
   )

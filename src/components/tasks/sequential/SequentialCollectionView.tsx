@@ -182,9 +182,16 @@ function ItemAdvancementEditor({
 interface SequentialCollectionViewProps {
   familyId: string
   onCreateCollection: () => void
+  /**
+   * FO-COMMAND-CENTER (2026-06-10): when set, scope to collections containing
+   * tasks assigned to this ONE member (the Family Overview spot-check view).
+   * Composes with the leak-pass scoping — a non-mom viewer can never widen
+   * past their viewable set because the filter intersects, never expands.
+   */
+  filterMemberId?: string
 }
 
-export function SequentialCollectionView({ familyId, onCreateCollection }: SequentialCollectionViewProps) {
+export function SequentialCollectionView({ familyId, onCreateCollection, filterMemberId }: SequentialCollectionViewProps) {
   // PRD-02 read scoping (2026-06-09 leak pass): non-mom viewers only see
   // collections containing tasks assigned to members they may view.
   const { member: activeMember } = useEffectiveMember()
@@ -193,10 +200,10 @@ export function SequentialCollectionView({ familyId, onCreateCollection }: Seque
     'tasks_basic',
     activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
   )
-  const { data: collections = [] } = useSequentialCollections(
-    familyId,
-    isEffectiveMom ? null : [...viewableIds],
-  )
+  const scopeIds = filterMemberId
+    ? (isEffectiveMom || viewableIds.has(filterMemberId) ? [filterMemberId] : [])
+    : (isEffectiveMom ? null : [...viewableIds])
+  const { data: collections = [] } = useSequentialCollections(familyId, scopeIds)
 
   return (
     <div className="flex flex-col gap-4 p-4">
