@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
   ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift, Calendar,
+  Lock,
 } from 'lucide-react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useCalendarSettings, useUpdateCalendarSettings } from '@/hooks/useCalendarEvents'
@@ -476,6 +477,12 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
           label="Family Login Name"
           description={loginName ? `Current: ${loginName}` : 'Set your family login name'}
           to="/family-login-name"
+        />
+        <SettingsNavRow
+          icon={Lock}
+          label="Family Password"
+          description="Protects family login on new devices"
+          to="/family-password"
         />
       </div>
 

@@ -9,6 +9,7 @@ import { AcceptInvite } from '@/pages/auth/AcceptInvite'
 import { Dashboard } from '@/pages/Dashboard'
 import { FamilySetup } from '@/pages/FamilySetup'
 import { FamilyLoginNameSetup } from '@/pages/FamilyLoginNameSetup'
+import { FamilyPasswordSetup } from '@/pages/FamilyPasswordSetup'
 import { FamilyMembers } from '@/pages/FamilyMembers'
 import { PermissionHub } from '@/pages/PermissionHub'
 import { GuidingStarsPage } from '@/pages/GuidingStars'
@@ -131,6 +132,7 @@ function App() {
                   session whose data subject is not the primary parent. */}
               <Route path="/family-setup" element={<MomOnlyRoute><FamilySetup /></MomOnlyRoute>} />
               <Route path="/family-login-name" element={<MomOnlyRoute><FamilyLoginNameSetup /></MomOnlyRoute>} />
+              <Route path="/family-password" element={<MomOnlyRoute><FamilyPasswordSetup /></MomOnlyRoute>} />
               <Route path="/family-members" element={<MomOnlyRoute><FamilyMembers /></MomOnlyRoute>} />
               <Route path="/permissions" element={<MomOnlyRoute><PermissionHub /></MomOnlyRoute>} />
               <Route path="/guiding-stars" element={<ProtectedRoute><GuidingStarsPage /></ProtectedRoute>} />

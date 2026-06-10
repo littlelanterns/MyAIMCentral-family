@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { lookupFamilyByLoginName, getFamilyLoginMembers } from '@/lib/supabase/auth'
+import { verifyFamilyLogin } from '@/lib/supabase/auth'
 import { supabase } from '@/lib/supabase/client'
 import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 
@@ -34,11 +34,11 @@ type Step = 'family-name' | 'member-select' | 'pin-entry' | 'visual-password'
 export function FamilyLogin() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('family-name')
-  // Phase 1 security gate (Family-Auth-Two-Door): the roster RPCs now require
-  // an authenticated session. Until Phase 2 ships the family password, a
-  // signed-out device cannot use family login — show a friendly notice.
-  const [hasSession, setHasSession] = useState<boolean | null>(null)
   const [familyName, setFamilyName] = useState('')
+  // The family door (Family-Auth-Two-Door Phase 2): family login name +
+  // family password are verified together, server-side. The member roster
+  // is only released on a verified password — never before.
+  const [familyPassword, setFamilyPassword] = useState('')
   const [_familyId, setFamilyId] = useState<string | null>(null)
   const [familyDisplayName, setFamilyDisplayName] = useState('')
   const [members, setMembers] = useState<LoginMember[]>([])
@@ -60,18 +60,6 @@ export function FamilyLogin() {
   useEffect(() => {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current)
-    }
-  }, [])
-
-  // Detect whether this device already has a session (family login currently
-  // requires one — see Phase 1 note above)
-  useEffect(() => {
-    let cancelled = false
-    supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setHasSession(!!data.session)
-    })
-    return () => {
-      cancelled = true
     }
   }, [])
 
@@ -104,31 +92,45 @@ export function FamilyLogin() {
 
   async function handleFamilyLookup(e: React.FormEvent) {
     e.preventDefault()
+
+    if (isLocked) return
+
     setLoading(true)
     setError('')
 
-    const { data, error: lookupError } = await lookupFamilyByLoginName(familyName.trim())
+    const { data, error: verifyError } = await verifyFamilyLogin(
+      familyName.trim(),
+      familyPassword,
+    )
 
-    if (lookupError || !data || data.length === 0) {
-      setError("We couldn't find a family with that name. Check the spelling and try again.")
-      setLoading(false)
+    setLoading(false)
+
+    if (verifyError || !data) {
+      setError('Something went wrong. Please try again.')
       return
     }
 
-    const family = data[0]
-    setFamilyId(family.family_id)
-    setFamilyDisplayName(family.family_name)
+    if (data.success) {
+      setFamilyPassword('')
+      setFamilyId(data.family_id ?? null)
+      setFamilyDisplayName(data.family_name ?? '')
 
-    const { data: memberData } = await getFamilyLoginMembers(family.family_id)
-
-    if (memberData && memberData.length > 0) {
-      setMembers(memberData)
-      setStep('member-select')
-    } else {
-      setError('No members found for this family.')
+      if (data.members && data.members.length > 0) {
+        setMembers(data.members)
+        setStep('member-select')
+      } else {
+        setError('No members found for this family.')
+      }
+      return
     }
 
-    setLoading(false)
+    if (data.reason === 'locked') {
+      startLockoutCountdown(data.remaining_seconds ?? 900)
+      return
+    }
+
+    // Generic by design: never reveals whether the family name exists
+    setError("That family name and password didn't match. Check both and try again, or ask mom for help.")
   }
 
   function handleMemberSelect(member: LoginMember) {
@@ -335,7 +337,9 @@ export function FamilyLogin() {
               .
             </p>
             <p className="text-xs" style={{ opacity: 0.75 }}>
-              Ask mom to reset your PIN if you need help getting in.
+              {step === 'family-name'
+                ? 'Ask mom for help getting in.'
+                : 'Ask mom to reset your PIN if you need help getting in.'}
             </p>
           </div>
         )}
@@ -347,35 +351,15 @@ export function FamilyLogin() {
           </p>
         )}
 
-        {/* Phase 1 security gate: signed-out devices can't use family login
-            until the family password ships (Phase 2) */}
-        {step === 'family-name' && hasSession === false && (
-          <div
-            className="rounded-lg px-4 py-4 text-sm space-y-2"
-            style={{
-              backgroundColor: AUTH_COLORS.card,
-              border: `1px solid ${AUTH_COLORS.border}`,
-              color: AUTH_COLORS.text,
-            }}
-          >
-            <p className="font-medium">Family login is getting a security upgrade.</p>
-            <p style={{ color: AUTH_COLORS.textMuted }}>
-              For now, family login only works on a device that&apos;s already signed in
-              (like your family tablet). On a new device, sign in with email below — or
-              ask mom for help.
-            </p>
-          </div>
-        )}
-
-        {/* Step: family name */}
-        {step === 'family-name' && hasSession !== false && (
+        {/* Step: family door — name + family password verified together */}
+        {step === 'family-name' && (
           <form onSubmit={handleFamilyLookup} className="space-y-4">
             <div>
               <label
                 className="block text-sm font-medium mb-1"
                 style={{ color: AUTH_COLORS.text }}
               >
-                Enter your Family Login Name
+                Family Login Name
               </label>
               <input
                 type="text"
@@ -392,16 +376,41 @@ export function FamilyLogin() {
                 autoFocus
               />
             </div>
+            <div>
+              <label
+                className="block text-sm font-medium mb-1"
+                style={{ color: AUTH_COLORS.text }}
+              >
+                Family Password
+              </label>
+              <input
+                type="password"
+                value={familyPassword}
+                onChange={(e) => setFamilyPassword(e.target.value)}
+                disabled={isLocked}
+                className="w-full px-3 py-2 rounded-lg outline-none disabled:opacity-40"
+                style={{
+                  backgroundColor: AUTH_COLORS.card,
+                  border: `1px solid ${AUTH_COLORS.border}`,
+                  color: AUTH_COLORS.text,
+                }}
+                placeholder="Your family's shared password"
+                required
+              />
+              <p className="text-xs mt-1" style={{ color: AUTH_COLORS.textMuted }}>
+                Set by mom in Settings. You only need this once per device.
+              </p>
+            </div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isLocked || !familyName || !familyPassword}
               className="w-full py-3 px-6 rounded-lg font-medium disabled:opacity-50"
               style={{
                 background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
                 color: '#ffffff',
               }}
             >
-              {loading ? 'Looking up...' : 'Continue'}
+              {loading ? 'Checking...' : 'Continue'}
             </button>
           </form>
         )}

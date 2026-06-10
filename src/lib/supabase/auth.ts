@@ -81,3 +81,50 @@ export async function checkFamilyLoginNameAvailable(loginName: string) {
   })
   return { data: data as boolean | null, error }
 }
+
+export interface FamilyLoginMember {
+  member_id: string
+  display_name: string
+  avatar_url: string | null
+  auth_method: string | null
+  member_color: string | null
+  dashboard_mode: string | null
+}
+
+export interface FamilyLoginVerifyResult {
+  success: boolean
+  reason?: 'invalid' | 'locked'
+  attempts_remaining?: number
+  remaining_seconds?: number
+  family_id?: string
+  family_name?: string
+  members?: FamilyLoginMember[]
+}
+
+/**
+ * The family door (Family-Auth-Two-Door): combined family login name +
+ * family password verification. No enumeration — wrong name and wrong
+ * password return the same generic result. The member roster is returned
+ * ONLY on a verified password. Anon-callable (works on signed-out devices).
+ */
+export async function verifyFamilyLogin(loginName: string, password: string) {
+  const { data, error } = await supabase.rpc('verify_family_login', {
+    p_login_name: loginName,
+    p_password: password,
+  })
+  return { data: data as FamilyLoginVerifyResult | null, error }
+}
+
+/**
+ * Set or change the family password. Primary-parent-only; hashing happens
+ * server-side (bcrypt) — plain text is never stored.
+ */
+export async function setFamilyPassword(password: string) {
+  const { data, error } = await supabase.rpc('set_family_password', {
+    p_password: password,
+  })
+  return {
+    data: data as { success: boolean; reason?: 'not_authenticated' | 'not_authorized' | 'weak_password' } | null,
+    error,
+  }
+}

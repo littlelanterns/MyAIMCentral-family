@@ -40,6 +40,9 @@
 | 21 | `hub_config` |
 | 22 | `family_photo_url` |
 | 23 | `allowance_dispatch_via` |
+| 24 | `family_password_hash` |
+| 25 | `family_password_failed_attempts` |
+| 26 | `family_password_locked_until` |
 
 ### `family_members` — 18 rows
 

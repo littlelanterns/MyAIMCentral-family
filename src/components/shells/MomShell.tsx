@@ -31,6 +31,7 @@ import { createTaskFromData } from '@/utils/createTaskFromData'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
+import { FamilyPasswordSetupModal } from '@/components/auth/FamilyPasswordSetupModal'
 
 interface MomShellProps {
   children: ReactNode
@@ -110,6 +111,8 @@ export function MomShell({ children }: MomShellProps) {
     <TimerProvider>
     <RewardRevealProvider>
     <ContractRevealWatcher memberId={currentMember?.id} familyId={currentFamily?.id} />
+    {/* Forced one-time family password setup (Family-Auth-Two-Door Phase 2) */}
+    <FamilyPasswordSetupModal />
     <RoutingToastProvider>
     <NotepadProvider>
     <ToolLauncherProvider>
