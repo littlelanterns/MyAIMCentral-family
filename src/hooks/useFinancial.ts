@@ -1089,6 +1089,22 @@ export function useCreatePayment() {
       const paymentAmount = Math.min(input.amount, currentBalance) // cannot overpay
       if (paymentAmount <= 0) throw new Error('Nothing to pay')
 
+      // PERMISSIONS-WIRING (founder Decision 3, 2026-06-09): payments are
+      // attributed to the actor. Granted dads can record payments (RLS
+      // migration 100260, contribute+); the ledger row shows who paid and
+      // mom gets a quiet in-app notification when it wasn't her.
+      const { data: auth } = await supabase.auth.getUser()
+      const { data: actor } = auth?.user
+        ? await supabase
+            .from('family_members')
+            .select('id, display_name, role')
+            .eq('family_id', input.family_id)
+            .eq('user_id', auth.user.id)
+            .maybeSingle()
+        : { data: null }
+      const actorIsMom = !actor || actor.role === 'primary_parent'
+
+      const baseDescription = input.note ? `Payment — ${input.note}` : 'Payment'
       const newBalance = currentBalance - paymentAmount
       const { data, error } = await supabase
         .from('financial_transactions')
@@ -1098,13 +1114,55 @@ export function useCreatePayment() {
           transaction_type: 'payment_made',
           amount: -paymentAmount, // negative for payment
           balance_after: newBalance,
-          description: input.note ? `Payment — ${input.note}` : 'Payment',
+          description: actorIsMom
+            ? baseDescription
+            : `${baseDescription} (paid by ${actor!.display_name})`,
           source_type: 'manual',
           note: input.note ?? null,
+          metadata: actor
+            ? { acted_by: actor.id, acted_by_name: actor.display_name, acted_by_role: actor.role }
+            : {},
         })
         .select()
         .single()
       if (error) throw error
+
+      // Quiet in-app notification to mom when a granted adult records a
+      // payment (fire-and-forget — a notification failure must never undo or
+      // block the payment itself).
+      if (!actorIsMom && actor) {
+        try {
+          const { data: mom } = await supabase
+            .from('family_members')
+            .select('id, display_name')
+            .eq('family_id', input.family_id)
+            .eq('role', 'primary_parent')
+            .eq('is_active', true)
+            .maybeSingle()
+          const { data: kid } = await supabase
+            .from('family_members')
+            .select('display_name')
+            .eq('id', input.family_member_id)
+            .maybeSingle()
+          if (mom) {
+            await supabase.from('notifications').insert({
+              family_id: input.family_id,
+              recipient_member_id: mom.id,
+              notification_type: 'finance_payment_recorded',
+              category: 'tasks',
+              title: 'Payment recorded',
+              body: `${actor.display_name} paid ${kid?.display_name ?? 'a family member'} $${paymentAmount.toFixed(2)}.`,
+              source_type: 'financial_transaction',
+              source_reference_id: (data as FinancialTransaction).id,
+              action_url: '/finances/history',
+              priority: 'normal',
+            })
+          }
+        } catch (notifyErr) {
+          console.warn('Payment notification failed (payment itself succeeded):', notifyErr)
+        }
+      }
+
       return data as FinancialTransaction
     },
     onSuccess: (data) => {

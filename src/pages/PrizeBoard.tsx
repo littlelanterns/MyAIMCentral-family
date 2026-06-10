@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AllowancePeriod } from '@/types/financial'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
+import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
 import { LedgerView } from '@/features/financial/LedgerView'
 import { PaymentModal } from '@/features/financial/FinancialModals'
 
@@ -21,8 +22,30 @@ export default function PrizeBoard() {
   const { data: currentMember } = useFamilyMember()
   const familyId = currentMember?.family_id
 
+  // PERMISSIONS-WIRING (founder Decision 2, 2026-06-09): granted adults see
+  // this page scoped by their per-kid financial_tracking level —
+  // view = balances/ledger, contribute = + Mark Paid, manage = + Allowance
+  // tab (period ops). Mom sees everything (manage for all).
+  const { viewableLevels, isMom } = useViewableMembers('financial_tracking')
+  const isAdditionalAdult = currentMember?.role === 'additional_adult'
+  const canSeeAllowanceTab =
+    isMom ||
+    (isAdditionalAdult &&
+      Object.entries(viewableLevels).some(
+        ([id, level]) => id !== currentMember?.id && level === 'manage',
+      ))
+
+  // If the Allowance tab isn't available to this viewer, land on Prizes.
+  useEffect(() => {
+    if (!canSeeAllowanceTab && activeTab === 'allowance' && currentMember) {
+      setActiveTab('prizes')
+    }
+  }, [canSeeAllowanceTab, activeTab, currentMember])
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'allowance', label: 'Allowance', icon: <DollarSign size={16} /> },
+    ...(canSeeAllowanceTab
+      ? [{ key: 'allowance' as Tab, label: 'Allowance', icon: <DollarSign size={16} /> }]
+      : []),
     { key: 'prizes', label: 'Prizes', icon: <Gift size={16} /> },
     { key: 'balance', label: 'Balance', icon: <Wallet size={16} /> },
   ]
@@ -65,6 +88,7 @@ export default function PrizeBoard() {
 function AllowanceOwedSection({ familyId, currentMember }: { familyId: string | undefined; currentMember: FamilyMember | null }) {
   const { data: members = [] } = useFamilyMembers(familyId)
   const { data: configs = [] } = useAllowanceConfigs(familyId)
+  const { viewableLevels, isMom } = useViewableMembers('financial_tracking')
 
   const isParentRole = currentMember?.role === 'primary_parent' || currentMember?.role === 'additional_adult'
 
@@ -72,6 +96,10 @@ function AllowanceOwedSection({ familyId, currentMember }: { familyId: string | 
     const config = configs.find(c => c.family_member_id === m.id)
     if (!config?.enabled) return false
     if (!isParentRole) return m.id === currentMember?.id
+    // PERMISSIONS-WIRING: the Allowance tab is period management — granted
+    // adults only see kids they hold a MANAGE-level finance grant for
+    // (founder Decision 2). Mom sees all.
+    if (!isMom) return viewableLevels[m.id] === 'manage'
     return true
   })
 
@@ -357,11 +385,15 @@ function PrizesSection({
 }) {
   const { data: prizes = [], isLoading } = useEarnedPrizes()
   const { data: members = [] } = useFamilyMembers(familyId)
+  const { viewableIds, isMom } = useViewableMembers('financial_tracking')
   const redeemMutation = useRedeemPrize()
 
   const memberMap = new Map(members.map(m => [m.id, m]))
 
-  const grouped = prizes.reduce<Record<string, typeof prizes>>((acc, prize) => {
+  // PERMISSIONS-WIRING: granted adults see only their granted kids' prizes.
+  const visiblePrizes = isMom ? prizes : prizes.filter(p => viewableIds.has(p.family_member_id))
+
+  const grouped = visiblePrizes.reduce<Record<string, typeof prizes>>((acc, prize) => {
     const key = prize.family_member_id
     if (!acc[key]) acc[key] = []
     acc[key].push(prize)
@@ -377,7 +409,7 @@ function PrizesSection({
     return <Loader2 className="animate-spin mx-auto" size={20} />
   }
 
-  if (prizes.length === 0) {
+  if (visiblePrizes.length === 0) {
     return (
       <EmptyState
         icon={<Gift size={32} />}
@@ -456,13 +488,18 @@ function BalanceSection({
   currentMember: FamilyMember | null
 }) {
   const { data: members = [] } = useFamilyMembers(familyId)
+  const { viewableIds, viewableLevels, isMom: viewerIsMom } = useViewableMembers('financial_tracking')
 
   const isMom = currentMember?.role === 'primary_parent'
   const isAdditionalAdult = currentMember?.role === 'additional_adult'
   const isParentRole = isMom || isAdditionalAdult
   const isPlay = currentMember?.dashboard_mode === 'play'
 
-  const kids = useMemo(() => members.filter(m => m.role === 'member'), [members])
+  // PERMISSIONS-WIRING: granted adults see only granted kids' balances.
+  const kids = useMemo(
+    () => members.filter(m => m.role === 'member' && (viewerIsMom || viewableIds.has(m.id))),
+    [members, viewerIsMom, viewableIds],
+  )
 
   if (!familyId || !currentMember) {
     return (
@@ -495,7 +532,16 @@ function BalanceSection({
   }
 
   return (
-    <ParentBalanceView familyId={familyId} kids={kids} />
+    <ParentBalanceView
+      familyId={familyId}
+      kids={kids}
+      // Mark Paid requires contribute+ on the kid (mom is manage for all).
+      payableKidIds={new Set(
+        kids
+          .filter(k => viewerIsMom || accessLevelAtLeast(viewableLevels[k.id], 'contribute'))
+          .map(k => k.id),
+      )}
+    />
   )
 }
 
@@ -549,9 +595,12 @@ function KidSelfBalanceView({
 function ParentBalanceView({
   familyId,
   kids,
+  payableKidIds,
 }: {
   familyId: string
   kids: FamilyMember[]
+  /** Kids the viewer may record payments for (contribute+ finance level). */
+  payableKidIds: Set<string>
 }) {
   type ViewMode = 'per-kid' | 'all-kids'
   const [view, setView] = useState<ViewMode>('per-kid')
@@ -627,7 +676,8 @@ function ParentBalanceView({
           mode="mom-per-kid"
           familyId={familyId}
           memberId={selectedKid.id}
-          onPayClick={() => setPaymentOpen(true)}
+          // Pay button only when the viewer holds contribute+ for this kid
+          onPayClick={payableKidIds.has(selectedKid.id) ? () => setPaymentOpen(true) : undefined}
           pools={pools.map(p => ({ pool_name: p.pool_name }))}
         />
       ) : view === 'all-kids' ? (

@@ -63,7 +63,7 @@ import { ApprovalsPlaceholder } from '@/pages/admin/ApprovalsPlaceholder'
 import { PersonasAdminPage } from '@/pages/admin/PersonasAdminPage'
 import { AdminGate } from '@/components/AdminGate'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
-import { MomOnlyRoute } from '@/lib/permissions'
+import { MomOnlyRoute, GrantedRoute } from '@/lib/permissions'
 import { MyRewardsPage } from '@/pages/MyRewardsPage'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -146,7 +146,9 @@ function App() {
               <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
               <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
               <Route path="/shopping-mode" element={<ProtectedRoute><ShoppingModePage /></ProtectedRoute>} />
-              <Route path="/studio" element={<MomOnlyRoute><StudioPage /></MomOnlyRoute>} />
+              {/* PERMISSIONS-WIRING (2026-06-09): Studio is mom-only BY DEFAULT
+                  but grantable family-wide to additional adults. */}
+              <Route path="/studio" element={<GrantedRoute grant="studio"><StudioPage /></GrantedRoute>} />
               <Route path="/victories" element={<ProtectedRoute><VictoriesPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/trackers" element={<ProtectedRoute><TrackersPage /></ProtectedRoute>} />
@@ -184,13 +186,18 @@ function App() {
               {/* Kid-facing rewards surface (stub) — visibility gated per-child by
                   preferences.show_my_rewards (founder Q2a). NOT mom-only. */}
               <Route path="/my-rewards" element={<ProtectedRoute><MyRewardsPage /></ProtectedRoute>} />
-              {/* Phase 3: Mom-facing prize IOU board — mom-only (Convention #39) */}
-              <Route path="/prize-board" element={<MomOnlyRoute><PrizeBoard /></MomOnlyRoute>} />
-              <Route path="/contracts" element={<MomOnlyRoute><ContractsPage /></MomOnlyRoute>} />
-              {/* PRD-28 financial audit surface — mom-only (2026-06-09 leak pass).
-                  Kid-facing balance view is LedgerView mode='self', gated by
-                  child_can_see_finances; this page's free member-picker is mom's. */}
-              <Route path="/finances/history" element={<MomOnlyRoute><TransactionHistoryPage /></MomOnlyRoute>} />
+              {/* Phase 3 prize IOU board + reward rules. PERMISSIONS-WIRING
+                  (2026-06-09): mom + granted adults. Prize Board follows the
+                  per-kid financial_tracking grant; RewardRules follows the
+                  family-wide reward_rules grant. */}
+              <Route path="/prize-board" element={<GrantedRoute grant="financial_tracking"><PrizeBoard /></GrantedRoute>} />
+              <Route path="/contracts" element={<GrantedRoute grant="reward_rules"><ContractsPage /></GrantedRoute>} />
+              {/* PRD-28 financial audit surface — mom + finance-granted adults
+                  (PERMISSIONS-WIRING 2026-06-09; RLS migration 100260 scopes
+                  granted adults to their granted kids' rows). Kid-facing
+                  balance view is LedgerView mode='self', gated by
+                  child_can_see_finances. */}
+              <Route path="/finances/history" element={<GrantedRoute grant="financial_tracking"><TransactionHistoryPage /></GrantedRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
               <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />

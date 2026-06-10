@@ -1,11 +1,12 @@
 // PRD-28 Screen 5: Per-Child Transaction History
 // Full-screen ledger with filter tabs (All/Allowance/Jobs/Payments/Loans), date range
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 import { useFinancialTransactions, useRunningBalance, useLoans } from '@/hooks/useFinancial'
 import { getMemberColor } from '@/lib/memberColors'
 import { TRANSACTION_TYPE_LABELS, type TransactionType } from '@/types/financial'
@@ -26,10 +27,27 @@ export function TransactionHistoryPage() {
   const { data: family } = useFamily()
   const { data: membersData } = useFamilyMembers(family?.id)
   const members = membersData ?? []
-  const children = members.filter(m => m.role === 'member' && m.is_active)
+  // PERMISSIONS-WIRING (2026-06-09): kid pills scope to the viewer's
+  // financial_tracking grants — mom sees all kids, a granted dad sees only
+  // the kids mom granted him (RLS migration 100260 enforces the same scope
+  // on the rows themselves).
+  const { viewableIds } = useViewableMembers('financial_tracking')
+  const children = members.filter(
+    m => m.role === 'member' && m.is_active && viewableIds.has(m.id),
+  )
 
   const [selectedMemberId, setSelectedMemberId] = useState(initialMemberId ?? children[0]?.id ?? '')
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all')
+
+  // Default/repair selection once the scoped roster loads: empty selection
+  // gets the first viewable kid; a deep-linked ?member= outside the viewer's
+  // scope is discarded (same sanitizing pattern as the Tasks page leak pass).
+  useEffect(() => {
+    if (children.length === 0) return
+    if (!selectedMemberId || !children.some(c => c.id === selectedMemberId)) {
+      setSelectedMemberId(children[0].id)
+    }
+  }, [children, selectedMemberId])
 
   const filterTypes = FILTER_TAB_TYPES[activeFilter]
   const { data: transactions = [] } = useFinancialTransactions(
