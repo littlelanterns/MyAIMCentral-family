@@ -1,9 +1,9 @@
-# Dad Finance Access (granted view/pay on kids' finances)
+# Dad Finance & Management Access (granted view/pay/manage surfaces)
 
-**Status:** Follow-up build candidate — scope locked by founder 2026-06-09
+**Status:** Follow-up build candidate — scope locked by founder 2026-06-09 (expanded same day)
 **Filed:** 2026-06-09, during the Role-Scoping Leak Pass close-out
-**Estimated workers:** 1
-**Depends on:** Role-Scoping Leak Pass (shipped 2026-06-09 — migration 100255, `useViewableMembers`)
+**Estimated workers:** 1-2
+**Depends on:** Role-Scoping Leak Pass (shipped 2026-06-09 — migrations 100255/100259, `useViewableMembers`, MomOnlyRoute own-login enforcement)
 
 ---
 
@@ -12,6 +12,38 @@
 > "For finances, is there a way to grant dad permission to view/edit etc the
 > finance/history as well? Because a lot of moms will want that ability for
 > them to view and pay/mark paid for the kids."
+
+Expanded the same day:
+
+> "I do want mom to be able to grant dad permission to access and use the
+> reward rules, the studio, and prize board. Some moms will want to off load
+> some of that mental load. Some moms it would add to the mental load if dad
+> was messing with her system. So default to invisible, but permissions
+> available."
+
+## Scope addition — granted management surfaces
+
+Beyond finances, three mom-only management surfaces become **grantable**:
+
+| Surface | Route | Suggested permission key |
+|---|---|---|
+| Studio (template workshop) | `/studio` | `studio` (registered) |
+| Prize Board | `/prize-board` | new or reuse `gamification_basic` family-level grant |
+| RewardRules (contracts) | `/contracts` | same family as Prize Board |
+
+Rules:
+- **Default = invisible** (exactly as today): not in dad's sidebar, MomOnlyRoute card
+  on direct URL. Nothing changes for ungranted dads.
+- **Granted**: the surface appears in dad's sidebar AND MomOnlyRoute admits him.
+  This requires MomOnlyRoute (or a successor `GrantedRoute`) to consult the grant,
+  and `getSidebarSections` to layer grants in — coordinate with follow-up queue
+  item 6 (per-member sidebar customization) which builds the toggle→sidebar layer;
+  these two builds may merge.
+- These are FAMILY-LEVEL management surfaces (not per-kid) — the grant shape may be
+  `target_member_id = NULL` family-wide or a convention row; decide at pre-build.
+  member_permissions currently requires a target; design decision needed.
+- `view` vs `manage` levels: view = see boards/templates; manage = create/edit/
+  deploy/pay. Per-surface semantics defined at pre-build.
 
 ## Model
 

@@ -13,11 +13,15 @@
  * decorative. It is NOT meant to be the path of least resistance.
  *
  * Behavior:
- *   - Inside an active View-As session whose data subject is NOT the primary
- *     parent → render the friendly blocked card.
- *   - Outside View-As → pass through to <ProtectedRoute> unchanged. Mom (and
- *     any other authenticated user) reaches the route normally; their access
- *     is governed by ProtectedRoute + the page's own gating, not by this guard.
+ *   - Any data subject who is NOT the primary parent → render the friendly
+ *     blocked card. This covers BOTH View-As sessions AND direct-URL entry by
+ *     a non-mom member on their own login (additional_adult, teens with PIN
+ *     shadow sessions). Closed 2026-06-09 (role-scoping leak pass): previously
+ *     this guard only fired inside View-As, so dad on his own login could
+ *     reach mom-only pages by typing the URL.
+ *   - Mom (primary_parent) → pass through to <ProtectedRoute> unchanged.
+ *   - While the member record is still loading → neutral empty frame (no
+ *     content flash for non-mom, no false block for mom).
  *
  * The origin drives the copy + affordances:
  *   - 'mom_viewing'    → mom is the real human. Offer "Exit View As" (returns
@@ -26,6 +30,7 @@
  *   - 'member_session' → a kid is the real human at the hub. No exit affordance
  *                        (the kid cannot end their own session); offer a gentle
  *                        "Go back" so they are not dead-ended.
+ *   - own login        → dad/teen reached it directly. Gentle "Go back".
  *
  * Convention #39 (View As Identity-Scope Architecture).
  */
@@ -39,12 +44,16 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 interface MomOnlyBlockedCardProps {
   origin: ViewAsOrigin | null
+  isViewAs: boolean
   onExit: () => void
   onBack: () => void
 }
 
-function MomOnlyBlockedCard({ origin, onExit, onBack }: MomOnlyBlockedCardProps) {
-  const isMemberSession = origin === 'member_session'
+function MomOnlyBlockedCard({ origin, isViewAs, onExit, onBack }: MomOnlyBlockedCardProps) {
+  // "Exit View As" only makes sense when mom is the real human behind a
+  // View-As session. Kid-at-hub sessions and non-mom members on their own
+  // login both get the gentle "Go back" path.
+  const isMomViewing = isViewAs && origin === 'mom_viewing'
 
   return (
     <div
@@ -61,24 +70,11 @@ function MomOnlyBlockedCard({ origin, onExit, onBack }: MomOnlyBlockedCardProps)
         Parent-only area
       </h2>
       <p className="text-sm max-w-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        {isMemberSession
-          ? "Ask mom to help with this — it's a parent-only area."
-          : 'This is a mom-only area. Tap Exit View As to access it.'}
+        {isMomViewing
+          ? 'This is a mom-only area. Tap Exit View As to access it.'
+          : "Ask mom to help with this — it's a parent-only area."}
       </p>
-      {isMemberSession ? (
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{
-            backgroundColor: 'var(--surface-primary)',
-            color: 'var(--color-text-on-primary)',
-            borderRadius: 'var(--vibe-radius-input, 8px)',
-          }}
-        >
-          Go back
-        </button>
-      ) : (
+      {isMomViewing ? (
         <button
           type="button"
           onClick={onExit}
@@ -90,6 +86,19 @@ function MomOnlyBlockedCard({ origin, onExit, onBack }: MomOnlyBlockedCardProps)
           }}
         >
           Exit View As
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-4 py-2 rounded-lg text-sm font-medium"
+          style={{
+            backgroundColor: 'var(--surface-primary)',
+            color: 'var(--color-text-on-primary)',
+            borderRadius: 'var(--vibe-radius-input, 8px)',
+          }}
+        >
+          Go back
         </button>
       )}
     </div>
@@ -105,12 +114,25 @@ export function MomOnlyRoute({ children }: MomOnlyRouteProps) {
   const { stopViewAs } = useViewAs()
   const navigate = useNavigate()
 
-  // Backstop only — block when a View-As session is active and the data
-  // subject is not the primary parent. Outside View-As, pass straight through.
-  if (isViewAs && member?.role !== 'primary_parent') {
+  // While the member record loads, render a neutral frame inside the auth
+  // guard — no content flash for non-mom, no false block for mom.
+  if (!member) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }} />
+      </ProtectedRoute>
+    )
+  }
+
+  // Block ANY non-mom data subject — View-As sessions AND direct-URL entry by
+  // a non-mom member on their own login (2026-06-09 role-scoping leak pass;
+  // previously only View-As sessions were blocked, so dad on his own login
+  // could reach mom-only pages by typing the URL).
+  if (member.role !== 'primary_parent') {
     return (
       <MomOnlyBlockedCard
         origin={origin}
+        isViewAs={isViewAs}
         onExit={() => { void stopViewAs() }}
         onBack={() => navigate(-1)}
       />

@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 19 rows
+### `family_members` — 20 rows
 
 | # | Column |
 |---|---|
@@ -790,7 +790,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1610 rows
+### `routine_step_completions` — 1629 rows
 
 | # | Column |
 |---|---|
@@ -3541,7 +3541,7 @@
 | 10 | `practice_count` |
 | 11 | `created_at` |
 
-### `reflection_prompts` — 320 rows
+### `reflection_prompts` — 352 rows
 
 | # | Column |
 |---|---|
