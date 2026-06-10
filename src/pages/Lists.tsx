@@ -23,7 +23,7 @@ import { SharedWithHeader } from '@/components/shared/SharedWithHeader'
 import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
-import { useViewableMembers } from '@/hooks/useViewableMembers'
+import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
 import {
   useLists, useList, useListItems, useCreateList, useCreateListItem,
   useToggleListItem, useDeleteListItem, useUpdateListItem, useUpdateList,
@@ -1417,6 +1417,9 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
   // Convention #39.
   const { member: effectiveMember } = useEffectiveMember()
   const { data: family } = useFamily()
+  // PERMISSIONS-WIRING (founder Decision 9): a granted adult at 'view' level
+  // for the list owner can SEE the list but not check items.
+  const { viewableLevels: listGrantLevels } = useViewableMembers('lists_basic')
   const createItem = useCreateListItem()
   const toggleItem = useToggleListItem()
   const deleteItem = useDeleteListItem()
@@ -1877,8 +1880,20 @@ function ListDetailView({ listId, onBack }: { listId: string; onBack: () => void
     return 'adult' as const
   }
 
+  // PERMISSIONS-WIRING: may the viewer check items on this list? Mom, the
+  // owner, and shared-with members always can; a granted adult needs
+  // contribute+ on the list owner (view = see only — founder Decision 9).
+  const canCheckItems =
+    isPrimaryParent ||
+    isOwner ||
+    !!myShare ||
+    !list.owner_id ||
+    list.owner_id === member?.id ||
+    accessLevelAtLeast(listGrantLevels[list.owner_id], 'contribute')
+
   // Victory creation on item check — handles per-item and per-list modes
   function handleToggle(item: ListItem) {
+    if (!canCheckItems) return
     const isChecking = !item.checked
     toggleItem.mutate(
       {

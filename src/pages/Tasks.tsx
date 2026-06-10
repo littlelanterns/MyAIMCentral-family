@@ -44,7 +44,7 @@ import { MasterySubmissionModal } from '@/components/tasks/sequential/MasterySub
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useArchiveExpiredRoutines } from '@/hooks/useArchiveExpiredRoutines'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
-import { useViewableMembers } from '@/hooks/useViewableMembers'
+import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -222,9 +222,23 @@ export function TasksPage() {
   // sees self + member_permissions grants; everyone else sees self only.
   // Scoped to the EFFECTIVE member so View-As shows what the member would see.
   const isEffectiveMom = activeMember?.role === 'primary_parent'
-  const { viewableIds, viewableMembers } = useViewableMembers(
+  const { viewableIds, viewableMembers, viewableLevels } = useViewableMembers(
     'tasks_basic',
     activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
+  )
+
+  /**
+   * PERMISSIONS-WIRING (founder Decision 9, 2026-06-09): 'view' grants mean
+   * SEE ONLY. A granted adult may act on a kid's task only at contribute+.
+   * Mom and self always act.
+   */
+  const canActOnTask = useCallback(
+    (task: Task): boolean => {
+      if (isEffectiveMom) return true
+      if (!task.assignee_id || task.assignee_id === activeMember?.id) return true
+      return accessLevelAtLeast(viewableLevels[task.assignee_id], 'contribute')
+    },
+    [isEffectiveMom, activeMember?.id, viewableLevels],
   )
 
   // Guided quick-create: simple title-only task, assigned to self
@@ -315,6 +329,14 @@ export function TasksPage() {
 
   const toggleWithSoftClaim = useCallback(
     (task: Task, origin?: { x: number; y: number }, extras?: { completionNote?: string | null; photoUrl?: string | null }) => {
+      // PERMISSIONS-WIRING: view-only grants cannot complete/uncomplete.
+      if (!canActOnTask(task)) {
+        routingToast.show({
+          message: "You have view-only access to this family member's tasks.",
+          variant: 'error',
+        })
+        return
+      }
       if (task.track_progress && task.status !== 'completed' && member?.id) {
         const result = checkSoftClaimAuthorization({
           taskTrackProgress: true,
@@ -331,7 +353,7 @@ export function TasksPage() {
       }
       toggle(task, origin, extras)
     },
-    [toggle, member?.id, member?.role, resolveHolderName],
+    [toggle, member?.id, member?.role, resolveHolderName, canActOnTask, routingToast],
   )
 
   const handleCrossClaimProceed = useCallback(() => {
@@ -715,6 +737,7 @@ export function TasksPage() {
           tasks={visiblePendingApprovals}
           familyMembers={familyMembers ?? []}
           approverId={member?.id ?? ''}
+          canActOnTask={canActOnTask}
         />
       )}
 
@@ -1593,9 +1616,15 @@ interface PendingApprovalsSectionProps {
   tasks: Task[]
   familyMembers: { id: string; display_name: string }[]
   approverId: string
+  /**
+   * PERMISSIONS-WIRING (founder Decision 9): may the viewer approve/reject
+   * this task's submission? View-only grants see the row, no action buttons.
+   * Defaults to allowed (mom path).
+   */
+  canActOnTask?: (task: Task) => boolean
 }
 
-function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingApprovalsSectionProps) {
+function PendingApprovalsSection({ tasks, familyMembers, approverId, canActOnTask }: PendingApprovalsSectionProps) {
   const approveCompletion = useApproveTaskCompletion()
   const rejectCompletion = useRejectTaskCompletion()
   // Build J: mastery submissions use dedicated hooks that set mastery_status correctly
@@ -1782,6 +1811,11 @@ function PendingApprovalsSection({ tasks, familyMembers, approverId }: PendingAp
                     Cancel
                   </button>
                 </div>
+              ) : canActOnTask && !canActOnTask(task) ? (
+                // View-only grant: row visible, actions hidden (Decision 9)
+                <span className="text-xs whitespace-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
+                  View only
+                </span>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <Tooltip content="Approve">

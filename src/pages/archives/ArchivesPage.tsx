@@ -40,6 +40,7 @@ import {
 } from '@/components/shared'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useAvatarUpload } from '@/hooks/useAvatarUpload'
@@ -411,9 +412,16 @@ export function ArchivesPage() {
   const { data: privacyCount = 0 } = usePrivacyFilteredCount(familyId)
   const { data: overview } = useFamilyOverview(familyId)
 
+  // PERMISSIONS-WIRING (2026-06-09): archives member cards scope to the
+  // viewer's archives_browse grants — mom sees everyone; a granted dad sees
+  // himself + the kids mom granted; everyone else sees only themselves.
+  const { viewableIds } = useViewableMembers('archives_browse')
   const householdMembers = useMemo(
-    () => allMembers.filter((m) => m.is_active && m.in_household !== false && !m.out_of_nest),
-    [allMembers],
+    () =>
+      allMembers.filter(
+        (m) => m.is_active && m.in_household !== false && !m.out_of_nest && viewableIds.has(m.id),
+      ),
+    [allMembers, viewableIds],
   )
   const memberIds = useMemo(() => householdMembers.map((m) => m.id), [householdMembers])
   const { data: memberStats = [] } = useArchiveMemberStats(familyId, memberIds)

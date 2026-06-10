@@ -40,6 +40,7 @@ import {
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { getOptimalColumnCount } from '@/lib/utils/gridColumns'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
+import { useViewableMembers } from '@/hooks/useViewableMembers'
 import { useFamily } from '@/hooks/useFamily'
 import {
   useArchiveFolders,
@@ -694,6 +695,17 @@ export function MemberArchiveDetail() {
     () => allMembers.find((m) => m.id === memberId),
     [allMembers, memberId],
   )
+
+  // PERMISSIONS-WIRING (2026-06-09): direct-URL backstop — a viewer without
+  // an archives_browse grant for this member is bounced back to /archives
+  // (invisibility is the primary layer; the member card never rendered).
+  const { viewableIds, isLoading: viewableLoading } = useViewableMembers('archives_browse')
+  useEffect(() => {
+    if (viewableLoading || !memberId) return
+    if (viewableIds.size > 0 && !viewableIds.has(memberId)) {
+      navigate('/archives', { replace: true })
+    }
+  }, [viewableLoading, viewableIds, memberId, navigate])
 
   // Archive data
   const { data: folderData, isLoading: foldersLoading } = useArchiveFolders(familyId, memberId)
