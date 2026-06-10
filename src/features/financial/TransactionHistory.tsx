@@ -72,7 +72,7 @@ export function TransactionHistoryPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
-          to="/tasks?tab=finances"
+          to="/dashboard?view=family_overview&fotab=finances"
           className="p-2 rounded-lg transition-colors hidden md:flex"
           style={{ color: 'var(--color-text-secondary)' }}
         >

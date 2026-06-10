@@ -206,11 +206,11 @@ function FamilyFinancialSummary({ familyId }: { familyId?: string }) {
       <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
         View detailed balances and recent transactions on the{' '}
         <Link
-          to="/tasks?tab=finances"
+          to="/dashboard?view=family_overview&fotab=finances"
           className="font-medium underline"
           style={{ color: 'var(--color-btn-primary-bg)' }}
         >
-          Tasks → Finances tab
+          Family Overview → Finances tab
         </Link>
       </p>
     </div>

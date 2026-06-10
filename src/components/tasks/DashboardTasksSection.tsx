@@ -40,6 +40,10 @@ const DEFAULT_VIEWS: Record<string, TaskViewKey> = {
   play: 'simple_list',
 }
 
+// FO-COMMAND-CENTER: views not yet built render PlannedViewStub. Exported so
+// the Tasks page (which now hosts the same carousel) shares one source of truth.
+export const PLANNED_VIEWS = new Set(['big_rocks', 'ivy_lee', 'abcde', 'moscow', 'impact_effort', 'by_member'])
+
 interface DashboardTasksSectionProps {
   tasks: Task[]
   memberId: string
@@ -235,7 +239,6 @@ export function DashboardTasksSection({
 
   // Mom / Adult / Independent shells — full view with carousel
   const taskCount = activeTasks.length + completedToday.length
-  const PLANNED_VIEWS = new Set(['big_rocks', 'ivy_lee', 'abcde', 'moscow', 'impact_effort', 'by_member'])
 
   return (
     <div className="space-y-3">
@@ -366,7 +369,7 @@ export function DashboardTasksSection({
   )
 }
 
-interface ViewRendererProps {
+export interface ViewRendererProps {
   viewKey: TaskViewKey
   tasks: Task[]
   onToggle: (task: Task, origin?: { x: number; y: number }) => void
@@ -379,7 +382,9 @@ interface ViewRendererProps {
   taskDrawMap?: Record<string, import('@/hooks/useTaskRandomizerDraws').TaskRandomizerDraw>
 }
 
-function ViewRenderer({
+// FO-COMMAND-CENTER: exported — the Tasks page mounts the same renderer
+// (Convention #262 prop-drilling contract applies to BOTH hosts).
+export function ViewRenderer({
   viewKey,
   tasks,
   onToggle,

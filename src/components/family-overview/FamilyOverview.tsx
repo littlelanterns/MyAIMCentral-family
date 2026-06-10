@@ -29,6 +29,7 @@ import {
   type MemberRoutineToday,
   type MemberSequentialSummary,
 } from '@/hooks/useFamilyOverviewData'
+import { useSearchParams } from 'react-router-dom'
 import { useActivePeriod, useLiveAllowanceProgress, type GraceDayEntry } from '@/hooks/useFinancial'
 import { useCompleteTask, useTasksWithPendingApprovals, type Task } from '@/hooks/useTasks'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
@@ -832,7 +833,20 @@ export default function FamilyOverview() {
   const completeTask = useCompleteTask()
 
   // ── FO-COMMAND-CENTER: page tabs + relocated surfaces ──
-  const [activeTab, setActiveTab] = useState<FamilyOverviewTab>('overview')
+  const [foSearchParams, setFoSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<FamilyOverviewTab>(() => {
+    const param = foSearchParams.get('fotab')
+    return param === 'approvals' || param === 'queue' || param === 'finances' ? param : 'overview'
+  })
+  useEffect(() => {
+    // Consume the deep-link param (relocated /tasks?tab=finances links etc.)
+    if (foSearchParams.get('fotab')) {
+      const next = new URLSearchParams(foSearchParams)
+      next.delete('fotab')
+      setFoSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [spotCheckMember, setSpotCheckMember] = useState<FamilyMember | null>(null)
   const isPrimaryParent = member?.role === 'primary_parent'
 

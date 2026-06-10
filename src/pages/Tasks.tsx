@@ -17,26 +17,30 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   CheckSquare,
   Plus,
-  RefreshCw,
   Star,
-  BookOpen,
-  Inbox,
   Filter,
   ArrowUpDown,
-  X,
   ChevronDown,
   Layers,
   ListPlus,
-  DollarSign,
 } from 'lucide-react'
 import { Tabs, Button, Badge, EmptyState, SparkleOverlay, FeatureGuide, FeatureIcon, LoadingSpinner } from '@/components/shared'
-import { useTasks, useArchiveTask, useTasksWithPendingApprovals, fetchSharedTaskIds } from '@/hooks/useTasks'
+import { useTasks, useArchiveTask, fetchSharedTaskIds } from '@/hooks/useTasks'
 import { useSubmitMastery, useLogPractice } from '@/hooks/usePractice'
-// FO-COMMAND-CENTER: approvals + edit flow extracted to shared components
-// (they also mount on the Family Overview command center)
-import { PendingApprovalsSection, filterVisiblePendingApprovals } from '@/components/tasks/PendingApprovalsSection'
+// FO-COMMAND-CENTER: edit flow shared with the Family Overview spot-check;
+// approvals/queue/finances surfaces relocated to the FO command center.
 import { useTaskEditor } from '@/hooks/useTaskEditor'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
+import { ViewCarousel, type TaskViewKey } from '@/components/tasks/ViewCarousel'
+import { ViewRenderer, PLANNED_VIEWS } from '@/components/tasks/DashboardTasksSection'
+import {
+  TaskViewInclusionPills,
+  useTaskViewInclusion,
+  applyTaskTypeInclusion,
+} from '@/components/tasks/TaskViewInclusionControl'
+import { useShell } from '@/components/shells/ShellProvider'
+import { useNavigate } from 'react-router-dom'
+import { useSequentialCollections } from '@/hooks/useSequentialCollections'
 import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
 import { useRoutingToast } from '@/components/shared'
 import { SoftClaimCrossClaimModal, SoftClaimDoneBlockedModal } from '@/components/tasks/SoftClaimWarningModal'
@@ -53,8 +57,7 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
-import { SequentialCollectionView } from '@/components/tasks/sequential/SequentialCollectionView'
-import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
+import { SequentialCollectionCard } from '@/components/tasks/sequential/SequentialCollectionView'
 import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
 import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import { ModalV2 } from '@/components/shared/ModalV2'
@@ -64,13 +67,11 @@ import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
-import { getMemberColor } from '@/lib/memberColors'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { SegmentHeader } from '@/components/segments/SegmentHeader'
 import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmentUtils'
-import { FinancesTab } from '@/features/financial/FinancesTab'
 import { useSearchParams } from 'react-router-dom'
 import { useOpportunityLists, useOpportunityItems } from '@/hooks/useOpportunityLists'
 import { OpportunityListBrowse } from '@/components/lists/OpportunityListBrowse'
@@ -110,9 +111,12 @@ function useStudioQueue(familyId: string | undefined, memberId: string | undefin
 // ─────────────────────────────────────────────
 // Type definitions
 // ─────────────────────────────────────────────
-type TaskTab = 'my_tasks' | 'routines' | 'opportunities' | 'sequential' | 'queue' | 'finances'
-type SortOrder = 'name' | 'last_deployed' | 'most_assigned' | 'recently_created'
-type FilterStatus = 'all' | 'active' | 'completed' | 'unassigned' | 'archived'
+// FO-COMMAND-CENTER (2026-06-10): the Tasks page is now purely personal.
+// Routines / Opportunities / Sequential / Queue / Finances tabs relocated to
+// the Family Overview command center. Guided members keep their two tabs.
+type TaskTab = 'my_tasks' | 'opportunities'
+type SortOrder = 'name' | 'recently_created'
+type FilterStatus = 'all' | 'active' | 'completed' | 'archived'
 
 // ─────────────────────────────────────────────
 // Main page component
@@ -122,9 +126,10 @@ export function TasksPage() {
   const { data: family } = useFamily()
   const { member: activeMember, isViewAs: isViewingAs } = useEffectiveMember()
   const { data: familyMembers } = useFamilyMembers(family?.id)
+  const { shell } = useShell()
+  const navigate = useNavigate()
   useArchiveExpiredRoutines(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)
-  const { data: pendingApprovalTasks = [] } = useTasksWithPendingApprovals(family?.id)
 
   // Fetch task_assignments for the active member (for shared task visibility)
   const { data: mySharedTaskIds = [] } = useQuery({
@@ -137,12 +142,17 @@ export function TasksPage() {
   const [activeTab, setActiveTab] = useState<TaskTab>('my_tasks')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recently_created')
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('active')
-  const [filterMemberId, setFilterMemberId] = useState<string | null>(activeMember?.id ?? null)
   const [showFilters, setShowFilters] = useState(false)
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [sequentialModalOpen, setSequentialModalOpen] = useState(false)
   const [showBulkAdd, setShowBulkAdd] = useState(false)
+
+  // FO-COMMAND-CENTER Q6: the 13 prioritization views live on the Tasks page
+  const [activeView, setActiveView] = useState<TaskViewKey>('simple_list')
+  // FO-COMMAND-CENTER Q2 hybrid: persisted default + session override pills
+  const inclusion = useTaskViewInclusion(family?.id, activeMember?.id)
+  // Q2: tapping the next sequential item's card opens the full collection
+  const [sequentialDetail, setSequentialDetail] = useState<Task | null>(null)
   // FO-COMMAND-CENTER: edit flow shared with the Family Overview spot-check
   const editor = useTaskEditor()
   const [guidedNewTask, setGuidedNewTask] = useState('')
@@ -167,37 +177,24 @@ export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [makeupConfig, setMakeupConfig] = useState<{ assigneeId: string } | null>(null)
 
-  // Default the member filter to OWN tasks once the member resolves (founder
-  // ruling 2026-06-09: "my tasks page should be mine" — applies to every role,
-  // including mom; the whole family stays one pill-tap away for mom).
-  // Functional update so a deep-linked ?member= param (effect below) wins.
-  const [filterInitialized, setFilterInitialized] = useState(false)
-  useEffect(() => {
-    if (filterInitialized || !activeMember?.id) return
-    setFilterMemberId(prev => (prev === null ? activeMember.id : prev))
-    setFilterInitialized(true)
-  }, [activeMember?.id, filterInitialized])
-
+  // FO-COMMAND-CENTER: the page is always scoped to OWN items now (founder
+  // vision 2026-06-09 — "the task page should just be my page"). Family
+  // spot-checking lives on the Family Overview command center.
   useEffect(() => {
     if (searchParams.get('new') === '1' && searchParams.get('type') === 'makeup') {
       const assigneeId = searchParams.get('assignee')
       if (assigneeId) {
         setMakeupConfig({ assigneeId })
         setShowCreateModal(true)
-        setActiveTab('finances')
         // Clean URL params
         setSearchParams({}, { replace: true })
       }
     } else if (searchParams.get('tab') === 'finances') {
-      setActiveTab('finances')
-      setSearchParams({}, { replace: true })
+      // Legacy deep link — Finances relocated to the Family Overview (founder Q7)
+      navigate('/dashboard?view=family_overview&fotab=finances', { replace: true })
     } else if (searchParams.get('member')) {
-      // Deep-link from ViewAs "Manage Tasks": pre-set the member pill filter
-      const memberId = searchParams.get('member')
-      if (memberId) {
-        setFilterMemberId(memberId)
-        setSearchParams({}, { replace: true })
-      }
+      // Legacy ViewAs "Manage Tasks" deep link — spot-checking lives on FO now
+      navigate('/dashboard?view=family_overview', { replace: true })
     }
   }, [searchParams])
 
@@ -220,7 +217,7 @@ export function TasksPage() {
   // sees self + member_permissions grants; everyone else sees self only.
   // Scoped to the EFFECTIVE member so View-As shows what the member would see.
   const isEffectiveMom = activeMember?.role === 'primary_parent'
-  const { viewableIds, viewableMembers, viewableLevels } = useViewableMembers(
+  const { viewableLevels } = useViewableMembers(
     'tasks_basic',
     activeMember ? { id: activeMember.id, family_id: activeMember.family_id, role: activeMember.role } : null,
   )
@@ -396,85 +393,40 @@ export function TasksPage() {
 
   // ── Tab definitions ──
   // Guided members get only My Tasks + Opportunities (PRD-25 Phase C)
-  const tabs: TabItem[] = isGuidedMember
-    ? [
-        { key: 'my_tasks', label: 'My Tasks', icon: <CheckSquare size={15} /> },
-        { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
-      ]
-    : [
-        { key: 'my_tasks', label: 'My Tasks', icon: <CheckSquare size={15} /> },
-        { key: 'routines', label: 'Routines', icon: <RefreshCw size={15} /> },
-        { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
-        { key: 'sequential', label: 'Sequential', icon: <BookOpen size={15} /> },
-        {
-          key: 'queue',
-          label: `Queue${queueItems.length > 0 ? ` (${queueItems.length})` : ''}`,
-          icon: <Inbox size={15} />,
-        },
-        // PRD-28: Finances tab — mom (primary_parent) only
-        ...(member?.role === 'primary_parent' ? [{
-          key: 'finances' as const,
-          label: 'Finances',
-          icon: <DollarSign size={15} />,
-        }] : []),
-      ]
+  // Guided members keep their two-tab experience (PRD-25 Phase C). Everyone
+  // else gets the purely personal page — no tabs (FO-COMMAND-CENTER).
+  const tabs: TabItem[] = [
+    { key: 'my_tasks', label: 'My Tasks', icon: <CheckSquare size={15} /> },
+    { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
+  ]
 
-  // ── Filter tasks for each tab (memoized) ──
+  // ── Personal task scope (memoized) ──
+  // FO-COMMAND-CENTER: own items ONLY for every role, including mom — assigned
+  // to me, created by me (unassigned), shared with me, or soft-claim-held by me
+  // (Daily Progress Marking §4.5).
   const displayTasks = useMemo(() => {
-    let filtered = allTasks
-
     const myId = activeMember?.id
+    if (!myId) return []
 
-    if (myId && activeTab !== 'queue') {
-      // Sanitize the pill selection: non-mom may only filter to members they can
-      // view (guards deep-linked ?member= params pointing at non-granted members).
-      const effectiveFilterId =
-        filterMemberId && !isEffectiveMom && !viewableIds.has(filterMemberId)
-          ? myId
-          : filterMemberId
+    let filtered = allTasks.filter(
+      (t) =>
+        t.assignee_id === myId ||
+        (!t.assignee_id && t.created_by === myId) ||
+        myAssignedTaskIds.has(t.id) ||
+        t.in_progress_member_id === myId
+    )
 
-      if (effectiveFilterId) {
-        // Specific member selected: show their tasks + tasks created by the viewer for them
-        filtered = filtered.filter(
-          (t) =>
-            t.assignee_id === effectiveFilterId ||
-            (!t.assignee_id && t.created_by === effectiveFilterId) ||
-            (t.created_by === myId && t.assignee_id === effectiveFilterId)
-        )
-      } else if (isEffectiveMom) {
-        // "All" selected by mom: show everything in the family (no filter)
-      } else {
-        // Non-mom with "All": own + shared + created-by-me + granted members' tasks
-        filtered = filtered.filter(
-          (t) =>
-            t.assignee_id === myId ||
-            t.created_by === myId ||
-            myAssignedTaskIds.has(t.id) ||
-            (!!t.assignee_id && viewableIds.has(t.assignee_id))
-        )
-      }
-    }
-
-    switch (activeTab) {
-      case 'my_tasks':
-        filtered = filtered.filter((t) => t.task_type === 'task' || t.task_type === 'habit')
-        break
-      case 'routines':
-        filtered = filtered.filter((t) => t.task_type === 'routine')
-        break
-      case 'opportunities':
-        filtered = filtered.filter(
-          (t) =>
-            t.task_type === 'opportunity_repeatable' ||
-            t.task_type === 'opportunity_claimable' ||
-            t.task_type === 'opportunity_capped'
-        )
-        break
-      case 'sequential':
-        filtered = filtered.filter((t) => t.task_type === 'sequential')
-        break
-      default:
-        break
+    if (isGuidedMember) {
+      // Guided tabs: My Tasks (task/habit) or Opportunities
+      filtered =
+        activeTab === 'opportunities'
+          ? filtered.filter((t) => t.task_type.startsWith('opportunity'))
+          : filtered.filter((t) => t.task_type === 'task' || t.task_type === 'habit')
+    } else {
+      // FO-COMMAND-CENTER Q2 hybrid: persisted default + session override pills
+      // decide whether routines/opportunities/sequential join the views.
+      // Sequential inclusion = next active item only.
+      filtered = applyTaskTypeInclusion(filtered, inclusion.effective)
     }
 
     switch (filterStatus) {
@@ -490,9 +442,6 @@ export function TasksPage() {
           const bDate = b.completed_at ? new Date(b.completed_at).getTime() : 0
           return bDate - aDate
         })
-        break
-      case 'unassigned':
-        filtered = filtered.filter((t) => !t.assignee_id)
         break
       case 'archived':
         filtered = filtered.filter((t) => t.archived_at)
@@ -511,13 +460,19 @@ export function TasksPage() {
     }
 
     return filtered
-  }, [allTasks, activeMember?.id, activeTab, filterStatus, filterMemberId, sortOrder, myAssignedTaskIds, isEffectiveMom, viewableIds])
+  }, [allTasks, activeMember?.id, activeTab, filterStatus, sortOrder, myAssignedTaskIds, isGuidedMember, inclusion.effective])
 
-  // Pending approvals the viewer may see (shared helper — also used by the
-  // Family Overview Approvals tab).
-  const visiblePendingApprovals = useMemo(
-    () => filterVisiblePendingApprovals(pendingApprovalTasks, isEffectiveMom, activeMember?.id, viewableIds),
-    [pendingApprovalTasks, isEffectiveMom, activeMember?.id, viewableIds]
+  // Q2: sequential next-item cards open the full collection ("see the entire
+  // list or complete early"); everything else opens the normal edit modal.
+  const handleOpenTask = useCallback(
+    (task: Task) => {
+      if (task.task_type === 'sequential') {
+        setSequentialDetail(task)
+        return
+      }
+      void openEditTask(task)
+    },
+    [openEditTask]
   )
 
   return (
@@ -575,32 +530,24 @@ export function TasksPage() {
         <div className="pb-4">
           <FeatureGuide
             featureKey="tasks_management_page"
-            title="Task Management"
-            description="Create, configure, and deploy tasks across your family. This is your system headquarters — the daily active view lives on each member's dashboard."
+            title="My Tasks"
+            description="Your personal task space — your items, seen through your favorite prioritization lens. Family-wide management lives on the Family Overview command center."
             bullets={[
-              'Create tasks, routines, and opportunities once — deploy to multiple members',
-              'Routines auto-reset each period (no guilt for yesterday)',
-              'Opportunities let kids earn rewards by claiming available jobs',
-              'Queue collects drafts from Notepad, LiLa, and meeting action items',
+              'Switch between prioritization views to see your day through different lenses',
+              'Include routines, opportunities, or sequential items right alongside your tasks',
+              'Sequential items show just the next thing to do — tap one to see the whole list',
+              'Spot-check the kids, approvals, and the queue from Dashboard → Family Overview',
             ]}
           />
         </div>
       )}
 
-      {/* ── Tabs ── */}
-      <Tabs
-        tabs={tabs}
-        activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as TaskTab)}
-      />
-
-      {/* ── Pending Approvals — scoped to members the viewer may see (PRD-02) ── */}
-      {visiblePendingApprovals.length > 0 && (
-        <PendingApprovalsSection
-          tasks={visiblePendingApprovals}
-          familyMembers={familyMembers ?? []}
-          approverId={member?.id ?? ''}
-          canActOnTask={canActOnTask}
+      {/* ── Tabs — Guided members only (My Tasks / Opportunities, PRD-25) ── */}
+      {isGuidedMember && (
+        <Tabs
+          tabs={tabs}
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key as TaskTab)}
         />
       )}
 
@@ -634,49 +581,24 @@ export function TasksPage() {
         </form>
       )}
 
-      {/* ── Member pill filter (below tabs) — only members the viewer may see
-            (PRD-02 read scoping: mom = everyone; dad = self + granted; kids none) ── */}
-      {activeTab !== 'queue' && activeTab !== 'finances' && !isGuidedMember && viewableMembers.length > 1 && (
-        <div className="flex items-center gap-1.5 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {/* "All" pill — all viewable members */}
-          <button
-            onClick={() => setFilterMemberId(null)}
-            className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
-            style={{
-              backgroundColor: filterMemberId === null ? 'var(--color-btn-primary-bg)' : 'var(--color-bg-card)',
-              color: filterMemberId === null ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            All
-          </button>
-          {/* Per-member pills */}
-          {viewableMembers
-            .filter(m => m.is_active !== false && !(m as unknown as Record<string, unknown>).out_of_nest)
-            .map(m => {
-              const color = getMemberColor(m as { assigned_color?: string | null; member_color?: string | null })
-              const isSelected = filterMemberId === m.id
-              const isMe = m.id === activeMember?.id
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => setFilterMemberId(m.id)}
-                  className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
-                  style={{
-                    backgroundColor: isSelected ? color : 'transparent',
-                    color: isSelected ? '#fff' : 'var(--color-text-secondary)',
-                    border: `2px solid ${color}`,
-                  }}
-                >
-                  {m.display_name}{isMe ? ' (me)' : ''}
-                </button>
-              )
-            })}
+      {/* FO-COMMAND-CENTER: member pill bar removed — the Tasks page is purely
+          personal; spot-checking other members lives on Family Overview. */}
+
+      {/* ── Inclusion pills + view carousel (FO-COMMAND-CENTER Q2 + Q6) ── */}
+      {!isGuidedMember && (
+        <div className="space-y-2 py-2">
+          <TaskViewInclusionPills
+            inclusion={inclusion.effective}
+            isOverridden={inclusion.isOverridden}
+            onToggle={inclusion.togglType}
+            onSaveDefault={inclusion.saveAsDefault}
+          />
+          <ViewCarousel shell={shell} activeView={activeView} onViewChange={setActiveView} />
         </div>
       )}
 
-      {/* ── Filter bar (below tabs) — hidden for Guided members ── */}
-      {activeTab !== 'queue' && !isGuidedMember && (
+      {/* ── Filter bar — hidden for Guided members ── */}
+      {!isGuidedMember && (
         <div className="flex items-center gap-2 py-3 flex-wrap">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -692,7 +614,7 @@ export function TasksPage() {
           </button>
 
           {/* Status pills */}
-          {(['active', 'completed', 'all', 'unassigned'] as FilterStatus[]).map((s) => (
+          {(['active', 'completed', 'all'] as FilterStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -710,7 +632,7 @@ export function TasksPage() {
           {/* Sort */}
           <button
             onClick={() => {
-              const orders: SortOrder[] = ['recently_created', 'name', 'most_assigned', 'last_deployed']
+              const orders: SortOrder[] = ['recently_created', 'name']
               const idx = orders.indexOf(sortOrder)
               setSortOrder(orders[(idx + 1) % orders.length])
             }}
@@ -738,37 +660,16 @@ export function TasksPage() {
           <div className="flex justify-center py-12">
             <LoadingSpinner size="md" />
           </div>
-        ) : activeTab === 'finances' ? (
-          family?.id ? (
-            <FinancesTab familyId={family.id} />
-          ) : null
-        ) : activeTab === 'queue' ? (
-          <QueueTab queueItems={queueItems} />
-        ) : activeTab === 'opportunities' ? (
+        ) : isGuidedMember && activeTab === 'opportunities' ? (
           <OpportunitiesTab tasks={displayTasks} onToggle={toggleWithSoftClaim} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} familyId={family?.id} memberId={activeMember?.id} createdBy={member?.id} />
-        ) : activeTab === 'sequential' ? (
-          family?.id ? (
-            <SequentialCollectionView
-              familyId={family.id}
-              onCreateCollection={() => setSequentialModalOpen(true)}
-            />
-          ) : null
         ) : displayTasks.length === 0 ? (
           <EmptyState
             icon={<CheckSquare size={36} />}
-            title={
-              isGuidedMember
-                ? 'No tasks for today!'
-                : activeTab === 'routines'
-                  ? 'No routines yet'
-                  : 'No tasks yet'
-            }
+            title={isGuidedMember ? 'No tasks for today!' : 'No tasks yet'}
             description={
               isGuidedMember
                 ? 'Nothing to do right now! Use the box above to add something.'
-                : activeTab === 'routines'
-                  ? 'Create a routine template to build daily, weekly, or custom checklists.'
-                  : 'Create a task to get started, or browse Studio templates for inspiration.'
+                : 'Create a task to get started, or browse Studio templates for inspiration.'
             }
             action={
               isGuidedMember ? undefined : (
@@ -785,17 +686,31 @@ export function TasksPage() {
               )
             }
           />
-        ) : (
+        ) : isGuidedMember || activeView === 'simple_list' ? (
+          // Simple List keeps the segment-aware TaskList (Build M Phase 5
+          // segment grouping is a Tasks-page feature the views don't replicate)
           <TaskList
             tasks={displayTasks}
             onToggle={toggleWithSoftClaim}
             isCompleting={isCompleting}
-            showType={activeTab === 'my_tasks'}
-            onEditTask={openEditTask}
+            showType
+            onEditTask={handleOpenTask}
             onDelete={setConfirmDeleteTask}
             onSubmitMastery={(task) => setMasterySubmissionTask(task)}
             onWorkedOnThis={handleWorkedOnThis}
-            segmentMemberId={activeTab === 'my_tasks' ? activeMember?.id : undefined}
+            segmentMemberId={activeMember?.id}
+          />
+        ) : (
+          // FO-COMMAND-CENTER Q6: the prioritization views, on the Tasks page
+          <ViewRenderer
+            viewKey={activeView}
+            tasks={displayTasks}
+            onToggle={toggleWithSoftClaim}
+            isCompleting={isCompleting}
+            onEdit={handleOpenTask}
+            onWorkedOnThis={handleWorkedOnThis}
+            shell={shell}
+            isPlanned={PLANNED_VIEWS.has(activeView)}
           />
         )}
       </div>
@@ -808,13 +723,12 @@ export function TasksPage() {
         makeupConfig={makeupConfig}
       />
 
-      {/* SequentialCreatorModal — Phase 1 replacement for sequential creation */}
-      {sequentialModalOpen && family?.id && activeMember?.id && (
-        <SequentialCreatorModal
-          isOpen={sequentialModalOpen}
-          onClose={() => setSequentialModalOpen(false)}
-          familyId={family.id}
-          createdBy={activeMember.id}
+      {/* Q2: full-collection view for a tapped sequential next-item */}
+      {sequentialDetail?.sequential_collection_id && (
+        <SequentialDetailModal
+          collectionId={sequentialDetail.sequential_collection_id}
+          familyId={family?.id}
+          onClose={() => setSequentialDetail(null)}
         />
       )}
 
@@ -1101,176 +1015,47 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
 }
 
 // ─────────────────────────────────────────────
-// QueueTab sub-component
+// SequentialDetailModal — Q2 tap-through from a next-item card
 // ─────────────────────────────────────────────
-interface StudioQueueItem {
-  id: string
-  content: string
-  source: string
-  requester_id?: string | null
-  batch_id?: string | null
-  created_at: string
-  destination?: string | null
-}
+// FO-COMMAND-CENTER: when a sequential item is included in the views, only the
+// NEXT item shows; tapping it opens the full collection so the member can see
+// the whole list or complete early (founder Q2). Uses the exported
+// SequentialCollectionCard primitive (Convention #154 — never duplicate).
 
-interface QueueTabProps {
-  queueItems: StudioQueueItem[]
-}
-
-function QueueTab({ queueItems }: QueueTabProps) {
-  const queryClient = useQueryClient()
-  const { data: _member } = useFamilyMember()
-  const { data: _family } = useFamily()
-
-  const dismissItem = async (itemId: string) => {
-    await supabase
-      .from('studio_queue')
-      .update({ dismissed_at: new Date().toISOString() })
-      .eq('id', itemId)
-    queryClient.invalidateQueries({ queryKey: ['studio_queue'] })
-  }
-
-  if (queueItems.length === 0) {
-    return (
-      <EmptyState
-        icon={<Inbox size={36} />}
-        title="Queue is clear"
-        description="Draft tasks from your Notepad, LiLa conversations, and meeting action items will appear here."
-      />
-    )
-  }
-
-  // Group by batch_id
-  const batches = new Map<string, StudioQueueItem[]>()
-  const singles: StudioQueueItem[] = []
-
-  queueItems.forEach((item) => {
-    if (item.batch_id) {
-      if (!batches.has(item.batch_id)) batches.set(item.batch_id, [])
-      batches.get(item.batch_id)!.push(item)
-    } else {
-      singles.push(item)
-    }
-  })
+function SequentialDetailModal({
+  collectionId,
+  familyId,
+  onClose,
+}: {
+  collectionId: string
+  familyId: string | undefined
+  onClose: () => void
+}) {
+  const { data: collections = [] } = useSequentialCollections(familyId)
+  const collection = collections.find((c) => c.id === collectionId)
 
   return (
-    <div className="space-y-3 py-2">
-      {/* Singles */}
-      {singles.map((item) => (
-        <QueueItemCard key={item.id} item={item} onDismiss={dismissItem} />
-      ))}
-
-      {/* Batches */}
-      {Array.from(batches.entries()).map(([batchId, items]) => (
-        <div
-          key={batchId}
-          className="rounded-xl overflow-hidden"
-          style={{
-            border: '1px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-card)',
-          }}
-        >
-          {items.map((item) => (
-            <div
-              key={item.id}
-              style={{ borderBottom: '1px solid var(--color-border)' }}
-            >
-              <QueueItemCard item={item} onDismiss={dismissItem} borderless />
-            </div>
-          ))}
-
-          {/* Batch footer */}
-          <div className="px-3 py-2 flex items-center justify-between">
-            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {items.length} items from same source
-            </span>
-            <button
-              className="text-xs px-2.5 py-1 rounded-lg"
-              style={{
-                backgroundColor: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              Apply to All
-              <ChevronDown size={10} className="inline ml-1" />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-interface QueueItemCardProps {
-  item: StudioQueueItem
-  onDismiss: (id: string) => void
-  borderless?: boolean
-}
-
-function QueueItemCard({ item, onDismiss, borderless = false }: QueueItemCardProps) {
-  const timeAgo = (() => {
-    const diff = Date.now() - new Date(item.created_at).getTime()
-    const hours = Math.floor(diff / 3600000)
-    if (hours < 1) return 'Just now'
-    if (hours < 24) return `${hours}h ago`
-    return `${Math.floor(hours / 24)}d ago`
-  })()
-
-  const sourceLabel = (() => {
-    switch (item.source) {
-      case 'notepad_routed': return 'Notepad'
-      case 'lila_conversation': return 'LiLa'
-      case 'meeting_action': return 'Meeting'
-      case 'review_route': return 'Review & Route'
-      case 'member_request': return 'Task Request'
-      default: return item.source ?? 'Manual'
-    }
-  })()
-
-  return (
-    <div
-      className="flex items-start gap-3 p-3"
-      style={borderless ? {} : {
-        backgroundColor: 'var(--color-bg-card)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--vibe-radius-card, 0.5rem)',
-      }}
+    <ModalV2
+      id={`sequential-detail-${collectionId}`}
+      isOpen
+      onClose={onClose}
+      type="transient"
+      size="lg"
+      title={collection?.title ?? 'Sequential Collection'}
     >
-      <Inbox size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-text-secondary)' }} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-          {item.content}
-        </p>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-          From: {sourceLabel} · {timeAgo}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          className="text-xs px-2.5 py-1 rounded-lg font-medium"
-          style={{
-            backgroundColor: 'var(--color-btn-primary-bg)',
-            color: 'var(--color-btn-primary-text)',
-          }}
-        >
-          Configure
-        </button>
-        <button
-          onClick={() => onDismiss(item.id)}
-          className="p-1 rounded opacity-50 hover:opacity-100"
-          style={{ color: 'var(--color-text-secondary)' }}
-          aria-label="Dismiss"
-        >
-          <X size={14} />
-        </button>
-      </div>
-    </div>
+      {collection ? (
+        <SequentialCollectionCard collection={collection} />
+      ) : (
+        <div className="py-8 text-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          Loading collection…
+        </div>
+      )}
+    </ModalV2>
   )
 }
 
 // ─────────────────────────────────────────────
-// OpportunitiesTab sub-component
+// OpportunitiesTab sub-component (Guided members)
 // ─────────────────────────────────────────────
 interface OpportunitiesTabProps {
   tasks: Task[]

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -58,7 +58,21 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
   const { shell: _shell } = useShell()
   const { startViewAs, stopViewAs: _stopViewAs } = useViewAs()
   const { member: effectiveMember, isViewAs: isViewingAs } = useEffectiveMember()
-  const [perspective, setPerspective] = useState<DashboardView>('personal')
+  // FO-COMMAND-CENTER: ?view=family_overview deep-links straight to the
+  // command center (used by relocated Tasks-page links + ViewAs Manage Tasks).
+  const [dashSearchParams, setDashSearchParams] = useSearchParams()
+  const [perspective, setPerspective] = useState<DashboardView>(() =>
+    dashSearchParams.get('view') === 'family_overview' ? 'family_overview' : 'personal'
+  )
+  useEffect(() => {
+    if (dashSearchParams.get('view') === 'family_overview') {
+      setPerspective('family_overview')
+      // Keep ?fotab= for FamilyOverview to consume; drop the consumed param
+      const next = new URLSearchParams(dashSearchParams)
+      next.delete('view')
+      setDashSearchParams(next, { replace: true })
+    }
+  }, [dashSearchParams, setDashSearchParams])
   // PRD-14D: Hub renders INLINE on perspective tab — no navigation to /hub
 
   // PRD-10: Widget state

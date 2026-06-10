@@ -51,9 +51,10 @@ export function ViewAsBanner() {
     || viewingAsMember.dashboard_mode === 'independent'
 
   const goManageTasks = () => {
-    const targetId = viewingAsMember.id
     stopViewAs()
-    navigate(`/tasks?member=${targetId}`)
+    // FO-COMMAND-CENTER: member spot-checking lives on the Family Overview
+    // command center now (the Tasks page is purely personal).
+    navigate('/dashboard?view=family_overview')
   }
 
   return (
