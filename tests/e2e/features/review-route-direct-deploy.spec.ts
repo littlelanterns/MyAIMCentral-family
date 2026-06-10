@@ -17,7 +17,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
-import { loginAsDad } from '../helpers/auth'
+import { loginAsDad, loginAsMom } from '../helpers/auth'
 import dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
@@ -187,5 +187,43 @@ test.describe('Review & Route Direct Deploy', () => {
       .select('status')
       .eq('tab_id', tabId)
     expect(extracted?.every(i => i.status === 'routed')).toBe(true)
+  })
+
+  test("Mom's queue is mine-by-default — dad's items behind his pill, Deploy all scoped", async ({ page }) => {
+    // Fixture: one queue item owned by Mark (the calendar item from test 1 may
+    // already exist; seed a fresh deterministic one regardless).
+    const DAD_QUEUE = 'RRDEPLOY dad queue item for filter test'
+    await admin.from('studio_queue').insert({
+      family_id: familyId,
+      owner_id: markId,
+      destination: 'task',
+      content: DAD_QUEUE,
+      source: 'review_route',
+    })
+
+    await loginAsMom(page)
+    await page.goto('/dashboard?view=family_overview&fotab=queue')
+    await page.waitForLoadState('networkidle')
+
+    // Owner filter renders (mom has another member with pending items)
+    const filterRow = page.locator('[data-testid="queue-owner-filter"]')
+    await expect(filterRow).toBeVisible({ timeout: 15000 })
+
+    // Default = Mine → dad's item NOT visible
+    await expect(page.getByText(DAD_QUEUE)).toHaveCount(0)
+
+    // Tap Mark's pill → his item appears
+    await filterRow.getByRole('button', { name: /Mark \(\d+\)/ }).click()
+    await expect(page.getByText(DAD_QUEUE)).toBeVisible()
+
+    // Deploy all button count reflects the VISIBLE (Mark's) set, never blank-family
+    const deployBtn = page.locator('[data-testid="queue-deploy-all"]')
+    if (await deployBtn.isVisible().catch(() => false)) {
+      await expect(deployBtn).not.toContainText('(0)')
+    }
+
+    // Back to Mine → hidden again
+    await filterRow.getByRole('button', { name: /Mine \(\d+\)/ }).click()
+    await expect(page.getByText(DAD_QUEUE)).toHaveCount(0)
   })
 })

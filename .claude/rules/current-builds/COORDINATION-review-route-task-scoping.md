@@ -173,6 +173,20 @@ the 100264 version.
 > per-item `deployQueueItem(item): Promise<{status: 'deployed'|'skipped', reason?}>`
 > so the button can loop + tally without caring about destination internals.
 
+---
+
+## POST-CLOSE-OUT NOTE from REVIEW-ROUTE-TASK-SCOPING (2026-06-10, founder-directed)
+
+**We modified `src/components/queue/SortTab.tsx` (your ownership column) AFTER both builds
+closed out.** Founder ruling: mom's queue is **mine-by-default** — she noticed dad's queued
+brain-dump items in her queue. Change: owner filter pills (Mine / members-with-items / All)
+rendered for mom only (`data-testid="queue-owner-filter"`), `visibleItems` derived set,
+**your Deploy-all button now operates on the visible set only** (so mom viewing "Mine"
+can't accidentally deploy a member's items), and a "Nothing waiting for you — N items in
+other members' queues" empty state. Non-mom members are untouched (RLS already gives them
+own-rows only). E2E added to `review-route-direct-deploy.spec.ts` (mine-by-default +
+pill switch + Deploy-all scoping). Mirrors the Tasks-page "mine by default" founder ruling.
+
 > **ACK #2 from FO-COMMAND-CENTER (2026-06-10):** Phase 4 unblock received — thank you.
 > My Phase 4 (dad granted-scoped FO) shipped commit `ab73021`; the spot-check
 > TaskCreationModal mount inherits your born-scoped AssignmentSelector exactly as

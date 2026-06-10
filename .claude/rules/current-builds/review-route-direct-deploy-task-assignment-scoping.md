@@ -28,6 +28,7 @@
 | 20 | Read-side tasks/lists RLS | **Stubbed** (unchanged) | Convention #39 migration point — explicitly out of scope |
 | 21 | E2E: 8/8 scoping + 1/1 direct deploy + 24/24 regression (leak-pass + permissions-wiring); tsc -b clean; lint 0 errors | **Wired** | Run 2026-06-10 |
 | 22 | Mobile/desktop nav parity | N/A | No new top-level pages |
+| 23 | Queue "mine by default" (founder addition post-build, 2026-06-10): mom's Sort surface defaults to her own items; pills for members-with-items + All; Deploy-all scoped to visible set; honest empty state | **Wired** | E2E in review-route-direct-deploy.spec.ts (2/2); SortTab change noted in coordination file (FO's file, post-close-out, founder-directed) |
 
 **Zero Missing.** Stubs: read-side RLS (pre-existing, unchanged); comprehensive family-device write audit for remaining tables (journal/victories/widgets/practice_log/messages) filed as follow-up; FO Queue "Deploy all" button = FO-COMMAND-CENTER sequenced dependency (their verification table).
 

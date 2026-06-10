@@ -14,6 +14,7 @@ import { Inbox, Send } from 'lucide-react'
 import { EmptyState, useRoutingToast } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
+import { getMemberColor } from '@/lib/memberColors'
 import { useRecordApprovalPattern } from '@/hooks/useMindSweep'
 import { deployQueueItems, type DeployableItem } from '@/lib/queue/deployQueueItem'
 import { useCreateEvent } from '@/hooks/useCalendarEvents'
@@ -224,6 +225,44 @@ export function SortTab() {
 
   const createEvent = useCreateEvent()
 
+  // ── Owner filter (founder ruling 2026-06-10, mirrors the Tasks page
+  // "mine by default"): mom's queue defaults to HER OWN items; other
+  // members' intake stays theirs unless she taps their pill or "All".
+  // Non-mom members only ever receive their own rows from RLS, so the
+  // filter UI renders for mom only. View As shows a member's queue as them.
+  const isMom = currentMember?.role === 'primary_parent'
+  const [ownerFilter, setOwnerFilter] = useState<'mine' | 'all' | string>('mine')
+
+  const visibleItems = useMemo(() => {
+    if (!isMom || ownerFilter === 'all') return queueItems
+    const targetId = ownerFilter === 'mine' ? currentMember?.id : ownerFilter
+    return queueItems.filter((i) => i.owner_id === targetId)
+  }, [queueItems, ownerFilter, isMom, currentMember?.id])
+
+  // Other members who currently have pending items — pills render only for them
+  const otherOwnersWithItems = useMemo(() => {
+    if (!isMom) return [] as Array<{ id: string; name: string; color: string; count: number }>
+    const counts = new Map<string, number>()
+    for (const i of queueItems) {
+      if (i.owner_id && i.owner_id !== currentMember?.id) {
+        counts.set(i.owner_id, (counts.get(i.owner_id) ?? 0) + 1)
+      }
+    }
+    return familyMembers
+      .filter((m) => counts.has(m.id))
+      .map((m) => ({
+        id: m.id,
+        name: m.display_name.split(' ')[0],
+        color: getMemberColor(m),
+        count: counts.get(m.id)!,
+      }))
+  }, [queueItems, familyMembers, isMom, currentMember?.id])
+
+  const myCount = useMemo(
+    () => queueItems.filter((i) => i.owner_id === currentMember?.id).length,
+    [queueItems, currentMember?.id],
+  )
+
   // Modal state
   const [configItem, setConfigItem] = useState<StudioQueueRecord | null>(null)
   const [batchMode, setBatchMode] = useState<'group' | 'sequential' | undefined>()
@@ -245,7 +284,7 @@ export function SortTab() {
     const meetingActions: StudioQueueRecord[] = []
     const others: StudioQueueRecord[] = []
 
-    for (const item of queueItems) {
+    for (const item of visibleItems) {
       if (item.source === 'member_request') memberRequests.push(item)
       else if (item.source === 'meeting_action') meetingActions.push(item)
       else others.push(item)
@@ -268,7 +307,7 @@ export function SortTab() {
     }
 
     return { individualItems: individuals, groupedBatches: batches }
-  }, [queueItems, expandedBatchIds])
+  }, [visibleItems, expandedBatchIds])
 
   const memberById = useMemo(() => {
     const map = new Map(familyMembers.map((m) => [m.id, m]))
@@ -550,11 +589,14 @@ export function SortTab() {
   }
 
   const handleDeployAll = async () => {
-    if (!currentMember || deployingAll || queueItems.length === 0) return
+    // Deploys the VISIBLE set only — when mom is viewing "Mine", Deploy all
+    // never touches other members' items (they may be planning to configure
+    // their own). Switch to a member pill or "All" to deploy theirs.
+    if (!currentMember || deployingAll || visibleItems.length === 0) return
     setDeployingAll(true)
     try {
       const summary = await deployQueueItems(
-        queueItems.map((r): DeployableItem => ({
+        visibleItems.map((r): DeployableItem => ({
           destination: r.destination ?? 'task',
           content: r.content,
           ownerId: r.owner_id,
@@ -587,7 +629,34 @@ export function SortTab() {
     }
   }
 
-  const totalItems = queueItems.length
+  const totalItems = visibleItems.length
+
+  // Owner filter pills — mom only, rendered above the list AND on the
+  // nothing-for-you empty state so other members' items are one tap away,
+  // never silently hidden.
+  const ownerFilterRow = isMom && (otherOwnersWithItems.length > 0 || ownerFilter !== 'mine') ? (
+    <div className="flex flex-wrap gap-1.5 items-center" data-testid="queue-owner-filter">
+      <FilterPill
+        label={`Mine (${myCount})`}
+        active={ownerFilter === 'mine'}
+        onClick={() => setOwnerFilter('mine')}
+      />
+      {otherOwnersWithItems.map((o) => (
+        <FilterPill
+          key={o.id}
+          label={`${o.name} (${o.count})`}
+          active={ownerFilter === o.id}
+          color={o.color}
+          onClick={() => setOwnerFilter(o.id)}
+        />
+      ))}
+      <FilterPill
+        label={`All (${queueItems.length})`}
+        active={ownerFilter === 'all'}
+        onClick={() => setOwnerFilter('all')}
+      />
+    </div>
+  ) : null
 
   if (isLoading) {
     return (
@@ -598,12 +667,22 @@ export function SortTab() {
   }
 
   if (totalItems === 0) {
+    const othersTotal = queueItems.length - myCount
     return (
-      <div style={{ padding: '2rem 1rem' }}>
+      <div style={{ padding: '2rem 1rem' }} className="space-y-3">
+        {ownerFilterRow}
         <EmptyState
           icon={<Inbox size={24} style={{ color: 'var(--color-btn-primary-bg)' }} />}
-          title="Nothing to sort right now."
-          description="Items from brain dumps, meetings, LiLa, and requests will appear here when they arrive."
+          title={
+            isMom && ownerFilter === 'mine' && othersTotal > 0
+              ? 'Nothing waiting for you.'
+              : 'Nothing to sort right now.'
+          }
+          description={
+            isMom && ownerFilter === 'mine' && othersTotal > 0
+              ? `${othersTotal} item${othersTotal === 1 ? ' is' : 's are'} waiting in other family members' queues — tap a name above to view.`
+              : 'Items from brain dumps, meetings, LiLa, and requests will appear here when they arrive.'
+          }
         />
       </div>
     )
@@ -612,6 +691,9 @@ export function SortTab() {
   return (
     <>
       <div style={{ padding: '0.75rem' }} className="space-y-3">
+        {/* Owner filter — mine by default; other members' intake one tap away */}
+        {ownerFilterRow}
+
         {/* Deploy all — one-click knock-out (FO-COMMAND-CENTER, founder request) */}
         <div className="flex justify-end">
           <button
@@ -778,5 +860,35 @@ export function SortTab() {
         }}
       />
     </>
+  )
+}
+
+// ─── Owner filter pill (founder ruling 2026-06-10: queue is mine-by-default) ──
+
+function FilterPill({ label, active, onClick, color }: {
+  label: string
+  active: boolean
+  onClick: () => void
+  color?: string
+}) {
+  const accent = color ?? 'var(--color-btn-primary-bg)'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full text-xs font-medium transition-all duration-150"
+      style={{
+        padding: '0.25rem 0.625rem',
+        backgroundColor: active ? accent : 'transparent',
+        color: active ? 'var(--color-text-on-primary, #fff)' : 'var(--color-text-primary)',
+        border: `1.5px solid ${accent}`,
+        cursor: 'pointer',
+        minHeight: 'unset',
+        lineHeight: 1.2,
+        opacity: active ? 1 : 0.7,
+      }}
+    >
+      {label}
+    </button>
   )
 }
