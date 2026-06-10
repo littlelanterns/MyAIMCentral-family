@@ -295,6 +295,17 @@ Return ONLY a JSON array. Example:
                 console.error(`PIN hash failed for member ${m.id}:`, error.message)
                 throw error
               }
+              // Also create the member's login account so the auto-assigned
+              // PIN can actually sign them in on their own device
+              // (Family-Auth-Two-Door Phase 4 — closes the historic gap where
+              // PINs verified but couldn't create sessions)
+              const { data: syncData, error: syncError } = await supabase.functions.invoke(
+                'family-auth-admin',
+                { body: { action: 'ensure_pin_shadow_account', member_id: m.id, pin } },
+              )
+              if (syncError || !syncData?.success) {
+                console.warn(`PIN login account sync failed for member ${m.id} — re-set their PIN in Family Members to fix`)
+              }
             }),
           )
           const failures = pinResults.filter(r => r.status === 'rejected')

@@ -790,7 +790,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1604 rows
+### `routine_step_completions` — 1610 rows
 
 | # | Column |
 |---|---|

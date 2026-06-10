@@ -4,6 +4,7 @@ import { ArrowLeft, Home } from 'lucide-react'
 import { verifyFamilyLogin } from '@/lib/supabase/auth'
 import { supabase } from '@/lib/supabase/client'
 import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
+import { PicturePasswordGrid } from '@/components/auth/PicturePasswordGrid'
 
 interface LoginMember {
   member_id: string
@@ -22,12 +23,6 @@ interface PinVerifyResult {
   attempts_remaining?: number
   locked_until?: string
   remaining_seconds?: number
-}
-
-interface VisualPasswordImage {
-  id: string
-  display_name: string
-  url: string
 }
 
 type Step = 'family-name' | 'member-select' | 'pin-entry' | 'visual-password'
@@ -50,10 +45,6 @@ export function FamilyLogin() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // Visual password state
-  const [visualImages, setVisualImages] = useState<VisualPasswordImage[]>([])
-  const [visualSequence, setVisualSequence] = useState<string[]>([])
 
   // Lockout state
   const [isLocked, setIsLocked] = useState(false)
@@ -201,8 +192,8 @@ export function FamilyLogin() {
     }
 
     if (member.auth_method === 'visual_password') {
-      loadVisualImages()
-      setVisualSequence([])
+      // Single-picture password (Founder Decision 13) — verified server-side
+      // by PicturePasswordGrid; on success the kid gets a real session.
       setStep('visual-password')
       return
     }
@@ -213,69 +204,6 @@ export function FamilyLogin() {
   function handleHubSelect() {
     // This device becomes a family device — it rests on the Hub.
     navigate('/hub')
-  }
-
-  async function loadVisualImages() {
-    const { data } = await supabase
-      .from('platform_assets')
-      .select('id, display_name, size_128_url')
-      .eq('category', 'login_avatar')
-      .eq('status', 'active')
-      .order('display_name')
-
-    if (data && data.length > 0) {
-      setVisualImages(
-        data.map((a) => ({
-          id: a.id,
-          display_name: a.display_name || 'Image',
-          url: a.size_128_url || a.size_128_url,
-        })),
-      )
-    }
-  }
-
-  function handleVisualImageTap(imageId: string) {
-    setVisualSequence((prev) => {
-      const next = [...prev, imageId]
-      if (next.length >= 4) {
-        verifyVisualPassword(next)
-      }
-      return next
-    })
-    setError('')
-  }
-
-  async function verifyVisualPassword(sequence: string[]) {
-    if (!selectedMember) return
-    setLoading(true)
-    setError('')
-
-    const { data: memberData } = await supabase
-      .from('family_members')
-      .select('visual_password_config')
-      .eq('id', selectedMember.member_id)
-      .single()
-
-    setLoading(false)
-
-    if (!memberData?.visual_password_config) {
-      setError('Visual password is not set up yet. Ask mom to set it up for you.')
-      setVisualSequence([])
-      return
-    }
-
-    const config = memberData.visual_password_config as { sequence: string[] }
-    const correctSequence = config.sequence || []
-
-    if (
-      sequence.length === correctSequence.length &&
-      sequence.every((id, i) => id === correctSequence[i])
-    ) {
-      navigate('/dashboard')
-    } else {
-      setError('That wasn\'t right. Try tapping the pictures in the right order!')
-      setVisualSequence([])
-    }
   }
 
   async function handlePinSubmit(e: React.FormEvent) {
@@ -345,7 +273,6 @@ export function FamilyLogin() {
       setStep('member-select')
       setSelectedMember(null)
       setPin('')
-      setVisualSequence([])
       setError('')
       setIsLocked(false)
       setLockoutSecondsRemaining(0)
@@ -582,78 +509,21 @@ export function FamilyLogin() {
           </form>
         )}
 
-        {/* Step: Visual Password */}
+        {/* Step: Picture Password — single picture among decoys, verified
+            server-side. A correct tap mints a real session (personal device). */}
         {step === 'visual-password' && selectedMember && (
           <div className="space-y-4">
             <p className="text-center" style={{ color: AUTH_COLORS.text }}>
               Hi, {selectedMember.display_name}!
             </p>
-            <p className="text-center text-sm" style={{ color: AUTH_COLORS.textMuted }}>
-              Tap your pictures in the right order
-            </p>
-
-            {/* Selected sequence indicator */}
-            <div className="flex justify-center gap-2">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="w-8 h-8 rounded-full border-2 flex items-center justify-center"
-                  style={{
-                    borderColor: visualSequence[i] ? AUTH_COLORS.primary : AUTH_COLORS.border,
-                    backgroundColor: visualSequence[i] ? AUTH_COLORS.primary : 'transparent',
-                  }}
-                >
-                  {visualSequence[i] && (
-                    <span className="text-white text-xs font-bold">{i + 1}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Image grid */}
-            {visualImages.length > 0 ? (
-              <div className="grid grid-cols-3 gap-3">
-                {visualImages.map((img) => (
-                  <button
-                    key={img.id}
-                    onClick={() => handleVisualImageTap(img.id)}
-                    disabled={loading || visualSequence.length >= 4}
-                    className="aspect-square rounded-xl overflow-hidden transition-transform active:scale-95 disabled:opacity-40"
-                    style={{
-                      border: visualSequence.includes(img.id)
-                        ? `3px solid ${AUTH_COLORS.primary}`
-                        : `2px solid ${AUTH_COLORS.border}`,
-                      backgroundColor: AUTH_COLORS.card,
-                    }}
-                  >
-                    <img
-                      src={img.url}
-                      alt={img.display_name}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-sm py-4" style={{ color: AUTH_COLORS.textMuted }}>
-                Visual password images are not available yet. Ask mom to set them up.
-              </p>
-            )}
-
-            <button
-              onClick={() => setVisualSequence([])}
-              disabled={visualSequence.length === 0}
-              className="w-full py-2 rounded-lg text-sm font-medium disabled:opacity-30"
-              style={{
-                backgroundColor: AUTH_COLORS.card,
-                border: `1px solid ${AUTH_COLORS.border}`,
-                color: AUTH_COLORS.text,
-              }}
-            >
-              Start Over
-            </button>
+            <PicturePasswordGrid
+              memberId={selectedMember.member_id}
+              mode="session"
+              onSuccess={() => navigate('/dashboard')}
+              onEmailLoginRequired={() => navigate('/auth/sign-in')}
+            />
             <p className="text-xs text-center" style={{ color: AUTH_COLORS.textMuted }}>
-              Can't remember? Ask mom to reset your picture password.
+              Can&apos;t remember? Ask mom to reset your picture.
             </p>
           </div>
         )}

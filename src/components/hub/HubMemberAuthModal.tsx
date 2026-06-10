@@ -17,6 +17,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
+import { PicturePasswordGrid } from '@/components/auth/PicturePasswordGrid'
 
 interface PinVerifyResult {
   success: boolean
@@ -153,6 +154,7 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
   const authMethod = member.auth_method as string | null
   if (!authMethod || authMethod === 'none') return null // handled by useEffect above
 
+  const isPicture = authMethod === 'visual_password'
   const color = member.calendar_color || getMemberColor(member)
 
   return (
@@ -190,7 +192,7 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
             className="text-sm font-semibold"
             style={{ color: 'var(--color-text-on-primary)', fontFamily: 'var(--font-heading)' }}
           >
-            Enter PIN
+            {isPicture ? 'Tap Your Picture' : 'Enter PIN'}
           </span>
           <button
             onClick={onClose}
@@ -224,8 +226,25 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
             </p>
           </div>
 
+          {/* Picture password — single picture among decoys, verified
+              server-side. Verify-only: dip-in stays a member_session View As,
+              no session swap on the shared device. */}
+          {isPicture && (
+            <PicturePasswordGrid
+              memberId={member.id}
+              mode="verify"
+              onSuccess={async () => {
+                if (!currentMember || !family) return
+                await startViewAs(member, currentMember.id, family.id, {
+                  origin: 'member_session',
+                })
+                onClose()
+              }}
+            />
+          )}
+
           {/* Lockout banner */}
-          {isLocked && (
+          {!isPicture && isLocked && (
             <div
               className="rounded-lg px-4 py-3 text-sm text-center space-y-1"
               style={{
@@ -243,13 +262,14 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
           )}
 
           {/* Error */}
-          {error && !isLocked && (
+          {!isPicture && error && !isLocked && (
             <p className="text-sm text-center" style={{ color: 'var(--color-error, #ef4444)' }}>
               {error}
             </p>
           )}
 
           {/* PIN form */}
+          {!isPicture && (
           <form onSubmit={handlePinSubmit} className="space-y-4">
             <div className="relative">
               <Lock
@@ -291,9 +311,10 @@ export function HubMemberAuthModal({ member, isOpen, onClose }: HubMemberAuthMod
               {loading ? 'Checking...' : 'Open My Space'}
             </button>
           </form>
+          )}
 
           <p className="text-xs text-center" style={{ color: 'var(--color-text-secondary)' }}>
-            Forgot your PIN? Ask mom to reset it.
+            {isPicture ? 'Can’t remember? Ask mom to reset your picture.' : 'Forgot your PIN? Ask mom to reset it.'}
           </p>
         </div>
       </div>

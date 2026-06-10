@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles } from 'lucide-react'
+import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles, Image as ImageIcon, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -50,6 +50,7 @@ export function FamilyMembers() {
   const { data: allMembers } = useFamilyMembers(member?.family_id)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [pinModal, setPinModal] = useState<string | null>(null)
+  const [pictureModal, setPictureModal] = useState<string | null>(null)
   const [inviteModal, setInviteModal] = useState<string | null>(null)
 
   const isPrimaryParent = member?.role === 'primary_parent'
@@ -150,6 +151,7 @@ export function FamilyMembers() {
               isEditing={editingId === m.id}
               onToggleEdit={() => setEditingId(editingId === m.id ? null : m.id)}
               onOpenPin={() => setPinModal(m.id)}
+              onOpenPicture={() => setPictureModal(m.id)}
               onOpenInvite={() => setInviteModal(m.id)}
               onSave={async (updates) => {
                 await supabase.from('family_members').update(updates).eq('id', m.id)
@@ -167,6 +169,18 @@ export function FamilyMembers() {
           memberId={pinModal}
           memberName={allMembers?.find((m) => m.id === pinModal)?.display_name ?? ''}
           onClose={() => setPinModal(null)}
+        />
+      )}
+
+      {/* Picture Login Modal */}
+      {pictureModal && (
+        <PictureModal
+          memberId={pictureModal}
+          memberName={allMembers?.find((m) => m.id === pictureModal)?.display_name ?? ''}
+          onClose={() => {
+            setPictureModal(null)
+            queryClient.invalidateQueries({ queryKey: ['family-members'] })
+          }}
         />
       )}
 
@@ -188,6 +202,7 @@ function MemberRow({
   isEditing,
   onToggleEdit,
   onOpenPin,
+  onOpenPicture,
   onOpenInvite,
   onSave,
 }: {
@@ -195,6 +210,7 @@ function MemberRow({
   isEditing: boolean
   onToggleEdit: () => void
   onOpenPin: () => void
+  onOpenPicture: () => void
   onOpenInvite: () => void
   onSave: (updates: Record<string, unknown>) => Promise<void>
 }) {
@@ -244,6 +260,14 @@ function MemberRow({
             title="Set PIN"
           >
             <Key size={16} />
+          </button>
+          <button
+            onClick={onOpenPicture}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
+            title="Set Picture Login"
+          >
+            <ImageIcon size={16} />
           </button>
           <button
             onClick={onOpenInvite}
@@ -397,6 +421,170 @@ function MemberRow({
           />
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Picture Login setup (Founder Decision 13 — Family-Auth-Two-Door Phase 4).
+ * Mom picks the kid's ONE secret picture (never a sequence). At login the
+ * kid taps their picture among decoys; verification is server-side with the
+ * same lockout as PINs. Mom can also switch this member to "no login needed"
+ * here — safe because every device already passed the family password door.
+ */
+function PictureModal({ memberId, memberName, onClose }: { memberId: string; memberName: string; onClose: () => void }) {
+  const [assets, setAssets] = useState<{ id: string; display_name: string | null; size_128_url: string | null }[] | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('platform_assets')
+      .select('id, display_name, size_128_url')
+      .eq('category', 'login_avatar')
+      .eq('status', 'active')
+      .order('display_name')
+      .then(({ data }) => {
+        if (!cancelled) setAssets(data ?? [])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleSave() {
+    if (!selected) return
+    setSaving(true)
+    setError('')
+
+    const { data, error: fnError } = await supabase.functions.invoke('family-auth-admin', {
+      body: { action: 'set_member_picture', member_id: memberId, asset_id: selected },
+    })
+
+    setSaving(false)
+
+    if (fnError || !data?.success) {
+      setError('Failed to save. Please try again.')
+      return
+    }
+
+    setSaved(true)
+  }
+
+  async function handleNoLogin() {
+    setSaving(true)
+    setError('')
+    const { error: updateError } = await supabase
+      .from('family_members')
+      .update({ auth_method: 'none', visual_password_config: null })
+      .eq('id', memberId)
+    setSaving(false)
+    if (updateError) {
+      setError('Failed to save. Please try again.')
+      return
+    }
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="w-full max-w-md mx-4 p-6 rounded-2xl space-y-4 max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: 'var(--color-bg-card)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-heading)' }}>
+          {saved ? 'Picture Set!' : `Picture Login for ${memberName}`}
+        </h2>
+
+        {saved ? (
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              {memberName} will tap this picture to log in. At login it appears mixed in
+              with other pictures — only they know which one is theirs.
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-lg font-medium text-white"
+              style={{ backgroundColor: 'var(--color-sage-teal)' }}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Pick {memberName}&apos;s secret picture — their PIN equivalent. Choose one
+              they&apos;ll remember (and keep it just between you two).
+            </p>
+
+            {error && <p className="text-sm" style={{ color: 'var(--color-error)' }}>{error}</p>}
+
+            {!assets ? (
+              <p className="text-sm text-center py-6" style={{ color: 'var(--color-text-secondary)' }}>
+                Loading pictures...
+              </p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {assets.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => setSelected(a.id)}
+                    className="relative aspect-square rounded-lg overflow-hidden transition-transform active:scale-95"
+                    style={{
+                      border: selected === a.id
+                        ? '3px solid var(--color-sage-teal, #68a395)'
+                        : '2px solid var(--color-border)',
+                    }}
+                  >
+                    {a.size_128_url ? (
+                      <img src={a.size_128_url} alt={a.display_name ?? ''} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>{a.display_name}</span>
+                    )}
+                    {selected === a.id && (
+                      <span
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: 'var(--color-sage-teal, #68a395)' }}
+                      >
+                        <Check size={12} color="#fff" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={!selected || saving}
+              className="w-full py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-sage-teal)' }}
+            >
+              {saving ? 'Saving...' : 'Set as Their Picture'}
+            </button>
+
+            <button
+              onClick={handleNoLogin}
+              disabled={saving}
+              className="w-full py-2 rounded-lg text-sm disabled:opacity-50"
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              No login needed for {memberName}
+            </button>
+            <p className="text-xs text-center" style={{ color: 'var(--color-text-tertiary)' }}>
+              "No login" is safe on family devices — they already passed the family password.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   )
 }
