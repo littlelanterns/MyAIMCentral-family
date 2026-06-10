@@ -1,7 +1,33 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-06-09 (PERMISSIONS-WIRING close-out).
+> Updated each build session. Last updated: 2026-06-10 (FO-COMMAND-CENTER close-out).
+
+## FO-COMMAND-CENTER (2026-06-10)
+
+Family Overview becomes mom's command center; Tasks page becomes purely personal. Founder vision 2026-06-09, gate-approved 2026-06-10 (Q1–Q9). Convention #275; #150 amended. Zero migrations. E2E `tests/e2e/family-overview/fo-command-center.spec.ts` 9/9 (+ updated leak-pass + permissions-wiring pins — relocated surfaces, same intents).
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| FO page tabs (Overview / Approvals / Queue / Finances) | Tabs on Family Overview; Queue + Finances mom-only; deep link `?view=family_overview&fotab=` | **Wired** | Queue mounts the REAL `SortTab` (modal contract #66/#146 untouched) |
+| FO Routines section | `get_member_day_obligations` per member (Convention #271) + step completions; shared routines count any completer (#266) | **Wired** | New section key; saved orders merge via `mergeSectionOrder` (read-time) |
+| FO Sequential section | Per-member collection progress + "Next:" item | **Wired** | New section key |
+| FO Victories section (was stub) | `victories` today via family-timezone date | **Wired** | Founder Q9 |
+| FO Weekly Completion section (was stub) | `useActivePeriod` + `calculate_allowance_progress` (default pool): % bar + on-track payout | **Wired** | Founder Q9. Multi-pool kids show default pool only (compact surface) |
+| Member spot-check deep view | Tap column header → `MemberSpotCheck` modal: My Tasks / Routines / Opportunities / Sequential tabs, inline complete (credits the kid, no unmark per PRD-14C D8), full edit modal inline | **Wired** | Founder Q4 "no page hopping" |
+| Shared task-edit flow | `useTaskEditor` + `TaskEditModal` — ONE save path (atomic RPC, ROUTINE-SAVE-FIX) for Tasks.tsx + spot-check | **Wired** | Extracted from Tasks.tsx |
+| PendingApprovalsSection relocated to FO | Shared component `src/components/tasks/PendingApprovalsSection.tsx`; mastery fork (#161) + Decision 9 view-only gating intact | **Wired** | Off the Tasks page entirely (founder Q1) |
+| Queue surface relocated to FO | FO Queue tab = `SortTab`; dead inline QueueTab (no-op Configure) deleted; QueueBadge/QuickTasks modal entry points unchanged | **Wired** | Founder Q1 |
+| Finances relocated to FO | `FinancesTab` on FO; legacy `/tasks?tab=finances` redirects | **Wired** | Founder Q7 |
+| Sequential [+ Create] relocated | Spot-check Sequential tab → SequentialCreatorModal (mom) | **Wired** | Founder Q8; Convention #150 amended; Studio + Lists entries unchanged |
+| Tasks page purely personal | Own items only every role (incl. soft-claim-held §4.5); pill bar removed; Guided two-tab experience untouched | **Wired** | Leak-pass test 1/3 pins updated to the new homes |
+| 13 views on Tasks page | Exported `ViewRenderer`/`ViewCarousel` (one renderer, two hosts); simple_list keeps segment-aware TaskList (Build M) | **Wired** | Founder Q6. 6 views remain PlannedViewStub (unchanged scope) |
+| Inclusion control (Q2 hybrid) | Persisted default `dashboard_configs.preferences.task_view_inclusion` + session pills + "Save as default"; sequential = next-item-only, tap → full collection modal | **Wired** | `TaskViewInclusionControl.tsx` |
+| Dad granted-scoped FO | PerspectiveSwitcher offers FO to additional_adult only with viewable members; FO filters by `viewableIds`; act-paths contribute+ w/ toast; stale `view_as_permissions` read removed | **Wired** | Founder Q3. Spot-check create inherits the born-scoped AssignmentSelector (REVIEW-ROUTE session, migrations 100262-100264) |
+| FO FeatureGuide + LiLa knowledge | `family_overview` guide card; help-patterns + feature-guide-knowledge updated | **Wired** | |
+| "Deploy all" button on Queue surface | Button in SortTab (modal Sort tab + FO Queue tab share it) loops `deployQueueItems()` engine per pending item; calendar/agenda/context-needing items skipped by the engine (CalendarTab Approve All keeps dates); results toast "N deployed · N left for details" | **Wired** | Engine landed mid-session (REVIEW-ROUTE migrations 100262-100264); E2E test 3b |
+| FO Finances for finance-granted dads | FO Finances tab stays mom-only this build (parity with prior Tasks-page gating); granted dads keep Prize Board | Stub | Candidate follow-up: gate by `useManagementGrants.financeMaxLevel` |
+| FO per-column long-press collapse override + drag reorder (PRD-14C) | Row-level collapse works; per-column override + section/column drag-reorder remain unbuilt from the original PRD-14C build | Stub | Pre-existing gap, unchanged by this build |
 
 ## PERMISSIONS-WIRING (2026-06-09)
 

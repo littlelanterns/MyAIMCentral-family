@@ -38,12 +38,21 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   When opportunity is checked: set default reward (money/points), item type (one-time/claimable/repeatable), and claim lock duration.
   Pool Mode (gear icon on randomizer): set who can see the list (colored member pills).`,
 
-  '/tasks': `TASKS PAGE — 6 tabs: My Tasks, Routines, Opportunities, Sequential, Queue, Finances.
-  OPPORTUNITIES TAB: Shows both standalone opportunity tasks AND opportunity-flagged lists.
-  Opportunity lists appear as expandable cards — tap to see items with "I'll do this!" claim buttons.
-  Kids claim items → task appears on their dashboard automatically.
-  [+ Create Opportunity] button for standalone opportunities.
-  Filter bar: member pill buttons filter across all tabs.`,
+  '/tasks': `TASKS PAGE — purely PERSONAL (FO-COMMAND-CENTER 2026-06-10): your own items only, for every role including mom.
+  VIEW CAROUSEL: prioritization views (Simple List, Eisenhower, Eat the Frog, 1-3-5, By Category, Kanban, Now/Next/Optional; more coming).
+  INCLUDE PILLS above the carousel: tap Routines / Opportunities / Sequential to pull those item types into your views for the day. "Save as default" makes a mix permanent. Sequential items show just the NEXT thing to do — tap it to open the whole collection.
+  [Create] + [Bulk Add] buttons in the header; status pills (active/completed/all); Review Queue badge opens the queue modal.
+  Family management moved: spot-checking kids, Approvals, Queue, and Finances all live on Dashboard → Family Overview now.
+  Guided kids keep their simple two tabs here (My Tasks, Opportunities).`,
+
+  '/dashboard#family_overview': `FAMILY OVERVIEW — mom's command center (Dashboard → "Family Overview" tab; dads see it only when granted).
+  4 page tabs: Overview, Approvals(N), Queue(N), Finances (Queue + Finances are mom-only).
+  OVERVIEW: side-scrolling member columns. Sections per kid (collapsible, reorder persists): Today's Events, Today's Tasks (tap checkbox to mark done — no un-marking from here), Routines (steps done today), Sequential (progress + next item), Opportunities, Best Intentions, Active Trackers, Weekly Completion (allowance % + on-track payout), Victories.
+  Member pills choose whose columns show; the calendar follows the same selection.
+  SPOT-CHECK: tap a member's name → deep view with My Tasks / Routines / Opportunities / Sequential tabs. Complete or EDIT any item right there (full edit modal opens inline). Mom can create a new Sequential Collection from the Sequential tab.
+  APPROVALS: every pending submission incl. mastery submissions (practice history + evidence shown). Approve/Reject with optional note.
+  QUEUE: the full Sort surface — Configure, batch processing, dismiss.
+  FINANCES: the family financial summary (balances, recent transactions, makeup-task shortcuts).`,
 
   '/studio': `STUDIO PAGE — Template workshop with 7 sections. Browse formats, customize, deploy.
   Sections:
@@ -147,6 +156,34 @@ export interface UseCaseRecipe {
 }
 
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
+  {
+    triggers: ['check on my kids', 'see how everyone is doing', 'spot check', 'did the kids do their chores', 'family at a glance', 'approve their work', 'command center'],
+    clarifyingQuestion: "The Family Overview is built for exactly this! Quick question so I point you right: do you want the at-a-glance view of everyone's day, a deep-dive on ONE child, or are you looking to clear out approvals and queue items?",
+    variants: [
+      {
+        name: 'Everyone at a glance',
+        description: "Side-by-side columns showing each kid's day.",
+        howToSetUp: `Go to Dashboard and tap "Family Overview" at the top.
+Use the member pills to pick whose columns show — your picks are remembered.
+Each column shows their events, tasks (tap the checkbox to mark one done), routine progress, sequential progress, opportunities, intentions, trackers, weekly completion (with on-track allowance), and today's victories.
+Tap any section header to collapse that section across all columns.`,
+      },
+      {
+        name: 'Deep-dive on one child',
+        description: "Spot-check one kid's items and fix anything on the spot.",
+        howToSetUp: `On Family Overview, tap the child's NAME at the top of their column.
+Their spot-check view opens with My Tasks / Routines / Opportunities / Sequential tabs.
+Tap a checkbox to complete something for them, or the pencil to open the full edit modal right there — no page hopping.`,
+      },
+      {
+        name: 'Clear approvals + queue',
+        description: 'Process everything waiting on your decision.',
+        howToSetUp: `On Family Overview, use the Approvals tab for pending submissions (mastery submissions show practice history and evidence — approving releases rewards).
+The Queue tab is your decision inbox: Configure turns a captured thought into a real task or list item; Dismiss lets it go guilt-free.
+The Finances tab shows balances and recent transactions for the whole crew.`,
+      },
+    ],
+  },
   {
     triggers: ['set up the tablet', 'family device', 'kids own device', 'kids log in', 'shared computer', 'how do my kids sign in', 'set up logins'],
     clarifyingQuestion: "Happy to walk you through it! Quick question first — is this a shared device the whole family will use (like a kitchen tablet), or one child's own device? And for your kids: would each do better with a 4-digit PIN, or a secret picture they tap (great for pre-readers), or no login at all once the device is unlocked?",

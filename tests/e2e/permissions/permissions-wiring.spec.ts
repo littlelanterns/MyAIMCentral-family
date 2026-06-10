@@ -285,18 +285,23 @@ test.describe('Permissions Wiring', () => {
     const jordan = await memberId('Jordan')
     await grant('tasks_basic', jordan, 'view')
 
+    // FO-COMMAND-CENTER (2026-06-10): kid spot-checking relocated from the
+    // Tasks page pill bar to the Family Overview spot-check view. Same
+    // Decision 9 pin (view = see only, toast on action), new home.
     await loginAsDad(page)
-    await page.goto('/tasks')
+    await page.goto('/dashboard')
     await waitForAppReady(page)
 
-    // Switch to Jordan's pill (granted, so it exists)
-    await page.getByRole('button', { name: 'Jordan', exact: true }).click()
-    await expect(page.getByText(JORDAN_VIEW_TASK)).toBeVisible({ timeout: 15000 })
+    await page.getByRole('tab', { name: 'Family Overview' }).click()
+    await page.getByTestId(`column-header-${jordan}`).click()
+    const spotCheck = page.getByTestId('member-spot-check')
+    await expect(spotCheck).toBeVisible({ timeout: 15000 })
+    await expect(spotCheck.getByText(JORDAN_VIEW_TASK)).toBeVisible({ timeout: 15000 })
 
     // Any completion attempt on Jordan's tasks is gated at view level.
     // Scope the click to the VIEW task's own card — the approval-task fixture
     // also renders a Mark-complete button (which opens the review expander).
-    const viewTaskCard = page
+    const viewTaskCard = spotCheck
       .getByText(JORDAN_VIEW_TASK)
       .locator('xpath=ancestor::div[.//button[@aria-label="Mark complete"]][1]')
     await viewTaskCard.getByRole('button', { name: 'Mark complete' }).first().click()
@@ -315,10 +320,14 @@ test.describe('Permissions Wiring', () => {
     const jordan = await memberId('Jordan')
     await grant('tasks_basic', jordan, 'view')
 
+    // FO-COMMAND-CENTER (2026-06-10): the Pending Approvals surface relocated
+    // to the Family Overview Approvals tab. Same Decision 9 pin, new home.
     await loginAsDad(page)
-    await page.goto('/tasks')
+    await page.goto('/dashboard')
     await waitForAppReady(page)
 
+    await page.getByRole('tab', { name: 'Family Overview' }).click()
+    await page.getByRole('tab', { name: /Approvals/ }).click()
     await expect(page.getByText(JORDAN_APPROVAL_TASK)).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('View only')).toBeVisible()
 

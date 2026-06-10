@@ -163,19 +163,23 @@ test.describe('Role-Scoping Leak Pass', () => {
   })
 
   // ── 1. Mom default ────────────────────────────────────────────────────────
-  test('Mom Tasks page defaults to her own tasks; All shows family', async ({ page }) => {
+  // FO-COMMAND-CENTER (2026-06-10): the Tasks page is purely personal for
+  // every role; mom's everyone-at-once view relocated to Family Overview.
+  // Same intent pinned (mom default = own; family view exists), new home.
+  test('Mom Tasks page is purely personal; family view lives on Family Overview', async ({ page }) => {
     await loginAsMom(page)
     await page.goto('/tasks')
     await waitForAppReady(page)
 
-    // Her own task visible, dad's hidden (default = own pill)
+    // Her own task visible, dad's hidden — and no All pill exists anymore
     await expect(page.getByText(MOM_TASK)).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(DAD_TASK)).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'All', exact: true })).not.toBeVisible()
 
-    // Her pill bar exists and includes everyone; tap All → dad's task appears
-    await page.getByRole('button', { name: 'All', exact: true }).click()
-    await expect(page.getByText(DAD_TASK)).toBeVisible()
-    await expect(page.getByText(MOM_TASK)).toBeVisible()
+    // Her everyone-at-once view: Family Overview command center
+    await page.goto('/dashboard?view=family_overview')
+    await waitForAppReady(page)
+    await expect(page.getByTestId('family-overview')).toBeVisible({ timeout: 15000 })
   })
 
   // ── 2. Dad (no grants) sees only his own tasks ────────────────────────────
@@ -212,15 +216,23 @@ test.describe('Role-Scoping Leak Pass', () => {
     if (gErr) throw new Error(`grant: ${gErr.message}`)
     grantId = grant.id
 
+    // FO-COMMAND-CENTER (2026-06-10): the granted path now lives on the
+    // Family Overview command center (Tasks page is purely personal).
     await loginAsDad(page)
-    await page.goto('/tasks')
+    await page.goto('/dashboard')
     await waitForAppReady(page)
 
-    // Pill bar now exists (Mark + Jordan). Tap All → Jordan's task visible.
-    await page.getByRole('button', { name: 'All', exact: true }).click()
-    await expect(page.getByText(KID_TASK)).toBeVisible({ timeout: 15000 })
-    // Mom's task still never visible
+    // The grant unlocks the Family Overview tab; Jordan's column is there.
+    await page.getByRole('tab', { name: 'Family Overview' }).click()
+    await expect(page.getByTestId(`column-header-${jordan}`)).toBeVisible({ timeout: 15000 })
+    // Mom's task/column still never visible
     await expect(page.getByText(MOM_TASK)).not.toBeVisible()
+    await expect(page.getByTestId(`column-header-${sarah}`)).not.toBeVisible()
+
+    // And his personal Tasks page stays personal — no kid task there
+    await page.goto('/tasks')
+    await waitForAppReady(page)
+    await expect(page.getByText(KID_TASK)).not.toBeVisible()
 
     // Remove the grant so later tests see ungranted dad again
     await supabase.from('member_permissions').delete().eq('id', grantId)
@@ -238,12 +250,15 @@ test.describe('Role-Scoping Leak Pass', () => {
   })
 
   // ── 5. Dad Queue scoping (RLS) ────────────────────────────────────────────
-  test('Dad Queue tab shows only his own queue items', async ({ page }) => {
+  // FO-COMMAND-CENTER (2026-06-10): the page-level Queue tab relocated to the
+  // mom-scoped Family Overview. Dad's queue access is the Review Queue MODAL
+  // (QueueBadge on the Tasks page header) — same RLS-scoped data, same pin.
+  test('Dad Review Queue modal shows only his own queue items', async ({ page }) => {
     await loginAsDad(page)
     await page.goto('/tasks')
     await waitForAppReady(page)
 
-    await page.getByRole('button', { name: /Queue/ }).click()
+    await page.getByRole('button', { name: /Review Queue/ }).click()
     await expect(page.getByText(DAD_QUEUE_ITEM)).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(MOM_QUEUE_ITEM)).not.toBeVisible()
   })

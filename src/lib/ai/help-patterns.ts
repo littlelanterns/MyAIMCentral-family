@@ -75,6 +75,16 @@ const HELP_PATTERNS: HelpPattern[] = [
     response: "To create a task, tap \"Add Task\" in the QuickTasks bar at the top, or go to Tasks from the bottom nav. You can create one-time tasks, recurring routines, or \"opportunities\" that any family member can claim. Need help setting up a routine?",
   },
   {
+    category: 'family_overview',
+    keywords: ['family overview', 'command center', 'check on kids', 'spot check', 'see everyone', "kids' progress", 'approvals', 'approve task', 'pending approval', 'where did the queue go', 'where is finances', 'queue tab'],
+    response: "Your Family Overview is your command center! From Dashboard, tap \"Family Overview\" at the top. You'll see a column for each selected family member — their tasks, routines, sequential progress, opportunities, intentions, trackers, weekly completion, and victories. Tap any member's name to spot-check their items in detail (you can even edit a task right there). The Approvals, Queue, and Finances tabs at the top handle everything waiting on you — they moved here from the Tasks page so your Tasks page can be just yours.",
+  },
+  {
+    category: 'tasks_views',
+    keywords: ['prioritization view', 'eisenhower', 'kanban', 'eat the frog', 'task views', 'include routines', 'routines in my tasks', 'what counts as a task', 'view my routines with tasks'],
+    response: "On your Tasks page, the view carousel lets you see your items through different lenses — Simple List, Eisenhower, Eat the Frog, Kanban, and more. Above it, the \"Include\" pills control what counts: tap Routines, Opportunities, or Sequential to pull those into your views for the day. Tap \"Save as default\" to make a mix your everyday setting. Sequential items show just the next thing to do — tap one to see the whole list.",
+  },
+  {
     category: 'journal',
     keywords: ['journal', 'diary', 'write', 'entry', 'reflection', 'gratitude', 'daily reflection'],
     response: "Your Journal is accessed through the bottom nav or the \"+\" button which opens the Smart Notepad. Write freely in the Notepad, then route it to Journal when ready. Journal supports multiple entry types: daily reflections, gratitude, prayers, letters, memories, and more.",

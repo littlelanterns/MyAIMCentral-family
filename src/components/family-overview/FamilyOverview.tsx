@@ -34,7 +34,7 @@ import { useActivePeriod, useLiveAllowanceProgress, type GraceDayEntry } from '@
 import { useCompleteTask, useTasksWithPendingApprovals, type Task } from '@/hooks/useTasks'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
 import { useQuery } from '@tanstack/react-query'
-import { Tabs, type TabItem } from '@/components/shared'
+import { Tabs, useRoutingToast, FeatureGuide, type TabItem } from '@/components/shared'
 import { LayoutGrid, ClipboardCheck, Inbox, DollarSign } from 'lucide-react'
 import {
   PendingApprovalsSection,
@@ -831,6 +831,7 @@ export default function FamilyOverview() {
   const { data: config } = useFamilyOverviewConfig(family?.id, member?.id)
   const updateConfig = useUpdateFamilyOverviewConfig()
   const completeTask = useCompleteTask()
+  const routingToast = useRoutingToast()
 
   // ── FO-COMMAND-CENTER: page tabs + relocated surfaces ──
   const [foSearchParams, setFoSearchParams] = useSearchParams()
@@ -1001,11 +1002,15 @@ export default function FamilyOverview() {
         targetMemberId !== member?.id &&
         !accessLevelAtLeast(viewableLevels[targetMemberId], 'contribute')
       ) {
+        routingToast.show({
+          message: "You have view-only access to this family member's tasks.",
+          variant: 'error',
+        })
         return
       }
       completeTask.mutate({ taskId, memberId: targetMemberId })
     },
-    [completeTask, isPrimaryParent, member?.id, viewableLevels]
+    [completeTask, isPrimaryParent, member?.id, viewableLevels, routingToast]
   )
 
   const handleDismissOnboarding = useCallback(() => {
@@ -1114,6 +1119,19 @@ export default function FamilyOverview() {
 
       {activeTab === 'overview' && (
         <>
+      {/* Feature Guide — page identity changed materially (Convention #14) */}
+      <FeatureGuide
+        featureKey="family_overview"
+        title="Family Overview — Your Command Center"
+        description="Everything that needs your eyes in one place: every kid's day at a glance, approvals, the decision queue, and family finances."
+        bullets={[
+          'Swipe through member columns — tasks, routines, sequential progress, victories, and more per kid',
+          "Tap a member's name to spot-check their items and edit right there",
+          'Approvals, Queue, and Finances tabs handle everything waiting on you',
+          'Pick which sections show with the section headers; your setup is remembered',
+        ]}
+      />
+
       {/* Pending Items Bar */}
       <PendingItemsBar familyId={family.id} />
 

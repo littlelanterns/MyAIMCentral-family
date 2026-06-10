@@ -10,11 +10,12 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Inbox } from 'lucide-react'
+import { Inbox, Send } from 'lucide-react'
 import { EmptyState, useRoutingToast } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useRecordApprovalPattern } from '@/hooks/useMindSweep'
+import { deployQueueItems, type DeployableItem } from '@/lib/queue/deployQueueItem'
 import { useCreateEvent } from '@/hooks/useCalendarEvents'
 import { QueueCard } from './QueueCard'
 import { BatchCard } from './BatchCard'
@@ -531,6 +532,61 @@ export function SortTab() {
     }
   }
 
+  // ── "Deploy all" — FO-COMMAND-CENTER button on the REVIEW-ROUTE engine ──
+  // One click knocks every pending item out to its destination via
+  // deployQueueItems(). Calendar/agenda/context-needing items are SKIPPED by
+  // the engine (never half-created) — CalendarTab's Approve All keeps that
+  // job. Founder request 2026-06-10 (see COORDINATION-review-route-task-scoping.md).
+  const [deployingAll, setDeployingAll] = useState(false)
+
+  // Queue-row sources that are also valid tasks.source values pass through;
+  // mindsweep-channel variants normalize to 'mindsweep_auto'. The engine's
+  // declared union is the conservative pair — these are all CHECK-valid.
+  const toEngineSource = (source: string | null): DeployableItem['source'] => {
+    if (source === 'mindsweep_auto' || source === 'mindsweep_queued' || source === 'email_forward' || source === 'share_to_app') {
+      return 'mindsweep_auto'
+    }
+    return 'review_route'
+  }
+
+  const handleDeployAll = async () => {
+    if (!currentMember || deployingAll || queueItems.length === 0) return
+    setDeployingAll(true)
+    try {
+      const summary = await deployQueueItems(
+        queueItems.map((r): DeployableItem => ({
+          destination: r.destination ?? 'task',
+          content: r.content,
+          ownerId: r.owner_id,
+          actorId: currentMember.id,
+          familyId: r.family_id,
+          source: toEngineSource(r.source),
+          sourceReferenceId: r.source_reference_id ?? null,
+          // structure_flag isn't on the SortTab record type; the engine only
+          // preserves it on queue-fallback rows, and these rows ARE the queue.
+          structureFlag: null,
+          queueItemId: r.id,
+        }))
+      )
+      const deployedCount = summary.taskCount + summary.listItemCount
+      const leftCount = summary.queued.length + summary.skipped.length
+      const parts: string[] = []
+      if (deployedCount > 0) parts.push(`${deployedCount} deployed`)
+      if (leftCount > 0) parts.push(`${leftCount} left for details`)
+      if (summary.errors.length > 0) parts.push(`${summary.errors.length} failed`)
+      routingToast.show({
+        message: parts.length > 0 ? parts.join(' · ') : 'Nothing to deploy',
+        variant: summary.errors.length > 0 ? 'error' : 'success',
+      })
+      queryClient.invalidateQueries({ queryKey: ['studio-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['studio_queue'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['lists'] })
+    } finally {
+      setDeployingAll(false)
+    }
+  }
+
   const totalItems = queueItems.length
 
   if (isLoading) {
@@ -556,6 +612,26 @@ export function SortTab() {
   return (
     <>
       <div style={{ padding: '0.75rem' }} className="space-y-3">
+        {/* Deploy all — one-click knock-out (FO-COMMAND-CENTER, founder request) */}
+        <div className="flex justify-end">
+          <button
+            onClick={handleDeployAll}
+            disabled={deployingAll}
+            data-testid="queue-deploy-all"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium"
+            style={{
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+              opacity: deployingAll ? 0.6 : 1,
+              cursor: deployingAll ? 'wait' : 'pointer',
+            }}
+            title="Send every item to its destination — anything needing details (dates, list picks) stays here"
+          >
+            <Send size={13} />
+            {deployingAll ? 'Deploying…' : `Deploy all (${totalItems})`}
+          </button>
+        </div>
+
         {/* Batch cards first */}
         {Array.from(groupedBatches.entries()).map(([batchId, items]) => (
           <BatchCard

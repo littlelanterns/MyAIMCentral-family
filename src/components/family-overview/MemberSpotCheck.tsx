@@ -15,7 +15,7 @@
 import { useMemo, useState } from 'react'
 import { CheckSquare, RefreshCw, Star, BookOpen, Plus } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { Tabs, Button, EmptyState, SparkleOverlay } from '@/components/shared'
+import { Tabs, Button, EmptyState, SparkleOverlay, useRoutingToast } from '@/components/shared'
 import type { TabItem } from '@/components/shared'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
@@ -53,6 +53,7 @@ export function MemberSpotCheck({
   const [sequentialCreatorOpen, setSequentialCreatorOpen] = useState(false)
   const { data: allTasks = [] } = useTasks(familyId)
   const editor = useTaskEditor()
+  const routingToast = useRoutingToast()
 
   const color = member.calendar_color || getMemberColor(member)
 
@@ -69,7 +70,14 @@ export function MemberSpotCheck({
 
   // PRD-14C Decision 8: no unmark from the overview surfaces
   const handleToggle = (task: Task, origin?: { x: number; y: number }) => {
-    if (!canAct) return
+    if (!canAct) {
+      // PERMISSIONS-WIRING Decision 9 — same feedback as the Tasks page
+      routingToast.show({
+        message: "You have view-only access to this family member's tasks.",
+        variant: 'error',
+      })
+      return
+    }
     if (task.status === 'completed') return
     toggle(task, origin)
   }

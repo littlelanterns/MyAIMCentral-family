@@ -82,6 +82,41 @@ migrations 100262+; I expect zero. Both stage only own files.
 - Dashboard PerspectiveSwitcher — shells: mom (+ adult if Q3=yes) — modification only if Q3=yes
 - Sidebar/BottomNav — only if any nav entry changes (none expected; FO lives behind PerspectiveSwitcher) — parity check if touched
 
+## Post-Build Verification (filled 2026-06-10 — awaiting founder eyes-on + sign-off)
+
+| # | Requirement | Source | Status | Notes |
+|---|---|---|---|---|
+| 1 | Routines section per member column | Vision §2 / Q5 | **Wired** | Data via `get_member_day_obligations` (Convention #271); shared-completer counting (#266). E2E test 1 |
+| 2 | Sequential section per member column (progress + next item) | Vision §2 | **Wired** | E2E test 1 |
+| 3 | Victories section live | Q9 | **Wired** | Family-timezone today. E2E test 1 |
+| 4 | Weekly Completion live (% + on-track payout) | Q9 / PRD-14C §5 | **Wired** | Default pool only on the compact column (multi-pool detail stays on Prize Board). E2E test 1 |
+| 5 | Founder Q5 section order + saved-order merge | Q5 | **Wired** | `mergeSectionOrder` read-time graft; no data migration |
+| 6 | FO page tabs Overview/Approvals/Queue/Finances | Vision §4 / Q1 / Q7 | **Wired** | Queue + Finances mom-only. E2E tests 2-4 |
+| 7 | PendingApprovalsSection relocated, mastery fork intact | Vision §3 / #161 | **Wired** | Shared component; E2E test 2 + permissions-wiring test 7 (new home) |
+| 8 | Queue surface relocated (real SortTab) | Vision §4 / Q1 | **Wired** | Dead inline QueueTab deleted; modal contract untouched. E2E test 3 + leak-pass test 5 (modal pin) |
+| 9 | Finances relocated to FO | Q7 | **Wired** | Legacy links redirect. E2E tests 4 + 9 |
+| 10 | Member spot-check w/ founder tab set | Vision §1-2 | **Wired** | E2E test 5 |
+| 11 | Inline full edit modal in spot-check | Q4 | **Wired** | Shared `useTaskEditor`/`TaskEditModal` — one save path (atomic RPC) |
+| 12 | Spot-check completion credits the kid; no unmark | PRD-14C Screen 2 + D8 | **Wired** | `useTaskCompletion(memberId=target)`; completed rows non-tappable |
+| 13 | Sequential [+ Create] relocation | Q8 / #150 | **Wired** | Spot-check Sequential tab (mom); Convention #150 amended |
+| 14 | Tasks page purely personal (every role; soft-claim §4.5 kept) | Vision / leak-pass ruling | **Wired** | E2E test 6 + leak-pass test 1 |
+| 15 | Member pill bar removed; Guided two-tab untouched | Vision | **Wired** | Guided branch verified by code path (PRD-25 tabs intact) |
+| 16 | View carousel + ViewRenderer on Tasks page | Q6 | **Wired** | One renderer two hosts; simple_list keeps segment-aware TaskList (Build M) |
+| 17 | Inclusion control: persisted default + session pills + save-as-default | Q2 hybrid | **Wired** | `dashboard_configs.preferences.task_view_inclusion`. E2E test 6 |
+| 18 | Sequential next-item-only in views + tap-through to full collection | Q2 | **Wired** | `applyTaskTypeInclusion` + `SequentialDetailModal` (SequentialCollectionCard, #154) |
+| 19 | Dad granted-scoped FO (tab gated, members filtered, act-paths gated) | Q3 | **Wired** | E2E tests 7-8; stale `view_as_permissions` read removed; SA never offered FO (PRD-14C) |
+| 20 | Spot-check create inherits scoped AssignmentSelector | Coordination Q1 | **Wired** | Born-scoped by REVIEW-ROUTE session (migrations 100262-100264, landed before my Phase 4 shipped) |
+| 21 | Deep links: `?view=family_overview&fotab=` + legacy redirects | Q7 | **Wired** | E2E test 9; ViewAs Manage Tasks rewired |
+| 22 | FeatureGuide on FO + LiLa knowledge (help-patterns + feature-guide-knowledge) | Convention #14 | **Wired** | 2 new help patterns + page knowledge + use-case recipe |
+| 23 | E2E pins: new suite + both regressions green | Dispatch | **Wired** | fo-command-center 9/9 (1 flaky-retry, documented injectSession race); leak-pass 10/10; permissions-wiring 14/14 |
+| 24 | Convention #275 added; #150 amended | Convention #14 | **Wired** | CLAUDE.md |
+| 25 | Nav parity check | Convention #16 | **N/A** | No sidebar/BottomNav entry added, removed, or renamed (FO lives behind PerspectiveSwitcher; /tasks route unchanged) |
+| 26 | "Deploy all" button on Queue surface | Founder request via coordination | **Wired** | Engine landed mid-session; button in SortTab serves modal + FO Queue tab; calendar/context items skipped by design; E2E test 3b |
+| 27 | FO Finances tab for finance-granted dads | parity choice | **Stubbed** | Kept mom-only (parity with prior Tasks-page gating); granted dads keep Prize Board. Candidate follow-up via `financeMaxLevel` |
+| 28 | PRD-14C per-column long-press collapse override + section/column drag-reorder | PRD-14C (pre-existing gap) | **Stubbed** | Was never built in the original FO build; unchanged by this build; flagged for a FO polish pass |
+
+**Summary: 26 Wired · 2 Stubbed · 0 Missing.** (Row 26 flipped to Wired same-session — the REVIEW-ROUTE engine landed mid-build; E2E fo-command-center now 10/10.)
+
 ## Mom-UI Verification
 
 | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
