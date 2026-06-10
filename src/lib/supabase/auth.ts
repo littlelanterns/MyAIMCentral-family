@@ -118,13 +118,17 @@ export async function verifyFamilyLogin(loginName: string, password: string) {
 /**
  * Set or change the family password. Primary-parent-only; hashing happens
  * server-side (bcrypt) — plain text is never stored.
+ *
+ * Routes through the family-auth-admin Edge Function (NOT the bare RPC):
+ * it writes the hash AND rotates the family shadow auth account, signing
+ * out every resting family-device session — the remote kill switch.
  */
 export async function setFamilyPassword(password: string) {
-  const { data, error } = await supabase.rpc('set_family_password', {
-    p_password: password,
+  const { data, error } = await supabase.functions.invoke('family-auth-admin', {
+    body: { action: 'set_family_password', password },
   })
   return {
     data: data as { success: boolean; reason?: 'not_authenticated' | 'not_authorized' | 'weak_password' } | null,
-    error,
+    error: error as Error | null,
   }
 }

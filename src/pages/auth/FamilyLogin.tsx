@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Home } from 'lucide-react'
 import { verifyFamilyLogin } from '@/lib/supabase/auth'
 import { supabase } from '@/lib/supabase/client'
 import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
@@ -12,6 +12,7 @@ interface LoginMember {
   auth_method: string | null
   member_color: string | null
   dashboard_mode: string | null
+  role?: string | null
 }
 
 // Shape returned by the updated verify_member_pin RPC
@@ -43,6 +44,9 @@ export function FamilyLogin() {
   const [familyDisplayName, setFamilyDisplayName] = useState('')
   const [members, setMembers] = useState<LoginMember[]>([])
   const [selectedMember, setSelectedMember] = useState<LoginMember | null>(null)
+  // True when the device holds a Family identity session (the umbrella).
+  // The Hub tile only renders when this is established.
+  const [familySessionActive, setFamilySessionActive] = useState(false)
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -90,6 +94,35 @@ export function FamilyLogin() {
     return `${seconds} second${seconds !== 1 ? 's' : ''}`
   }
 
+  /**
+   * Establish the Family identity session (the device umbrella).
+   * Tries direct sign-in first; on failure runs the self-healing
+   * family_door_sync (creates/aligns the shadow account — gated server-side
+   * by the actual family password) and retries once.
+   */
+  async function establishFamilySession(fId: string, password: string): Promise<boolean> {
+    const email = `${fId}@family.myaimcentral.app`
+
+    const first = await supabase.auth.signInWithPassword({ email, password })
+    if (!first.error) return true
+
+    const { data: syncData, error: syncError } = await supabase.functions.invoke(
+      'family-auth-admin',
+      { body: { action: 'family_door_sync', login_name: familyName.trim(), password } },
+    )
+    if (syncError || !syncData?.success) {
+      console.warn('family_door_sync failed:', syncError?.message ?? JSON.stringify(syncData))
+      return false
+    }
+
+    const retry = await supabase.auth.signInWithPassword({ email, password })
+    if (retry.error) {
+      console.warn('family session sign-in failed after sync:', retry.error.message)
+      return false
+    }
+    return true
+  }
+
   async function handleFamilyLookup(e: React.FormEvent) {
     e.preventDefault()
 
@@ -103,17 +136,25 @@ export function FamilyLogin() {
       familyPassword,
     )
 
-    setLoading(false)
-
     if (verifyError || !data) {
+      setLoading(false)
       setError('Something went wrong. Please try again.')
       return
     }
 
     if (data.success) {
-      setFamilyPassword('')
       setFamilyId(data.family_id ?? null)
       setFamilyDisplayName(data.family_name ?? '')
+
+      // Device umbrella: sign in as the Family identity. The Hub tile only
+      // shows when this succeeds; member tiles work either way.
+      const sessionOk = data.family_id
+        ? await establishFamilySession(data.family_id, familyPassword)
+        : false
+      setFamilySessionActive(sessionOk)
+      setFamilyPassword('')
+
+      setLoading(false)
 
       if (data.members && data.members.length > 0) {
         setMembers(data.members)
@@ -123,6 +164,8 @@ export function FamilyLogin() {
       }
       return
     }
+
+    setLoading(false)
 
     if (data.reason === 'locked') {
       startLockoutCountdown(data.remaining_seconds ?? 900)
@@ -141,8 +184,19 @@ export function FamilyLogin() {
     setLockoutSecondsRemaining(0)
     if (countdownRef.current) clearInterval(countdownRef.current)
 
+    // Founder Decision 5: the family password NEVER opens mom's command
+    // center. The primary parent (and any full-login adult) signs in with
+    // their own email credentials.
+    if (member.role === 'primary_parent' || member.auth_method === 'full_login') {
+      navigate('/auth/sign-in')
+      return
+    }
+
     if (member.auth_method === 'none') {
-      navigate('/dashboard')
+      // No personal gate (mom's choice) — safe because the device already
+      // passed the family door. Under a family session the kid lands on the
+      // Hub and taps their avatar; without one, legacy dashboard navigation.
+      navigate(familySessionActive ? '/hub' : '/dashboard')
       return
     }
 
@@ -154,6 +208,11 @@ export function FamilyLogin() {
     }
 
     setStep('pin-entry')
+  }
+
+  function handleHubSelect() {
+    // This device becomes a family device — it rests on the Hub.
+    navigate('/hub')
   }
 
   async function loadVisualImages() {
@@ -415,12 +474,31 @@ export function FamilyLogin() {
           </form>
         )}
 
-        {/* Step: member select */}
+        {/* Step: choice screen — Hub tile + member tiles.
+            What gets tapped decides what this device becomes:
+            Hub = family device resting on the Hub; a name = that member's
+            personal device. */}
         {step === 'member-select' && (
           <div className="space-y-3">
             <p className="text-center text-sm" style={{ color: AUTH_COLORS.textMuted }}>
               {familyDisplayName}
             </p>
+
+            {familySessionActive && (
+              <button
+                onClick={handleHubSelect}
+                className="w-full flex items-center justify-center gap-3 p-4 rounded-lg"
+                style={{
+                  background: `linear-gradient(135deg, ${AUTH_COLORS.primary} 0%, ${AUTH_COLORS.accent} 100%)`,
+                  color: '#ffffff',
+                }}
+              >
+                <Home size={22} />
+                <span className="font-medium">Family Hub</span>
+                <span className="text-xs opacity-80">— shared family screen</span>
+              </button>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               {members.map((member) => (
                 <button

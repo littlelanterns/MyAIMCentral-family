@@ -44,6 +44,7 @@ export function MemberAssignmentModal({ open, onClose, item }: Props) {
       .select('id, display_name, role, assigned_color, member_color, age')
       .eq('family_id', family.id)
       .eq('is_active', true)
+      .neq('role', 'family')
       .order('role')
       .then(({ data }) => {
         if (data) setMembers(data as FamilyMemberRow[])

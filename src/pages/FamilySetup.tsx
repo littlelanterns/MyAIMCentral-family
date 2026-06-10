@@ -137,6 +137,7 @@ Return ONLY a JSON array. Example:
           .select('display_name')
           .eq('family_id', member.family_id)
           .eq('is_active', true)
+          .neq('role', 'family')
         if (existing) {
           existingNames = existing.map((m) => m.display_name.toLowerCase().trim())
         }

@@ -188,6 +188,7 @@ export function useSpotlightSearch() {
           .select('id, display_name, role')
           .eq('family_id', familyId)
           .eq('is_active', true)
+          .neq('role', 'family')
           .ilike('display_name', searchPattern)
           .limit(10),
       ])

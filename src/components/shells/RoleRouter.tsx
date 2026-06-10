@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { Navigate } from 'react-router-dom'
 import { useShell } from './ShellProvider'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { MomShell } from './MomShell'
 import { AdultShell } from './AdultShell'
 import { IndependentShell } from './IndependentShell'
@@ -31,6 +33,14 @@ function renderShell(shell: ShellType, children: ReactNode): ReactNode {
 
 export function RoleRouter({ children }: RoleRouterProps) {
   const { shell } = useShell()
+  const { data: currentMember } = useFamilyMember()
+
+  // Family identity sessions (role='family' — hub-resting family devices,
+  // Family-Auth-Two-Door) have no personal shell. Any shell-route navigation
+  // goes to the Hub instead.
+  if (currentMember?.role === 'family') {
+    return <Navigate to="/hub" replace />
+  }
 
   // View As is now a modal overlay (PRD-02 Screen 5) — mom's shell stays
   // underneath, URL never changes. The ViewAsModal renders on top when active.

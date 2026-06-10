@@ -421,6 +421,7 @@ export function useArchiveMembers(familyId: string | undefined) {
         .select('id, display_name, role, avatar_url')
         .eq('family_id', familyId)
         .eq('is_active', true)
+        .neq('role', 'family')
         .order('display_name', { ascending: true })
 
       if (membersError) throw membersError
@@ -1005,6 +1006,7 @@ export function useContextExport(familyId: string | undefined) {
       .select('id, display_name')
       .eq('family_id', familyId)
       .eq('is_active', true)
+      .neq('role', 'family')
       .order('display_name', { ascending: true })
 
     if (membersError) throw membersError

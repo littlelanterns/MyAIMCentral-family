@@ -1,5 +1,7 @@
 export interface RoleBadgeProps {
-  role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'
+  // 'family' is the hidden Family identity row (Family-Auth-Two-Door) —
+  // rosters filter it out, but the type must accept the full role union.
+  role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member' | 'family'
   size?: 'sm' | 'md'
 }
 
@@ -8,6 +10,7 @@ const roleLabels: Record<RoleBadgeProps['role'], string> = {
   additional_adult: 'Adult',
   special_adult: 'Caregiver',
   member: 'Member',
+  family: 'Family',
 }
 
 export function RoleBadge({ role, size = 'sm' }: RoleBadgeProps) {

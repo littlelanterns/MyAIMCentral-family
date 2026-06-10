@@ -425,10 +425,22 @@ function PinModal({ memberId, memberName, onClose }: { memberId: string; memberN
       return
     }
 
-    // TODO: Sync PIN change to auth account password via Edge Function
-    // PIN members have auth accounts ({member_id}@pin.myaimcentral.app)
-    // whose password must match the PIN for session creation on login.
-    // Admin API requires service role key — needs server-side Edge Function.
+    // Sync the PIN to the member's shadow auth account
+    // ({member_id}@pin.myaimcentral.app) so PIN login creates a real session.
+    // Creates the account if it doesn't exist yet (fixes the long-standing
+    // gap where verify_member_pin succeeded but no session could be made).
+    const { data: syncData, error: syncError } = await supabase.functions.invoke(
+      'family-auth-admin',
+      { body: { action: 'ensure_pin_shadow_account', member_id: memberId, pin } },
+    )
+    if (syncError || !syncData?.success) {
+      setError(
+        'PIN saved, but the login account sync failed — this member may not be able to ' +
+          'sign in on their own device. Try setting the PIN again.',
+      )
+      setSaving(false)
+      return
+    }
 
     setSaved(true)
     setSaving(false)

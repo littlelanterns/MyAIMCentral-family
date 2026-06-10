@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 18 rows
+### `family_members` — 19 rows
 
 | # | Column |
 |---|---|

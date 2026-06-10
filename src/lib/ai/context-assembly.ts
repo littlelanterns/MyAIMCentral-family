@@ -435,6 +435,7 @@ export async function assembleContext(
     .select('id, display_name, role, age, date_of_birth, dashboard_mode, relationship')
     .eq('family_id', familyId)
     .eq('is_active', true)
+    .neq('role', 'family')
 
   if (membersData) {
     bundle.familyMembers = membersData.map(m => ({

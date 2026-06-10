@@ -8,7 +8,9 @@ export interface FamilyMember {
   family_id: string
   user_id: string | null
   display_name: string
-  role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member'
+  /** 'family' = the hidden Family identity row (hub-resting family devices,
+   *  Family-Auth-Two-Door) — excluded from all people-rosters */
+  role: 'primary_parent' | 'additional_adult' | 'special_adult' | 'member' | 'family'
   dashboard_mode: 'adult' | 'independent' | 'guided' | 'play' | null
   avatar_url: string | null
   auth_method: 'full_login' | 'pin' | 'visual_password' | 'none' | null
@@ -85,6 +87,8 @@ export function useFamilyMembers(familyId: string | undefined) {
         .select('*')
         .eq('family_id', familyId)
         .eq('is_active', true)
+        // The Family identity row is infrastructure, never a person in lists
+        .neq('role', 'family')
         .order('created_at')
 
       if (error) throw error

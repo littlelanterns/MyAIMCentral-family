@@ -404,6 +404,7 @@ function FamilyManagementSection({ familyId, loginName }: { familyId?: string; l
       .select('id, display_name, role, auth_method, is_active, date_of_birth, member_color, assigned_color')
       .eq('family_id', familyId)
       .eq('is_active', true)
+      .neq('role', 'family')
       .then(({ data }) => {
         if (data) {
           const roleOrder: Record<string, number> = {
