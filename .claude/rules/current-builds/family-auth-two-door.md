@@ -1,6 +1,12 @@
 # Family Auth - Two-Door Umbrella Model
 
-## Status: ACTIVE (founder-approved 2026-06-09 — plan + Q1 Option A + Q5 full treatment w/ single-picture redesign. Build in progress, Phase 1 first.)
+## Status: ACTIVE — ALL 4 PHASES SHIPPED 2026-06-09, awaiting founder eyes-on verification (Checkpoint 5)
+
+> Commits: c4e04a8 (Phase 1 leak closure) · 887be09 (Phase 2 family password) · 8778007 (password script) · d8adab1 (Phase 3 Family identity + choice screen) · 9af9718 (Phase 4 single-picture password). Migrations 100251-100254, 100256-100258 applied to production. family-auth-admin Edge Function deployed (--no-verify-jwt; config.toml entry added by parallel session in fb90095).
+>
+> Production-verified during build: anon roster calls 401; byte-identical login failures; Testworth + WarmthWisdomWork doors unlock (password Lanterns2026 both — founder changes hers via `npm run family:password`); Family identity session signs in + RLS resolves; picture grid 9 unmarked images, wrong tap counts down, correct tap mints session, email-linked members route to email sign-in (Casey test).
+>
+> Remaining before close-out: founder Mom-UI verification (table below), then Part B file updates + move to completed-builds. Phase 4 item needing real-device confirmation: picture session for a shadow/unlinked kid (all Testworth kids have test email accounts, so the full token path was verified only at the API level).
 
 > PRD-01 / PRD-02 AMENDMENT. Closes a live production roster-enumeration hole and implements the founder-specified two-door umbrella login model. Founder decisions locked 2026-06-09 in chat; these override PRD-01/PRD-02 text where they conflict (conflicts noted below).
 
