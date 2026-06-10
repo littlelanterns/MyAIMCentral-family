@@ -20,6 +20,7 @@
     "test:e2e:screenshots": "playwright test tests/e2e/visual/ --update-snapshots",
     "db:types": "npx supabase gen types typescript --project-id vjfbzpliqialqmabfnxs > src/types/supabase.ts",
     "schema:dump": "node scripts/full-schema-dump.cjs",
+    "family:password": "node scripts/set-family-password.cjs",
     "dev:seed": "npx tsx scripts/dev-seed.ts"
   },
   "dependencies": {
