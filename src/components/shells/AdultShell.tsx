@@ -2,7 +2,7 @@ import { useState, useCallback, type ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { Settings } from 'lucide-react'
-import { Tooltip } from '@/components/shared'
+import { Tooltip, RoutingToastProvider } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
@@ -55,6 +55,10 @@ export function AdultShell({ children }: AdultShellProps) {
     <TimerProvider>
     <RewardRevealProvider>
     <ContractRevealWatcher memberId={currentMember?.id} familyId={currentFamily?.id} />
+    {/* PERMISSIONS-WIRING (2026-06-09): adults were missing the toast
+        provider entirely — every useRoutingToast() in the adult shell fell
+        back to a silent noop (incl. the view-only completion gate). */}
+    <RoutingToastProvider>
     <NotepadProvider>
     <div className="flex min-h-svh" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <Sidebar />
@@ -96,6 +100,7 @@ export function AdultShell({ children }: AdultShellProps) {
       />
     </div>
     </NotepadProvider>
+    </RoutingToastProvider>
     </RewardRevealProvider>
     </TimerProvider>
     </ToolLauncherProvider>
