@@ -34,6 +34,23 @@ type LedgerMode = 'mom-per-kid' | 'mom-all-kids' | 'self'
 
 type FilterKey = 'all' | 'earnings' | 'payments' | 'adjustments'
 
+/** All-kids view arrangement: grouped per child (default) vs one date stream.
+ *  Founder request 2026-06-09: the combined chronological stream reads as
+ *  random/overwhelming — give mom the choice, remember it. */
+type AllKidsArrangement = 'by_child' | 'by_date'
+const ARRANGEMENT_STORAGE_KEY = 'myaim-ledger-allkids-arrangement'
+
+function loadArrangement(): AllKidsArrangement {
+  try {
+    const stored = localStorage.getItem(ARRANGEMENT_STORAGE_KEY)
+    if (stored === 'by_date' || stored === 'by_child') return stored
+  } catch { /* ignore */ }
+  return 'by_child'
+}
+
+/** Rows shown per child before "Show all" in the grouped arrangement. */
+const GROUP_PREVIEW_COUNT = 5
+
 const FILTER_TYPES: Record<Exclude<FilterKey, 'all'>, TransactionType[]> = {
   earnings: ['allowance_earned', 'opportunity_earned', 'contract_grant'],
   payments: ['payment_made', 'purchase_deduction'],
@@ -61,6 +78,17 @@ export function LedgerView({
   const [filter, setFilter] = useState<FilterKey>('all')
   const [poolFilter, setPoolFilter] = useState<string>('all')
   const [showCount, setShowCount] = useState(PAGE_SIZE)
+  const [arrangement, setArrangement] = useState<AllKidsArrangement>(loadArrangement)
+
+  function pickArrangement(next: AllKidsArrangement) {
+    setArrangement(next)
+    try { localStorage.setItem(ARRANGEMENT_STORAGE_KEY, next) } catch { /* ignore */ }
+  }
+
+  // Roster — needed up here for the by-child grouping (and reused by rows).
+  const { data: rosterMembers = [] } = useFamilyMembers(
+    mode === 'mom-all-kids' ? familyId : undefined,
+  )
 
   const { data: balance = 0 } = useRunningBalance(
     mode === 'mom-all-kids' ? undefined : memberId,
@@ -117,6 +145,25 @@ export function LedgerView({
   const visible = filtered.slice(0, showCount)
   const hasMore = filtered.length > showCount
 
+  // By-child grouping (mom-all-kids only): one section per kid in roster
+  // order, newest transactions first inside each section.
+  const groupedByChild = useMemo(() => {
+    if (mode !== 'mom-all-kids' || arrangement !== 'by_child') return []
+    const byMember = new Map<string, FinancialTransaction[]>()
+    for (const { tx } of filtered) {
+      const list = byMember.get(tx.family_member_id) ?? []
+      list.push(tx)
+      byMember.set(tx.family_member_id, list)
+    }
+    const rosterOrder = rosterMembers.filter(m => byMember.has(m.id))
+    const knownIds = new Set(rosterOrder.map(m => m.id))
+    const orphanIds = [...byMember.keys()].filter(id => !knownIds.has(id))
+    return [
+      ...rosterOrder.map(m => ({ member: m, transactions: byMember.get(m.id)! })),
+      ...orphanIds.map(id => ({ member: undefined, transactions: byMember.get(id)! })),
+    ]
+  }, [mode, arrangement, filtered, rosterMembers])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       {/* Header: balance + Pay button */}
@@ -165,6 +212,40 @@ export function LedgerView({
               Pay
             </button>
           )}
+        </div>
+      )}
+
+      {/* Arrangement toggle — all-kids view only */}
+      {mode === 'mom-all-kids' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+            Arrange:
+          </span>
+          {([['by_child', 'By child'], ['by_date', 'By date']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => pickArrangement(key)}
+              style={{
+                padding: '0.25rem 0.75rem',
+                borderRadius: '999px',
+                border: '1px solid',
+                borderColor: arrangement === key
+                  ? 'var(--color-btn-primary-bg)'
+                  : 'var(--color-border-default, var(--color-border))',
+                background: arrangement === key
+                  ? 'var(--color-btn-primary-bg)'
+                  : 'transparent',
+                color: arrangement === key
+                  ? 'var(--color-btn-primary-text)'
+                  : 'var(--color-text-secondary)',
+                fontSize: 'var(--font-size-xs)',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -226,7 +307,7 @@ export function LedgerView({
         <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
           Loading…
         </div>
-      ) : visible.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div
           style={{
             padding: '1.25rem',
@@ -238,6 +319,18 @@ export function LedgerView({
           }}
         >
           {filter === 'all' ? 'No transactions yet.' : `No ${filter} in this period.`}
+        </div>
+      ) : mode === 'mom-all-kids' && arrangement === 'by_child' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {groupedByChild.map(({ member, transactions }) => (
+            <ChildLedgerSection
+              key={member?.id ?? transactions[0].family_member_id}
+              member={member}
+              transactions={transactions}
+              hideMoney={hideMoney}
+              familyId={familyId}
+            />
+          ))}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -254,7 +347,7 @@ export function LedgerView({
         </div>
       )}
 
-      {hasMore && (
+      {(mode !== 'mom-all-kids' || arrangement === 'by_date') && hasMore && (
         <button
           onClick={() => setShowCount(c => c + PAGE_SIZE)}
           style={{
@@ -273,6 +366,99 @@ export function LedgerView({
         >
           <ChevronDown size={14} />
           Load more ({filtered.length - showCount} remaining)
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** One child's section in the by-child arrangement: colored header with the
+ *  kid's name + current balance, newest transactions first, previewing the
+ *  most recent few with a per-child "Show all" expander. */
+function ChildLedgerSection({
+  member,
+  transactions,
+  hideMoney,
+  familyId,
+}: {
+  member: { id: string; display_name: string } | undefined
+  transactions: FinancialTransaction[]
+  hideMoney?: boolean
+  familyId: string
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const color = member ? getMemberColor(member as Parameters<typeof getMemberColor>[0]) : 'var(--color-text-secondary)'
+
+  // Current balance = balance_after on the newest balance-moving row
+  // (append-only ledger invariant, Convention #223).
+  const latestMoving = transactions.find(tx => tx.transaction_type !== 'pool_contribution')
+  const balance = latestMoving ? Number(latestMoving.balance_after) : null
+
+  const shown = expanded ? transactions : transactions.slice(0, GROUP_PREVIEW_COUNT)
+  const hiddenCount = transactions.length - GROUP_PREVIEW_COUNT
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          paddingBottom: '0.375rem',
+          marginBottom: '0.375rem',
+          borderBottom: `2px solid ${color}`,
+        }}
+      >
+        <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '999px', background: color, flexShrink: 0 }} />
+        <span style={{ fontWeight: 600, color: 'var(--color-text-heading)', fontSize: 'var(--font-size-sm)' }}>
+          {member?.display_name ?? 'Unknown'}
+        </span>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
+          ({transactions.length} transaction{transactions.length === 1 ? '' : 's'})
+        </span>
+        {!hideMoney && balance !== null && (
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              color: 'var(--color-text-heading)',
+              fontSize: 'var(--font-size-sm)',
+            }}
+          >
+            ${balance.toFixed(2)}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        {shown.map(tx => (
+          <LedgerRow
+            key={tx.id}
+            tx={tx}
+            runningAfter={null}
+            hideMoney={hideMoney}
+            showMember={false}
+            familyId={familyId}
+          />
+        ))}
+      </div>
+
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          style={{
+            marginTop: '0.25rem',
+            padding: '0.25rem 0.625rem',
+            borderRadius: '999px',
+            border: '1px solid var(--color-border-default, var(--color-border))',
+            background: 'transparent',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-size-xs)',
+            cursor: 'pointer',
+          }}
+        >
+          {expanded ? 'Show less' : `Show all ${transactions.length}`}
         </button>
       )}
     </div>

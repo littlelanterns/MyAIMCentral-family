@@ -405,6 +405,28 @@ test.describe('Permissions Wiring', () => {
     await clearGrants()
   })
 
+  // ── 11b. Balance tab: By child / By date arrangement ─────────────────────
+  test('All-kids Balance view: By child groups per kid; By date restores stream', async ({ page }) => {
+    await loginAsMom(page)
+    await page.goto('/prize-board')
+    await waitForAppReady(page)
+
+    await page.getByRole('button', { name: 'Balance' }).click()
+    await page.getByRole('button', { name: 'All kids' }).click()
+
+    // Default arrangement = By child: per-kid section headers with tx counts
+    await expect(page.getByRole('button', { name: 'By child' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(JORDAN_TX)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(ALEX_TX)).toBeVisible()
+    await expect(page.getByText(/transaction/).first()).toBeVisible()
+
+    // Switch to By date: both rows still visible in the single stream
+    await page.getByRole('button', { name: 'By date' }).click()
+    await expect(page.getByText(JORDAN_TX)).toBeVisible()
+    await expect(page.getByText(ALEX_TX)).toBeVisible()
+    await expect(page.getByText(/transaction/)).not.toBeVisible()
+  })
+
   // ── 11. Mom regression ────────────────────────────────────────────────────
   test('Mom: /studio renders and Prize Board keeps the Allowance tab', async ({ page }) => {
     await loginAsMom(page)
