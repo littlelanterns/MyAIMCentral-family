@@ -14,6 +14,8 @@ import { GuidedShell } from '@/components/shells/GuidedShell'
 import { PlayShell } from '@/components/shells/PlayShell'
 import { getSidebarSections } from '@/components/shells/Sidebar'
 import { getShellForMember } from '@/components/shells/ShellProvider'
+import { useResolvedFeatureAccess } from '@/hooks/useResolvedFeatureAccess'
+import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 
 // Page imports
 import { Dashboard } from '@/pages/Dashboard'
@@ -200,9 +202,24 @@ export function ViewAsModal() {
     return getShellForMember(viewingAsMember.role, viewingAsMember.dashboard_mode)
   }, [viewingAsMember])
 
+  // PERMISSIONS-WIRING (2026-06-09): allowedPaths must mirror the rendered
+  // sidebar's per-member toggle filtering + management grants, or granted
+  // entries (e.g. Studio for a granted dad target) would render in the
+  // sidebar and silently bounce here.
+  const { isEnabled } = useResolvedFeatureAccess(viewingAsMember)
+  const grants = useManagementGrants(viewingAsMember)
+
   // Build allowed routes from the target shell's sidebar sections
   const allowedPaths = useMemo(() => {
-    const sections = getSidebarSections(targetShell, { showMyRewards })
+    const managementAccess =
+      viewingAsMember?.role === 'additional_adult'
+        ? {
+            studio: grants.studioLevel !== 'none',
+            prizeBoard: grants.financeMaxLevel !== 'none',
+            rewardRules: grants.rewardRulesLevel !== 'none',
+          }
+        : undefined
+    const sections = getSidebarSections(targetShell, { showMyRewards, isFeatureEnabled: isEnabled, managementAccess })
     const paths = new Set<string>(['/dashboard', '/settings'])
     for (const section of sections) {
       for (const item of section.items) {
@@ -210,7 +227,7 @@ export function ViewAsModal() {
       }
     }
     return paths
-  }, [targetShell, showMyRewards])
+  }, [targetShell, showMyRewards, isEnabled, viewingAsMember?.role, grants.studioLevel, grants.financeMaxLevel, grants.rewardRulesLevel])
 
   const navigate = useCallback((path: string) => {
     const cleanPath = path.split('?')[0]

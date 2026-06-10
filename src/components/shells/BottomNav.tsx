@@ -5,6 +5,8 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useEffectiveShell } from '@/hooks/useEffectiveShell'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useShowMyRewards } from '@/hooks/useShowMyRewards'
+import { useResolvedFeatureAccess } from '@/hooks/useResolvedFeatureAccess'
+import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
 import { getSidebarSections, type NavSection } from './Sidebar'
@@ -84,16 +86,30 @@ export function BottomNav() {
   // More menu, mirroring Sidebar.tsx exactly per Convention #16.
   const { member: effectiveMember } = useEffectiveMember()
   const showMyRewards = useShowMyRewards(effectiveMember?.id ?? null)
+  // PERMISSIONS-WIRING (2026-06-09): same per-member toggles + management
+  // grants as Sidebar.tsx — Convention #16 parity is automatic because both
+  // navs pass identical options into getSidebarSections.
+  const { isEnabled } = useResolvedFeatureAccess(effectiveMember)
+  const grants = useManagementGrants(effectiveMember)
   const iconUrls = useBottomNavIcons()
 
   // Guided and play shells handle their own navigation
   if (shell === 'guided' || shell === 'play') return null
 
+  const managementAccess =
+    effectiveMember?.role === 'additional_adult'
+      ? {
+          studio: grants.studioLevel !== 'none',
+          prizeBoard: grants.financeMaxLevel !== 'none',
+          rewardRules: grants.rewardRulesLevel !== 'none',
+        }
+      : undefined
+
   // Mirror the desktop sidebar exactly — same sections, same items, same
   // order — and just drop anything already pinned to the bottom tab bar.
   // Convention #16: this is the only place the More menu structure should
   // ever be defined; both navs read from `getSidebarSections`.
-  const moreSections: NavSection[] = getSidebarSections(shell, { showMyRewards })
+  const moreSections: NavSection[] = getSidebarSections(shell, { showMyRewards, isFeatureEnabled: isEnabled, managementAccess })
     .map(section => ({
       ...section,
       items: section.items.filter(item => !BOTTOM_NAV_PATHS.has(item.path)),

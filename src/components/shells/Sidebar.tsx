@@ -15,6 +15,8 @@ import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 import { useUnreadMessageCount } from '@/hooks/useUnreadMessageCount'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useResolvedFeatureAccess } from '@/hooks/useResolvedFeatureAccess'
+import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 import { supabase } from '@/lib/supabase/client'
 import type { ShellType } from '@/lib/theme'
 
@@ -110,11 +112,40 @@ export interface NavSection {
  *     rewritten to assert presence of restored items + absence of the
  *     three mom-only drops.
  */
+export interface SidebarAccessOptions {
+  showMyRewards?: boolean
+  /**
+   * PERMISSIONS-WIRING (2026-06-09): per-member resolved feature access from
+   * useResolvedFeatureAccess — mom's Permission Hub toggles finally drive the
+   * sidebar. Items resolving disabled are omitted; fully-empty sections drop.
+   * Applied to adult/independent shells only (mom FROZEN; guided/play have
+   * purpose-built navs). Convention #16: BottomNav More menu flows from the
+   * same options, so mobile parity is automatic.
+   */
+  isFeatureEnabled?: (featureKey: string) => boolean
+  /**
+   * Family-wide management grants for additional adults (useManagementGrants).
+   * Granted surfaces (Studio / Prize Board / RewardRules) appear in the adult
+   * sidebar; ungranted stay invisible — "default to invisible, but permissions
+   * available" (founder ruling 2026-06-09).
+   */
+  managementAccess?: { studio: boolean; prizeBoard: boolean; rewardRules: boolean }
+}
+
 export function getSidebarSections(
   shell: ShellType,
-  options?: { showMyRewards?: boolean }
+  options?: SidebarAccessOptions
 ): NavSection[] {
   const showMyRewards = options?.showMyRewards ?? false
+
+  /** Apply mom's per-member toggles; drop sections that empty out. */
+  const applyAccessFilter = (sections: NavSection[]): NavSection[] => {
+    const isEnabled = options?.isFeatureEnabled
+    if (!isEnabled) return sections
+    return sections
+      .map(s => ({ ...s, items: s.items.filter(i => isEnabled(i.featureKey)) }))
+      .filter(s => s.items.length > 0)
+  }
 
   // -- Reusable nav items ----------------------------------------------------
   const home: NavSection = {
@@ -230,8 +261,20 @@ export function getSidebarSections(
         { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
         { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
         { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
-        // Studio, Prize Board, RewardRules dropped — mom-only per Q2.
+        // Studio, Prize Board, RewardRules: mom-only BY DEFAULT per Q2.
+        // PERMISSIONS-WIRING (2026-06-09): granted adults get them back —
+        // same labels/paths/icons as the mom sidebar (Convention #16 parity).
       ]
+      const mgmt = options?.managementAccess
+      if (mgmt?.studio) {
+        adultPlanItems.push({ label: 'Studio', path: '/studio', featureKey: 'studio', icon: <Palette size={20} />, tooltip: 'Template workshop' })
+      }
+      if (mgmt?.prizeBoard) {
+        adultPlanItems.push({ label: 'Prize Board', path: '/prize-board', featureKey: 'gamification_basic', icon: <Gift size={20} />, tooltip: 'Unredeemed prizes and IOUs' })
+      }
+      if (mgmt?.rewardRules) {
+        adultPlanItems.push({ label: 'RewardRules', path: '/contracts', featureKey: 'gamification_basic', icon: <FileText size={20} />, tooltip: 'Reward rules and automation' })
+      }
       if (showMyRewards) adultPlanItems.push(myRewardsItem)
 
       const adultPlan: NavSection = { title: 'Plan & Do', collapsible: true, items: adultPlanItems }
@@ -270,7 +313,7 @@ export function getSidebarSections(
       }
 
       // BookShelf section restored — audience-scoped per PRD-23.
-      return [home, adultCapture, adultPlan, adultGrow, adultFamily, adultTools, momBookshelf]
+      return applyAccessFilter([home, adultCapture, adultPlan, adultGrow, adultFamily, adultTools, momBookshelf])
     }
 
     case 'independent': {
@@ -336,7 +379,7 @@ export function getSidebarSections(
       }
 
       // BookShelf section restored — audience-scoped per PRD-23.
-      return [home, indCapture, indPlan, indGrow, indFamily, indTools, momBookshelf]
+      return applyAccessFilter([home, indCapture, indPlan, indGrow, indFamily, indTools, momBookshelf])
     }
 
     case 'guided': {
@@ -533,6 +576,19 @@ export function Sidebar() {
   const { member: effectiveMember } = useEffectiveMember()
   const showMyRewards = useShowMyRewards(effectiveMember?.id ?? null)
 
+  // PERMISSIONS-WIRING (2026-06-09): mom's per-member toggles + family-wide
+  // management grants drive the effective member's sidebar.
+  const { isEnabled } = useResolvedFeatureAccess(effectiveMember)
+  const grants = useManagementGrants(effectiveMember)
+  const managementAccess =
+    effectiveMember?.role === 'additional_adult'
+      ? {
+          studio: grants.studioLevel !== 'none',
+          prizeBoard: grants.financeMaxLevel !== 'none',
+          rewardRules: grants.rewardRulesLevel !== 'none',
+        }
+      : undefined
+
   const { collapsed, setCollapsed } = useSidebarPersistence(member?.id ?? null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -546,7 +602,7 @@ export function Sidebar() {
   const isPreview = location.pathname.startsWith('/preview')
   const pathPrefix = isPreview ? '/preview' : ''
 
-  const rawSections = getSidebarSections(shell, { showMyRewards })
+  const rawSections = getSidebarSections(shell, { showMyRewards, isFeatureEnabled: isEnabled, managementAccess })
   const sections = rawSections.map(section => ({
     ...section,
     items: section.items.map(item => ({
