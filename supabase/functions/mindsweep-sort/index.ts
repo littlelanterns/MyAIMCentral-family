@@ -46,6 +46,11 @@ const InputSchema = z.object({
   source_channel: z.enum(['routing_strip', 'quick_capture', 'share_to_app', 'email_forward', 'auto_sweep', 'rhythm_evening']),
   input_type: z.enum(['voice', 'text', 'image', 'link', 'email', 'mixed']),
   family_member_names: z.array(FamilyMemberSchema).default([]),
+  // RR-DEPLOY-SCOPING follow-up (2026-06-10): caller's local date so relative
+  // phrases ("today at 4", "tomorrow", "Friday") resolve to real dates in
+  // calendar destination_detail. Optional — cron auto-sweep falls back to
+  // server UTC date.
+  today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 // ── Sensitivity Rule Matchers ──
@@ -186,7 +191,7 @@ Deno.serve(async (req) => {
 
     // ── Step 3: Batch LLM classification for remaining items ──
     if (needsLlm.length > 0) {
-      const llmResults = await batchLlmClassify(needsLlm.map(n => n.content), input.family_id, input.member_id)
+      const llmResults = await batchLlmClassify(needsLlm.map(n => n.content), input.family_id, input.member_id, input.today)
 
       for (let j = 0; j < needsLlm.length; j++) {
         const { index } = needsLlm[j]
@@ -523,6 +528,7 @@ async function batchLlmClassify(
   items: string[],
   familyId: string,
   memberId: string,
+  today?: string,
 ): Promise<LlmClassificationResult[]> {
   const categoryList = CLASSIFICATION_CATEGORIES
     .map(c => `- ${c.key}: ${c.description}`)
@@ -530,7 +536,17 @@ async function batchLlmClassify(
 
   const itemList = items.map((text, i) => `[${i + 1}] ${text}`).join('\n')
 
+  // Date anchor for relative phrases — caller's local date when provided.
+  // Cron auto-sweep fallback is deliberately server-UTC (no user timezone in
+  // that path); built explicitly to avoid the banned toISOString().slice
+  // pattern (which signals a LOCAL-date bug — this one is intentionally UTC).
+  const now = new Date()
+  const anchorDate = today ??
+    `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`
+
   const systemPrompt = `You are a family content classifier for MindSweep, an AI-powered auto-sort system.
+
+Today's date is ${anchorDate}. When extracting calendar dates, resolve relative phrases against it: "today" = ${anchorDate}; "tomorrow" = the day after; weekday names ("Friday") = the NEXT occurrence of that weekday on or after today. Never invent a date the text doesn't imply.
 
 Given a list of captured items (from voice memos, text notes, scanned documents, or emails), classify each one.
 

@@ -252,6 +252,7 @@ export function MindSweepLiteTeenSection({
         source_channel: 'rhythm_evening',
         input_type: 'text',
         family_member_names: familyMemberNames,
+        today: todayLocalIso(),
       }
 
       const response = await supabase.functions.invoke('mindsweep-sort', {

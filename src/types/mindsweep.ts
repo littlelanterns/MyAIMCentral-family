@@ -121,6 +121,9 @@ export interface MindSweepSortRequest {
   source_channel: SweepEventSourceChannel;
   input_type: SweepInputType;
   family_member_names: FamilyMemberName[];
+  /** Caller's local date YYYY-MM-DD — anchors "today"/"tomorrow"/weekday
+   *  names in calendar extraction (RR-DEPLOY-SCOPING follow-up 2026-06-10). */
+  today?: string;
 }
 
 export interface MindSweepSortItem {

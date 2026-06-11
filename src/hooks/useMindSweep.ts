@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { mapContentTypeToInputType } from '@/lib/mindsweep/contentTypeMapping'
 import { deployQueueItem } from '@/lib/queue/deployQueueItem'
+import { todayLocalIso } from '@/utils/dates'
 import type {
   MindSweepSettings,
   MindSweepHoldingItem,
@@ -251,6 +252,7 @@ export function useTriggerSweep() {
         source_channel: params.sourceChannel,
         input_type: params.inputType,
         family_member_names: params.familyMemberNames,
+        today: todayLocalIso(),
       }
 
       const response = await supabase.functions.invoke('mindsweep-sort', {
