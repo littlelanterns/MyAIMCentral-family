@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   X,
   CalendarCheck,
@@ -115,6 +116,7 @@ export function UniversalQueueModal({
   onOpenMessages,
 }: UniversalQueueModalProps) {
   const { data: currentMember } = useFamilyMember()
+  const navigate = useNavigate()
 
   // ── Badge counts ───────────────────────────────────────────
 
@@ -278,7 +280,11 @@ export function UniversalQueueModal({
         aria-hidden="true"
       />
 
-      {/* Modal panel */}
+      {/* Modal panel.
+          Height lives in CLASSES, not inline style: inline height always beats
+          md:h-auto, which made the desktop panel 100dvh tall + my-8 margin and
+          pushed the footer (Open messages + count) off the viewport
+          (founder bug report 2026-06-10). */}
       <div
         style={{
           position: 'relative',
@@ -286,13 +292,10 @@ export function UniversalQueueModal({
           flexDirection: 'column',
           width: '100%',
           maxWidth: 560,
-          height: '100dvh',
-          maxHeight: '100dvh',
           backgroundColor: 'var(--color-bg-primary)',
           overflow: 'hidden',
-          // Desktop: centered with margin and max-height
         }}
-        className="md:my-8 md:rounded-xl md:max-h-[88vh] md:h-auto md:min-h-[500px]"
+        className="h-dvh max-h-dvh md:my-8 md:rounded-xl md:max-h-[88vh] md:h-auto md:min-h-[500px]"
       >
         {/* ── Gradient Header ──────────────────────────────── */}
         <div
@@ -430,12 +433,17 @@ export function UniversalQueueModal({
             justifyContent: 'space-between',
           }}
         >
-          {/* Left: Open messages link */}
+          {/* Left: Open messages link. Falls back to direct navigation —
+              only the QuickTasks mount ever passed onOpenMessages, so from
+              the FO pending bar / MindSweep page / QueueBadge this button
+              silently closed the modal and went NOWHERE (founder bug report
+              2026-06-10, mobile). */}
           <button
             type="button"
             onClick={() => {
               onClose()
-              onOpenMessages?.()
+              if (onOpenMessages) onOpenMessages()
+              else navigate('/messages')
             }}
             style={{
               display: 'inline-flex',

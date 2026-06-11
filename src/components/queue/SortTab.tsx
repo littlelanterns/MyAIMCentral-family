@@ -17,6 +17,7 @@ import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
 import { useRecordApprovalPattern } from '@/hooks/useMindSweep'
 import { deployQueueItems, type DeployableItem } from '@/lib/queue/deployQueueItem'
+import { extractCalendarDetail, hasUsableCalendarDetail } from '@/lib/queue/extractCalendarDetail'
 import { useCreateEvent } from '@/hooks/useCalendarEvents'
 import { QueueCard } from './QueueCard'
 import { BatchCard } from './BatchCard'
@@ -476,23 +477,51 @@ export function SortTab() {
       return
     }
     if (item.destination === 'calendar') {
-      const details = item.content_details as Record<string, unknown> | null
-      const subtype = String(details?.calendar_subtype ?? 'single') as CalendarSubtype
-
-      if (subtype === 'options' || subtype === 'series') {
-        // Batch-create all events directly
-        handleCalendarBatchCreate(item)
-      } else {
-        // single, multi_day, recurring — open EventCreationModal pre-populated
-        const calEvent = queueItemToCalendarEvent(item)
-        setCalendarItem(item)
-        setCalendarInitialEvent(calEvent)
-      }
+      void openCalendarItem(item)
       return
     }
     setBatchMode(undefined)
     setBatchItems([])
     setConfigItem(item)
+  }
+
+  /**
+   * Calendar queue rows: parse on demand when no usable details exist
+   * (Review & Route rows queued before intake enrichment, or enrichment
+   * failures), persist the parsed detail back onto the row, then open the
+   * modal PRE-FILLED ("meeting today at 4" → today + 16:00 — founder request
+   * 2026-06-10). Extraction failure falls back to the unparsed modal.
+   */
+  async function openCalendarItem(item: StudioQueueRecord) {
+    let working = item
+
+    if (!hasUsableCalendarDetail(item.content_details) && currentMember) {
+      routingToast.show({ message: 'Reading the event details…' })
+      const detail = await extractCalendarDetail(item.content, item.family_id, currentMember.id)
+      if (detail) {
+        working = { ...item, content_details: detail as unknown as StudioQueueRecord['content_details'] }
+        // Persist so CalendarTab + future opens get the same pre-fill
+        // (fire-and-forget — the modal opens from the in-memory copy).
+        void supabase
+          .from('studio_queue')
+          .update({ content_details: detail })
+          .eq('id', item.id)
+          .then(() => queryClient.invalidateQueries({ queryKey: ['studio-queue'] }))
+      }
+    }
+
+    const details = working.content_details as Record<string, unknown> | null
+    const subtype = String(details?.calendar_subtype ?? 'single') as CalendarSubtype
+
+    if (subtype === 'options' || subtype === 'series') {
+      // Batch-create all events directly
+      handleCalendarBatchCreate(working)
+    } else {
+      // single, multi_day, recurring — open EventCreationModal pre-populated
+      const calEvent = queueItemToCalendarEvent(working)
+      setCalendarItem(working)
+      setCalendarInitialEvent(calEvent)
+    }
   }
 
   const handleSendAsGroup = (items: StudioQueueRecord[]) => {

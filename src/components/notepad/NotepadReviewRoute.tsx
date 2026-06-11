@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client'
 // card-by-card review IS the Human-in-the-Mix step. The queue is for
 // unreviewed intake, never re-review.
 import { deployQueueItem } from '@/lib/queue/deployQueueItem'
+import { extractCalendarDetail } from '@/lib/queue/extractCalendarDetail'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import {
   useExtractContent,
@@ -236,7 +237,20 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
         break
       }
       default: {
-        // Tasks, lists, calendar, track, agenda, message, optimizer — deposit to studio_queue
+        // Calendar, track, agenda, message, optimizer (+ task/list power
+        // sub-options) — deposit to studio_queue.
+        //
+        // Calendar enrichment (founder request 2026-06-10): parse the event
+        // details NOW so the queue card's "Add to calendar" opens Create
+        // Event pre-filled ("meeting today at 4" → today's date + 16:00).
+        // Extraction failure never blocks routing — the row just lands
+        // without details and SortTab parses on demand.
+        let contentDetails: Record<string, unknown> | null = null
+        if (destination === 'calendar') {
+          const detail = await extractCalendarDetail(item.extracted_content, familyId, tab.member_id)
+          contentDetails = detail ? { ...detail } : null
+        }
+
         const { data, error } = await supabase
           .from('studio_queue')
           .insert({
@@ -244,6 +258,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
             owner_id: tab.member_id,
             destination: destination === 'tasks' ? 'task' : destination,
             content: item.extracted_content,
+            content_details: contentDetails,
             source: 'review_route',
             source_reference_id: item.id,
             structure_flag: _subType || null,
