@@ -195,6 +195,14 @@ interface TaskCreationModalProps {
   editMode?: boolean
   /** PRD-28: Pre-configure as makeup work (task_type='makeup', counts_for_allowance=true, counts_for_gamification=false) */
   makeupConfig?: { assigneeId: string } | null
+  /**
+   * FO-COMMAND-CENTER (2026-06-10): generic assignee preselect for the
+   * per-section [+ create] buttons on Family Overview columns — pre-fills the
+   * assignment WITHOUT makeup semantics. Additive-only prop (coordination
+   * note appended to COORDINATION-review-route-task-scoping.md); the scoped
+   * AssignmentSelector still governs what the user may actually assign.
+   */
+  initialAssigneeId?: string | null
   /** Pre-loaded routine sections from a saved template (Studio Deploy/Edit) */
   initialRoutineSections?: RoutineSection[]
   /** When editing an existing routine template, pass its ID to UPDATE instead of INSERT */
@@ -625,6 +633,7 @@ export function TaskCreationModal({
   sourceReferenceId,
   editMode,
   makeupConfig,
+  initialAssigneeId,
   initialRoutineSections,
   editingTemplateId,
   editTaskValues,
@@ -732,6 +741,19 @@ export function TaskCreationModal({
       }))
     }
   }, [makeupConfig, isOpen])
+
+  // FO-COMMAND-CENTER: generic assignee preselect (per-section [+ create] on
+  // Family Overview columns). Same checkbox-honesty discipline as the makeup
+  // effect — never clobber a selection mom already made.
+  useEffect(() => {
+    if (initialAssigneeId && isOpen && !editMode && !makeupConfig) {
+      if (hasUserInteractedRef.current) return
+      setData(prev => ({
+        ...prev,
+        assignments: [{ memberId: initialAssigneeId, copyMode: 'individual' as const }],
+      }))
+    }
+  }, [initialAssigneeId, isOpen, editMode, makeupConfig])
 
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'quick' | 'full'>(initialMode ?? 'full')

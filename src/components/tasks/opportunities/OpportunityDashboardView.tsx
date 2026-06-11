@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { Lock, RefreshCw, Target, Clock } from 'lucide-react'
 import { useTasks } from '@/hooks/useTasks'
-import { useMyActiveClaims } from '@/hooks/useTaskClaims'
+import { useMyActiveClaims, useReleaseClaim } from '@/hooks/useTaskClaims'
 import { useClaimTask } from './useClaimTask'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import type { Task } from '@/types/tasks'
@@ -38,7 +38,7 @@ export function OpportunityDashboardView({ familyId }: OpportunityDashboardViewP
           key={task.id}
           task={task}
           memberId={member?.id ?? ''}
-          isClaimed={myClaims.some(c => c.task_id === task.id)}
+          myClaim={myClaims.find(c => c.task_id === task.id)}
         />
       ))}
     </div>
@@ -48,14 +48,17 @@ export function OpportunityDashboardView({ familyId }: OpportunityDashboardViewP
 function OpportunityDashboardCard({
   task,
   memberId,
-  isClaimed,
+  myClaim,
 }: {
   task: Task
   memberId: string
-  isClaimed: boolean
+  /** This member's active claim row (when claimed) — carries the claim id for release */
+  myClaim?: { id: string; task_id: string }
 }) {
   const { claimTask, isLoading: claiming } = useClaimTask()
+  const releaseClaim = useReleaseClaim()
   const [_completing, _setCompleting] = useState(false)
+  const isClaimed = !!myClaim
 
   const isClaimable = task.task_type === 'opportunity_claimable'
   const isRepeatable = task.task_type === 'opportunity_repeatable'
@@ -109,6 +112,25 @@ function OpportunityDashboardCard({
       {isClaimable && isClaimed && (
         <div className="flex items-center gap-1.5">
           <Clock size={14} style={{ color: 'var(--color-accent)' }} />
+          {/* Kid voluntary release (founder ask 2026-06-10): changed your
+              mind? Put it back before the timer expires — no penalty. */}
+          <button
+            onClick={() =>
+              myClaim &&
+              releaseClaim.mutate({ claimId: myClaim.id, taskId: task.id, memberId })
+            }
+            disabled={releaseClaim.isPending}
+            data-testid={`release-standalone-${task.id}`}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: 'transparent',
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+            title="Changed your mind? Put it back for someone else"
+          >
+            Put it back
+          </button>
           <button
             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
             style={{

@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { Star, DollarSign, Award, Check, Loader2, ChevronDown, ChevronRight, ExternalLink, Clock, Zap, Layers, Sparkles, CircleDot } from 'lucide-react'
 import type { List, ListItem, OpportunitySubtype, OpportunityRewardType } from '@/types/lists'
-import { useClaimOpportunityItem, canClaimItem, getChoreCycleStart } from '@/hooks/useOpportunityLists'
+import { useClaimOpportunityItem, useUnclaimOpportunity, canClaimItem, getChoreCycleStart } from '@/hooks/useOpportunityLists'
 import { useListItemClaimStatus, type ClaimStatusEntry } from '@/hooks/useListItemClaimStatus'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useCalendarSettings } from '@/hooks/useCalendarEvents'
@@ -33,6 +33,7 @@ export function OpportunityListBrowse({
   createdBy,
 }: OpportunityListBrowseProps) {
   const claimItem = useClaimOpportunityItem()
+  const unclaim = useUnclaimOpportunity()
   const [claimingItemId, setClaimingItemId] = useState<string | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
 
@@ -104,6 +105,15 @@ export function OpportunityListBrowse({
           memberId={memberId}
           isClaiming={claimingItemId === item.id}
           onClaim={() => handleClaim(item)}
+          onRelease={(entry) =>
+            unclaim.mutate({
+              kind: 'list_claim',
+              task_id: entry.taskId,
+              claim_id: null,
+              title: item.content || item.item_name || 'Opportunity',
+              member_id: memberId,
+            })
+          }
           claimStatus={claimStatusMap[item.id]}
           members={members}
           choreCycleStartDay={calSettings?.chore_cycle_start_day ?? null}
@@ -134,6 +144,7 @@ function OpportunityItemCard({
   memberId,
   isClaiming,
   onClaim,
+  onRelease,
   claimStatus,
   members,
   choreCycleStartDay,
@@ -144,6 +155,8 @@ function OpportunityItemCard({
   memberId: string
   isClaiming: boolean
   onClaim: () => void
+  /** Kid voluntary release (founder ask 2026-06-10) — returns the item to the board */
+  onRelease?: (entry: ClaimStatusEntry) => void
   claimStatus?: ClaimStatusEntry
   members: FamilyMember[]
   choreCycleStartDay: number | null
@@ -291,6 +304,24 @@ function OpportunityItemCard({
                   Pending approval
                 </span>
               )}
+              {/* Kid voluntary release — only on YOUR claim, before submitting work */}
+              {onRelease &&
+                claimStatus.claimerMemberId === memberId &&
+                claimStatus.status !== 'pending_approval' && (
+                  <button
+                    onClick={() => onRelease(claimStatus)}
+                    data-testid={`release-claim-${item.id}`}
+                    className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                    style={{
+                      color: 'var(--color-text-secondary)',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-bg-card)',
+                    }}
+                    title="Changed your mind? Put it back for someone else"
+                  >
+                    Put it back
+                  </button>
+                )}
             </div>
           )}
         </div>

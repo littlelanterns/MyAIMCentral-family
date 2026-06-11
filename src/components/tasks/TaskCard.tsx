@@ -38,6 +38,7 @@ import {
   GraduationCap,
   ExternalLink,
   EyeOff,
+  Undo2,
 } from 'lucide-react'
 import { Badge } from '@/components/shared'
 import { useTimerContext } from '@/features/timer'
@@ -47,6 +48,7 @@ import { TaskCompletionExpander } from './TaskCompletionExpander'
 import { RoutineStepChecklist, isSectionActiveToday, deriveRoutineActiveDays } from './RoutineStepChecklist'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useArchiveTask } from '@/hooks/useTasks'
+import { useUnclaimOpportunity } from '@/hooks/useOpportunityLists'
 import { useTaskPracticeAggregation } from '@/hooks/usePractice'
 import { formatPracticeAggregation } from '@/lib/tasks/formatPracticeAggregation'
 import { ScheduledStartBadge } from '@/components/templates/ScheduledStartBadge'
@@ -180,6 +182,15 @@ export function TaskCard({
   const [showSessionHistory, setShowSessionHistory] = useState(false)
   const { data: currentMember } = useFamilyMember()
   const archiveTask = useArchiveTask()
+  const unclaimOpportunity = useUnclaimOpportunity()
+
+  // Kid voluntary claim release (founder ask 2026-06-10): a claimed
+  // opportunity-board item shows on the kid's list as this bridge task —
+  // "Put it back" releases it to the board with no penalty.
+  const isMyOpportunityClaim =
+    task.source === 'opportunity_list_claim' &&
+    task.assignee_id === currentMember?.id &&
+    !['completed', 'cancelled', 'pending_approval'].includes(task.status ?? '')
 
   const isTrackProgress = task.track_progress && task.status !== 'completed'
   const { data: practiceAgg } = useTaskPracticeAggregation(
@@ -610,6 +621,35 @@ export function TaskCard({
                 </button>
               )}
             </div>
+          )}
+
+          {/* Kid voluntary claim release — opportunity-board bridge task */}
+          {isMyOpportunityClaim && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                unclaimOpportunity.mutate({
+                  kind: 'list_claim',
+                  task_id: task.id,
+                  claim_id: null,
+                  title: task.title,
+                  member_id: currentMember?.id ?? '',
+                })
+              }}
+              disabled={unclaimOpportunity.isPending}
+              data-testid={`release-bridge-${task.id}`}
+              className="inline-flex items-center gap-1 px-2 py-1 mt-1 rounded-lg text-[11px] font-medium transition-colors"
+              style={{
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'transparent',
+              }}
+              title="Changed your mind? Put it back on the opportunity board"
+            >
+              <Undo2 size={11} />
+              Put it back
+            </button>
           )}
 
           {/* Description snippet */}

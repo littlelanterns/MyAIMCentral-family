@@ -395,6 +395,79 @@ export function useTodayVictoriesForMembers(familyId: string | undefined, member
   })
 }
 
+// ─── Active opportunity claims (FO-COMMAND-CENTER, founder ask 2026-06-10) ──
+// "Claimed / in progress" opportunities per member — both shapes:
+//  (a) list-board claims: the claim→task bridge row (source='opportunity_list_claim',
+//      status pending/in_progress/pending_approval) IS the claim; the
+//      availability check keys on it, so cancelling+archiving it frees the item.
+//  (b) standalone claimable opportunities: active task_claims rows.
+//
+// The claim-release mutation (useUnclaimOpportunity) lives in
+// useOpportunityLists.ts — the claim-bridge domain home — because kid-facing
+// release surfaces share it (founder ask 2026-06-10). Type re-exported here
+// so FO consumers keep one import site.
+
+export type { MemberOpportunityClaim } from './useOpportunityLists'
+import type { MemberOpportunityClaim } from './useOpportunityLists'
+
+export function useActiveOpportunityClaims(familyId: string | undefined, memberIds: string[]) {
+  return useQuery({
+    queryKey: ['fo-opp-claims', familyId, memberIds],
+    queryFn: async (): Promise<MemberOpportunityClaim[]> => {
+      if (!familyId || memberIds.length === 0) return []
+
+      const claims: MemberOpportunityClaim[] = []
+
+      // (a) list-board claim bridge tasks
+      const { data: bridgeTasks, error: bridgeErr } = await supabase
+        .from('tasks')
+        .select('id, title, assignee_id')
+        .eq('family_id', familyId)
+        .eq('source', 'opportunity_list_claim')
+        .in('assignee_id', memberIds)
+        .in('status', ['pending', 'in_progress', 'pending_approval'])
+        .is('archived_at', null)
+      if (bridgeErr) console.error('useActiveOpportunityClaims bridge query failed:', bridgeErr)
+      for (const t of bridgeTasks ?? []) {
+        claims.push({
+          kind: 'list_claim',
+          task_id: t.id as string,
+          claim_id: null,
+          title: t.title as string,
+          member_id: t.assignee_id as string,
+        })
+      }
+
+      // (b) active task_claims on standalone claimable opportunities
+      const { data: activeClaims, error: claimErr } = await supabase
+        .from('task_claims')
+        .select('id, task_id, claimed_by, tasks!inner(id, title, task_type, family_id, source)')
+        .in('claimed_by', memberIds)
+        .eq('completed', false)
+        .eq('released', false)
+      if (claimErr) console.error('useActiveOpportunityClaims claims query failed:', claimErr)
+      for (const c of activeClaims ?? []) {
+        const task = c.tasks as unknown as { id: string; title: string; task_type: string; family_id: string; source: string }
+        if (task.family_id !== familyId) continue
+        if (!task.task_type?.startsWith('opportunity')) continue
+        // Bridge tasks already covered by (a) — skip their claim rows
+        if (task.source === 'opportunity_list_claim') continue
+        claims.push({
+          kind: 'standalone',
+          task_id: task.id,
+          claim_id: c.id as string,
+          title: task.title,
+          member_id: c.claimed_by as string,
+        })
+      }
+
+      return claims
+    },
+    enabled: !!familyId && memberIds.length > 0,
+    staleTime: 15_000,
+  })
+}
+
 // ─── Opportunity completions today ──────────────────────────────────────────
 
 export function useTodayOpportunityCompletions(familyId: string | undefined, memberIds: string[]) {

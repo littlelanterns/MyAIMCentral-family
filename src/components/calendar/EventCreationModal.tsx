@@ -35,6 +35,11 @@ interface EventCreationModalProps {
   prefillTitle?: string
   /** Pre-fill notes in create mode (e.g., details from a request) */
   prefillNotes?: string
+  /**
+   * FO-COMMAND-CENTER (2026-06-10): pre-select attendees in create mode —
+   * the Family Overview per-section [+ create] buttons target one member.
+   */
+  initialAttendeeIds?: string[]
 }
 
 const REMINDER_OPTIONS = [
@@ -47,7 +52,7 @@ const REMINDER_OPTIONS = [
   { value: 1440, label: '1 day' },
 ]
 
-export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent, onCreated, prefillTitle, prefillNotes }: EventCreationModalProps) {
+export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent, onCreated, prefillTitle, prefillNotes, initialAttendeeIds }: EventCreationModalProps) {
   // `initialEvent` with a non-empty id → edit mode (PATCH existing row).
   // `initialEvent` with empty id → create mode pre-filled from queue item.
   // Callers like CalendarTab.queueItemToEditEvent pass a synthetic
@@ -132,7 +137,8 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
         setDescription('')
         setCategoryId('')
         setSelectedReminders([])
-        setAttendees(new Map())
+        // FO-COMMAND-CENTER: per-member [+ create] preselects the attendee
+        setAttendees(new Map((initialAttendeeIds ?? []).map((id) => [id, 'attending'])))
         setTransportationNeeded(false)
         setTransportationNotes('')
         setLeaveByInput('')
@@ -144,6 +150,9 @@ export function EventCreationModal({ isOpen, onClose, initialDate, initialEvent,
       }
       setNewItemText('')
     }
+    // initialAttendeeIds intentionally read once per open (array literal at the
+    // call site would otherwise re-fire this reset on every parent render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialDate, initialEvent, prefillTitle, prefillNotes])
 
   const toggleReminder = useCallback((mins: number) => {

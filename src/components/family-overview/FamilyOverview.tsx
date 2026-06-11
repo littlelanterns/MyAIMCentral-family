@@ -2,7 +2,7 @@
 // Horizontally-swipeable member columns with collapsible sections.
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen, GripVertical } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen, GripVertical, Plus } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -30,9 +30,12 @@ import {
   useTodayRoutinesForMembers,
   useSequentialForMembers,
   useTodayVictoriesForMembers,
+  useActiveOpportunityClaims,
   type MemberRoutineToday,
   type MemberSequentialSummary,
+  type MemberOpportunityClaim,
 } from '@/hooks/useFamilyOverviewData'
+import { useUnclaimOpportunity } from '@/hooks/useOpportunityLists'
 import { useSearchParams } from 'react-router-dom'
 import { useActivePeriod, useLiveAllowanceProgress, type GraceDayEntry } from '@/hooks/useFinancial'
 import { useCompleteTask, useTasksWithPendingApprovals, type Task } from '@/hooks/useTasks'
@@ -64,6 +67,18 @@ import type { CalendarEvent, EventAttendee } from '@/types/calendar'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { isSegmentActiveToday } from '@/lib/segments/segmentUtils'
 import { GamificationSettingsModal } from '@/components/gamification/settings/GamificationSettingsModal'
+// Per-section [+ create] (founder ask 2026-06-10): each section header gets a
+// creation entry point pre-targeted at that member.
+import { useQueryClient } from '@tanstack/react-query'
+import { TaskCreationModal, type CreateTaskData } from '@/components/tasks/TaskCreationModal'
+import { SequentialCreatorModal } from '@/components/tasks/sequential/SequentialCreatorModal'
+import { CreateBestIntentionModal } from '@/components/intentions/CreateBestIntentionModal'
+import { RecordVictoryModal } from '@/components/victories/RecordVictoryModal'
+import { WidgetPicker } from '@/components/widgets/WidgetPicker'
+import { WidgetConfiguration } from '@/components/widgets/WidgetConfiguration'
+import { useWidgetStarterConfigs, useCreateWidget } from '@/hooks/useWidgets'
+import { createTaskFromData } from '@/utils/createTaskFromData'
+import type { WidgetStarterConfig, CreateWidget } from '@/types/widgets'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import PendingItemsBar from './PendingItemsBar'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
@@ -119,6 +134,7 @@ function SectionHeader({
   onToggle,
   onOverrideToggle,
   dragHandleProps,
+  onCreate,
 }: {
   sectionKey: FamilyOverviewSectionKey
   collapsed: boolean
@@ -129,6 +145,8 @@ function SectionHeader({
   onOverrideToggle?: () => void
   /** dnd-kit listeners for the section reorder grip (Universal UX: ⠿ handle). */
   dragHandleProps?: Record<string, unknown>
+  /** Founder ask 2026-06-10: [+ create] a new item of this category for this member */
+  onCreate?: () => void
 }) {
   const meta = SECTION_META[sectionKey]
 
@@ -204,6 +222,18 @@ function SectionHeader({
           />
         )}
       </button>
+      {onCreate && (
+        <button
+          onClick={onCreate}
+          data-testid={`section-create-${sectionKey}`}
+          className="px-1 py-1.5 shrink-0"
+          style={{ color: 'var(--color-btn-primary-bg)' }}
+          aria-label={`New ${meta.label} item`}
+          title={`New ${meta.label.toLowerCase()} for this member`}
+        >
+          <Plus size={12} />
+        </button>
+      )}
       {dragHandleProps && (
         <span
           {...dragHandleProps}
@@ -572,20 +602,61 @@ function TrackersSection({
 function OpportunitiesSection({
   memberId,
   opportunities,
+  claims,
   onEditTask,
+  onUnclaim,
 }: {
   memberId: string
   opportunities: Array<Record<string, unknown>>
+  /** Active claims (claimed/in-progress) — founder ask 2026-06-10 */
+  claims: MemberOpportunityClaim[]
   onEditTask?: (taskId: string) => void
+  /** Mom returns a claimed opportunity to its board/list */
+  onUnclaim?: (claim: MemberOpportunityClaim) => void
 }) {
   const memberOpps = opportunities.filter((o) => o.assignee_id === memberId)
+  const memberClaims = claims.filter((c) => c.member_id === memberId)
 
-  if (memberOpps.length === 0) {
+  if (memberOpps.length === 0 && memberClaims.length === 0) {
     return <EmptySection />
   }
 
   return (
     <div className="space-y-0.5 px-2 pb-2">
+      {/* Claimed / in progress — visible BEFORE completion */}
+      {memberClaims.map((claim) => (
+        <div key={`claim-${claim.task_id}`} className="flex items-center gap-1.5 text-xs">
+          <Zap size={10} className="shrink-0" style={{ color: 'var(--color-warning, var(--color-btn-primary-bg))' }} />
+          <span
+            className="truncate"
+            onClick={onEditTask ? () => onEditTask(claim.task_id) : undefined}
+            role={onEditTask ? 'button' : undefined}
+            style={{ color: 'var(--color-text-primary)', cursor: onEditTask ? 'pointer' : undefined }}
+            title={onEditTask ? 'Tap to edit' : undefined}
+          >
+            {claim.title}
+          </span>
+          <span className="shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+            claimed
+          </span>
+          {onUnclaim && (
+            <button
+              onClick={() => onUnclaim(claim)}
+              data-testid={`unclaim-${claim.task_id}`}
+              className="ml-auto shrink-0 text-xs px-1.5 py-0.5 rounded-full"
+              style={{
+                color: 'var(--color-btn-primary-bg)',
+                border: '1px solid var(--color-border)',
+              }}
+              title="Return this to the opportunity board"
+            >
+              Return
+            </button>
+          )}
+        </div>
+      ))}
+
+      {/* Completed today */}
       {memberOpps.map((opp) => (
         <ItemRow key={opp.id as string} onOpen={onEditTask ? () => onEditTask(opp.id as string) : undefined}>
           <div className="flex items-center gap-1.5 text-xs">
@@ -819,6 +890,8 @@ function MemberColumn({
   routines,
   sequential,
   victories,
+  oppClaims,
+  onUnclaim,
   onToggleSection,
   onToggleSectionOverride,
   onSectionReorder,
@@ -829,6 +902,7 @@ function MemberColumn({
   onOpenTracker,
   onOpenEvent,
   onOpenSegments,
+  onCreateInSection,
 }: {
   member: FamilyMember
   sectionOrder: string[]
@@ -843,6 +917,8 @@ function MemberColumn({
   routines: MemberRoutineToday[]
   sequential: MemberSequentialSummary[]
   victories: Array<Record<string, unknown>>
+  oppClaims: MemberOpportunityClaim[]
+  onUnclaim?: (claim: MemberOpportunityClaim) => void
   onToggleSection: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
   onToggleSectionOverride: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
   onSectionReorder: (activeKey: string, overKey: string) => void
@@ -855,6 +931,8 @@ function MemberColumn({
   onOpenEvent?: (event: Record<string, unknown>) => void
   /** Mom-only: open this member's Day Segments editor (Gamification Settings) */
   onOpenSegments?: () => void
+  /** Mom-only: per-section [+ create] — opens the category's creation modal for this member */
+  onCreateInSection?: (sectionKey: FamilyOverviewSectionKey) => void
 }) {
   const color = member.calendar_color || getMemberColor(member)
 
@@ -918,7 +996,18 @@ function MemberColumn({
       count = sequential.length
     } else if (sectionKey === 'victories') {
       count = victories.filter((v) => v.family_member_id === member.id).length
+    } else if (sectionKey === 'opportunities') {
+      count =
+        oppClaims.filter((c) => c.member_id === member.id).length +
+        opportunities.filter((o) => o.assignee_id === member.id).length
     }
+
+    // Sections with a creation flow (founder asks 2026-06-10). Only
+    // weekly_completion has no + (it's allowance config, not an item).
+    const CREATABLE_SECTIONS: FamilyOverviewSectionKey[] = [
+      'events', 'tasks', 'routines', 'sequential', 'opportunities', 'best_intentions', 'trackers', 'victories',
+    ]
+    const canCreate = !!onCreateInSection && CREATABLE_SECTIONS.includes(sectionKey)
 
     return (
       <SortableSection key={key} id={`${member.id}|${key}`}>
@@ -932,6 +1021,7 @@ function MemberColumn({
               onToggle={() => onToggleSection(sectionKey, member.id)}
               onOverrideToggle={() => onToggleSectionOverride(sectionKey, member.id)}
               dragHandleProps={dragHandleProps}
+              onCreate={canCreate ? () => onCreateInSection(sectionKey) : undefined}
             />
             {!collapsed && renderSectionContent(sectionKey)}
           </>
@@ -972,7 +1062,15 @@ function MemberColumn({
       case 'weekly_completion':
         return <WeeklyCompletionSection memberId={member.id} />
       case 'opportunities':
-        return <OpportunitiesSection memberId={member.id} opportunities={opportunities} onEditTask={onEditTask} />
+        return (
+          <OpportunitiesSection
+            memberId={member.id}
+            opportunities={opportunities}
+            claims={oppClaims}
+            onEditTask={onEditTask}
+            onUnclaim={onUnclaim}
+          />
+        )
       case 'victories':
         return <VictoriesSection memberId={member.id} victories={victories} />
       default:
@@ -1203,6 +1301,41 @@ export default function FamilyOverview() {
   const [segmentsMember, setSegmentsMember] = useState<FamilyMember | null>(null)
   const recordData = useRecordWidgetData()
 
+  // ── Per-section [+ create] (founder ask 2026-06-10) ──
+  const queryClient = useQueryClient()
+  const [createTarget, setCreateTarget] = useState<{ member: FamilyMember; section: FamilyOverviewSectionKey } | null>(null)
+  const [trackerStarterConfig, setTrackerStarterConfig] = useState<WidgetStarterConfig | null>(null)
+  const { data: starterConfigs = [] } = useWidgetStarterConfigs()
+  const createWidget = useCreateWidget()
+
+  const closeCreate = useCallback(() => {
+    setCreateTarget(null)
+    setTrackerStarterConfig(null)
+  }, [])
+
+  const handleCreateTaskSave = useCallback(
+    async (data: CreateTaskData) => {
+      if (!family?.id || !member?.id) return
+      await createTaskFromData(supabase, data, family.id, member.id, allMembers ?? [])
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['task-assignments-member'] })
+      queryClient.invalidateQueries({ queryKey: ['fo-tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['fo-routines'] })
+      queryClient.invalidateQueries({ queryKey: ['fo-task-assignments'] })
+      closeCreate()
+    },
+    [family?.id, member?.id, allMembers, queryClient, closeCreate]
+  )
+
+  const handleDeployWidget = useCallback(
+    (widget: CreateWidget) => {
+      createWidget.mutate(widget)
+      queryClient.invalidateQueries({ queryKey: ['fo-trackers'] })
+      closeCreate()
+    },
+    [createWidget, queryClient, closeCreate]
+  )
+
   // PERMISSIONS-WIRING scoping for the relocated Approvals surface
   const { viewableIds, viewableLevels } = useViewableMembers(
     'tasks_basic',
@@ -1309,6 +1442,8 @@ export default function FamilyOverview() {
   const { data: routinesByMember = {} } = useTodayRoutinesForMembers(selectedMemberIds)
   const { data: sequentialByMember = {} } = useSequentialForMembers(family?.id, selectedMemberIds)
   const { data: victories = [] } = useTodayVictoriesForMembers(family?.id, selectedMemberIds)
+  const { data: oppClaims = [] } = useActiveOpportunityClaims(family?.id, selectedMemberIds)
+  const unclaimOpportunity = useUnclaimOpportunity()
 
   // Map iteration counts per intention
   const iterationCounts = useMemo(() => {
@@ -1645,6 +1780,8 @@ export default function FamilyOverview() {
                     routines={routinesByMember[m.id] ?? []}
                     sequential={sequentialByMember[m.id] ?? []}
                     victories={victories as Array<Record<string, unknown>>}
+                    oppClaims={oppClaims}
+                    onUnclaim={isPrimaryParent ? (claim) => unclaimOpportunity.mutate(claim) : undefined}
                     onToggleSection={handleToggleSection}
                     onToggleSectionOverride={handleToggleSectionOverride}
                     onSectionReorder={handleSectionReorder}
@@ -1655,6 +1792,7 @@ export default function FamilyOverview() {
                     onOpenTracker={canActOnMember ? (w) => setDetailWidget(w as unknown as DashboardWidget) : undefined}
                     onOpenEvent={canActOnMember ? (ev) => setEditEvent(ev as unknown as CalendarEvent & { event_attendees?: EventAttendee[] }) : undefined}
                     onOpenSegments={isPrimaryParent ? () => setSegmentsMember(m) : undefined}
+                    onCreateInSection={isPrimaryParent ? (section) => setCreateTarget({ member: m, section }) : undefined}
                   />
                 )
               })
@@ -1742,6 +1880,85 @@ export default function FamilyOverview() {
           memberId={segmentsMember.id}
           memberName={segmentsMember.display_name.split(' ')[0]}
           familyId={family.id}
+        />
+      )}
+
+      {/* ── Per-section [+ create] modals (founder ask 2026-06-10) ── */}
+      {createTarget && ['tasks', 'routines', 'opportunities'].includes(createTarget.section) && (
+        <TaskCreationModal
+          isOpen
+          onClose={closeCreate}
+          onSave={handleCreateTaskSave}
+          initialAssigneeId={createTarget.member.id}
+          initialTaskType={
+            createTarget.section === 'routines'
+              ? 'routine'
+              : createTarget.section === 'opportunities'
+                ? 'opportunity_repeatable'
+                : undefined
+          }
+        />
+      )}
+
+      {createTarget?.section === 'sequential' && (
+        <SequentialCreatorModal
+          isOpen
+          onClose={closeCreate}
+          familyId={family.id}
+          createdBy={member.id}
+        />
+      )}
+
+      {createTarget?.section === 'events' && (
+        <EventCreationModal
+          isOpen
+          onClose={closeCreate}
+          initialAttendeeIds={[createTarget.member.id]}
+        />
+      )}
+
+      {createTarget?.section === 'best_intentions' && (
+        <CreateBestIntentionModal
+          familyId={family.id}
+          memberId={createTarget.member.id}
+          memberName={createTarget.member.display_name.split(' ')[0]}
+          onClose={closeCreate}
+        />
+      )}
+
+      {createTarget?.section === 'victories' && (
+        <RecordVictoryModal
+          familyId={family.id}
+          memberId={createTarget.member.id}
+          memberName={createTarget.member.display_name.split(' ')[0]}
+          memberDashboardMode={(createTarget.member as unknown as Record<string, unknown>).dashboard_mode as string | null}
+          onClose={closeCreate}
+        />
+      )}
+
+      {createTarget?.section === 'trackers' && !trackerStarterConfig && (
+        <WidgetPicker
+          isOpen
+          onClose={closeCreate}
+          starterConfigs={starterConfigs}
+          onSelectStarterConfig={(config) => setTrackerStarterConfig(config)}
+        />
+      )}
+
+      {createTarget?.section === 'trackers' && trackerStarterConfig && (
+        <WidgetConfiguration
+          isOpen
+          onClose={closeCreate}
+          starterConfig={trackerStarterConfig}
+          familyId={family.id}
+          memberId={createTarget.member.id}
+          familyMembers={(allMembers ?? []).map((fm) => ({
+            id: fm.id,
+            display_name: fm.display_name,
+            assigned_color: (fm as unknown as Record<string, unknown>).assigned_color as string | null ?? null,
+            member_color: (fm as unknown as Record<string, unknown>).member_color as string | null ?? null,
+          }))}
+          onDeploy={handleDeployWidget}
         />
       )}
     </div>

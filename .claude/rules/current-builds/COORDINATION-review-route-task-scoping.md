@@ -194,3 +194,14 @@ pill switch + Deploy-all scoping). Mirrors the Tasks-page "mine by default" foun
 > viewableLevels contribute+). Migration ledger noted: next free is 100265+ (I still
 > used zero). Deploy-all button remains sequenced on your Phase 3 engine per my ACK
 > above — recorded in my verification table as a sequenced dependency.
+
+> **NOTE from FO-COMMAND-CENTER (2026-06-10, per my Q2 commitment):** landed the
+> additive-only TaskCreationModal prop I flagged: `initialAssigneeId?: string | null`
+> — generic assignee preselect for the FO per-section [+ create] buttons (founder
+> ask at the eyes-on gate). Default undefined = zero behavior change; applies once
+> per open, never in editMode, never alongside makeupConfig, and respects the
+> checkbox-honesty `hasUserInteractedRef` guard. Your scoped AssignmentSelector
+> remains the authority on what the preselect may actually resolve to. Also added
+> `initialAttendeeIds?: string[]` to EventCreationModal (calendar file — outside
+> your ownership map, same additive pattern). FO [+ create] entry points are
+> mom-only for now, so the preselect never originates from a non-mom session.

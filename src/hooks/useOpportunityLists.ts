@@ -295,6 +295,72 @@ export function useClaimOpportunityItem() {
 }
 
 // ============================================================
+// useUnclaimOpportunity — release a claimed opportunity back to its board
+//
+// FO-COMMAND-CENTER (founder asks 2026-06-10): mom returns claims from the
+// Family Overview; kids voluntarily release their own claims ("I changed my
+// mind" — the PRD-09A release that was never built). Both shapes:
+// - list_claim: release any task_claims rows on the bridge task, then cancel +
+//   archive the bridge task — the availability check frees the list item.
+// - standalone: release the task_claims row (same shape as useReleaseClaim).
+// ============================================================
+
+export interface MemberOpportunityClaim {
+  kind: 'list_claim' | 'standalone'
+  task_id: string
+  claim_id: string | null
+  title: string
+  member_id: string
+}
+
+export function useUnclaimOpportunity() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (claim: MemberOpportunityClaim) => {
+      const now = new Date().toISOString()
+
+      if (claim.kind === 'list_claim') {
+        // Release any claim records tied to the bridge task
+        await supabase
+          .from('task_claims')
+          .update({ released: true, released_at: now, status: 'released' })
+          .eq('task_id', claim.task_id)
+          .eq('completed', false)
+          .eq('released', false)
+        // Cancel + archive the bridge task → item returns to the board
+        const { error } = await supabase
+          .from('tasks')
+          .update({ status: 'cancelled', archived_at: now })
+          .eq('id', claim.task_id)
+        if (error) throw error
+      } else {
+        if (!claim.claim_id) throw new Error('standalone claim missing claim_id')
+        const { error } = await supabase
+          .from('task_claims')
+          .update({ released: true, released_at: now, status: 'released' })
+          .eq('id', claim.claim_id)
+        if (error) throw error
+      }
+      return claim
+    },
+    onSuccess: (claim) => {
+      queryClient.invalidateQueries({ queryKey: ['fo-opp-claims'] })
+      queryClient.invalidateQueries({ queryKey: ['fo-opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['fo-tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['task-claims', claim.task_id] })
+      queryClient.invalidateQueries({ queryKey: ['task-claims-active', claim.task_id] })
+      queryClient.invalidateQueries({ queryKey: ['my-claims', claim.member_id] })
+      queryClient.invalidateQueries({ queryKey: ['list-item-claim-status'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunity-items'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunity-lists'] })
+      queryClient.invalidateQueries({ queryKey: ['list-items'] })
+    },
+  })
+}
+
+// ============================================================
 // useCompleteOpportunityTask — completion flow for opportunity tasks
 //
 // On task completion:

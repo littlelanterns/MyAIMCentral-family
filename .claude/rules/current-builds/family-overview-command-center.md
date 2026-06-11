@@ -117,8 +117,12 @@ migrations 100262+; I expect zero. Both stage only own files.
 
 | 29 | Compact member pill selector on FO (app-standard pill bar) | founder eyes-on feedback 2026-06-10 | **Wired** | `MemberPillSelector variant="compact"`; grid variant default untouched (PRD-14B Pick Members) |
 | 30 | Tap-to-edit on every FO column item (tasks/routines/opps → TaskEditModal; sequential → SequentialDetailModal; trackers → WidgetDetailView; events → EventCreationModal) | founder eyes-on feedback 2026-06-10 | **Wired** | Decision 9 gating (handlers only for actable members); Best Intentions/Victories rows remain display-only (editors live on their own pages — flagged to founder) |
+| 31 | Play/Guided day segments in FO columns (grouped tasks + segment-tap → Day Segments editor) | founder ask 2026-06-10 | **Wired** | `isSegmentActiveToday` day-filter aware; mom-only header tap → GamificationSettingsModal; flat list preserved without segments (#208). Play picture-picking already covered by row 30 (TaskIconPicker in the edit modal) |
+| 32 | Per-section [+ create] buttons (mom-only) pre-targeted at the column's member | founder ask 2026-06-10 | **Wired** | tasks/routines/opps → TaskCreationModal (`initialAssigneeId` additive prop); sequential → SequentialCreatorModal; events → EventCreationModal (`initialAttendeeIds` additive prop); best_intentions → new CreateBestIntentionModal; victories → new RecordVictoryModal; trackers → WidgetPicker→WidgetConfiguration. Only weekly_completion has no + (config) |
+| 33 | Claimed/in-progress opportunities visible on FO + mom [Return]-to-board | founder eyes-on finding 2026-06-10 | **Wired** | Both claim shapes (list-claim bridge tasks + standalone task_claims); unclaim releases claims and frees the board item. `useUnclaimOpportunity` homed in `useOpportunityLists.ts` |
+| 34 | Kid voluntary claim release ("Put it back") — PRD-09A gap closed | founder ask 2026-06-10 | **Wired** | Three kid surfaces: board card (claimed-by-you, not pending approval), standalone dashboard card (useReleaseClaim), claim bridge task on own task list (TaskCard, Undo2 icon). No penalty; item returns to the board |
 
-**Summary: 30 Wired · 0 Stubbed · 0 Missing.** (Rows 26-30 landed same-session: the REVIEW-ROUTE engine arrived mid-build, and the founder pulled the two stubs + two eyes-on refinements into scope. E2E fo-command-center 12 tests.)
+**Summary: 34 Wired · 0 Stubbed · 0 Missing.** (Rows 26-34 landed same-session: the REVIEW-ROUTE engine arrived mid-build, and the founder pulled the two stubs + six eyes-on refinements into scope. E2E fo-command-center 12 tests.)
 
 ## Mom-UI Verification
 
