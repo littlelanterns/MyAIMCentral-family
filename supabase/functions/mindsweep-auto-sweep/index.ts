@@ -71,6 +71,9 @@ Deno.serve(async (req) => {
       const currentHour = parseInt(
         new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: timezone }).format(now)
       )
+      // Family-local date — anchors relative phrases ("today at 4") in
+      // mindsweep-sort's calendar extraction. en-CA formats as YYYY-MM-DD.
+      const familyToday = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now)
 
       const { data: settings } = await supabase
         .from('mindsweep_settings')
@@ -127,6 +130,7 @@ Deno.serve(async (req) => {
           custom_review_rules: fullSettings?.custom_review_rules || [],
           source_channel: 'auto_sweep',
           input_type: 'mixed',
+          today: familyToday,
           family_member_names: (familyMembers || []).map(m => ({
             id: m.id,
             display_name: m.display_name,
