@@ -58,6 +58,12 @@ import { EventCreationModal } from '@/components/calendar/EventCreationModal'
 import { useRecordWidgetData } from '@/hooks/useWidgets'
 import type { DashboardWidget } from '@/types/widgets'
 import type { CalendarEvent, EventAttendee } from '@/types/calendar'
+// Build M segments on FO columns (founder ask 2026-06-10): Play/Guided kids'
+// tasks group under their day-segment headers; tapping a header opens the
+// Day Segments editor (Gamification Settings) for that kid.
+import { useTaskSegments } from '@/hooks/useTaskSegments'
+import { isSegmentActiveToday } from '@/lib/segments/segmentUtils'
+import { GamificationSettingsModal } from '@/components/gamification/settings/GamificationSettingsModal'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import PendingItemsBar from './PendingItemsBar'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
@@ -316,13 +322,25 @@ function TasksSection({
   assignments,
   onComplete,
   onEditTask,
+  onOpenSegments,
 }: {
   memberId: string
   tasks: Array<Record<string, unknown>>
   assignments: Array<{ task_id: string; family_member_id: string }>
   onComplete: (taskId: string, memberId: string) => void
   onEditTask?: (taskId: string) => void
+  /** Mom-only: tap a segment header → that kid's Day Segments editor */
+  onOpenSegments?: () => void
 }) {
+  // Build M segments (founder ask 2026-06-10): when this member has active
+  // day segments (Play/Guided kids especially), group their tasks under
+  // tappable segment headers — same organizer they see on their dashboard.
+  const { data: allSegments = [] } = useTaskSegments(memberId)
+  const activeSegments = useMemo(
+    () => allSegments.filter(isSegmentActiveToday),
+    [allSegments],
+  )
+
   // Tasks assigned to this member via task_assignments or legacy assignee_id
   const assignedTaskIds = new Set(
     assignments.filter((a) => a.family_member_id === memberId).map((a) => a.task_id)
@@ -345,44 +363,126 @@ function TasksSection({
     return <EmptySection />
   }
 
+  // ── Segment-grouped rendering (only when active segments exist) ──
+  if (activeSegments.length > 0) {
+    const bySegment = new Map<string, typeof sorted>()
+    const unsegmented: typeof sorted = []
+    for (const t of sorted) {
+      const segId = t.task_segment_id as string | null
+      if (segId && activeSegments.some((s) => s.id === segId)) {
+        const group = bySegment.get(segId) ?? []
+        group.push(t)
+        bySegment.set(segId, group)
+      } else {
+        unsegmented.push(t)
+      }
+    }
+
+    return (
+      <div className="px-2 pb-2 space-y-1.5">
+        {activeSegments.map((seg) => {
+          const segTasks = bySegment.get(seg.id) ?? []
+          if (segTasks.length === 0) return null
+          const segDone = segTasks.filter((t) => t.status === 'completed').length
+          return (
+            <div key={seg.id}>
+              <ItemRow onOpen={onOpenSegments}>
+                <div
+                  className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide py-0.5"
+                  style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}
+                  title={onOpenSegments ? 'Tap to edit day segments' : undefined}
+                >
+                  <span className="truncate">{seg.segment_name}</span>
+                  <span className="ml-auto shrink-0 font-normal normal-case">
+                    {segDone}/{segTasks.length}
+                  </span>
+                </div>
+              </ItemRow>
+              <div className="space-y-0.5">
+                {segTasks.map((t) => (
+                  <TaskRow key={t.id as string} t={t} memberId={memberId} onComplete={onComplete} onEditTask={onEditTask} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+        {unsegmented.length > 0 && (
+          <div>
+            {bySegment.size > 0 && (
+              <div
+                className="text-xs font-semibold uppercase tracking-wide py-0.5"
+                style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}
+              >
+                Other
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {unsegmented.map((t) => (
+                <TaskRow key={t.id as string} t={t} memberId={memberId} onComplete={onComplete} onEditTask={onEditTask} />
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="text-xs pt-1" style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}>
+          {completedCount}/{sorted.length} done
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-0.5 px-2 pb-2">
-      {sorted.map((t) => {
-        const isComplete = t.status === 'completed'
-        return (
-          <div key={t.id as string} className="flex items-center gap-1.5 text-xs">
-            <button
-              onClick={() => {
-                if (!isComplete) onComplete(t.id as string, memberId)
-              }}
-              data-testid={`task-checkbox-${t.id}`}
-              className="shrink-0 w-4 h-4 rounded border flex items-center justify-center"
-              style={{
-                borderColor: isComplete ? 'var(--color-btn-primary-bg)' : 'var(--color-border-default)',
-                backgroundColor: isComplete ? 'var(--color-btn-primary-bg)' : 'transparent',
-              }}
-              disabled={isComplete}
-            >
-              {isComplete && <Check size={10} style={{ color: 'var(--color-text-on-primary, #fff)' }} />}
-            </button>
-            <span
-              className={`truncate ${isComplete ? 'line-through' : ''}`}
-              onClick={onEditTask ? () => onEditTask(t.id as string) : undefined}
-              role={onEditTask ? 'button' : undefined}
-              title={onEditTask ? 'Tap to edit' : undefined}
-              style={{
-                color: isComplete ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
-                cursor: onEditTask ? 'pointer' : undefined,
-              }}
-            >
-              {t.title as string}
-            </span>
-          </div>
-        )
-      })}
+      {sorted.map((t) => (
+        <TaskRow key={t.id as string} t={t} memberId={memberId} onComplete={onComplete} onEditTask={onEditTask} />
+      ))}
       <div className="text-xs pt-1" style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}>
         {completedCount}/{sorted.length} done
       </div>
+    </div>
+  )
+}
+
+// One task row: checkbox completes, title taps to edit (when permitted)
+function TaskRow({
+  t,
+  memberId,
+  onComplete,
+  onEditTask,
+}: {
+  t: Record<string, unknown>
+  memberId: string
+  onComplete: (taskId: string, memberId: string) => void
+  onEditTask?: (taskId: string) => void
+}) {
+  const isComplete = t.status === 'completed'
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <button
+        onClick={() => {
+          if (!isComplete) onComplete(t.id as string, memberId)
+        }}
+        data-testid={`task-checkbox-${t.id}`}
+        className="shrink-0 w-4 h-4 rounded border flex items-center justify-center"
+        style={{
+          borderColor: isComplete ? 'var(--color-btn-primary-bg)' : 'var(--color-border-default)',
+          backgroundColor: isComplete ? 'var(--color-btn-primary-bg)' : 'transparent',
+        }}
+        disabled={isComplete}
+      >
+        {isComplete && <Check size={10} style={{ color: 'var(--color-text-on-primary, #fff)' }} />}
+      </button>
+      <span
+        className={`truncate ${isComplete ? 'line-through' : ''}`}
+        onClick={onEditTask ? () => onEditTask(t.id as string) : undefined}
+        role={onEditTask ? 'button' : undefined}
+        title={onEditTask ? 'Tap to edit' : undefined}
+        style={{
+          color: isComplete ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+          cursor: onEditTask ? 'pointer' : undefined,
+        }}
+      >
+        {t.title as string}
+      </span>
     </div>
   )
 }
@@ -728,6 +828,7 @@ function MemberColumn({
   onOpenCollection,
   onOpenTracker,
   onOpenEvent,
+  onOpenSegments,
 }: {
   member: FamilyMember
   sectionOrder: string[]
@@ -752,6 +853,8 @@ function MemberColumn({
   onOpenCollection?: (collectionId: string) => void
   onOpenTracker?: (widget: Record<string, unknown>) => void
   onOpenEvent?: (event: Record<string, unknown>) => void
+  /** Mom-only: open this member's Day Segments editor (Gamification Settings) */
+  onOpenSegments?: () => void
 }) {
   const color = member.calendar_color || getMemberColor(member)
 
@@ -849,6 +952,7 @@ function MemberColumn({
             assignments={assignments}
             onComplete={onCompleteTask}
             onEditTask={onEditTask}
+            onOpenSegments={onOpenSegments}
           />
         )
       case 'best_intentions':
@@ -1096,6 +1200,7 @@ export default function FamilyOverview() {
   const [seqDetailId, setSeqDetailId] = useState<string | null>(null)
   const [detailWidget, setDetailWidget] = useState<DashboardWidget | null>(null)
   const [editEvent, setEditEvent] = useState<(CalendarEvent & { event_attendees?: EventAttendee[] }) | null>(null)
+  const [segmentsMember, setSegmentsMember] = useState<FamilyMember | null>(null)
   const recordData = useRecordWidgetData()
 
   // PERMISSIONS-WIRING scoping for the relocated Approvals surface
@@ -1549,6 +1654,7 @@ export default function FamilyOverview() {
                     onOpenCollection={canActOnMember ? setSeqDetailId : undefined}
                     onOpenTracker={canActOnMember ? (w) => setDetailWidget(w as unknown as DashboardWidget) : undefined}
                     onOpenEvent={canActOnMember ? (ev) => setEditEvent(ev as unknown as CalendarEvent & { event_attendees?: EventAttendee[] }) : undefined}
+                    onOpenSegments={isPrimaryParent ? () => setSegmentsMember(m) : undefined}
                   />
                 )
               })
@@ -1625,6 +1731,17 @@ export default function FamilyOverview() {
           isOpen={!!editEvent}
           onClose={() => setEditEvent(null)}
           initialEvent={editEvent}
+        />
+      )}
+
+      {/* Day Segments editor (Gamification Settings) — segment header tap */}
+      {segmentsMember && (
+        <GamificationSettingsModal
+          isOpen={!!segmentsMember}
+          onClose={() => setSegmentsMember(null)}
+          memberId={segmentsMember.id}
+          memberName={segmentsMember.display_name.split(' ')[0]}
+          familyId={family.id}
         />
       )}
     </div>

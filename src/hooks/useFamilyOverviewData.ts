@@ -57,7 +57,7 @@ export function useTodayTasksForMembers(memberIds: string[]) {
       // sections — exclude them here so the Tasks section is task/habit only.
       const { data, error } = await supabase
         .from('tasks')
-        .select('id, title, status, due_date, due_time, assignee_id, task_type, require_approval, sort_order, completed_at, is_shared, recurrence_rule, recurrence_details')
+        .select('id, title, status, due_date, due_time, assignee_id, task_type, require_approval, sort_order, completed_at, is_shared, recurrence_rule, recurrence_details, task_segment_id')
         .eq('family_id', familyId)
         .is('archived_at', null)
         .not('task_type', 'like', 'opportunity%')
