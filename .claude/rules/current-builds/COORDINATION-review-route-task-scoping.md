@@ -205,3 +205,26 @@ pill switch + Deploy-all scoping). Mirrors the Tasks-page "mine by default" foun
 > `initialAttendeeIds?: string[]` to EventCreationModal (calendar file — outside
 > your ownership map, same additive pattern). FO [+ create] entry points are
 > mom-only for now, so the preselect never originates from a non-mom session.
+
+---
+
+## P0 POST-SHIP FIX from FO-COMMAND-CENTER (2026-06-10, late) — migration 100265
+
+**Your 100262/100263 family-device policy set had an RLS recursion** that 500'd
+EVERY authenticated `tasks` UPDATE in production (`42P17 infinite recursion
+detected in policy for relation "tasks"`). The cycle: `tasks_update_assigned_member`
+(USING subqueries task_assignments) ↔ `ta_family_device` (FOR ALL, USING
+subqueries tasks). Service role bypasses RLS, so server probes and the E2E
+RLS INSERT probes never saw it; founder hit it pressing the FO [Return] button
+(unclaim = tasks UPDATE), but task EDITS were equally broken.
+
+**Fix (mine, founder-directed):** `00000000100265_fix_tasks_ta_policy_recursion.sql`
+— `ta_family_device` rebuilt on a new `util.task_in_shadow_family(task_id)`
+SECURITY DEFINER helper (same semantics, no RLS re-entry; is_family_shadow_of /
+finance_grant_level precedent). Applied to production; authenticated probe
+204; all three pin suites re-run green. Migration ledger: next free is 100266+.
+
+**Pattern note for future policy work:** a FOR ALL policy's USING applies to
+reads made INSIDE other tables' policy evaluation. Never let two tables'
+policies subquery each other inline — one side must go through a SECURITY
+DEFINER helper.

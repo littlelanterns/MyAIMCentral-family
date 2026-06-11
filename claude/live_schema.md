@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-06-10
+> Auto-generated from live Supabase on 2026-06-11
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 437 rows
+### `view_as_sessions` — 441 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 318 rows
+### `view_as_feature_exclusions` — 322 rows
 
 | # | Column |
 |---|---|
@@ -177,7 +177,7 @@
 | 10 | `start_time` |
 | 11 | `end_time` |
 
-### `permission_level_profiles` — 164 rows
+### `permission_level_profiles` — 167 rows
 
 | # | Column |
 |---|---|
@@ -239,7 +239,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 361 rows
+### `feature_access_v2` — 362 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 662 rows
+### `ai_usage_tracking` — 667 rows
 
 | # | Column |
 |---|---|
@@ -664,7 +664,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 166 rows
+### `tasks` — 180 rows
 
 | # | Column |
 |---|---|
@@ -766,7 +766,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 36 rows
+### `task_completions` — 37 rows
 
 | # | Column |
 |---|---|
@@ -790,7 +790,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1638 rows
+### `routine_step_completions` — 1653 rows
 
 | # | Column |
 |---|---|
@@ -855,7 +855,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 39 rows
+### `studio_queue` — 41 rows
 
 | # | Column |
 |---|---|
@@ -1160,7 +1160,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 38 rows
+### `calendar_events` — 40 rows
 
 | # | Column |
 |---|---|
@@ -1208,7 +1208,7 @@
 | 42 | `option_group_title` |
 | 43 | `calendar_subtype` |
 
-### `event_attendees` — 68 rows
+### `event_attendees` — 72 rows
 
 | # | Column |
 |---|---|
@@ -1247,7 +1247,7 @@
 | 8 | `updated_at` |
 | 9 | `chore_cycle_start_day` |
 
-### `family_overview_configs` — 1 rows
+### `family_overview_configs` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2396,7 +2396,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 11 rows
+### `mindsweep_events` — 12 rows
 
 | # | Column |
 |---|---|
@@ -2414,7 +2414,7 @@
 | 12 | `processing_cost_cents` |
 | 13 | `created_at` |
 
-### `mindsweep_approval_patterns` — 21 rows
+### `mindsweep_approval_patterns` — 22 rows
 
 | # | Column |
 |---|---|
@@ -2710,7 +2710,7 @@
 | 8 | `due_date_offset_days` |
 | 9 | `created_at` |
 
-### `beta_glitch_reports` — 74 rows
+### `beta_glitch_reports` — 75 rows
 
 | # | Column |
 |---|---|
@@ -3460,7 +3460,7 @@
 | 8 | `creature_roll_chance` |
 | 9 | `created_at` |
 
-### `practice_log` — 12 rows
+### `practice_log` — 14 rows
 
 | # | Column |
 |---|---|
