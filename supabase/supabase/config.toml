@@ -565,6 +565,13 @@ verify_jwt = false
 [functions.family-auth-admin]
 verify_jwt = false
 
+# Queue calendar pre-fill extraction (parallel session 2026-06-10). Auth
+# handled in code via _shared/auth.ts like every other function — added here
+# because the prebuild verify_jwt guard (correctly) failed the Vercel deploy
+# when this function shipped without its config entry.
+[functions.calendar-extract]
+verify_jwt = false
+
 # Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)
