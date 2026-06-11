@@ -74,6 +74,7 @@ import { isSegmentActiveToday, groupTasksBySegment } from '@/lib/segments/segmen
 import { useSearchParams } from 'react-router-dom'
 import { useOpportunityLists, useOpportunityItems } from '@/hooks/useOpportunityLists'
 import { OpportunityListBrowse } from '@/components/lists/OpportunityListBrowse'
+import { getMemberColor } from '@/lib/memberColors'
 import type { List as ListData } from '@/types/lists'
 
 // ─────────────────────────────────────────────
@@ -933,13 +934,14 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
     })
   }, [])
 
-  // Build member lookup for assignee pills
+  // Build member lookup for assignee pills (Convention #207: getMemberColor
+  // is the canonical member-color read — also clears the check:colors finding)
   const memberLookup = useMemo(() => {
     const map: Record<string, { name: string; color: string }> = {}
     for (const m of familyMembers) {
       map[m.id] = {
         name: m.display_name?.split(' ')[0] ?? m.display_name ?? '',
-        color: m.assigned_color || m.member_color || '#6B7280',
+        color: getMemberColor(m),
       }
     }
     return map
