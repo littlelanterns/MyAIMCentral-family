@@ -33,6 +33,13 @@ interface MemberPillSelectorProps {
   showAssignMode?: boolean
   assignMode?: AssignMode
   onAssignModeChange?: (mode: AssignMode) => void
+  /**
+   * 'grid' (default) — full-width pills in a responsive grid (creation flows).
+   * 'compact' — small content-sized pills in one wrapping row, matching the
+   * pill bars used across the app (FO-COMMAND-CENTER founder feedback
+   * 2026-06-10: the grid variant reads bulky on monitoring surfaces).
+   */
+  variant?: 'grid' | 'compact'
 }
 
 function getColor(m: MemberPillItem): string {
@@ -50,11 +57,73 @@ export default function MemberPillSelector({
   showAssignMode,
   assignMode = 'each',
   onAssignModeChange,
+  variant = 'grid',
 }: MemberPillSelectorProps) {
   const allSelected = members.length > 0 && selectedIds.length === members.length
   const everyonePill = !!(showEveryone && onToggleAll)
   const totalPills = members.length + (everyonePill ? 1 : 0)
   const { columns } = useResponsiveColumns(totalPills)
+
+  // ── Compact variant: the standard small pill bar used across the app ──
+  if (variant === 'compact') {
+    return (
+      <div className={`flex items-center gap-1.5 flex-wrap ${className}`}>
+        {showSortToggle && members.length > 2 && (
+          <MemberSortToggle className="shrink-0" />
+        )}
+        {everyonePill && (
+          <button
+            onClick={onToggleAll}
+            className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
+            style={
+              allSelected
+                ? {
+                    backgroundColor: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-text, #fff)',
+                    border: '1px solid var(--color-btn-primary-bg)',
+                  }
+                : {
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-border)',
+                  }
+            }
+          >
+            Everyone
+          </button>
+        )}
+        {members.map((m) => {
+          const color = getColor(m)
+          const isSelected = selectedIds.includes(m.id)
+          return (
+            <button
+              key={m.id}
+              onClick={() => onToggle(m.id)}
+              data-testid={`member-pill-${m.id}`}
+              data-member-name={m.display_name.split(' ')[0]}
+              data-selected={isSelected}
+              className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium shrink-0"
+              style={
+                isSelected
+                  ? {
+                      backgroundColor: color,
+                      color: 'var(--color-text-on-primary, #fff)',
+                      border: `2px solid ${color}`,
+                    }
+                  : {
+                      backgroundColor: 'transparent',
+                      color: color,
+                      border: `2px solid ${color}`,
+                    }
+              }
+            >
+              {m.display_name.split(' ')[0]}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className={`flex items-start gap-2 ${className}`}>

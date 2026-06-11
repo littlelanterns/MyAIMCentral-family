@@ -29,6 +29,12 @@ export interface TaskEditor {
   editingTask: Task | null
   editRoutineSections: RoutineSection[] | undefined
   openEditTask: (task: Task) => Promise<void>
+  /**
+   * FO-COMMAND-CENTER: open the editor from a surface that only holds a slim
+   * row (the Family Overview column queries select a subset of columns) —
+   * fetches the full task row first.
+   */
+  openEditTaskById: (taskId: string) => Promise<void>
   saveEditTask: (data: CreateTaskData) => Promise<void>
   closeEditor: () => void
 }
@@ -176,5 +182,22 @@ export function useTaskEditor(): TaskEditor {
     setEditRoutineSections(undefined)
   }, [])
 
-  return { editingTask, editRoutineSections, openEditTask, saveEditTask, closeEditor }
+  // Fetch the full row, then open — for slim-row surfaces (FO columns).
+  const openEditTaskById = useCallback(
+    async (taskId: string) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single()
+      if (error || !data) {
+        console.error('openEditTaskById failed:', error)
+        return
+      }
+      await openEditTask(data as Task)
+    },
+    [openEditTask]
+  )
+
+  return { editingTask, editRoutineSections, openEditTask, openEditTaskById, saveEditTask, closeEditor }
 }

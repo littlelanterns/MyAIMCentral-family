@@ -48,6 +48,16 @@ import { SortTab } from '@/components/queue/SortTab'
 import { FinancesTab, type FinanceAccessLevel } from '@/features/financial/FinancesTab'
 import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 import { MemberSpotCheck } from './MemberSpotCheck'
+// FO-COMMAND-CENTER founder feedback 2026-06-10: every column item is
+// tap-to-edit — the right editor opens right above the page.
+import { useTaskEditor } from '@/hooks/useTaskEditor'
+import { TaskEditModal } from '@/components/tasks/TaskEditModal'
+import { SequentialDetailModal } from '@/components/tasks/sequential/SequentialDetailModal'
+import { WidgetDetailView } from '@/components/widgets/WidgetDetailView'
+import { EventCreationModal } from '@/components/calendar/EventCreationModal'
+import { useRecordWidgetData } from '@/hooks/useWidgets'
+import type { DashboardWidget } from '@/types/widgets'
+import type { CalendarEvent, EventAttendee } from '@/types/calendar'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import PendingItemsBar from './PendingItemsBar'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
@@ -232,7 +242,15 @@ function SortableSection({
 
 // ─── Section: Events ─────────────────────────────────────────────────────────
 
-function EventsSection({ memberId, events }: { memberId: string; events: Array<Record<string, unknown>> }) {
+function EventsSection({
+  memberId,
+  events,
+  onOpenEvent,
+}: {
+  memberId: string
+  events: Array<Record<string, unknown>>
+  onOpenEvent?: (event: Record<string, unknown>) => void
+}) {
   const memberEvents = events.filter((ev) => {
     if (ev.created_by === memberId) return true
     const attendees = (ev.event_attendees as Array<{ family_member_id: string }>) ?? []
@@ -246,23 +264,47 @@ function EventsSection({ memberId, events }: { memberId: string; events: Array<R
   return (
     <div className="space-y-1 px-2 pb-2">
       {memberEvents.map((ev) => (
-        <div
-          key={ev.id as string}
-          className="flex items-start gap-1.5 text-xs"
-          style={{
-            color: 'var(--color-text-primary)',
-            opacity: ev.status === 'pending_approval' ? 0.5 : 1,
-          }}
-        >
-          {!!ev.start_time && (
-            <span className="shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
-              {formatTime(ev.start_time as string)}
-            </span>
-          )}
-          <span className="truncate">{ev.title as string}</span>
-        </div>
+        <ItemRow key={ev.id as string} onOpen={onOpenEvent ? () => onOpenEvent(ev) : undefined}>
+          <div
+            className="flex items-start gap-1.5 text-xs"
+            style={{
+              color: 'var(--color-text-primary)',
+              opacity: ev.status === 'pending_approval' ? 0.5 : 1,
+            }}
+          >
+            {!!ev.start_time && (
+              <span className="shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+                {formatTime(ev.start_time as string)}
+              </span>
+            )}
+            <span className="truncate">{ev.title as string}</span>
+          </div>
+        </ItemRow>
       ))}
     </div>
+  )
+}
+
+// ─── ItemRow — tap-to-edit wrapper (founder feedback 2026-06-10) ─────────────
+// Wraps a column row in a button when an editor is available; plain div when
+// the viewer can't act (view-only dads) or the row has no editor.
+
+function ItemRow({
+  onOpen,
+  children,
+}: {
+  onOpen?: () => void
+  children: React.ReactNode
+}) {
+  if (!onOpen) return <>{children}</>
+  return (
+    <button
+      onClick={onOpen}
+      className="block w-full text-left rounded transition-colors hover:opacity-80"
+      style={{ cursor: 'pointer' }}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -273,11 +315,13 @@ function TasksSection({
   tasks,
   assignments,
   onComplete,
+  onEditTask,
 }: {
   memberId: string
   tasks: Array<Record<string, unknown>>
   assignments: Array<{ task_id: string; family_member_id: string }>
   onComplete: (taskId: string, memberId: string) => void
+  onEditTask?: (taskId: string) => void
 }) {
   // Tasks assigned to this member via task_assignments or legacy assignee_id
   const assignedTaskIds = new Set(
@@ -322,9 +366,13 @@ function TasksSection({
               {isComplete && <Check size={10} style={{ color: 'var(--color-text-on-primary, #fff)' }} />}
             </button>
             <span
-              className={isComplete ? 'line-through' : ''}
+              className={`truncate ${isComplete ? 'line-through' : ''}`}
+              onClick={onEditTask ? () => onEditTask(t.id as string) : undefined}
+              role={onEditTask ? 'button' : undefined}
+              title={onEditTask ? 'Tap to edit' : undefined}
               style={{
                 color: isComplete ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+                cursor: onEditTask ? 'pointer' : undefined,
               }}
             >
               {t.title as string}
@@ -387,9 +435,11 @@ function BestIntentionsSection({
 function TrackersSection({
   memberId,
   trackers,
+  onOpenTracker,
 }: {
   memberId: string
   trackers: Array<Record<string, unknown>>
+  onOpenTracker?: (widget: Record<string, unknown>) => void
 }) {
   const memberTrackers = trackers.filter((w) => w.family_member_id === memberId)
 
@@ -401,14 +451,16 @@ function TrackersSection({
     <div className="space-y-0.5 px-2 pb-2">
       {memberTrackers.map((w) => {
         const config = (w.config as Record<string, unknown>) ?? {}
-        const label = (config.label as string) || (config.title as string) || 'Tracker'
+        const label = (w.title as string) || (config.label as string) || (config.title as string) || 'Tracker'
         return (
-          <div key={w.id as string} className="flex items-center gap-1.5 text-xs">
-            <BarChart3 size={10} style={{ color: 'var(--color-text-secondary)' }} />
-            <span className="truncate" style={{ color: 'var(--color-text-primary)' }}>
-              {label}
-            </span>
-          </div>
+          <ItemRow key={w.id as string} onOpen={onOpenTracker ? () => onOpenTracker(w) : undefined}>
+            <div className="flex items-center gap-1.5 text-xs">
+              <BarChart3 size={10} style={{ color: 'var(--color-text-secondary)' }} />
+              <span className="truncate" style={{ color: 'var(--color-text-primary)' }}>
+                {label}
+              </span>
+            </div>
+          </ItemRow>
         )
       })}
     </div>
@@ -420,9 +472,11 @@ function TrackersSection({
 function OpportunitiesSection({
   memberId,
   opportunities,
+  onEditTask,
 }: {
   memberId: string
   opportunities: Array<Record<string, unknown>>
+  onEditTask?: (taskId: string) => void
 }) {
   const memberOpps = opportunities.filter((o) => o.assignee_id === memberId)
 
@@ -433,17 +487,19 @@ function OpportunitiesSection({
   return (
     <div className="space-y-0.5 px-2 pb-2">
       {memberOpps.map((opp) => (
-        <div key={opp.id as string} className="flex items-center gap-1.5 text-xs">
-          <Check size={10} style={{ color: 'var(--color-btn-primary-bg)' }} />
-          <span className="truncate" style={{ color: 'var(--color-text-primary)' }}>
-            {opp.title as string}
-          </span>
-          {opp.points_override != null && (
-            <span className="ml-auto text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              {opp.points_override as number} pts
+        <ItemRow key={opp.id as string} onOpen={onEditTask ? () => onEditTask(opp.id as string) : undefined}>
+          <div className="flex items-center gap-1.5 text-xs">
+            <Check size={10} style={{ color: 'var(--color-btn-primary-bg)' }} />
+            <span className="truncate" style={{ color: 'var(--color-text-primary)' }}>
+              {opp.title as string}
             </span>
-          )}
-        </div>
+            {opp.points_override != null && (
+              <span className="ml-auto text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                {opp.points_override as number} pts
+              </span>
+            )}
+          </div>
+        </ItemRow>
       ))}
     </div>
   )
@@ -453,7 +509,13 @@ function OpportunitiesSection({
 // Data comes from get_member_day_obligations (Convention #271) — never re-derive
 // "what counts today" inline.
 
-function RoutinesSection({ routines }: { routines: MemberRoutineToday[] }) {
+function RoutinesSection({
+  routines,
+  onEditTask,
+}: {
+  routines: MemberRoutineToday[]
+  onEditTask?: (taskId: string) => void
+}) {
   if (routines.length === 0) {
     return <EmptySection />
   }
@@ -463,24 +525,26 @@ function RoutinesSection({ routines }: { routines: MemberRoutineToday[] }) {
       {routines.map((r) => {
         const allDone = r.total_steps > 0 && r.done_steps === r.total_steps
         return (
-          <div key={r.task_id} className="flex items-center gap-1.5 text-xs">
-            <RefreshCw
-              size={10}
-              style={{ color: allDone ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-            />
-            <span
-              className={`truncate ${allDone ? 'line-through' : ''}`}
-              style={{ color: allDone ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}
-            >
-              {r.title}
-            </span>
-            <span
-              className="ml-auto shrink-0 font-medium"
-              style={{ color: allDone ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
-            >
-              {r.done_steps}/{r.total_steps}
-            </span>
-          </div>
+          <ItemRow key={r.task_id} onOpen={onEditTask ? () => onEditTask(r.task_id) : undefined}>
+            <div className="flex items-center gap-1.5 text-xs">
+              <RefreshCw
+                size={10}
+                style={{ color: allDone ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+              />
+              <span
+                className={`truncate ${allDone ? 'line-through' : ''}`}
+                style={{ color: allDone ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}
+              >
+                {r.title}
+              </span>
+              <span
+                className="ml-auto shrink-0 font-medium"
+                style={{ color: allDone ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)' }}
+              >
+                {r.done_steps}/{r.total_steps}
+              </span>
+            </div>
+          </ItemRow>
         )
       })}
     </div>
@@ -489,7 +553,13 @@ function RoutinesSection({ routines }: { routines: MemberRoutineToday[] }) {
 
 // ─── Section: Sequential (FO-COMMAND-CENTER) ─────────────────────────────────
 
-function SequentialSection({ items }: { items: MemberSequentialSummary[] }) {
+function SequentialSection({
+  items,
+  onOpenCollection,
+}: {
+  items: MemberSequentialSummary[]
+  onOpenCollection?: (collectionId: string) => void
+}) {
   if (items.length === 0) {
     return <EmptySection />
   }
@@ -497,22 +567,24 @@ function SequentialSection({ items }: { items: MemberSequentialSummary[] }) {
   return (
     <div className="space-y-1.5 px-2 pb-2">
       {items.map((s) => (
-        <div key={s.collection_id} className="text-xs">
-          <div className="flex items-center gap-1.5">
-            <BookOpen size={10} style={{ color: 'var(--color-text-secondary)' }} />
-            <span className="truncate font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {s.collection_title}
-            </span>
-            <span className="ml-auto shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
-              {s.completed_count}/{s.total_items}
-            </span>
-          </div>
-          {s.current_item_title && (
-            <div className="pl-4 truncate" style={{ color: 'var(--color-text-secondary)' }}>
-              Next: {s.current_item_title}
+        <ItemRow key={s.collection_id} onOpen={onOpenCollection ? () => onOpenCollection(s.collection_id) : undefined}>
+          <div className="text-xs">
+            <div className="flex items-center gap-1.5">
+              <BookOpen size={10} style={{ color: 'var(--color-text-secondary)' }} />
+              <span className="truncate font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                {s.collection_title}
+              </span>
+              <span className="ml-auto shrink-0" style={{ color: 'var(--color-text-secondary)' }}>
+                {s.completed_count}/{s.total_items}
+              </span>
             </div>
-          )}
-        </div>
+            {s.current_item_title && (
+              <div className="pl-4 truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                Next: {s.current_item_title}
+              </div>
+            )}
+          </div>
+        </ItemRow>
       ))}
     </div>
   )
@@ -652,6 +724,10 @@ function MemberColumn({
   onSectionReorder,
   onCompleteTask,
   onSpotCheck,
+  onEditTask,
+  onOpenCollection,
+  onOpenTracker,
+  onOpenEvent,
 }: {
   member: FamilyMember
   sectionOrder: string[]
@@ -671,6 +747,11 @@ function MemberColumn({
   onSectionReorder: (activeKey: string, overKey: string) => void
   onCompleteTask: (taskId: string, memberId: string) => void
   onSpotCheck: (member: FamilyMember) => void
+  /** Tap-to-edit handlers — undefined when the viewer is view-only for this member */
+  onEditTask?: (taskId: string) => void
+  onOpenCollection?: (collectionId: string) => void
+  onOpenTracker?: (widget: Record<string, unknown>) => void
+  onOpenEvent?: (event: Record<string, unknown>) => void
 }) {
   const color = member.calendar_color || getMemberColor(member)
 
@@ -759,7 +840,7 @@ function MemberColumn({
   const renderSectionContent = (key: FamilyOverviewSectionKey) => {
     switch (key) {
       case 'events':
-        return <EventsSection memberId={member.id} events={events} />
+        return <EventsSection memberId={member.id} events={events} onOpenEvent={onOpenEvent} />
       case 'tasks':
         return (
           <TasksSection
@@ -767,6 +848,7 @@ function MemberColumn({
             tasks={tasks}
             assignments={assignments}
             onComplete={onCompleteTask}
+            onEditTask={onEditTask}
           />
         )
       case 'best_intentions':
@@ -778,15 +860,15 @@ function MemberColumn({
           />
         )
       case 'routines':
-        return <RoutinesSection routines={routines} />
+        return <RoutinesSection routines={routines} onEditTask={onEditTask} />
       case 'sequential':
-        return <SequentialSection items={sequential} />
+        return <SequentialSection items={sequential} onOpenCollection={onOpenCollection} />
       case 'trackers':
-        return <TrackersSection memberId={member.id} trackers={trackers} />
+        return <TrackersSection memberId={member.id} trackers={trackers} onOpenTracker={onOpenTracker} />
       case 'weekly_completion':
         return <WeeklyCompletionSection memberId={member.id} />
       case 'opportunities':
-        return <OpportunitiesSection memberId={member.id} opportunities={opportunities} />
+        return <OpportunitiesSection memberId={member.id} opportunities={opportunities} onEditTask={onEditTask} />
       case 'victories':
         return <VictoriesSection memberId={member.id} victories={victories} />
       default:
@@ -1008,6 +1090,13 @@ export default function FamilyOverview() {
   }, [])
   const [spotCheckMember, setSpotCheckMember] = useState<FamilyMember | null>(null)
   const isPrimaryParent = member?.role === 'primary_parent'
+
+  // ── Tap-to-edit editors (founder feedback 2026-06-10) ──
+  const taskEditor = useTaskEditor()
+  const [seqDetailId, setSeqDetailId] = useState<string | null>(null)
+  const [detailWidget, setDetailWidget] = useState<DashboardWidget | null>(null)
+  const [editEvent, setEditEvent] = useState<(CalendarEvent & { event_attendees?: EventAttendee[] }) | null>(null)
+  const recordData = useRecordWidgetData()
 
   // PERMISSIONS-WIRING scoping for the relocated Approvals surface
   const { viewableIds, viewableLevels } = useViewableMembers(
@@ -1396,11 +1485,13 @@ export default function FamilyOverview() {
         onToggleCollapse={handleToggleCalendar}
       />
 
-      {/* Member Pill Selector */}
+      {/* Member Pill Selector — compact pill bar (founder feedback 2026-06-10:
+          match the small pill style used across the app) */}
       <MemberPillSelector
         members={pillMembers}
         selectedIds={selectedMemberIds}
         onToggle={handleToggleMember}
+        variant="compact"
       />
 
       {/* Onboarding Card */}
@@ -1426,29 +1517,41 @@ export default function FamilyOverview() {
                 Select family members above to see their activity
               </div>
             ) : (
-              selectedMembers.map((m) => (
-                <MemberColumn
-                  key={m.id}
-                  member={m}
-                  sectionOrder={sectionOrder}
-                  sectionStates={sectionStates}
-                  events={events as Array<Record<string, unknown>>}
-                  tasks={tasks as Array<Record<string, unknown>>}
-                  assignments={assignments as Array<{ task_id: string; family_member_id: string }>}
-                  intentions={intentions as Array<Record<string, unknown>>}
-                  iterationCounts={iterationCounts}
-                  trackers={trackers as Array<Record<string, unknown>>}
-                  opportunities={opportunities as Array<Record<string, unknown>>}
-                  routines={routinesByMember[m.id] ?? []}
-                  sequential={sequentialByMember[m.id] ?? []}
-                  victories={victories as Array<Record<string, unknown>>}
-                  onToggleSection={handleToggleSection}
-                  onToggleSectionOverride={handleToggleSectionOverride}
-                  onSectionReorder={handleSectionReorder}
-                  onCompleteTask={handleCompleteTask}
-                  onSpotCheck={setSpotCheckMember}
-                />
-              ))
+              selectedMembers.map((m) => {
+                // Tap-to-edit handlers only for members the viewer may act on
+                // (mom, self, or contribute+ grant — Decision 9)
+                const canActOnMember =
+                  isPrimaryParent ||
+                  m.id === member.id ||
+                  accessLevelAtLeast(viewableLevels[m.id], 'contribute')
+                return (
+                  <MemberColumn
+                    key={m.id}
+                    member={m}
+                    sectionOrder={sectionOrder}
+                    sectionStates={sectionStates}
+                    events={events as Array<Record<string, unknown>>}
+                    tasks={tasks as Array<Record<string, unknown>>}
+                    assignments={assignments as Array<{ task_id: string; family_member_id: string }>}
+                    intentions={intentions as Array<Record<string, unknown>>}
+                    iterationCounts={iterationCounts}
+                    trackers={trackers as Array<Record<string, unknown>>}
+                    opportunities={opportunities as Array<Record<string, unknown>>}
+                    routines={routinesByMember[m.id] ?? []}
+                    sequential={sequentialByMember[m.id] ?? []}
+                    victories={victories as Array<Record<string, unknown>>}
+                    onToggleSection={handleToggleSection}
+                    onToggleSectionOverride={handleToggleSectionOverride}
+                    onSectionReorder={handleSectionReorder}
+                    onCompleteTask={handleCompleteTask}
+                    onSpotCheck={setSpotCheckMember}
+                    onEditTask={canActOnMember ? (taskId) => void taskEditor.openEditTaskById(taskId) : undefined}
+                    onOpenCollection={canActOnMember ? setSeqDetailId : undefined}
+                    onOpenTracker={canActOnMember ? (w) => setDetailWidget(w as unknown as DashboardWidget) : undefined}
+                    onOpenEvent={canActOnMember ? (ev) => setEditEvent(ev as unknown as CalendarEvent & { event_attendees?: EventAttendee[] }) : undefined}
+                  />
+                )
+              })
             )}
           </div>
         </SortableContext>
@@ -1485,6 +1588,43 @@ export default function FamilyOverview() {
             accessLevelAtLeast(viewableLevels[spotCheckMember.id], 'contribute')
           }
           onClose={() => setSpotCheckMember(null)}
+        />
+      )}
+
+      {/* ── Tap-to-edit modals (founder feedback 2026-06-10): the right editor
+            opens right above the overview — no page hopping ── */}
+      <TaskEditModal editor={taskEditor} />
+
+      {seqDetailId && (
+        <SequentialDetailModal
+          collectionId={seqDetailId}
+          familyId={family.id}
+          onClose={() => setSeqDetailId(null)}
+        />
+      )}
+
+      {detailWidget && (
+        <WidgetDetailView
+          widget={detailWidget}
+          isOpen={!!detailWidget}
+          onClose={() => setDetailWidget(null)}
+          onRecordData={(v, m) =>
+            recordData.mutate({
+              family_id: family.id,
+              widget_id: detailWidget.id,
+              family_member_id: detailWidget.family_member_id ?? member.id,
+              value: v,
+              metadata: m,
+            })
+          }
+        />
+      )}
+
+      {editEvent && (
+        <EventCreationModal
+          isOpen={!!editEvent}
+          onClose={() => setEditEvent(null)}
+          initialEvent={editEvent}
         />
       )}
     </div>

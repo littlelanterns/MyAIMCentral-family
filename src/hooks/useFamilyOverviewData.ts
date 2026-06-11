@@ -157,9 +157,12 @@ export function useTrackersForMembers(familyId: string | undefined, memberIds: s
       // consumer (TrackersSection) can keep reading `w.config`. There is no
       // `widget_template_id` column on dashboard_widgets; `template_type` is
       // the real discriminator if it's ever needed.
+      // FO-COMMAND-CENTER tap-to-edit: full rows so WidgetDetailView can open
+      // straight from a column tracker row. `config` alias preserved for the
+      // existing TrackersSection consumer.
       const { data, error } = await supabase
         .from('dashboard_widgets')
-        .select('id, family_member_id, config:widget_config, template_type')
+        .select('*, config:widget_config')
         .eq('family_id', familyId)
         .in('family_member_id', memberIds)
         .is('archived_at', null)

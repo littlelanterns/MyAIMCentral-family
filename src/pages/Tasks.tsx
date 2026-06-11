@@ -40,7 +40,6 @@ import {
 } from '@/components/tasks/TaskViewInclusionControl'
 import { useShell } from '@/components/shells/ShellProvider'
 import { useNavigate } from 'react-router-dom'
-import { useSequentialCollections } from '@/hooks/useSequentialCollections'
 import { DurationPromptModal } from '@/components/tasks/DurationPromptModal'
 import { useRoutingToast } from '@/components/shared'
 import { SoftClaimCrossClaimModal, SoftClaimDoneBlockedModal } from '@/components/tasks/SoftClaimWarningModal'
@@ -57,7 +56,7 @@ import { supabase } from '@/lib/supabase/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { useTaskCompletion } from '@/components/tasks/useTaskCompletion'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
-import { SequentialCollectionCard } from '@/components/tasks/sequential/SequentialCollectionView'
+import { SequentialDetailModal } from '@/components/tasks/sequential/SequentialDetailModal'
 import { CompletionNotePrompt } from '@/components/victories/CompletionNotePrompt'
 import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import { ModalV2 } from '@/components/shared/ModalV2'
@@ -1011,46 +1010,6 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
     <div className="space-y-2 py-2">
       {tasks.map(renderTaskRow)}
     </div>
-  )
-}
-
-// ─────────────────────────────────────────────
-// SequentialDetailModal — Q2 tap-through from a next-item card
-// ─────────────────────────────────────────────
-// FO-COMMAND-CENTER: when a sequential item is included in the views, only the
-// NEXT item shows; tapping it opens the full collection so the member can see
-// the whole list or complete early (founder Q2). Uses the exported
-// SequentialCollectionCard primitive (Convention #154 — never duplicate).
-
-function SequentialDetailModal({
-  collectionId,
-  familyId,
-  onClose,
-}: {
-  collectionId: string
-  familyId: string | undefined
-  onClose: () => void
-}) {
-  const { data: collections = [] } = useSequentialCollections(familyId)
-  const collection = collections.find((c) => c.id === collectionId)
-
-  return (
-    <ModalV2
-      id={`sequential-detail-${collectionId}`}
-      isOpen
-      onClose={onClose}
-      type="transient"
-      size="lg"
-      title={collection?.title ?? 'Sequential Collection'}
-    >
-      {collection ? (
-        <SequentialCollectionCard collection={collection} />
-      ) : (
-        <div className="py-8 text-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Loading collection…
-        </div>
-      )}
-    </ModalV2>
   )
 }
 

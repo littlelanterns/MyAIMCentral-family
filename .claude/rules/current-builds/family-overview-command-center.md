@@ -115,7 +115,10 @@ migrations 100262+; I expect zero. Both stage only own files.
 | 27 | FO Finances tab for finance-granted dads | founder add-on (eyes-on session 2026-06-10) | **Wired** | `useManagementGrants` gating; display scoped to granted kids (per-kid wins incl. 'none' carve-out); levels: view = read-only, contribute = + Pay All, manage = + grace/makeup. E2E test 8b |
 | 28 | PRD-14C per-column long-press collapse override + section/column drag-reorder | PRD-14C gap, founder add-on | **Wired** | Long-press (500ms/8px slop) per-column override + dot indicator; ⠿ grips for global section reorder + horizontal column reorder (@dnd-kit, persisted). selectedMembers memo append-fix. E2E test 8c |
 
-**Summary: 28 Wired · 0 Stubbed · 0 Missing.** (Rows 26-28 flipped to Wired same-session: the REVIEW-ROUTE engine landed mid-build, and the founder pulled both stubs into scope at the eyes-on gate. E2E fo-command-center now 12 tests.)
+| 29 | Compact member pill selector on FO (app-standard pill bar) | founder eyes-on feedback 2026-06-10 | **Wired** | `MemberPillSelector variant="compact"`; grid variant default untouched (PRD-14B Pick Members) |
+| 30 | Tap-to-edit on every FO column item (tasks/routines/opps → TaskEditModal; sequential → SequentialDetailModal; trackers → WidgetDetailView; events → EventCreationModal) | founder eyes-on feedback 2026-06-10 | **Wired** | Decision 9 gating (handlers only for actable members); Best Intentions/Victories rows remain display-only (editors live on their own pages — flagged to founder) |
+
+**Summary: 30 Wired · 0 Stubbed · 0 Missing.** (Rows 26-30 landed same-session: the REVIEW-ROUTE engine arrived mid-build, and the founder pulled the two stubs + two eyes-on refinements into scope. E2E fo-command-center 12 tests.)
 
 ## Mom-UI Verification
 
