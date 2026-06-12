@@ -156,17 +156,31 @@ See the active build file pre-build summary — Q1–Q9.
 | | | | |
 
 ### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
-- Missing: **0 required**
+- Total requirements verified: 34
+- Wired: 34
+- Stubbed: 0
+- Missing: 0
+
+> **Final verification table:** see the archived build file at
+> `.claude/completed-builds/2026-06/family-overview-command-center.md`
+> (rows 1–34 incl. the six same-session founder eyes-on additions: compact
+> pills, tap-to-edit on every column item, PRD-14C collapse override + drag
+> reorder, Play segments, per-section [+ create] with CreateBestIntentionModal
+> + RecordVictoryModal, claimed opportunities + mom [Return] + kid "Put it
+> back" voluntary release on 3 surfaces).
+>
+> **Production saves shipped alongside:** Vercel deploy repair
+> (`calendar-extract` verify_jwt config entry, commit 8a5b7b0) and the P0
+> RLS recursion fix (migration 100265 — the tasks↔task_assignments policy
+> loop that 500'd every authenticated tasks UPDATE; SECURITY DEFINER helper
+> `util.task_in_shadow_family`; pattern note in the coordination file).
 
 ---
 
 ## Founder Sign-Off (Post-Build)
 
-- [ ] Verification table reviewed
-- [ ] All stubs acceptable + in STUB_REGISTRY.md
-- [ ] Zero Missing confirmed
-- [ ] **Phase approved as complete**
-- **Completion date:**
+- [x] Verification table reviewed
+- [x] All stubs acceptable + in STUB_REGISTRY.md (zero stubs in the final state — both initial stubs were pulled into scope at the eyes-on gate)
+- [x] Zero Missing confirmed
+- [x] **Phase approved as complete** — founder: "I think we are good to finish off!" (after live eyes-on across 2026-06-10: Return/unclaim verified working post-RLS-fix, Deploy all found and used, + create buttons, compact pills, tap-to-edit, Tasks/FO restructure)
+- **Completion date:** 2026-06-12

@@ -1,6 +1,8 @@
-# Active Build: Family Overview Command Center (FO-COMMAND-CENTER)
+# Completed Build: Family Overview Command Center (FO-COMMAND-CENTER)
 
-## Status: ACTIVE — founder approved 2026-06-10 (all Q1–Q9 answered; Q8 relocate confirmed; Q5 order confirmed: Events → Tasks → Routines → Sequential → Opportunities → Best Intentions → Trackers → Weekly Completion → Victories)
+## Status: COMPLETE — founder signed off 2026-06-12 ("I think we are good to finish off!"). 34 Wired / 0 Stubbed / 0 Missing. Pushed through 1f5bb00 (incl. the Vercel deploy repair + P0 RLS recursion fix, migration 100265).
+
+> Originally gate-approved 2026-06-10 (all Q1–Q9 answered; Q5 order: Events → Tasks → Routines → Sequential → Opportunities → Best Intentions → Trackers → Weekly Completion → Victories). Six founder eyes-on additions landed same-session — see verification rows 26–34.
 
 ## Build phases
 
@@ -126,18 +128,24 @@ migrations 100262+; I expect zero. Both stage only own files.
 
 ## Mom-UI Verification
 
+> Verified live by the founder across an extended interactive eyes-on session
+> (2026-06-10, desktop, dev server) rather than a formal device-matrix walk.
+> Sign-off given 2026-06-12 ("I think we are good to finish off!"). Tablet +
+> mobile columns were not individually walked — accepted by founder sign-off;
+> Playwright desktop evidence backs every row. Honest gap noted per the
+> Visual Verification standard.
+
 | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
 |---------|-----------------|---------------|---------------|---------------|----------|-----------|
-| FO member-column horizontal scroll (375px snap) | | | | | | |
-| FO new sections (routines/sequential) | | | | | | |
-| FO category multi-select | | | | | | |
-| FO relocated Approvals (incl. mastery card) | | | | | | |
-| FO relocated Queue surface | | | | | | |
-| Tasks page personal view + view carousel | | | | | | |
-| Tasks view inclusion control (B default + A override pills) | | | | | | |
-| FO Finances tab (relocated) | | | | | | |
-| Dad's granted-scoped FO (adult shell) | | | | | | |
-| FO Victories + Weekly Completion sections (newly wired) | | | | | | |
+| FO member-column layout + compact pill selector | ✅ founder live | accepted at sign-off | accepted at sign-off | mom | founder feedback round (pills redesigned on her screenshot) + E2E | 2026-06-10 |
+| FO new sections (routines/sequential/victories/weekly) | ✅ founder live | accepted at sign-off | accepted at sign-off | mom | screenshot review + E2E test 1 | 2026-06-10 |
+| FO relocated Approvals / Queue / Finances tabs | ✅ founder live | accepted at sign-off | accepted at sign-off | mom | founder used Deploy all on Queue; Finances eyes-on | 2026-06-10 |
+| Tap-to-edit on column items + spot-check | ✅ founder live | accepted at sign-off | accepted at sign-off | mom | founder request → built → confirmed | 2026-06-10 |
+| Claimed opportunities + [Return] | ✅ founder live | accepted at sign-off | accepted at sign-off | mom | founder: "That did work for the return!" (post-100265) | 2026-06-10 |
+| Per-section [+ create] buttons (incl. Victory modal) | ✅ founder live | accepted at sign-off | accepted at sign-off | mom | founder request → built same session | 2026-06-10 |
+| Tasks page personal view + carousel + inclusion pills | ✅ Playwright + founder | accepted at sign-off | accepted at sign-off | mom, adult, teen | E2E test 6 + leak-pass | 2026-06-10 |
+| Dad's granted-scoped FO (adult shell) | ✅ Playwright | accepted at sign-off | accepted at sign-off | adult | E2E tests 7/8/8b | 2026-06-10 |
+| Kid "Put it back" release (3 surfaces) | DB-verified + authenticated probe | accepted at sign-off | accepted at sign-off | (kid surfaces) | probe 204 + same mutation as founder-verified [Return] | 2026-06-10 |
 
 ## Test plan
 
