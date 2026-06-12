@@ -50,7 +50,7 @@ export function WidgetCard({
     <div
       className={`
         relative rounded-xl overflow-hidden transition-all
-        ${isEditMode ? 'animate-[wiggle_0.3s_ease-in-out_infinite]' : ''}
+        ${isEditMode ? 'animate-[wiggle_1.6s_ease-in-out_infinite]' : ''}
       `}
       style={{
         background: 'var(--color-card-bg, var(--color-bg-secondary))',

@@ -148,6 +148,11 @@ export async function createTaskFromData(
     // Extract from SchedulerOutput at save time so the column is always populated for painted schedules.
     instantiation_mode: data.schedule?.instantiation_mode ?? null,
     collaboration_mode: null as string | null,
+    // KIDS-REWARDS-PAGE Q5/Q7 (migration 100266): custom-reward promise fields.
+    // Snapshotted into earned_prizes by award_custom_reward_for_completion.
+    reward_description: (data.reward as { rewardDescription?: string } | undefined)?.rewardDescription?.trim() || null,
+    reward_image_url: (data.reward as { rewardImageUrl?: string | null } | undefined)?.rewardImageUrl ?? null,
+    reward_image_asset_key: (data.reward as { rewardImageAssetKey?: string | null } | undefined)?.rewardImageAssetKey ?? null,
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,
@@ -340,11 +345,20 @@ export async function createTaskFromData(
       : typeof rewardAmountRaw === 'string' && rewardAmountRaw.trim() !== ''
         ? Number(rewardAmountRaw)
         : null
+  // KIDS-REWARDS-PAGE Q7: custom reward types (privilege / custom — the
+  // "popsicle" promises) are valid WITHOUT a numeric amount. The
+  // award_custom_reward_for_completion RPC reads task_rewards.reward_type to
+  // know a prize is owed, so the row must persist even when amount is blank.
+  const isCustomRewardType =
+    rewardType === 'privilege' ||
+    rewardType === 'custom' ||
+    rewardType === 'privileges' ||
+    rewardType === 'family_activities'
   const shouldPersistReward =
     !!rewardType &&
     rewardType !== 'none' &&
-    rewardAmountNum !== null &&
-    !Number.isNaN(rewardAmountNum)
+    (isCustomRewardType ||
+      (rewardAmountNum !== null && !Number.isNaN(rewardAmountNum)))
 
   // ── Step 2: Create task row(s) with template_id (skip if templateOnly) ──
   if (!(data.templateOnly && data.taskType === 'routine')) {
@@ -502,10 +516,12 @@ export async function createTaskFromData(
   // Mirror of useOpportunityLists.ts line 194-203 (the claim-from-list path).
   // One task_rewards row per task, keyed on task_id.
   if (shouldPersistReward && result.taskIds.length > 0) {
+    const rewardDesc =
+      (data.reward as { rewardDescription?: string } | undefined)?.rewardDescription?.trim() || null
     const rewardInserts = result.taskIds.map(taskId => ({
       task_id: taskId,
       reward_type: rewardType,
-      reward_value: { amount: rewardAmountNum },
+      reward_value: { amount: rewardAmountNum, ...(rewardDesc ? { description: rewardDesc } : {}) },
     }))
     const { error: rewardError } = await supabase.from('task_rewards').insert(rewardInserts)
     if (rewardError) {

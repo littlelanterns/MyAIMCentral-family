@@ -27,6 +27,7 @@ import { LifeAreaTagPicker } from './LifeAreaTagPicker'
 import type { TaskType, OpportunitySubType } from './TaskTypeSelector'
 import type { IncompleteAction } from './IncompleteActionSelector'
 import type { RewardConfigData, RewardType } from './RewardConfig'
+import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
 import type { MemberAssignment } from './AssignmentSelector'
 import type { RoutineSection } from './RoutineSectionEditor'
 import type { SchedulerOutput } from '@/components/scheduling/types'
@@ -38,7 +39,7 @@ import { TaskIconPicker } from './TaskIconPicker'
 import { AttachRevealSection } from '@/components/reward-reveals/AttachRevealSection'
 import { BulkAddWithAI } from '@/components/shared/BulkAddWithAI'
 import type { ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
-import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
+import { useTaskIconSuggestions, REWARD_ASSET_CATEGORIES } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
 // Worker ROUTINE-PROPAGATION (c2.5, founder D5): pre-check overlap
 // against existing routine deployments before save. The DB trigger
@@ -227,6 +228,12 @@ interface TaskCreationModalProps {
      *  toggle from an existing task. Read by callers from
      *  recurrence_details.dtstart on the live tasks row. */
     startDate?: string
+    /** KIDS-REWARDS-PAGE Q5c: custom-reward promise fields. MUST be passed on
+     *  edit — saveEditTask writes them unconditionally, so omitting them here
+     *  would silently null mom's reward picture (checkbox-honesty class). */
+    rewardDescription?: string
+    rewardImageUrl?: string
+    rewardImageAssetKey?: string
   } | null
   /**
    * Stable identity of the task being edited. Callers that may swap the modal's
@@ -258,6 +265,10 @@ function defaultReward(): RewardConfigData {
     requireApproval: false,
     trackAsWidget: false,
     flagAsVictory: false,
+    // KIDS-REWARDS-PAGE Q5/Q7: custom-reward promise fields
+    rewardDescription: '',
+    rewardImageUrl: null,
+    rewardImageAssetKey: null,
   }
 }
 
@@ -688,6 +699,10 @@ export function TaskCreationModal({
       if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
       if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
       if (editTaskValues.isExtraCredit !== undefined) d.isExtraCredit = editTaskValues.isExtraCredit
+      // KIDS-REWARDS-PAGE Q5c: hydrate custom-reward promise fields
+      if (editTaskValues.rewardDescription !== undefined) d.reward.rewardDescription = editTaskValues.rewardDescription
+      if (editTaskValues.rewardImageUrl !== undefined) d.reward.rewardImageUrl = editTaskValues.rewardImageUrl
+      if (editTaskValues.rewardImageAssetKey !== undefined) d.reward.rewardImageAssetKey = editTaskValues.rewardImageAssetKey
     }
     // When deploying from an existing template, link (don't duplicate)
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
@@ -847,6 +862,10 @@ export function TaskCreationModal({
       if (editTaskValues.countsForHomework !== undefined) d.countsForHomework = editTaskValues.countsForHomework
       if (editTaskValues.countsForGamification !== undefined) d.countsForGamification = editTaskValues.countsForGamification
       if (editTaskValues.isExtraCredit !== undefined) d.isExtraCredit = editTaskValues.isExtraCredit
+      // KIDS-REWARDS-PAGE Q5c: hydrate custom-reward promise fields
+      if (editTaskValues.rewardDescription !== undefined) d.reward.rewardDescription = editTaskValues.rewardDescription
+      if (editTaskValues.rewardImageUrl !== undefined) d.reward.rewardImageUrl = editTaskValues.rewardImageUrl
+      if (editTaskValues.rewardImageAssetKey !== undefined) d.reward.rewardImageAssetKey = editTaskValues.rewardImageAssetKey
     }
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
     // Reset interaction ref BEFORE writing — this is a legitimate identity-change
@@ -899,6 +918,7 @@ export function TaskCreationModal({
     data.title,
     data.lifeAreaTag,
     assigneeIsPlayMember,
+    REWARD_ASSET_CATEGORIES,
   )
 
   // Checkbox-honesty fix (2026-05-25): every user-driven mutation flows through
@@ -2469,8 +2489,44 @@ export function TaskCreationModal({
           </select>
         </div>
 
-        {/* Amount — only when reward type set */}
-        {data.reward.rewardType && (
+        {/* KIDS-REWARDS-PAGE Q5/Q7: custom rewards (privilege / custom) are
+            "popsicle promises" — they get a description + three-mode picture
+            and become an earned-prize card on the kid's My Rewards page. */}
+        {(data.reward.rewardType === 'privilege' || data.reward.rewardType === 'custom') && (
+          <div style={{ marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+              <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
+                What's the reward?
+              </label>
+              <input
+                type="text"
+                value={data.reward.rewardDescription}
+                onChange={(e) => update('reward', { ...data.reward, rewardDescription: e.target.value })}
+                placeholder="e.g., A popsicle, Late night with friends, Ice cream trip"
+                style={inputStyle}
+              />
+              <HelperText>This becomes the reward card they see when they earn it.</HelperText>
+            </div>
+            <RewardImagePicker
+              value={{
+                imageUrl: data.reward.rewardImageUrl,
+                imageAssetKey: data.reward.rewardImageAssetKey,
+              }}
+              onChange={(img) =>
+                update('reward', {
+                  ...data.reward,
+                  rewardImageUrl: img.imageUrl,
+                  rewardImageAssetKey: img.imageAssetKey,
+                })
+              }
+              familyId={currentMember?.family_id ?? ''}
+              suggestText={data.reward.rewardDescription}
+            />
+          </div>
+        )}
+
+        {/* Amount — only when reward type set; custom types make it optional */}
+        {data.reward.rewardType && data.reward.rewardType !== 'privilege' && data.reward.rewardType !== 'custom' && (
           <div style={{ marginBottom: '0.75rem' }}>
             <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.25rem' }}>
               Reward Amount

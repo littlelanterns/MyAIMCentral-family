@@ -8,6 +8,7 @@ import { computeViewSync } from '@/utils/computeViewSync'
 import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
 import { grantMoney } from '@/lib/financial/grantMoney'
+import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 import type {
   Task,
   CreateTask,
@@ -306,6 +307,13 @@ export function useCompleteTask() {
         } catch (err) {
           console.warn('[useCompleteTask] opportunity forward financial write failed (non-blocking):', err)
         }
+      }
+
+      // KIDS-REWARDS-PAGE Q7: privileges/family_activities reward → earned_prizes.
+      // RPC self-filters (reward type, approval timing, idempotency) — safe to call
+      // unconditionally for no-approval completions; approval hooks call it again.
+      if (!requireApproval) {
+        awardCustomRewardForCompletion(completion.id)
       }
 
       // 4b. PRD-28: Auto-create homeschool_time_logs when a homework-flagged task
@@ -908,6 +916,10 @@ export function useApproveTaskCompletion() {
           idempotencyKey: `task_completion:${completionId}`,
         })
       }
+
+      // KIDS-REWARDS-PAGE Q7 timing rule: approval-required rewards award at
+      // mom's approval. RPC is idempotent + self-filtering; never throws.
+      awardCustomRewardForCompletion(completionId)
 
       return data
     },

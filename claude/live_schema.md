@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-06-11
+> Auto-generated from live Supabase on 2026-06-12
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 441 rows
+### `view_as_sessions` — 442 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 322 rows
+### `view_as_feature_exclusions` — 323 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 667 rows
+### `ai_usage_tracking` — 672 rows
 
 | # | Column |
 |---|---|
@@ -629,6 +629,9 @@
 | 40 | `homework_subject_ids` |
 | 41 | `is_extra_credit` |
 | 42 | `life_area_tags` |
+| 43 | `default_reward_description` |
+| 44 | `default_reward_image_url` |
+| 45 | `default_reward_image_asset_key` |
 
 ### `task_template_sections` — 44 rows
 
@@ -664,7 +667,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 180 rows
+### `tasks` — 176 rows
 
 | # | Column |
 |---|---|
@@ -748,6 +751,9 @@
 | 78 | `collaboration_mode` |
 | 79 | `life_area_tags` |
 | 80 | `pool_id` |
+| 81 | `reward_description` |
+| 82 | `reward_image_url` |
+| 83 | `reward_image_asset_key` |
 
 ### `task_assignments` — 49 rows
 
@@ -766,7 +772,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 37 rows
+### `task_completions` — 40 rows
 
 | # | Column |
 |---|---|
@@ -994,6 +1000,9 @@
 | 58 | `store_category` |
 | 59 | `archived_at` |
 | 60 | `reset_mode` |
+| 61 | `reward_description` |
+| 62 | `reward_image_url` |
+| 63 | `reward_image_asset_key` |
 
 ### `list_shares` — 8 rows
 
@@ -1066,7 +1075,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 48 rows
+### `dashboard_widgets` — 50 rows
 
 | # | Column |
 |---|---|
@@ -1160,7 +1169,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 40 rows
+### `calendar_events` — 41 rows
 
 | # | Column |
 |---|---|
@@ -1208,7 +1217,7 @@
 | 42 | `option_group_title` |
 | 43 | `calendar_subtype` |
 
-### `event_attendees` — 72 rows
+### `event_attendees` — 74 rows
 
 | # | Column |
 |---|---|
@@ -2369,7 +2378,7 @@
 | 14 | `created_at` |
 | 15 | `updated_at` |
 
-### `mindsweep_holding` — 1 rows
+### `mindsweep_holding` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2396,7 +2405,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 12 rows
+### `mindsweep_events` — 13 rows
 
 | # | Column |
 |---|---|
@@ -2414,7 +2423,7 @@
 | 12 | `processing_cost_cents` |
 | 13 | `created_at` |
 
-### `mindsweep_approval_patterns` — 22 rows
+### `mindsweep_approval_patterns` — 23 rows
 
 | # | Column |
 |---|---|
@@ -2490,7 +2499,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 282 rows
+### `activity_log_entries` — 286 rows
 
 | # | Column |
 |---|---|
@@ -2696,6 +2705,18 @@
 | 26 | `pool_name` |
 | 27 | `combined_percentage` |
 
+### `asset_suggestion_misses` — 6 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `search_term` |
+| 5 | `context` |
+| 6 | `top_similarity` |
+| 7 | `created_at` |
+
 ### `assign_task_godmother_configs` — 0 rows
 
 | # | Column |
@@ -2832,7 +2853,7 @@
 | 6 | `sort_order` |
 | 7 | `created_at` |
 
-### `contract_grant_log` — 6 rows
+### `contract_grant_log` — 14 rows
 
 | # | Column |
 |---|---|
@@ -2899,6 +2920,8 @@
 | 5 | `reward_list_id` |
 | 6 | `display_icon` |
 | 7 | `created_at` |
+| 8 | `reward_image_url` |
+| 9 | `reward_image_asset_key` |
 
 ### `daily_holidays` — 1502 rows
 
@@ -2919,7 +2942,7 @@
 | 13 | `source` |
 | 14 | `created_at` |
 
-### `deed_firings` — 6 rows
+### `deed_firings` — 10 rows
 
 | # | Column |
 |---|---|
@@ -2970,6 +2993,10 @@
 | 15 | `redeemed_at` |
 | 16 | `redeemed_by` |
 | 17 | `created_at` |
+| 18 | `visibility` |
+| 19 | `shared_with_member_ids` |
+| 20 | `created_by` |
+| 21 | `awarded_completion_id` |
 
 ### `feature_discovery_dismissals` — 2 rows
 
@@ -4003,7 +4030,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 76 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 77 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

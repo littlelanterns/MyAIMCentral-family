@@ -17,11 +17,19 @@
  * Hides itself when assigneeIsPlayMember = false.
  */
 
-import { useState } from 'react'
-import { Search, X } from 'lucide-react'
-import { useTaskIconSuggestions } from '@/hooks/useTaskIconSuggestions'
+import { useEffect, useState } from 'react'
+import { Search, Sparkles, X, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  useTaskIconSuggestions,
+  REWARD_ASSET_CATEGORIES,
+  GOOD_MATCH_SIMILARITY,
+} from '@/hooks/useTaskIconSuggestions'
+import { useAssetMissLogger } from '@/hooks/useAssetMissLogger'
 import { TaskIconBrowser } from './TaskIconBrowser'
 import type { TaskIconPickerProps, TaskIconSuggestion } from '@/types/play-dashboard'
+
+/** Inline strip shows this many; "View more" expands to the full semantic-ordered list */
+const INLINE_SUGGESTION_COUNT = 8
 
 export function TaskIconPicker({
   currentIcon,
@@ -31,11 +39,27 @@ export function TaskIconPicker({
   assigneeIsPlayMember,
 }: TaskIconPickerProps) {
   const [browserOpen, setBrowserOpen] = useState(false)
-  const { results, isLoading, isRefining, hasEmbeddingResults } =
-    useTaskIconSuggestions(taskTitle, category, assigneeIsPlayMember)
+  const [showAll, setShowAll] = useState(false)
+  // Founder direction (2026-06-12): task icons also draw from tool icons +
+  // sign-in pictures, same pool as reward images
+  const { results, isLoading, isRefining, hasEmbeddingResults, topSimilarity, isSettled } =
+    useTaskIconSuggestions(taskTitle, category, assigneeIsPlayMember, REWARD_ASSET_CATEGORIES)
+  const logMiss = useAssetMissLogger()
+
+  // Weak-match: the library has nothing great for this term — say so honestly
+  // and record the term so the founder can add the missing image later.
+  const isWeakMatch =
+    isSettled && (results.length === 0 || (topSimilarity !== null && topSimilarity < GOOD_MATCH_SIMILARITY))
+  useEffect(() => {
+    if (assigneeIsPlayMember && isWeakMatch) {
+      logMiss(taskTitle, 'task_icon', topSimilarity)
+    }
+  }, [assigneeIsPlayMember, isWeakMatch, taskTitle, topSimilarity, logMiss])
 
   // Hide entirely when no Play assignee selected
   if (!assigneeIsPlayMember) return null
+
+  const visibleResults = showAll ? results : results.slice(0, INLINE_SUGGESTION_COUNT)
 
   function handleSelect(icon: TaskIconSuggestion) {
     if (currentIcon?.asset_key === icon.asset_key && currentIcon?.variant === icon.variant) {
@@ -80,10 +104,14 @@ export function TaskIconPicker({
                 fontSize: '0.6875rem',
                 fontWeight: 500,
                 color: 'var(--color-text-secondary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.2rem',
               }}
               aria-label="Smart match active"
             >
-              ✨ smart match
+              <Sparkles size={11} style={{ color: 'var(--color-btn-primary-bg)' }} />
+              smart match
             </span>
           )}
           {isRefining && !hasEmbeddingResults && (
@@ -152,9 +180,23 @@ export function TaskIconPicker({
             padding: '0.5rem 0',
           }}
         >
-          No matches yet. Tap <strong>Browse all</strong> to pick one manually.
+          We don't have an image for that yet — we've made a note to add one!
+          Tap <strong>Browse all</strong> to pick one manually.
         </p>
       ) : (
+        <>
+        {isWeakMatch && (
+          <p
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--color-text-secondary)',
+              margin: '0 0 0.5rem 0',
+            }}
+          >
+            We don't have that exact image yet (we've made a note to add one) —
+            here's the closest we have:
+          </p>
+        )}
         <div
           style={{
             display: 'grid',
@@ -162,7 +204,7 @@ export function TaskIconPicker({
             gap: '0.5rem',
           }}
         >
-          {results.map(icon => {
+          {visibleResults.map(icon => {
             const isSelected =
               currentIcon?.asset_key === icon.asset_key &&
               currentIcon?.variant === icon.variant
@@ -224,6 +266,31 @@ export function TaskIconPicker({
             )
           })}
         </div>
+        {/* View more — expands to the full list, already in semantic-match order */}
+        {results.length > INLINE_SUGGESTION_COUNT && (
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            style={{
+              marginTop: '0.5rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.25rem 0.625rem',
+              borderRadius: '9999px',
+              fontSize: 'var(--font-size-xs)',
+              fontWeight: 500,
+              color: 'var(--color-text-secondary)',
+              backgroundColor: 'transparent',
+              border: '1px solid var(--color-border)',
+              cursor: 'pointer',
+            }}
+          >
+            {showAll ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {showAll ? 'Show fewer' : `View more (${results.length - INLINE_SUGGESTION_COUNT})`}
+          </button>
+        )}
+        </>
       )}
 
       {currentIcon && (

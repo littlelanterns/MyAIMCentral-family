@@ -220,10 +220,6 @@ export function DashboardGrid({
   const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
   // Local optimistic order for top-level widgets
   const [localOrder, setLocalOrder] = useState<string[] | null>(null)
-  // One-time confirmation prompt before switching to manual layout
-  const [showManualConfirm, setShowManualConfirm] = useState(false)
-  // Stash the pending drag event so we can apply it after user confirms
-  const pendingDragRef = useRef<DragEndEvent | null>(null)
 
   // Widget limit state
   const widgetCount = widgets.length
@@ -317,30 +313,16 @@ export function DashboardGrid({
     const { active, over } = event
     if (!over || active.id === over.id) return
 
-    // If currently in auto mode and this is the first drag, prompt for confirmation
+    // Founder fix (2026-06-12): the old flow stashed the FIRST drag behind a
+    // confirm banner at the top of the grid — invisible when dragging widgets
+    // below the fold, so the drag silently snapped back and reorder appeared
+    // broken. Per the original design intent ("switches to manual on first
+    // user move"), apply the reorder immediately and flip to manual silently.
     if (layoutMode === 'auto' && onLayoutModeChange) {
-      pendingDragRef.current = event
-      setShowManualConfirm(true)
-      return
+      onLayoutModeChange('manual')
     }
-
     applyDragReorder(event)
   }, [layoutMode, onLayoutModeChange, applyDragReorder])
-
-  const handleConfirmManualLayout = useCallback(() => {
-    onLayoutModeChange?.('manual')
-    setShowManualConfirm(false)
-    // Apply the stashed drag event
-    if (pendingDragRef.current) {
-      applyDragReorder(pendingDragRef.current)
-      pendingDragRef.current = null
-    }
-  }, [onLayoutModeChange, applyDragReorder])
-
-  const handleCancelManualLayout = useCallback(() => {
-    setShowManualConfirm(false)
-    pendingDragRef.current = null
-  }, [])
 
   return (
     <div
@@ -349,47 +331,6 @@ export function DashboardGrid({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
-      {/* Manual layout confirmation prompt — inline dialog at top of grid */}
-      {showManualConfirm && (
-        <div
-          className="flex items-center justify-between gap-3 px-4 py-3 mb-3 rounded-lg"
-          style={{
-            background: 'var(--color-bg-card)',
-            border: '2px solid var(--color-accent-deep, var(--color-btn-primary-bg))',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
-          }}
-        >
-          <div className="flex-1">
-            <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Switching to manual layout
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-              Widgets will stay where you place them. You can switch back to auto-arrange in settings.
-            </p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={handleCancelManualLayout}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{
-                background: 'var(--color-bg-tertiary)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirmManualLayout}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)' }}
-            >
-              Switch to Manual
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Widget limit warning — shows at 40+ widgets */}
       {isNearLimit && !isAtLimit && (
         <div

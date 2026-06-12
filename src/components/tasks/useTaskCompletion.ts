@@ -22,6 +22,7 @@ import { useActedBy } from '@/hooks/useActedBy'
 import { todayLocalIso } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
 import { grantMoney } from '@/lib/financial/grantMoney'
+import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 import { getChoreCycleStart } from '@/hooks/useOpportunityLists'
 
 interface UseTaskCompletionOptions {
@@ -203,6 +204,13 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
             sourceReferenceId: completionRow.id,
           })
         }
+      }
+
+      // KIDS-REWARDS-PAGE Q7: privileges/family_activities reward → earned_prizes.
+      // RPC self-filters (reward type, approval timing via task.require_approval,
+      // idempotency) — covers tasks, routines, and opportunity claim-bridge tasks.
+      if (completionRow?.id) {
+        awardCustomRewardForCompletion(completionRow.id)
       }
 
       // Step 5: Activity log entry (fire and forget)

@@ -801,8 +801,14 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
         onOpenTrackThis={() => { setWidgetPickerOpen(false); setTrackThisOpen(true) }}
       />
 
-      {/* PRD-10: Widget Configuration Modal */}
+      {/* PRD-10: Widget Configuration Modal.
+          key forces a remount per selected config: trackerType/title/config are
+          one-shot useState initializers, and this always-mounted call site froze
+          them to the null-config default ('tally') at page load — every starter
+          pick opened as Tally Counter. (FamilyOverview's conditional render never
+          had the bug; found by the KIDS-REWARDS-PAGE Slice 1 eyes-on tour.) */}
       <WidgetConfiguration
+        key={selectedStarterConfig?.id ?? 'widget-config-idle'}
         isOpen={widgetConfigOpen}
         onClose={() => { setWidgetConfigOpen(false); setSelectedStarterConfig(null) }}
         starterConfig={selectedStarterConfig}

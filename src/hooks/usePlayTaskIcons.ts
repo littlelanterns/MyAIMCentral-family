@@ -87,12 +87,15 @@ export function usePlayTaskIcons(tasks: Task[]): PlayTaskIconMap {
       const result: Record<string, string | null> = {}
 
       // ── Path 1: explicit feature_key + variant lookups (one batched query) ──
+      // No category filter: mom's picker spans visual_schedule + login_avatar +
+      // app_icon (KIDS-REWARDS-PAGE, founder 2026-06-12) — a saved key must
+      // resolve regardless of which category it came from. Keys are precise
+      // enough that the .in() filter keeps the query tight.
       if (explicitRefs.length > 0) {
         const featureKeys = Array.from(new Set(explicitRefs.map(r => r.feature_key)))
         const { data, error } = await supabase
           .from('platform_assets')
           .select('feature_key, variant, size_128_url')
-          .eq('category', 'visual_schedule')
           .in('feature_key', featureKeys)
 
         if (!error && data) {

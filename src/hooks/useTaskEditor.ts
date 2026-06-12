@@ -139,6 +139,11 @@ export function useTaskEditor(): TaskEditor {
           counts_for_allowance: data.countsForAllowance ?? false,
           counts_for_homework: data.countsForHomework ?? false,
           counts_for_gamification: data.countsForGamification ?? true,
+          // KIDS-REWARDS-PAGE Q5c: custom-reward promise fields are editable
+          // ("...OR at any point she edits that item later")
+          reward_description: data.reward?.rewardDescription?.trim() || null,
+          reward_image_url: data.reward?.rewardImageUrl ?? null,
+          reward_image_asset_key: data.reward?.rewardImageAssetKey ?? null,
         })
         .eq('id', editingTask.id)
 

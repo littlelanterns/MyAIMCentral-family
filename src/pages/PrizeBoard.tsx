@@ -1,6 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users } from 'lucide-react'
-import { useEarnedPrizes, useRedeemPrize } from '@/hooks/useEarnedPrizes'
+import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users, ImagePlus, Undo2 } from 'lucide-react'
+import {
+  useEarnedPrizes,
+  useRedeemPrize,
+  useRecentlyRedeemedPrizes,
+  useUnredeemPrize,
+  useUpdatePrizeImage,
+  type EarnedPrize as EarnedPrizeRow,
+} from '@/hooks/useEarnedPrizes'
+import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
+import { PlatformAssetImage } from '@/components/shared/PlatformAssetImage'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
 import {
   useAllowanceConfigs,
@@ -384,14 +393,22 @@ function PrizesSection({
   currentMemberId: string | undefined
 }) {
   const { data: prizes = [], isLoading } = useEarnedPrizes()
+  const { data: redeemedPrizes = [] } = useRecentlyRedeemedPrizes()
   const { data: members = [] } = useFamilyMembers(familyId)
   const { viewableIds, isMom } = useViewableMembers('financial_tracking')
   const redeemMutation = useRedeemPrize()
+  const unredeemMutation = useUnredeemPrize()
+  const updateImageMutation = useUpdatePrizeImage()
+  const [showRedeemed, setShowRedeemed] = useState(false)
+  const [editingImagePrize, setEditingImagePrize] = useState<EarnedPrizeRow | null>(null)
 
   const memberMap = new Map(members.map(m => [m.id, m]))
 
   // PERMISSIONS-WIRING: granted adults see only their granted kids' prizes.
   const visiblePrizes = isMom ? prizes : prizes.filter(p => viewableIds.has(p.family_member_id))
+  const visibleRedeemed = isMom
+    ? redeemedPrizes
+    : redeemedPrizes.filter(p => viewableIds.has(p.family_member_id))
 
   const grouped = visiblePrizes.reduce<Record<string, typeof prizes>>((acc, prize) => {
     const key = prize.family_member_id
@@ -400,16 +417,16 @@ function PrizesSection({
     return acc
   }, {})
 
-  const handleRedeem = (prizeId: string) => {
+  const handleRedeem = (prize: EarnedPrizeRow) => {
     if (!currentMemberId) return
-    redeemMutation.mutate({ prizeId, redeemedBy: currentMemberId })
+    redeemMutation.mutate({ prizeId: prize.id, redeemedBy: currentMemberId, memberId: prize.family_member_id })
   }
 
   if (isLoading) {
     return <Loader2 className="animate-spin mx-auto" size={20} />
   }
 
-  if (visiblePrizes.length === 0) {
+  if (visiblePrizes.length === 0 && visibleRedeemed.length === 0) {
     return (
       <EmptyState
         icon={<Gift size={32} />}
@@ -440,13 +457,7 @@ function PrizesSection({
                   key={prize.id}
                   className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]"
                 >
-                  {prize.prize_image_url ? (
-                    <img src={prize.prize_image_url} alt="" className="w-10 h-10 rounded object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded flex items-center justify-center bg-[var(--color-bg-tertiary)]">
-                      <Gift size={18} className="opacity-50" />
-                    </div>
-                  )}
+                  <PrizeThumb prize={prize} />
 
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
@@ -458,8 +469,18 @@ function PrizesSection({
                     </p>
                   </div>
 
+                  {/* KIDS-REWARDS-PAGE Q5c: edit-image-later */}
                   <button
-                    onClick={() => handleRedeem(prize.id)}
+                    onClick={() => setEditingImagePrize(prize)}
+                    title="Edit picture"
+                    aria-label="Edit picture"
+                    className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-md text-sm border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:opacity-80 transition-opacity"
+                  >
+                    <ImagePlus size={14} />
+                  </button>
+
+                  <button
+                    onClick={() => handleRedeem(prize)}
                     disabled={redeemMutation.isPending}
                     className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
@@ -472,6 +493,132 @@ function PrizesSection({
           </div>
         )
       })}
+
+      {/* KIDS-REWARDS-PAGE Q2: recently redeemed with mom-only Un-redeem (clean reset) */}
+      {visibleRedeemed.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowRedeemed(!showRedeemed)}
+            className="text-sm text-[var(--color-text-secondary)] underline-offset-2 hover:underline"
+          >
+            {showRedeemed
+              ? 'Hide recently redeemed'
+              : `Recently redeemed (${visibleRedeemed.length})`}
+          </button>
+
+          {showRedeemed && (
+            <div className="space-y-2 mt-3 opacity-80">
+              {visibleRedeemed.map(prize => {
+                const member = memberMap.get(prize.family_member_id)
+                return (
+                  <div
+                    key={prize.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]"
+                  >
+                    <PrizeThumb prize={prize} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {prize.prize_name ?? prize.prize_text ?? 'Prize'}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">
+                        {member?.display_name ?? 'Unknown'} · Redeemed{' '}
+                        {prize.redeemed_at ? new Date(prize.redeemed_at).toLocaleDateString() : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => unredeemMutation.mutate({ prizeId: prize.id, memberId: prize.family_member_id })}
+                      disabled={unredeemMutation.isPending}
+                      data-testid="unredeem-button"
+                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
+                    >
+                      <Undo2 size={14} />
+                      Un-redeem
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Edit-image modal (three-mode picker) */}
+      {editingImagePrize && familyId && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit prize picture"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setEditingImagePrize(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border border-[var(--color-border-default)] p-5 space-y-4"
+            style={{ backgroundColor: 'var(--color-bg-card)' }}
+          >
+            <p className="font-semibold text-[var(--color-text-primary)]">
+              Picture for "{editingImagePrize.prize_name ?? editingImagePrize.prize_text ?? 'Prize'}"
+            </p>
+            <RewardImagePicker
+              value={{
+                imageUrl: editingImagePrize.prize_image_url,
+                imageAssetKey: editingImagePrize.prize_asset_key,
+              }}
+              onChange={img => {
+                updateImageMutation.mutate({
+                  prizeId: editingImagePrize.id,
+                  memberId: editingImagePrize.family_member_id,
+                  imageUrl: img.imageUrl,
+                  imageAssetKey: img.imageAssetKey,
+                })
+                setEditingImagePrize({
+                  ...editingImagePrize,
+                  prize_image_url: img.imageUrl,
+                  prize_asset_key: img.imageAssetKey,
+                })
+              }}
+              familyId={familyId}
+              suggestText={editingImagePrize.prize_text ?? editingImagePrize.prize_name ?? ''}
+            />
+            <button
+              onClick={() => setEditingImagePrize(null)}
+              className="w-full px-3 py-2 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)]"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Thumbnail honoring all three image modes (upload / platform asset / none) */
+function PrizeThumb({ prize }: { prize: EarnedPrizeRow }) {
+  if (prize.prize_image_url) {
+    return <img src={prize.prize_image_url} alt="" className="w-10 h-10 rounded object-cover" />
+  }
+  if (prize.prize_asset_key) {
+    // PlatformAssetImage, not FeatureIcon: prize pictures are content (any
+    // category, any vibe), not themed nav icons (KIDS-REWARDS-PAGE 2026-06-12)
+    return (
+      <PlatformAssetImage
+        assetKey={prize.prize_asset_key}
+        size={40}
+        assetSize={128}
+        variant="B"
+        fallback={
+          <div className="w-10 h-10 rounded flex items-center justify-center bg-[var(--color-bg-tertiary)]">
+            <Gift size={18} className="opacity-50" />
+          </div>
+        }
+      />
+    )
+  }
+  return (
+    <div className="w-10 h-10 rounded flex items-center justify-center bg-[var(--color-bg-tertiary)]">
+      <Gift size={18} className="opacity-50" />
     </div>
   )
 }

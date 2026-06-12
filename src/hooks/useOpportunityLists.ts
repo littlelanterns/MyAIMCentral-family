@@ -208,6 +208,12 @@ export function useClaimOpportunityItem() {
           // Reward (via resolver)
           points_override: reward.points_override,
           victory_flagged: reward.victory_flagged,
+          // KIDS-REWARDS-PAGE Q5b: custom-reward promise fields snapshot from
+          // the list item onto the claim-bridge task so the earned-prize card
+          // carries the right text + picture.
+          reward_description: listItem.reward_description ?? null,
+          reward_image_url: listItem.reward_image_url ?? null,
+          reward_image_asset_key: listItem.reward_image_asset_key ?? null,
           // Resource URL
           resource_url: listItem.resource_url ?? null,
           // Categorization (via resolver)
@@ -231,13 +237,21 @@ export function useClaimOpportunityItem() {
       if (taskError) throw taskError
 
       // ── 5. Create task_rewards record if reward configured ─
-      if (reward.reward_type && reward.reward_amount) {
+      // KIDS-REWARDS-PAGE Q7: custom reward types (privilege/custom) are valid
+      // WITHOUT an amount — the award RPC reads task_rewards.reward_type to
+      // know a prize is owed, so the row must persist for them regardless.
+      const isCustomRewardType =
+        reward.reward_type === 'privilege' || reward.reward_type === 'custom'
+      if (reward.reward_type && (reward.reward_amount || isCustomRewardType)) {
         await supabase
           .from('task_rewards')
           .insert({
             task_id: task.id,
             reward_type: reward.reward_type,
-            reward_value: { amount: reward.reward_amount },
+            reward_value: {
+              amount: reward.reward_amount ?? null,
+              ...(listItem.reward_description ? { description: listItem.reward_description } : {}),
+            },
           })
       }
 

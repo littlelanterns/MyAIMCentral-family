@@ -25,6 +25,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
+import { REWARD_ASSET_CATEGORIES } from '@/hooks/useTaskIconSuggestions'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
 
 export interface UseTaskIconBrowseSearchResult {
@@ -54,7 +55,7 @@ export function useTaskIconBrowseSearch(
           .select(
             'feature_key, variant, category, display_name, description, tags, size_512_url, size_128_url',
           )
-          .eq('category', 'visual_schedule')
+          .in('category', REWARD_ASSET_CATEGORIES)
           .eq('status', 'active')
           .order('display_name', { ascending: true })
           .limit(1000)
@@ -72,7 +73,7 @@ export function useTaskIconBrowseSearch(
         .select(
           'feature_key, variant, category, display_name, description, tags, size_512_url, size_128_url',
         )
-        .eq('category', 'visual_schedule')
+        .in('category', REWARD_ASSET_CATEGORIES)
         .eq('status', 'active')
         .or(`display_name.ilike.${pattern},description.ilike.${pattern}`)
         .limit(200)
@@ -84,7 +85,7 @@ export function useTaskIconBrowseSearch(
         .select(
           'feature_key, variant, category, display_name, description, tags, size_512_url, size_128_url',
         )
-        .eq('category', 'visual_schedule')
+        .in('category', REWARD_ASSET_CATEGORIES)
         .eq('status', 'active')
         .filter('tags', 'cs', JSON.stringify([lowerTerm]))
         .limit(200)
@@ -103,7 +104,7 @@ export function useTaskIconBrowseSearch(
             query_embedding: embedRes.data.embedding,
             match_threshold: 0.3,
             match_count: 80,
-            filter_category: 'visual_schedule',
+            filter_categories: REWARD_ASSET_CATEGORIES,
             filter_status: 'active',
           })
           if (error) return []

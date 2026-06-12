@@ -18,6 +18,19 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
+## KIDS-REWARDS-PAGE Follow-Ups (2026-06-12)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| **Per-step routine rewards (Unification Principle R1).** Per-step reward config does NOT exist anywhere (`task_template_steps` has zero reward columns; no payout code). KIDS-REWARDS-PAGE wired routine-COMPLETION rewards into the earned-prizes pipeline at the two existing hook points (`useTaskCompletion.ts` completion-time, `useTaskCompletions.ts` approval-time). A future build adding per-step rewards must: add reward columns (`reward_type`, `reward_amount`, `reward_image_url`, `reward_image_asset_key`) to `task_template_steps`, surface config in the routine builder, fire the payout at step completion (`routine_step_completions` insert path — note: NO fireDeed exists there today), and route privileges/family_activities rewards into `earned_prizes` with `source_type='routine_step'` provenance. The earned-prizes pipe and three-mode image picker are waiting and reusable. | KIDS-REWARDS-PAGE gate (G2: hooks not features) | Unwired | ⏳ Unwired (MVP) | Future routine-rewards build |
+| **Tracker goal detection → prize firing (Unification Principle R2).** No tracker/widget has goal-reached or milestone completion detection — `widget_data_points` record silently; nothing fires. KIDS-REWARDS-PAGE added the prize **image** to tracker prize config (`widget_config.prize_image_url` / `prize_image_asset_key` alongside the existing `prize_label`) so the promise is fully configured. A future build adding goal detection must: detect threshold/goal crossing at the `widget_data_points` write path (per tracker type), then create the `earned_prizes` row from the widget's configured prize fields with `source_type='widget'` provenance (`reward_reveal_attachments.source_type` already permits `'widget'`). Covered-by-principle: any tracker gaining completion detection inherits the earned-prizes hook — do not invent a parallel reward path. | KIDS-REWARDS-PAGE gate (G1: recon before wiring trackers) | Unwired | ⏳ Unwired (MVP) | Future tracker-goals build |
+| Freeform / LiLa-assisted reward proposals (v1 is a guided structured form; no LiLa parsing) | KIDS-REWARDS-PAGE gate §5 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Multi-round proposal counteroffers (v1 is one-round: mom counters once, kid accepts/declines) | KIDS-REWARDS-PAGE gate §5 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Play-shell Propose-a-Reward variant (form kept simple enough to extend; not built) | KIDS-REWARDS-PAGE gate §5 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Un-redeem reversal audit history (v1 is a clean reset — clears redeemed_at/by with no audit row) | KIDS-REWARDS-PAGE gate Q2 | Unwired | 📌 Unwired (Post-MVP) | — |
+
+---
+
 ## RR-DEPLOY-SCOPING Follow-Ups (2026-06-10)
 
 | Stub | Created By | Wired By | Status | Build Phase |

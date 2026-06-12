@@ -140,6 +140,11 @@ export interface ListItem {
   // Opportunity-List Unification
   opportunity_subtype: OpportunitySubtype | null
   reward_type: OpportunityRewardType | null
+  // KIDS-REWARDS-PAGE Q5b (migration 100266): custom-reward promise fields.
+  // Snapshotted onto the claim-bridge task → earned_prizes at award time.
+  reward_description: string | null
+  reward_image_url: string | null
+  reward_image_asset_key: string | null
   claim_lock_duration: number | null
   claim_lock_unit: ClaimLockUnit | null
   life_area_tags: string[]

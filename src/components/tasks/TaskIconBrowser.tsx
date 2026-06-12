@@ -17,10 +17,11 @@
  * precision-focused; this browse surface is recall-focused.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ImageIcon } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useTaskIconBrowseSearch } from '@/hooks/useTaskIconBrowseSearch'
+import { useAssetMissLogger } from '@/hooks/useAssetMissLogger'
 import type { TaskIconSuggestion } from '@/types/play-dashboard'
 
 interface TaskIconBrowserProps {
@@ -41,6 +42,14 @@ export function TaskIconBrowser({
   const [query, setQuery] = useState(initialQuery)
   const { results, isLoading, isFetching } = useTaskIconBrowseSearch(query, isOpen)
   const trimmed = query.trim()
+  const logMiss = useAssetMissLogger()
+
+  // Founder (2026-06-12): record searches we have no image for, so the
+  // asset pipeline knows what to add next
+  const isMiss = isOpen && !isLoading && !isFetching && trimmed.length >= 3 && results.length === 0
+  useEffect(() => {
+    if (isMiss) logMiss(trimmed, 'icon_browse', null)
+  }, [isMiss, trimmed, logMiss])
 
   return (
     <ModalV2
@@ -50,7 +59,7 @@ export function TaskIconBrowser({
       type="transient"
       size="lg"
       title="Browse all icons"
-      subtitle="Paper craft icons from the visual schedule library"
+      subtitle="Paper craft images from the family library"
       icon={ImageIcon}
     >
       <div
@@ -106,7 +115,7 @@ export function TaskIconBrowser({
           >
             {trimmed.length === 0
               ? 'No icons in the library yet.'
-              : 'No icons match yet. Try a different word — like the noun ("teeth", "lunch", "bath").'}
+              : "We don't have an image for that yet — we've made a note to add one! Try a different word, like the noun (\"teeth\", \"lunch\", \"bath\")."}
           </div>
         ) : (
           <div
@@ -124,6 +133,9 @@ export function TaskIconBrowser({
                 currentSelection?.asset_key === icon.asset_key &&
                 currentSelection?.variant === icon.variant
               return (
+                /* Founder (2026-06-12): no visible titles — the image should
+                   speak for itself, not be limited by our naming. Name stays
+                   on aria-label (screen readers) only. */
                 <button
                   key={`${icon.asset_key}::${icon.variant}`}
                   type="button"
@@ -134,7 +146,6 @@ export function TaskIconBrowser({
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '0.25rem',
                     padding: '0.5rem',
                     borderRadius: 'var(--vibe-radius-card, 0.75rem)',
                     backgroundColor: 'var(--color-bg-card)',
@@ -147,29 +158,15 @@ export function TaskIconBrowser({
                 >
                   <img
                     src={icon.size_128_url}
-                    alt={icon.display_name}
+                    alt=""
                     style={{
-                      width: '64px',
-                      height: '64px',
+                      width: '72px',
+                      height: '72px',
                       objectFit: 'contain',
                       pointerEvents: 'none',
                     }}
                     loading="lazy"
                   />
-                  <span
-                    style={{
-                      fontSize: '0.6875rem',
-                      color: 'var(--color-text-secondary)',
-                      textAlign: 'center',
-                      lineHeight: 1.2,
-                      maxWidth: '100%',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {icon.display_name}
-                  </span>
                 </button>
               )
             })}

@@ -22,7 +22,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import { ConfettiBurst } from '@/components/shared/ConfettiBurst'
-import { FeatureIcon } from '@/components/shared/FeatureIcon'
+import { PlatformAssetImage } from '@/components/shared/PlatformAssetImage'
 import { Gift } from 'lucide-react'
 import type { ResolvedReveal } from '@/types/reward-reveals'
 import {
@@ -276,10 +276,10 @@ function PrizeCardContent({
         />
       )}
 
-      {/* Prize image — from platform_assets */}
+      {/* Prize image — from platform_assets (any category, any vibe) */}
       {hasPlatformImage && (
-        <FeatureIcon
-          featureKey={prize.prize_asset_key!}
+        <PlatformAssetImage
+          assetKey={prize.prize_asset_key!}
           fallback={<Gift size={80} style={{ color: 'var(--color-btn-primary-bg)' }} />}
           size={140}
           assetSize={512}

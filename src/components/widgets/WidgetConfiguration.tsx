@@ -12,6 +12,7 @@ import { getTrackerMeta, MULTIPLAYER_TRACKER_TYPES } from '@/types/widgets'
 import { SYSTEM_RHYTHM_KEYS_FOR_WIDGETS } from '@/types/rhythms'
 import { getMemberColor } from '@/lib/memberColors'
 import { STICKER_ICONS, STICKER_COLOR_PRESETS } from './trackers/TallyTracker'
+import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
 
 interface WidgetConfigurationProps {
   isOpen: boolean
@@ -249,7 +250,7 @@ export function WidgetConfiguration({
           </div>
 
           {/* Template-specific fields */}
-          <TemplateSpecificFields trackerType={trackerType} visualVariant={visualVariant} config={configFields} onChange={updateField} />
+          <TemplateSpecificFields trackerType={trackerType} visualVariant={visualVariant} config={configFields} onChange={updateField} familyId={familyId} />
         </div>
 
         {/* Multiplayer Configuration */}
@@ -512,11 +513,13 @@ function TemplateSpecificFields({
   visualVariant,
   config,
   onChange,
+  familyId,
 }: {
   trackerType: string
   visualVariant?: string
   config: Record<string, unknown>
   onChange: (key: string, value: unknown) => void
+  familyId?: string
 }) {
   const isStickerGrid = visualVariant === 'animated_sticker_grid' || visualVariant === 'sticker_board'
 
@@ -660,6 +663,25 @@ function TemplateSpecificFields({
         <div className="space-y-3">
           <TextAreaField label="Steps (one per line)" field="steps" config={config} onChange={onChange} />
           <TextField label="Prize at End (optional)" field="prize_label" config={config} onChange={onChange} placeholder="e.g. Pizza party!" />
+          {/* KIDS-REWARDS-PAGE G1/R2: the prize image is configured NOW so the
+              promise is complete; earned-prize firing on tracker goal-reached
+              is a registered follow-up (no goal detection exists yet —
+              STUB_REGISTRY "Tracker goal detection → prize firing"). */}
+          {familyId && (
+            <RewardImagePicker
+              value={{
+                imageUrl: (config.prize_image_url as string | null) ?? null,
+                imageAssetKey: (config.prize_image_asset_key as string | null) ?? null,
+              }}
+              onChange={(img) => {
+                onChange('prize_image_url', img.imageUrl)
+                onChange('prize_image_asset_key', img.imageAssetKey)
+              }}
+              familyId={familyId}
+              suggestText={(config.prize_label as string) ?? ''}
+              label="Prize picture (optional)"
+            />
+          )}
         </div>
       )
     case 'achievement_badge':

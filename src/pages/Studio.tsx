@@ -1588,8 +1588,11 @@ export function StudioPage() {
         onSelectStarterConfig={handleSelectStarterConfig}
       />
 
-      {/* ── Widget Configuration Modal (PRD-10) ─────────────────── */}
+      {/* ── Widget Configuration Modal (PRD-10).
+          key forces a remount per selected config — same always-mounted
+          stale-useState bug as Dashboard.tsx (see comment there). ── */}
       <WidgetConfiguration
+        key={selectedStarterConfig?.id ?? 'widget-config-idle'}
         isOpen={widgetConfigOpen}
         onClose={() => { setWidgetConfigOpen(false); setSelectedStarterConfig(null) }}
         starterConfig={selectedStarterConfig}

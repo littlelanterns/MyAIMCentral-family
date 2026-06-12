@@ -10,6 +10,7 @@ import type {
   Contract, ContractSourceType, ContractIfPattern, GodmotherType,
   StrokeOf, PresentationMode, InheritanceLevel, OverrideMode,
 } from '@/types/contracts'
+import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
 
 interface ContractFormProps {
   contract: Contract | null
@@ -88,6 +89,9 @@ interface FormState {
   godmother_type: GodmotherType
   payload_amount: string
   payload_text: string
+  /** KIDS-REWARDS-PAGE Q5a: custom-reward picture (rides payload_config) */
+  reward_image_url: string | null
+  reward_image_asset_key: string | null
   stroke_of: StrokeOf
   stroke_of_time: string
   presentation_mode: PresentationMode
@@ -111,6 +115,8 @@ function contractToFormState(c: Contract | null): FormState {
     godmother_type: 'points_godmother',
     payload_amount: '',
     payload_text: '',
+    reward_image_url: null,
+    reward_image_asset_key: null,
     stroke_of: 'immediate',
     stroke_of_time: '',
     presentation_mode: 'silent',
@@ -132,6 +138,8 @@ function contractToFormState(c: Contract | null): FormState {
     godmother_type: c.godmother_type,
     payload_amount: c.payload_amount !== null ? String(c.payload_amount) : '',
     payload_text: c.payload_text ?? '',
+    reward_image_url: (c.payload_config as Record<string, string | null> | null)?.reward_image_url ?? null,
+    reward_image_asset_key: (c.payload_config as Record<string, string | null> | null)?.reward_image_asset_key ?? null,
     stroke_of: c.stroke_of,
     stroke_of_time: c.stroke_of_time ?? '',
     presentation_mode: c.presentation_mode,
@@ -192,7 +200,15 @@ export function ContractForm({ contract, familyId, memberId, members, onClose }:
       godmother_config_id: null,
       payload_amount: form.payload_amount ? parseFloat(form.payload_amount) : null,
       payload_text: form.payload_text || null,
-      payload_config: null,
+      // KIDS-REWARDS-PAGE Q5a: custom-reward picture rides payload_config
+      payload_config:
+        form.godmother_type === 'custom_reward_godmother' &&
+        (form.reward_image_url || form.reward_image_asset_key)
+          ? {
+              reward_image_url: form.reward_image_url,
+              reward_image_asset_key: form.reward_image_asset_key,
+            }
+          : null,
       stroke_of: form.stroke_of,
       stroke_of_time: form.stroke_of === 'at_specific_time' ? form.stroke_of_time || null : null,
       recurrence_details: null,
@@ -472,6 +488,25 @@ export function ContractForm({ contract, familyId, memberId, members, onClose }:
                     placeholder="Victory description, prize text, etc."
                     className="w-full rounded-lg px-3 py-2 text-sm border"
                     style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-primary)', borderColor: 'var(--color-border-default)' }}
+                  />
+                </div>
+              )}
+              {/* KIDS-REWARDS-PAGE Q5a: custom rewards get the three-mode
+                  reward picture. Stored in contracts.payload_config; the
+                  godmother snapshots it into earned_prizes at grant time. */}
+              {form.godmother_type === 'custom_reward_godmother' && (
+                <div className="mt-2">
+                  <RewardImagePicker
+                    value={{
+                      imageUrl: form.reward_image_url,
+                      imageAssetKey: form.reward_image_asset_key,
+                    }}
+                    onChange={(img) => {
+                      set('reward_image_url', img.imageUrl)
+                      set('reward_image_asset_key', img.imageAssetKey)
+                    }}
+                    familyId={familyId}
+                    suggestText={form.payload_text}
                   />
                 </div>
               )}

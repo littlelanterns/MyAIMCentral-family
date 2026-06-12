@@ -131,6 +131,7 @@ export function PlayRewards() {
           memberId={memberId}
           currentMemberId={memberId}
           canRedeem={false}
+          playMode
           variant="fun"
         />
       </section>

@@ -8,8 +8,28 @@
  */
 
 import { Input, Select, Toggle } from '@/components/shared'
+import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
 
-export type RewardType = '' | 'stars' | 'points' | 'money' | 'privileges' | 'family_activities'
+// 'privilege' and 'custom' are the LIVE production vocabulary (TaskCreationModal
+// Section 7, OpportunityListBrowse). 'privileges'/'family_activities' are the
+// original PRD-language values kept for forward compatibility.
+export type RewardType =
+  | ''
+  | 'stars'
+  | 'points'
+  | 'money'
+  | 'privilege'
+  | 'custom'
+  | 'privileges'
+  | 'family_activities'
+
+/** Custom-reward types that flow into earned_prizes (KIDS-REWARDS-PAGE Q7) */
+export const CUSTOM_REWARD_TYPES: ReadonlyArray<RewardType> = [
+  'privilege',
+  'custom',
+  'privileges',
+  'family_activities',
+]
 
 export interface RewardConfigData {
   rewardType: RewardType
@@ -19,11 +39,29 @@ export interface RewardConfigData {
   requireApproval: boolean
   trackAsWidget: boolean
   flagAsVictory: boolean
+  /** KIDS-REWARDS-PAGE Q5/Q7: the promise text for privileges/family_activities ("a popsicle") */
+  rewardDescription: string
+  /** Three-mode reward image — mom upload URL (mutually exclusive with asset key) */
+  rewardImageUrl: string | null
+  /** Three-mode reward image — platform_assets feature_key */
+  rewardImageAssetKey: string | null
+}
+
+/** Default values for the KIDS-REWARDS-PAGE reward fields — spread into initial state */
+export const EMPTY_REWARD_EXTRAS: Pick<
+  RewardConfigData,
+  'rewardDescription' | 'rewardImageUrl' | 'rewardImageAssetKey'
+> = {
+  rewardDescription: '',
+  rewardImageUrl: null,
+  rewardImageAssetKey: null,
 }
 
 interface RewardConfigProps {
   value: RewardConfigData
   onChange: (value: RewardConfigData) => void
+  /** Required for the upload mode of the reward image picker */
+  familyId?: string
 }
 
 const REWARD_TYPE_OPTIONS = [
@@ -35,9 +73,10 @@ const REWARD_TYPE_OPTIONS = [
   { value: 'family_activities', label: 'Family Activities' },
 ]
 
-export function RewardConfig({ value, onChange }: RewardConfigProps) {
+export function RewardConfig({ value, onChange, familyId }: RewardConfigProps) {
   const update = (patch: Partial<RewardConfigData>) => onChange({ ...value, ...patch })
   const hasReward = !!value.rewardType
+  const isCustomReward = CUSTOM_REWARD_TYPES.includes(value.rewardType)
 
   return (
     <div className="space-y-4">
@@ -48,6 +87,36 @@ export function RewardConfig({ value, onChange }: RewardConfigProps) {
         onChange={(v) => update({ rewardType: v as RewardType })}
         options={REWARD_TYPE_OPTIONS}
       />
+
+      {/* KIDS-REWARDS-PAGE Q5/Q7: custom rewards (privileges / family activities)
+          get a promise description + three-mode picture. These become the
+          earned-prize card on the kid's My Rewards page when earned. */}
+      {isCustomReward && (
+        <div className="space-y-3">
+          <Input
+            label="What's the reward?"
+            value={value.rewardDescription}
+            onChange={(e) => update({ rewardDescription: e.target.value })}
+            placeholder="e.g. A popsicle, Late night with friends, Ice cream trip"
+          />
+          {familyId && (
+            <RewardImagePicker
+              value={{
+                imageUrl: value.rewardImageUrl,
+                imageAssetKey: value.rewardImageAssetKey,
+              }}
+              onChange={(img) =>
+                update({
+                  rewardImageUrl: img.imageUrl,
+                  rewardImageAssetKey: img.imageAssetKey,
+                })
+              }
+              familyId={familyId}
+              suggestText={value.rewardDescription}
+            />
+          )}
+        </div>
+      )}
 
       {/* Reward amount — only when reward type selected */}
       {hasReward && (

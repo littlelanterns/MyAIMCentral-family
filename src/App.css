@@ -271,11 +271,12 @@ select:focus {
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* Wiggle (gentle sway for edit/drag mode) */
+/* Wiggle (gentle sway for edit/drag mode) — softened per founder feedback
+   2026-06-12: ±0.6deg, paired with a slower duration at the call sites */
 @keyframes wiggle {
   0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-1.5deg); }
-  75% { transform: rotate(1.5deg); }
+  25% { transform: rotate(-0.6deg); }
+  75% { transform: rotate(0.6deg); }
 }
 .animate-wiggle {
   animation: wiggle 0.8s ease-in-out;

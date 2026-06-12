@@ -356,6 +356,12 @@ export interface Task {
   // completion % but NOT the denominator. Capped at 100%. Gated by
   // allowance_configs.extra_credit_enabled.
   is_extra_credit: boolean
+  // KIDS-REWARDS-PAGE Q5/Q7 (migration 100266): custom-reward promise fields.
+  // Snapshotted into earned_prizes.prize_text / prize_image_url / prize_asset_key
+  // by award_custom_reward_for_completion at award time.
+  reward_description: string | null
+  reward_image_url: string | null
+  reward_image_asset_key: string | null
   // View framework metadata
   eisenhower_quadrant: EisenhowerQuadrant | null
   frog_rank: number | null

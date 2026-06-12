@@ -146,6 +146,8 @@ export interface TaskIconSuggestion {
   description: string
   /** Tag array (JSONB column normalized to string[] in the hook layer) */
   tags: string[]
+  /** Cosine similarity from match_assets (only on embedding-stage results) */
+  similarity?: number
   /** 128px URL — used by tile grid + picker thumbnails */
   size_128_url: string
   /** 512px URL — used by detail/preview surfaces */

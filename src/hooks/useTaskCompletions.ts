@@ -11,6 +11,7 @@ import type {
   CreateRoutineStepCompletion,
 } from '@/types/tasks'
 import { fireDeed } from '@/lib/connector/fireDeed'
+import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 
 // ============================================================
 // useTaskCompletions — completions for a single task
@@ -188,6 +189,10 @@ export function useApproveCompletion() {
           idempotencyKey: `task_completion:${completionId}`,
         })
       }
+
+      // KIDS-REWARDS-PAGE Q7 timing rule: approval-required rewards award at
+      // mom's approval. RPC is idempotent + self-filtering; never throws.
+      awardCustomRewardForCompletion(completionId)
 
       return data
     },

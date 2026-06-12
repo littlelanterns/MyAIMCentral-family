@@ -44,12 +44,34 @@ export interface UseTaskIconSuggestionsResult {
   isRefining: boolean
   /** True if embedding stage produced results (UI can show a "smart match" indicator) */
   hasEmbeddingResults: boolean
+  /**
+   * Best cosine similarity the library could offer (embedding stage), or null
+   * before the refine lands / when it found nothing. Founder weak-match UX:
+   * below GOOD_MATCH_SIMILARITY the pickers show "closest we have" messaging
+   * and log the term to asset_suggestion_misses.
+   */
+  topSimilarity: number | null
+  /** True once both stages have settled (safe to judge match quality) */
+  isSettled: boolean
 }
+
+/** Below this, a search is a "weak match" — show closest-we-have + log a miss */
+export const GOOD_MATCH_SIMILARITY = 0.45
+
+/**
+ * Default asset pool for task-icon auto-suggest (Build M behavior).
+ * KIDS-REWARDS-PAGE (founder, 2026-06-12): reward/task image pickers pass
+ * REWARD_ASSET_CATEGORIES to also surface tool icons + sign-in pictures
+ * ("pizza"/"unicorn" live in login_avatar with the "reward" tag).
+ */
+export const DEFAULT_ASSET_CATEGORIES = ['visual_schedule']
+export const REWARD_ASSET_CATEGORIES = ['visual_schedule', 'login_avatar', 'app_icon']
 
 export function useTaskIconSuggestions(
   taskTitle: string,
   category?: string | null,
   enabled: boolean = true,
+  assetCategories: string[] = DEFAULT_ASSET_CATEGORIES,
 ): UseTaskIconSuggestionsResult {
   // ── Stage 1: Instant text + tag search (no debounce, every change) ──
   //
@@ -65,7 +87,7 @@ export function useTaskIconSuggestions(
   // because `platform_assets.tags` is JSONB (not text[]). The correct wire
   // format is `cs.["teeth"]` via `.filter('tags', 'cs', JSON.stringify([...]))`.
   const tagQuery = useQuery({
-    queryKey: ['task-icons-tag', taskTitle, category],
+    queryKey: ['task-icons-tag', taskTitle, category, assetCategories],
     queryFn: async () => {
       const tags = extractTaskIconTags(taskTitle, category ?? undefined)
 
@@ -79,10 +101,10 @@ export function useTaskIconSuggestions(
         const { data, error } = await supabase
           .from('platform_assets')
           .select('feature_key, variant, category, display_name, description, tags, size_512_url, size_128_url')
-          .eq('category', 'visual_schedule')
+          .in('category', assetCategories)
           .eq('status', 'active')
           .filter('tags', 'cs', JSON.stringify(tags))
-          .limit(12)
+          .limit(24)
         if (error) throw error
         const rows = data ?? []
         if (rows.length > 0) return rows.map(rowToSuggestion)
@@ -95,10 +117,10 @@ export function useTaskIconSuggestions(
       const { data: textData, error: textError } = await supabase
         .from('platform_assets')
         .select('feature_key, variant, category, display_name, description, tags, size_512_url, size_128_url')
-        .eq('category', 'visual_schedule')
+        .in('category', assetCategories)
         .eq('status', 'active')
         .or(`display_name.ilike.${pattern},description.ilike.${pattern}`)
-        .limit(12)
+        .limit(24)
       if (textError) throw textError
       return (textData ?? []).map(rowToSuggestion)
     },
@@ -111,7 +133,7 @@ export function useTaskIconSuggestions(
   const debouncedTitle = useDebounce(taskTitle, 500)
 
   const embeddingQuery = useQuery({
-    queryKey: ['task-icons-embedding', debouncedTitle, category],
+    queryKey: ['task-icons-embedding', debouncedTitle, category, assetCategories],
     queryFn: async () => {
       const queryText = `${debouncedTitle}${category ? ' ' + category : ''}`.trim()
 
@@ -125,15 +147,15 @@ export function useTaskIconSuggestions(
       }
 
       // Cosine similarity search via the platform_assets match_assets RPC.
-      // Threshold 0.3 = recall-friendly: catches semantic siblings like
-      // "scripture" → "Scripture Read", "bedtime story" → "Book Read", etc.
-      // Tuned down from 0.5 after end-to-end testing showed 0.5 missed obvious
-      // word-level matches.
+      // Threshold 0.2 (founder, 2026-06-12): always surface the CLOSEST images
+      // even when nothing is a great match — the pickers judge quality via
+      // topSimilarity (GOOD_MATCH_SIMILARITY) and show "closest we have"
+      // messaging instead of an empty grid. match_count 24 feeds View more.
       const { data, error } = await supabase.rpc('match_assets', {
         query_embedding: embedRes.data.embedding,
-        match_threshold: 0.3,
-        match_count: 12,
-        filter_category: 'visual_schedule',
+        match_threshold: 0.2,
+        match_count: 24,
+        filter_categories: assetCategories,
         filter_status: 'active',
       })
 
@@ -156,11 +178,20 @@ export function useTaskIconSuggestions(
     return embedding.length > 0 ? embedding : tag
   }, [tagQuery.data, embeddingQuery.data])
 
+  const enabledNow = enabled && taskTitle.trim().length >= 3
+
   return {
     results,
     isLoading: tagQuery.isLoading,
     isRefining: embeddingQuery.isFetching,
     hasEmbeddingResults: (embeddingQuery.data?.length ?? 0) > 0,
+    topSimilarity: embeddingQuery.data?.[0]?.similarity ?? null,
+    isSettled:
+      enabledNow &&
+      !tagQuery.isFetching &&
+      !embeddingQuery.isFetching &&
+      debouncedTitle === taskTitle &&
+      (embeddingQuery.isSuccess || embeddingQuery.isError),
   }
 }
 
@@ -176,6 +207,7 @@ export function useTaskIconSuggestions(
 function rowToSuggestion(row: Record<string, unknown>): TaskIconSuggestion {
   return {
     asset_key: row.feature_key as string,
+    similarity: typeof row.similarity === 'number' ? row.similarity : undefined,
     variant: ((row.variant as string) || 'B') as 'A' | 'B' | 'C',
     display_name: (row.display_name ??
       row.description ??

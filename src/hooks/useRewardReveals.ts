@@ -543,6 +543,37 @@ export function useRedeemPrize() {
   })
 }
 
+/**
+ * Kid-final self-redeem (KIDS-REWARDS-PAGE Q2) via the redeem_own_prize
+ * SECURITY DEFINER RPC: earner-only, redeem fields only, quiet mom
+ * notification fired server-side. The normal UPDATE policy is parent-only,
+ * so kids MUST go through this path.
+ */
+export function useSelfRedeemPrize() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ prizeId, memberId }: { prizeId: string; memberId: string }) => {
+      const { data, error } = await supabase.rpc('redeem_own_prize', {
+        p_prize_id: prizeId,
+      })
+      if (error) throw error
+      const result = data as { status?: string } | null
+      if (result?.status !== 'redeemed') {
+        throw new Error(result?.status ?? 'redeem_failed')
+      }
+      return { memberId }
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['earned-prizes', data.memberId] })
+      qc.invalidateQueries({ queryKey: ['earned-prizes-unredeemed-count', data.memberId] })
+    },
+  })
+}
+
+// Mom-side prize mutations (Un-redeem, edit-image-later) live in
+// hooks/useEarnedPrizes.ts — the Prize Board's hook file — so the
+// family-scoped query keys invalidate correctly. (KIDS-REWARDS-PAGE Q2/Q5c)
+
 // ============================================================
 // Imperative reveal check — call from completion hook onSuccess
 // ============================================================

@@ -362,6 +362,10 @@ export function DashboardTasksSection({
             countsForAllowance: editingTask.counts_for_allowance ?? undefined,
             countsForHomework: editingTask.counts_for_homework ?? undefined,
             countsForGamification: editingTask.counts_for_gamification ?? undefined,
+            // KIDS-REWARDS-PAGE Q5c: hydrate custom-reward promise fields
+            rewardDescription: editingTask.reward_description ?? undefined,
+            rewardImageUrl: editingTask.reward_image_url ?? undefined,
+            rewardImageAssetKey: editingTask.reward_image_asset_key ?? undefined,
           }}
         />
       )}
