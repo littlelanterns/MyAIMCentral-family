@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-06-12
+> Auto-generated from live Supabase on 2026-06-13
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 442 rows
+### `view_as_sessions` — 466 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 323 rows
+### `view_as_feature_exclusions` — 346 rows
 
 | # | Column |
 |---|---|
@@ -1059,7 +1059,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 22 rows
+### `dashboard_configs` — 23 rows
 
 | # | Column |
 |---|---|
@@ -2221,7 +2221,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 234 rows
+### `vault_user_visits` — 235 rows
 
 | # | Column |
 |---|---|
@@ -2499,7 +2499,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 286 rows
+### `activity_log_entries` — 306 rows
 
 | # | Column |
 |---|---|
@@ -2705,7 +2705,7 @@
 | 26 | `pool_name` |
 | 27 | `combined_percentage` |
 
-### `asset_suggestion_misses` — 6 rows
+### `asset_suggestion_misses` — 10 rows
 
 | # | Column |
 |---|---|
@@ -2972,7 +2972,7 @@
 | 10 | `granted_at` |
 | 11 | `created_at` |
 
-### `earned_prizes` — 0 rows
+### `earned_prizes` — 3 rows
 
 | # | Column |
 |---|---|

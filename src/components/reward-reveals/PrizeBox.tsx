@@ -46,6 +46,13 @@ interface PrizeBoxProps {
   playMode?: boolean
   /** Fun or compact mode */
   variant?: 'fun' | 'compact'
+  /**
+   * KIDS-REWARDS-PAGE Slice 2: hide the inline "Show redeemed" toggle + grid.
+   * The My Rewards page surfaces redeemed prizes through the click-in
+   * Previously Redeemed history modal instead (gate Pillar 4 — history is
+   * not always visible). Default false — existing call sites unchanged.
+   */
+  hideRedeemed?: boolean
 }
 
 export function PrizeBox({
@@ -55,6 +62,7 @@ export function PrizeBox({
   selfRedeem = false,
   playMode = false,
   variant = 'fun',
+  hideRedeemed = false,
 }: PrizeBoxProps) {
   const { data: prizes = [], isLoading } = useEarnedPrizes(memberId)
   const redeemMutation = useRedeemPrize()
@@ -165,7 +173,7 @@ export function PrizeBox({
           )}
         </div>
 
-        {redeemed.length > 0 && (
+        {!hideRedeemed && redeemed.length > 0 && (
           <button
             type="button"
             onClick={() => setShowRedeemed(!showRedeemed)}
@@ -226,7 +234,7 @@ export function PrizeBox({
       )}
 
       {/* Redeemed prizes (collapsed by default) */}
-      {showRedeemed && redeemed.length > 0 && (
+      {!hideRedeemed && showRedeemed && redeemed.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div
             style={{

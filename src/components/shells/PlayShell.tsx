@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Settings, PartyPopper } from 'lucide-react'
+import { Settings, PartyPopper, Home, Gift } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import { TimerProvider } from '@/features/timer'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
@@ -15,14 +18,23 @@ interface PlayShellProps {
   children: ReactNode
 }
 
-const navItems = [
-  { path: '/dashboard', emoji: '🏠', label: 'Home' },
-  { path: '/tasks', emoji: '✅', label: 'Tasks' },
-  { path: '/victories', emoji: '⭐', label: 'Stars' },
+// Emoji rule: no Unicode emoji anywhere, including Play. All-Lucide icons
+// per founder eyes-on direction 2026-06-12 ("all lucide icons for now so it
+// looks consistent" — the platform_assets images read as inconsistent in the
+// nav; revisit when a matched icon set exists in the asset library).
+// Play nav is just Home + Fun (founder eyes-on 2026-06-12). The progression:
+//   - "Stars"/victories tab retired → Victories moved to the Fun page section
+//   - "Tasks" tab retired → Play kids complete tasks right on the dashboard
+//     via PlayTaskTileGrid (Convention #217); the standalone /tasks page is
+//     the full adult experience (13 views, Eisenhower, Kanban) — wrong for a
+//     Play child. Two big tabs for little fingers.
+// Play-scoped only; Guided/Independent/Adult navs are unchanged.
+const navItems: { path: string; label: string; Icon: LucideIcon }[] = [
+  { path: '/dashboard', label: 'Home', Icon: Home },
   // PRD-26 / Build M Sub-phase B: rename "Play" → "Fun" so the bottom-nav
   // label doesn't collide with the shell name. Path stays `/rewards` so
   // existing routing isn't disturbed; relabel only.
-  { path: '/rewards', emoji: '🎮', label: 'Fun' },
+  { path: '/rewards', label: 'Fun', Icon: Gift },
 ]
 
 export function PlayShell({ children }: PlayShellProps) {
@@ -30,6 +42,14 @@ export function PlayShell({ children }: PlayShellProps) {
   const { data: member } = useFamilyMember()
   const { data: family } = useFamily()
   const [showCelebration, setShowCelebration] = useState(false)
+
+  // View As: inside the modal the shell must navigate the MODAL's internal
+  // router (useViewAsNav), never the real router underneath — raw NavLinks
+  // changed mom's app location behind the modal while the modal kept showing
+  // the same page ("every tab is the same page", founder eyes-on 2026-06-12).
+  // Same fork GuidedBottomNav uses.
+  const { isViewingAs } = useViewAs()
+  const { currentPath, navigate: viewAsNav } = useViewAsNav()
 
   return (
     <TimerProvider>
@@ -100,7 +120,7 @@ export function PlayShell({ children }: PlayShellProps) {
         }
       `}</style>
 
-      {/* Big bottom navigation for little fingers — emoji icons with text labels */}
+      {/* Big bottom navigation for little fingers — on-brand asset icons with text labels */}
       <nav
         className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t py-3 z-20"
         style={{
@@ -108,20 +128,41 @@ export function PlayShell({ children }: PlayShellProps) {
           borderColor: 'var(--color-border)',
         }}
       >
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl min-w-[64px] min-h-[56px] justify-center transition-transform active:scale-95"
-            style={({ isActive }) => ({
-              backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
-              color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
-            })}
-          >
-            <span className="text-2xl leading-none" aria-hidden="true">{item.emoji}</span>
-            <span className="text-xs font-medium leading-none">{item.label}</span>
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          if (isViewingAs) {
+            const isActive = currentPath.split('?')[0] === item.path
+            return (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => viewAsNav(item.path)}
+                className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl min-w-[64px] min-h-[56px] justify-center transition-transform active:scale-95"
+                style={{
+                  backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
+                  color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                  border: 'none',
+                }}
+              >
+                <item.Icon size={26} aria-hidden="true" />
+                <span className="text-xs font-medium leading-none">{item.label}</span>
+              </button>
+            )
+          }
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl min-w-[64px] min-h-[56px] justify-center transition-transform active:scale-95"
+              style={({ isActive }) => ({
+                backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
+                color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              })}
+            >
+              <item.Icon size={26} aria-hidden="true" />
+              <span className="text-xs font-medium leading-none">{item.label}</span>
+            </NavLink>
+          )
+        })}
       </nav>
     </div>
     </RewardRevealProvider>

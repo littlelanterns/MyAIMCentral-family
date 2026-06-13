@@ -93,7 +93,8 @@ export interface NavSection {
  * New entries (per founder Q2a, per-child gated):
  *   - "My Rewards" (`/my-rewards`, `my_rewards_page`) — adult,
  *     independent, and guided shells. Gated by per-child preference
- *     `family_members.preferences.show_my_rewards` (default false).
+ *     `family_members.preferences.show_my_rewards` (default ON since the
+ *     2026-06-12 founder ruling; only an explicit false hides it).
  *     When toggle is OFF, entry stays INVISIBLE. Worker 4 builds the
  *     page stub, the toggle UI, and registers the feature key.
  *     PlayShell uses its own bottom nav with the existing "Fun" tab

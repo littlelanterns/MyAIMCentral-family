@@ -44,6 +44,7 @@ import {
 import { MessagesPage } from '@/pages/MessagesPage'
 import { MeetingsPage } from '@/pages/MeetingsPage'
 import { MyRewardsPage } from '@/pages/MyRewardsPage'
+import { PlayRewards } from '@/pages/PlayRewards'
 import { ShoppingModePage } from '@/pages/ShoppingMode'
 import { RhythmsSettingsPage } from '@/pages/RhythmsSettingsPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
@@ -99,6 +100,9 @@ function renderPage(path: string): ReactNode {
     case '/lists': return <ListsPage />
     case '/shopping-mode': return <ShoppingModePage />
     case '/my-rewards': return <MyRewardsPage />
+    // Play shell "Fun" tab (KIDS-REWARDS-PAGE Slice 2 eyes-on fix — was
+    // unmapped, so every Play nav tap fell through to the dashboard)
+    case '/rewards': return <PlayRewards />
     case '/studio': return <StudioPage />
     case '/prize-board': return <PrizeBoard />
     case '/contracts': return <ContractsPage />
@@ -225,6 +229,16 @@ export function ViewAsModal() {
       for (const item of section.items) {
         paths.add(item.path.split('?')[0])
       }
+    }
+    // Play shell has NO sidebar (getSidebarSections returns []) — its
+    // purpose-built bottom nav is the navigation map. Without these, every
+    // Play nav tap bounced to /dashboard inside the modal (founder eyes-on
+    // 2026-06-12, KIDS-REWARDS-PAGE Slice 2).
+    if (targetShell === 'play') {
+      // Home + Fun only (founder 2026-06-12). Stars retired (Victories on the
+      // Fun page); Tasks retired (Play kids complete on the dashboard via
+      // PlayTaskTileGrid — no standalone adult Tasks page for Play).
+      paths.add('/rewards')
     }
     return paths
   }, [targetShell, showMyRewards, isEnabled, viewingAsMember?.role, grants.studioLevel, grants.financeMaxLevel, grants.rewardRulesLevel])

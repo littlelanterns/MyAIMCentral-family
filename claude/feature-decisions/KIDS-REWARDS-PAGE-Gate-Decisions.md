@@ -173,6 +173,15 @@ All recon non-goals stand (no PRD-24 point-spend economy, no treasure boxes, no 
 
 **Slice plan and dispatch order approved:** 1 → 2 → (3 ∥ 4) → 5, migrations from 100266. PRE_BUILD_PROCESS ritual, Playwright proof per slice, Convention #271 reconciliation test on the kid owed-money number explicitly included in slice 5.
 
+**Slice 2 founder amendments (2026-06-12, during eyes-on review):**
+- **Page default flipped to ON.** `show_my_rewards` now defaults TRUE for every member — only an explicit false hides the page/nav entry. Supersedes Q2a's default-false (View As Identity-Scope build) and amends Q1's "defaults when mom enables the page" framing: the page is on out of the box; mom turns it OFF per member if she wants. Origin: founder saw empty View As navs ("Can we default to on").
+- **Play money is a mom OPT-IN, default OFF.** Amends Q9's "Play shell: finances section never renders, period" and narrows PRD-28's "Play mode children ALWAYS see completion % only" for THIS surface: the "Money owed" toggle is offered for Play members in the My Rewards settings section, default OFF; mom's explicit opt-in renders the money section on the kid's Fun page. Buffet Principle — maximalist option, conservative default. PRD-28's rule stands unchanged on all OTHER surfaces (allowance widget %-only, LedgerView hideMoney on Balance surfaces, etc.).
+- **Play nav: all-Lucide icons.** The platform_assets images read as inconsistent in the bottom nav ("I don't like how things look from the asset library — all lucide icons for now so it looks consistent"). Emoji removed either way (emoji rule). Revisit when a matched nav icon set exists in the asset library.
+- **Play nav simplified to TWO tabs: Home + Fun.** Two retirements:
+  - **Stars/Victories tab** → the Fun page's Victories section replaces it; victories section defaults ON for Play (amends Q1's victories-OFF default for Play only).
+  - **Tasks tab** → Play kids complete tasks right on the dashboard via `PlayTaskTileGrid` (Convention #217); the standalone `/tasks` page is the full adult experience (13 prioritization views, Eisenhower, Kanban) — wrong for a Play child.
+  Result: Home (dashboard w/ task tiles) + Fun (rewards/sticker/victories). Play-scoped only — Guided keeps its full nav incl. Tasks + Victories (PRD-25 / Convention #124).
+
 ---
 
 ## 12. Starter Prompt for the Orchestrator

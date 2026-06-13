@@ -23,7 +23,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import { ConfettiBurst } from '@/components/shared/ConfettiBurst'
 import { PlatformAssetImage } from '@/components/shared/PlatformAssetImage'
-import { Gift } from 'lucide-react'
+import { Gift, PartyPopper } from 'lucide-react'
 import type { ResolvedReveal } from '@/types/reward-reveals'
 import {
   CardFlipReveal,
@@ -209,7 +209,10 @@ export function RewardRevealModal({
             textShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          {prize.prize_text || '🎉'}
+          {/* Emoji rule: Lucide fallback, never 🎉 (Slice 2 eyes-on sweep) */}
+          {prize.prize_text || (
+            <PartyPopper size={40} style={{ display: 'inline-block' }} aria-label="Hooray!" />
+          )}
         </div>
       )}
 

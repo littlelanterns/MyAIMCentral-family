@@ -1,42 +1,49 @@
 /**
- * PlayRewards — SCOPE-3.F22 fix
+ * PlayRewards — Play shell "Fun" tab rewards surface.
  *
- * Dedicated "Fun" / rewards surface for Play shell. Tapped from the
- * 🎮 Fun bottom-nav tab. Renders a focused view of the kid's sticker
- * book + earned prizes so Rewards stands on its own as a destination,
- * not just "the home page's sticker book widget in disguise."
+ * Originally SCOPE-3.F22 (dedicated /rewards destination). KIDS-REWARDS-PAGE
+ * Slice 2 rework: the standalone PrizeBox is replaced by the shared
+ * <MyRewards variant="play"> sections component (founder gate Q3 — ONE
+ * component across shells), which renders Points, Custom Rewards (playMode:
+ * no Redeem, "Ask a grown-up to use it!"), and Victories per mom's section
+ * opt-ins. Finances NEVER renders on Play (PRD-28 hard rule — enforced in
+ * both the settings resolution and the component).
  *
- * Thin by design:
- *   - Reuses PlayStickerBookWidget and StickerBookDetailModal state
- *     machinery so the look matches what they already see on the
- *     dashboard.
- *   - Reuses PrizeBox for earned-but-unredeemed prizes.
- *   - No new business logic. No new DB queries beyond what those
- *     components already do.
+ * Sticker book (founder eyes-on fix, 2026-06-12): the page previously
+ * rendered StickerBookDetailModal INLINE — a full-screen overlay that
+ * covered the Play bottom nav and buried every section beneath it. It now
+ * renders the tappable PlayStickerBookWidget (same as the dashboard); the
+ * full modal opens on tap and CLOSES BACK TO THIS PAGE. Becomes the full
+ * Creatures section in Slice 3.
  *
- * Routing: `/rewards` — registered in App.tsx. Rendered inside
- * PlayShell via ProtectedRoute → RoleRouter. The audit finding
- * (SCOPE-3.F22) was that /rewards was unrouted; this is the
- * registered surface.
+ * View As: uses the EFFECTIVE member so mom sees the same page the kid sees
+ * (Convention #39).
  */
 
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
+import { useMyRewardsSettings } from '@/hooks/useMyRewardsSettings'
 import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
-import { PrizeBox } from '@/components/reward-reveals/PrizeBox'
+import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBookWidget'
+import { MyRewards } from '@/components/rewards/MyRewards'
 
 export function PlayRewards() {
   const navigate = useNavigate()
-  const { data: member } = useFamilyMember()
+  const [bookOpen, setBookOpen] = useState(false)
+  const { member, isViewAs } = useEffectiveMember()
+  const { data: authMember } = useFamilyMember()
   const memberId = member?.id
   const { data: stickerState, isLoading: stickerLoading } = useStickerBookState(memberId)
   const { data: creatures = [] } = useCreaturesForMember(memberId)
+  const { data: settings } = useMyRewardsSettings(memberId ?? null)
 
   const goHome = () => navigate('/dashboard')
 
-  if (!memberId || stickerLoading) {
+  if (!member || !memberId || stickerLoading) {
     return (
       <div
         style={{
@@ -57,8 +64,13 @@ export function PlayRewards() {
   }
 
   // Sticker book disabled (mom hasn't turned on gamification) — still
-  // show prizes if they exist, plus a warm empty state for the book.
+  // show the other sections, plus a warm empty state for the book.
   const hasStickerBook = stickerState !== null && stickerState !== undefined
+  // Sticker book honors the creatures section opt-in (default ON when
+  // gamification is enabled — the pre-Slice-2 behavior is unchanged unless
+  // mom explicitly turns the section off).
+  const showStickerBook = hasStickerBook && (settings?.sections.creatures ?? true)
+  const isOwnSession = !isViewAs && authMember?.id === member.id
 
   return (
     <div
@@ -101,15 +113,18 @@ export function PlayRewards() {
         </p>
       </header>
 
-      {hasStickerBook && stickerState ? (
+      {showStickerBook && stickerState ? (
         <section aria-label="Sticker book">
-          <StickerBookDetailModal
+          {/* Tappable preview — the full modal opens on tap and closes back
+              to this page (it no longer renders inline, which covered the
+              bottom nav and every section below it). */}
+          <PlayStickerBookWidget
             state={stickerState}
-            memberId={memberId}
-            onClose={goHome}
+            creatureCount={creatures.length}
+            onOpen={() => setBookOpen(true)}
           />
         </section>
-      ) : (
+      ) : !hasStickerBook ? (
         <section
           aria-label="Sticker book empty state"
           style={{
@@ -124,17 +139,21 @@ export function PlayRewards() {
             Your sticker book is coming soon!
           </div>
         </section>
-      )}
+      ) : null}
 
-      <section aria-label="Earned prizes">
-        <PrizeBox
+      {/* Shared sections — Points / Custom Rewards / Victories per mom's
+          opt-ins. Finances only on mom's explicit opt-in (founder amendment
+          2026-06-12). */}
+      <MyRewards member={member} variant="play" isOwnSession={isOwnSession} />
+
+      {/* Full sticker book — opens over the page, closes back to it */}
+      {bookOpen && stickerState && (
+        <StickerBookDetailModal
+          state={stickerState}
           memberId={memberId}
-          currentMemberId={memberId}
-          canRedeem={false}
-          playMode
-          variant="fun"
+          onClose={() => setBookOpen(false)}
         />
-      </section>
+      )}
 
       <button
         type="button"

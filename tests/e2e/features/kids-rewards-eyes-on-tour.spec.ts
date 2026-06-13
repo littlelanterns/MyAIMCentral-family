@@ -17,8 +17,9 @@
  */
 import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
-import { loginAsMom, loginAsRiley } from '../helpers/auth'
+import { loginAsMom, loginAsRiley, loginAsCasey } from '../helpers/auth'
 import { waitForAppReady } from '../helpers/assertions'
+import { todayLocalIso } from '../helpers/dates'
 import { randomUUID } from 'crypto'
 import fs from 'fs'
 import path from 'path'
@@ -93,6 +94,59 @@ async function ensurePrize(opts: {
       : {}),
   })
   if (error) throw new Error(`prize fixture: ${error.message}`)
+}
+
+/** Merge-write My Rewards preference keys (Slice 2 stops). The next
+ *  kids-rewards-slice2.spec.ts run resets these to the clean baseline. */
+async function setTourPrefs(mid: string, updates: Record<string, unknown>) {
+  const { data, error } = await sr
+    .from('family_members')
+    .select('preferences')
+    .eq('id', mid)
+    .single()
+  if (error) throw new Error(`read preferences: ${error.message}`)
+  const prefs = { ...((data.preferences as Record<string, unknown>) ?? {}), ...updates }
+  const { error: uErr } = await sr
+    .from('family_members')
+    .update({ preferences: prefs })
+    .eq('id', mid)
+  if (uErr) throw new Error(`write preferences: ${uErr.message}`)
+}
+
+/** Victory + linked celebration narrative fixture (idempotent by description). */
+async function ensureVictory(mid: string, description: string, narrative: string) {
+  const { data: existing } = await sr
+    .from('victories')
+    .select('id')
+    .eq('family_id', familyId)
+    .eq('description', description)
+    .maybeSingle()
+  if (existing) return
+
+  const { data: victory, error } = await sr
+    .from('victories')
+    .insert({
+      family_id: familyId,
+      family_member_id: mid,
+      description,
+      source: 'manual',
+      member_type: 'teen',
+      importance: 'big_win',
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(`victory fixture: ${error.message}`)
+
+  const { error: cErr } = await sr.from('victory_celebrations').insert({
+    family_id: familyId,
+    family_member_id: mid,
+    celebration_date: todayLocalIso(),
+    mode: 'individual',
+    narrative,
+    victory_ids: [victory.id],
+    victory_count: 1,
+  })
+  if (cErr) throw new Error(`celebration fixture: ${cErr.message}`)
 }
 
 test.use({ launchOptions: { slowMo: 300 }, viewport: { width: 1440, height: 900 } })
@@ -297,5 +351,138 @@ test.describe('Eyes-on tour — Slice 1 mom surfaces', () => {
     await expect(page.getByText('Ask a grown-up to use it!').first()).toBeVisible()
     await shot(page, '10-play-rewards-ask-a-grownup')
     await linger(page, 4000)
+  })
+
+  // ═══════════════ SLICE 2 STOPS (2026-06-12) ═══════════════
+  // Fixtures below use the KRSLICE2 prefix — swept automatically by the next
+  // run of kids-rewards-slice2.spec.ts (its beforeAll cleanup also resets the
+  // member preferences the tour sets here).
+
+  // ── Stop 6: Gamification Settings → My Rewards Page section ─────────────────
+  test('Stop 6 — Settings: My Rewards Page section (page toggle + section opt-ins)', async ({ page }) => {
+    const jordan = await memberId('Jordan')
+    // Page on for Jordan so the section toggles are visible for review
+    await setTourPrefs(jordan, {
+      show_my_rewards: true,
+      my_rewards_sections: { custom_rewards: true, victories: true },
+    })
+
+    await loginAsMom(page)
+    await page.goto('/family-members')
+    await waitForAppReady(page)
+
+    const jordanCard = page
+      .locator('.card-hover')
+      .filter({ has: page.getByText('Jordan', { exact: true }) })
+    await jordanCard.getByTitle('Edit').click()
+    await jordanCard.getByRole('button', { name: 'Gamification Settings' }).click()
+    await page.getByRole('button', { name: 'My Rewards Page' }).click()
+    await expect(page.getByTestId('my-rewards-settings-section')).toBeVisible()
+    await shot(page, '11-settings-my-rewards-section-jordan')
+    await linger(page, 4000)
+    await page.keyboard.press('Escape')
+
+    // Play member shape — no page toggle, no Money owed control
+    const ruthieCard = page
+      .locator('.card-hover')
+      .filter({ has: page.getByText('Ruthie', { exact: true }) })
+    await ruthieCard.getByTitle('Edit').click()
+    await ruthieCard.getByRole('button', { name: 'Gamification Settings' }).click()
+    await page.getByRole('button', { name: 'My Rewards Page' }).click()
+    await expect(page.getByText(/rewards live on their Fun tab/)).toBeVisible()
+    await shot(page, '12-settings-my-rewards-section-ruthie-play')
+    await linger(page, 3000)
+  })
+
+  // ── Stop 7: Casey's /my-rewards — all four Slice 2 sections live ────────────
+  test('Stop 7 — Independent kid page: points, prizes + history, victories, money owed', async ({ page }) => {
+    const casey = await memberId('Casey')
+    await setTourPrefs(casey, {
+      show_my_rewards: true,
+      my_rewards_sections: { custom_rewards: true, victories: true, finances: true },
+    })
+    await ensurePrize({ earnerId: casey, prizeText: 'KRSLICE2 EYES-ON Ice cream with Mom' })
+    await ensurePrize({
+      earnerId: casey,
+      prizeText: 'KRSLICE2 EYES-ON Late night with friends (redeemed)',
+      redeemed: true,
+    })
+    await ensureVictory(
+      casey,
+      'KRSLICE2 EYES-ON Finished the science fair project',
+      'KRSLICE2 EYES-ON What a finish — weeks of sticking with it paid off. That project sparkled!',
+    )
+
+    await loginAsCasey(page)
+    await page.goto('/my-rewards')
+    await waitForAppReady(page)
+
+    await expect(page.getByTestId('my-rewards-sections')).toBeVisible({ timeout: 15000 })
+    await shot(page, '13-casey-my-rewards-page')
+    await linger(page, 4000)
+
+    // Previously Redeemed click-in history with provenance
+    await page.getByTestId('mr-history-button').click()
+    await expect(page.getByTestId('redeemed-history')).toBeVisible()
+    await shot(page, '14-casey-previously-redeemed-history')
+    await linger(page, 3500)
+    await page.keyboard.press('Escape')
+
+    // Victory → celebration detail
+    await page
+      .getByTestId('mr-section-victories')
+      .getByText('KRSLICE2 EYES-ON Finished the science fair project')
+      .click()
+    await expect(page.getByTestId('celebration-detail')).toBeVisible()
+    await shot(page, '15-casey-celebration-detail')
+    await linger(page, 3500)
+    await page.keyboard.press('Escape')
+
+    // Money owed tap-through to the ledger
+    await page.getByTestId('mr-finances-details').click()
+    await shot(page, '16-casey-money-owed-ledger')
+    await linger(page, 3500)
+  })
+
+  // ── Stop 8: View As Jordan → More → My Rewards (guided experience) ──────────
+  test('Stop 8 — View As Jordan: kid page in the modal, no self-redeem offered', async ({ page }) => {
+    const jordan = await memberId('Jordan')
+    await setTourPrefs(jordan, {
+      show_my_rewards: true,
+      my_rewards_sections: { custom_rewards: true },
+    })
+    await ensurePrize({ earnerId: jordan, prizeText: 'KRSLICE2 EYES-ON Popsicle picnic' })
+
+    await loginAsMom(page)
+    await page.goto('/dashboard')
+    await waitForAppReady(page)
+
+    await page.getByRole('tab', { name: /View As/i }).click()
+    await page
+      .getByText('Choose a family member to see their dashboard experience')
+      .waitFor({ state: 'visible', timeout: 10000 })
+    await page.getByRole('button').filter({ hasText: 'Jordan' }).first().click()
+    await expect(page.locator('[data-testid="view-as-exit"]')).toBeVisible({ timeout: 15000 })
+
+    // Dismiss the kid's auto-opened rhythm modal if it appears
+    await page.waitForTimeout(3000)
+    while ((await page.locator('[role="dialog"]').count()) > 0) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(500)
+    }
+
+    await page.getByRole('button', { name: 'More' }).click()
+    await shot(page, '17-viewas-jordan-more-menu')
+    await page.getByText('My Rewards', { exact: true }).first().click()
+    await expect(page.getByTestId('mr-section-custom')).toBeVisible({ timeout: 15000 })
+    await shot(page, '18-viewas-jordan-my-rewards')
+    await linger(page, 4000)
+
+    // End the session row (modal exit affordance can auto-close — DB cleanup)
+    await sr
+      .from('view_as_sessions')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('viewing_as_id', jordan)
+      .is('ended_at', null)
   })
 })

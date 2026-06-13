@@ -1,11 +1,13 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useState, useMemo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, ChevronDown, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye, LogOut, GraduationCap, MessagesSquare } from 'lucide-react'
+import { Home, CheckSquare, Trophy, BarChart3, Settings, PenLine, MoreHorizontal, X, BookOpen, BookHeart, Library, ChevronRight, ChevronDown, Sparkles, Scale, Languages, MessageCircle, Compass, Heart, History, Search, Eye, LogOut, GraduationCap, MessagesSquare, Gift } from 'lucide-react'
 import { Tooltip } from '@/components/shared'
 import { TimerProvider } from '@/features/timer'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 import { useSettings } from '@/components/settings'
 import { ThemeSelector } from '@/components/ThemeSelector'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
@@ -174,6 +176,32 @@ function GuidedBottomNav() {
   const { data: family } = useFamily()
   const { preferences } = useGuidedDashboardConfig(family?.id, member?.id)
 
+  // KIDS-REWARDS-PAGE Slice 2: the Guided shell has its own purpose-built nav
+  // (no Sidebar), so the per-child "My Rewards" entry lives here in the More
+  // menu — gated by the EFFECTIVE member's show_my_rewards preference so View
+  // As shows mom exactly what the kid sees (Convention #39).
+  const { member: effectiveMember } = useEffectiveMember()
+  const showMyRewards = useShowMyRewards(effectiveMember?.id ?? null)
+  const moreSections = useMemo(() => {
+    if (!showMyRewards) return GUIDED_MORE_SECTIONS
+    return GUIDED_MORE_SECTIONS.map(section =>
+      section.title === 'Capture & Reflect'
+        ? {
+            ...section,
+            items: [
+              ...section.items,
+              {
+                path: '/my-rewards',
+                icon: <Gift size={20} />,
+                label: 'My Rewards',
+                description: 'Your prizes, points, and wins',
+              },
+            ],
+          }
+        : section,
+    )
+  }, [showMyRewards])
+
   // Build AI tools list with preference-gated items
   const aiTools = [
     ...GUIDED_AI_TOOLS,
@@ -295,7 +323,7 @@ function GuidedBottomNav() {
 
             {/* Sectioned items */}
             <div className="overflow-y-auto" style={{ maxHeight: 'calc(70dvh - 56px)' }}>
-              {GUIDED_MORE_SECTIONS.map((section) => (
+              {moreSections.map((section) => (
                 <div key={section.title} className="py-2">
                   <p
                     className="px-5 py-1 text-[10px] font-bold uppercase tracking-widest"

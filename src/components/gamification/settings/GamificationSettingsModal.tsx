@@ -2,13 +2,16 @@
  * GamificationSettingsModal — Build M Phase 4
  *
  * Full gamification configuration surface. Opened from FamilyMembers.tsx
- * for any member. Contains 6 collapsible sections:
+ * for any member. Contains 7 collapsible sections:
  *   1. Master Toggles (enabled, sticker book, points per task)
- *   2. Day Segments (CRUD, reorder, task assignment)
- *   3. Creature Earning Mode (4-card picker + per-mode config)
- *   4. Background/Page Earning Mode (3-card picker + per-mode config)
- *   5. Coloring Reveals (active reveals list, add/config/remove)
- *   6. Reset & Advanced (reset sticker book, reset reveals, stats)
+ *   2. My Rewards Page (KIDS-REWARDS-PAGE Slice 2 — page on/off, section
+ *      opt-ins, personal rewards privacy; NOT gated on gamification —
+ *      finances/victories sections exist independently of it)
+ *   3. Day Segments (CRUD, reorder, task assignment)
+ *   4. Creature Earning Mode (4-card picker + per-mode config)
+ *   5. Background/Page Earning Mode (3-card picker + per-mode config)
+ *   6. Coloring Reveals (active reveals list, add/config/remove)
+ *   7. Reset & Advanced (reset sticker book, reset reveals, stats)
  *
  * Zero hardcoded colors — all CSS custom properties.
  */
@@ -28,6 +31,7 @@ import {
   RotateCcw,
   ImageIcon,
   Palette,
+  Gift,
 } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { Toggle } from '@/components/shared'
@@ -49,6 +53,7 @@ import {
   useReorderSegments,
 } from '@/hooks/useTaskSegments'
 import { useMemberColoringReveals, useUpdateColoringReveal } from '@/hooks/useColoringReveals'
+import { useMyRewardsSettings, useUpdateMyRewardsSettings } from '@/hooks/useMyRewardsSettings'
 import { useWidgets } from '@/hooks/useWidgets'
 import { useTasks } from '@/hooks/useTasks'
 import { useGamificationTheme } from '@/hooks/useGamificationTheme'
@@ -298,6 +303,19 @@ export function GamificationSettingsModal({
               </>
             )}
           </div>
+        </CollapsibleSection>
+
+        {/* ═══════════ Section: My Rewards Page (KIDS-REWARDS-PAGE Slice 2) ═══════════ */}
+        {/* NOT gated on gamificationEnabled — the page's finances/victories
+            sections exist independently of points and creatures. */}
+        <CollapsibleSection
+          title="My Rewards Page"
+          sectionKey="my_rewards"
+          isOpen={openSections.has('my_rewards')}
+          onToggle={toggleSection}
+          icon={<Gift size={16} />}
+        >
+          <MyRewardsPageSettings memberId={memberId} memberName={memberName} />
         </CollapsibleSection>
 
         {/* ═══════════ Section 2: Day Segments ═══════════ */}
@@ -641,6 +659,137 @@ export function GamificationSettingsModal({
   )
 }
 
+// ── My Rewards Page Settings (KIDS-REWARDS-PAGE Slice 2) ────────────
+//
+// Manages family_members.preferences:
+//   show_my_rewards          — page on/off (sidebar gate; Adult/Independent/
+//                              Guided shells only — Play's Fun tab always
+//                              exists). DEFAULT ON (founder ruling 2026-06-12);
+//                              only an explicit off hides the page.
+//   my_rewards_sections      — explicit per-section overrides (defaults
+//                              resolve at read time per founder gate Q1;
+//                              finances DEFAULT mirrors child_can_see_finances;
+//                              Play finances default OFF, mom opt-in — founder
+//                              amendment 2026-06-12 amending PRD-28's "never
+//                              on Play" for this surface)
+//   personal_rewards_privacy — mom-granted privacy for an adult's private
+//                              self-rewards (query-layer enforced, migration
+//                              100266; reversible). Adults only.
+//
+// Honest controls only: toggles render only for sections that exist today
+// (Points / Custom Rewards / Victories / Money owed). Creatures + Coloring
+// toggles ship with their sections in Slice 3; Propose in Slice 4.
+
+function MyRewardsPageSettings({
+  memberId,
+  memberName,
+}: {
+  memberId: string
+  memberName: string
+}) {
+  const { data: settings } = useMyRewardsSettings(memberId)
+  const update = useUpdateMyRewardsSettings()
+
+  if (!settings) {
+    return (
+      <p className="text-xs py-2" style={{ color: 'var(--color-text-secondary)' }}>
+        Loading...
+      </p>
+    )
+  }
+
+  const isPlayMember = settings.dashboardMode === 'play'
+  const isAdultMember =
+    settings.role === 'additional_adult' || settings.role === 'special_adult'
+  const sectionsVisible = isPlayMember || settings.showMyRewards
+  const financesHasOverride = settings.overrides.finances !== undefined
+
+  return (
+    <div className="space-y-4" data-testid="my-rewards-settings-section">
+      {isPlayMember ? (
+        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          {memberName}'s rewards live on their Fun tab. Choose which sections
+          appear:
+        </p>
+      ) : (
+        <ToggleRow
+          label="Show My Rewards page"
+          description={`A My Rewards page in ${memberName}'s navigation — on for everyone unless you turn it off`}
+          checked={settings.showMyRewards}
+          onChange={(v) => update.mutate({ memberId, showMyRewards: v })}
+        />
+      )}
+
+      {sectionsVisible && (
+        <div className="space-y-3">
+          {!isPlayMember && (
+            <p
+              className="text-xs font-medium"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Sections on {memberName}'s page
+            </p>
+          )}
+
+          <ToggleRow
+            label="Points & streak"
+            description="Their points total and current streak"
+            checked={settings.sections.points}
+            onChange={(v) => update.mutate({ memberId, sections: { points: v } })}
+          />
+
+          <ToggleRow
+            label="Custom rewards"
+            description="Earned prize cards with redeem and history"
+            checked={settings.sections.custom_rewards}
+            onChange={(v) =>
+              update.mutate({ memberId, sections: { custom_rewards: v } })
+            }
+          />
+
+          <ToggleRow
+            label="Victories"
+            description="A tappable record of their celebrations"
+            checked={settings.sections.victories}
+            onChange={(v) => update.mutate({ memberId, sections: { victories: v } })}
+          />
+
+          {/* Play money is a mom OPT-IN, default OFF (founder amendment
+              2026-06-12 — amends PRD-28's "never on Play" for this surface). */}
+          <ToggleRow
+            label="Money owed"
+            description={
+              isPlayMember
+                ? 'One total owed, with a tap-through to their ledger. Off for young kids unless you turn it on.'
+                : financesHasOverride
+                  ? 'One total owed, with a tap-through to their ledger'
+                  : "One total owed, with a tap-through to their ledger. Currently following 'child can see finances.'"
+            }
+            checked={settings.sections.finances}
+            onChange={(v) => update.mutate({ memberId, sections: { finances: v } })}
+          />
+        </div>
+      )}
+
+      {/* Personal rewards privacy — adults' private self-rewards only.
+          Enforced at the query layer (util.personal_rewards_privacy). */}
+      {isAdultMember && (
+        <div
+          className="pt-3"
+          style={{ borderTop: '1px solid var(--color-border)' }}
+        >
+          <ToggleRow
+            label="Personal rewards privacy"
+            description={`${memberName}'s private self-rewards stay private from you too`}
+            checked={settings.personalRewardsPrivacy}
+            onChange={(v) => update.mutate({ memberId, personalRewardsPrivacy: v })}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Collapsible Section Wrapper ─────────────────────────────────────
 
 function CollapsibleSection({
@@ -719,7 +868,8 @@ function ToggleRow({
           </p>
         )}
       </div>
-      <Toggle checked={checked} onChange={onChange} size="sm" />
+      {/* label → aria-label on the switch (a11y + testability) */}
+      <Toggle checked={checked} onChange={onChange} size="sm" label={label} />
     </div>
   )
 }
