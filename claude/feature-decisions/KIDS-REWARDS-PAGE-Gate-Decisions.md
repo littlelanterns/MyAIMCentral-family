@@ -184,6 +184,39 @@ All recon non-goals stand (no PRD-24 point-spend economy, no treasure boxes, no 
 
 ---
 
+## 13. Slice 3 Creature Page — Founder Design Direction (2026-06-12)
+
+> Captured during Slice 2 close-out, before Slice 3 dispatch. **Refines** the gate's Pillar 2 / Slice-Plan creature interaction: a horizontal-swipe strip is added for navigation, AND drag-to-edge page flip is retained for moving creatures between backgrounds. Both coexist (the phone-home-screen metaphor exactly). To be folded into the formal Slice 3 plan when that slice is dispatched.
+
+**The interaction (build now):**
+- **Backgrounds are a horizontal swipe strip**, NOT one full page at a time. The member swipes side-to-side along the strip to BROWSE between their unlocked backgrounds (hands empty = navigation). Each background renders the creatures placed on it, at their saved positions.
+- **Drag-to-edge page flip is RETAINED — for MOVING a creature between backgrounds** (founder: "we still want drag to edge page flip, as moving them from page to page is still desired"). While DRAGGING a creature, pushing it to the left/right edge of the current background advances the strip to the adjacent background, so the member can drop the creature onto a DIFFERENT background than the one it started on. This is the cross-page move; swipe is for browsing, drag-to-edge is for carrying. Both gestures coexist — exactly like phone home screens (swipe to browse pages; hold an app icon and shove it to the edge to flip to the next page and place it).
+- **The whole thing is ONE self-contained frame** — the background swipe strip AND the unplaced-creatures scrollbar live together "in the same frame." Decided: scrollbar at the **BOTTOM of the frame** (NOT the bottom of the page). Because it's bottom-of-FRAME, it does NOT stack against or collide with the Play bottom nav — that earlier con is dissolved. The background scene is the hero/top focus of the frame; the creature tray is the strip beneath it inside the same bordered surface.
+- **Unplaced creatures live in a horizontal scrollbar at the bottom of the frame** (side-to-side scroll). Holds every earned-but-unplaced creature.
+- **The unplaced tray is HIDEABLE via a pull tab** (founder: "similar pull tab that we have for the smart notepad"). Reuse the existing shared `<PullTab orientation="bottom">` (`src/components/shared/PullTab.tsx` — vibe-aware, required accessible `label`, already powering the LiLa + Notepad drawers). Hidden state → the assembled background scene becomes the full hero of the frame ("when there is a full created image, that is the main top focus, or hero of sorts"). Tab toggles the tray back up.
+- **Two placement gestures from the unplaced strip, both supported:** (a) **touch-select then touch-place** — tap a creature in the unplaced strip to select it, then tap a spot on a background to drop it there; AND (b) **drag-and-drop** — drag a creature from the strip onto a background (and drag-to-edge mid-drag to reach another background). Drag sets exact x/y; touch-place sets x/y at the tapped point.
+- Small-finger eyes-on verification required (Play), same standard as the rest of Slice 3 — especially the drag-to-edge flip threshold (must be reachable for little fingers without accidental flips while placing near an edge).
+
+**The set/theme picker (prepare for now, BUILD LATER):**
+- A menu to choose **which background + character set** you're working with. We currently have exactly ONE set live (`gamification_themes` = 1 row), so the picker is not built yet — but Slice 3 MUST be structured so it slots in above the swipe strip with zero rework.
+- "Prepare for it now" means: the creature section reads the member's ACTIVE set (`member_sticker_book_state.active_theme_id`) and filters backgrounds + creatures by `theme_id` from the start. Never hardcode the single theme; never assume one set.
+
+**Data-model mapping (recon-confirmed against live_schema — no new tables needed for the core interaction):**
+- Backgrounds in the swipe strip = `gamification_sticker_pages` rows for the active `theme_id`, gated to the member's unlocked set via `member_page_unlocks` (sort by `sort_order`).
+- Placed creatures on a background = `member_creature_collection` rows where `sticker_page_id` = that page, rendered at `position_x`/`position_y` (the existing `StickerOverlay` 0–1 relative coords).
+- Unplaced scrollbar = `member_creature_collection` rows where `sticker_page_id IS NULL` (the catalogue of earned-but-unplaced; recon finding #4 confirmed `sticker_page_id` is nullable and `useMoveCreature` already accepts a `newPageId`).
+- Place a creature = set `sticker_page_id` + `position_x/y` via `useMoveCreature`. Remove-from-page = set `sticker_page_id = NULL` (returns it to the unplaced strip).
+- Future set picker = a selector over `gamification_themes` that writes `member_sticker_book_state.active_theme_id`.
+- `last_viewed_page_id` (R5, new column) records which background in the strip was last viewed (the swipe position to restore on return).
+
+**What this changes vs. the build-file Slice Plan text:** the Slice-3 plan ADDS the horizontal swipe strip (navigation) + unplaced-scrollbar + dual-gesture placement. The original "cross-page drag-to-edge page flip" is RETAINED but re-scoped to its real job — carrying a creature to another background mid-drag, not page navigation (swipe owns navigation now). The `StickerOverlay` extension + `useMoveCreature newPageId` reuse still apply. Page-dots may remain as a "where am I in the strip" position indicator (optional, eyes-on); navigation edge-arrows are replaced by swipe.
+
+**Coloring section layout (founder decision 2026-06-12): CARD GALLERY.** Active coloring images render as cards on top (each showing its progressive grayscale→color reveal progress); completed ones sit below as a "gallery of finished art." Tap any card → full view with the existing print flow + the new Download actions (lineart PNG + finished color PNG keepsake, per Q4 — no PDF lib). NOT a creature-style swipe strip: coloring has no cross-page arranging need, so a strip would add swipe for swipe's sake. Surfaces the EXISTING reveal mechanic (`useColoringReveals`, `ColorRevealCanvas`, `member_coloring_reveals`, progressive reveal via task completions — Build M); Slice 3 only adds the rewards-page gallery surface + Download. The completed wall is its own emotional payoff.
+
+**Dashboard doors default (founder decision 2026-06-12): MOM PLACES THEM.** The sticker-book miniature and coloring miniature widgets live in the widget picker like any other widget — mom adds them to whichever kid dashboards she wants, at S/M/L (PRD-10). NOT auto-seeded onto kid dashboards (dashboard real estate stays mom-curated; matches gate Section 4 "Mom's control = widget placement itself. NO new preference toggle"). A kid with no door still reaches everything via the Fun tab. Confirms gate Section 4 as written — no auto-appear.
+
+---
+
 ## 12. Starter Prompt for the Orchestrator
 
 > Read `KIDS-REWARDS-PAGE-Gate-Decisions.md` in full alongside the existing KIDS-REWARDS-PAGE pre-build recon document. The gate document is founder-approved and authoritative where the two differ. All scope ships in this build; you decide the internal organization and dispatch sequencing by dependency. Begin with the Consolidated Live-Recon Checklist (Section 8) — query the live schema and code for every item before specifying anything; never guess at columns or tables. Run PRE_BUILD_PROCESS.md, then present your proposed slice plan and worker dispatch order for founder approval before any code is written. Playwright output is the only proof of done.
