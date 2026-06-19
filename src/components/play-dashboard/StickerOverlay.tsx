@@ -29,6 +29,14 @@ interface StickerOverlayProps {
   onMove?: (newX: number, newY: number) => void
   /** Reports drag state so the parent can show edge zone indicators */
   onDragStateChange?: (isDragging: boolean) => void
+  /**
+   * Called on a press WITHOUT a drag (a tap/click). Used by the creature page
+   * frame to select a placed creature so its "Return to tray" action shows.
+   * Additive — existing callers that omit it keep tap-does-nothing behavior.
+   */
+  onTap?: () => void
+  /** Draws a selection ring (Slice 3 — when this creature is the selected one). */
+  selected?: boolean
 }
 
 const RARITY_GLOW: Record<string, string> = {
@@ -50,6 +58,8 @@ export function StickerOverlay({
   rarity = 'common',
   onMove,
   onDragStateChange,
+  onTap,
+  selected = false,
 }: StickerOverlayProps) {
   // Local position state for smooth dragging (overrides props while dragging)
   const [localPos, setLocalPos] = useState<{ x: number; y: number } | null>(null)
@@ -84,7 +94,7 @@ export function StickerOverlay({
   // ── Mouse drag ────────────────────────────────────────────────
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (!onMove) return
+      if (!onMove && !onTap) return
       e.preventDefault()
       const parentRect = getParentRect()
       if (!parentRect) return
@@ -130,6 +140,9 @@ export function StickerOverlay({
           const finalY = clamp01(dragRef.current.startRelY + rel.dy)
           setLocalPos({ x: finalX, y: finalY })
           onMove?.(finalX, finalY)
+        } else {
+          // Press without movement = a tap/select
+          onTap?.()
         }
         setIsDragging(false)
         onDragStateChange?.(false)
@@ -139,13 +152,13 @@ export function StickerOverlay({
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [onMove, positionX, positionY, localPos, getParentRect, clientToRelative],
+    [onMove, onTap, positionX, positionY, localPos, getParentRect, clientToRelative],
   )
 
   // ── Touch drag ────────────────────────────────────────────────
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (!onMove) return
+      if (!onMove && !onTap) return
       const touch = e.touches[0]
       const parentRect = getParentRect()
       if (!parentRect) return
@@ -195,6 +208,9 @@ export function StickerOverlay({
           const finalY = clamp01(dragRef.current.startRelY + rel.dy)
           setLocalPos({ x: finalX, y: finalY })
           onMove?.(finalX, finalY)
+        } else {
+          // Press without movement = a tap/select
+          onTap?.()
         }
         setIsDragging(false)
         onDragStateChange?.(false)
@@ -204,7 +220,7 @@ export function StickerOverlay({
       document.addEventListener('touchmove', handleTouchMove, { passive: false })
       document.addEventListener('touchend', handleTouchEnd)
     },
-    [onMove, positionX, positionY, localPos, getParentRect, clientToRelative],
+    [onMove, onTap, positionX, positionY, localPos, getParentRect, clientToRelative],
   )
 
   const displayX = localPos?.x ?? positionX
@@ -215,6 +231,7 @@ export function StickerOverlay({
       ref={elRef}
       role="img"
       aria-label={displayName}
+      data-creature-overlay="true"
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       style={{
@@ -222,13 +239,19 @@ export function StickerOverlay({
         left: `${(displayX * 100).toFixed(1)}%`,
         top: `${(displayY * 100).toFixed(1)}%`,
         width: '8%',
-        transform: `translate(-50%, -50%) ${isDragging ? 'scale(1.15)' : 'scale(1)'}`,
-        cursor: onMove ? (isDragging ? 'grabbing' : 'grab') : 'default',
-        zIndex: isDragging ? 10 : 1,
+        // Square hit-area reserved up front so the sticker is draggable before
+        // the image finishes loading (no layout shift, stable target).
+        aspectRatio: '1 / 1',
+        transform: `translate(-50%, -50%) ${isDragging ? 'scale(1.15)' : selected ? 'scale(1.1)' : 'scale(1)'}`,
+        cursor: onMove ? (isDragging ? 'grabbing' : 'grab') : onTap ? 'pointer' : 'default',
+        zIndex: isDragging || selected ? 10 : 1,
         transition: isDragging ? 'none' : 'transform 0.15s ease-out, left 0.15s ease-out, top 0.15s ease-out',
         touchAction: 'none', // prevent browser scroll/zoom during drag
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        outline: selected ? '3px solid var(--color-btn-primary-bg)' : undefined,
+        outlineOffset: selected ? '2px' : undefined,
+        borderRadius: selected ? '9999px' : undefined,
         filter: rarity !== 'common' ? `drop-shadow(${RARITY_GLOW[rarity]})` : undefined,
       }}
     >
@@ -238,7 +261,8 @@ export function StickerOverlay({
         draggable={false}
         style={{
           width: '100%',
-          height: 'auto',
+          height: '100%',
+          objectFit: 'contain',
           pointerEvents: 'none', // img doesn't capture events — the wrapper div does
         }}
         loading="lazy"

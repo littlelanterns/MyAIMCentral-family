@@ -49,7 +49,7 @@ import { PlayRevealTileStub } from '@/components/play-dashboard/PlayRevealTileSt
 import { PlayMomMessageStub } from '@/components/play-dashboard/PlayMomMessageStub'
 import { CreatureRevealModal } from '@/components/play-dashboard/CreatureRevealModal'
 import { PageUnlockRevealModal } from '@/components/play-dashboard/PageUnlockRevealModal'
-import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
+import { CreaturePageModal } from '@/components/rewards/CreaturePageModal'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import { todayLocalIso } from '@/utils/dates'
@@ -412,13 +412,13 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
         />
       )}
 
-      {/* ── Sticker Book Detail Modal ────────────────────────────── */}
+      {/* ── Creature page (swipe-strip sticker book) — Slice 3 ─────── */}
       {stickerBookOpen && stickerBookState && (
-        <StickerBookDetailModal
-          state={stickerBookState}
+        <CreaturePageModal
           memberId={memberId}
-          onClose={closeStickerBook}
+          variant="play"
           initialPageId={stickerBookInitialPageId}
+          onClose={closeStickerBook}
         />
       )}
 

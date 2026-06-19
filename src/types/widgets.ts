@@ -526,6 +526,8 @@ export type InfoDisplayType =
   | 'info_family_intention'
   | 'info_countdown'
   | 'info_list'
+  | 'info_sticker_page'
+  | 'info_coloring_page'
 
 // Quick Action widget types — single-tap shortcut buttons
 export type QuickActionType =
@@ -632,6 +634,22 @@ export const INFO_WIDGET_REGISTRY: InfoWidgetMeta[] = [
     label: 'Pinned List',
     description: 'Pin any list to your dashboard. Reference lists show as accordions.',
     icon: 'BookOpen',
+    defaultSize: 'medium',
+  },
+  // KIDS-REWARDS-PAGE Slice 3 — dashboard "doors": view-only viewports into a
+  // member's creature page / coloring page; tap opens the full modal.
+  {
+    type: 'info_sticker_page',
+    label: 'Sticker Page',
+    description: "A peek at this member's sticker book page. Tap to arrange creatures.",
+    icon: 'Sparkles',
+    defaultSize: 'medium',
+  },
+  {
+    type: 'info_coloring_page',
+    label: 'Coloring Page',
+    description: 'A peek at the coloring picture being revealed. Tap to print or download.',
+    icon: 'Palette',
     defaultSize: 'medium',
   },
 ]

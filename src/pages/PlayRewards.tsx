@@ -9,41 +9,31 @@
  * opt-ins. Finances NEVER renders on Play (PRD-28 hard rule — enforced in
  * both the settings resolution and the component).
  *
- * Sticker book (founder eyes-on fix, 2026-06-12): the page previously
- * rendered StickerBookDetailModal INLINE — a full-screen overlay that
- * covered the Play bottom nav and buried every section beneath it. It now
- * renders the tappable PlayStickerBookWidget (same as the dashboard); the
- * full modal opens on tap and CLOSES BACK TO THIS PAGE. Becomes the full
- * Creatures section in Slice 3.
+ * Creatures (Slice 3, 2026-06-12): the sticker book is now the shared
+ * Creatures SECTION of <MyRewards> (the swipe-strip CreaturePageFrame), gated
+ * by mom's `creatures` section opt-in. The page no longer renders its own
+ * PlayStickerBookWidget block — one creature surface, the new §13 interaction.
  *
  * View As: uses the EFFECTIVE member so mom sees the same page the kid sees
  * (Convention #39).
  */
 
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
-import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
-import { useMyRewardsSettings } from '@/hooks/useMyRewardsSettings'
-import { StickerBookDetailModal } from '@/components/play-dashboard/StickerBookDetailModal'
-import { PlayStickerBookWidget } from '@/components/play-dashboard/PlayStickerBookWidget'
 import { MyRewards } from '@/components/rewards/MyRewards'
 
 export function PlayRewards() {
   const navigate = useNavigate()
-  const [bookOpen, setBookOpen] = useState(false)
   const { member, isViewAs } = useEffectiveMember()
   const { data: authMember } = useFamilyMember()
   const memberId = member?.id
-  const { data: stickerState, isLoading: stickerLoading } = useStickerBookState(memberId)
   const { data: creatures = [] } = useCreaturesForMember(memberId)
-  const { data: settings } = useMyRewardsSettings(memberId ?? null)
 
   const goHome = () => navigate('/dashboard')
 
-  if (!member || !memberId || stickerLoading) {
+  if (!member || !memberId) {
     return (
       <div
         style={{
@@ -63,13 +53,6 @@ export function PlayRewards() {
     )
   }
 
-  // Sticker book disabled (mom hasn't turned on gamification) — still
-  // show the other sections, plus a warm empty state for the book.
-  const hasStickerBook = stickerState !== null && stickerState !== undefined
-  // Sticker book honors the creatures section opt-in (default ON when
-  // gamification is enabled — the pre-Slice-2 behavior is unchanged unless
-  // mom explicitly turns the section off).
-  const showStickerBook = hasStickerBook && (settings?.sections.creatures ?? true)
   const isOwnSession = !isViewAs && authMember?.id === member.id
 
   return (
@@ -113,47 +96,10 @@ export function PlayRewards() {
         </p>
       </header>
 
-      {showStickerBook && stickerState ? (
-        <section aria-label="Sticker book">
-          {/* Tappable preview — the full modal opens on tap and closes back
-              to this page (it no longer renders inline, which covered the
-              bottom nav and every section below it). */}
-          <PlayStickerBookWidget
-            state={stickerState}
-            creatureCount={creatures.length}
-            onOpen={() => setBookOpen(true)}
-          />
-        </section>
-      ) : !hasStickerBook ? (
-        <section
-          aria-label="Sticker book empty state"
-          style={{
-            padding: '2rem',
-            borderRadius: 'var(--vibe-radius-card, 1rem)',
-            backgroundColor: 'var(--color-bg-card)',
-            border: '2px solid var(--color-border)',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: '1.125rem', color: 'var(--color-text-secondary)' }}>
-            Your sticker book is coming soon!
-          </div>
-        </section>
-      ) : null}
-
-      {/* Shared sections — Points / Custom Rewards / Victories per mom's
-          opt-ins. Finances only on mom's explicit opt-in (founder amendment
-          2026-06-12). */}
+      {/* Shared sections — Creatures (swipe-strip sticker book) / Coloring /
+          Points / Custom Rewards / Victories per mom's opt-ins. Finances only
+          on mom's explicit opt-in (founder amendment 2026-06-12). */}
       <MyRewards member={member} variant="play" isOwnSession={isOwnSession} />
-
-      {/* Full sticker book — opens over the page, closes back to it */}
-      {bookOpen && stickerState && (
-        <StickerBookDetailModal
-          state={stickerState}
-          memberId={memberId}
-          onClose={() => setBookOpen(false)}
-        />
-      )}
 
       <button
         type="button"

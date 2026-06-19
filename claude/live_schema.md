@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-06-13
+> Auto-generated from live Supabase on 2026-06-19
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 466 rows
+### `view_as_sessions` — 478 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 346 rows
+### `view_as_feature_exclusions` — 358 rows
 
 | # | Column |
 |---|---|
@@ -295,7 +295,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 74 rows
+### `lila_conversations` — 75 rows
 
 | # | Column |
 |---|---|
@@ -320,7 +320,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 156 rows
+### `lila_messages` — 158 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 672 rows
+### `ai_usage_tracking` — 678 rows
 
 | # | Column |
 |---|---|
@@ -667,7 +667,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 176 rows
+### `tasks` — 181 rows
 
 | # | Column |
 |---|---|
@@ -755,7 +755,7 @@
 | 82 | `reward_image_url` |
 | 83 | `reward_image_asset_key` |
 
-### `task_assignments` — 49 rows
+### `task_assignments` — 54 rows
 
 | # | Column |
 |---|---|
@@ -796,7 +796,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 1653 rows
+### `routine_step_completions` — 1780 rows
 
 | # | Column |
 |---|---|
@@ -1075,7 +1075,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 50 rows
+### `dashboard_widgets` — 52 rows
 
 | # | Column |
 |---|---|
@@ -1169,7 +1169,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 41 rows
+### `calendar_events` — 45 rows
 
 | # | Column |
 |---|---|
@@ -1217,7 +1217,7 @@
 | 42 | `option_group_title` |
 | 43 | `calendar_subtype` |
 
-### `event_attendees` — 74 rows
+### `event_attendees` — 86 rows
 
 | # | Column |
 |---|---|
@@ -1425,7 +1425,7 @@
 | 13 | `is_included_in_ai` |
 | 14 | `sort_order` |
 
-### `archive_context_items` — 173 rows
+### `archive_context_items` — 176 rows
 
 | # | Column |
 |---|---|
@@ -2221,7 +2221,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 235 rows
+### `vault_user_visits` — 236 rows
 
 | # | Column |
 |---|---|
@@ -2229,7 +2229,7 @@
 | 2 | `user_id` |
 | 3 | `visited_at` |
 
-### `vault_first_sightings` — 100 rows
+### `vault_first_sightings` — 101 rows
 
 | # | Column |
 |---|---|
@@ -2499,7 +2499,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 306 rows
+### `activity_log_entries` — 308 rows
 
 | # | Column |
 |---|---|
@@ -2673,7 +2673,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 40 rows
+### `allowance_periods` — 45 rows
 
 | # | Column |
 |---|---|
@@ -3020,7 +3020,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 71 rows
+### `financial_transactions` — 81 rows
 
 | # | Column |
 |---|---|
@@ -3328,7 +3328,7 @@
 | 19 | `created_at` |
 | 20 | `updated_at` |
 
-### `member_coloring_reveals` — 0 rows
+### `member_coloring_reveals` — 2 rows
 
 | # | Column |
 |---|---|
@@ -3355,7 +3355,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 0 rows
+### `member_creature_collection` — 28 rows
 
 | # | Column |
 |---|---|
@@ -3383,7 +3383,7 @@
 | 7 | `verification_expires_at` |
 | 8 | `created_at` |
 
-### `member_page_unlocks` — 18 rows
+### `member_page_unlocks` — 20 rows
 
 | # | Column |
 |---|---|
@@ -3424,6 +3424,7 @@
 | 23 | `page_earning_tracker_widget_id` |
 | 24 | `page_earning_tracker_threshold` |
 | 25 | `randomizer_reveal_style` |
+| 26 | `last_viewed_page_id` |
 
 ### `mom_self_restrictions` — 0 rows
 

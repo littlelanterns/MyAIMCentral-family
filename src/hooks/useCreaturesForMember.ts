@@ -36,7 +36,8 @@ export function useCreaturesForMember(familyMemberId: string | undefined) {
             display_name,
             rarity,
             image_url,
-            description
+            description,
+            theme_id
           )
           `,
         )
@@ -97,22 +98,29 @@ export function useMoveCreature(familyMemberId: string | undefined) {
       creatureCollectionId: string
       positionX: number
       positionY: number
-      /** If set, reassigns the creature to a different sticker page */
-      newPageId?: string
+      /**
+       * Reassign the creature's sticker page. `undefined` = leave the page as
+       * is (just move within the current page). A string = place on that page.
+       * `null` = remove from any page (returns it to the unplaced tray — Slice 3).
+       */
+      newPageId?: string | null
     }) => {
-      const update: Record<string, unknown> = {
-        position_x: positionX,
-        position_y: positionY,
-      }
-      if (newPageId) {
-        update.sticker_page_id = newPageId
-      }
-      const { error } = await supabase
-        .from('member_creature_collection')
-        .update(update)
-        .eq('id', creatureCollectionId)
-
+      // Routed through place_member_creature (SECURITY DEFINER) so the OWNING
+      // member can self-arrange — member_creature_collection is mom-write-only
+      // at the policy layer (Slice 3, migration 100275). Mom + family-shadow
+      // are also accepted inside the RPC.
+      const { data, error } = await supabase.rpc('place_member_creature', {
+        p_creature_collection_id: creatureCollectionId,
+        p_position_x: positionX,
+        p_position_y: positionY,
+        p_sticker_page_id: newPageId ?? null,
+        p_set_page: newPageId !== undefined,
+      })
       if (error) throw error
+      const status = (data as { status?: string } | null)?.status
+      if (status && status !== 'ok') {
+        throw new Error(`place_member_creature: ${status}`)
+      }
     },
 
     // Optimistic update — move the sticker in the cache immediately
@@ -127,7 +135,7 @@ export function useMoveCreature(familyMemberId: string | undefined) {
                 ...c,
                 position_x: positionX,
                 position_y: positionY,
-                ...(newPageId ? { sticker_page_id: newPageId } : {}),
+                ...(newPageId !== undefined ? { sticker_page_id: newPageId } : {}),
               }
             : c,
         ),

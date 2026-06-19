@@ -25,7 +25,7 @@ import { RandomizerSpinnerTracker } from './trackers/RandomizerSpinnerTracker'
 import { PrivilegeStatusTracker } from './trackers/PrivilegeStatusTracker'
 import { LogLearningTracker } from './trackers/LogLearningTracker'
 import { PlannedTrackerStub } from './trackers/PlannedTrackerStub'
-import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget, InfoFamilyIntention, InfoCountdown } from './info'
+import { InfoUpcomingTasks, InfoCalendarToday, InfoRecentVictories, InfoGuidingStarsRotation, InfoQuickStats, TodayIsWidget, MenuWidget, JobBoardWidget, InfoFamilyIntention, InfoCountdown, InfoStickerPageWidget, InfoColoringPageWidget } from './info'
 import { ListWidget } from './info/ListWidget'
 
 interface WidgetRendererProps {
@@ -123,6 +123,10 @@ function InfoWidgetDispatcher({ widget, isCompact, onUpdateConfig }: { widget: D
       return <InfoCountdown widget={widget} isCompact={isCompact} />
     case 'info_list':
       return <ListWidget widget={widget} isCompact={isCompact} />
+    case 'info_sticker_page':
+      return <InfoStickerPageWidget widget={widget} isCompact={isCompact} />
+    case 'info_coloring_page':
+      return <InfoColoringPageWidget widget={widget} isCompact={isCompact} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs" style={{ color: 'var(--color-text-tertiary)' }}>

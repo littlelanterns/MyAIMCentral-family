@@ -36,7 +36,8 @@ export function useMemberPageUnlocks(familyMemberId: string | undefined) {
             display_name,
             scene,
             image_url,
-            sort_order
+            sort_order,
+            theme_id
           )
           `,
         )

@@ -37,6 +37,7 @@ import {
   Gift,
   History,
   PartyPopper,
+  Sparkles,
   Star,
   Wallet,
 } from 'lucide-react'
@@ -47,9 +48,12 @@ import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useRunningBalance, useMemberAllowancePools } from '@/hooks/useFinancial'
 import { useEarnedPrizes } from '@/hooks/useRewardReveals'
 import { useVictories } from '@/hooks/useVictories'
+import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { PrizeBox } from '@/components/reward-reveals/PrizeBox'
 import { RedeemedHistoryModal } from './RedeemedHistoryModal'
 import { CelebrationDetailModal } from '@/components/victories/CelebrationDetailModal'
+import { CreaturePageFrame } from './CreaturePageFrame'
+import { ColoringSection } from './ColoringSection'
 import { LedgerView } from '@/features/financial/LedgerView'
 import type { Victory } from '@/types/victories'
 
@@ -74,6 +78,14 @@ export function MyRewards({ member, variant, isOwnSession }: MyRewardsProps) {
     <div className="space-y-4" data-testid="my-rewards-sections">
       {sections.points && (
         <PointsSection member={member} variant={variant} />
+      )}
+
+      {sections.creatures && (
+        <CreaturesSection member={member} variant={variant} />
+      )}
+
+      {sections.coloring && (
+        <ColoringSection memberId={member.id} variant={variant} />
       )}
 
       {sections.custom_rewards && (
@@ -216,6 +228,41 @@ function PointsSection({
         )}
       </div>
     </SectionCard>
+  )
+}
+
+// ── Creatures (the swipe-strip sticker book frame — Slice 3) ────────
+
+function CreaturesSection({
+  member,
+  variant,
+}: {
+  member: FamilyMember
+  variant: 'standard' | 'play'
+}) {
+  const { data: stickerState } = useStickerBookState(member.id)
+  const play = variant === 'play'
+
+  // No sticker book (gamification off / no row) → warm empty state.
+  if (!stickerState) {
+    return (
+      <SectionCard
+        title="My Creatures"
+        icon={<Sparkles size={play ? 24 : 18} />}
+        testId="mr-section-creatures"
+        play={play}
+      >
+        <p className="text-sm py-1" style={{ color: 'var(--color-text-secondary)' }}>
+          Your creatures will live here once your sticker book is turned on.
+        </p>
+      </SectionCard>
+    )
+  }
+
+  return (
+    <section data-testid="mr-section-creatures" aria-label="My Creatures">
+      <CreaturePageFrame memberId={member.id} variant={variant} />
+    </section>
   )
 }
 

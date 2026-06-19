@@ -223,6 +223,12 @@ export interface StickerBookState {
   is_enabled: boolean
   creatures_earned_total: number
   pages_unlocked_total: number
+  /**
+   * Last background the member viewed in the creature swipe strip (Slice 3, R5).
+   * Restores the swipe position on return. Separate from active_page_id (the
+   * award-landing page). NULL until the member browses the strip.
+   */
+  last_viewed_page_id: string | null
   /** Joined active page (null when no page unlocked yet — bootstrap is 1) */
   active_page: {
     id: string
@@ -262,6 +268,8 @@ export interface MemberCreature {
     rarity: 'common' | 'rare' | 'legendary'
     image_url: string
     description: string | null
+    /** Owning theme/set — used to scope the creature swipe strip + tray (Slice 3) */
+    theme_id: string | null
   }
 }
 
@@ -286,6 +294,8 @@ export interface MemberPageUnlock {
     scene: string
     image_url: string
     sort_order: number
+    /** Owning theme/set — used to scope the creature swipe strip (Slice 3) */
+    theme_id: string | null
   }
 }
 

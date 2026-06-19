@@ -9,8 +9,9 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { X, Palette, Printer } from 'lucide-react'
+import { X, Palette, Printer, Download } from 'lucide-react'
 import { coloringImageUrl, lineartUrlForPreference } from '@/lib/coloringImageUrl'
+import { downloadImage, safeFilenameSlug } from '@/lib/downloadImage'
 import { useUpdateColoringReveal } from '@/hooks/useColoringReveals'
 import { ColorRevealCanvas } from './ColorRevealCanvas'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
@@ -100,6 +101,20 @@ export function ColorRevealDetailModal({
       printed_at: new Date().toISOString(),
     })
   }, [slug, selectedLineart, displayName, updateReveal, reveal.id])
+
+  // Download the lineart PNG (the chosen line style) — Q4.
+  const handleDownloadLineart = useCallback(() => {
+    if (!slug) return
+    const url = lineartUrlForPreference(slug, selectedLineart)
+    void downloadImage(url, `${safeFilenameSlug(displayName)}-coloring-${selectedLineart}.png`)
+  }, [slug, selectedLineart, displayName])
+
+  // Download the finished full-color PNG as a keepsake — Q4.
+  const handleDownloadColor = useCallback(() => {
+    if (!slug) return
+    const url = coloringImageUrl(slug, 'color')
+    void downloadImage(url, `${safeFilenameSlug(displayName)}-finished.png`)
+  }, [slug, displayName])
 
   if (!slug) return null
 
@@ -307,27 +322,80 @@ export function ColorRevealDetailModal({
               ))}
             </div>
 
-            {/* Print button */}
-            <button
-              type="button"
-              onClick={handlePrint}
+            {/* Print + Download actions (Q4: keep print, add downloads) */}
+            <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.5rem',
-                borderRadius: 'var(--vibe-radius-input, 0.5rem)',
-                backgroundColor: 'var(--color-btn-primary-bg)',
-                color: 'var(--color-text-on-primary, #fff)',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 'var(--font-size-base)',
-                fontWeight: 600,
+                gap: '0.625rem',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
               }}
             >
-              <Printer size={18} />
-              Print coloring page
-            </button>
+              <button
+                type="button"
+                onClick={handlePrint}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: 'var(--vibe-radius-input, 0.5rem)',
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-text-on-primary, #fff)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 'var(--font-size-base)',
+                  fontWeight: 600,
+                }}
+              >
+                <Printer size={18} />
+                Print
+              </button>
+
+              <button
+                type="button"
+                data-testid="coloring-download-lineart"
+                onClick={handleDownloadLineart}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: 'var(--vibe-radius-input, 0.5rem)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                  cursor: 'pointer',
+                  fontSize: 'var(--font-size-base)',
+                  fontWeight: 600,
+                }}
+              >
+                <Download size={18} />
+                Download line art
+              </button>
+
+              <button
+                type="button"
+                data-testid="coloring-download-color"
+                onClick={handleDownloadColor}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: 'var(--vibe-radius-input, 0.5rem)',
+                  backgroundColor: 'var(--color-bg-card)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                  cursor: 'pointer',
+                  fontSize: 'var(--font-size-base)',
+                  fontWeight: 600,
+                }}
+              >
+                <Download size={18} />
+                Download picture
+              </button>
+            </div>
 
             {reveal.printed_at && (
               <p

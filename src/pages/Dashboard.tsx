@@ -393,6 +393,8 @@ export function Dashboard({ isViewAsOverlay }: DashboardProps = {}) {
       info_recent_victories: 'Recent Victories',
       info_guiding_stars_rotation: 'Guiding Stars',
       info_quick_stats: 'Quick Stats',
+      info_sticker_page: 'Sticker Page',
+      info_coloring_page: 'Coloring Page',
     }
     createWidget.mutate({
       family_id: displayFamilyId,

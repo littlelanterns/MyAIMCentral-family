@@ -677,8 +677,8 @@ export function GamificationSettingsModal({
 //                              100266; reversible). Adults only.
 //
 // Honest controls only: toggles render only for sections that exist today
-// (Points / Custom Rewards / Victories / Money owed). Creatures + Coloring
-// toggles ship with their sections in Slice 3; Propose in Slice 4.
+// (Points / Custom Rewards / Creatures / Coloring / Victories / Money owed).
+// Propose ships with its section in Slice 4.
 
 function MyRewardsPageSettings({
   memberId,
@@ -745,6 +745,20 @@ function MyRewardsPageSettings({
             onChange={(v) =>
               update.mutate({ memberId, sections: { custom_rewards: v } })
             }
+          />
+
+          <ToggleRow
+            label="Creatures"
+            description="Their sticker book — arrange earned creatures on the pages they've unlocked"
+            checked={settings.sections.creatures}
+            onChange={(v) => update.mutate({ memberId, sections: { creatures: v } })}
+          />
+
+          <ToggleRow
+            label="Coloring pages"
+            description="Coloring pictures being revealed, with print and download"
+            checked={settings.sections.coloring}
+            onChange={(v) => update.mutate({ memberId, sections: { coloring: v } })}
           />
 
           <ToggleRow

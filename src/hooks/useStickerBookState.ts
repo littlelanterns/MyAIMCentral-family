@@ -13,7 +13,7 @@
  * Returns null when gamification is disabled (`is_enabled = false`).
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import type { StickerBookState } from '@/types/play-dashboard'
 
@@ -31,6 +31,7 @@ export function useStickerBookState(familyMemberId: string | undefined) {
           family_member_id,
           active_theme_id,
           active_page_id,
+          last_viewed_page_id,
           page_unlock_interval,
           is_enabled,
           creatures_earned_total,
@@ -85,6 +86,7 @@ export function useStickerBookState(familyMemberId: string | undefined) {
         family_member_id: data.family_member_id,
         active_theme_id: data.active_theme_id,
         active_page_id: data.active_page_id,
+        last_viewed_page_id: data.last_viewed_page_id ?? null,
         page_unlock_interval: data.page_unlock_interval,
         is_enabled: data.is_enabled,
         creatures_earned_total: data.creatures_earned_total,
@@ -106,5 +108,44 @@ export function useStickerBookState(familyMemberId: string | undefined) {
     },
     enabled: !!familyMemberId,
     staleTime: 30_000,
+  })
+}
+
+/**
+ * useSetLastViewedPage — persists which background the member last viewed in
+ * the creature swipe strip (Slice 3, R5). Fire-and-forget + optimistic so the
+ * door-widget miniature and the next page open restore the swipe position.
+ *
+ * Deliberately does NOT touch active_page_id (the award-landing page).
+ */
+export function useSetLastViewedPage(familyMemberId: string | undefined) {
+  const qc = useQueryClient()
+  const queryKey = ['sticker-book-state', familyMemberId]
+
+  return useMutation({
+    mutationFn: async (pageId: string | null) => {
+      if (!familyMemberId) return
+      // SECURITY DEFINER RPC — member_sticker_book_state is mom-write-only at the
+      // policy layer; the owning member (and family-shadow) may set their own
+      // swipe position via this RPC (Slice 3, migration 100275).
+      const { error } = await supabase.rpc('set_member_last_viewed_page', {
+        p_member_id: familyMemberId,
+        p_page_id: pageId,
+      })
+      if (error) throw error
+    },
+    onMutate: async (pageId: string | null) => {
+      await qc.cancelQueries({ queryKey })
+      const previous = qc.getQueryData<StickerBookState | null>(queryKey)
+      qc.setQueryData<StickerBookState | null>(queryKey, old =>
+        old ? { ...old, last_viewed_page_id: pageId } : old,
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context && 'previous' in context) {
+        qc.setQueryData(queryKey, context.previous)
+      }
+    },
   })
 }

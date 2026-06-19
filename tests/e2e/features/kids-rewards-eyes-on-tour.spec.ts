@@ -53,6 +53,15 @@ async function linger(page: import('@playwright/test').Page, ms = 2500) {
 let familyId = ''
 const memberIds: Record<string, string> = {}
 
+// Slice 3 reference fixtures (looked up in beforeAll)
+let s3 = {
+  themeId: '',
+  pageA: '',
+  pageB: '',
+  creatures: [] as string[],
+  coloring: [] as string[],
+}
+
 async function memberId(name: string): Promise<string> {
   if (memberIds[name]) return memberIds[name]
   const { data, error } = await sr
@@ -111,6 +120,133 @@ async function setTourPrefs(mid: string, updates: Record<string, unknown>) {
     .update({ preferences: prefs })
     .eq('id', mid)
   if (uErr) throw new Error(`write preferences: ${uErr.message}`)
+}
+
+/** Idempotently seed a member's sticker book so the Slice 3 creature frame has
+ *  content for the founder to poke (2 backgrounds, 1 placed + 1 unplaced). */
+async function seedSlice3Creatures(mid: string) {
+  // Sticker state enabled + theme/active page
+  const { data: st } = await sr
+    .from('member_sticker_book_state')
+    .select('id')
+    .eq('family_member_id', mid)
+    .maybeSingle()
+  if (st) {
+    await sr
+      .from('member_sticker_book_state')
+      .update({ is_enabled: true, active_theme_id: s3.themeId, active_page_id: s3.pageA })
+      .eq('family_member_id', mid)
+  } else {
+    await sr.from('member_sticker_book_state').insert({
+      family_id: familyId,
+      family_member_id: mid,
+      active_theme_id: s3.themeId,
+      active_page_id: s3.pageA,
+      is_enabled: true,
+    })
+  }
+  for (const pageId of [s3.pageA, s3.pageB]) {
+    const { data: u } = await sr
+      .from('member_page_unlocks')
+      .select('id')
+      .eq('family_member_id', mid)
+      .eq('sticker_page_id', pageId)
+      .maybeSingle()
+    if (!u) {
+      await sr.from('member_page_unlocks').insert({
+        family_id: familyId,
+        family_member_id: mid,
+        sticker_page_id: pageId,
+        unlocked_trigger_type: 'manual_unlock',
+        creatures_at_unlock: 0,
+      })
+    }
+  }
+  const { count } = await sr
+    .from('member_creature_collection')
+    .select('id', { count: 'exact', head: true })
+    .eq('family_member_id', mid)
+  if ((count ?? 0) === 0) {
+    await sr.from('member_creature_collection').insert([
+      {
+        family_id: familyId,
+        family_member_id: mid,
+        creature_id: s3.creatures[0],
+        sticker_page_id: s3.pageA,
+        position_x: 0.3,
+        position_y: 0.35,
+        awarded_source_type: 'task_completion',
+        awarded_source_id: randomUUID(),
+      },
+      {
+        family_id: familyId,
+        family_member_id: mid,
+        creature_id: s3.creatures[1],
+        sticker_page_id: null,
+        position_x: null,
+        position_y: null,
+        awarded_source_type: 'task_completion',
+        awarded_source_id: randomUUID(),
+      },
+    ])
+  }
+}
+
+/** Idempotently seed coloring reveals (1 active + 1 finished). */
+async function seedSlice3Coloring(mid: string) {
+  const { count } = await sr
+    .from('member_coloring_reveals')
+    .select('id', { count: 'exact', head: true })
+    .eq('family_member_id', mid)
+  if ((count ?? 0) > 0) return
+  await sr.from('member_coloring_reveals').insert([
+    {
+      family_id: familyId,
+      family_member_id: mid,
+      coloring_image_id: s3.coloring[0],
+      reveal_step_count: 10,
+      current_step: 4,
+      revealed_zone_ids: [],
+      lineart_preference: 'medium',
+      is_complete: false,
+      is_active: true,
+    },
+    {
+      family_id: familyId,
+      family_member_id: mid,
+      coloring_image_id: s3.coloring[1],
+      reveal_step_count: 10,
+      current_step: 10,
+      revealed_zone_ids: [],
+      lineart_preference: 'medium',
+      is_complete: true,
+      is_active: true,
+    },
+  ])
+}
+
+/** Ensure the member's dashboard has a sticker + coloring door widget. */
+async function seedSlice3Doors(mid: string) {
+  for (const type of ['info_sticker_page', 'info_coloring_page'] as const) {
+    const { data: existing } = await sr
+      .from('dashboard_widgets')
+      .select('id')
+      .eq('family_member_id', mid)
+      .eq('template_type', type)
+      .eq('is_on_dashboard', true)
+      .is('archived_at', null)
+      .maybeSingle()
+    if (existing) continue
+    await sr.from('dashboard_widgets').insert({
+      family_id: familyId,
+      family_member_id: mid,
+      template_type: type,
+      title: type === 'info_sticker_page' ? 'My Sticker Page' : 'My Coloring Page',
+      size: 'medium',
+      is_active: true,
+      is_on_dashboard: true,
+    })
+  }
 }
 
 /** Victory + linked celebration narrative fixture (idempotent by description). */
@@ -179,6 +315,38 @@ test.describe('Eyes-on tour — Slice 1 mom surfaces', () => {
       redeemedBy: sarah,
     })
     await ensurePrize({ earnerId: ruthie, prizeText: 'KRSLICE1 EYES-ON Sticker surprise' })
+
+    // Slice 3 reference fixtures
+    const { data: theme } = await sr
+      .from('gamification_themes')
+      .select('id')
+      .eq('is_active', true)
+      .order('sort_order')
+      .limit(1)
+      .single()
+    s3.themeId = theme!.id
+    const { data: pages } = await sr
+      .from('gamification_sticker_pages')
+      .select('id')
+      .eq('theme_id', s3.themeId)
+      .order('sort_order')
+      .limit(2)
+    s3.pageA = pages![0].id
+    s3.pageB = pages![1].id
+    const { data: creatures } = await sr
+      .from('gamification_creatures')
+      .select('id')
+      .eq('theme_id', s3.themeId)
+      .order('sort_order')
+      .limit(2)
+    s3.creatures = (creatures ?? []).map(c => c.id)
+    const { data: coloring } = await sr
+      .from('coloring_reveal_library')
+      .select('id')
+      .eq('is_active', true)
+      .order('sort_order')
+      .limit(2)
+    s3.coloring = (coloring ?? []).map(c => c.id)
   })
 
   // ── Stop 1: TaskCreationModal Section 7 + image picker ──────────────────────
@@ -484,5 +652,95 @@ test.describe('Eyes-on tour — Slice 1 mom surfaces', () => {
       .update({ ended_at: new Date().toISOString() })
       .eq('viewing_as_id', jordan)
       .is('ended_at', null)
+  })
+
+  // ═══════════════ SLICE 3 STOPS (2026-06-13) ═══════════════
+  // Creature pages + Coloring gallery + Dashboard doors. Fixtures are seeded
+  // idempotently and LEFT IN PLACE for the founder to poke; the next run of
+  // kids-rewards-slice3.spec.ts sweeps Casey's creature/coloring rows.
+
+  // ── Stop 9: Casey /my-rewards — creature frame + coloring gallery ──────────
+  test('Stop 9 — Independent kid page: creature swipe frame + coloring gallery', async ({ page }) => {
+    const casey = await memberId('Casey')
+    await setTourPrefs(casey, {
+      show_my_rewards: true,
+      my_rewards_sections: { creatures: true, coloring: true, points: false, custom_rewards: false },
+    })
+    await seedSlice3Creatures(casey)
+    await seedSlice3Coloring(casey)
+
+    await loginAsCasey(page)
+    await page.goto('/my-rewards')
+    await waitForAppReady(page)
+
+    const frame = page.getByTestId('creature-page-frame')
+    await expect(frame).toBeVisible({ timeout: 15000 })
+    await frame.scrollIntoViewIfNeeded()
+    await shot(page, '19-casey-creature-frame')
+    await linger(page, 4000)
+
+    // The coloring card gallery below
+    const coloring = page.getByTestId('mr-section-coloring')
+    await coloring.scrollIntoViewIfNeeded()
+    await expect(coloring).toBeVisible()
+    await shot(page, '20-casey-coloring-gallery')
+    await linger(page, 3500)
+
+    // Open a finished coloring card → print + download actions
+    await page.getByTestId('coloring-completed-grid').getByTestId('coloring-card').first().click()
+    await expect(page.getByTestId('coloring-download-lineart')).toBeVisible({ timeout: 10000 })
+    await shot(page, '21-casey-coloring-modal-downloads')
+    await linger(page, 3500)
+  })
+
+  // ── Stop 10: Play /rewards — small-finger creature page ───────────────────
+  test('Stop 10 — Play rewards: creature swipe frame (small-finger eyes-on)', async ({ page }) => {
+    const ruthie = await memberId('Ruthie')
+    await setTourPrefs(ruthie, {
+      my_rewards_sections: { creatures: true, points: false, custom_rewards: false, victories: false },
+    })
+    await seedSlice3Creatures(ruthie)
+
+    await loginAsRiley(page) // Ruthie — Play shell
+    await page.goto('/rewards')
+    await waitForAppReady(page)
+
+    await expect(page.getByTestId('creature-page-frame')).toBeVisible({ timeout: 15000 })
+    await shot(page, '22-play-creature-frame')
+    await linger(page, 5000)
+  })
+
+  // ── Stop 11: Casey /dashboard — sticker + coloring door widgets ───────────
+  test('Stop 11 — Dashboard doors: sticker + coloring viewports open their modals', async ({ page }) => {
+    const casey = await memberId('Casey')
+    await seedSlice3Creatures(casey)
+    await seedSlice3Coloring(casey)
+    await seedSlice3Doors(casey)
+
+    await loginAsCasey(page)
+    await page.goto('/dashboard')
+    await waitForAppReady(page)
+    await page.waitForTimeout(1500)
+    while ((await page.locator('[role="dialog"]').count()) > 0) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(400)
+    }
+
+    // Scroll the widget grid into view (lazy render)
+    for (let i = 0; i < 10; i++) {
+      if (await page.getByRole('button', { name: 'Open my sticker book' }).count()) break
+      await page.mouse.move(640, 400)
+      await page.mouse.wheel(0, 900)
+      await page.waitForTimeout(350)
+    }
+    await shot(page, '23-casey-dashboard-doors')
+    await linger(page, 3500)
+
+    const door = page.getByRole('button', { name: 'Open my sticker book' })
+    await door.scrollIntoViewIfNeeded()
+    await door.click()
+    await expect(page.getByTestId('creature-page-modal')).toBeVisible({ timeout: 10000 })
+    await shot(page, '24-casey-door-opens-creature-page')
+    await linger(page, 3500)
   })
 })
