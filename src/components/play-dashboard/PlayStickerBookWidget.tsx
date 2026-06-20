@@ -16,11 +16,18 @@
 
 import { BookOpen } from 'lucide-react'
 import { BreathingGlow } from '@/components/ui/BreathingGlow'
-import type { StickerBookState } from '@/types/play-dashboard'
+import { StickerOverlay } from './StickerOverlay'
+import type { StickerBookState, MemberCreature } from '@/types/play-dashboard'
 
 interface PlayStickerBookWidgetProps {
   state: StickerBookState | null | undefined
   creatureCount: number
+  /**
+   * The member's creatures — the ones on the displayed (active) page are drawn
+   * at their saved positions, so the dashboard card matches the full book
+   * (founder report 2026-06-13: creatures showed on the Fun page but not here).
+   */
+  creatures?: MemberCreature[]
   hasNewActivity?: boolean
   onOpen?: () => void
 }
@@ -28,11 +35,17 @@ interface PlayStickerBookWidgetProps {
 export function PlayStickerBookWidget({
   state,
   creatureCount,
+  creatures = [],
   hasNewActivity = false,
   onOpen,
 }: PlayStickerBookWidgetProps) {
   // Hide entirely when sticker book is disabled
   if (!state) return null
+
+  // Creatures placed on the page this card is showing (the active page).
+  const onPage = state.active_page
+    ? creatures.filter(c => c.sticker_page_id === state.active_page!.id)
+    : []
 
   return (
     <BreathingGlow active={hasNewActivity} className="play-sticker-book-glow">
@@ -99,6 +112,18 @@ export function PlayStickerBookWidget({
               }}
               loading="lazy"
             />
+            {/* View-only creatures at their saved positions (arranging happens
+                in the full book that opens on tap). */}
+            {onPage.map(c => (
+              <StickerOverlay
+                key={c.id}
+                imageUrl={c.creature.image_url}
+                displayName={c.creature.display_name}
+                positionX={c.position_x ?? 0.5}
+                positionY={c.position_y ?? 0.5}
+                rarity={c.creature.rarity}
+              />
+            ))}
           </div>
         ) : (
           <div

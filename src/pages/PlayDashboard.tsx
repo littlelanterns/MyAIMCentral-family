@@ -314,6 +314,7 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
       <PlayStickerBookWidget
         state={stickerBookState ?? null}
         creatureCount={creatures.length}
+        creatures={creatures}
         hasNewActivity={revealQueue.length > 0}
         onOpen={() => openStickerBook()}
       />
