@@ -30,6 +30,12 @@ interface StickerOverlayProps {
   /** Reports drag state so the parent can show edge zone indicators */
   onDragStateChange?: (isDragging: boolean) => void
   /**
+   * Live pointer position during a drag (raw client coords). The creature page
+   * uses it to light up the "Return to drawer" drop bar when the finger is
+   * dragged below the scene.
+   */
+  onDragMove?: (clientX: number, clientY: number) => void
+  /**
    * Called on a press WITHOUT a drag (a tap/click). Used by the creature page
    * frame to select a placed creature so its "Return to tray" action shows.
    * Additive — existing callers that omit it keep tap-does-nothing behavior.
@@ -58,6 +64,7 @@ export function StickerOverlay({
   rarity = 'common',
   onMove,
   onDragStateChange,
+  onDragMove,
   onTap,
   selected = false,
 }: StickerOverlayProps) {
@@ -126,6 +133,7 @@ export function StickerOverlay({
             x: clamp01(dragRef.current.startRelX + rel.dx),
             y: clamp01(dragRef.current.startRelY + rel.dy),
           })
+          onDragMove?.(ev.clientX, ev.clientY)
         }
       }
 
@@ -152,7 +160,7 @@ export function StickerOverlay({
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [onMove, onTap, positionX, positionY, localPos, getParentRect, clientToRelative],
+    [onMove, onTap, onDragMove, positionX, positionY, localPos, getParentRect, clientToRelative],
   )
 
   // ── Touch drag ────────────────────────────────────────────────
@@ -193,6 +201,7 @@ export function StickerOverlay({
             x: clamp01(dragRef.current.startRelX + rel.dx),
             y: clamp01(dragRef.current.startRelY + rel.dy),
           })
+          onDragMove?.(t.clientX, t.clientY)
         }
       }
 
@@ -220,7 +229,7 @@ export function StickerOverlay({
       document.addEventListener('touchmove', handleTouchMove, { passive: false })
       document.addEventListener('touchend', handleTouchEnd)
     },
-    [onMove, onTap, positionX, positionY, localPos, getParentRect, clientToRelative],
+    [onMove, onTap, onDragMove, positionX, positionY, localPos, getParentRect, clientToRelative],
   )
 
   const displayX = localPos?.x ?? positionX

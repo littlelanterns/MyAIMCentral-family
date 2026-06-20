@@ -948,4 +948,42 @@ test.describe('KIDS-REWARDS-PAGE Slice 3 — creatures + coloring + dashboard do
     // The orphan appears in the tray (recoverable), not lost on an unreachable page.
     await expect(page.getByTestId('tray-creature')).toHaveCount(1)
   })
+
+  // ── 14. Drag-to-drawer — drag a placed creature below the scene → tray ────
+  // Founder ask (2026-06-13): support BOTH click-move (tap → Return to tray) AND
+  // drag-and-drop back to the drawer, because different little fingers prefer
+  // different gestures.
+  test('drag-to-drawer: dragging a placed creature below the scene returns it to the tray', async ({ page }) => {
+    const casey = await memberId('Casey')
+    await baselineCasey()
+    const placedId = await insertCreature(casey, creatureIds[0], pageA.id, 0.5, 0.5)
+
+    await loginAsCasey(page)
+    await page.goto('/my-rewards')
+    await waitForAppReady(page)
+    await expect(page.getByTestId('creature-page-frame')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('tray-creature')).toHaveCount(0)
+
+    const hero = page.getByTestId('creature-hero')
+    const hBox = (await hero.boundingBox())!
+    const creature = hero.locator('[data-creature-overlay]').first()
+    const midX = hBox.x + hBox.width / 2
+
+    // hover the sticker, then drag the pointer DOWN past the bottom of the scene
+    // onto the "Return to drawer" bar, and drop.
+    await creature.hover()
+    await page.mouse.down()
+    await page.mouse.move(midX, hBox.y + hBox.height - 10, { steps: 5 })
+    await page.mouse.move(midX, hBox.y + hBox.height + 50, { steps: 8 })
+    await page.waitForTimeout(120)
+    await page.mouse.up()
+
+    await expect
+      .poll(() => creaturePageOf(placedId), {
+        timeout: 10000,
+        message: 'dragging below the scene should return the creature to the tray',
+      })
+      .toBe(null)
+    await expect(page.getByTestId('tray-creature')).toHaveCount(1)
+  })
 })

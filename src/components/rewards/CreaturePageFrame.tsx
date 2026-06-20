@@ -156,8 +156,21 @@ export function CreaturePageFrame({
   const [selectedPlacedId, setSelectedPlacedId] = useState<string | null>(null)
   const [trayOpen, setTrayOpen] = useState(true)
   const [anyDragging, setAnyDragging] = useState(false)
+  // "Return to drawer" drop bar — lit when a placed creature is dragged below
+  // the scene. Ref mirrors state so the drop handler reads the latest value.
+  const [removeBarHot, setRemoveBarHot] = useState(false)
+  const removeBarHotRef = useRef(false)
 
   const heroRef = useRef<HTMLDivElement>(null)
+
+  // Live drag position → light the drop bar when the finger leaves the scene
+  // downward (toward the drawer). Placing low inside the scene never triggers it.
+  const handlePlacedDragMove = useCallback((_clientX: number, clientY: number) => {
+    const rect = heroRef.current?.getBoundingClientRect()
+    const hot = !!rect && clientY >= rect.bottom
+    removeBarHotRef.current = hot
+    setRemoveBarHot(hot)
+  }, [])
 
   // ── On-page creature move (with drag-to-edge cross-page carry) ───────────
   const handleCreatureMove = useCallback(
@@ -386,6 +399,7 @@ export function CreaturePageFrame({
         border: '1px solid var(--color-border)',
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative',
         // Cap + center so the scene reads as a card, not a full-bleed wall on
         // desktop (the background image is width:100% of this frame).
         width: '100%',
@@ -482,11 +496,27 @@ export function CreaturePageFrame({
                   positionY={c.position_y ?? 0.5}
                   rarity={c.creature.rarity}
                   selected={selectedPlacedId === c.id}
-                  onMove={(nx, ny) => handleCreatureMove(c, nx, ny)}
+                  onMove={(nx, ny) => {
+                    // Dropped over the "Return to drawer" bar → unplace it.
+                    if (removeBarHotRef.current) {
+                      handleRemoveFromPage(c.id)
+                    } else {
+                      handleCreatureMove(c, nx, ny)
+                    }
+                    removeBarHotRef.current = false
+                    setRemoveBarHot(false)
+                  }}
+                  onDragMove={handlePlacedDragMove}
                   onTap={() =>
                     setSelectedPlacedId(prev => (prev === c.id ? null : c.id))
                   }
-                  onDragStateChange={setAnyDragging}
+                  onDragStateChange={dragging => {
+                    setAnyDragging(dragging)
+                    if (!dragging) {
+                      removeBarHotRef.current = false
+                      setRemoveBarHot(false)
+                    }
+                  }}
                 />
               ))}
 
@@ -671,6 +701,44 @@ export function CreaturePageFrame({
             filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.35))',
           }}
         />
+      )}
+
+      {/* "Return to drawer" drop bar — appears while dragging a placed creature.
+          Drag the creature down past the scene onto this bar and drop to unplace
+          it (the click-tap "Return to tray" button still works too). */}
+      {anyDragging && (
+        <div
+          data-testid="creature-return-drop-bar"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: play ? 64 : 52,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            zIndex: 30,
+            pointerEvents: 'none',
+            borderTop: removeBarHot
+              ? '2px dashed var(--color-btn-primary-bg)'
+              : '2px dashed var(--color-border)',
+            backgroundColor: removeBarHot
+              ? 'color-mix(in srgb, var(--color-btn-primary-bg) 22%, var(--color-bg-card))'
+              : 'color-mix(in srgb, var(--color-bg-card) 92%, transparent)',
+            color: removeBarHot
+              ? 'var(--color-btn-primary-bg)'
+              : 'var(--color-text-secondary)',
+            fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)',
+            fontWeight: 700,
+            transition: 'background-color 0.12s, border-color 0.12s, color 0.12s',
+          }}
+        >
+          <Undo2 size={play ? 22 : 18} />
+          {removeBarHot ? 'Drop to return to the drawer' : 'Drag here to return to the drawer'}
+        </div>
       )}
     </div>
   )
