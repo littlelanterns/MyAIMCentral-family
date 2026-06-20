@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-06-19
+> Auto-generated from live Supabase on 2026-06-20
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 478 rows
+### `view_as_sessions` — 485 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 358 rows
+### `view_as_feature_exclusions` — 365 rows
 
 | # | Column |
 |---|---|
@@ -1075,7 +1075,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 52 rows
+### `dashboard_widgets` — 50 rows
 
 | # | Column |
 |---|---|
@@ -3355,7 +3355,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 28 rows
+### `member_creature_collection` — 30 rows
 
 | # | Column |
 |---|---|

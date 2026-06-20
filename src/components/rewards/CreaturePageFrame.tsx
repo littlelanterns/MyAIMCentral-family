@@ -44,8 +44,6 @@ import type { MemberCreature } from '@/types/play-dashboard'
 interface CreaturePageFrameProps {
   memberId: string
   variant?: 'standard' | 'play'
-  /** When the frame is the hero of a full-screen modal, give the scene more height. */
-  tall?: boolean
   /** Open directly to this background (e.g. from a "see my new page" unlock). */
   initialPageId?: string | null
 }
@@ -68,7 +66,6 @@ function clamp01(v: number): number {
 export function CreaturePageFrame({
   memberId,
   variant = 'standard',
-  tall = false,
   initialPageId = null,
 }: CreaturePageFrameProps) {
   const { data: state } = useStickerBookState(memberId)
@@ -95,9 +92,22 @@ export function CreaturePageFrame({
     [allCreatures, activeThemeId],
   )
 
+  // The pages the swipe strip can show (unlocked, this theme).
+  const unlockedPageIds = useMemo(
+    () => new Set(pages.map(p => p.page.id)),
+    [pages],
+  )
+
+  // Unplaced = no page OR placed on a page that isn't in the swipe strip
+  // (an orphan — e.g. active_page_id pointed at a non-unlocked page). Surfacing
+  // orphans in the tray means a creature is NEVER lost; the kid just re-places
+  // it on a real background.
   const unplaced = useMemo(
-    () => themeCreatures.filter(c => c.sticker_page_id === null),
-    [themeCreatures],
+    () =>
+      themeCreatures.filter(
+        c => c.sticker_page_id === null || !unlockedPageIds.has(c.sticker_page_id),
+      ),
+    [themeCreatures, unlockedPageIds],
   )
 
   // ── Swipe position (restored from last_viewed_page_id) ───────────────────
@@ -362,7 +372,10 @@ export function CreaturePageFrame({
   // ── Empty state: no unlocked backgrounds yet ─────────────────────────────
   if (!state) return null
 
-  const heroMinHeight = tall ? '60vh' : play ? '320px' : '260px'
+  // Floor for the EMPTY-page state only — a loaded background image defines the
+  // real height. (Was 60vh in the modal, which made the scene fill the whole
+  // desktop viewport — founder report 2026-06-13.)
+  const heroMinHeight = play ? '300px' : '240px'
 
   return (
     <div
@@ -373,6 +386,11 @@ export function CreaturePageFrame({
         border: '1px solid var(--color-border)',
         display: 'flex',
         flexDirection: 'column',
+        // Cap + center so the scene reads as a card, not a full-bleed wall on
+        // desktop (the background image is width:100% of this frame).
+        width: '100%',
+        maxWidth: '760px',
+        marginInline: 'auto',
       }}
     >
       {/* ── Header: page name + position dots (set-picker slot lives here) ── */}

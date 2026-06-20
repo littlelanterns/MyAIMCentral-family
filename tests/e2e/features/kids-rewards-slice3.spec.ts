@@ -54,6 +54,7 @@ const memberIds: Record<string, string> = {}
 let themeId = ''
 let pageA = { id: '', scene: '' } // cherry blossom (sort 1)
 let pageB = { id: '', scene: '' } // christmas (sort 2)
+let pageC = { id: '', scene: '' } // a same-theme page deliberately NOT unlocked
 let creatureIds: string[] = []
 let coloringIds: string[] = []
 
@@ -381,9 +382,10 @@ test.describe('KIDS-REWARDS-PAGE Slice 3 — creatures + coloring + dashboard do
       .select('id, scene, sort_order')
       .eq('theme_id', themeId)
       .order('sort_order')
-      .limit(2)
+      .limit(3)
     pageA = { id: pages![0].id, scene: pages![0].scene }
     pageB = { id: pages![1].id, scene: pages![1].scene }
+    pageC = { id: pages![2].id, scene: pages![2].scene }
 
     const { data: creatures } = await sr
       .from('gamification_creatures')
@@ -925,5 +927,25 @@ test.describe('KIDS-REWARDS-PAGE Slice 3 — creatures + coloring + dashboard do
       .select('id', { count: 'exact', head: true })
       .eq('family_member_id', casey)
     expect(after).toBe(1)
+  })
+
+  // ── 13. Orphan safety net — a creature on a non-unlocked page shows in tray ─
+  // Founder hotfix (2026-06-13): a starter had been placed on active_page_id
+  // which pointed at a page the member hadn't unlocked, so it was invisible in
+  // the swipe strip. The frame now surfaces such orphans in the tray so they're
+  // never lost — the kid just re-places them.
+  test('a creature on a non-unlocked page surfaces in the tray (never lost)', async ({ page }) => {
+    const casey = await memberId('Casey')
+    await baselineCasey() // unlocks pageA + pageB only
+    // pageC is a same-theme page Casey has NOT unlocked → an orphan.
+    await insertCreature(casey, creatureIds[0], pageC.id, 0.5, 0.5)
+
+    await loginAsCasey(page)
+    await page.goto('/my-rewards')
+    await waitForAppReady(page)
+    await expect(page.getByTestId('creature-page-frame')).toBeVisible({ timeout: 15000 })
+
+    // The orphan appears in the tray (recoverable), not lost on an unreachable page.
+    await expect(page.getByTestId('tray-creature')).toHaveCount(1)
   })
 })

@@ -90,7 +90,6 @@ export function CreaturePageModal({
           memberId={memberId}
           variant={variant}
           initialPageId={initialPageId}
-          tall
         />
       </div>
     </div>
