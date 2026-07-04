@@ -21,7 +21,10 @@
  *                     2026-06-12 — amends PRD-28's "never on Play" for this
  *                     surface into a per-kid mom choice).
  *
- * Creatures + Coloring sections ship in Slice 3; Propose-a-Reward in Slice 4.
+ *   Creatures/Coloring   — Slice 3 sections (sticker book frame + gallery)
+ *   Propose-a-Reward     — Slice 4 (gate §5/§6): kid pitch → mom's Queue
+ *                          RequestsTab; adults get the self-propose screen.
+ *                          Guided+ only — never rendered on the Play variant.
  *
  * View As correctness: the host page passes the EFFECTIVE member
  * (useEffectiveMember). Self-redeem is offered only on the member's own real
@@ -54,6 +57,8 @@ import { RedeemedHistoryModal } from './RedeemedHistoryModal'
 import { CelebrationDetailModal } from '@/components/victories/CelebrationDetailModal'
 import { CreaturePageFrame } from './CreaturePageFrame'
 import { ColoringSection } from './ColoringSection'
+import { ProposeRewardSection } from './ProposeRewardSection'
+import { SelfProposeSection } from './SelfProposeSection'
 import { LedgerView } from '@/features/financial/LedgerView'
 import type { Victory } from '@/types/victories'
 
@@ -98,6 +103,21 @@ export function MyRewards({ member, variant, isOwnSession }: MyRewardsProps) {
 
       {sections.victories && (
         <VictoriesSection member={member} variant={variant} />
+      )}
+
+      {/* Propose-a-Reward (Slice 4, gate §5/§6): Guided+ only — never on Play.
+          Kids pitch mom a deal (→ her Queue RequestsTab); adults get the
+          negotiation-collapsed self-propose screen (§11 — any adult). */}
+      {sections.propose && variant !== 'play' && (
+        member.role === 'member' ? (
+          <ProposeRewardSection
+            member={member}
+            variant={variant}
+            isOwnSession={isOwnSession}
+          />
+        ) : (
+          <SelfProposeSection member={member} isOwnSession={isOwnSession} />
+        )
       )}
 
       {/* Play money: mom opt-in, default OFF (founder amendment 2026-06-12).

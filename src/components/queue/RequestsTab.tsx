@@ -1,16 +1,23 @@
 /**
- * RequestsTab (PRD-15 Screen 8)
+ * RequestsTab (PRD-15 Screen 8 + KIDS-REWARDS-PAGE Slice 4)
  *
  * Tab inside UniversalQueueModal for processing family requests.
  * Accept routes to Calendar/Tasks/List/Acknowledge.
  * Decline with optional note. Discuss opens chat (Phase D stub).
  * Snooze with resurface. "Open Messages" shortcut at bottom.
+ *
+ * KIDS-REWARDS-PAGE Slice 4 (gate §5, R3): kids' reward proposals render here
+ * too — one decision inbox (Convention #66). Approve opens the matching
+ * EXISTING creation flow prefilled (task / streak tracker / routine) — never
+ * silent auto-create; Counter sends revised terms back (ONE round); Decline
+ * with optional note. Proposals are primary-parent-only (RLS-scoped).
+ *
  * Zero hardcoded hex colors — all CSS custom properties.
  */
 
 import { useState, useCallback } from 'react'
-import { HandHelping, MessageCircle } from 'lucide-react'
-import { EmptyState } from '@/components/shared'
+import { HandHelping, MessageCircle, Repeat2 } from 'lucide-react'
+import { EmptyState, ModalV2 } from '@/components/shared'
 import { RequestCard } from '@/components/requests/RequestCard'
 import { useRequests, useAcceptRequest, useDeclineRequest, useSnoozeRequest } from '@/hooks/useRequests'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
@@ -24,6 +31,22 @@ import { EventCreationModal } from '@/components/calendar/EventCreationModal'
 import { ListPickerModal } from '@/components/queue/ListPickerModal'
 import type { StudioQueueRecord } from '@/components/queue/QueueCard'
 
+import { ProposalCard } from './ProposalCard'
+import { ProposalArtifactCreator } from '@/components/rewards/ProposalArtifactCreator'
+import { ProposalTermsForm, isProposalTermsComplete } from '@/components/rewards/ProposalTermsForm'
+import {
+  usePendingProposalsForParent,
+  useAcceptRewardProposal,
+  useCounterRewardProposal,
+  useDeclineRewardProposal,
+} from '@/hooks/useRewardProposals'
+import { activeProposalTerms } from '@/types/rewardProposals'
+import type {
+  ProposalArtifactType,
+  ProposalTerms,
+  RewardProposalWithProposer,
+} from '@/types/rewardProposals'
+
 export function RequestsTab() {
   const { data: currentMember } = useFamilyMember()
   const { data: currentFamily } = useFamily()
@@ -34,6 +57,23 @@ export function RequestsTab() {
   const snoozeRequest = useSnoozeRequest()
   const routingToast = useRoutingToast()
   const queryClient = useQueryClient()
+
+  // KIDS-REWARDS-PAGE Slice 4: kid reward proposals — mom's decision inbox.
+  // RLS scopes visibility; the enabled flag keeps non-mom viewers query-free.
+  const isPrimaryParent = currentMember?.role === 'primary_parent'
+  const { data: proposals = [] } = usePendingProposalsForParent(
+    currentFamily?.id,
+    isPrimaryParent,
+  )
+  const acceptProposal = useAcceptRewardProposal()
+  const counterProposal = useCounterRewardProposal()
+  const declineProposal = useDeclineRewardProposal()
+
+  // Proposal processing state
+  const [approvingProposal, setApprovingProposal] = useState<RewardProposalWithProposer | null>(null)
+  const [counteringProposal, setCounteringProposal] = useState<RewardProposalWithProposer | null>(null)
+  const [counterTerms, setCounterTerms] = useState<ProposalTerms | null>(null)
+  const [counterNote, setCounterNote] = useState('')
 
   // Modals for accept routing
   const [eventModalRequest, setEventModalRequest] = useState<FamilyRequestWithSender | null>(null)
@@ -157,6 +197,70 @@ export function RequestsTab() {
     }
   }, [currentMember, currentFamily])
 
+  // ── KIDS-REWARDS-PAGE Slice 4: proposal processing ─────────────────
+
+  // Approve / Set-it-up → prefill-confirm (gate §5): the ProposalArtifactCreator
+  // opens the matching EXISTING creation flow; the proposal is only stamped
+  // 'accepted' after mom actually saves the artifact.
+  const handleProposalArtifactCreated = useCallback(
+    async (artifactType: ProposalArtifactType, artifactId: string | null) => {
+      if (!approvingProposal || !currentMember?.id) return
+      await acceptProposal.mutateAsync({
+        proposal: approvingProposal,
+        processedBy: currentMember.id,
+        processorName: currentMember.display_name,
+        artifactType,
+        artifactId,
+      })
+      routingToast.show({
+        message: `Deal! "${activeProposalTerms(approvingProposal).want_text}" is set up`,
+      })
+    },
+    [approvingProposal, currentMember, acceptProposal, routingToast],
+  )
+
+  const handleProposalCounterOpen = useCallback((proposal: RewardProposalWithProposer) => {
+    setCounteringProposal(proposal)
+    setCounterTerms({ ...proposal.terms })
+    setCounterNote('')
+  }, [])
+
+  const handleProposalCounterSend = useCallback(async () => {
+    if (!counteringProposal || !counterTerms || !currentMember?.id) return
+    await counterProposal.mutateAsync({
+      proposal: counteringProposal,
+      counterTerms: {
+        ...counterTerms,
+        want_text: counterTerms.want_text.trim(),
+        will_text: counterTerms.will_text.trim(),
+        params: {
+          ...counterTerms.params,
+          items: counterTerms.params.items?.map(i => i.trim()).filter(Boolean),
+        },
+      },
+      counterNote,
+      processedBy: currentMember.id,
+      processorName: currentMember.display_name,
+    })
+    setCounteringProposal(null)
+    setCounterTerms(null)
+    routingToast.show({ message: 'Counteroffer sent' })
+  }, [counteringProposal, counterTerms, counterNote, currentMember, counterProposal, routingToast])
+
+  const handleProposalDecline = useCallback(
+    async (proposal: RewardProposalWithProposer, note?: string) => {
+      if (!currentMember?.id) return
+      await declineProposal.mutateAsync({
+        proposal,
+        declineNote: note,
+        processedBy: currentMember.id,
+        processorName: currentMember.display_name,
+      })
+      routingToast.show({ message: 'Proposal declined' })
+    },
+    [currentMember, declineProposal, routingToast],
+  )
+
   // Calendar event created from request accept
   const handleEventCreated = useCallback(async () => {
     if (!eventModalRequest || !currentMember?.id) return
@@ -216,7 +320,7 @@ export function RequestsTab() {
 
   return (
     <div style={{ padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {pendingRequests.length === 0 ? (
+      {pendingRequests.length === 0 && proposals.length === 0 ? (
         <div style={{ padding: '1.25rem 0' }}>
           <EmptyState
             icon={<HandHelping size={24} style={{ color: 'var(--color-btn-primary-bg)' }} />}
@@ -225,16 +329,29 @@ export function RequestsTab() {
           />
         </div>
       ) : (
-        pendingRequests.map(request => (
-          <RequestCard
-            key={request.id}
-            request={request}
-            onAccept={handleAccept}
-            onDecline={handleDecline}
-            onSnooze={handleSnooze}
-            onDiscuss={handleDiscuss}
-          />
-        ))
+        <>
+          {/* KIDS-REWARDS-PAGE Slice 4: kid reward proposals (mom only) */}
+          {proposals.map(proposal => (
+            <ProposalCard
+              key={proposal.id}
+              proposal={proposal}
+              onApprove={setApprovingProposal}
+              onCounter={handleProposalCounterOpen}
+              onDecline={handleProposalDecline}
+            />
+          ))}
+
+          {pendingRequests.map(request => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              onAccept={handleAccept}
+              onDecline={handleDecline}
+              onSnooze={handleSnooze}
+              onDiscuss={handleDiscuss}
+            />
+          ))}
+        </>
       )}
 
       {/* "Open Messages" shortcut at bottom — per PRD-15 Screen 8 */}
@@ -278,6 +395,115 @@ export function RequestsTab() {
           items={listPickerItems}
           onComplete={handleListComplete}
         />
+      )}
+
+      {/* KIDS-REWARDS-PAGE Slice 4: Approve → prefill-confirm into the matching
+          creation flow. counter_accepted rows set up from the COUNTER terms
+          (mom's counter replaced the terms — gate §5). Kid deals default
+          require_approval ON so the prize fires at mom's approval (Q7 timing);
+          she can uncheck it in the modal. */}
+      {approvingProposal && currentMember?.id && currentFamily?.id && (
+        <ProposalArtifactCreator
+          terms={activeProposalTerms(approvingProposal)}
+          familyId={currentFamily.id}
+          assigneeId={approvingProposal.proposer_member_id}
+          creatorId={currentMember.id}
+          proposalId={approvingProposal.id}
+          requireApprovalDefault={true}
+          onCreated={handleProposalArtifactCreated}
+          onClose={() => setApprovingProposal(null)}
+        />
+      )}
+
+      {/* Counteroffer editor — mom edits the kid's terms and sends them back.
+          ONE round (gate §5). */}
+      {counteringProposal && counterTerms && currentFamily?.id && (
+        <ModalV2
+          id="proposal-counter-modal"
+          isOpen={true}
+          onClose={() => {
+            setCounteringProposal(null)
+            setCounterTerms(null)
+          }}
+          type="transient"
+          size="md"
+          title={`Counteroffer for ${counteringProposal.proposer_display_name ?? 'them'}`}
+          icon={Repeat2}
+          footer={
+            <button
+              type="button"
+              data-testid="proposal-counter-send"
+              onClick={handleProposalCounterSend}
+              disabled={!isProposalTermsComplete(counterTerms) || counterProposal.isPending}
+              style={{
+                width: '100%',
+                padding: '0.625rem 1rem',
+                minHeight: '44px',
+                borderRadius: 'var(--vibe-radius-input, 8px)',
+                border: 'none',
+                background: 'var(--surface-primary)',
+                color: 'var(--color-text-on-primary)',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                opacity:
+                  !isProposalTermsComplete(counterTerms) || counterProposal.isPending ? 0.5 : 1,
+              }}
+            >
+              {counterProposal.isPending ? 'Sending...' : 'Send counteroffer'}
+            </button>
+          }
+        >
+          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p
+              style={{
+                fontSize: 'var(--font-size-sm)',
+                color: 'var(--color-text-secondary)',
+                margin: 0,
+              }}
+            >
+              Adjust the deal — they'll get to accept or decline your version.
+            </p>
+            <ProposalTermsForm
+              value={counterTerms}
+              onChange={setCounterTerms}
+              familyId={currentFamily.id}
+              audience="kid"
+            />
+            <div>
+              <label
+                htmlFor="proposal-counter-note"
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)',
+                  marginBottom: '0.375rem',
+                }}
+              >
+                A note with your counter (optional)
+              </label>
+              <textarea
+                id="proposal-counter-note"
+                data-testid="proposal-counter-note"
+                rows={2}
+                value={counterNote}
+                onChange={e => setCounterNote(e.target.value)}
+                placeholder="Love this idea — let's make it a full week!"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-bg-input, var(--color-bg-card))',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm)',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+          </div>
+        </ModalV2>
       )}
     </div>
   )

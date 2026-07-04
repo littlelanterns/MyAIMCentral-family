@@ -153,6 +153,10 @@ export async function createTaskFromData(
     reward_description: (data.reward as { rewardDescription?: string } | undefined)?.rewardDescription?.trim() || null,
     reward_image_url: (data.reward as { rewardImageUrl?: string | null } | undefined)?.rewardImageUrl ?? null,
     reward_image_asset_key: (data.reward as { rewardImageAssetKey?: string | null } | undefined)?.rewardImageAssetKey ?? null,
+    // KIDS-REWARDS-PAGE Slice 4 (§11, migration 100278): per-reward visibility
+    // for self-created rewards. NULL = 'family' (status quo for kid promises).
+    reward_visibility: data.rewardVisibility ?? null,
+    reward_shared_with: data.rewardSharedWith ?? [],
     // Opportunity-specific fields
     ...(data.taskType === 'opportunity' && {
       max_completions: data.maxCompletions ? parseInt(data.maxCompletions, 10) : null,

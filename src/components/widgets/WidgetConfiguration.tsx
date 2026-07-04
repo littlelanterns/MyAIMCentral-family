@@ -627,6 +627,29 @@ function TemplateSpecificFields({
           <SelectField label="Grace Period" field="grace_period" config={config} onChange={onChange}
             options={[{ value: '0', label: 'Strict (no missed days)' }, { value: '1', label: '1 day grace period' }]}
           />
+          {/* KIDS-REWARDS-PAGE Slice 4 (gate §5 — streak proposals map to the
+              streak tracker) + G1/R2: the prize promise (goal + label + image)
+              is configured NOW so the deal is recorded; earned-prize firing on
+              goal-reached is the registered follow-up (no tracker goal
+              detection exists yet — STUB_REGISTRY "Tracker goal detection →
+              prize firing"). Same pattern as sequential_path below. */}
+          <NumberField label="Streak Goal (days, optional)" field="goal_days" config={config} onChange={onChange} />
+          <TextField label="Prize at Goal (optional)" field="prize_label" config={config} onChange={onChange} placeholder="e.g. A popsicle!" />
+          {familyId && (
+            <RewardImagePicker
+              value={{
+                imageUrl: (config.prize_image_url as string | null) ?? null,
+                imageAssetKey: (config.prize_image_asset_key as string | null) ?? null,
+              }}
+              onChange={(img) => {
+                onChange('prize_image_url', img.imageUrl)
+                onChange('prize_image_asset_key', img.imageAssetKey)
+              }}
+              familyId={familyId}
+              suggestText={(config.prize_label as string) ?? ''}
+              label="Prize picture (optional)"
+            />
+          )}
         </div>
       )
     case 'percentage':

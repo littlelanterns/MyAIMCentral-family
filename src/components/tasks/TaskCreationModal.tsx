@@ -175,6 +175,13 @@ export interface CreateTaskData {
   homeworkSubjectIds?: string[]
   // Reward Reveals: attached celebration config
   rewardRevealConfig?: import('@/components/reward-reveals/AttachRevealSection').RevealAttachmentConfig | null
+  /**
+   * KIDS-REWARDS-PAGE Slice 4 (§11): visibility the earned prize inherits at
+   * award time. Omitted/undefined → NULL in the DB → 'family' (status quo).
+   * Self-propose sets 'private' (default) or 'shared' + rewardSharedWith.
+   */
+  rewardVisibility?: 'family' | 'private' | 'shared'
+  rewardSharedWith?: string[]
 }
 
 interface TaskCreationModalProps {
@@ -204,6 +211,14 @@ interface TaskCreationModalProps {
    * AssignmentSelector still governs what the user may actually assign.
    */
   initialAssigneeId?: string | null
+  /**
+   * KIDS-REWARDS-PAGE Slice 4: reward prefill for the Propose-a-Reward
+   * approve/self-propose prefill-confirm flow (gate §5 — mom's approval opens
+   * the EXISTING creation flow prefilled, never silent auto-create). Additive,
+   * mount-only intent like defaultTitle — applied in both init sites, never a
+   * re-init trigger (checkbox-honesty discipline).
+   */
+  initialReward?: Partial<RewardConfigData>
   /** Pre-loaded routine sections from a saved template (Studio Deploy/Edit) */
   initialRoutineSections?: RoutineSection[]
   /** When editing an existing routine template, pass its ID to UPDATE instead of INSERT */
@@ -645,6 +660,7 @@ export function TaskCreationModal({
   editMode,
   makeupConfig,
   initialAssigneeId,
+  initialReward,
   initialRoutineSections,
   editingTemplateId,
   editTaskValues,
@@ -680,6 +696,16 @@ export function TaskCreationModal({
     if (defaultTitle) d.title = defaultTitle
     if (defaultDescription) d.description = defaultDescription
     if (sourceReferenceId) d.sourceReferenceId = sourceReferenceId
+    // KIDS-REWARDS-PAGE Slice 4: proposal prefill-confirm reward seed
+    if (initialReward) d.reward = { ...d.reward, ...initialReward }
+    // Assignee preselect must ALSO seed here (not only in the FO effect below):
+    // callers that mount the modal already-open (ProposalArtifactCreator) get
+    // the re-init effect and the preselect effect in the SAME commit, and the
+    // re-init setData lands last — seeding in the init paths makes the prop
+    // mount-pattern-independent.
+    if (initialAssigneeId && !editMode && !makeupConfig) {
+      d.assignments = [{ memberId: initialAssigneeId, copyMode: 'individual' }]
+    }
     if (initialRoutineSections?.length) d.routineSections = initialRoutineSections
     // Hydrate existing task values on edit so we don't reset them to defaults
     if (editTaskValues) {
@@ -844,6 +870,15 @@ export function TaskCreationModal({
     }
     if (defaultTitle) d.title = defaultTitle
     if (defaultDescription) d.description = defaultDescription
+    // KIDS-REWARDS-PAGE Slice 4: proposal prefill-confirm reward seed (read
+    // inside the effect body but never a re-init trigger — mount-only intent,
+    // same treatment as defaultTitle)
+    if (initialReward) d.reward = { ...d.reward, ...initialReward }
+    // Assignee preselect — seeded here too so an already-open mount doesn't
+    // lose it to this effect's setData (see the matching init-site comment).
+    if (initialAssigneeId && !editMode && !makeupConfig) {
+      d.assignments = [{ memberId: initialAssigneeId, copyMode: 'individual' }]
+    }
     // Hydrate existing task values on edit
     if (editTaskValues) {
       if (editTaskValues.incompleteAction) d.incompleteAction = editTaskValues.incompleteAction as typeof d.incompleteAction

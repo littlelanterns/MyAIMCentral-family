@@ -677,8 +677,8 @@ export function GamificationSettingsModal({
 //                              100266; reversible). Adults only.
 //
 // Honest controls only: toggles render only for sections that exist today
-// (Points / Custom Rewards / Creatures / Coloring / Victories / Money owed).
-// Propose ships with its section in Slice 4.
+// (Points / Custom Rewards / Creatures / Coloring / Victories / Money owed /
+// Propose a deal — Slice 4, Guided+ only so Play members get no propose toggle).
 
 function MyRewardsPageSettings({
   memberId,
@@ -767,6 +767,22 @@ function MyRewardsPageSettings({
             checked={settings.sections.victories}
             onChange={(v) => update.mutate({ memberId, sections: { victories: v } })}
           />
+
+          {/* Propose-a-Reward (Slice 4, gate §5): Guided and up only — no Play
+              version in this build. Kid pitches land in your Queue; adults get
+              a promise-yourself-a-reward screen instead. */}
+          {!isPlayMember && (
+            <ToggleRow
+              label="Propose a deal"
+              description={
+                isAdultMember || settings.role === 'primary_parent'
+                  ? 'A "promise yourself a reward" form on their page'
+                  : `${memberName} can pitch you a deal — you approve, counter, or decline from your queue`
+              }
+              checked={settings.sections.propose}
+              onChange={(v) => update.mutate({ memberId, sections: { propose: v } })}
+            />
+          )}
 
           {/* Play money is a mom OPT-IN, default OFF (founder amendment
               2026-06-12 — amends PRD-28's "never on Play" for this surface). */}

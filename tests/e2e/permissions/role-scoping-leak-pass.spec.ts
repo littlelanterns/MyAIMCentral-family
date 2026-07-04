@@ -258,7 +258,13 @@ test.describe('Role-Scoping Leak Pass', () => {
     await page.goto('/tasks')
     await waitForAppReady(page)
 
-    await page.getByRole('button', { name: /Review Queue/ }).click()
+    // "Review Queue:" (colon) = the QueueBadge specifically. The QuickTasks
+    // strip's queue indicator is briefly named "Review Queue — all caught up"
+    // (em-dash) before its count query resolves, so the bare /Review Queue/
+    // regex was one load-race away from a strict-mode collision (flaked
+    // 2026-07-03 during the KIDS-REWARDS Slice 4 pin run; same assertion,
+    // disambiguated selector).
+    await page.getByRole('button', { name: /Review Queue:/ }).click()
     await expect(page.getByText(DAD_QUEUE_ITEM)).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(MOM_QUEUE_ITEM)).not.toBeVisible()
   })

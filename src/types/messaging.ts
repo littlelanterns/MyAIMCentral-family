@@ -33,6 +33,11 @@ export type NotificationType =
   | 'meeting_reminder'
   | 'meeting_completed'
   | 'meeting_action_routed'
+  // KIDS-REWARDS-PAGE Slice 4: reward proposal lifecycle (gate §5)
+  | 'reward_proposal_received'
+  | 'reward_proposal_countered'
+  | 'reward_proposal_counter_response'
+  | 'reward_proposal_outcome'
 
 export type NotificationCategory = 'messages' | 'requests' | 'calendar' | 'tasks' | 'safety' | 'lila' | 'meetings'
 

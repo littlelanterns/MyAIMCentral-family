@@ -174,7 +174,30 @@ export function UniversalQueueModal({
     refetchInterval: 30_000,
   })
 
-  const totalCount = sortCount + calendarCount + requestsCount
+  // KIDS-REWARDS-PAGE Slice 4: kid reward proposals waiting on mom (pending +
+  // counter_accepted). Rides the Requests tab count — one decision inbox
+  // (Convention #66). RLS scopes rows; excluding the viewer's own rows keeps a
+  // kid's badge from counting their own waiting pitch.
+  const { data: proposalsCount = 0 } = useQuery({
+    queryKey: ['queue-badge-proposals', currentMember?.family_id, currentMember?.id],
+    queryFn: async () => {
+      if (!currentMember?.family_id || !currentMember?.id) return 0
+      const { count, error } = await supabase
+        .from('reward_proposals')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', currentMember.family_id)
+        .eq('is_self_proposal', false)
+        .neq('proposer_member_id', currentMember.id)
+        .in('status', ['pending', 'counter_accepted'])
+      if (error) return 0
+      return count ?? 0
+    },
+    enabled: !!currentMember?.family_id && !!currentMember?.id && isOpen,
+    refetchInterval: 30_000,
+  })
+
+  const requestsTabCount = requestsCount + proposalsCount
+  const totalCount = sortCount + calendarCount + requestsTabCount
   const allEmpty = totalCount === 0
 
   // ── Default tab logic ──────────────────────────────────────
@@ -184,9 +207,9 @@ export function UniversalQueueModal({
     if (defaultTab) return defaultTab
     if (sortCount > 0) return 'sort'
     if (calendarCount > 0) return 'calendar'
-    if (requestsCount > 0) return 'requests'
+    if (requestsTabCount > 0) return 'requests'
     return 'sort'
-  }, [defaultTab, sortCount, calendarCount, requestsCount])
+  }, [defaultTab, sortCount, calendarCount, requestsTabCount])
 
   const [activeTab, setActiveTab] = useState<TabKey>(computedDefault)
 
@@ -221,7 +244,7 @@ export function UniversalQueueModal({
       label: 'Requests',
       icon: <HandHelping size={15} />,
       component: <RequestsTab />,
-      count: requestsCount,
+      count: requestsTabCount,
       order: 3,
     },
   ] as TabConfig[]).sort((a, b) => a.order - b.order)

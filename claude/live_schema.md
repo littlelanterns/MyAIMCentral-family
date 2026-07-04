@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 505 rows
+### `view_as_sessions` — 508 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 385 rows
+### `view_as_feature_exclusions` — 388 rows
 
 | # | Column |
 |---|---|
@@ -2501,7 +2501,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 321 rows
+### `activity_log_entries` — 323 rows
 
 | # | Column |
 |---|---|
@@ -3357,7 +3357,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 32 rows
+### `member_creature_collection` — 33 rows
 
 | # | Column |
 |---|---|

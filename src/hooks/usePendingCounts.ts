@@ -97,9 +97,35 @@ export function usePendingCounts(familyId: string | undefined, memberId?: string
     staleTime: 60_000,
   })
 
+  // KIDS-REWARDS-PAGE Slice 4: kid reward proposals waiting for a decision
+  // (pending + counter_accepted). Rides the requests count — one decision
+  // inbox (Convention #66). RLS scopes rows to mom + the proposer; excluding
+  // the viewer's own rows keeps a kid's badge from counting their own pitch.
+  const proposalsQuery = useQuery({
+    queryKey: ['queue-badge-proposals', familyId, memberId],
+    queryFn: async () => {
+      if (!familyId) return 0
+      let query = supabase
+        .from('reward_proposals')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', familyId)
+        .eq('is_self_proposal', false)
+        .in('status', ['pending', 'counter_accepted'])
+      if (memberId) {
+        query = query.neq('proposer_member_id', memberId)
+      }
+      const { count, error } = await query
+      if (error) return 0
+      return count ?? 0
+    },
+    enabled: !!familyId,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  })
+
   const sort = sortQuery.data ?? 0
   const calendar = calendarQuery.data ?? 0
-  const requests = requestsQuery.data ?? 0
+  const requests = (requestsQuery.data ?? 0) + (proposalsQuery.data ?? 0)
 
   return {
     sort,
