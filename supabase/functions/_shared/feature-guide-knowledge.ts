@@ -39,15 +39,19 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Pool Mode (gear icon on randomizer): set who can see the list (colored member pills).`,
 
   '/tasks': `TASKS PAGE — purely PERSONAL (FO-COMMAND-CENTER 2026-06-10): your own items only, for every role including mom.
-  VIEW CAROUSEL: prioritization views (Simple List, Eisenhower, Eat the Frog, 1-3-5, By Category, Kanban, Now/Next/Optional; more coming).
+  TWO TABS for every role (OPPORTUNITY-SURFACES 2026-07-02): My Tasks and Opportunities.
+  OPPORTUNITIES TAB: the browsable opportunity boards. Each member sees the boards they're eligible for; mom sees EVERY board (she can claim only where eligible). Expand a board to see items with rewards and "I'll do this!" claim buttons. Standalone opportunity tasks group below the boards. Completing a claimed job automatically checks it off the board.
+  MY TASKS TAB — VIEW CAROUSEL: prioritization views (Simple List, Eisenhower, Eat the Frog, 1-3-5, By Category, Kanban, Now/Next/Optional; more coming).
   INCLUDE PILLS above the carousel: tap Routines / Opportunities / Sequential to pull those item types into your views for the day. "Save as default" makes a mix permanent. Sequential items show just the NEXT thing to do — tap it to open the whole collection.
   [Create] + [Bulk Add] buttons in the header; status pills (active/completed/all); Review Queue badge opens the queue modal.
   Family management moved: spot-checking kids, Approvals, Queue, and Finances all live on Dashboard → Family Overview now.
-  Guided kids keep their simple two tabs here (My Tasks, Opportunities).`,
+  Guided kids keep their simple two tabs here (My Tasks, Opportunities).
+  Play kids don't use this page — their opportunity boards render as "Extra Jobs" tap-to-claim tiles right on the Play dashboard (dollar amounts hidden unless mom opts that kid into money visibility; star rewards always show).`,
 
   '/dashboard#family_overview': `FAMILY OVERVIEW — mom's command center (Dashboard → "Family Overview" tab; dads see it only when granted).
   4 page tabs: Overview, Approvals(N), Queue(N), Finances (Queue + Finances are mom-only).
   OVERVIEW: side-scrolling member columns. Sections per kid (collapsible, reorder persists): Today's Events, Today's Tasks (tap checkbox to mark done — no un-marking from here), Routines (steps done today), Sequential (progress + next item), Opportunities, Best Intentions, Active Trackers, Weekly Completion (allowance % + on-track payout), Victories.
+  OPPORTUNITIES SECTION per column shows three things: jobs the kid has CLAIMED (with a mom-only [Return] button to put one back), jobs completed today, and the BROWSABLE BOARD — every unclaimed item the kid is eligible to claim, with rewards (OPPORTUNITY-SURFACES 2026-07-02).
   Member pills choose whose columns show; the calendar follows the same selection.
   SPOT-CHECK: tap a member's name → deep view with My Tasks / Routines / Opportunities / Sequential tabs. Complete or EDIT any item right there (full edit modal opens inline). Mom can create a new Sequential Collection from the Sequential tab.
   APPROVALS: every pending submission incl. mastery submissions (practice history + evidence shown). Approve/Reject with optional note.

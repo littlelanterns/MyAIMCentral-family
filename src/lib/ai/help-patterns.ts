@@ -126,8 +126,8 @@ const HELP_PATTERNS: HelpPattern[] = [
   },
   {
     category: 'opportunity_lists',
-    keywords: ['opportunity', 'opportunity list', 'opportunity board', 'job board', 'claim', 'earn money', 'extra jobs', 'kids earn'],
-    response: "Opportunity lists let kids browse and claim jobs or activities when they're ready. To create one: go to Lists, create any list type, then check \"This is an opportunity list\" in the detail view. Set rewards (money/points), choose item type (one-time, claimable, repeatable), and kids will see it on their Opportunities tab with \"I'll do this!\" buttons. You can also use Smart Import to paste a big list and AI sorts items into your existing lists.",
+    keywords: ['opportunity', 'opportunity list', 'opportunity board', 'job board', 'claim', 'earn money', 'extra jobs', 'kids earn', 'where are my opportunities', 'opportunities tab'],
+    response: "Opportunity boards let kids browse and claim jobs or activities when they're ready. To create one: go to Lists, create any list type, then check \"This is an opportunity list\" in the detail view. Set rewards (money/points), choose item type (one-time, claimable, repeatable), and pick which family members can see the board. Everyone browses boards on the Tasks page → Opportunities tab (you see every board; each member sees only theirs), your Family Overview shows each kid's available jobs in their column, and Play kids get big tap-to-claim \"Extra Jobs\" tiles right on their dashboard. Completing a claimed job automatically checks it off the board.",
   },
   {
     category: 'smart_import',

@@ -141,17 +141,51 @@ true) unchanged.
 
 ## Post-Build PRD Verification
 
-*(fill at close-out)*
+*(Checkpoint 5 — completed 2026-07-02; commit + close-out pre-authorized by founder
+2026-07-02 "Approve → let it stage, you confirm, it commits and runs Part B close-out")*
 
 | Requirement | Source | Status | Notes |
 |---|---|---|---|
-| | | | |
+| Opportunities tab visible + functional on /tasks for mom | dispatch (a) | Wired | spec test 1 |
+| Tab for additional_adult + teens, eligibility-scoped | dispatch (a) | Wired | tests 2-4 |
+| Mom sees ALL boards incl. ones excluding her | dispatch (a) | Wired | test 1 (board with eligible_members=[Alex]) |
+| eligible_members scoping preserved exactly | dispatch (a) | Wired | tests 2/3/4/6 (eligible sees / sibling doesn't) |
+| Guided two-tab experience unregressed | dispatch | Wired | test 6 |
+| FO browsable board (unclaimed items) per member column | dispatch (b) | Wired | test 5 + `useOpportunityBoardsWithItems` |
+| FO claimed rows + mom [Return] unchanged | FO-COMMAND-CENTER | Wired | untouched; fo-command-center 12/12 |
+| Play opportunity tiles, tap-to-claim, Play-sized, no emoji | dispatch (c) | Wired | test 7 (full browser flow); founder design approval 2026-07-02 |
+| Claimed bridge task renders + completes on PlayDashboard | dispatch (c) | Wired | test 7 (task filter extended to opportunity_*) |
+| Play money gate: $ hidden by default, per-kid opt-in (Slice 2 switch), stars visible | founder ruling 2026-07-02 | Wired | test 7 pins both directions; tour opps-08/09 |
+| Write-back: completion consumes list item (all roles) | founder add-on 2026-07-02 | Wired | RPC 100280 + 6 call sites; tests 7+8 |
+| Write-back reverse on uncomplete | founder add-on (coherence) | Wired | both uncomplete paths; keeps "job returns to pool" honest |
+| Playwright spec pinning tab/scoping/FO/Play/write-back | dispatch | Wired | 8/8 |
+| tsc -b clean + lint clean | dispatch | Wired | exit 0 / 0 errors |
+| Regression pins green | dispatch | Wired | 63 regression tests across 6 suites |
+| No RequestsTab / MyRewards / reward_proposals touches | coordination | Wired | verified via git status file list |
+| Migration only with founder approval | coordination | Wired | 100280 approved + number founder-confirmed |
+| Mobile/desktop nav parity | Convention #14 | N/A | no new top-level page; tab lives inside existing /tasks |
+
+**Stubbed (5, registered in STUB_REGISTRY → "OPPORTUNITY-SURFACES Follow-Ups"):**
+claim-on-behalf from FO board rows; standalone opportunity TASKS in the FO board display;
+FO board row tap-through to Lists; Play claim-lock countdown UI; Play voluntary release.
+
+### Summary
+- Total requirements verified: 17 (+1 N/A)
+- Wired: 17
+- Stubbed: 5 (all Post-MVP, registered)
+- Missing: **0**
+
+**Eyes-on record:** founder could not view live; per her direction the eyes-on ran as a
+headed Playwright user walkthrough (`opportunity-surfaces-eyes-on.spec.ts`, 4 stops, 9
+screenshots in `eyes-on-tour/opps-*.png`), each screenshot visually inspected by the
+worker. Looks/taste pass deferred to a later UI run (founder). Real-tablet small-finger
+Play pass deferred to the same run.
 
 ---
 
 ## Founder Sign-Off (Post-Build)
 
-- [ ] Verification table reviewed
-- [ ] Zero Missing items confirmed
-- [ ] **Phase approved as complete**
-- **Completion date:**
+- [x] Verification reviewed via worker-run headed walkthrough (founder direction 2026-07-02)
+- [x] Zero Missing items confirmed
+- [x] **Phase approved as complete** (commit + Part B close-out pre-authorized 2026-07-02)
+- **Completion date:** 2026-07-03 — commit `fix(opportunities): restore boards for all roles…` + close-out commit

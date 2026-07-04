@@ -1,7 +1,18 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-06-10 (RR-DEPLOY-SCOPING close-out; same-day as FO-COMMAND-CENTER).
+> Updated each build session. Last updated: 2026-07-03 (OPPORTUNITY-SURFACES close-out).
+
+## OPPORTUNITY-SURFACES (2026-07-03)
+
+Opportunity boards restoration (live founder-reported regression) + Play tap-to-claim + list-item write-back. Migration 100280; E2E `tests/e2e/features/opportunity-surfaces.spec.ts` 8/8 + headed eyes-on tour (`opportunity-surfaces-eyes-on.spec.ts`, EYES_ON_TOUR=1, screenshots inspected per founder direction) + regression pins (fo-command-center 12, leak-pass 10, kids-rewards 15+9+14, meetings-rls 3).
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Tasks-page Opportunities tab — ALL roles | My Tasks / Opportunities tabs render for every role; `OpportunitiesTab` shows boards via `useOpportunityLists` (eligibility-scoped; mom passes undefined → ALL boards, claims only where eligible via `canClaimItem`) | **Wired** (was guided-only since a6e8108) | Guided two-tab experience untouched; inclusion pills/carousel/filter bar hidden on the Opportunities tab |
+| FO Opportunities section — browsable board | New `useOpportunityBoardsWithItems(familyId)` (boards + available items + claimed-flag via active bridge tasks); per-column eligibility filter; unclaimed rows under board headers below claims/completions; section count includes available items | **Wired** | Display-only rows; claim-on-behalf from FO is a registered stub |
+| Play "Extra Jobs" tap-to-claim | `PlayOpportunitySection` on PlayDashboard: eligibility-scoped boards → banner + big tiles (platform-asset icons via usePlayTaskIcons pseudo-task shim); only claimable-right-now items; tap → confirm → `useClaimOpportunityItem`; bridge task renders as a normal Play tile (task filter now includes `opportunity_*`) | **Wired** (NEW — Play never had board access) | Dollar amounts hidden by default, gated on `my_rewards_sections.finances` (Slice 2 per-kid opt-in); stars always show (founder ruling 2026-07-02) |
+| Claimed-board-job → list-item write-back | `consume_opportunity_list_item` RPC (migration 100280, SECURITY DEFINER — kid personal sessions have no `list_items` write path; li_via_list = owner/mom/shares) called from never-throws `opportunityListWriteBack.ts` at all 6 sites: useTaskCompletion complete+uncomplete, useTasks useCompleteTask + useApproveTaskCompletion + useUncompleteTask, useTaskCompletions useApproveCompletion. Consumes one_time, counts capped, starts cooldowns; uncomplete reverses | **Wired** (was NEVER wired — `useCompleteOpportunityTask` exported but uncalled AND uncallable by kids) | Approval-required bridge tasks write back at approval (Q7 timing) |
 
 ## RR-DEPLOY-SCOPING (2026-06-10)
 

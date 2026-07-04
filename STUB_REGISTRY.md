@@ -18,6 +18,18 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
+## OPPORTUNITY-SURFACES Follow-Ups (2026-07-03)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Claim-on-behalf from FO board rows (mom claiming a board item FOR a kid directly from the Family Overview column; today mom claims via View As or the kid claims themselves — keeps claim identity clean) | OPPORTUNITY-SURFACES scope (b) | Unwired | 📌 Unwired (Post-MVP) | — |
+| Standalone opportunity TASKS (backward-compat, non-list shape) in the FO unclaimed-board display — boards (`lists.is_opportunity`) are the founder-named regression subject; standalone tasks already surface via FO claims/completions rows + the restored Tasks-page tab | OPPORTUNITY-SURFACES scope (b), decision #7 | Unwired | 📌 Unwired (Post-MVP) | — |
+| FO board row tap-through to the Lists detail page (rows are display-only) | OPPORTUNITY-SURFACES scope (b) | Unwired | 📌 Unwired (Post-MVP) | — |
+| Play claim-lock countdown UI (claimable items still get their task_claims lock; no timer display for pre-readers) | OPPORTUNITY-SURFACES scope (c) | Unwired | 📌 Unwired (Post-MVP) | — |
+| Play voluntary claim release ("Put it back" exists on Guided/Independent/Adult surfaces; Play kids ask a grown-up — mom has the FO [Return]) | OPPORTUNITY-SURFACES scope (c) | Unwired | 📌 Unwired (Post-MVP) | — |
+
+---
+
 ## KIDS-REWARDS-PAGE Follow-Ups (2026-06-12)
 
 | Stub | Created By | Wired By | Status | Build Phase |

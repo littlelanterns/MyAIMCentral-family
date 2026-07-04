@@ -11,6 +11,11 @@
 
 ## Index
 
+### 2026-07
+| Build | Scope | Signed off | File |
+|---|---|---|---|
+| OPPORTUNITY-SURFACES | Opportunity boards restoration (live founder-reported regression) — Tasks-page Opportunities tab de-gated for ALL roles (eligibility preserved; mom sees all boards, claims only where eligible), FO browsable board per member column (`useOpportunityBoardsWithItems`), NEW Play "Extra Jobs" tap-to-claim tiles (confirm step; dollar amounts hidden by default on the Slice 2 per-kid money opt-in — stars always show), and the founder-requested list-item write-back: `consume_opportunity_list_item` SECURITY DEFINER RPC (migration 100280 — kid personal sessions had NO list_items write path) wired at all 6 completion/approval/uncomplete sites with uncomplete reversal. E2E `opportunity-surfaces.spec.ts` 8/8 + headed eyes-on tour (founder-directed, screenshots inspected) + 63 regression-pin tests green. 17 Wired / 5 Stubbed (Post-MVP) / 0 Missing. | 2026-07-03 | [opportunity-surfaces-restoration.md](2026-07/opportunity-surfaces-restoration.md) |
+
 ### 2026-06
 | FO-COMMAND-CENTER | Founder vision restructure — Family Overview becomes mom's command center (tabs Overview/Approvals/Queue/Finances, 9 column sections, spot-check + inline full edit, tap-to-edit on every item, long-press collapse override + drag reorder, Play segments, per-section [+ create], claimed opportunities + mom [Return] + kid "Put it back"); Tasks page purely personal (view carousel + inclusion control). Conventions #275 + #150 amended. + Vercel deploy repair + P0 RLS recursion fix (migration 100265). E2E 12 tests + 3 regression pins green. 34 Wired / 0 Stubbed / 0 Missing. | 2026-06-12 | [family-overview-command-center.md](2026-06/family-overview-command-center.md) |
 | RR-DEPLOY-SCOPING | Review & Route direct deploy + task assignment authority (`task_assignment` grant, born-scoped pickers, write-side RLS) + family-device write restoration + queue mine-by-default. Migrations 100262-100264 (+100265 recursion fix by FO close-out). Convention #276. Archived at FO close-out — coordination file alongside: [COORDINATION-review-route-task-scoping.md](2026-06/COORDINATION-review-route-task-scoping.md). | 2026-06-10 | [review-route-direct-deploy-task-assignment-scoping.md](2026-06/review-route-direct-deploy-task-assignment-scoping.md) |
