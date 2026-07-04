@@ -24,6 +24,7 @@ import { fireDeed } from '@/lib/connector/fireDeed'
 import { grantMoney } from '@/lib/financial/grantMoney'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 import { getChoreCycleStart } from '@/hooks/useOpportunityLists'
+import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
 
 interface UseTaskCompletionOptions {
   memberId: string
@@ -163,6 +164,14 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
           .then(({ error: claimErr }) => {
             if (claimErr) console.warn('claim completion update failed:', claimErr.message)
           })
+      }
+
+      // OPPORTUNITY-SURFACES: consume the source list item for claim-bridge
+      // tasks (completed_instances / is_available / last_completed_at).
+      // Approval-required bridge tasks write back at approval time instead.
+      if (task.source === 'opportunity_list_claim' && !task.require_approval) {
+        const writeBack = await writeBackOpportunityCompletion(task.id, 'complete')
+        invalidateOpportunityBoardCaches(queryClient, writeBack)
       }
 
       // Phase 3 connector: fire deed for gamification, victory, money, points.
@@ -347,6 +356,13 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
           .then(({ error: claimErr }) => {
             if (claimErr) console.warn('claim release on uncomplete failed:', claimErr.message)
           })
+      }
+
+      // OPPORTUNITY-SURFACES: the source list item follows the claim back to
+      // the pool (decrement completed_instances, restore availability).
+      if (task.source === 'opportunity_list_claim') {
+        const writeBack = await writeBackOpportunityCompletion(task.id, 'uncomplete')
+        invalidateOpportunityBoardCaches(queryClient, writeBack)
       }
 
       // 6. Reverse any financial transaction for this completion

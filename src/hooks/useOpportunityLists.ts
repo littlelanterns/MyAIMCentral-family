@@ -304,6 +304,8 @@ export function useClaimOpportunityItem() {
       queryClient.invalidateQueries({ queryKey: ['list-items', variables.listItem.list_id] })
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.familyId] })
       queryClient.invalidateQueries({ queryKey: ['my-claims', variables.memberId] })
+      queryClient.invalidateQueries({ queryKey: ['list-item-claim-status', variables.listItem.list_id] })
+      queryClient.invalidateQueries({ queryKey: ['fo-opportunity-boards'] })
     },
   })
 }
@@ -361,6 +363,7 @@ export function useUnclaimOpportunity() {
     onSuccess: (claim) => {
       queryClient.invalidateQueries({ queryKey: ['fo-opp-claims'] })
       queryClient.invalidateQueries({ queryKey: ['fo-opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['fo-opportunity-boards'] })
       queryClient.invalidateQueries({ queryKey: ['fo-tasks'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['task-claims', claim.task_id] })

@@ -392,9 +392,12 @@ export function TasksPage() {
   const openEditTask = editor.openEditTask
 
   // ── Tab definitions ──
-  // Guided members get only My Tasks + Opportunities (PRD-25 Phase C)
-  // Guided members keep their two-tab experience (PRD-25 Phase C). Everyone
-  // else gets the purely personal page — no tabs (FO-COMMAND-CENTER).
+  // My Tasks + Opportunities for EVERY role (OPPORTUNITY-SURFACES 2026-07-01).
+  // FO-COMMAND-CENTER removed the tab switcher for non-guided members, but the
+  // intended FO relocation only shipped claimed-item display — the browsable
+  // board of UNCLAIMED items lost its only home for mom/adults/teens. The
+  // Opportunities tab is restored for all roles; the My Tasks view stays the
+  // purely personal page. Guided members keep their PRD-25 two-tab experience.
   const tabs: TabItem[] = [
     { key: 'my_tasks', label: 'My Tasks', icon: <CheckSquare size={15} /> },
     { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
@@ -416,12 +419,13 @@ export function TasksPage() {
         t.in_progress_member_id === myId
     )
 
-    if (isGuidedMember) {
-      // Guided tabs: My Tasks (task/habit) or Opportunities
-      filtered =
-        activeTab === 'opportunities'
-          ? filtered.filter((t) => t.task_type.startsWith('opportunity'))
-          : filtered.filter((t) => t.task_type === 'task' || t.task_type === 'habit')
+    if (activeTab === 'opportunities') {
+      // Opportunities tab (all roles): personal scope filtered to opportunity
+      // types — standalone opportunity tasks render below the boards.
+      filtered = filtered.filter((t) => t.task_type.startsWith('opportunity'))
+    } else if (isGuidedMember) {
+      // Guided My Tasks: task/habit only (PRD-25 Phase C)
+      filtered = filtered.filter((t) => t.task_type === 'task' || t.task_type === 'habit')
     } else {
       // FO-COMMAND-CENTER Q2 hybrid: persisted default + session override pills
       // decide whether routines/opportunities/sequential join the views.
@@ -542,14 +546,12 @@ export function TasksPage() {
         </div>
       )}
 
-      {/* ── Tabs — Guided members only (My Tasks / Opportunities, PRD-25) ── */}
-      {isGuidedMember && (
-        <Tabs
-          tabs={tabs}
-          activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as TaskTab)}
-        />
-      )}
+      {/* ── Tabs — My Tasks / Opportunities, all roles (OPPORTUNITY-SURFACES) ── */}
+      <Tabs
+        tabs={tabs}
+        activeKey={activeTab}
+        onChange={(key) => setActiveTab(key as TaskTab)}
+      />
 
       {/* ── Guided quick-add input ── */}
       {isGuidedMember && (
@@ -584,8 +586,9 @@ export function TasksPage() {
       {/* FO-COMMAND-CENTER: member pill bar removed — the Tasks page is purely
           personal; spot-checking other members lives on Family Overview. */}
 
-      {/* ── Inclusion pills + view carousel (FO-COMMAND-CENTER Q2 + Q6) ── */}
-      {!isGuidedMember && (
+      {/* ── Inclusion pills + view carousel (FO-COMMAND-CENTER Q2 + Q6) —
+          My Tasks view only; the Opportunities tab is its own surface ── */}
+      {!isGuidedMember && activeTab === 'my_tasks' && (
         <div className="space-y-2 py-2">
           <TaskViewInclusionPills
             inclusion={inclusion.effective}
@@ -597,8 +600,8 @@ export function TasksPage() {
         </div>
       )}
 
-      {/* ── Filter bar — hidden for Guided members ── */}
-      {!isGuidedMember && (
+      {/* ── Filter bar — hidden for Guided members and on the Opportunities tab ── */}
+      {!isGuidedMember && activeTab === 'my_tasks' && (
         <div className="flex items-center gap-2 py-3 flex-wrap">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -660,8 +663,8 @@ export function TasksPage() {
           <div className="flex justify-center py-12">
             <LoadingSpinner size="md" />
           </div>
-        ) : isGuidedMember && activeTab === 'opportunities' ? (
-          <OpportunitiesTab tasks={displayTasks} onToggle={toggleWithSoftClaim} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} familyId={family?.id} memberId={activeMember?.id} createdBy={member?.id} />
+        ) : activeTab === 'opportunities' ? (
+          <OpportunitiesTab tasks={displayTasks} onToggle={toggleWithSoftClaim} isCompleting={isCompleting} onCreate={() => setShowCreateModal(true)} familyId={family?.id} memberId={activeMember?.id} createdBy={member?.id} showAllBoards={isEffectiveMom} />
         ) : displayTasks.length === 0 ? (
           <EmptyState
             icon={<CheckSquare size={36} />}
@@ -1016,7 +1019,7 @@ function TaskList({ tasks, onToggle, isCompleting, showType: _showType, onEditTa
 }
 
 // ─────────────────────────────────────────────
-// OpportunitiesTab sub-component (Guided members)
+// OpportunitiesTab sub-component (all roles — OPPORTUNITY-SURFACES 2026-07-01)
 // ─────────────────────────────────────────────
 interface OpportunitiesTabProps {
   tasks: Task[]
@@ -1026,10 +1029,13 @@ interface OpportunitiesTabProps {
   familyId: string | undefined
   memberId: string | undefined
   createdBy: string | undefined
+  /** Mom sees every board regardless of eligible_members; everyone else is
+      eligibility-scoped. Claim identity stays `memberId` either way. */
+  showAllBoards?: boolean
 }
 
-function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate, familyId, memberId, createdBy }: OpportunitiesTabProps) {
-  const { data: opportunityLists = [] } = useOpportunityLists(familyId, memberId)
+function OpportunitiesTab({ tasks, onToggle, isCompleting, onCreate, familyId, memberId, createdBy, showAllBoards }: OpportunitiesTabProps) {
+  const { data: opportunityLists = [] } = useOpportunityLists(familyId, showAllBoards ? undefined : memberId)
 
   const hasStandaloneTasks = tasks.length > 0
   const hasOpportunityLists = opportunityLists.length > 0

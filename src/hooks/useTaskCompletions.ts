@@ -12,6 +12,7 @@ import type {
 } from '@/types/tasks'
 import { fireDeed } from '@/lib/connector/fireDeed'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
+import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
 
 // ============================================================
 // useTaskCompletions — completions for a single task
@@ -193,6 +194,11 @@ export function useApproveCompletion() {
       // KIDS-REWARDS-PAGE Q7 timing rule: approval-required rewards award at
       // mom's approval. RPC is idempotent + self-filtering; never throws.
       awardCustomRewardForCompletion(completionId)
+
+      // OPPORTUNITY-SURFACES: approval-required claim-bridge tasks consume
+      // their source list item at approval time (same Q7 timing rule).
+      const writeBack = await writeBackOpportunityCompletion(taskId, 'complete')
+      invalidateOpportunityBoardCaches(queryClient, writeBack)
 
       return data
     },

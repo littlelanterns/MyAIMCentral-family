@@ -31,9 +31,11 @@ import {
   useSequentialForMembers,
   useTodayVictoriesForMembers,
   useActiveOpportunityClaims,
+  useOpportunityBoardsWithItems,
   type MemberRoutineToday,
   type MemberSequentialSummary,
   type MemberOpportunityClaim,
+  type OpportunityBoard,
 } from '@/hooks/useFamilyOverviewData'
 import { useUnclaimOpportunity } from '@/hooks/useOpportunityLists'
 import { useSearchParams } from 'react-router-dom'
@@ -599,10 +601,36 @@ function TrackersSection({
 
 // ─── Section: Opportunities ──────────────────────────────────────────────────
 
+// Eligibility mirror of useOpportunityLists: null/empty = everyone.
+export function isBoardEligibleFor(board: OpportunityBoard, memberId: string): boolean {
+  return (
+    !board.eligible_members ||
+    board.eligible_members.length === 0 ||
+    board.eligible_members.includes(memberId)
+  )
+}
+
+function formatBoardReward(rewardType: string | null, rewardAmount: number | null): string | null {
+  if (!rewardType) return null
+  switch (rewardType) {
+    case 'money':
+      return rewardAmount != null ? `$${rewardAmount.toFixed(2)}` : null
+    case 'points':
+      return rewardAmount != null ? `${rewardAmount} pts` : null
+    case 'privilege':
+      return 'Privilege'
+    case 'custom':
+      return 'Prize'
+    default:
+      return null
+  }
+}
+
 function OpportunitiesSection({
   memberId,
   opportunities,
   claims,
+  boards,
   onEditTask,
   onUnclaim,
 }: {
@@ -610,14 +638,21 @@ function OpportunitiesSection({
   opportunities: Array<Record<string, unknown>>
   /** Active claims (claimed/in-progress) — founder ask 2026-06-10 */
   claims: MemberOpportunityClaim[]
+  /** Browsable boards with unclaimed items (OPPORTUNITY-SURFACES 2026-07-01) */
+  boards: OpportunityBoard[]
   onEditTask?: (taskId: string) => void
   /** Mom returns a claimed opportunity to its board/list */
   onUnclaim?: (claim: MemberOpportunityClaim) => void
 }) {
   const memberOpps = opportunities.filter((o) => o.assignee_id === memberId)
   const memberClaims = claims.filter((c) => c.member_id === memberId)
+  // Boards this member could claim from, with actively-claimed items removed
+  const memberBoards = boards
+    .filter((b) => isBoardEligibleFor(b, memberId))
+    .map((b) => ({ ...b, items: b.items.filter((i) => !i.claimed) }))
+    .filter((b) => b.items.length > 0)
 
-  if (memberOpps.length === 0 && memberClaims.length === 0) {
+  if (memberOpps.length === 0 && memberClaims.length === 0 && memberBoards.length === 0) {
     return <EmptySection />
   }
 
@@ -671,6 +706,33 @@ function OpportunitiesSection({
             )}
           </div>
         </ItemRow>
+      ))}
+
+      {/* Browsable board — unclaimed items this member is eligible to claim
+          (OPPORTUNITY-SURFACES 2026-07-01; display-only on FO) */}
+      {memberBoards.map((board) => (
+        <div key={board.id} data-testid={`fo-opp-board-${board.id}-${memberId}`} className="pt-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            <Star size={10} className="shrink-0" style={{ color: 'var(--color-warning, var(--color-btn-primary-bg))' }} />
+            <span className="truncate">{board.title}</span>
+            <span className="ml-auto shrink-0">{board.items.length} available</span>
+          </div>
+          {board.items.map((item) => {
+            const reward = formatBoardReward(item.reward_type, item.reward_amount)
+            return (
+              <div key={item.id} className="flex items-center gap-1.5 text-xs pl-4 py-0.5">
+                <span className="truncate" style={{ color: 'var(--color-text-primary)' }}>
+                  {item.title}
+                </span>
+                {reward && (
+                  <span className="ml-auto shrink-0" style={{ color: 'var(--color-success, var(--color-text-secondary))' }}>
+                    {reward}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       ))}
     </div>
   )
@@ -891,6 +953,7 @@ function MemberColumn({
   sequential,
   victories,
   oppClaims,
+  oppBoards,
   onUnclaim,
   onToggleSection,
   onToggleSectionOverride,
@@ -918,6 +981,8 @@ function MemberColumn({
   sequential: MemberSequentialSummary[]
   victories: Array<Record<string, unknown>>
   oppClaims: MemberOpportunityClaim[]
+  /** Browsable opportunity boards (unclaimed items) — OPPORTUNITY-SURFACES */
+  oppBoards: OpportunityBoard[]
   onUnclaim?: (claim: MemberOpportunityClaim) => void
   onToggleSection: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
   onToggleSectionOverride: (sectionKey: FamilyOverviewSectionKey, memberId: string) => void
@@ -999,7 +1064,10 @@ function MemberColumn({
     } else if (sectionKey === 'opportunities') {
       count =
         oppClaims.filter((c) => c.member_id === member.id).length +
-        opportunities.filter((o) => o.assignee_id === member.id).length
+        opportunities.filter((o) => o.assignee_id === member.id).length +
+        oppBoards
+          .filter((b) => isBoardEligibleFor(b, member.id))
+          .reduce((sum, b) => sum + b.items.filter((i) => !i.claimed).length, 0)
     }
 
     // Sections with a creation flow (founder asks 2026-06-10). Only
@@ -1067,6 +1135,7 @@ function MemberColumn({
             memberId={member.id}
             opportunities={opportunities}
             claims={oppClaims}
+            boards={oppBoards}
             onEditTask={onEditTask}
             onUnclaim={onUnclaim}
           />
@@ -1443,6 +1512,7 @@ export default function FamilyOverview() {
   const { data: sequentialByMember = {} } = useSequentialForMembers(family?.id, selectedMemberIds)
   const { data: victories = [] } = useTodayVictoriesForMembers(family?.id, selectedMemberIds)
   const { data: oppClaims = [] } = useActiveOpportunityClaims(family?.id, selectedMemberIds)
+  const { data: oppBoards = [] } = useOpportunityBoardsWithItems(family?.id)
   const unclaimOpportunity = useUnclaimOpportunity()
 
   // Map iteration counts per intention
@@ -1781,6 +1851,7 @@ export default function FamilyOverview() {
                     sequential={sequentialByMember[m.id] ?? []}
                     victories={victories as Array<Record<string, unknown>>}
                     oppClaims={oppClaims}
+                    oppBoards={oppBoards}
                     onUnclaim={isPrimaryParent ? (claim) => unclaimOpportunity.mutate(claim) : undefined}
                     onToggleSection={handleToggleSection}
                     onToggleSectionOverride={handleToggleSectionOverride}

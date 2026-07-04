@@ -9,6 +9,7 @@ import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
 import { grantMoney } from '@/lib/financial/grantMoney'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
+import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
 import type {
   Task,
   CreateTask,
@@ -363,6 +364,13 @@ export function useCompleteTask() {
         }
       }
 
+      // OPPORTUNITY-SURFACES: consume the source list item for claim-bridge
+      // tasks. Approval-required bridge tasks write back at approval time.
+      if (!requireApproval && updatedTask.source === 'opportunity_list_claim') {
+        const writeBack = await writeBackOpportunityCompletion(taskId, 'complete')
+        invalidateOpportunityBoardCaches(queryClient, writeBack)
+      }
+
       return { completion, task: updatedTask as Task, gamificationResult: null as GamificationResult | null }
     },
     onSuccess: ({ completion, task }) => {
@@ -502,6 +510,11 @@ export function useUncompleteTask() {
       // - Reverse any points awarded for this completion
       // - Recalculate streak if the unmarked completion broke continuity
       // - Remove any achievement triggered by this completion
+
+      // OPPORTUNITY-SURFACES: reverse the list-item consumption for
+      // claim-bridge tasks (no-op for every other task source).
+      const writeBack = await writeBackOpportunityCompletion(taskId, 'uncomplete')
+      invalidateOpportunityBoardCaches(queryClient, writeBack)
 
       return data
     },
@@ -920,6 +933,11 @@ export function useApproveTaskCompletion() {
       // KIDS-REWARDS-PAGE Q7 timing rule: approval-required rewards award at
       // mom's approval. RPC is idempotent + self-filtering; never throws.
       awardCustomRewardForCompletion(completionId)
+
+      // OPPORTUNITY-SURFACES: approval-required claim-bridge tasks consume
+      // their source list item at approval time (same Q7 timing rule).
+      const writeBack = await writeBackOpportunityCompletion(taskId, 'complete')
+      invalidateOpportunityBoardCaches(queryClient, writeBack)
 
       return data
     },

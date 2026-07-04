@@ -43,6 +43,7 @@ import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorReveal
 import { ColorRevealDetailModal } from '@/components/play-dashboard/ColorRevealDetailModal'
 import { CompletedBookGallery } from '@/components/play-dashboard/CompletedBookGallery'
 import { PlayTaskTileGrid } from '@/components/play-dashboard/PlayTaskTileGrid'
+import { PlayOpportunitySection } from '@/components/play-dashboard/PlayOpportunitySection'
 import { IconLauncherGrid } from '@/components/play-dashboard/IconLauncherGrid'
 import { useIconLauncherWidgets } from '@/hooks/useIconLauncherWidgets'
 import { PlayRevealTileStub } from '@/components/play-dashboard/PlayRevealTileStub'
@@ -90,7 +91,10 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           t =>
             t.task_type === 'task' ||
             t.task_type === 'routine' ||
-            t.task_type === 'habit',
+            t.task_type === 'habit' ||
+            // OPPORTUNITY-SURFACES (c): claimed board jobs (claim-bridge tasks
+            // carry opportunity_* types) render as normal tap-to-complete tiles
+            t.task_type.startsWith('opportunity'),
         )
         .filter(t => {
           if (t.status !== 'completed') return true
@@ -377,6 +381,13 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           isAdultViewing={isAdultViewing}
         />
       )}
+
+      {/* ── Extra Jobs — tap-to-claim opportunity boards (OPPORTUNITY-SURFACES c) ── */}
+      <PlayOpportunitySection
+        familyId={familyId}
+        memberId={memberId}
+        createdBy={ownMember?.id ?? memberId}
+      />
 
       <PlayRevealTileStub />
       <PlayMomMessageStub />

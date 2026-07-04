@@ -495,3 +495,102 @@ export function useTodayOpportunityCompletions(familyId: string | undefined, mem
     enabled: !!familyId && memberIds.length > 0 && !!dateStr,
   })
 }
+
+// ─── Opportunity boards (browsable, unclaimed) ───────────────────────────────
+// OPPORTUNITY-SURFACES (2026-07-01): the FO relocation only ever displayed
+// claimed items and completions — the browsable board of UNCLAIMED items had
+// no mom-facing home. This hook loads every opportunity board for the family
+// plus its available items; per-column eligibility filtering (eligible_members
+// null/empty = everyone, else must contain the member) happens in the section.
+
+export interface OpportunityBoardItem {
+  id: string
+  list_id: string
+  title: string
+  reward_type: string | null
+  reward_amount: number | null
+  /** True when an active claim-bridge task exists for this item */
+  claimed: boolean
+}
+
+export interface OpportunityBoard {
+  id: string
+  title: string
+  eligible_members: string[] | null
+  items: OpportunityBoardItem[]
+}
+
+export function useOpportunityBoardsWithItems(familyId: string | undefined) {
+  return useQuery({
+    queryKey: ['fo-opportunity-boards', familyId],
+    queryFn: async (): Promise<OpportunityBoard[]> => {
+      if (!familyId) return []
+
+      const { data: lists, error: listsErr } = await supabase
+        .from('lists')
+        .select('id, title, list_name, eligible_members, default_reward_type, default_reward_amount')
+        .eq('family_id', familyId)
+        .eq('is_opportunity', true)
+        .is('archived_at', null)
+        .order('updated_at', { ascending: false })
+      if (listsErr) {
+        console.error('useOpportunityBoardsWithItems lists query failed:', listsErr)
+        return []
+      }
+      if (!lists || lists.length === 0) return []
+
+      const listIds = lists.map((l) => l.id)
+      const { data: items, error: itemsErr } = await supabase
+        .from('list_items')
+        .select('id, list_id, content, item_name, reward_type, reward_amount, sort_order')
+        .in('list_id', listIds)
+        .eq('is_available', true)
+        .is('archived_at', null)
+        .order('sort_order')
+      if (itemsErr) {
+        console.error('useOpportunityBoardsWithItems items query failed:', itemsErr)
+        return []
+      }
+
+      // Active claim-bridge tasks mark items as claimed so the board display
+      // matches claim-time availability (one_time/claimable availability is
+      // derived from bridge tasks, not is_available).
+      const itemIds = (items ?? []).map((i) => i.id)
+      const claimedItemIds = new Set<string>()
+      if (itemIds.length > 0) {
+        const { data: bridgeTasks, error: bridgeErr } = await supabase
+          .from('tasks')
+          .select('source_reference_id')
+          .eq('family_id', familyId)
+          .eq('source', 'opportunity_list_claim')
+          .in('source_reference_id', itemIds)
+          .in('status', ['pending', 'in_progress', 'pending_approval'])
+          .is('archived_at', null)
+        if (bridgeErr) {
+          console.error('useOpportunityBoardsWithItems bridge query failed:', bridgeErr)
+        }
+        for (const t of bridgeTasks ?? []) {
+          if (t.source_reference_id) claimedItemIds.add(t.source_reference_id as string)
+        }
+      }
+
+      return lists.map((l) => ({
+        id: l.id as string,
+        title: (l.title || l.list_name || 'Opportunity Board') as string,
+        eligible_members: (l.eligible_members as string[] | null) ?? null,
+        items: (items ?? [])
+          .filter((i) => i.list_id === l.id)
+          .map((i) => ({
+            id: i.id as string,
+            list_id: i.list_id as string,
+            title: (i.content || i.item_name || 'Opportunity') as string,
+            reward_type: (i.reward_type ?? l.default_reward_type) as string | null,
+            reward_amount: (i.reward_amount ?? l.default_reward_amount) as number | null,
+            claimed: claimedItemIds.has(i.id as string),
+          })),
+      }))
+    },
+    enabled: !!familyId,
+    staleTime: 15_000,
+  })
+}
