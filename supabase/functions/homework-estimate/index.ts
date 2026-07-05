@@ -5,6 +5,7 @@
 
 import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -62,6 +63,9 @@ Deno.serve(async (req) => {
   if (cors) return cors
 
   try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+
     const body = await req.json()
     const parsed = InputSchema.safeParse(body)
     if (!parsed.success) {

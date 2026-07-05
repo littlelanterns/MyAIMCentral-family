@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
@@ -81,9 +82,7 @@ async function loadDecisionContext(familyId: string, memberId: string): Promise<
 }
 
 function buildSystemPrompt(ctx: string, frameworkAddition: string): string {
-  return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation. 2. Provide: 988, Crisis Text Line (741741), NDVH, 911.
+  return `${buildSafetyPreamble()}
 
 ## Identity
 You are LiLa in Decision Guide mode. You have 15 decision frameworks. Your job is to help the user think more clearly, not to make the decision for them.

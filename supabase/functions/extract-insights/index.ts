@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://esm.sh/zod@3.23.8';
 import { extractCleanTextFromPDF } from '../_shared/pdf-utils.ts';
 import { handleCors, jsonHeaders } from '../_shared/cors.ts';
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts';
 import { logAICost } from '../_shared/cost-logger.ts';
 
 const ASSESSMENT_KEYWORDS = [
@@ -142,6 +143,7 @@ serve(async (req: Request) => {
 
     // Build the AI request based on file type
     let messages: unknown[];
+    let textToScreen = '';
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
 
@@ -163,6 +165,7 @@ serve(async (req: Request) => {
         extractedTextLength = fullText.length;
         const previewLimit = getContentPreviewLimit(fullText);
         const contentPreview = fullText.substring(0, previewLimit);
+        textToScreen = contentPreview;
         messages = [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Extract insights from this document:\n\n${contentPreview}` },
@@ -194,11 +197,25 @@ serve(async (req: Request) => {
       extractedTextLength = fullText.length;
       const previewLimit = getContentPreviewLimit(fullText);
       const contentPreview = fullText.substring(0, previewLimit);
+      textToScreen = contentPreview;
 
       messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Extract insights from this document:\n\n${contentPreview}` },
       ];
+    }
+
+    // Convention #7 — crisis override is global. Uploaded personality/self
+    // documents are user-supplied free text wherever text extraction
+    // succeeded (docx/txt/md and text-extractable PDFs); gate before the
+    // model call. Vision-fallback paths (images, scanned/chart-heavy PDFs)
+    // have no pre-extractable text to screen — same structural limit as
+    // mindsweep-scan's OCR path.
+    if (textToScreen && detectCrisis(textToScreen)) {
+      return new Response(
+        JSON.stringify({ crisis: true, insights: [], response: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      );
     }
 
     // Call OpenRouter with Sonnet for quality extraction

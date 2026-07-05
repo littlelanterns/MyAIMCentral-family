@@ -6,6 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { detectTopics } from './context-assembler.ts'
 import { applyPrivacyFilter } from './privacy-filter.ts'
+import { CONTEXT_TONE_BLOCK } from './safety-preamble.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -553,9 +554,7 @@ export function formatPersonContextBlock(person: PersonContext): string {
 
 /** Format the full context for injection into system prompt */
 export function formatRelationshipContextForPrompt(ctx: RelationshipContext): string {
-  const sections: string[] = [
-    `CONTEXT REFERENCE RULES: When referencing any context below in your response, frame through growth and aspiration — never deficit or diagnosis. Say "building patience" not "anger management." Quote the user's own words when possible. Never label the user or family members with clinical terminology they did not use themselves.`,
-  ]
+  const sections: string[] = [CONTEXT_TONE_BLOCK]
 
   // User's own context (brief)
   if (ctx.guidingStars.length > 0) {

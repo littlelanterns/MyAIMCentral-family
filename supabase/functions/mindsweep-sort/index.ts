@@ -10,6 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -127,6 +128,17 @@ Deno.serve(async (req) => {
 
     // ── Step 1: Extract items (single vs multi-item detection) ──
     const extractedItems = extractItems(input.items)
+
+    // Convention #7 — crisis override is global. MindSweep-Lite is a designed
+    // teen evening disclosure surface (#180/#192); a brain-dump item can be
+    // the only place a crisis disclosure surfaces. Any hit short-circuits the
+    // entire batch before embedding/LLM classification touches the content.
+    if (extractedItems.some(item => detectCrisis(item.text))) {
+      return new Response(
+        JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
+    }
 
     // ── Step 2: Embedding-first classification ──
     for (let i = 0; i < extractedItems.length; i++) {

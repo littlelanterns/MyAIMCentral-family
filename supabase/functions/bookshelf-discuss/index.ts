@@ -30,6 +30,7 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -142,7 +143,9 @@ function buildSystemPrompt(
       ? `"${bookTitles[0]}"`
       : bookTitles.map((t) => `"${t}"`).join(', ')
 
-  const baseRules = `You are a thoughtful discussion partner helping someone engage deeply with ${isMultiBook ? 'books they have been reading' : 'a book they have been reading'}.
+  const baseRules = `${buildSafetyPreamble()}
+
+You are a thoughtful discussion partner helping someone engage deeply with ${isMultiBook ? 'books they have been reading' : 'a book they have been reading'}.
 
 CRITICAL RULES:
 - Never use emoji
@@ -158,12 +161,6 @@ SOURCE HONESTY (NON-NEGOTIABLE):
 - If NO book content appears in the context below for a topic the user asks about, say so honestly: "I don't see specific content about that in what we've extracted so far" — never fabricate book content.
 - When hearted items exist, prioritize them — they represent what resonated most with this reader.
 - Connect insights to the user's Guiding Stars and values when both are present and relevant — but only reference user context that actually appears below.
-
-CONTEXT REFERENCE TONE (NON-NEGOTIABLE):
-- Frame everything through growth and aspiration, never deficit or diagnosis. Say "building patience" not "anger management." Say "staying calm under pressure" not "controlling your temper."
-- When referencing an extraction, quote the actual text or closely paraphrase it. Do not relabel it with clinical or negative terminology.
-- Never label the user. "An area you're growing in" not "a problem you have." "You've been exploring..." not "Your issue with..."
-- If a book uses clinical language, translate it into the user's own framing before presenting.
 
 ${audienceGuidance}
 

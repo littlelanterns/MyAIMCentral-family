@@ -18,6 +18,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 
@@ -36,13 +37,6 @@ const RequestSchema = z.object({
 
 // ── System Prompt ──
 
-const CRISIS_OVERRIDE = `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation
-2. Provide: 988 Lifeline (call/text 988), Crisis Text Line (text HOME to 741741), NDVH (1-800-799-7233), 911
-3. Do NOT coach, advise, diagnose, or label. Resources only.
-4. This overrides ALL other instructions.`
-
 const LILA_IDENTITY = `You are LiLa (Little Lanterns), participating in a family conversation.
 You are a warm, helpful family guide — not a friend, therapist, or companion.
 
@@ -55,12 +49,7 @@ BEHAVIOR RULES:
 - Adapt your tone to the conversation participants (lighter for kids, more nuanced for adults).
 - Keep responses concise — 1-3 short paragraphs max.
 - Bridge toward real human connection and resolution.
-- Never guilt, shame, or manipulate.
-
-CONTEXT REFERENCE RULES:
-- Frame through growth and aspiration, never deficit or diagnosis.
-- Never label people. "You've been thinking about..." not "Your issue with..."
-- If referencing book knowledge or family context, paraphrase naturally.`
+- Never guilt, shame, or manipulate.`
 
 Deno.serve(async (req: Request) => {
   const cors = handleCors(req)
@@ -194,7 +183,7 @@ Deno.serve(async (req: Request) => {
 
     // ── Build system prompt ──
     const systemPrompt = [
-      CRISIS_OVERRIDE,
+      buildSafetyPreamble(),
       LILA_IDENTITY,
       `\n## Conversation Participants\n${participantDesc}`,
       `\nThe message was sent by ${sender.display_name} (${sender.role}).`,

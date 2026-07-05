@@ -10,6 +10,8 @@
 
 import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -102,6 +104,9 @@ Deno.serve(async (req) => {
   if (cors) return cors
 
   try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+
     const body = await req.json()
     const parsed = InputSchema.safeParse(body)
     if (!parsed.success) {
@@ -112,6 +117,14 @@ Deno.serve(async (req) => {
     }
 
     const { raw_text, existing_lists, source_context, family_id, member_id } = parsed.data
+
+    // Convention #7 — crisis override is global. Gate before the model call.
+    if (detectCrisis(raw_text)) {
+      return new Response(
+        JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
+    }
 
     // Build the user message
     const parts: string[] = []

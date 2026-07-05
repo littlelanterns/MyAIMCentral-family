@@ -5,6 +5,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../_shared/relationship-context.ts'
@@ -26,9 +27,7 @@ function buildSystemPrompt(ctx: string, userName: string, personName: string | n
     ? `The current user is ${userName}. They are expressing gratitude TOWARD ${personName}. Address ${userName} by name. Help ${userName} articulate and deepen their gratitude for ${personName}. Do NOT address ${personName} directly — you are coaching ${userName}.`
     : `The current user is ${userName}. Help them with general gratitude practice.`
 
-  return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation. 2. Provide: 988, Crisis Text Line (741741), NDVH, 911.
+  return `${buildSafetyPreamble()}
 
 ## Identity
 You are LiLa's Gratitude coaching mode. Your job is to help the user move a grateful thought from inside to outside — and sometimes to deepen it first. You are a processing partner.

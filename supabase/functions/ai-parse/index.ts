@@ -6,6 +6,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -34,12 +36,26 @@ Deno.serve(async (req) => {
   if (cors) return cors
 
   try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+
     const body = await req.json()
     const parsed = InputSchema.safeParse(body)
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Missing system_prompt or messages' }), { status: 400, headers: jsonHeaders })
     }
     const { system_prompt, messages, max_tokens, model_tier, family_id, member_id, feature_key } = parsed.data
+
+    // Convention #7 — crisis override is global. ai-parse is a generic
+    // passthrough used by bulk-add, sorting, and other structured-output
+    // call sites; gate every message's content before the model call so a
+    // caller-supplied system_prompt can never bypass crisis screening.
+    if (messages.some(m => detectCrisis(m.content))) {
+      return new Response(
+        JSON.stringify({ crisis: true, content: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
+    }
 
     const modelId = MODELS[model_tier || 'haiku']
 

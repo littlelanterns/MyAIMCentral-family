@@ -139,9 +139,16 @@ export interface FamilyMemberName {
 }
 
 export interface MindSweepSortResponse {
-  event_id: string;
-  results: MindSweepSortResult[];
-  totals: {
+  // Convention #7 — crisis override is global. When any item in the batch
+  // matches detectCrisis(), the Edge Function short-circuits BEFORE
+  // embedding/LLM classification and returns only these two fields — no
+  // `results`/`totals`. Callers MUST check `crisis` before touching
+  // `results`.
+  crisis?: boolean;
+  response?: string;
+  event_id?: string;
+  results?: MindSweepSortResult[];
+  totals?: {
     items_extracted: number;
     items_auto_routed: number;
     items_queued: number;

@@ -5,6 +5,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../_shared/relationship-context.ts'
@@ -22,9 +23,7 @@ const InputSchema = z.object({
 })
 
 function buildSystemPrompt(ctx: string): string {
-  return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation. 2. Provide: 988 Lifeline, Crisis Text Line (741741), NDVH (1-800-799-7233), 911.
+  return `${buildSafetyPreamble()}
 
 ## Identity
 You are LiLa's Gifts coaching mode. Your job is to help the user find a gift that communicates "I was thinking about you when you weren't with me." You are a processing partner, never a friend, therapist, or companion.

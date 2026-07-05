@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-04
+> Auto-generated from live Supabase on 2026-07-05
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 508 rows
+### `view_as_sessions` — 518 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 388 rows
+### `view_as_feature_exclusions` — 398 rows
 
 | # | Column |
 |---|---|
@@ -295,7 +295,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 75 rows
+### `lila_conversations` — 84 rows
 
 | # | Column |
 |---|---|
@@ -320,7 +320,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 158 rows
+### `lila_messages` — 176 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 679 rows
+### `ai_usage_tracking` — 690 rows
 
 | # | Column |
 |---|---|
@@ -667,7 +667,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 189 rows
+### `tasks` — 190 rows
 
 | # | Column |
 |---|---|
@@ -886,7 +886,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 51 rows
+### `lists` — 52 rows
 
 | # | Column |
 |---|---|
@@ -938,7 +938,7 @@
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
 
-### `list_items` — 201 rows
+### `list_items` — 205 rows
 
 | # | Column |
 |---|---|
@@ -1345,7 +1345,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 15 rows
+### `victories` — 13 rows
 
 | # | Column |
 |---|---|
@@ -1373,7 +1373,7 @@
 | 22 | `updated_at` |
 | 23 | `life_area_tags` |
 
-### `victory_celebrations` — 1 rows
+### `victory_celebrations` — 0 rows
 
 | # | Column |
 |---|---|
@@ -1634,7 +1634,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 2 rows
+### `notifications` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2407,7 +2407,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 13 rows
+### `mindsweep_events` — 14 rows
 
 | # | Column |
 |---|---|
@@ -2501,7 +2501,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 325 rows
+### `activity_log_entries` — 324 rows
 
 | # | Column |
 |---|---|
@@ -3357,7 +3357,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 33 rows
+### `member_creature_collection` — 35 rows
 
 | # | Column |
 |---|---|

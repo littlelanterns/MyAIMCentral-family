@@ -8,6 +8,7 @@
 
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -95,6 +96,17 @@ Deno.serve(async (req: Request) => {
       .map(m => m.content)
       .join('\n---\n')
       .slice(0, 500)
+
+    // Convention #7 — crisis override is global (SCOPE-8b.F5). Titles are
+    // generated from unscreened message content today; never feed crisis
+    // content to the model, and never persist a title derived from it —
+    // leave title NULL so a future non-crisis reply can still title the
+    // thread normally.
+    if (detectCrisis(messageText)) {
+      return new Response(JSON.stringify({ title: null, crisis: true, skipped: true }), {
+        headers: jsonHeaders,
+      })
+    }
 
     // ── Call Haiku ──
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

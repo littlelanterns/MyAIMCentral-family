@@ -6,6 +6,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -220,6 +221,17 @@ Deno.serve(async (req: Request) => {
       bestIntentions as { id: string; statement: string }[],
       existingVictories as { description: string }[],
     )
+
+    // Convention #7 — crisis override is global. Activity-log free text
+    // (task notes, completion metadata) is user-authored; gate before the
+    // model call.
+    if (detectCrisis(activityText)) {
+      return new Response(JSON.stringify({
+        crisis: true,
+        suggestions: [],
+        response: CRISIS_RESPONSE,
+      }), { headers: jsonHeaders })
+    }
 
     // Call Haiku via OpenRouter
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

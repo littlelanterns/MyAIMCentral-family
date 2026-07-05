@@ -646,8 +646,22 @@ export function useRunSweep() {
         familyMemberNames: params.familyMemberNames,
       })
 
+      // Convention #7 — crisis override is global. mindsweep-sort short-
+      // circuits BEFORE classification on a crisis hit and returns only
+      // {crisis, response} — no `results`/`event_id`. This MUST be checked
+      // before routeSweepResults ever sees the response, or it throws on
+      // `results.map` and the crisis resources never reach the user (the
+      // failure this fixes: a generic "Something went wrong" box instead of
+      // the actual 988/Crisis Text Line/NDVH/911 resources).
+      if (response.crisis) {
+        sweepStatus.crisisSweep(response.response || DEFAULT_CRISIS_MESSAGE)
+        return null
+      }
+
+      const results = response.results ?? []
+
       const routeResult = await routeSweepResults(
-        response.results,
+        results,
         aggressiveness,
         params.familyId,
         params.memberId,
@@ -663,7 +677,7 @@ export function useRunSweep() {
       queryClient.invalidateQueries({ queryKey: ['studio-queue-count'] })
 
       sweepStatus.completeSweep(routeResult)
-      return { ...routeResult, totalItems: response.results.length }
+      return { ...routeResult, totalItems: results.length }
     } catch (err) {
       // Surface the real failure in the console (Row 31 SCOPE-4.F1 class:
       // this catch was fully silent, which is why bug 16e94c3b took an
@@ -685,13 +699,27 @@ export function useRunSweep() {
 
 // ── Sweep Status ──
 
-export type SweepStatus = 'idle' | 'processing' | 'complete' | 'error'
+export type SweepStatus = 'idle' | 'processing' | 'complete' | 'error' | 'crisis'
 
 const AUTO_RESET_MS = 8000
+
+// Fallback text if the Edge Function response is somehow missing `response`
+// on a crisis hit — matches _shared/crisis-detection.ts CRISIS_RESPONSE
+// verbatim so the client never shows anything less complete than the server
+// would have.
+export const DEFAULT_CRISIS_MESSAGE = `I hear you, and I want you to know that help is available right now.
+
+**988 Suicide & Crisis Lifeline** — Call or text 988 (24/7)
+**Crisis Text Line** — Text HOME to 741741
+**National Domestic Violence Hotline** — 1-800-799-7233 (24/7)
+**Emergency** — Call 911
+
+You don't have to face this alone.`
 
 export function useSweepStatus() {
   const [status, setStatus] = useState<SweepStatus>('idle')
   const [lastResult, setLastResult] = useState<{ autoRouted: number; queued: number; failed: number; errors: string[] } | null>(null)
+  const [crisisMessage, setCrisisMessage] = useState<string | null>(null)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const clearResetTimer = useCallback(() => {
@@ -725,13 +753,24 @@ export function useSweepStatus() {
     }, AUTO_RESET_MS)
   }, [clearResetTimer])
 
+  // Deliberately NO auto-reset timer — crisis resources must stay visible
+  // until the user explicitly dismisses them (resetSweep), unlike the
+  // complete/error states. Someone reading a crisis line shouldn't have it
+  // vanish out from under them on an 8-second clock.
+  const crisisSweep = useCallback((message: string) => {
+    setCrisisMessage(message)
+    setStatus('crisis')
+    clearResetTimer()
+  }, [clearResetTimer])
+
   const resetSweep = useCallback(() => {
     clearResetTimer()
     setStatus('idle')
     setLastResult(null)
+    setCrisisMessage(null)
   }, [clearResetTimer])
 
-  return { status, lastResult, startSweep, completeSweep, errorSweep, resetSweep }
+  return { status, lastResult, crisisMessage, startSweep, completeSweep, errorSweep, crisisSweep, resetSweep }
 }
 
 // ── Calendar Import ──

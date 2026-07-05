@@ -9,6 +9,7 @@
  */
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -120,6 +121,17 @@ async function handleScan(body: {
     })
   }
 
+  // Convention #7 — crisis override is global. OCR'd text re-enters MindSweep
+  // unscreened downstream; gate here so a scanned note/screenshot containing
+  // crisis content surfaces resources instead of silently flowing into a
+  // task/list/calendar destination.
+  if (detectCrisis(extractedText)) {
+    return new Response(
+      JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
+      { headers: jsonHeaders },
+    )
+  }
+
   return new Response(
     JSON.stringify({ text: extractedText.trim() }),
     { headers: jsonHeaders },
@@ -190,6 +202,15 @@ async function handleLink(body: {
   if (!pageText || pageText.length < 10) {
     return new Response(
       JSON.stringify({ text: `Link: ${url}\n(No readable content found)` }),
+      { headers: jsonHeaders },
+    )
+  }
+
+  // Convention #7 — crisis override is global. Gate before summarization so
+  // fetched page text never reaches the model unscreened.
+  if (detectCrisis(pageText)) {
+    return new Response(
+      JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
       { headers: jsonHeaders },
     )
   }

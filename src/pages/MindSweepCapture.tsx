@@ -9,6 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Wand2, Mic, MicOff, Loader2, Send, Clock, ImagePlus, Link2,
   ArrowLeft, Settings, Inbox, X, Trash2, CalendarDays, HelpCircle,
+  HeartHandshake,
 } from 'lucide-react'
 import { MindSweepSettingsPanel, MODE_OPTIONS } from '@/components/mindsweep/MindSweepSettingsPanel'
 import { useCanAccess } from '@/lib/permissions/useCanAccess'
@@ -75,6 +76,21 @@ function resizeImageForOCR(file: File, maxDim: number): Promise<{ base64: string
       reject(new Error('Could not load image'))
     }
     img.src = url
+  })
+}
+
+/** Render a `**bold**`-marked crisis message as JSX. Purpose-built for the
+ *  fixed CRISIS_RESPONSE string (no other markdown features needed) rather
+ *  than pulling in a markdown renderer for one string. */
+function renderCrisisMessage(message: string) {
+  return message.split('\n').map((line, i) => {
+    if (!line) return <div key={i} style={{ height: '0.5rem' }} />
+    const parts = line.split('**')
+    return (
+      <p key={i} className="text-sm" style={{ margin: 0 }}>
+        {parts.map((part, j) => (j % 2 === 1 ? <strong key={j}>{part}</strong> : part))}
+      </p>
+    )
   })
 }
 
@@ -863,6 +879,32 @@ export function MindSweepCapture() {
                 </div>
               )
             })()
+          )}
+
+          {sweepStatus.status === 'crisis' && sweepStatus.crisisMessage && (
+            <div
+              data-testid="mindsweep-crisis-resources"
+              className="flex flex-col gap-2 py-4 px-4 rounded-xl border-2"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-error, #e53e3e) 8%, var(--color-bg-primary))',
+                borderColor: 'var(--color-error, #e53e3e)',
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <HeartHandshake size={20} style={{ color: 'var(--color-error, #e53e3e)', flexShrink: 0, marginTop: 2 }} />
+                <div className="flex flex-col gap-1">
+                  {renderCrisisMessage(sweepStatus.crisisMessage)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => sweepStatus.resetSweep()}
+                className="self-end text-xs font-medium px-3 py-1.5 rounded-lg"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+              >
+                Close
+              </button>
+            </div>
           )}
 
           {sweepStatus.status === 'error' && (

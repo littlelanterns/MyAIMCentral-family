@@ -22,6 +22,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { embedText } from '../_shared/embedding.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
@@ -461,9 +462,7 @@ function buildAdvisorPrompt(
     known_for?: string
   }
 
-  return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation. 2. Provide: 988, Crisis Text Line (741741), NDVH, 911.
+  return `${buildSafetyPreamble()}
 Break character immediately for crisis.
 
 ## YOUR IDENTITY: ${persona.persona_name}
@@ -493,7 +492,9 @@ ${userContext}
 }
 
 function buildModeratorPrompt(seatedNames: string[], userContext: string): string {
-  return `## IDENTITY
+  return `${buildSafetyPreamble()}
+
+## IDENTITY
 You are LiLa, moderating a Board of Directors advisory session. You are NOT an advisor — you are the facilitator.
 
 Your role between advisor rounds:

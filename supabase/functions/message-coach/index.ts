@@ -16,6 +16,7 @@
 
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -88,6 +89,20 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ error: 'thread_id and message_content required' }),
         { status: 400, headers: jsonHeaders },
+      )
+    }
+
+    // Convention #7 — crisis override is global (SCOPE-8b.F5). A message
+    // draft is user free text same as any LiLa conversation turn; a kid or
+    // family member typing crisis content before send must see resources.
+    // shouldCoach MUST be true here — the client's checkCoaching short-circuits
+    // straight to send whenever isClean || !shouldCoach (ChatThreadView.tsx),
+    // so a crisis hit has to ride the existing checkpoint surface to be seen
+    // at all. Skip the model entirely.
+    if (detectCrisis(message_content)) {
+      return new Response(
+        JSON.stringify({ crisis: true, shouldCoach: true, coachingNote: CRISIS_RESPONSE, isClean: false }),
+        { headers: jsonHeaders },
       )
     }
 

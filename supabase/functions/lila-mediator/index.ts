@@ -9,6 +9,7 @@ import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../
 import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -81,7 +82,9 @@ function buildSystemPrompt(
   safetyTriggered: boolean,
 ): string {
   if (safetyTriggered) {
-    return `## SAFETY MODE ACTIVE
+    return `${buildSafetyPreamble()}
+
+## SAFETY MODE ACTIVE
 This conversation has been flagged for safety concerns. Framework-based conflict coaching is suspended for the remainder of this session.
 
 Your role now:
@@ -106,9 +109,7 @@ ${userCtx}
 
   const modeAddition = CONTEXT_MODE_ADDITIONS[contextMode] || CONTEXT_MODE_ADDITIONS.solo
 
-  return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation. 2. Provide: 988, Crisis Text Line (741741), NDVH, 911.
+  return `${buildSafetyPreamble()}
 
 ## Identity
 You are LiLa in Mediator mode. You help people process conflict, gain clarity, and prepare to re-engage — with themselves or others.

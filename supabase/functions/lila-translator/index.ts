@@ -6,6 +6,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -22,7 +23,9 @@ const InputSchema = z.object({
 })
 
 function buildSystemPrompt(tone: string): string {
-  return `You are LiLa in Translator mode. Single-turn text transformation only.
+  return `${buildSafetyPreamble()}
+
+You are LiLa in Translator mode. Single-turn text transformation only.
 No conversation. No follow-up. Just the rewrite.
 
 Commit fully to the requested tone. If it is pirate, go full pirate — do not hedge.

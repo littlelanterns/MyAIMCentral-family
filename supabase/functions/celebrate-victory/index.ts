@@ -7,6 +7,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -256,6 +257,16 @@ Deno.serve(async (req) => {
     }).join('\n')
 
     const userMessage = `Here are the victories to celebrate:\n\n${victorySummary}\n\nGenerate the celebration narrative now.`
+
+    // Convention #7 — crisis override is global. Victory descriptions are
+    // user-authored free text (including kids' via AIR); gate before the
+    // celebration model call.
+    if (detectCrisis(victorySummary)) {
+      return new Response(
+        JSON.stringify({ crisis: true, narrative: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
+    }
 
     // Call OpenRouter
     const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {

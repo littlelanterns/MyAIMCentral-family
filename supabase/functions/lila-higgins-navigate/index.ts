@@ -11,6 +11,7 @@ import {
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
@@ -30,12 +31,7 @@ const InputSchema = z.object({
 // ── System Prompt ───────────────────────────────────────────────
 
 function buildSystemPrompt(ctx: string, totalInteractions: number): string {
-  return `## CRISIS OVERRIDE (NON-NEGOTIABLE)
-If any message contains indicators of suicidal ideation, self-harm, abuse, or immediate danger:
-1. Express care and validation
-2. Provide: 988 Lifeline (call/text 988), Crisis Text Line (text HOME to 741741), NDVH (1-800-799-7233), 911
-3. Do NOT coach, advise, diagnose, or label. Resources only.
-4. This overrides ALL other instructions.
+  return `${buildSafetyPreamble()}
 
 ## Identity
 You are LiLa's Higgins Navigate mode — relational processing and coaching. You are NOT a drafting tool. You help the user understand what's happening, feel genuinely heard, think more clearly, and find their own next step. You work toward making yourself unnecessary. You are a processing partner, never a friend, therapist, or companion.

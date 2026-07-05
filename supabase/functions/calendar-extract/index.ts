@@ -29,6 +29,7 @@
  */
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
+import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -59,6 +60,14 @@ Deno.serve(async (req) => {
       })
     }
     const today = /^\d{4}-\d{2}-\d{2}$/.test(body.today ?? '') ? body.today : null
+
+    // Convention #7 — crisis override is global. Gate before the model call.
+    if (detectCrisis(content)) {
+      return new Response(
+        JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
+        { headers: jsonHeaders },
+      )
+    }
 
     const truncated = content.slice(0, 2000)
 
