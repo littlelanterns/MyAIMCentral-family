@@ -24,6 +24,7 @@ import { RhythmDashboardCard } from '@/components/rhythms/RhythmDashboardCard'
 import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorRevealTallyWidget'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
+import { useMemberStreak } from '@/hooks/useMemberStreak'
 import { useTasks } from '@/hooks/useTasks'
 import { DashboardSectionWrapper } from '@/components/dashboard'
 import type { SectionKey } from '@/components/dashboard'
@@ -51,7 +52,11 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
   // Member data for gamification indicators
   const memberData = displayMember as Record<string, unknown> | undefined
   const points = (memberData?.gamification_points as number) ?? 0
-  const streak = (memberData?.current_streak as number) ?? 0
+  // CLIENT-DATE-REMEDIATION revised W4: family_members.current_streak has been
+  // dead since migration 100221 dropped the RPC that wrote it — read the live
+  // computed streak instead (see useMemberStreak.ts).
+  const { data: memberStreak } = useMemberStreak(displayMemberId)
+  const streak = memberStreak?.currentStreak ?? 0
   const readingSupport = preferences.reading_support_enabled
 
   // Build M Phase 5: Coloring reveal tally widgets (gamification opt-in)

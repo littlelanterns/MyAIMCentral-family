@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 import type { Task } from '@/types/tasks'
 
 export interface TaskRandomizerDraw {
@@ -30,7 +31,9 @@ export function useTaskRandomizerDraws(
   tasks: Task[],
   memberId: string | undefined,
 ) {
-  const today = todayLocalIso()
+  // Row 184 NEW-DD / Convention #257 (R4): family-local today.
+  const { data: familyToday } = useFamilyToday(memberId)
+  const today = familyToday ?? todayLocalIso()
 
   // Extract unique linked_list_ids
   const linkedListIds = useMemo(() => {

@@ -5,9 +5,12 @@ import { useMemo } from 'react'
 import { CircleCheck, Circle, CalendarDays } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
-export function BooleanCheckinTracker({ widget: _widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
-  const today = todayLocalIso()
+export function BooleanCheckinTracker({ widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyTodayRaw } = useFamilyToday(widget.family_member_id)
+  const today = familyTodayRaw ?? todayLocalIso()
 
   const isDoneToday = useMemo(() => {
     return dataPoints.some(dp => dp.recorded_date === today && Number(dp.value) === 1)
@@ -29,6 +32,7 @@ export function BooleanCheckinTracker({ widget: _widget, dataPoints, onRecordDat
         onToggle={handleToggle}
         isCompact={isCompact}
         hasRecordData={!!onRecordData}
+        todayStr={today}
       />
     )
   }
@@ -82,14 +86,14 @@ export function BooleanCheckinTracker({ widget: _widget, dataPoints, onRecordDat
         </span>
       </button>
 
-      <StreakDisplay dataPoints={dataPoints} />
+      <StreakDisplay dataPoints={dataPoints} todayStr={today} />
     </div>
   )
 }
 
 // ── Streak display helper ──────────────────────────────────
 
-function StreakDisplay({ dataPoints }: { dataPoints: TrackerProps['dataPoints'] }) {
+function StreakDisplay({ dataPoints, todayStr }: { dataPoints: TrackerProps['dataPoints']; todayStr: string }) {
   const streak = useMemo(() => {
     const completedDates = new Set(
       dataPoints
@@ -98,7 +102,8 @@ function StreakDisplay({ dataPoints }: { dataPoints: TrackerProps['dataPoints'] 
     )
 
     let count = 0
-    const d = new Date()
+    const [y, m, dNum] = todayStr.split('-').map(Number)
+    const d = new Date(y, m - 1, dNum)
     // Check from today backwards
     while (true) {
       const dateStr = localIso(d)
@@ -110,7 +115,7 @@ function StreakDisplay({ dataPoints }: { dataPoints: TrackerProps['dataPoints'] 
       }
     }
     return count
-  }, [dataPoints])
+  }, [dataPoints, todayStr])
 
   if (streak <= 0) return null
 
@@ -129,17 +134,20 @@ function CalendarDotsVariant({
   onToggle,
   isCompact,
   hasRecordData,
+  todayStr,
 }: {
   dataPoints: TrackerProps['dataPoints']
   isDoneToday: boolean
   onToggle: () => void
   isCompact?: boolean
   hasRecordData: boolean
+  /** Family-local today (Convention #257 R1) — never derive from device new Date() here. */
+  todayStr: string
 }) {
-  const today = new Date()
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const today = new Date(ty, tm - 1, td)
   const year = today.getFullYear()
   const month = today.getMonth()
-  const todayStr = localIso(today)
 
   const completedDates = useMemo(() => {
     return new Set(

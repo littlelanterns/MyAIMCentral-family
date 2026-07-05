@@ -465,7 +465,7 @@
 | 22 | `archived_at` |
 | 23 | `color` |
 
-### `intention_iterations` — 36 rows
+### `intention_iterations` — 37 rows
 
 | # | Column |
 |---|---|
@@ -667,7 +667,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 188 rows
+### `tasks` — 189 rows
 
 | # | Column |
 |---|---|
@@ -1345,7 +1345,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 13 rows
+### `victories` — 15 rows
 
 | # | Column |
 |---|---|
@@ -1373,7 +1373,7 @@
 | 22 | `updated_at` |
 | 23 | `life_area_tags` |
 
-### `victory_celebrations` — 0 rows
+### `victory_celebrations` — 1 rows
 
 | # | Column |
 |---|---|
@@ -1634,7 +1634,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 1 rows
+### `notifications` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2501,7 +2501,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 323 rows
+### `activity_log_entries` — 325 rows
 
 | # | Column |
 |---|---|

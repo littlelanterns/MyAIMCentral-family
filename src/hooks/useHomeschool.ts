@@ -275,8 +275,11 @@ export function useDailySummary(memberId: string | undefined, date?: string) {
 }
 
 export function useWeeklySummary(memberId: string | undefined, weekStart?: string) {
+  // Row 184 NEW-DD / Convention #257 (R4): family-local today, same pattern
+  // as useDailySummary above.
+  const { data: familyToday } = useFamilyToday(memberId)
   // Default to this Monday
-  const start = weekStart ?? getWeekStart(todayLocalIso())
+  const start = weekStart ?? getWeekStart(familyToday ?? todayLocalIso())
   const end = addDays(start, 6)
   return useQuery({
     queryKey: ['homeschool-weekly-summary', memberId, start],

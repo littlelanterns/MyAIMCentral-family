@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { Frown, Annoyed, Meh, Smile, Laugh } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 
 const MOOD_ICONS = [
@@ -16,27 +17,27 @@ const MOOD_ICONS = [
   { Icon: Laugh, label: 'Great' },
 ]
 
-function getTodayStr(): string {
-  return todayLocalIso()
-}
-
-function getLast7Days(): string[] {
+function getLast7Days(todayStr: string): string[] {
+  const [y, m, d] = todayStr.split('-').map(Number)
+  const now = new Date(y, m - 1, d)
   const days: string[] = []
-  const now = new Date()
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(d.getDate() - i)
-    days.push(localIso(d))
+    const day = new Date(now)
+    day.setDate(day.getDate() - i)
+    days.push(localIso(day))
   }
   return days
 }
 
 export function MoodRatingTracker({
+  widget,
   dataPoints,
   onRecordData,
   isCompact,
 }: TrackerProps) {
-  const todayStr = getTodayStr()
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyToday } = useFamilyToday(widget.family_member_id)
+  const todayStr = familyToday ?? todayLocalIso()
 
   // Today's mood = most recent data point for today
   const todayMood = useMemo(() => {
@@ -49,7 +50,7 @@ export function MoodRatingTracker({
 
   // Last 7 days trend data
   const trendData = useMemo(() => {
-    const days = getLast7Days()
+    const days = getLast7Days(todayStr)
     const dayMap = new Map<string, number>()
 
     // Build a map of date -> latest mood value
@@ -65,7 +66,7 @@ export function MoodRatingTracker({
     return days
       .map(date => ({ date, value: dayMap.get(date) ?? null }))
       .filter((d): d is { date: string; value: number } => d.value !== null)
-  }, [dataPoints])
+  }, [dataPoints, todayStr])
 
   const handleSelectMood = (rating: number) => {
     onRecordData?.(rating, { value_type: 'mood' })

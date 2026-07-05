@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { CheckSquare, Square } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 export function ChecklistTracker({ widget, dataPoints, onRecordData, variant: _variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -13,8 +14,10 @@ export function ChecklistTracker({ widget, dataPoints, onRecordData, variant: _v
   }
   const items = config.checklist_items ?? ['Item 1', 'Item 2', 'Item 3']
 
-  // Get today's checked items from data points
-  const today = todayLocalIso()
+  // Get today's checked items from data points.
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyToday } = useFamilyToday(widget.family_member_id)
+  const today = familyToday ?? todayLocalIso()
   const todayChecked = useMemo(() => {
     const todayPoints = dataPoints.filter(dp => dp.recorded_date === today)
     const checked = new Set<number>()

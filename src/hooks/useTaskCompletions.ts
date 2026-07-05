@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useActedBy } from './useActedBy'
 import { todayLocalIso, startOfLocalWeekIso } from '@/utils/dates'
+import { useFamilyToday } from './useFamilyToday'
 import type {
   TaskCompletion,
   CreateTaskCompletion,
@@ -329,16 +330,22 @@ export function useSharedRoutineStepCompletions(
 /**
  * Fetch ALL routine step completions for the ENTIRE current ISO week for a shared task.
  * Used by isSectionActiveToday for show_until_complete on shared routines.
+ *
+ * `memberId` (Row 184 NEW-DD / Convention #257 R4) drives the family-local
+ * "today" upper bound — any member in the family resolves the same timezone,
+ * so the viewing member's id is fine here.
  */
 export function useSharedRoutineStepCompletionsThisWeek(
   taskId: string | undefined,
   isShared: boolean,
+  memberId?: string,
 ) {
-  const today = todayLocalIso()
+  const { data: familyToday } = useFamilyToday(memberId)
+  const today = familyToday ?? todayLocalIso()
   const weekStart = startOfLocalWeekIso()
 
   return useQuery({
-    queryKey: ['routine-step-completions-shared-week', taskId, weekStart],
+    queryKey: ['routine-step-completions-shared-week', taskId, weekStart, today],
     queryFn: async () => {
       if (!taskId) return []
 
@@ -367,11 +374,12 @@ export function useRoutineStepCompletionsThisWeek(
   taskId: string | undefined,
   memberId: string | undefined,
 ) {
-  const today = todayLocalIso()
+  const { data: familyToday } = useFamilyToday(memberId)
+  const today = familyToday ?? todayLocalIso()
   const weekStart = startOfLocalWeekIso()
 
   return useQuery({
-    queryKey: ['routine-step-completions-week', taskId, memberId, weekStart],
+    queryKey: ['routine-step-completions-week', taskId, memberId, weekStart, today],
     queryFn: async () => {
       if (!taskId || !memberId) return []
 

@@ -6,8 +6,12 @@ import React, { useMemo } from 'react'
 import { Grid3x3 } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 export function HabitGridTracker({ widget, dataPoints, onRecordData, variant: _variant, isCompact }: TrackerProps) {
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyToday } = useFamilyToday(widget.family_member_id)
+  const today = familyToday ?? todayLocalIso()
   const config = widget.widget_config as {
     default_habits?: string[]
     grid_size?: 'weekly' | 'monthly'
@@ -122,7 +126,7 @@ export function HabitGridTracker({ widget, dataPoints, onRecordData, variant: _v
               </div>
               {visibleDates.map(date => {
                 const filled = completionMap.has(`${habitIdx}:${date}`)
-                const isToday = date === todayLocalIso()
+                const isToday = date === today
                 return (
                   <button
                     key={date}

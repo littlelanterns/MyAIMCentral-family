@@ -35,6 +35,8 @@ import {
   normalizeGraceDayEntry,
 } from '@/hooks/useFinancial'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
+import { useFamilyMember } from '@/hooks/useFamilyMember'
 
 interface GraceDayCalendarProps {
   /** Period start (YYYY-MM-DD). Calendar only shows dates within this period. */
@@ -65,7 +67,13 @@ export function GraceDayCalendar({
   disabled = false,
   pending = false,
 }: GraceDayCalendarProps) {
-  const today = todayLocalIso()
+  // Row 184 NEW-DD / Convention #257 (R4): family-local today. Uses the
+  // logged-in (mom) member — family_today only depends on family timezone,
+  // not which specific member is passed, so this works regardless of whose
+  // grace-day calendar is being shown.
+  const { data: ownMember } = useFamilyMember()
+  const { data: familyToday } = useFamilyToday(ownMember?.id)
+  const today = familyToday ?? todayLocalIso()
 
   const days = useMemo(() => {
     const out: Array<{

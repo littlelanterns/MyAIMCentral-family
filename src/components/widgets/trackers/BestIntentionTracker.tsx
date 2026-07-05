@@ -32,6 +32,7 @@ import type { BestIntention } from '@/hooks/useBestIntentions'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { SparkleOverlay } from '@/components/shared/SparkleOverlay'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 // ---- Mini Sparkline (7-day trend, pure SVG) ----
 
@@ -222,6 +223,8 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
 
   const { data: intentions = [] } = useBestIntentions(memberId)
   const reorderIntentions = useReorderIntentions()
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyToday } = useFamilyToday(memberId)
   const activeIntentions = useMemo(
     () => intentions.filter((i) => i.is_active),
     [intentions],
@@ -247,12 +250,13 @@ export function BestIntentionTracker({ widget, isCompact }: BestIntentionTracker
   }, [activeIntentions, reorderIntentions])
 
   // Sparkline data: last 7 days of iterations for all active intentions
+  const today = useMemo(() => familyToday ?? todayLocalIso(), [familyToday])
   const sevenDaysAgo = useMemo(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 6)
-    return localIso(d)
-  }, [])
-  const today = useMemo(() => todayLocalIso(), [])
+    const [y, m, d] = today.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    date.setDate(date.getDate() - 6)
+    return localIso(date)
+  }, [today])
 
   const intentionIds = useMemo(
     () => activeIntentions.map((i) => i.id),

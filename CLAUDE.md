@@ -706,18 +706,62 @@ These conventions codify the rules from `claude/web-sync/Composition-Architectur
 
     Implementation tracked as worksheet finding NEW-BB. See `claude/web-sync/Composition-Architecture-and-Assembly-Patterns.md` §1.7.
 
-257. **No new `todayLocalIso()` client-side writes to DATE columns; all "today" filters must use server-derived dates.** Discovered 2026-04-23: `todayLocalIso()` client-side writes to DATE columns silently land on the wrong day when any device clock or timezone is misconfigured. A kid checking off routine steps on a tablet set to UTC writes tomorrow's date; mom's "today" filter on her correctly-configured phone finds zero rows. The step checkmarks are literally invisible across devices.
+257. **No new `todayLocalIso()` client-side writes to DATE columns; all "today" filters must use server-derived dates. Remediation LANDED (2026-04-23 Wave 1, 2026-07-02/03 residual closure) — this is now enforced infrastructure, not an open gap.** Discovered 2026-04-23: `todayLocalIso()` client-side writes to DATE columns silently land on the wrong day when any device clock or timezone is misconfigured. A kid checking off routine steps on a tablet set to UTC writes tomorrow's date; mom's "today" filter on her correctly-configured phone finds zero rows. The step checkmarks are literally invisible across devices.
 
-    **Partial fix landed 2026-04-23:** migration `00000000100157_routine_step_completions_period_date_trigger.sql` added a BEFORE INSERT OR UPDATE trigger deriving `period_date` from `completed_at AT TIME ZONE families.timezone` for `routine_step_completions` only, plus a one-shot SQL that realigned 31 existing misdated rows.
+    **The current contract (11 trigger-protected tables, all following the same pattern):**
 
-    **Remaining scope:** 7 other vulnerable tables + 8 client-side filter sites. Tracked as worksheet Row 184 NEW-DD (Fix Now +compound, Wave 1, Beta=Y) awaiting hybrid Path 3 remediation (per-table triggers for writes + `family_today(member_id)` RPC for reads).
+    | Table | DATE column | Migration |
+    |---|---|---|
+    | `routine_step_completions` | `period_date` | 100157, superseded by 100245 (scheduled-day walk-back, see below) |
+    | `intention_iterations` | `day_date` | 100158 |
+    | `family_intention_iterations` | `day_date` | 100158 |
+    | `task_completions` | `period_date` | 100158 |
+    | `homeschool_time_logs` | `log_date` | 100158 |
+    | `victory_celebrations` | `celebration_date` | 100158 |
+    | `reflection_responses` | `response_date` | 100158 |
+    | `allowance_periods` | (period dates) | 100163 |
+    | `practice_log` | `period_date` | 100282 |
+    | `widget_data_points` | `recorded_date` | 100282 |
+    | `randomizer_draws` | `routine_instance_date` | 100282 |
 
-    **Until remediation lands:**
-    - **(a) Writes:** no new `todayLocalIso()` client writes to DATE columns. New INSERT/UPDATE paths to any DATE column MUST derive the date server-side via a BEFORE INSERT OR UPDATE trigger using `completed_at AT TIME ZONE families.timezone` (migration 100157 pattern), OR inline server-side derivation in the write path.
-    - **(b) Reads:** new "today" filter queries MUST include server-side date derivation. Once `family_today(member_id)` RPC is built it becomes the canonical reader.
-    - **(c) Pre-work gate:** before ANY work that touches dates, completion tracking, streaks, daily tallies, or filters/stores a "today" or "this week" value, read `claude/web-sync/CLIENT_DATE_AUDIT_2026-04-23.md` and verify migration 100157's trigger is still holding (run the verification query in the audit doc — should return 0 misaligned rows).
+    Every one of these is a `BEFORE INSERT OR UPDATE` trigger that derives the DATE column from the row's own operational TIMESTAMPTZ (`completed_at`/`created_at`/`recorded_at`/`drawn_at`) at `families.timezone` (falling back to `America/Chicago` on a missing/blank timezone), and overrides the client-supplied value ONLY when it's `NULL` or within a **±1-day window** of the server-derived value — that window is what lets legitimate backdating (a mom logging yesterday's homework hours this morning, a bulk historical seed import) pass through untouched while still catching the device-clock-misconfiguration signature (an evening entry landing on "tomorrow").
 
-    **Reason:** silent cross-device data invisibility is mom-first critical — same severity class as crisis override (Convention #7) and HITM (Convention #4). Next new migration starts at `00000000100158_` (supersedes earlier handoff notes that said 100157).
+    `routine_step_completions` has a richer contract: migration `00000000100245_routine_step_period_date_scheduled_day.sql` superseded 100157 to walk a `show_until_complete` carry-over completion back to its section's most recently *scheduled* day (up to 7 days), not the day it was actually checked off. This means **negative deltas are expected and correct** for that table — verify it with `period_date > (completed_at AT TIME ZONE families.timezone)::date` (positive-delta-only), never the naive `!=` check used for the other tables.
+
+    On the read side, `family_today(p_member_id UUID) RETURNS DATE` (migration 100158) is the single canonical source of "what day is it for this family right now" — `useFamilyToday(memberId)` (React Query hook, 60s cache) and `fetchFamilyToday(memberId)` (imperative variant for mutations/utilities) are the only sanctioned client entry points. Every "today" filter query and every client-side write-path date computation should route through one of these two, with a `?? todayLocalIso()` fallback while the RPC result is loading.
+
+    **Known anti-pattern (found and fixed in the 2026-07-02/03 residual closure):** taking the ISO string from `new Date().toISOString()` and slicing the first 10 characters on a SEPARATE statement — evades the ESLint `no-restricted-syntax` rule (which pattern-matches the single-line chained form) while still producing the UTC date. If you see a `now = new Date().toISOString()` line followed later by `now.slice(0, 10)` (or `.split`/`.substring`/`.substr`) anywhere, it is this bug; replace with `fetchFamilyToday(memberId)`.
+
+    **Composition with Convention #271 (`get_member_day_obligations`):** orthogonal by design. `family_today(member_id)` answers "which day is it"; `get_member_day_obligations(member_id, start, end)` answers "what counts on day X." Derive the day from `family_today` (or a server-stored period), then pass it into the obligations RPC. Never re-derive "today" inline at a new call site — route through `family_today`/`useFamilyToday`.
+
+    **Verification (run after touching any of the 11 tables above, or periodically as a health check):**
+    ```sql
+    -- The 10 non-routine tables: misalignment WITHIN the ±1-day override window
+    -- (anything outside the window is intentional backdating, out of contract).
+    SELECT COUNT(*) FROM <table> t
+    JOIN family_members fm ON fm.id = t.<member_col>
+    JOIN families f ON f.id = fm.family_id
+    WHERE t.<date_col> != (t.<ts_col> AT TIME ZONE f.timezone)::date
+      AND ABS(t.<date_col> - (t.<ts_col> AT TIME ZONE f.timezone)::date) <= 1;
+    -- Expect 0 per table.
+
+    -- routine_step_completions: POSITIVE-delta only (100245 walk-back makes
+    -- negative deltas legitimate — do not flag them).
+    SELECT COUNT(*) FROM routine_step_completions rsc
+    JOIN family_members fm ON fm.id = rsc.member_id
+    JOIN families f ON f.id = fm.family_id
+    WHERE rsc.period_date > (rsc.completed_at AT TIME ZONE f.timezone)::date;
+    -- Expect 0.
+    ```
+
+    **Standing law (unchanged since 2026-04-23):**
+    - **(a) Writes:** no new `todayLocalIso()` (or equivalent UTC-slice) client writes to DATE columns. Every new INSERT/UPDATE path to a DATE column MUST derive the date server-side via a `BEFORE INSERT OR UPDATE` trigger following the pattern above.
+    - **(b) Reads:** every new "today" filter query MUST route through `useFamilyToday`/`fetchFamilyToday`, never a bare `todayLocalIso()` or device `new Date()`.
+    - **(c) Pre-work gate:** before ANY work that touches dates, completion tracking, streaks, daily tallies, or filters/stores a "today" or "this week" value, run the verification queries above — should return 0 for every table.
+
+    **Adjacent finding, NOT part of this convention (tracked separately in STUB_REGISTRY):** `family_members.current_streak` / `longest_streak` / `last_task_completion_date` are DEAD COLUMNS as of migration 100221 (Phase 3 Worker F cutover dropped `roll_creature_for_completion`, the only code path that ever wrote them) — this is a wiring gap, not a date-timezone bug, and is unrelated to the contract above. The live streak value is `compute_streak()` (migration 100204, made family-timezone-aware by migration 100240 — predating and superseding the concern this convention originally flagged for streak math). Client surfaces read it via `useMemberStreak(memberId)`, not the frozen columns.
+
+    **Reason:** silent cross-device data invisibility is mom-first critical — same severity class as crisis override (Convention #7) and HITM (Convention #4).
 
 258. **Board of Directors persona architecture is three-tier: personal scoped / promotion queue / approved shared cache.** Amends Convention #99.
 

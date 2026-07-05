@@ -30,6 +30,7 @@ import {
   useUncompleteRoutineStep,
 } from '@/hooks/useTaskCompletions'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday, fetchFamilyToday } from '@/hooks/useFamilyToday'
 import { useLogPractice } from '@/hooks/usePractice'
 import { useFamily } from '@/hooks/useFamily'
 import { DurationPromptModal } from './DurationPromptModal'
@@ -106,8 +107,9 @@ function LinkedRandomizerContent({ sourceId, memberId }: { sourceId: string; mem
 
   if (!loaded) {
     setLoaded(true)
-    import('@/lib/supabase/client').then(({ supabase }) => {
-      const today = todayLocalIso()
+    import('@/lib/supabase/client').then(async ({ supabase }) => {
+      // Row 184 NEW-DD / Convention #257 (R4): family-local today.
+      const today = await fetchFamilyToday(memberId).catch(() => todayLocalIso())
       supabase
         .from('randomizer_draws')
         .select('list_items!inner(content, resource_url)')
@@ -861,9 +863,15 @@ function isSectionScheduledToday(section: RoutineSection): boolean {
  * For sections scheduled today, returns today.
  * For carry-over sections, walks back up to 7 days to find a scheduled day.
  * Returns today as a last resort (matches trigger fallback).
+ *
+ * `todayIso` (Row 184 NEW-DD / Convention #257 R5) must be the family-local
+ * today (from useFamilyToday), not the viewing device's clock — otherwise an
+ * uncheck of a carry-over row can fail to match the row the server wrote on
+ * a drifted device.
  */
-function getSectionScheduledDay(section: RoutineSection): string {
-  const today = new Date()
+function getSectionScheduledDay(section: RoutineSection, todayIso: string): string {
+  const [ty, tm, td] = todayIso.split('-').map(Number)
+  const today = new Date(ty, tm - 1, td)
   const todayDow = today.getDay()
 
   if (!section.frequency_rule || section.frequency_rule === 'daily') {
@@ -961,8 +969,12 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
   const { data: completions } = useRoutineStepCompletions(taskId, memberId)
   const { data: weekCompletions } = useRoutineStepCompletionsThisWeek(taskId, memberId)
   const { data: sharedCompletions } = useSharedRoutineStepCompletions(taskId, shared)
-  const { data: sharedWeekCompletions } = useSharedRoutineStepCompletionsThisWeek(taskId, shared)
+  const { data: sharedWeekCompletions } = useSharedRoutineStepCompletionsThisWeek(taskId, shared, memberId)
   const { data: assignees } = useTaskAssignees(taskId, shared)
+  // Row 184 NEW-DD / Convention #257 (R5): family-local today for the
+  // scheduled-day walk-back below.
+  const { data: familyTodayIso } = useFamilyToday(memberId)
+  const todayIso = familyTodayIso ?? todayLocalIso()
   const completeStep = useCompleteRoutineStep()
   const uncompleteStep = useUncompleteRoutineStep()
   const logPractice = useLogPractice()
@@ -1080,7 +1092,7 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
   async function handleToggleInstance(stepId: string, instanceNumber: number, isCurrentlyCompleted: boolean) {
     setTogglingStepId(stepId)
     const section = findSectionForStep(stepId)
-    const scheduledDay = section ? getSectionScheduledDay(section) : todayLocalIso()
+    const scheduledDay = section ? getSectionScheduledDay(section, todayIso) : todayIso
     try {
       if (isCurrentlyCompleted) {
         await uncompleteStep.mutateAsync({
@@ -1110,7 +1122,7 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
     const otherCompleter = stepCompleterMap?.get(stepId)
     const uncompleteTarget = otherCompleter && isMom ? otherCompleter.memberId : memberId
     const section = findSectionForStep(stepId)
-    const scheduledDay = section ? getSectionScheduledDay(section) : todayLocalIso()
+    const scheduledDay = section ? getSectionScheduledDay(section, todayIso) : todayIso
 
     setTogglingStepId(stepId)
     try {
@@ -1171,7 +1183,7 @@ export function RoutineStepChecklist({ taskId, templateId, memberId, compact, is
     if (fromMemberId === toMemberId) return
     setTogglingStepId(stepId)
     const section = findSectionForStep(stepId)
-    const scheduledDay = section ? getSectionScheduledDay(section) : todayLocalIso()
+    const scheduledDay = section ? getSectionScheduledDay(section, todayIso) : todayIso
     try {
       await uncompleteStep.mutateAsync({ taskId, stepId, memberId: fromMemberId, periodDate: scheduledDay })
       await completeStep.mutateAsync({

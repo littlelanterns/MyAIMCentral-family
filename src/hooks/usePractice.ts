@@ -28,6 +28,8 @@ import type {
 } from '@/types/tasks'
 import type { GamificationResult } from '@/types/gamification'
 import { fireDeed } from '@/lib/connector/fireDeed'
+import { fetchFamilyToday } from './useFamilyToday'
+import { todayLocalIso } from '@/utils/dates'
 
 // ─── useLogPractice ────────────────────────────────────────────────
 // Records a practice session. For sequential items this also:
@@ -64,7 +66,11 @@ export function useLogPractice() {
       autoAdvanced: boolean
     }> => {
       const now = new Date().toISOString()
-      const periodDate = params.periodDate ?? now.slice(0, 10)
+      // Convention #257: family-local day, not the UTC date from a naive
+      // two-step ISO-string slice — the trigger from migration 100282 is a
+      // backstop, not the primary source.
+      const periodDate = params.periodDate
+        ?? await fetchFamilyToday(params.familyMemberId).catch(() => todayLocalIso())
 
       // 1. Always write to practice_log (the unified source of truth)
       const { data: practiceLog, error: logError } = await supabase
@@ -284,7 +290,8 @@ export function useSubmitMastery() {
   return useMutation({
     mutationFn: async (params: SubmitMasteryParams) => {
       const now = new Date().toISOString()
-      const periodDate = now.slice(0, 10)
+      // Convention #257: family-local day (trigger from migration 100282 backstops this).
+      const periodDate = await fetchFamilyToday(params.familyMemberId).catch(() => todayLocalIso())
 
       // 1. Write practice_log audit row
       const { error: logError } = await supabase

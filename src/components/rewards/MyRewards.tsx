@@ -48,6 +48,7 @@ import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useMyRewardsSettings } from '@/hooks/useMyRewardsSettings'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
+import { useMemberStreak } from '@/hooks/useMemberStreak'
 import { useRunningBalance, useMemberAllowancePools } from '@/hooks/useFinancial'
 import { useEarnedPrizes } from '@/hooks/useRewardReveals'
 import { useVictories } from '@/hooks/useVictories'
@@ -195,11 +196,15 @@ function PointsSection({
   // #202), so this stays fresh without a parallel stats query.
   const { data: members = [] } = useFamilyMembers(member.family_id)
   const row = members.find(m => m.id === member.id) as
-    | (FamilyMember & { gamification_points?: number; current_streak?: number })
+    | (FamilyMember & { gamification_points?: number })
     | undefined
 
   const points = row?.gamification_points ?? 0
-  const streak = row?.current_streak ?? 0
+  // CLIENT-DATE-REMEDIATION revised W4: family_members.current_streak has been
+  // dead since migration 100221 dropped the RPC that wrote it — read the live
+  // computed streak instead (see useMemberStreak.ts).
+  const { data: memberStreak } = useMemberStreak(member.id)
+  const streak = memberStreak?.currentStreak ?? 0
   // Per-child currency name — never hardcode (PRD-24 / recon binding rule).
   const currencyName = config?.currency_name?.trim() || 'points'
   const play = variant === 'play'

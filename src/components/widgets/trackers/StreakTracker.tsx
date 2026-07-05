@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { Flame, Plus } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 export function StreakTracker({ widget, dataPoints, onRecordData, variant: _variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -14,11 +15,16 @@ export function StreakTracker({ widget, dataPoints, onRecordData, variant: _vari
   }
   const milestones = config.celebration_at_milestones ?? [7, 14, 30, 60, 100]
 
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today, not the viewing
+  // device's local today — an evening tap on a misconfigured device would
+  // otherwise show "not done" even though it was just recorded.
+  const { data: familyToday } = useFamilyToday(widget.family_member_id)
+
   // Calculate current streak from data points
   const { currentStreak, longestStreak, todayCompleted } = useMemo(() => {
     if (dataPoints.length === 0) return { currentStreak: 0, longestStreak: 0, todayCompleted: false }
 
-    const today = todayLocalIso()
+    const today = familyToday ?? todayLocalIso()
     const dates = [...new Set(dataPoints.map(dp => dp.recorded_date))].sort().reverse()
 
     const todayDone = dates[0] === today
@@ -61,7 +67,7 @@ export function StreakTracker({ widget, dataPoints, onRecordData, variant: _vari
     }
 
     return { currentStreak: streak, longestStreak: Math.max(longestSeen, streak), todayCompleted: todayDone }
-  }, [dataPoints, config.grace_period])
+  }, [dataPoints, config.grace_period, familyToday])
 
   const nextMilestone = milestones.find(m => m > currentStreak) ?? milestones[milestones.length - 1]
 

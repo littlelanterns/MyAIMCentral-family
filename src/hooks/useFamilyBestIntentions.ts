@@ -9,7 +9,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { todayLocalIso } from '@/utils/dates'
-import { useFamilyToday } from './useFamilyToday'
+import { useFamilyToday, fetchFamilyToday } from './useFamilyToday'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -233,8 +233,13 @@ export function useLogFamilyIntentionTally() {
       return data as FamilyIntentionIteration
     },
     onMutate: async (vars) => {
-      // Optimistic update: add a fake iteration to the cache
-      const today = todayLocalIso()
+      // Row 184 NEW-DD / Convention #257 (R6): the REAL query
+      // (useTodayFamilyIterations) keys its cache on family-local today via
+      // useFamilyToday. This optimistic update must use the same value —
+      // otherwise on a misconfigured device the optimistic row lands in a
+      // cache entry the real query never reads (cosmetic flicker; the actual
+      // write is already trigger-corrected by migration 100158).
+      const today = await fetchFamilyToday(vars.memberId).catch(() => todayLocalIso())
       const key = ['family-intention-iterations', vars.familyId, today]
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<FamilyIntentionIteration[]>(key) ?? []
@@ -252,8 +257,8 @@ export function useLogFamilyIntentionTally() {
     onError: (_err, _vars, ctx) => {
       if (ctx) qc.setQueryData(ctx.key, ctx.prev)
     },
-    onSettled: (_data, _err, vars) => {
-      const today = todayLocalIso()
+    onSettled: async (_data, _err, vars) => {
+      const today = await fetchFamilyToday(vars.memberId).catch(() => todayLocalIso())
       qc.invalidateQueries({ queryKey: ['family-intention-iterations', vars.familyId, today] })
     },
   })

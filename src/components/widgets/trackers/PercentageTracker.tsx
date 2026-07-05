@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { PieChart } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 export function PercentageTracker({ widget, dataPoints, onRecordData: _onRecordData, variant, isCompact }: TrackerProps) {
   const config = widget.widget_config as {
@@ -16,6 +17,9 @@ export function PercentageTracker({ widget, dataPoints, onRecordData: _onRecordD
   }
   const goal = config.goal_percentage ?? 100
 
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyToday } = useFamilyToday(widget.family_member_id)
+
   // Latest percentage value (most recent 'set' type data point)
   const currentPercentage = useMemo(() => {
     const setPoints = dataPoints.filter(dp => dp.value_type === 'percentage' || dp.value_type === 'set')
@@ -23,12 +27,12 @@ export function PercentageTracker({ widget, dataPoints, onRecordData: _onRecordD
       return Number(setPoints[setPoints.length - 1].value)
     }
     // Fall back to computing from boolean data points
-    const today = todayLocalIso()
+    const today = familyToday ?? todayLocalIso()
     const todayPoints = dataPoints.filter(dp => dp.recorded_date === today)
     if (todayPoints.length === 0) return 0
     const completed = todayPoints.filter(dp => Number(dp.value) > 0).length
     return Math.round((completed / todayPoints.length) * 100)
-  }, [dataPoints])
+  }, [dataPoints, familyToday])
 
   const progressRatio = Math.min(currentPercentage / goal, 1)
 

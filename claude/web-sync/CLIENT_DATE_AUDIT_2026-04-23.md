@@ -176,3 +176,17 @@ Should always return 0. If it's ever non-zero, either the trigger is broken or a
 - **RLS:** trigger is `SECURITY DEFINER` with `search_path = public`. No new RLS policies added. No table-level column changes.
 - **Schema snapshot:** `claude/live_schema.md` regenerated on 2026-04-23 after 100157 landed.
 - **No new CLAUDE.md conventions introduced** by this work. A convention around "use server-side triggers for DATE columns derived from client timestamps" would be useful when Path 1/3 is implemented, but it's premature to add until we've actually done the sweep.
+
+---
+
+## Addendum — 2026-07-02/03: Wave 1 shipped, residual closure complete, this doc is now historical
+
+**Status update.** Wave 1 (the "remaining scope: 7 other vulnerable tables + 8 client-side filter sites" noted above) shipped on **2026-04-23, the same day as this audit** — migration `00000000100158_family_today_and_date_triggers.sql` (`family_today(p_member_id)` RPC + 6 triggers) + `00000000100163` (`allowance_periods`). A residual-closure pass on **2026-07-02/03** (worksheet Row 184 NEW-DD, `CLIENT-DATE-REMEDIATION` build) found and fixed the last 3 unprotected tables — `practice_log`, `widget_data_points`, `randomizer_draws` — via migration `00000000100282`, plus ~10 second-tier client read sites and the `usePractice.ts` write-path UTC-slice evasion. **CLAUDE.md Convention #257 is now the authoritative, current-state reference** — this file is preserved as the historical diagnosis that started the work, not a live status page.
+
+**The verification query on line "The audit doc's verification query returns 202, not 0" class of check is now STALE for `routine_step_completions`.** Migration `00000000100245_routine_step_period_date_scheduled_day.sql` (Member-Day build, 2026-05-19) intentionally superseded 100157's simple trigger with a scheduled-day walk-back for `show_until_complete` carry-over sections — legitimate NEGATIVE deltas are now expected. Use the corrected positive-delta-only query in Convention #257 (or `claude/feature-decisions/Client-Date-Remediation.md` §2), never a bare `!=` check, for that one table.
+
+**Two things this residual-closure build discovered that this original audit could not have anticipated** (both fully written up in `claude/feature-decisions/Client-Date-Remediation.md`):
+1. The two-step ISO-string date-slice UTC anti-pattern — `new Date().toISOString()` on one statement, `.slice(0,10)` on the next (found in `usePractice.ts`) — evades the ESLint `no-restricted-syntax` ban, which only pattern-matches the single-line chained form. Now named explicitly in Convention #257 so future review catches it by eye, not just by lint.
+2. `family_members.current_streak` / `longest_streak` / `last_task_completion_date` turned out to be dead columns (nothing has written them since migration 100221 dropped `roll_creature_for_completion` on 2026-05-03) — a wiring gap unrelated to the date-timezone contract this convention governs. Fixed on the read side via `useMemberStreak()` calling the already-family-timezone-correct `compute_streak()` RPC (itself fixed by migration 100240, predating the residual-closure build).
+
+For the current full table-by-table contract, the standing law, and the corrected verification queries, read **CLAUDE.md Convention #257** directly rather than this file.

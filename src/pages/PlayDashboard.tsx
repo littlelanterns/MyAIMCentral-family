@@ -34,6 +34,7 @@ import { useGamificationTheme } from '@/hooks/useGamificationTheme'
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamilyToday } from '@/hooks/useFamilyToday'
+import { useMemberStreak } from '@/hooks/useMemberStreak'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
 import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
@@ -84,9 +85,15 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
   // was previously hiding kids' just-completed tasks from this filter.
   const { data: todayFamily } = useFamilyToday(memberId)
   const today = todayFamily ?? todayLocalIso()
+  // Convention #257 (R3): filterTasksForToday takes an explicit Date so RRULE
+  // evaluation uses the family-local day, not the viewing device's clock.
+  const todayDate = useMemo(() => {
+    const [y, m, d] = today.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }, [today])
   const playTasks = useMemo(
     () =>
-      filterTasksForToday(allTasks)
+      filterTasksForToday(allTasks, todayDate)
         .filter(
           t =>
             t.task_type === 'task' ||
@@ -103,7 +110,7 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
           const completedLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
           return completedLocal === today
         }),
-    [allTasks, today],
+    [allTasks, today, todayDate],
   )
 
   const { data: stickerBookState } = useStickerBookState(memberId)
@@ -132,10 +139,16 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
     setStickerBookInitialPageId(null)
   }, [])
 
-  // ── Gamification stats (read from family_members; written by Sub-phase C) ──
+  // ── Gamification stats ──────────────────────────────────────────
+  // Points still read from family_members (written by the points_godmother
+  // connector path). Streak is CLIENT-DATE-REMEDIATION revised W4: the
+  // family_members.current_streak column has been dead since migration 100221
+  // dropped the RPC that used to write it — read the live computed streak
+  // instead (see useMemberStreak.ts).
   const memberData = displayMember as Record<string, unknown> | undefined
   const points = (memberData?.gamification_points as number) ?? 0
-  const streak = (memberData?.current_streak as number) ?? 0
+  const { data: memberStreak } = useMemberStreak(memberId)
+  const streak = memberStreak?.currentStreak ?? 0
   const memberName = (memberData?.display_name as string) ?? 'Friend'
 
   // ── Task completion (Sub-phase C wires gamification RPC) ───────

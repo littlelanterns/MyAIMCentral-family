@@ -66,6 +66,7 @@ import type { TabItem } from '@/components/shared'
 import { QueueBadge } from '@/components/queue/QueueBadge'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { useTaskSegments } from '@/hooks/useTaskSegments'
 import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
@@ -130,6 +131,8 @@ export function TasksPage() {
   const navigate = useNavigate()
   useArchiveExpiredRoutines(family?.id)
   const { data: allTasks = [], isLoading } = useTasks(family?.id)
+  // Row 184 NEW-DD / Convention #257 (R3): family-local today.
+  const { data: todayFamily } = useFamilyToday(activeMember?.id)
 
   // Fetch task_assignments for the active member (for shared task visibility)
   const { data: mySharedTaskIds = [] } = useQuery({
@@ -403,6 +406,16 @@ export function TasksPage() {
     { key: 'opportunities', label: 'Opportunities', icon: <Star size={15} /> },
   ]
 
+  // Convention #257 (R3): construct a Date from the family-local today string
+  // (never `new Date('YYYY-MM-DD')`, which parses as UTC). Falls back to
+  // undefined while todayFamily is loading — filterTasksForToday defaults to
+  // device-local `new Date()` in that case, matching the established pattern.
+  const todayDateObj = useMemo(() => {
+    if (!todayFamily) return undefined
+    const [y, m, d] = todayFamily.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }, [todayFamily])
+
   // ── Personal task scope (memoized) ──
   // FO-COMMAND-CENTER: own items ONLY for every role, including mom — assigned
   // to me, created by me (unassigned), shared with me, or soft-claim-held by me
@@ -436,8 +449,9 @@ export function TasksPage() {
     switch (filterStatus) {
       case 'active':
         filtered = filtered.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && !t.archived_at)
-        // Hide recurring tasks not scheduled for today (RRULE day-of-week filter)
-        filtered = filterTasksForToday(filtered)
+        // Hide recurring tasks not scheduled for today (RRULE day-of-week filter).
+        // Convention #257 (R3): family-local today, not the viewing device's clock.
+        filtered = filterTasksForToday(filtered, todayDateObj)
         break
       case 'completed':
         filtered = filtered.filter((t) => t.status === 'completed')
@@ -464,7 +478,7 @@ export function TasksPage() {
     }
 
     return filtered
-  }, [allTasks, activeMember?.id, activeTab, filterStatus, sortOrder, myAssignedTaskIds, isGuidedMember, inclusion.effective])
+  }, [allTasks, activeMember?.id, activeTab, filterStatus, sortOrder, myAssignedTaskIds, isGuidedMember, inclusion.effective, todayDateObj])
 
   // Q2: sequential next-item cards open the full collection ("see the entire
   // list or complete early"); everything else opens the normal edit modal.

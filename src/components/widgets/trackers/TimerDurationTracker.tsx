@@ -6,8 +6,11 @@ import { useMemo, useState } from 'react'
 import { Clock, Plus, Timer } from 'lucide-react'
 import type { TrackerProps } from './TrackerProps'
 import { todayLocalIso, localIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 
 export function TimerDurationTracker({ widget, dataPoints, onRecordData, variant, isCompact }: TrackerProps) {
+  // Row 184 NEW-DD / Convention #257 (R1): family-local today.
+  const { data: familyToday } = useFamilyToday(widget.family_member_id)
   const config = widget.widget_config as {
     unit?: 'minutes' | 'hours'
     goal_per_period?: number
@@ -42,7 +45,7 @@ export function TimerDurationTracker({ widget, dataPoints, onRecordData, variant
   }, [dataPoints, periodBounds])
 
   // Today's date string
-  const todayStr = useMemo(() => todayLocalIso(), [])
+  const todayStr = useMemo(() => familyToday ?? todayLocalIso(), [familyToday])
 
   // Today's total
   const todayTotal = useMemo(() => {

@@ -22,6 +22,7 @@ import { RoutineStepChecklist, isSectionActiveToday, deriveRoutineActiveDays } f
 import { useRoutineTemplateSteps } from '@/hooks/useRoutineTemplateSteps'
 import { useRoutineStepCompletions, useRoutineStepCompletionsThisWeek } from '@/hooks/useTaskCompletions'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import type { GuidedDashboardPreferences } from '@/types/guided-dashboard'
 
@@ -42,10 +43,18 @@ export function GuidedActiveTasksSection({
     assigneeId: memberId,
   })
 
+  // Row 184 NEW-DD / Convention #257 (R2): family-local today — a misconfigured
+  // tablet clock previously hid a kid's just-completed tasks from this filter.
+  const { data: todayFamily } = useFamilyToday(memberId)
+  const today = todayFamily ?? todayLocalIso()
+  const todayDate = useMemo(() => {
+    const [y, m, d] = today.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }, [today])
+
   // Filter recurring tasks to only those scheduled for today
-  const todaysTasks = useMemo(() => filterTasksForToday(allTasks), [allTasks])
+  const todaysTasks = useMemo(() => filterTasksForToday(allTasks, todayDate), [allTasks, todayDate])
   // Active tasks = pending + in_progress (what's left to do)
-  const today = todayLocalIso()
   const tasks = useMemo(
     () => todaysTasks.filter(t => t.status === 'pending' || t.status === 'in_progress'),
     [todaysTasks],

@@ -26,6 +26,7 @@ import { TaskCardPlay } from './TaskCardPlay'
 import { useTaskCompletion } from './useTaskCompletion'
 import { useShell } from '@/components/shells/ShellProvider'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 import { SequentialDashboardCard } from './sequential/SequentialDashboardCard'
 import { useSequentialCollections } from '@/hooks/useSequentialCollections'
@@ -71,7 +72,14 @@ export function DashboardTasksSection({
   const [sparkleOrigin, setSparkleOrigin] = useState<{ x: number; y: number } | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
 
-  const todaysTasks = useMemo(() => filterTasksForToday(tasks), [tasks])
+  // Row 184 NEW-DD / Convention #257 (R3): family-local today.
+  const { data: familyToday } = useFamilyToday(memberId)
+  const todayDate = useMemo(() => {
+    if (!familyToday) return undefined
+    const [y, m, d] = familyToday.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }, [familyToday])
+  const todaysTasks = useMemo(() => filterTasksForToday(tasks, todayDate), [tasks, todayDate])
 
   const nonSequentialTasks = useMemo(
     () => todaysTasks.filter(t => t.task_type !== 'sequential'),

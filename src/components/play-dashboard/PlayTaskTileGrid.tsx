@@ -24,6 +24,7 @@ import { useSegmentCompletionStatus } from '@/hooks/useSegmentCompletionStatus'
 import { useTaskRandomizerDraws } from '@/hooks/useTaskRandomizerDraws'
 import { RoutineStepChecklist } from '@/components/tasks/RoutineStepChecklist'
 import { todayLocalIso } from '@/utils/dates'
+import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { groupTasksBySegment } from '@/lib/segments/segmentUtils'
 import type { Task } from '@/types/tasks'
 import type { TaskSegment } from '@/types/play-dashboard'
@@ -490,7 +491,9 @@ function FlatGrid({
   isAdultViewing?: boolean
   memberId?: string
 }) {
-  const today = todayLocalIso()
+  // Row 184 NEW-DD / Convention #257 (R3): family-local today.
+  const { data: familyToday } = useFamilyToday(memberId)
+  const today = familyToday ?? todayLocalIso()
   const [expandedRoutineId, setExpandedRoutineId] = useState<string | null>(null)
   const pending = tasks.filter(t => t.status !== 'completed' && t.status !== 'pending_approval')
   const completedToday = tasks.filter(t => {
