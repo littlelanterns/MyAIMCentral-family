@@ -281,7 +281,7 @@ export function RepeatedActionChartWizard({
             assignee_id: kidId,
             title: taskTitle,
             task_type: 'task',
-            status: 'active',
+            status: 'pending',
             source: 'studio',
             counts_for_gamification: false,
             counts_for_allowance: false,
@@ -420,19 +420,29 @@ export function RepeatedActionChartWizard({
           })
         }
 
-        // 5. Save wizard template record
-        await supabase.from('wizard_templates').insert({
-          family_id: familyId,
-          created_by: memberId,
-          wizard_type: 'repeated_action_chart',
-          title: state.chartName || taskTitle,
-          config: {
-            ...state,
-            deployed_task_id: task.id,
-            deployed_widget_id: widgetId,
-            deployed_for_member: kidId,
-          },
-        })
+        // 5. Save wizard template record (non-critical — must never block deploy success)
+        try {
+          await supabase.from('wizard_templates').insert({
+            family_id: familyId,
+            template_type: 'repeated_action_chart',
+            title: state.chartName || taskTitle,
+            // wizard_templates.template_source CHECK only allows
+            // 'system' | 'family' | 'community' — 'wizard' violates the
+            // constraint and silently drops this row (caught by the
+            // try/catch above). 'family' is the correct value for a
+            // family-authored, wizard-deployed template.
+            template_source: 'family',
+            original_author_id: memberId,
+            config: {
+              ...state,
+              deployed_task_id: task.id,
+              deployed_widget_id: widgetId,
+              deployed_for_member: kidId,
+            },
+          })
+        } catch (err) {
+          console.warn('wizard_templates record failed (non-critical):', err)
+        }
       }
 
       clearDraft()

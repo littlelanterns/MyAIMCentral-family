@@ -667,7 +667,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 190 rows
+### `tasks` — 192 rows
 
 | # | Column |
 |---|---|
@@ -757,7 +757,7 @@
 | 84 | `reward_visibility` |
 | 85 | `reward_shared_with` |
 
-### `task_assignments` — 61 rows
+### `task_assignments` — 65 rows
 
 | # | Column |
 |---|---|
@@ -853,7 +853,7 @@
 | 9 | `released` |
 | 10 | `released_at` |
 
-### `task_rewards` — 3 rows
+### `task_rewards` — 6 rows
 
 | # | Column |
 |---|---|
@@ -886,7 +886,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 52 rows
+### `lists` — 51 rows
 
 | # | Column |
 |---|---|
@@ -938,7 +938,7 @@
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
 
-### `list_items` — 205 rows
+### `list_items` — 201 rows
 
 | # | Column |
 |---|---|
@@ -1122,7 +1122,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `widget_data_points` — 67 rows
+### `widget_data_points` — 68 rows
 
 | # | Column |
 |---|---|
@@ -1634,7 +1634,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 1 rows
+### `notifications` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2501,7 +2501,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 324 rows
+### `activity_log_entries` — 325 rows
 
 | # | Column |
 |---|---|
@@ -3660,7 +3660,7 @@
 | 13 | `created_at` |
 | 14 | `tag` |
 
-### `reward_proposals` — 0 rows
+### `reward_proposals` — 17 rows
 
 | # | Column |
 |---|---|
