@@ -31,6 +31,7 @@ import { logAICost } from '../_shared/cost-logger.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -611,22 +612,14 @@ Deno.serve(async (req) => {
     }
 
     // Call OpenRouter
-    const aiResponse = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
+    const aiResponse = await callOpenRouter(
+      OPENROUTER_API_KEY,
       {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://myaimcentral.com',
-          'X-Title': 'MyAIM Central BookShelf',
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 2048,
-          messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        }),
+        model: MODEL,
+        max_tokens: 2048,
+        messages: [{ role: 'system', content: systemPrompt }, ...messages],
       },
+      { title: 'MyAIM Central BookShelf' },
     )
 
     if (!aiResponse.ok) {

@@ -26,6 +26,7 @@ import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { embedText } from '../_shared/embedding.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -103,21 +104,16 @@ Otherwise (historical figures, literary characters, public figures, personal peo
 {"outcome":"approved"}`
 
   try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central - Content Policy',
-      },
-      body: JSON.stringify({
+    const res = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: MODEL_HAIKU,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 100,
         temperature: 0,
-      }),
-    })
+      },
+      { title: 'MyAIM Central - Content Policy' },
+    )
     // FAIL-CLOSED (SCOPE-8a.F8a): previously returned approved on HTTP error.
     if (!res.ok) {
       console.error('contentPolicyCheck HTTP error:', res.status)
@@ -222,21 +218,16 @@ Return EXACTLY this JSON shape (no other text):
 {"multi_family_relevance":"yes"|"no","confidence":0.0-1.0,"signals":{"public_figure_verifiable":bool,"personal_attributes_detected":bool,"entity_resolved":bool,"user_chip_selection":"${relationship}"},"reasoning":"one-line rationale"}`
 
   try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central - Relevance Classifier',
-      },
-      body: JSON.stringify({
+    const res = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: MODEL_HAIKU,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 250,
         temperature: 0,
-      }),
-    })
+      },
+      { title: 'MyAIM Central - Relevance Classifier' },
+    )
     if (!res.ok) {
       console.error('classifyRelevance HTTP error:', res.status)
       return CLASSIFIER_FAIL_CLOSED
@@ -374,21 +365,16 @@ Return a JSON object with these exact keys:
 
 Be specific and authentic. If this is a real person, draw from their known communication patterns. If personal to the user, extrapolate from the description provided.`
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://myaimcentral.com',
-      'X-Title': 'MyAIM Central - Persona Generation',
-    },
-    body: JSON.stringify({
+  const res = await callOpenRouter(
+    OPENROUTER_API_KEY,
+    {
       model: MODEL_SONNET,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 1024,
       temperature: 0.7,
-    }),
-  })
+    },
+    { title: 'MyAIM Central - Persona Generation' },
+  )
 
   const json = await res.json()
   const text = json.choices?.[0]?.message?.content?.trim() || '{}'
@@ -415,21 +401,16 @@ The questions should be:
 
 Return ONLY a JSON array of 5 strings. No other text.`
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://myaimcentral.com',
-      'X-Title': 'MyAIM Central - Prayer Seat',
-    },
-    body: JSON.stringify({
+  const res = await callOpenRouter(
+    OPENROUTER_API_KEY,
+    {
       model: MODEL_SONNET,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 512,
       temperature: 0.8,
-    }),
-  })
+    },
+    { title: 'MyAIM Central - Prayer Seat' },
+  )
 
   const json = await res.json()
   const text = json.choices?.[0]?.message?.content?.trim() || '[]'
@@ -1068,11 +1049,11 @@ Deno.serve(async (req) => {
         { role: 'user' as const, content },
       ]
 
-      const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - BoD Suggest' },
-        body: JSON.stringify({ model: MODEL_SONNET, messages: suggestMessages, stream: true, max_tokens: 512 }),
-      })
+      const aiRes = await callOpenRouter(
+        OPENROUTER_API_KEY,
+        { model: MODEL_SONNET, messages: suggestMessages, stream: true, max_tokens: 512 },
+        { title: 'MyAIM Central - BoD Suggest' },
+      )
 
       if (!aiRes.ok || !aiRes.body) return new Response(JSON.stringify({ error: 'AI error' }), { status: 502, headers: jsonHeaders })
 
@@ -1165,11 +1146,11 @@ Deno.serve(async (req) => {
             ]
 
             // Stream this advisor's response
-            const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': `MyAIM Central - BoD ${persona.persona_name}` },
-              body: JSON.stringify({ model: MODEL_SONNET, messages, stream: true, max_tokens: 1024 }),
-            })
+            const aiRes = await callOpenRouter(
+              OPENROUTER_API_KEY,
+              { model: MODEL_SONNET, messages, stream: true, max_tokens: 1024 },
+              { title: `MyAIM Central - BoD ${persona.persona_name}` },
+            )
 
             if (!aiRes.ok || !aiRes.body) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'advisor_error', persona_name: persona.persona_name })}\n\n`))
@@ -1264,11 +1245,11 @@ Deno.serve(async (req) => {
               ...currentTurnResponses.map(r => ({ role: 'assistant' as const, content: r })),
             ]
 
-            const modRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - BoD Moderator' },
-              body: JSON.stringify({ model: MODEL_SONNET, messages: modMessages, stream: true, max_tokens: 512 }),
-            })
+            const modRes = await callOpenRouter(
+              OPENROUTER_API_KEY,
+              { model: MODEL_SONNET, messages: modMessages, stream: true, max_tokens: 512 },
+              { title: 'MyAIM Central - BoD Moderator' },
+            )
 
             if (modRes.ok && modRes.body) {
               let modFull = ''

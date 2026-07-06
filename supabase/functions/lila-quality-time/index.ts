@@ -10,6 +10,7 @@ import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../_shared/relationship-context.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -124,11 +125,11 @@ Deno.serve(async (req) => {
       { role: 'user' as const, content },
     ]
 
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://myaimcentral.com', 'X-Title': 'MyAIM Central - Quality Time' },
-      body: JSON.stringify({ model: MODEL, messages, stream: true, max_tokens: 2048 }),
-    })
+    const aiResponse = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      { model: MODEL, messages, stream: true, max_tokens: 2048 },
+      { title: 'MyAIM Central - Quality Time' },
+    )
     if (!aiResponse.ok || !aiResponse.body) return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502, headers: jsonHeaders })
 
     return createSSEStream(async (enqueue) => {

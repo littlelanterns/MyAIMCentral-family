@@ -10,6 +10,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -109,27 +110,20 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Call Haiku ──
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 30,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Generate a concise conversation title (3 to 6 words). Output ONLY the title, no quotes, no punctuation at the end, no explanation.',
-          },
-          {
-            role: 'user',
-            content: `Conversation messages:\n\n${messageText}`,
-          },
-        ],
-      }),
+    const response = await callOpenRouter(OPENROUTER_API_KEY, {
+      model: MODEL,
+      max_tokens: 30,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Generate a concise conversation title (3 to 6 words). Output ONLY the title, no quotes, no punctuation at the end, no explanation.',
+        },
+        {
+          role: 'user',
+          content: `Conversation messages:\n\n${messageText}`,
+        },
+      ],
     })
 
     if (!response.ok) {

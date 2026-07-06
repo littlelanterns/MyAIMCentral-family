@@ -12,6 +12,7 @@ import { logAICost } from '../_shared/cost-logger.ts'
 import { buildFeatureGuidePrompt } from '../_shared/feature-guide-knowledge.ts'
 import { assembleContext, type AssembledContext } from '../_shared/context-assembler.ts'
 import { detectRoutingIntent, buildHandoffResponseBody } from './routing-prescan.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -537,21 +538,16 @@ Deno.serve(async (req) => {
     ]
 
     // Call OpenRouter
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central LiLa',
-      },
-      body: JSON.stringify({
+    const aiResponse = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: modelId,
         messages,
         stream: true,
         max_tokens: 2048,
-      }),
-    })
+      },
+      { title: 'MyAIM Central LiLa' },
+    )
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text()
@@ -635,21 +631,14 @@ Deno.serve(async (req) => {
           // Auto-generate title on first AI response
           if (newMessageCount <= 2 && !conversation.title) {
             // Use Haiku for cheap title generation
-            const titleResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: MODELS.haiku,
-                messages: [
-                  { role: 'system', content: 'Generate a short title (3-6 words) for this conversation. Return ONLY the title, no quotes or punctuation.' },
-                  { role: 'user', content },
-                  { role: 'assistant', content: fullResponse.slice(0, 200) },
-                ],
-                max_tokens: 20,
-              }),
+            const titleResponse = await callOpenRouter(OPENROUTER_API_KEY, {
+              model: MODELS.haiku,
+              messages: [
+                { role: 'system', content: 'Generate a short title (3-6 words) for this conversation. Return ONLY the title, no quotes or punctuation.' },
+                { role: 'user', content },
+                { role: 'assistant', content: fullResponse.slice(0, 200) },
+              ],
+              max_tokens: 20,
             })
 
             if (titleResponse.ok) {

@@ -12,6 +12,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -642,22 +643,13 @@ Be generous with confidence:
 Respond ONLY with valid JSON array. No explanation.`
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central',
-      },
-      body: JSON.stringify({
-        model: HAIKU_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Classify these ${items.length} items:\n\n${itemList}` },
-        ],
-        max_tokens: 2048,
-      }),
+    const response = await callOpenRouter(OPENROUTER_API_KEY, {
+      model: HAIKU_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Classify these ${items.length} items:\n\n${itemList}` },
+      ],
+      max_tokens: 2048,
     })
 
     if (!response.ok) {

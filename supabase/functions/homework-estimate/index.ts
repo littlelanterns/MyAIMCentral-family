@@ -7,6 +7,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const MODEL = 'anthropic/claude-haiku-4.5'
@@ -91,22 +92,13 @@ ${allocation_mode === 'full' ? 'In full mode, each subject can receive the full 
 
 Please estimate the subject allocation.`
 
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
-        ],
-        max_tokens: 1024,
-      }),
+    const aiResponse = await callOpenRouter(OPENROUTER_API_KEY, {
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
+      ],
+      max_tokens: 1024,
     })
 
     if (!aiResponse.ok) {

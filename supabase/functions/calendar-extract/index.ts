@@ -31,6 +31,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
@@ -101,23 +102,14 @@ Rules:
 - Only set driver_name if the text states it explicitly.
 - If people are named as participants, list them in attendee_names exactly as written.`
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central',
-      },
-      body: JSON.stringify({
-        model: HAIKU_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: truncated },
-        ],
-        temperature: 0,
-        max_tokens: 800,
-      }),
+    const response = await callOpenRouter(OPENROUTER_API_KEY, {
+      model: HAIKU_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: truncated },
+      ],
+      temperature: 0,
+      max_tokens: 800,
     })
 
     if (!response.ok) {

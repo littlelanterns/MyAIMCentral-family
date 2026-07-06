@@ -9,6 +9,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -269,15 +270,9 @@ Deno.serve(async (req) => {
     }
 
     // Call OpenRouter
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central - Victory Celebration',
-      },
-      body: JSON.stringify({
+    const aiResponse = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: modelId,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -285,8 +280,9 @@ Deno.serve(async (req) => {
         ],
         max_tokens: 1024,
         temperature: 0.8,
-      }),
-    })
+      },
+      { title: 'MyAIM Central - Victory Celebration' },
+    )
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text()

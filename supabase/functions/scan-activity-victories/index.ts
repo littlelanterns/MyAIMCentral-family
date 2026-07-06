@@ -8,6 +8,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -234,15 +235,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Call Haiku via OpenRouter
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central - Victory Scan',
-      },
-      body: JSON.stringify({
+    const response = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -250,8 +245,9 @@ Deno.serve(async (req: Request) => {
         ],
         temperature: 0.3,
         max_tokens: 1500,
-      }),
-    })
+      },
+      { title: 'MyAIM Central - Victory Scan' },
+    )
 
     if (!response.ok) {
       const errText = await response.text()

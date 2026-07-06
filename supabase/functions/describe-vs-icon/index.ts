@@ -19,6 +19,7 @@
  * vision per mindsweep-scan/index.ts:16-17 comment).
  */
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -101,15 +102,9 @@ No commentary, no markdown fences, no extra fields.`
 
     const userText = `The subject ID for this image is "${subject_name}". Look at the image and produce the description + tags JSON.`
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central icon ingestion',
-      },
-      body: JSON.stringify({
+    const response = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: VISION_MODEL,
         max_tokens: 600,
         temperature: 0.3,
@@ -123,8 +118,9 @@ No commentary, no markdown fences, no extra fields.`
             ],
           },
         ],
-      }),
-    })
+      },
+      { title: 'MyAIM Central icon ingestion' },
+    )
 
     if (!response.ok) {
       const errText = await response.text()

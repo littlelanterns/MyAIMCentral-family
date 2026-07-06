@@ -30,6 +30,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { OPENROUTER_URL, openRouterHeaders as buildOpenRouterHeaders, withNoTraining } from '../_shared/openrouter-client.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -869,12 +870,7 @@ async function fetchWithRetry(
 // OpenRouter Headers
 // ============================================================
 
-const openRouterHeaders = {
-  Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-  'Content-Type': 'application/json',
-  'HTTP-Referer': 'https://myaimcentral.com',
-  'X-Title': 'MyAIM Central BookShelf',
-}
+const openRouterHeaders = buildOpenRouterHeaders(OPENROUTER_API_KEY, 'MyAIM Central BookShelf')
 
 // ============================================================
 // Declaration Style Sanitizer
@@ -1045,11 +1041,11 @@ Deno.serve(async (req) => {
       }
 
       const discoveryResponse = await fetchWithRetry(
-        'https://openrouter.ai/api/v1/chat/completions',
+        OPENROUTER_URL,
         {
           method: 'POST',
           headers: openRouterHeaders,
-          body: JSON.stringify({
+          body: JSON.stringify(withNoTraining({
             model: HAIKU_MODEL,
             max_tokens: 8192,
             messages: [
@@ -1059,7 +1055,7 @@ Deno.serve(async (req) => {
                 content: `Document title: "${displayTitle}"\nDocument (${fullText.length} characters total):\n\n${discoveryText}`,
               },
             ],
-          }),
+          })),
         },
       )
 
@@ -1184,18 +1180,18 @@ Deno.serve(async (req) => {
       const fullPrompt = COMBINED_SECTION_PROMPT + genreContext + goDeeperAddendum
 
       const aiResponse = await fetchWithRetry(
-        'https://openrouter.ai/api/v1/chat/completions',
+        OPENROUTER_URL,
         {
           method: 'POST',
           headers: openRouterHeaders,
-          body: JSON.stringify({
+          body: JSON.stringify(withNoTraining({
             model: SONNET_MODEL,
             max_tokens: 32768, // Increased for guided_text + independent_text youth adaptations
             messages: [
               { role: 'system', content: fullPrompt },
               { role: 'user', content: userContent },
             ],
-          }),
+          })),
         },
       )
 
@@ -1324,17 +1320,17 @@ Deno.serve(async (req) => {
 
     const fullPrompt = basePrompt + genreContext + goDeeperAddendum
 
-    const aiResponse = await fetchWithRetry('https://openrouter.ai/api/v1/chat/completions', {
+    const aiResponse = await fetchWithRetry(OPENROUTER_URL, {
       method: 'POST',
       headers: openRouterHeaders,
-      body: JSON.stringify({
+      body: JSON.stringify(withNoTraining({
         model: SONNET_MODEL,
         max_tokens: 8192, // Increased for guided_text + independent_text youth adaptations
         messages: [
           { role: 'system', content: fullPrompt },
           { role: 'user', content: userContent },
         ],
-      }),
+      })),
     })
 
     const aiData = await aiResponse.json()

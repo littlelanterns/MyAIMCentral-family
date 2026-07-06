@@ -21,6 +21,7 @@ import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -198,21 +199,16 @@ Deno.serve(async (req: Request) => {
     ]
 
     // ── Call OpenRouter (streaming) ──
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central LiLa Messages',
-      },
-      body: JSON.stringify({
+    const aiResponse = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: MODEL,
         messages: llmMessages,
         stream: true,
         max_tokens: 1024,
-      }),
-    })
+      },
+      { title: 'MyAIM Central LiLa Messages' },
+    )
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text()

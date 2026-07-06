@@ -5,6 +5,7 @@ import { extractCleanTextFromPDF } from '../_shared/pdf-utils.ts';
 import { handleCors, jsonHeaders } from '../_shared/cors.ts';
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts';
 import { logAICost } from '../_shared/cost-logger.ts';
+import { callOpenRouter } from '../_shared/openrouter-client.ts';
 
 const ASSESSMENT_KEYWORDS = [
   'enneagram', 'mbti', 'disc', 'strengthsfinder', 'cliftonstrengths',
@@ -219,19 +220,10 @@ serve(async (req: Request) => {
     }
 
     // Call OpenRouter with Sonnet for quality extraction
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': Deno.env.get('SITE_URL') || 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central',
-      },
-      body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4',
-        max_tokens: 4096,
-        messages,
-      }),
+    const response = await callOpenRouter(apiKey, {
+      model: 'anthropic/claude-sonnet-4',
+      max_tokens: 4096,
+      messages,
     });
 
     if (!response.ok) {

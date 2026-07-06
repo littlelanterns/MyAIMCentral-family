@@ -9,6 +9,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -59,19 +60,10 @@ Deno.serve(async (req) => {
 
     const modelId = MODELS[model_tier || 'haiku']
 
-    const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central',
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: [{ role: 'system', content: system_prompt }, ...messages],
-        max_tokens: max_tokens || 2048,
-      }),
+    const aiResponse = await callOpenRouter(OPENROUTER_API_KEY, {
+      model: modelId,
+      messages: [{ role: 'system', content: system_prompt }, ...messages],
+      max_tokens: max_tokens || 2048,
     })
 
     if (!aiResponse.ok) {

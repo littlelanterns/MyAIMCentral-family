@@ -8,6 +8,7 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -102,16 +103,11 @@ Deno.serve(async (req) => {
       { role: 'user' as const, content },
     ]
 
-    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central - Translator',
-      },
-      body: JSON.stringify({ model: MODEL, messages, stream: false, max_tokens: 2048 }),
-    })
+    const aiRes = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      { model: MODEL, messages, stream: false, max_tokens: 2048 },
+      { title: 'MyAIM Central - Translator' },
+    )
 
     if (!aiRes.ok) {
       return new Response(JSON.stringify({ error: 'AI service error' }), { status: 502, headers: jsonHeaders })

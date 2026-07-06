@@ -18,6 +18,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -234,20 +235,13 @@ RULES:
 - Consider the full conversation context, not just this one message.`
 
     // ── Call Haiku ──
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 60,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Message about to be sent:\n\n${message_content}` },
-        ],
-      }),
+    const response = await callOpenRouter(OPENROUTER_API_KEY, {
+      model: MODEL,
+      max_tokens: 60,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Message about to be sent:\n\n${message_content}` },
+      ],
     })
 
     if (!response.ok) {

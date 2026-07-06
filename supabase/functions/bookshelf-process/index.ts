@@ -29,6 +29,7 @@ import {
   cleanExtractedText,
   extractPDFMetadata,
 } from '../_shared/pdf-utils.ts'
+import { callOpenRouter } from '../_shared/openrouter-client.ts'
 
 // ============================================================
 // Environment
@@ -1025,20 +1026,15 @@ ${sample}
 
 Return ONLY a valid JSON object. No markdown, no explanation.`
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://myaimcentral.com',
-      'X-Title': 'MyAIM Central BookShelf',
-    },
-    body: JSON.stringify({
+  const response = await callOpenRouter(
+    OPENROUTER_API_KEY,
+    {
       model: HAIKU_MODEL,
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+    },
+    { title: 'MyAIM Central BookShelf' },
+  )
 
   if (!response.ok) {
     throw new Error(`Haiku classification API error: ${response.status}`)
@@ -1125,15 +1121,9 @@ async function extractPDFViaVision(pdfBytes: Uint8Array): Promise<string | null>
       `[bookshelf-process/PDFVision] Sending ${bytesToSend.length} bytes to Haiku vision`,
     )
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central BookShelf',
-      },
-      body: JSON.stringify({
+    const response = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: HAIKU_MODEL,
         max_tokens: 16384,
         messages: [
@@ -1148,8 +1138,9 @@ async function extractPDFViaVision(pdfBytes: Uint8Array): Promise<string | null>
             ],
           },
         ],
-      }),
-    })
+      },
+      { title: 'MyAIM Central BookShelf' },
+    )
 
     if (!response.ok) {
       console.error(`[bookshelf-process/PDFVision] API error (${response.status}):`, await response.text())
@@ -1211,15 +1202,9 @@ async function extractViaVision(fileUrl: string): Promise<string | null> {
     const base64 = btoa(binary)
     const dataUri = `data:${mimeType};base64,${base64}`
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://myaimcentral.com',
-        'X-Title': 'MyAIM Central BookShelf',
-      },
-      body: JSON.stringify({
+    const response = await callOpenRouter(
+      OPENROUTER_API_KEY,
+      {
         model: HAIKU_MODEL,
         max_tokens: 4096,
         messages: [
@@ -1234,8 +1219,9 @@ async function extractViaVision(fileUrl: string): Promise<string | null> {
             ],
           },
         ],
-      }),
-    })
+      },
+      { title: 'MyAIM Central BookShelf' },
+    )
 
     if (!response.ok) {
       console.error(`[bookshelf-process/ImageVision] API error (${response.status}):`, await response.text())
