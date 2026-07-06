@@ -178,3 +178,18 @@ Task Breaker Vault entry routes through `lila-chat` instead of `StandaloneTaskBr
 - [ ] Zero Missing items confirmed
 - [ ] **Phase approved as complete**
 - **Completion date:**
+
+---
+
+## Retroactive Post-Build Verification (STUDIO-EXPERIENCE audit, 2026-07-04 — founder ruling)
+
+The table above was never filled at build time. Per founder ruling 2026-07-04, the STUDIO-EXPERIENCE audit's graded matrix (`claude/feature-decisions/Studio-Experience.md` §2–§3) is this build's retroactive verification. Summary for Phase 3.8 deliverables:
+
+| Deliverable | Retroactive status | Evidence |
+|---|---|---|
+| ActivityListWizard (+ Reading Fun / Homeschool Variety seeds) | Opens correctly with prefills; **its two reward contracts are authored against `list_item_completion`, a deed type nothing fires — reward thresholds inert (F-14)**; listed in the Drafts tab's resume map but has NO draft code (phantom entry, F-02); activity-list scheduling (`lists.schedule_config`) still unwired (Bucket 1) | Studio-Experience F-02/F-14, Pass A tiles 4-5/13 |
+| SharedTaskListWizard (+ Honey-Do seed) | Opens correctly; continuous draft auto-save works; deploy untested-live in this audit beyond Pass A open-state | Pass A tiles 6/14, F-02 |
+| Phase 3.8 `tasks_source_check` values | Survived the 100262 re-enumeration (icon_launcher/activity_list/list_promotion probed OK) — unlike Phase 3.7's values | F-21 probes |
+| NLC routing extension (activity/shared-task wizard types) | Works within NLC's 6-wizard scope; scope itself fails Convention 253 | F-01, B1 |
+
+Remediation ownership: STUDIO-EXPERIENCE cleanup slices (active build file).

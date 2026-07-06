@@ -209,3 +209,21 @@ After this ships, mom uses wizards to create potty charts, consequence spinners,
 - [ ] Zero Missing items confirmed
 - [ ] **Phase approved as complete**
 - **Completion date:**
+
+---
+
+## Retroactive Post-Build Verification (STUDIO-EXPERIENCE audit, 2026-07-04 — founder ruling)
+
+The table above was never filled at build time. Per founder ruling 2026-07-04, the STUDIO-EXPERIENCE audit's graded matrix (`claude/feature-decisions/Studio-Experience.md` §2–§3) is this build's retroactive verification. Summary of what it found for Phase 3.7 deliverables:
+
+| Deliverable | Retroactive status | Evidence |
+|---|---|---|
+| RewardsListWizard | Wired (opens, AI-suggest works) — **card promises bulk-paste it doesn't have (F-16); deployed reward_list is invisible/uneditable everywhere afterwards (F-19)** | Studio-Experience §1 F-16/F-19, Pass A tile 10 |
+| RepeatedActionChartWizard (Progress Chart / Potty Chart) | **BROKEN — never deployable in production.** First task insert uses `status:'active'` (invalid since migration 100023, i.e. before this build shipped) + `source:'studio'` (dropped by 100262). The build-time "6/6 E2E passing" never exercised a real deploy. | Studio-Experience F-21 + S2 (browser + DB) |
+| ListRevealAssignmentWizard (both flavors) | Deploy layer Wired (list/items/shares; bulk-AI-add excellent) — **reward + draw contracts authored against deed types nothing fires (`list_item_completion`/`randomizer_drawn`) → "automatic reward delivery" is inert (F-14); Who-Can-Browse defaults to sharing with everyone incl. Special Adults** | Studio-Experience F-14 + S1 (live rows) |
+| Seeded templates (Potty Chart / Consequence Spinner / Extra Earning) | Cards + prefills Wired (open-state) — deploy status per the wizard rows above | Pass A tiles 1-3 |
+| wizard_templates records | Write-only: nothing reads the table (0 rows in production); Convention 250 reopen-editable unmet | F-08, founder-add probe (b) |
+| Drafts (save-and-return) | Partial: localStorage-only, single-slot, silent (no §2.2 prompts), 4 wizards only | F-02, B2 |
+| NLC entry point | **Fails the flagship description; routes wrong for out-of-catalog outcomes; 6-wizard scope; shared ai-parse function (convention deviation)** | F-01, B1, S1 |
+
+Remediation ownership: STUDIO-EXPERIENCE cleanup slices ST-0…ST-G (active build file).
