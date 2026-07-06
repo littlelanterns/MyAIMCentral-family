@@ -1011,3 +1011,58 @@ for (const vp of VIEWPORTS) {
     })
   })
 }
+
+// ── Stop 16: Slice 5 — Prize Board arrangement + summary strip + Me pill ────
+
+async function stop16PrizeBoardSlice5(page: Page, suffix: string) {
+  const jordan = await memberId('Jordan')
+  const casey = await memberId('Casey')
+  const sarah = await memberId('Sarah')
+
+  await ensurePrize({ earnerId: jordan, prizeText: 'KRS5 EYES-ON Jordan bowling night' })
+  await ensurePrize({ earnerId: casey, prizeText: 'KRS5 EYES-ON Casey bake cookies together' })
+  await ensurePrize({ earnerId: sarah, prizeText: 'KRS5 EYES-ON Sarah quiet coffee morning' })
+
+  await loginAsMom(page)
+  await page.goto('/prize-board')
+  await waitForAppReady(page)
+  await page.getByRole('button', { name: 'Prizes' }).click()
+
+  await expect(page.getByTestId('prizes-summary-strip')).toBeVisible({ timeout: 15000 })
+  await expect(page.getByTestId('prizes-by-kid-list')).toContainText('KRS5 EYES-ON Jordan bowling night')
+  await shot(page, `34-${suffix}-prizeboard-summary-strip-by-kid`)
+  await linger(page)
+
+  await page.getByTestId('prizes-arrangement-by_date').click()
+  await expect(page.getByTestId('prizes-by-date-list')).toBeVisible()
+  await shot(page, `35-${suffix}-prizeboard-by-date-arrangement`)
+  await linger(page)
+
+  await page.getByTestId('prizes-me-pill-toggle').click()
+  await expect(page.getByText('KRS5 EYES-ON Sarah quiet coffee morning')).toBeVisible()
+  await shot(page, `36-${suffix}-prizeboard-me-pill-expanded`)
+  await linger(page)
+}
+
+for (const vp of VIEWPORTS) {
+  test.describe(`Eyes-on tour — Slice 5 (Prize Board arrangement + Me pill) — ${vp.label}`, () => {
+    test.describe.configure({ timeout: 120_000, retries: 1 })
+    test.use({ viewport: { width: vp.width, height: vp.height } })
+    const suffix = vp.label.toLowerCase()
+
+    test.beforeAll(async () => {
+      if (familyId) return
+      const { data: family, error } = await sr
+        .from('families')
+        .select('id')
+        .eq('family_login_name_lower', 'testworthfamily')
+        .single()
+      if (error || !family) throw new Error(`Testworth family not found: ${error?.message}`)
+      familyId = family.id
+    })
+
+    test(`Stop 16 [${vp.label}] — Prize Board: summary strip, By kid/By date, Me pill`, async ({ page }) => {
+      await stop16PrizeBoardSlice5(page, suffix)
+    })
+  })
+}

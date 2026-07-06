@@ -122,7 +122,7 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
 
   '/prize-board': `PRIZE BOARD — 3 tabs: Allowance, Prizes, Balance.
   ALLOWANCE TAB: Unpaid periods grouped by date range. Each group expands to show per-pool breakdown (pool name, percentage, earned amount, weight). "Paid" button marks all pools in that period as closed.
-  PRIZES TAB: Earned IOUs from reward reveals. Mark as redeemed when fulfilled.
+  PRIZES TAB: Earned IOUs from reward reveals, one per kid. A summary strip up top shows how many prizes are waiting and across how many kids (prizes/privileges only — never dollar amounts). "Arrange: By kid / By date" toggle switches between grouped-per-kid and one combined chronological stream (choice remembered). Mark a prize "Redeemed" when fulfilled; recently redeemed prizes have an Un-redeem button for accidental taps. A "Me" pill at the top is mom's own promises-to-herself — her own self-proposed rewards, redeem, history, and "Promise Yourself a Reward" — kept separate from what's owed to the kids below.
   BALANCE TAB: Full earnings ledger with running balance.
   Kid selector pill bar at top — tap a kid for their ledger, "All Kids" for combined chronological stream.
   Filters: All / Earnings / Payments / Adjustments / By Pool.

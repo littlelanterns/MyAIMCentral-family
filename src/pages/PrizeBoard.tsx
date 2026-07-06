@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users, ImagePlus, Undo2 } from 'lucide-react'
+import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users, ImagePlus, Undo2, History, UserRound } from 'lucide-react'
 import {
   useEarnedPrizes,
   useRedeemPrize,
@@ -8,8 +8,12 @@ import {
   useUpdatePrizeImage,
   type EarnedPrize as EarnedPrizeRow,
 } from '@/hooks/useEarnedPrizes'
+import { useEarnedPrizes as useMemberEarnedPrizes } from '@/hooks/useRewardReveals'
 import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
 import { PlatformAssetImage } from '@/components/shared/PlatformAssetImage'
+import { PrizeBox } from '@/components/reward-reveals/PrizeBox'
+import { RedeemedHistoryModal } from '@/components/rewards/RedeemedHistoryModal'
+import { SelfProposeSection } from '@/components/rewards/SelfProposeSection'
 import { useFamilyMembers, useFamilyMember } from '@/hooks/useFamilyMember'
 import {
   useAllowanceConfigs,
@@ -23,6 +27,22 @@ import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
 import { LedgerView } from '@/features/financial/LedgerView'
 import { PaymentModal } from '@/features/financial/FinancialModals'
+
+/**
+ * KIDS-REWARDS-PAGE Slice 5 — Prizes tab arrangement (mirrors the Balance
+ * tab's LedgerView "By child / By date" toggle, founder request 2026-06-09
+ * pattern reused here per the Slice 5 gate). Persists across sessions.
+ */
+type PrizesArrangement = 'by_kid' | 'by_date'
+const PRIZES_ARRANGEMENT_STORAGE_KEY = 'myaim-prizeboard-prizes-arrangement'
+
+function loadPrizesArrangement(): PrizesArrangement {
+  try {
+    const stored = localStorage.getItem(PRIZES_ARRANGEMENT_STORAGE_KEY)
+    if (stored === 'by_date' || stored === 'by_kid') return stored
+  } catch { /* ignore */ }
+  return 'by_kid'
+}
 
 type Tab = 'allowance' | 'prizes' | 'balance'
 
@@ -382,7 +402,8 @@ function PeriodGroupRow({
 }
 
 // ============================================================
-// Prizes Section (existing, kept as-is)
+// Prizes Section — per-kid prizes + arrangement toggle + mom's own pill
+// (KIDS-REWARDS-PAGE Slice 5, 2026-07-05)
 // ============================================================
 
 function PrizesSection({
@@ -392,6 +413,7 @@ function PrizesSection({
   familyId: string | undefined
   currentMemberId: string | undefined
 }) {
+  const { data: currentMember } = useFamilyMember()
   const { data: prizes = [], isLoading } = useEarnedPrizes()
   const { data: redeemedPrizes = [] } = useRecentlyRedeemedPrizes()
   const { data: members = [] } = useFamilyMembers(familyId)
@@ -401,14 +423,29 @@ function PrizesSection({
   const updateImageMutation = useUpdatePrizeImage()
   const [showRedeemed, setShowRedeemed] = useState(false)
   const [editingImagePrize, setEditingImagePrize] = useState<EarnedPrizeRow | null>(null)
+  const [arrangement, setArrangement] = useState<PrizesArrangement>(loadPrizesArrangement)
 
   const memberMap = new Map(members.map(m => [m.id, m]))
+  const primaryParent = members.find(m => m.role === 'primary_parent')
+  const isMomViewer = currentMember?.role === 'primary_parent'
+
+  function pickArrangement(next: PrizesArrangement) {
+    setArrangement(next)
+    try { localStorage.setItem(PRIZES_ARRANGEMENT_STORAGE_KEY, next) } catch { /* ignore */ }
+  }
 
   // PERMISSIONS-WIRING: granted adults see only their granted kids' prizes.
-  const visiblePrizes = isMom ? prizes : prizes.filter(p => viewableIds.has(p.family_member_id))
-  const visibleRedeemed = isMom
+  const scopedPrizes = isMom ? prizes : prizes.filter(p => viewableIds.has(p.family_member_id))
+  const scopedRedeemed = isMom
     ? redeemedPrizes
     : redeemedPrizes.filter(p => viewableIds.has(p.family_member_id))
+
+  // KIDS-REWARDS-PAGE Slice 5 / R4-REVISED: mom's own self-proposed rewards
+  // never mix into "what's owed to others" — her own pill below is their
+  // only home on this page (summary strip, both arrangements, and recently
+  // redeemed all exclude her row).
+  const visiblePrizes = scopedPrizes.filter(p => p.family_member_id !== primaryParent?.id)
+  const visibleRedeemed = scopedRedeemed.filter(p => p.family_member_id !== primaryParent?.id)
 
   const grouped = visiblePrizes.reduce<Record<string, typeof prizes>>((acc, prize) => {
     const key = prize.family_member_id
@@ -416,6 +453,15 @@ function PrizesSection({
     acc[key].push(prize)
     return acc
   }, {})
+
+  const byDate = useMemo(
+    () => [...visiblePrizes].sort(
+      (a, b) => new Date(b.earned_at).getTime() - new Date(a.earned_at).getTime(),
+    ),
+    [visiblePrizes],
+  )
+
+  const kidsWithPrizes = Object.keys(grouped).length
 
   const handleRedeem = (prize: EarnedPrizeRow) => {
     if (!currentMemberId) return
@@ -426,120 +472,167 @@ function PrizesSection({
     return <Loader2 className="animate-spin mx-auto" size={20} />
   }
 
-  if (visiblePrizes.length === 0 && visibleRedeemed.length === 0) {
-    return (
-      <EmptyState
-        icon={<Gift size={32} />}
-        text="No unredeemed prizes. When contracts award prizes, they'll appear here."
-      />
-    )
-  }
+  const nothingOwed = visiblePrizes.length === 0 && visibleRedeemed.length === 0
 
   return (
     <div className="space-y-6">
-      {Object.entries(grouped).map(([memberId, memberPrizes]) => {
-        const member = memberMap.get(memberId)
-        const color = member ? getMemberColor(member) : 'var(--color-accent)'
+      {/* KIDS-REWARDS-PAGE Slice 5 / R4-REVISED: mom's own-rewards entry
+          point. Always visible for her, independent of whether anything is
+          owed to the kids below. */}
+      {isMomViewer && currentMember && <MyOwnRewardsPill member={currentMember} />}
 
-        return (
-          <div key={memberId}>
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: color }}>
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-              <span className="font-medium">{member?.display_name ?? 'Unknown'}</span>
-              <span className="text-sm text-[var(--color-text-secondary)]">
-                ({memberPrizes.length} unredeemed)
+      {nothingOwed ? (
+        <EmptyState
+          icon={<Gift size={32} />}
+          text="No unredeemed prizes. When contracts award prizes, they'll appear here."
+        />
+      ) : (
+        <>
+          {/* Summary strip — prizes/privileges only, never dollar amounts */}
+          <div
+            data-testid="prizes-summary-strip"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+            style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border-default)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <Gift size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
+            {visiblePrizes.length === 0 ? (
+              <span>All caught up — no prizes waiting to be given out.</span>
+            ) : (
+              <span>
+                <strong style={{ color: 'var(--color-text-primary)' }}>{visiblePrizes.length}</strong>{' '}
+                prize{visiblePrizes.length === 1 ? '' : 's'} waiting across{' '}
+                <strong style={{ color: 'var(--color-text-primary)' }}>{kidsWithPrizes}</strong>{' '}
+                kid{kidsWithPrizes === 1 ? '' : 's'}
               </span>
-            </div>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              {memberPrizes.map(prize => (
-                <div
-                  key={prize.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]"
+          {/* Arrangement toggle — mirrors the Balance tab's By child/By date pattern */}
+          {visiblePrizes.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-[var(--color-text-secondary)]">Arrange:</span>
+              {([['by_kid', 'By kid'], ['by_date', 'By date']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  data-testid={`prizes-arrangement-${key}`}
+                  onClick={() => pickArrangement(key)}
+                  className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+                  style={{
+                    borderColor: arrangement === key ? 'var(--color-btn-primary-bg)' : 'var(--color-border-default)',
+                    backgroundColor: arrangement === key ? 'var(--color-btn-primary-bg)' : 'transparent',
+                    color: arrangement === key ? 'var(--color-btn-primary-text)' : 'var(--color-text-secondary)',
+                  }}
                 >
-                  <PrizeThumb prize={prize} />
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {prize.prize_name ?? prize.prize_text ?? 'Prize'}
-                    </p>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      Earned {new Date(prize.earned_at).toLocaleDateString()}
-                      {prize.source_type && ` via ${prize.source_type.replace(/_/g, ' ')}`}
-                    </p>
-                  </div>
-
-                  {/* KIDS-REWARDS-PAGE Q5c: edit-image-later */}
-                  <button
-                    onClick={() => setEditingImagePrize(prize)}
-                    title="Edit picture"
-                    aria-label="Edit picture"
-                    className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-md text-sm border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:opacity-80 transition-opacity"
-                  >
-                    <ImagePlus size={14} />
-                  </button>
-
-                  <button
-                    onClick={() => handleRedeem(prize)}
-                    disabled={redeemMutation.isPending}
-                    className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    <Check size={14} />
-                    Redeemed
-                  </button>
-                </div>
+                  {label}
+                </button>
               ))}
             </div>
-          </div>
-        )
-      })}
+          )}
 
-      {/* KIDS-REWARDS-PAGE Q2: recently redeemed with mom-only Un-redeem (clean reset) */}
-      {visibleRedeemed.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowRedeemed(!showRedeemed)}
-            className="text-sm text-[var(--color-text-secondary)] underline-offset-2 hover:underline"
-          >
-            {showRedeemed
-              ? 'Hide recently redeemed'
-              : `Recently redeemed (${visibleRedeemed.length})`}
-          </button>
+          {arrangement === 'by_kid' ? (
+            <div className="space-y-6" data-testid="prizes-by-kid-list">
+              {Object.entries(grouped).map(([memberId, memberPrizes]) => {
+                const member = memberMap.get(memberId)
+                const color = member ? getMemberColor(member) : 'var(--color-accent)'
 
-          {showRedeemed && (
-            <div className="space-y-2 mt-3 opacity-80">
-              {visibleRedeemed.map(prize => {
-                const member = memberMap.get(prize.family_member_id)
                 return (
-                  <div
-                    key={prize.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]"
-                  >
-                    <PrizeThumb prize={prize} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {prize.prize_name ?? prize.prize_text ?? 'Prize'}
-                      </p>
-                      <p className="text-xs text-[var(--color-text-secondary)]">
-                        {member?.display_name ?? 'Unknown'} · Redeemed{' '}
-                        {prize.redeemed_at ? new Date(prize.redeemed_at).toLocaleDateString() : ''}
-                      </p>
+                  <div key={memberId}>
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: color }}>
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="font-medium">{member?.display_name ?? 'Unknown'}</span>
+                      <span className="text-sm text-[var(--color-text-secondary)]">
+                        ({memberPrizes.length} unredeemed)
+                      </span>
                     </div>
-                    <button
-                      onClick={() => unredeemMutation.mutate({ prizeId: prize.id, memberId: prize.family_member_id })}
-                      disabled={unredeemMutation.isPending}
-                      data-testid="unredeem-button"
-                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
-                    >
-                      <Undo2 size={14} />
-                      Un-redeem
-                    </button>
+
+                    <div className="space-y-2">
+                      {memberPrizes.map(prize => (
+                        <PrizeOwedRow
+                          key={prize.id}
+                          prize={prize}
+                          onEditImage={() => setEditingImagePrize(prize)}
+                          onRedeem={() => handleRedeem(prize)}
+                          isRedeeming={redeemMutation.isPending}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )
               })}
             </div>
+          ) : (
+            visiblePrizes.length > 0 && (
+              <div className="space-y-2" data-testid="prizes-by-date-list">
+                {byDate.map(prize => {
+                  const member = memberMap.get(prize.family_member_id)
+                  const color = member ? getMemberColor(member) : 'var(--color-accent)'
+                  return (
+                    <PrizeOwedRow
+                      key={prize.id}
+                      prize={prize}
+                      onEditImage={() => setEditingImagePrize(prize)}
+                      onRedeem={() => handleRedeem(prize)}
+                      isRedeeming={redeemMutation.isPending}
+                      memberTag={member ? { name: member.display_name, color } : undefined}
+                    />
+                  )
+                })}
+              </div>
+            )
           )}
-        </div>
+
+          {/* KIDS-REWARDS-PAGE Q2: recently redeemed with mom-only Un-redeem (clean reset) */}
+          {visibleRedeemed.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowRedeemed(!showRedeemed)}
+                className="text-sm text-[var(--color-text-secondary)] underline-offset-2 hover:underline"
+              >
+                {showRedeemed
+                  ? 'Hide recently redeemed'
+                  : `Recently redeemed (${visibleRedeemed.length})`}
+              </button>
+
+              {showRedeemed && (
+                <div className="space-y-2 mt-3 opacity-80">
+                  {visibleRedeemed.map(prize => {
+                    const member = memberMap.get(prize.family_member_id)
+                    return (
+                      <div
+                        key={prize.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]"
+                      >
+                        <PrizeThumb prize={prize} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {prize.prize_name ?? prize.prize_text ?? 'Prize'}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-secondary)]">
+                            {member?.display_name ?? 'Unknown'} · Redeemed{' '}
+                            {prize.redeemed_at ? new Date(prize.redeemed_at).toLocaleDateString() : ''}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => unredeemMutation.mutate({ prizeId: prize.id, memberId: prize.family_member_id })}
+                          disabled={unredeemMutation.isPending}
+                          data-testid="unredeem-button"
+                          className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
+                        >
+                          <Undo2 size={14} />
+                          Un-redeem
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Edit-image modal (three-mode picker) */}
@@ -589,6 +682,173 @@ function PrizesSection({
             </button>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+/** One owed-prize row. Shows a member color/name tag when `memberTag` is
+ *  passed (By date arrangement); omitted in By kid arrangement where the
+ *  group header already carries that context. */
+function PrizeOwedRow({
+  prize,
+  memberTag,
+  onEditImage,
+  onRedeem,
+  isRedeeming,
+}: {
+  prize: EarnedPrizeRow
+  memberTag?: { name: string; color: string }
+  onEditImage: () => void
+  onRedeem: () => void
+  isRedeeming: boolean
+}) {
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]">
+      <PrizeThumb prize={prize} />
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          {memberTag && (
+            <span
+              className="shrink-0 px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{ backgroundColor: memberTag.color, color: 'var(--color-text-on-primary, #fff)' }}
+            >
+              {memberTag.name}
+            </span>
+          )}
+          <p className="font-medium truncate">
+            {prize.prize_name ?? prize.prize_text ?? 'Prize'}
+          </p>
+        </div>
+        <p className="text-xs text-[var(--color-text-secondary)]">
+          Earned {new Date(prize.earned_at).toLocaleDateString()}
+          {prize.source_type && ` via ${prize.source_type.replace(/_/g, ' ')}`}
+        </p>
+      </div>
+
+      {/* KIDS-REWARDS-PAGE Q5c: edit-image-later */}
+      <button
+        onClick={onEditImage}
+        title="Edit picture"
+        aria-label="Edit picture"
+        className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-md text-sm border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:opacity-80 transition-opacity"
+      >
+        <ImagePlus size={14} />
+      </button>
+
+      <button
+        onClick={onRedeem}
+        disabled={isRedeeming}
+        aria-label={`Mark redeemed: ${prize.prize_name ?? prize.prize_text ?? 'Prize'}`}
+        className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-[var(--color-btn-primary-bg)] text-[var(--color-btn-primary-text)] hover:opacity-90 transition-opacity disabled:opacity-50"
+      >
+        <Check size={14} />
+        Redeemed
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Mom's own-rewards pill (KIDS-REWARDS-PAGE Slice 5 / R4-REVISED). Mom's own
+ * self-proposed rewards are excluded from the general "what I owe others"
+ * views above — this is their only home on the Prize Board. Reuses the exact
+ * same building blocks as MyRewards.tsx's Custom Rewards section: PrizeBox
+ * (self-redeem), the click-in Previously Redeemed history, and the
+ * negotiation-collapsed self-propose screen (SelfProposeSection) whose own
+ * doc comment named this exact pill as its Slice 5 entry point.
+ */
+function MyOwnRewardsPill({ member }: { member: FamilyMember }) {
+  const [expanded, setExpanded] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const { data: myPrizes = [] } = useMemberEarnedPrizes(member.id)
+  const redeemedCount = myPrizes.filter(p => p.redeemed_at).length
+
+  return (
+    <div
+      data-testid="prizes-me-pill"
+      className="rounded-xl"
+      style={{
+        backgroundColor: 'var(--color-bg-card)',
+        border: '1px solid var(--color-border)',
+        padding: '1rem',
+      }}
+    >
+      <button
+        type="button"
+        data-testid="prizes-me-pill-toggle"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 text-left"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
+        {expanded ? (
+          <ChevronDown size={16} style={{ color: 'var(--color-text-secondary)' }} />
+        ) : (
+          <ChevronRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
+        )}
+        <span
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full"
+          style={{
+            backgroundColor: 'var(--color-btn-primary-bg)',
+            color: 'var(--color-btn-primary-text)',
+            fontSize: 'var(--font-size-sm)',
+            fontWeight: 700,
+          }}
+        >
+          <UserRound size={14} />
+          Me
+        </span>
+        <span style={{ fontWeight: 700, color: 'var(--color-text-heading)' }}>
+          My Own Rewards
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-4">
+          <PrizeBox
+            memberId={member.id}
+            currentMemberId={member.id}
+            canRedeem={false}
+            selfRedeem
+            variant="fun"
+            hideRedeemed
+          />
+
+          {redeemedCount > 0 && (
+            <button
+              type="button"
+              data-testid="prizes-me-history-button"
+              onClick={() => setHistoryOpen(true)}
+              className="flex items-center gap-2 rounded-full"
+              style={{
+                padding: '0.5rem 1rem',
+                minHeight: '40px',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 600,
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              <History size={16} />
+              Previously redeemed ({redeemedCount})
+            </button>
+          )}
+
+          <SelfProposeSection member={member} isOwnSession />
+        </div>
+      )}
+
+      {historyOpen && (
+        <RedeemedHistoryModal
+          isOpen={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          memberId={member.id}
+          memberName={member.display_name}
+          familyId={member.family_id}
+        />
       )}
     </div>
   )
