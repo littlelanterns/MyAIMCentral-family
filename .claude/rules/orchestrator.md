@@ -30,6 +30,8 @@ Confirm direction with founder, produce dispatch prompts. Stop before code.
 ### Execute Mode (Active Coordination)
 Coordinate a multi-worker phase. Monitor outputs, run checkpoints, manage state.
 
+**Model routing:** follow `.claude/rules/model-routing.md`. Every dispatch prompt MUST begin with the two-step model header ("STEP 1: type `/model <id>` first — STEP 2: paste the rest") because the model switch is a manual founder action; pasted text cannot change a session's model. Implementation workers → Sonnet (xhigh); judgment/audit sessions → Fable; orchestration → Opus.
+
 1. Founder dispatches Worker N (orchestrator generates prompt, founder pastes)
 2. Worker completes → Checkpoint 2 fires (deliverables present, tsc clean, mom-UI if UI touched)
 3. If passed → generate dispatch prompt for Worker N+1
@@ -82,7 +84,8 @@ Every build touching UI must maintain this in the active build file:
 |---------|-----------------|---------------|---------------|---------------|----------|-----------|
 ```
 
-- Founder does eyes-on verification. Code compilation is NOT evidence.
+- CLAUDE does the visual verification per Convention #277 (Playwright tour + screenshot reading as the relevant roles). Code compilation is NOT evidence; the tour is.
+- Founder eyes-on is optional spot-check — REQUIRED only where the build note demands human feel (e.g., Play small-finger passes) or for her looks/taste review.
 - Every row ✅ in every device column before build closes.
 - ⚠️ or ❌ blocks close-out until resolved or overridden.
 - Backend-only: note "No UI surfaces affected."

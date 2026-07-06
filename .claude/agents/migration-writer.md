@@ -8,6 +8,7 @@ tools:
   - Write
   - Bash
 model: sonnet
+effort: xhigh
 ---
 
 # Migration Writer

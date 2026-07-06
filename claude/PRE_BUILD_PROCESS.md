@@ -179,19 +179,27 @@ If anything is Missing, it must be built or explicitly approved as a stub before
 
 ---
 
-## Visual Verification Standard
+## Visual Verification Standard (Claude-Driven — Convention #277, amended 2026-07-04)
 
-Before marking any UI item as "Wired" in the verification table:
+Before marking any UI item as "Wired" in the verification table, CLAUDE
+verifies it visually (founder directive — she does not do this manually):
 
-1. Open the browser
-2. Hard reload (Ctrl+Shift+R)
-3. Visually confirm the change is rendering correctly
-4. "I wrote the code" is NOT sufficient — only visual confirmation counts
+1. Add/extend an EYES_ON_TOUR-gated tour spec (the
+   `kids-rewards-eyes-on-tour.spec.ts` pattern) covering every touched
+   surface as the relevant role(s), at desktop/tablet/mobile viewports,
+   screenshotting to the gitignored `eyes-on-tour/` folder.
+2. Run it, then READ every screenshot and judge against the spec: renders,
+   expected components present, no error/blank/unstyled states, theme
+   tokens applied, mobile nav parity.
+3. Record verdict + screenshot references in the Mom-UI Verification table.
+4. "I wrote the code" is NOT sufficient — only visual confirmation counts.
+   The tour + screenshot reading IS the visual confirmation.
 
-If the item cannot be visually verified (e.g. requires specific data
-or a user flow to trigger), note exactly how to reproduce it in the
-Notes column of the verification table. Never mark visual items
-Wired without eyes-on confirmation.
+Founder eyes-on remains: optional spot-checks at her discretion; REQUIRED
+where the build note demands human feel (e.g., Play small-finger passes);
+and her periodic looks/taste review. If an item cannot be tour-verified
+(needs specific data or a flow to trigger), seed the data in the tour spec —
+only note a manual repro path when seeding is genuinely impossible.
 
 ### Mobile/Desktop Navigation Parity Check
 

@@ -7,7 +7,7 @@ tools:
   - Grep
   - Bash
   - Agent
-model: opus
+model: fable # judgment gate — Fable during its intro-pricing window; revisit 2026-07-07 (see .claude/rules/model-routing.md)
 ---
 
 # Post-Build Verifier
