@@ -154,6 +154,13 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   "No login needed" is safe on family devices because the device already passed the Family Password door.
   After the family door, the device shows a choice screen: tap "Family Hub" to make it a shared family screen (kids dip in with PIN/picture from the hub), or tap a name + their PIN/picture to make it that person's own device.
   Mom's own tile always asks for HER email sign-in — the family password never opens mom's dashboard.`,
+
+  '/my-rewards': `MY REWARDS PAGE — each family member's own rewards hub (Guided/Independent/Adult; Play gets the same sections on their Fun tab). Mom turns sections on per person: Family Members > [member] > Gamification Settings > "My Rewards Page."
+  Sections mom can enable: Points & streak, Custom Rewards (redeem-ready prizes + Previously Redeemed history), Victories (tap one to see its celebration narrative), Finances (money owed — reconciles with the Balance page), Creatures (sticker-book background frame), Coloring (active + finished reveal gallery), and Propose a deal (Guided+ kids only, never Play).
+  PROPOSE A DEAL (kids/teens): the kid describes what they want and what they'll do to earn it — once, a daily streak for N days, or finishing a checklist of items. It lands as a pending card in mom's Queue > Requests tab.
+  PROMISE YOURSELF A REWARD (adults, including mom on her own page): same idea, but self-directed and private by default — she can optionally share it with specific family members.
+  Mom's processing options on a pitch: Approve (opens a prefilled task, streak tracker, or routine checklist for her to confirm — nothing is created until she saves), Counter (revise the terms once; the kid then accepts or declines the counteroffer), or Decline with an optional note.
+  The reward itself is never auto-created — mom always confirms through the normal creation flow first.`,
 }
 
 // ── Use Case Recipes ──────────────────────────────────────
@@ -635,6 +642,32 @@ For each pool, set:
 Measurement-only pools are great for tracking school effort without tying it to money.
 The widget shows each pool's percentage plus the combined weighted result.
 Pause pools seasonally — pause "School" in summer, activate "Summer Reading."`,
+      },
+    ],
+  },
+  {
+    triggers: ['let my kid propose a reward', 'kid ask for a reward', 'negotiate rewards with kids', 'propose a deal', 'reward myself', 'promise myself a reward', 'self reward', 'counter offer a reward', 'my rewards page'],
+    clarifyingQuestion: "Are you thinking about turning this on for one of your kids (so THEY can pitch you deals), or is this for yourself — an adult self-reward?",
+    variants: [
+      {
+        name: "Kid proposes a deal (Guided+)",
+        description: "A kid or teen pitches you a reward and what they'll do to earn it — you approve, counter, or decline.",
+        howToSetUp: `Go to Family Members > [child] > Gamification Settings > "My Rewards Page."
+Turn on "Propose a deal" (this section defaults off).
+The kid now sees a "Propose a Deal" form on their My Rewards page: what they want, and how they'll earn it (once / a streak of days / finish a checklist).
+Their pitch lands as a card in your Queue > Requests tab.
+Approve opens a prefilled task, streak tracker, or routine checklist for you to review and save — nothing is created silently.
+Counter lets you revise the terms ONE time (e.g., 5 days → 7 days) with an optional note; the kid then accepts or declines your counteroffer.
+Decline lets you add a note explaining why, so the kid sees the outcome.`,
+      },
+      {
+        name: 'Adult self-propose (including you)',
+        description: 'An adult promises themselves a reward for something they commit to doing.',
+        howToSetUp: `Any adult (you included) opens their own My Rewards page and finds "Promise Yourself a Reward."
+Describe what you want and what you'll do to earn it.
+Visibility defaults to PRIVATE — you can optionally share it with specific family members via the member picker.
+Tapping through opens the normal task/tracker creation flow, prefilled, for you to confirm.
+Completing the task later awards the reward automatically through the same pipeline as any other reward.`,
       },
     ],
   },

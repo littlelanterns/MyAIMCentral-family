@@ -70,6 +70,11 @@ const HELP_PATTERNS: HelpPattern[] = [
     response: "I'm LiLa (Little Lanterns), your AI processing partner! I have different modes: Help (troubleshooting), Assist (feature guidance), and Optimizer (prompt crafting). I can also switch to specialized modes for relationships, decision-making, and more. What would you like help with?",
   },
   {
+    category: 'my_rewards',
+    keywords: ['my rewards', 'propose a deal', 'propose a reward', 'kid propose', 'promise yourself a reward', 'self propose', 'counter offer', 'counteroffer', 'reward proposal'],
+    response: "My Rewards is each family member's own rewards page — turn it on per person in Family Members > [child] > Gamification Settings > My Rewards Page. Kids and teens get a \"Propose a deal\" section where they pitch you a reward (\"I want X if I do Y\"); their pitch lands in your Queue > Requests tab, where you can Approve (opens a prefilled task/tracker for you to confirm), Counter (revise the terms once), or Decline with a note. Adults (including you) get \"Promise Yourself a Reward\" instead — a self-propose screen that's private by default. Want help turning it on for someone?",
+  },
+  {
     category: 'tasks',
     keywords: ['create task', 'add task', 'new task', 'assign task', 'routine', 'chore', 'task list'],
     response: "To create a task, tap \"Add Task\" in the QuickTasks bar at the top, or go to Tasks from the bottom nav. You can create one-time tasks, recurring routines, or \"opportunities\" that any family member can claim. Need help setting up a routine?",

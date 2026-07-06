@@ -15,9 +15,9 @@
  * prefix, so the next run of kids-rewards-slice1.spec.ts sweeps them
  * automatically in its beforeAll cleanup.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
-import { loginAsMom, loginAsRiley, loginAsCasey } from '../helpers/auth'
+import { loginAsMom, loginAsRiley, loginAsCasey, loginAsDad } from '../helpers/auth'
 import { waitForAppReady } from '../helpers/assertions'
 import { todayLocalIso } from '../helpers/dates'
 import { randomUUID } from 'crypto'
@@ -283,6 +283,38 @@ async function ensureVictory(mid: string, description: string, narrative: string
     victory_count: 1,
   })
   if (cErr) throw new Error(`celebration fixture: ${cErr.message}`)
+}
+
+/** Slice 4 proposal fixture — pending reward_proposals row via service role
+ *  (mirrors useRewardProposals.ts insertProposal shape, KRSLICE4-prefixed so
+ *  the next kids-rewards-slice4.spec.ts run sweeps it automatically). */
+async function insertTourProposal(opts: {
+  proposerId: string
+  wantText: string
+  willText: string
+  earnStructure: 'once' | 'streak_n_days' | 'finish_list'
+  params?: { days?: number; items?: string[] }
+}): Promise<string> {
+  const { data, error } = await sr
+    .from('reward_proposals')
+    .insert({
+      family_id: familyId,
+      proposer_member_id: opts.proposerId,
+      is_self_proposal: false,
+      status: 'pending',
+      terms: {
+        want_text: opts.wantText,
+        want_image_url: null,
+        want_image_asset_key: null,
+        will_text: opts.willText,
+        earn_structure: opts.earnStructure,
+        params: opts.params ?? {},
+      },
+    })
+    .select('id')
+    .single()
+  if (error || !data) throw new Error(`tour proposal fixture: ${error?.message}`)
+  return data.id
 }
 
 test.use({ launchOptions: { slowMo: 300 }, viewport: { width: 1440, height: 900 } })
@@ -744,3 +776,238 @@ test.describe('Eyes-on tour — Slice 1 mom surfaces', () => {
     await linger(page, 3500)
   })
 })
+
+// ═══════════════ SLICE 4 STOPS (Convention #277 — Claude-driven Mom-UI verification) ═══════════════
+// Propose-a-Reward + self-propose + the cross-member notification it fires.
+// Fixtures use the KRSLICE4 prefix, swept automatically by the next run of
+// kids-rewards-slice4.spec.ts (proposals via terms->>want_text ILIKE, tasks via
+// title ILIKE, notifications via notification_type LIKE 'reward_proposal%',
+// preferences stripped for Casey/Mark). No afterAll needed here — same
+// leave-in-place-for-founder-poking convention as Stops 1-11.
+//
+// Run once per viewport (Desktop/Tablet/Mobile per Convention #277) so the
+// SAME four surfaces get judged at all three breakpoints, matching the
+// Mom-UI Verification table's column structure.
+
+async function stop12CaseyProposeADeal(page: Page, suffix: string) {
+  const casey = await memberId('Casey')
+  await setTourPrefs(casey, { my_rewards_sections: { propose: true } })
+
+  await loginAsCasey(page)
+  await page.goto('/my-rewards')
+  await waitForAppReady(page)
+
+  const section = page.getByTestId('mr-section-propose')
+  await expect(section).toBeVisible({ timeout: 15000 })
+  await section.scrollIntoViewIfNeeded()
+
+  await section.getByTestId('proposal-open-form').click()
+  await section.getByTestId('proposal-want-input').fill('KRSLICE4 EYES-ON pizza night')
+  await section
+    .getByTestId('proposal-will-input')
+    .fill('KRSLICE4 EYES-ON clean my room every day this week')
+  await shot(page, `25-${suffix}-casey-propose-a-deal-form`)
+  await linger(page)
+
+  await section.getByTestId('proposal-submit').click()
+  // .first() — this is a REAL UI submit, so re-running the tour genuinely
+  // creates another pending row each time (unlike the idempotent service-role
+  // fixtures elsewhere in this file); defensive against >1 match rather than
+  // trying to prevent the accumulation.
+  await expect(section.getByTestId('proposal-row-pending').first()).toBeVisible({ timeout: 15000 })
+  await shot(page, `26-${suffix}-casey-propose-a-deal-pending`)
+  await linger(page)
+}
+
+async function stop13MomQueueCounterRound(page: Page, suffix: string) {
+  const casey = await memberId('Casey')
+  const wantText = 'KRSLICE4 EYES-ON movie night'
+
+  // Idempotent — same reasoning as stop15's notification fixture: this is a
+  // fixed demo scenario for the Queue card, not a "propose again" action, so
+  // re-running the tour should reuse the existing pending proposal rather
+  // than piling up duplicates that break the strict-mode card locator below.
+  const { data: existingProposal } = await sr
+    .from('reward_proposals')
+    .select('id')
+    .eq('family_id', familyId)
+    .eq('proposer_member_id', casey)
+    .eq('status', 'pending')
+    .eq('terms->>want_text', wantText)
+    .maybeSingle()
+
+  if (!existingProposal) {
+    await insertTourProposal({
+      proposerId: casey,
+      wantText,
+      willText: 'KRSLICE4 EYES-ON practice piano',
+      earnStructure: 'streak_n_days',
+      params: { days: 5 },
+    })
+  }
+
+  await loginAsMom(page)
+  await page.goto('/tasks')
+  await waitForAppReady(page)
+  await page.getByRole('button', { name: /Review Queue:/ }).click()
+  await page.getByRole('tab', { name: 'Requests' }).click()
+
+  const card = page.getByTestId('proposal-card').filter({ hasText: wantText }).first()
+  await expect(card).toBeVisible({ timeout: 15000 })
+  await card.scrollIntoViewIfNeeded()
+  await shot(page, `27-${suffix}-mom-queue-proposal-card`)
+  await linger(page)
+
+  await card.getByTestId('proposal-counter').click()
+  const counterForm = page.getByTestId('proposal-terms-form')
+  await expect(counterForm).toBeVisible({ timeout: 15000 })
+  await page.getByTestId('proposal-days-input').fill('7')
+  await page.getByTestId('proposal-counter-note').fill('KRSLICE4 EYES-ON Make it a full week?')
+  await shot(page, `28-${suffix}-mom-queue-counter-form`)
+  await linger(page)
+}
+
+async function stop14DadSelfPropose(page: Page, suffix: string) {
+  const mark = await memberId('Mark')
+  await setTourPrefs(mark, { my_rewards_sections: { propose: true } })
+
+  await loginAsDad(page)
+  await page.goto('/my-rewards')
+  await waitForAppReady(page)
+
+  const section = page.getByTestId('mr-section-self-propose')
+  await expect(section).toBeVisible({ timeout: 15000 })
+  await section.scrollIntoViewIfNeeded()
+  await section.getByTestId('self-propose-toggle').click()
+
+  await section.getByTestId('proposal-want-input').fill('KRSLICE4 EYES-ON quiet coffee morning')
+  await section.getByTestId('proposal-will-input').fill('KRSLICE4 EYES-ON organize the garage shelf')
+  await shot(page, `29-${suffix}-dad-self-propose-form`)
+  await linger(page)
+
+  await section.getByTestId('self-propose-setup').click()
+  const titleInput = page.getByPlaceholder('What needs to be done?').first()
+  await expect(titleInput).toBeVisible({ timeout: 15000 })
+  await shot(page, `30-${suffix}-dad-self-propose-prefilled-task`)
+  await linger(page)
+
+  await page.getByRole('button', { name: 'Create Task', exact: true }).click()
+  // .first() — same reasoning as stop12's Casey pitch: this text is hardcoded
+  // (not viewport-suffixed), so each viewport's run of this stop legitimately
+  // adds another matching "My promises" entry across the same tour session
+  // (there's no per-viewport cleanup between Desktop/Tablet/Mobile). By the
+  // time Mobile runs third, the list has 3 identical entries — defensive
+  // against >1 match rather than trying to prevent the accumulation.
+  await expect(
+    page.getByTestId('self-propose-list').getByText('KRSLICE4 EYES-ON quiet coffee morning').first(),
+  ).toBeVisible({ timeout: 15000 })
+  // The list assertion above can pass while the "New task" modal is still
+  // mid-close (its content stays in the DOM/visible-to-Playwright during the
+  // closing transition) — wait for it to fully leave before shooting, so the
+  // screenshot actually shows the settled page instead of the closing modal.
+  await expect(page.getByRole('heading', { name: 'New task' })).toBeHidden({ timeout: 10000 })
+  await shot(page, `31-${suffix}-dad-self-propose-list`)
+  await linger(page)
+}
+
+async function stop15NotificationBell(page: Page, suffix: string) {
+  const sarah = await memberId('Sarah')
+  const casey = await memberId('Casey')
+  const title = 'Casey proposed a deal'
+
+  // Delete-then-recreate rather than skip-if-exists: useNotifications.ts
+  // orders the tray `created_at DESC .limit(20)`, so a stale skip-if-exists
+  // fixture ages out of the top-20 window as OTHER test suites' real
+  // notifications accumulate for Sarah across a long session. Deleting first
+  // guarantees a fresh, visible-in-the-tray row on every tour run.
+  await sr
+    .from('notifications')
+    .delete()
+    .eq('family_id', familyId)
+    .eq('recipient_member_id', sarah)
+    .eq('title', title)
+
+  // Seed the EXACT notification shape useRewardProposals.ts writes on a
+  // real kid pitch (mirrors the real create-notification call).
+  const proposalId = await insertTourProposal({
+    proposerId: casey,
+    wantText: 'KRSLICE4 EYES-ON ice cream trip',
+    willText: 'KRSLICE4 EYES-ON walk the dog every day',
+    earnStructure: 'once',
+  })
+  await sr.from('notifications').insert({
+    family_id: familyId,
+    recipient_member_id: sarah,
+    notification_type: 'reward_proposal_received',
+    category: 'requests',
+    title,
+    body: '"KRSLICE4 EYES-ON ice cream trip" if: KRSLICE4 EYES-ON walk the dog every day',
+    source_type: 'reward_proposal',
+    source_reference_id: proposalId,
+    action_url: '/queue?tab=requests',
+    is_read: false,
+  })
+
+  await loginAsMom(page)
+  await page.goto('/dashboard')
+  await waitForAppReady(page)
+
+  const bell = page.getByRole('button', { name: /Notifications/ })
+  await expect(bell).toBeVisible({ timeout: 15000 })
+  await shot(page, `32-${suffix}-mom-notification-bell-glow`)
+  await linger(page)
+
+  // force:true — BreathingGlow's pulse animation around the bell never
+  // satisfies Playwright's element-stability check (it's always "moving"
+  // by design), so the default actionability wait times out. The element is
+  // definitely visible/enabled; only the animation trips the heuristic.
+  await bell.click({ force: true })
+  await expect(page.getByText(title).first()).toBeVisible({ timeout: 15000 })
+  await shot(page, `33-${suffix}-mom-notification-tray-proposal`)
+  await linger(page)
+}
+
+const VIEWPORTS = [
+  { label: 'Desktop', width: 1440, height: 900 },
+  { label: 'Tablet', width: 768, height: 1024 },
+  { label: 'Mobile', width: 390, height: 844 },
+] as const
+
+for (const vp of VIEWPORTS) {
+  test.describe(`Eyes-on tour — Slice 4 (Propose-a-Reward) — ${vp.label}`, () => {
+    test.describe.configure({ timeout: 120_000, retries: 1 })
+    test.use({ viewport: { width: vp.width, height: vp.height } })
+    const suffix = vp.label.toLowerCase()
+
+    // This describe block is a SEPARATE top-level block from "Eyes-on tour —
+    // Slice 1 mom surfaces" above, so it does NOT inherit that block's
+    // beforeAll (which sets the module-level `familyId`). Re-resolve it here
+    // — memberId() below still shares the same module-level memberIds cache.
+    test.beforeAll(async () => {
+      if (familyId) return
+      const { data: family, error } = await sr
+        .from('families')
+        .select('id')
+        .eq('family_login_name_lower', 'testworthfamily')
+        .single()
+      if (error || !family) throw new Error(`Testworth family not found: ${error?.message}`)
+      familyId = family.id
+    })
+
+    test(`Stop 12 [${vp.label}] — Casey proposes a deal: guided form → pending pitch`, async ({ page }) => {
+      await stop12CaseyProposeADeal(page, suffix)
+    })
+
+    test(`Stop 13 [${vp.label}] — Mom Queue: proposal pitch card + counter round`, async ({ page }) => {
+      await stop13MomQueueCounterRound(page, suffix)
+    })
+
+    test(`Stop 14 [${vp.label}] — Dad self-propose: private-by-default reward promise`, async ({ page }) => {
+      await stop14DadSelfPropose(page, suffix)
+    })
+
+    test(`Stop 15 [${vp.label}] — Notification bell: mom receives Casey's proposal`, async ({ page }) => {
+      await stop15NotificationBell(page, suffix)
+    })
+  })
+}

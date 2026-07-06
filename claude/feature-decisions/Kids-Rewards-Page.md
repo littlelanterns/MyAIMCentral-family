@@ -171,4 +171,68 @@ Recommend: on PrizeBoard **Prizes tab**, add the same arrangement toggle pattern
 
 ## 9. Post-Build Verification
 
-*(table to be filled at Checkpoint 5 — copied from the active build file)*
+*(Checkpoint 5 — every gate requirement across Slices 1-4 + this close-out: Wired / Stubbed / Missing)*
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Slice 1 — Reward pipeline core** |
+| `reward_image_url`/`reward_description`/`reward_image_asset_key` on tasks, task_templates, list_items, custom_reward_godmother_configs | **Wired** | Migration 100266 |
+| `execute_custom_reward_godmother` snapshots image+name into `earned_prizes` | **Wired** | Migrations 100266-100269 (guard ledger G1-G8), slice1 test 1/1c/1d/1e/1f/1g |
+| `redeem_own_prize` SECURITY DEFINER RPC (kid self-redeem) | **Wired** | Migration 100266, slice1 test 4 |
+| Tracker prize-image field (`widget_config.prize_image_url`) | **Wired** | WidgetConfiguration.tsx sequential_path + streak cases |
+| Award hook wiring (completion-time + approval-time, Q7 timing) | **Wired** | useTaskCompletion.ts, useTaskCompletions.ts, slice1 test 3a/3b |
+| Three-mode reward image picker (none/upload/library) + embedding auto-suggest | **Wired** | RewardImagePicker.tsx, TaskIconPicker precedent reuse |
+| PrizeBox: prize_text render, kid Redeem+confirm+mom notification, Play "Ask a grown-up" | **Wired** | PrizeBox.tsx, slice1 test 4 |
+| PrizeBoard: Un-redeem, edit-image-later | **Wired** | PrizeBoard.tsx, slice1 test 5 |
+| Visibility model (private/shared/family) + `personal_rewards_privacy` grant | **Wired** | Migration 100266, slice1 tests 6a/6b/6c |
+| R1 — per-step routine rewards | **Stubbed** | STUB_REGISTRY "KIDS-REWARDS-PAGE Follow-Ups" — completion-level wired now, per-step is new schema/code |
+| R2 — tracker goal-detection → prize firing | **Stubbed** | STUB_REGISTRY — image field wired, firing needs goal-detection infrastructure first |
+| **Slice 2 — My Rewards page + section opt-ins** |
+| `show_my_rewards` + `my_rewards_sections` settings (defaults ON per founder amendment) | **Wired** | useMyRewardsSettings.ts, slice2 tests 1/2 |
+| Shared `<MyRewards>` component: Points, Custom Rewards, Victories, Finances sections | **Wired** | MyRewards.tsx, slice2 tests 3-8 |
+| Convention #271 owed-number reconciliation (matches Balance page) | **Wired** | slice2 test 18 (also closes this Slice 5 checklist item early) |
+| RedeemedHistoryModal (Previously Redeemed history + provenance) | **Wired** | slice2 test 6/21 |
+| CelebrationDetailModal (victory narrative) | **Wired** | slice2 test 7/22 |
+| Mom's own /my-rewards (R4-REVISED: self-only render, no sidebar entry) | **Wired** | Component renders correctly under direct URL; PrizeBoard-pill entry point is the Slice 5 gap below |
+| Play /rewards layout + View-As-aware nav (2 pre-existing bugs found & fixed) | **Wired** | Founder eyes-on fixes, slice2 test 9/10 |
+| View-As correctness (no self-redeem under mom session) | **Wired** | slice2 test 8/23/24 |
+| **Slice 3 — Creatures + Coloring + Dashboard Doors** |
+| CreaturePageFrame: swipe-strip nav + unplaced tray + PullTab + dual placement (tap + drag) | **Wired** | slice3 tests 25-29 |
+| Drag-to-edge page carry | **Wired** | slice3 test 28 |
+| Theme scoping (filters by active_theme_id) | **Wired** | slice3 test 30 |
+| ColoringSection: active + finished gallery, print + download (lineart/color PNG) | **Wired** | slice3 test 31 |
+| Dashboard doors (`info_sticker_page`/`info_coloring_page` widgets) | **Wired** | slice3 test 32/33 |
+| Kid creature-write RPCs (`place_member_creature`, `set_member_last_viewed_page`) | **Wired** | Migration 100275 — fixed a real RLS gap blocking kid self-service |
+| Starter creature (every enabled sticker book gets one on enable) | **Wired** | Migrations 100276-100277, slice3 test 36 |
+| **Slice 4 — Propose-a-Reward + self-propose** |
+| `reward_proposals` table + RLS (proposer/mom/self-proposal-privacy scoping) | **Wired** | Migrations 100278-100279, slice4 test 8 |
+| ProposalTermsForm (guided: once / streak_n_days / finish_list) | **Wired** | ProposalTermsForm.tsx, slice4 tests 2/4/6 |
+| ProposalArtifactCreator prefill-confirm (task / routine / tracker, never silent auto-create) | **Wired** | slice4 tests 3/4/6 |
+| ProposeRewardSection: kid pitch, withdraw, notification to mom | **Wired** | slice4 test 2 |
+| SelfProposeSection: adult self-propose, private-by-default visibility | **Wired** | slice4 test 7 |
+| ProposalCard in Queue RequestsTab: Approve / Counter / Decline | **Wired** | slice4 tests 3/4/5 |
+| ONE-round counter loop (mom counters once, kid accepts/declines) | **Wired** | slice4 test 4 |
+| Notification integration (`reward_proposal_received/outcome/countered/counter_response`) | **Wired** | useRewardProposals.ts, slice4 test 2 + this close-out's Stop 15 |
+| "Propose a deal" settings toggle (Guided+ only, never Play) | **Wired** | slice4 test 1 |
+| Bug fix: `createNotification` RETURNING clause broke ALL cross-member notifications platform-wide | **Wired (fixed)** | Root-caused and fixed during Slice 4; verified via direct probe + slice4 test 2 |
+| Bug fix: `TaskCreationModal.initialAssigneeId` clobbered on already-open mounts | **Wired (fixed)** | Fixed during Slice 4; FO behavior unchanged |
+| **Convention #277 — Claude-driven Mom-UI visual verification (this close-out, 2026-07-04)** |
+| Casey's Propose a Deal (kid pitch form → pending state) | **Wired** | Eyes-on tour Stop 12, screenshots 25-26, all 3 viewports, Claude-read and judged |
+| Mom's Queue — proposal pitch card + counter round | **Wired** | Eyes-on tour Stop 13, screenshots 27-28, all 3 viewports, Claude-read and judged |
+| Dad's Promise Yourself a Reward (self-propose, private-by-default) | **Wired** | Eyes-on tour Stop 14, screenshots 29-31, all 3 viewports, Claude-read and judged — surfaced and fixed 2 real test-code bugs (missing `.first()` strict-mode defense; screenshot-timing race with modal close) along the way |
+| Notification bell — cross-member proposal request arrives | **Wired** | Eyes-on tour Stop 15, screenshots 32-33, all 3 viewports, Claude-read and judged |
+| **LiLa knowledge (Part B, this close-out)** |
+| help-patterns.ts — "propose a deal" / "my rewards" pattern | **Wired** | `my_rewards` category added |
+| feature-guide-knowledge.ts — `/my-rewards` PAGE_KNOWLEDGE entry | **Wired** | Added |
+| feature-guide-knowledge.ts — Propose/self-propose USE_CASE_RECIPE | **Wired** | Added |
+| FeatureGuide on /my-rewards | **Wired** | Already added in Slice 2 (MyRewardsPage.tsx) |
+| **Registered follow-ups (STUB_REGISTRY "KIDS-REWARDS-PAGE Follow-Ups")** |
+| Freeform / LiLa-assisted proposals | **Stubbed** | Post-MVP |
+| Multi-round counteroffers | **Stubbed** | Post-MVP |
+| Play-shell Propose-a-Reward variant | **Stubbed** | Post-MVP — correctly never built (gate §5) |
+| Un-redeem reversal audit history | **Stubbed** | Post-MVP |
+| fo-command-center pin should self-seed `family_overview_configs` | **Stubbed** | FO-COMMAND-CENTER-owned follow-up |
+| `/queue?tab=requests` dead action_url (pre-existing since PRD-15 Build G) | **Stubbed** | PRD-15/queue-surface follow-up |
+| **Slice 5 — Parent PrizeBoard arrangement + full spec (NEVER EXECUTED)** | **Missing → registered as Stubbed** | See STUB_REGISTRY "Slice 5" row added 2026-07-04. By-kid/By-date arrangement toggle, prizes-only summary strip, and `tests/e2e/features/kids-rewards-page.spec.ts` were never built. The #271 test and LiLa knowledge/FeatureGuide items from the Slice 5 plan ARE done (via Slice 2 and this close-out respectively) — only the PrizeBoard arrangement UI + dedicated spec remain open. Founder instructed close-out to proceed 2026-07-04; this is a deliberate, disclosed scope reduction, not a silent gap. |
+
+**Tally: ~49 Wired (incl. 2 real bugs found and fixed during this close-out's own verification pass), 8 Stubbed (6 pre-existing Post-MVP/follow-up + Slice 5 items), 0 silently-Missing (Slice 5 explicitly registered as a stub, not dropped).**
