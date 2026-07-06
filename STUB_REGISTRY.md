@@ -30,6 +30,14 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
+## Family Goals & Family Prizes (2026-07-05) — founder-directed, awaiting Fable pre-build
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| **Family-level goal/tracking system: Family Prizes, Family Best Intentions integration, and general "family goals" the whole family works toward together.** Raised by the founder mid-session during KIDS-REWARDS-PAGE-S5 ("if the family is working together on a prize or a goal, it would be a family prize"). She explicitly asked for REAL multi-member contribution tracking (not a manual mom-declared placeholder) and to run the design in a dedicated Fable session rather than absorb it into the Slice 5 PrizeBoard polish it was raised alongside. Full research handoff — schema constraints already checked (`earned_prizes.family_member_id` is `NOT NULL` today; `contracts.family_member_id IS NULL` already means something different — "all kids individually," not "one shared goal"; `family_best_intentions`/`family_intention_iterations` is the closest existing precedent but is entirely disconnected from the reward-firing pipeline), three founder decisions already resolved (build real tracking now; surface on a member's own rewards page when they participate in or are earning toward it; mom marks a family prize redeemed once for everyone), and open design questions for the Fable pre-build to resolve — all in `claude/feature-decisions/Family-Goals-And-Prizes-Handoff.md`. | Founder directive, 2026-07-05 (mid KIDS-REWARDS-PAGE-S5) | Unwired | ⏳ Unwired (MVP) | Dedicated Fable pre-build session — see handoff doc §6 for the starting prompt |
+
+---
+
 ## KIDS-REWARDS-PAGE Follow-Ups (2026-06-12)
 
 | Stub | Created By | Wired By | Status | Build Phase |
