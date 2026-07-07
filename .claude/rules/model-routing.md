@@ -1,7 +1,7 @@
 # Model Routing Policy — Who Does What
 
 > Auto-loads into every Claude Code session via `.claude/rules/` discovery.
-> Founder-approved 2026-07-01. **Revisit after 2026-07-07** — Fable 5's introductory pricing ends then, and the founder wants Fable usage re-decided at full price (likely narrowing it or pulling judgment gates back to Opus). Secondary date: Sonnet 5 intro pricing ($2/$10 per MTok) runs through 2026-08-31 — worker economics stay extra-cheap until then.
+> Founder-approved 2026-07-01. **Revisit after 2026-07-12** — Anthropic extended Fable 5's introductory pricing (up to 50% off) through 2026-07-12 (announced 2026-07-07; original end date was 07-07). At the new date the founder re-decides Fable usage at full price (likely narrowing it or pulling judgment gates back to Opus). Secondary date: Sonnet 5 intro pricing ($2/$10 per MTok) runs through 2026-08-31 — worker economics stay extra-cheap until then.
 >
 > The founder should never have to remember these assignments. Every session applies them automatically; every dispatch prompt carries its model header.
 

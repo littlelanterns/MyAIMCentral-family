@@ -25,7 +25,7 @@
 2. `MINDSWEEP_WEBHOOK_SECRET` must be set before email intake is ever enabled (webhook now fails closed).
 3. OpenRouter privity support ticket (wording in `no-training-verification.md` §6).
 4. Identify `mcps/` (untracked — commit deliberately or gitignore).
-5. **Fable→Opus judgment re-pin: DEFERRED to end of day 2026-07-07** (founder using remaining Fable window). After today: re-pin `pre-build-auditor` + `post-build-verifier` to `opus`; Fable becomes escalation-step-3 only.
+5. **Fable→Opus judgment re-pin: DEFERRED to 2026-07-12** — Anthropic extended Fable intro pricing through 07-12 (announced 07-07). Until then: judgment agents stay pinned to Fable; every Checkpoint-5 post-build audit this week runs at Fable quality. At 07-12: re-decide (likely re-pin `pre-build-auditor` + `post-build-verifier` to `opus`; Fable becomes escalation-step-3 only).
 6. Resend/DNS setup when SM-C reaches its email item (worker will ask; non-blocking).
 7. Slice E Phase-4 enforcement flip session after ≥1 week of family shadow data.
 
