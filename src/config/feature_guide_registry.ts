@@ -11,6 +11,16 @@ export interface FeatureGuideEntry {
 }
 
 export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
+  family_goals: {
+    title: 'Family Goals & Prizes',
+    description:
+      'Family Goals let your whole family work toward a prize together — not one kid\'s chore chart, everyone\'s. Pick "All together" for one shared counter, or "Everyone does their part" so each person hits their own target. Link it to a Family Best Intention tally or specific tasks, and every qualifying tap or completion counts automatically — from the Hub tablet, a kid\'s dashboard, or a task checkbox.',
+    bullets: [
+      'Create a goal from the Prize Board or Hub Settings',
+      'Pick who participates and what counts toward it',
+      'When the target is hit, the whole family earns the prize — redeem it once, for everyone',
+    ],
+  },
   guiding_stars: {
     title: 'Your Guiding Stars',
     description:

@@ -42,6 +42,7 @@ import {
   PartyPopper,
   Sparkles,
   Star,
+  Users,
   Wallet,
 } from 'lucide-react'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
@@ -51,6 +52,12 @@ import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useMemberStreak } from '@/hooks/useMemberStreak'
 import { useRunningBalance, useMemberAllowancePools } from '@/hooks/useFinancial'
 import { useEarnedPrizes } from '@/hooks/useRewardReveals'
+import {
+  useEarnedPrizes as useFamilyEarnedPrizes,
+  useRecentlyRedeemedPrizes as useFamilyRecentlyRedeemedPrizes,
+} from '@/hooks/useEarnedPrizes'
+import type { EarnedPrize as RewardRevealsEarnedPrize } from '@/types/reward-reveals'
+import { useFamilyGoalsForMember, useFamilyGoalProgress } from '@/hooks/useFamilyGoals'
 import { useVictories } from '@/hooks/useVictories'
 import { useStickerBookState } from '@/hooks/useStickerBookState'
 import { PrizeBox } from '@/components/reward-reveals/PrizeBox'
@@ -62,6 +69,7 @@ import { ProposeRewardSection } from './ProposeRewardSection'
 import { SelfProposeSection } from './SelfProposeSection'
 import { LedgerView } from '@/features/financial/LedgerView'
 import type { Victory } from '@/types/victories'
+import type { FamilyGoal } from '@/types/family-goals'
 
 export interface MyRewardsProps {
   /** The data subject — the EFFECTIVE member (View As aware at the host page). */
@@ -100,6 +108,12 @@ export function MyRewards({ member, variant, isOwnSession }: MyRewardsProps) {
           variant={variant}
           isOwnSession={isOwnSession}
         />
+      )}
+
+      {/* FAMILY-GOALS-PRIZES Build Item 7: goals this member participates in
+          + earned unredeemed family prizes (FD-2). */}
+      {sections.family && (
+        <FamilySection member={member} variant={variant} />
       )}
 
       {sections.victories && (
@@ -357,6 +371,149 @@ function CustomRewardsSection({
         />
       )}
     </SectionCard>
+  )
+}
+
+// ── Family (goals this member participates in + earned family prizes) ──
+// FAMILY-GOALS-PRIZES Build Item 7. FD-2: a participant sees a family goal
+// on their own My Rewards page — membership in participating_member_ids for
+// in-flight goals, shared_with_member_ids (participant snapshot) for earned
+// prizes. Mom's own Me view is included (she's just another member here).
+
+function FamilySection({
+  member,
+  variant,
+}: {
+  member: FamilyMember
+  variant: 'standard' | 'play'
+}) {
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const { data: goals = [] } = useFamilyGoalsForMember(member.family_id, member.id)
+  const activeGoals = goals.filter((g) => g.status === 'active')
+  // Family-scoped (not member-scoped) — correct regardless of View As, since
+  // View As never crosses a family boundary.
+  const { data: allPrizes = [] } = useFamilyEarnedPrizes()
+  const myFamilyPrizes = allPrizes.filter(
+    (p) => p.source_type === 'family_goal' && (p.shared_with_member_ids ?? []).includes(member.id),
+  )
+  const { data: allRedeemed = [] } = useFamilyRecentlyRedeemedPrizes()
+  const myRedeemedFamilyPrizes = allRedeemed.filter(
+    (p) => p.source_type === 'family_goal' && (p.shared_with_member_ids ?? []).includes(member.id),
+  )
+  const play = variant === 'play'
+
+  if (activeGoals.length === 0 && myFamilyPrizes.length === 0) {
+    return (
+      <SectionCard title="Family Goals" icon={<Users size={play ? 24 : 18} />} testId="mr-section-family" play={play}>
+        <p className="text-sm py-1" style={{ color: 'var(--color-text-secondary)' }}>
+          No family goals in progress right now.
+        </p>
+      </SectionCard>
+    )
+  }
+
+  return (
+    <SectionCard title="Family Goals" icon={<Users size={play ? 24 : 18} />} testId="mr-section-family" play={play}>
+      <div className="space-y-3">
+        {activeGoals.map((goal) => (
+          <FamilyGoalMemberRow key={goal.id} goal={goal} memberId={member.id} play={play} />
+        ))}
+
+        {myFamilyPrizes.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <p className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+              Family prizes ready
+            </p>
+            {myFamilyPrizes.map((prize) => (
+              <div
+                key={prize.id}
+                data-testid={`mr-family-prize-${prize.id}`}
+                className="flex items-center gap-2 rounded-lg px-3 py-2"
+                style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+              >
+                <Gift size={play ? 20 : 16} style={{ color: 'var(--color-btn-primary-bg)' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  {prize.prize_name ?? prize.prize_text ?? 'Family Prize'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {myRedeemedFamilyPrizes.length > 0 && (
+          <button
+            type="button"
+            data-testid="mr-family-history-button"
+            onClick={() => setHistoryOpen(true)}
+            className="flex items-center gap-2 rounded-full"
+            style={{
+              padding: play ? '0.75rem 1.25rem' : '0.5rem 1rem',
+              minHeight: play ? '56px' : '40px',
+              fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)',
+              fontWeight: 600,
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-primary)',
+              cursor: 'pointer',
+            }}
+          >
+            <History size={play ? 20 : 16} />
+            Previously redeemed ({myRedeemedFamilyPrizes.length})
+          </button>
+        )}
+      </div>
+
+      {historyOpen && (
+        <RedeemedHistoryModal
+          isOpen={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          memberId={member.id}
+          memberName={member.display_name}
+          familyId={member.family_id}
+          additionalRedeemed={myRedeemedFamilyPrizes as unknown as RewardRevealsEarnedPrize[]}
+        />
+      )}
+    </SectionCard>
+  )
+}
+
+function FamilyGoalMemberRow({
+  goal,
+  memberId,
+  play,
+}: {
+  goal: FamilyGoal
+  memberId: string
+  play: boolean
+}) {
+  const { data: progress } = useFamilyGoalProgress(goal.id)
+  const myCount = progress?.perMember.find((p) => p.memberId === memberId)?.count ?? 0
+  const familyTotal = progress?.total ?? goal.current_progress
+
+  return (
+    <div
+      data-testid={`mr-family-goal-${goal.id}`}
+      className="rounded-lg px-3 py-2.5"
+      style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+    >
+      <p
+        className="font-medium"
+        style={{ fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}
+      >
+        {goal.title}
+      </p>
+      {goal.progress_visible ? (
+        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          {goal.earning_mode === 'each_member'
+            ? `You: ${myCount} / ${goal.target_count}`
+            : `You: ${myCount} · Family: ${familyTotal}/${goal.target_count}`}
+        </p>
+      ) : (
+        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          {goal.prize_name}
+        </p>
+      )}
+    </div>
   )
 }
 

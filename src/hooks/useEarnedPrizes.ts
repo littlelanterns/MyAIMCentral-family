@@ -5,7 +5,12 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 export interface EarnedPrize {
   id: string
   family_id: string
-  family_member_id: string
+  /**
+   * FAMILY-GOALS-PRIZES: nullable — NULL exactly when
+   * source_type='family_goal' (CHECK-enforced, migration 100284). A Family
+   * Prize belongs to no single member; consumers must branch on this.
+   */
+  family_member_id: string | null
   reward_reveal_id: string | null
   attachment_id: string | null
   source_type: string
@@ -20,6 +25,14 @@ export interface EarnedPrize {
   redeemed_at: string | null
   redeemed_by: string | null
   created_at: string
+  /** KIDS-REWARDS-PAGE visibility model (migration 100266) — was never added
+   *  to this interface even though `select('*')` always fetched it. */
+  visibility?: 'family' | 'private' | 'shared'
+  /** FAMILY-GOALS-PRIZES: participant snapshot at award time for a Family
+   *  Prize (source_type='family_goal'). Empty array for non-family prizes. */
+  shared_with_member_ids?: string[]
+  created_by?: string | null
+  awarded_completion_id?: string | null
 }
 
 export function useEarnedPrizes() {
@@ -78,7 +91,7 @@ export function useRecentlyRedeemedPrizes(windowDays = 30) {
 function useInvalidatePrizeQueries() {
   const queryClient = useQueryClient()
   const { data: member } = useFamilyMember()
-  return (memberId?: string) => {
+  return (memberId?: string | null) => {
     queryClient.invalidateQueries({ queryKey: ['earned-prizes', member?.family_id] })
     queryClient.invalidateQueries({ queryKey: ['earned-prizes-redeemed', member?.family_id] })
     if (memberId) {
@@ -93,7 +106,7 @@ export function useRedeemPrize() {
   const invalidate = useInvalidatePrizeQueries()
 
   return useMutation({
-    mutationFn: async ({ prizeId, redeemedBy, memberId }: { prizeId: string; redeemedBy: string; memberId?: string }) => {
+    mutationFn: async ({ prizeId, redeemedBy, memberId }: { prizeId: string; redeemedBy: string; memberId?: string | null }) => {
       const { error } = await supabase
         .from('earned_prizes')
         .update({ redeemed_at: new Date().toISOString(), redeemed_by: redeemedBy })
@@ -118,7 +131,7 @@ export function useUnredeemPrize() {
   const invalidate = useInvalidatePrizeQueries()
 
   return useMutation({
-    mutationFn: async ({ prizeId, memberId }: { prizeId: string; memberId?: string }) => {
+    mutationFn: async ({ prizeId, memberId }: { prizeId: string; memberId?: string | null }) => {
       const { error } = await supabase
         .from('earned_prizes')
         .update({ redeemed_at: null, redeemed_by: null })
@@ -150,7 +163,7 @@ export function useUpdatePrizeImage() {
       imageAssetKey,
     }: {
       prizeId: string
-      memberId?: string
+      memberId?: string | null
       imageUrl: string | null
       imageAssetKey: string | null
     }) => {

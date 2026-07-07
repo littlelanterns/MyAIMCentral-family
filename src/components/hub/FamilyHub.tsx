@@ -21,6 +21,7 @@ import {
   useFamilyHubConfig,
   useUpdateFamilyHubConfig,
   DEFAULT_SECTION_ORDER,
+  mergeSectionOrder,
   type HubSectionKey,
 } from '@/hooks/useFamilyHubConfig'
 import { useFamilyBestIntentions } from '@/hooks/useFamilyBestIntentions'
@@ -31,6 +32,7 @@ import { HubSettings } from './HubSettings'
 import { SlideshowOverlay } from './SlideshowOverlay'
 import { HubCalendarSection } from './sections/HubCalendarSection'
 import { HubBestIntentionsSection } from './sections/HubBestIntentionsSection'
+import { HubFamilyGoalsSection } from './sections/HubFamilyGoalsSection'
 import { HubCountdownsSection } from './sections/HubCountdownsSection'
 import { HubVictoriesSummarySection } from './sections/HubVictoriesSummarySection'
 import { HubMemberAuthModal } from './HubMemberAuthModal'
@@ -42,6 +44,7 @@ const SECTION_LABELS: Record<string, string> = {
   family_calendar: 'Family Calendar',
   family_vision: 'Family Vision',
   family_best_intentions: 'Family Best Intentions',
+  family_goals: 'Family Goals',
   victories_summary: 'Victories Summary',
   countdowns: 'Countdowns',
   widget_grid: 'Widget Grid',
@@ -118,6 +121,8 @@ function HubSectionRenderer({
           isMom={isMom}
         />
       )
+    case 'family_goals':
+      return <HubFamilyGoalsSection isMom={isMom} />
     case 'countdowns':
       return <HubCountdownsSection />
     case 'victories_summary':
@@ -225,10 +230,12 @@ export function FamilyHub({ context }: FamilyHubProps) {
     })
   }, [family?.id, config, configLoading, updateConfig])
 
-  // Section order and visibility
+  // Section order and visibility. FAMILY-GOALS-PRIZES: grafts any
+  // newly-registered section key (e.g. 'family_goals') into a previously
+  // saved order at read time — never a data migration (Convention #178).
   const sectionOrder = useMemo(() => {
     if (config?.section_order && config.section_order.length > 0) {
-      return config.section_order
+      return mergeSectionOrder(config.section_order)
     }
     return [...DEFAULT_SECTION_ORDER]
   }, [config?.section_order])

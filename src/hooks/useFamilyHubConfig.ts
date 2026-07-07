@@ -35,6 +35,7 @@ export const HUB_SECTION_KEYS = [
   'family_calendar',
   'family_vision',
   'family_best_intentions',
+  'family_goals',
   'victories_summary',
   'countdowns',
   'widget_grid',
@@ -43,6 +44,35 @@ export const HUB_SECTION_KEYS = [
 export type HubSectionKey = (typeof HUB_SECTION_KEYS)[number]
 
 export const DEFAULT_SECTION_ORDER: string[] = [...HUB_SECTION_KEYS]
+
+/**
+ * FAMILY-GOALS-PRIZES: merge a saved section_order with the registered key
+ * set (mirrors src/hooks/useFamilyOverviewConfig.ts's mergeSectionOrder,
+ * Convention #178 pattern). The saved order is preserved; any registered key
+ * missing from it (e.g. 'family_goals' added after the row was saved) is
+ * grafted in at its canonical position — right after the nearest preceding
+ * default-order key present in the saved array. Read-time only; never
+ * rewrites the stored row.
+ */
+export function mergeSectionOrder(saved: string[]): string[] {
+  if (saved.length === 0) return [...HUB_SECTION_KEYS]
+  const merged = [...saved]
+  for (let i = 0; i < HUB_SECTION_KEYS.length; i++) {
+    const key = HUB_SECTION_KEYS[i]
+    if (merged.includes(key)) continue
+    let insertAt = 0
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = HUB_SECTION_KEYS[j]
+      const idx = merged.indexOf(prev)
+      if (idx !== -1) {
+        insertAt = idx + 1
+        break
+      }
+    }
+    merged.splice(insertAt, 0, key)
+  }
+  return merged
+}
 
 // ─── Read hook ──────────────────────────────────────────────────────────────
 

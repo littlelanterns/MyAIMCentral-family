@@ -16,7 +16,9 @@ import { useState, useCallback } from 'react'
 import {
   Settings, Eye, EyeOff, GripVertical, Plus, Pencil, Archive,
   Star, Trophy, Home, Lock, Frame, Trash2, Type, Image as ImageIcon, Calendar,
+  Sparkles, Settings2,
 } from 'lucide-react'
+import { FamilyGoalManager } from '@/components/rewards/FamilyGoalManager'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { supabase } from '@/lib/supabase/client'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -137,6 +139,7 @@ function HubPinSetter({ familyId, hasPin }: { familyId?: string; hasPin: boolean
 const SECTION_LABELS: Record<string, string> = {
   family_calendar: 'Family Calendar',
   family_best_intentions: 'Family Best Intentions',
+  family_goals: 'Family Goals',
   victories_summary: 'Victories Summary',
   countdowns: 'Countdowns',
   widget_grid: 'Widget Grid',
@@ -189,6 +192,9 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
   const [intentionDesc, setIntentionDesc] = useState('')
   const [intentionMembers, setIntentionMembers] = useState<string[]>([])
   const [intentionRequirePin, setIntentionRequirePin] = useState(false)
+
+  // FAMILY-GOALS-PRIZES: door #2 (Prize Board is door #1)
+  const [familyGoalManagerOpen, setFamilyGoalManagerOpen] = useState(false)
 
   // Countdown form
   const [showCountdownForm, setShowCountdownForm] = useState(false)
@@ -510,6 +516,28 @@ export function HubSettings({ isOpen, onClose }: HubSettingsProps) {
                 <Plus size={14} /> Create New Intention
               </button>
             </>
+          )}
+        </SettingsGroup>
+
+        {/* ── 4b. Family Goals & Prizes (FAMILY-GOALS-PRIZES door #2) ──── */}
+        <SettingsGroup icon={<Sparkles size={16} />} title="Family Goals & Prizes">
+          <p className="text-xs mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+            Family Goals let your whole family work toward a shared prize — tally a
+            Family Best Intention, complete tasks, or both.
+          </p>
+          <button
+            onClick={() => setFamilyGoalManagerOpen(true)}
+            className="flex items-center gap-1 text-xs font-medium px-3 py-2 rounded-lg"
+            style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+          >
+            <Settings2 size={14} /> Manage Family Goals
+          </button>
+          {familyId && (
+            <FamilyGoalManager
+              isOpen={familyGoalManagerOpen}
+              onClose={() => setFamilyGoalManagerOpen(false)}
+              familyId={familyId}
+            />
           )}
         </SettingsGroup>
 

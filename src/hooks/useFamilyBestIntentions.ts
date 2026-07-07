@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { todayLocalIso } from '@/utils/dates'
 import { useFamilyToday, fetchFamilyToday } from './useFamilyToday'
+import { invalidateFamilyGoalQueries } from './useFamilyGoals'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -260,6 +261,11 @@ export function useLogFamilyIntentionTally() {
     onSettled: async (_data, _err, vars) => {
       const today = await fetchFamilyToday(vars.memberId).catch(() => todayLocalIso())
       qc.invalidateQueries({ queryKey: ['family-intention-iterations', vars.familyId, today] })
+      // FAMILY-GOALS-PRIZES: a tally on a linked family intention counts toward
+      // any active goal's progress via a DB trigger (migration 100284) — refresh
+      // the goal freshness for whoever just tapped so the Hub/Prize Board update
+      // without waiting for staleTime to lapse.
+      invalidateFamilyGoalQueries(qc, vars.familyId)
     },
   })
 }

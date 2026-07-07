@@ -23,6 +23,16 @@ interface RedeemedHistoryModalProps {
   memberId: string
   memberName: string
   familyId: string
+  /**
+   * FAMILY-GOALS-PRIZES Build Item 7: redeemed Family Prizes this member
+   * participated in (family_member_id=NULL rows, so they're invisible to the
+   * member-scoped useEarnedPrizes(memberId) query below). Caller resolves via
+   * useRecentlyRedeemedPrizes() filtered to source_type='family_goal' AND
+   * shared_with_member_ids.includes(memberId). Merged in, not a replacement —
+   * RedeemedHistoryModal stays the ONE reusable "reward history" surface
+   * (Pillar 4) regardless of source.
+   */
+  additionalRedeemed?: EarnedPrize[]
 }
 
 export function RedeemedHistoryModal({
@@ -31,11 +41,12 @@ export function RedeemedHistoryModal({
   memberId,
   memberName,
   familyId,
+  additionalRedeemed = [],
 }: RedeemedHistoryModalProps) {
   const { data: prizes = [] } = useEarnedPrizes(memberId)
   const { data: members = [] } = useFamilyMembers(familyId)
 
-  const redeemed = prizes
+  const redeemed = [...prizes, ...additionalRedeemed]
     .filter(p => p.redeemed_at)
     .sort(
       (a, b) =>

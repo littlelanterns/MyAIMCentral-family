@@ -10,6 +10,7 @@ import { fireDeed } from '@/lib/connector/fireDeed'
 import { grantMoney } from '@/lib/financial/grantMoney'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
+import { invalidateFamilyGoalQueries } from './useFamilyGoals'
 import type {
   Task,
   CreateTask,
@@ -409,6 +410,11 @@ export function useCompleteTask() {
         queryClient.invalidateQueries({ queryKey: ['member-coloring-reveals', completerId] })
         queryClient.invalidateQueries({ queryKey: ['pending-reveals', completerId] })
       }
+
+      // FAMILY-GOALS-PRIZES: a completion on a linked task counts toward any
+      // active goal's progress via a DB trigger (migration 100284) — refresh
+      // freshness for whoever just completed it.
+      invalidateFamilyGoalQueries(queryClient, task.family_id)
     },
   })
 }
@@ -953,6 +959,10 @@ export function useApproveTaskCompletion() {
       queryClient.invalidateQueries({ queryKey: ['running-balance'] })
       queryClient.invalidateQueries({ queryKey: ['family-financial-summary', data.family_id] })
       queryClient.invalidateQueries({ queryKey: ['pending-reveals'] })
+      // FAMILY-GOALS-PRIZES: approval is when an approval-required task's
+      // contribution actually counts (migration 100284 trigger fires on the
+      // approval UPDATE leg) — refresh freshness now that it's approved.
+      invalidateFamilyGoalQueries(queryClient, data.family_id)
     },
   })
 }

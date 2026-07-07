@@ -3000,6 +3000,58 @@
 | 20 | `created_by` |
 | 21 | `awarded_completion_id` |
 
+### `family_goal_contributions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `goal_id` |
+| 4 | `member_id` |
+| 5 | `source_kind` |
+| 6 | `source_ref_id` |
+| 7 | `contributed_at` |
+| 8 | `created_at` |
+
+### `family_goal_sources` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `goal_id` |
+| 4 | `source_kind` |
+| 5 | `source_id` |
+| 6 | `created_at` |
+
+### `family_goals` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `created_by` |
+| 4 | `title` |
+| 5 | `description` |
+| 6 | `participating_member_ids` |
+| 7 | `earning_mode` |
+| 8 | `target_count` |
+| 9 | `starts_at` |
+| 10 | `ends_at` |
+| 11 | `prize_name` |
+| 12 | `prize_text` |
+| 13 | `prize_image_url` |
+| 14 | `prize_asset_key` |
+| 15 | `progress_visible` |
+| 16 | `is_included_in_ai` |
+| 17 | `status` |
+| 18 | `current_progress` |
+| 19 | `completed_at` |
+| 20 | `earned_prize_id` |
+| 21 | `archived_at` |
+| 22 | `created_at` |
+| 23 | `updated_at` |
+
 ### `feature_discovery_dismissals` — 2 rows
 
 | # | Column |

@@ -798,6 +798,15 @@ function MyRewardsPageSettings({
             checked={settings.sections.finances}
             onChange={(v) => update.mutate({ memberId, sections: { finances: v } })}
           />
+
+          {/* FAMILY-GOALS-PRIZES: family goals this member participates in +
+              earned unredeemed family prizes. Default ON. */}
+          <ToggleRow
+            label="Family Goals"
+            description={`Family goals ${memberName} is working toward, and any family prizes ready to redeem`}
+            checked={settings.sections.family}
+            onChange={(v) => update.mutate({ memberId, sections: { family: v } })}
+          />
         </div>
       )}
 

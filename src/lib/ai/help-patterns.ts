@@ -75,6 +75,11 @@ const HELP_PATTERNS: HelpPattern[] = [
     response: "My Rewards is each family member's own rewards page — turn it on per person in Family Members > [child] > Gamification Settings > My Rewards Page. Kids and teens get a \"Propose a deal\" section where they pitch you a reward (\"I want X if I do Y\"); their pitch lands in your Queue > Requests tab, where you can Approve (opens a prefilled task/tracker for you to confirm), Counter (revise the terms once), or Decline with a note. Adults (including you) get \"Promise Yourself a Reward\" instead — a self-propose screen that's private by default. Want help turning it on for someone?",
   },
   {
+    category: 'family_goals',
+    keywords: ['family goal', 'family prize', 'family reward', 'work together', 'family together', 'shared prize', 'whole family prize', 'family movie night'],
+    response: "Family Goals let your whole family work toward one prize together — manage them from the Prize Board's Prizes tab (\"Manage Family Goals\") or Hub Settings > Family Goals & Prizes. Pick a title, a prize, who participates, and an earning mode: \"All together\" is one shared counter anyone can add to, or \"Everyone does their part\" needs each person to hit their own target. Link it to a Family Best Intention tally and/or specific tasks — every qualifying tap or completion counts automatically, from the Hub tablet, a kid's dashboard, or a task checkbox. When the target is hit, the family earns the prize instantly, and you redeem it once for everyone from the Prize Board. Want help setting one up?",
+  },
+  {
     category: 'tasks',
     keywords: ['create task', 'add task', 'new task', 'assign task', 'routine', 'chore', 'task list'],
     response: "To create a task, tap \"Add Task\" in the QuickTasks bar at the top, or go to Tasks from the bottom nav. You can create one-time tasks, recurring routines, or \"opportunities\" that any family member can claim. Need help setting up a routine?",

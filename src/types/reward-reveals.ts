@@ -166,7 +166,14 @@ export interface ResolvedPrize {
 export interface EarnedPrize {
   id: string
   family_id: string
-  family_member_id: string
+  /**
+   * FAMILY-GOALS-PRIZES: nullable — NULL only when source_type='family_goal'
+   * (a Family Prize belongs to no single member). Every query this type backs
+   * is member-scoped (`.eq('family_member_id', memberId)`), so a null value
+   * never actually flows through THESE hooks — widened here to match the DB
+   * schema and avoid type drift.
+   */
+  family_member_id: string | null
   reward_reveal_id: string | null
   attachment_id: string | null
   source_type: string

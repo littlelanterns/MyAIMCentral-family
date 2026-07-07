@@ -27,6 +27,13 @@ import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
 import { LedgerView } from '@/features/financial/LedgerView'
 import { PaymentModal } from '@/features/financial/FinancialModals'
+import { FamilyGoalsStrip } from '@/components/rewards/FamilyGoalsStrip'
+import { FamilyGoalManager } from '@/components/rewards/FamilyGoalManager'
+
+/** FAMILY-GOALS-PRIZES: sentinel grouping key for ownerless Family Prizes
+ *  (earned_prizes.family_member_id = NULL, migration 100284). Never collides
+ *  with a real member UUID. */
+const FAMILY_GROUP_KEY = '__family__'
 
 /**
  * KIDS-REWARDS-PAGE Slice 5 — Prizes tab arrangement (mirrors the Balance
@@ -424,6 +431,7 @@ function PrizesSection({
   const [showRedeemed, setShowRedeemed] = useState(false)
   const [editingImagePrize, setEditingImagePrize] = useState<EarnedPrizeRow | null>(null)
   const [arrangement, setArrangement] = useState<PrizesArrangement>(loadPrizesArrangement)
+  const [managerOpen, setManagerOpen] = useState(false)
 
   const memberMap = new Map(members.map(m => [m.id, m]))
   const primaryParent = members.find(m => m.role === 'primary_parent')
@@ -435,20 +443,29 @@ function PrizesSection({
   }
 
   // PERMISSIONS-WIRING: granted adults see only their granted kids' prizes.
-  const scopedPrizes = isMom ? prizes : prizes.filter(p => viewableIds.has(p.family_member_id))
+  // FAMILY-GOALS-PRIZES: a Family Prize (family_member_id=NULL) is never
+  // kid-specific — it's visible to anyone with Prize Board access at all,
+  // regardless of which kids they're individually granted (Rider 1 audit fix:
+  // viewableIds.has(null) was silently false, hiding family prizes from every
+  // granted adult).
+  const scopedPrizes = isMom
+    ? prizes
+    : prizes.filter(p => p.family_member_id === null || viewableIds.has(p.family_member_id))
   const scopedRedeemed = isMom
     ? redeemedPrizes
-    : redeemedPrizes.filter(p => viewableIds.has(p.family_member_id))
+    : redeemedPrizes.filter(p => p.family_member_id === null || viewableIds.has(p.family_member_id))
 
   // KIDS-REWARDS-PAGE Slice 5 / R4-REVISED: mom's own self-proposed rewards
   // never mix into "what's owed to others" — her own pill below is their
   // only home on this page (summary strip, both arrangements, and recently
-  // redeemed all exclude her row).
+  // redeemed all exclude her row). Family prizes (family_member_id=NULL) are
+  // NOT excluded here — null !== primaryParent?.id, so they flow through and
+  // render in their own "Family" group per Build Item 4.
   const visiblePrizes = scopedPrizes.filter(p => p.family_member_id !== primaryParent?.id)
   const visibleRedeemed = scopedRedeemed.filter(p => p.family_member_id !== primaryParent?.id)
 
   const grouped = visiblePrizes.reduce<Record<string, typeof prizes>>((acc, prize) => {
-    const key = prize.family_member_id
+    const key = prize.family_member_id ?? FAMILY_GROUP_KEY
     if (!acc[key]) acc[key] = []
     acc[key].push(prize)
     return acc
@@ -461,7 +478,12 @@ function PrizesSection({
     [visiblePrizes],
   )
 
-  const kidsWithPrizes = Object.keys(grouped).length
+  // Summary strip math EXCLUDES family prizes from the "kids" framing (mirrors
+  // how mom's self-rewards are excluded) — a family prize isn't "waiting for
+  // a kid." Surfaced instead as a separate addendum below.
+  const kidPrizesOnly = visiblePrizes.filter(p => p.family_member_id !== null)
+  const familyPrizesCount = (grouped[FAMILY_GROUP_KEY] ?? []).length
+  const kidsWithPrizes = new Set(kidPrizesOnly.map(p => p.family_member_id)).size
 
   const handleRedeem = (prize: EarnedPrizeRow) => {
     if (!currentMemberId) return
@@ -480,6 +502,17 @@ function PrizesSection({
           point. Always visible for her, independent of whether anything is
           owed to the kids below. */}
       {isMomViewer && currentMember && <MyOwnRewardsPill member={currentMember} />}
+
+      {/* FAMILY-GOALS-PRIZES: active goals strip + manager door (Build Item 4/6).
+          Hidden when no goals exist except a quiet [+ Family goal] affordance
+          for mom (handled inside FamilyGoalsStrip itself). */}
+      {familyId && (
+        <FamilyGoalsStrip
+          familyId={familyId}
+          isMom={isMomViewer}
+          onManage={() => setManagerOpen(true)}
+        />
+      )}
 
       {nothingOwed ? (
         <EmptyState
@@ -501,12 +534,20 @@ function PrizesSection({
             <Gift size={16} style={{ color: 'var(--color-btn-primary-bg)' }} />
             {visiblePrizes.length === 0 ? (
               <span>All caught up — no prizes waiting to be given out.</span>
+            ) : kidPrizesOnly.length === 0 ? (
+              <span>
+                <strong style={{ color: 'var(--color-text-primary)' }}>{familyPrizesCount}</strong>{' '}
+                family prize{familyPrizesCount === 1 ? '' : 's'} ready to redeem
+              </span>
             ) : (
               <span>
-                <strong style={{ color: 'var(--color-text-primary)' }}>{visiblePrizes.length}</strong>{' '}
-                prize{visiblePrizes.length === 1 ? '' : 's'} waiting across{' '}
+                <strong style={{ color: 'var(--color-text-primary)' }}>{kidPrizesOnly.length}</strong>{' '}
+                prize{kidPrizesOnly.length === 1 ? '' : 's'} waiting across{' '}
                 <strong style={{ color: 'var(--color-text-primary)' }}>{kidsWithPrizes}</strong>{' '}
                 kid{kidsWithPrizes === 1 ? '' : 's'}
+                {familyPrizesCount > 0 && (
+                  <> · +{familyPrizesCount} family prize{familyPrizesCount === 1 ? '' : 's'}</>
+                )}
               </span>
             )}
           </div>
@@ -535,15 +576,26 @@ function PrizesSection({
 
           {arrangement === 'by_kid' ? (
             <div className="space-y-6" data-testid="prizes-by-kid-list">
-              {Object.entries(grouped).map(([memberId, memberPrizes]) => {
-                const member = memberMap.get(memberId)
-                const color = member ? getMemberColor(member) : 'var(--color-accent)'
+              {Object.entries(grouped)
+                // FAMILY-GOALS-PRIZES: Family group leads — a shared win reads
+                // as a celebration, not a footnote.
+                .sort(([a], [b]) => (a === FAMILY_GROUP_KEY ? -1 : b === FAMILY_GROUP_KEY ? 1 : 0))
+                .map(([memberId, memberPrizes]) => {
+                const isFamily = memberId === FAMILY_GROUP_KEY
+                const member = isFamily ? undefined : memberMap.get(memberId)
+                const color = isFamily
+                  ? 'var(--color-btn-primary-bg)'
+                  : member ? getMemberColor(member) : 'var(--color-accent)'
 
                 return (
-                  <div key={memberId}>
+                  <div key={memberId} data-testid={isFamily ? 'prizes-family-group' : undefined}>
                     <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: color }}>
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                      <span className="font-medium">{member?.display_name ?? 'Unknown'}</span>
+                      {isFamily ? (
+                        <Users size={14} style={{ color }} />
+                      ) : (
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                      )}
+                      <span className="font-medium">{isFamily ? 'Family' : (member?.display_name ?? 'Unknown')}</span>
                       <span className="text-sm text-[var(--color-text-secondary)]">
                         ({memberPrizes.length} unredeemed)
                       </span>
@@ -568,8 +620,11 @@ function PrizesSection({
             visiblePrizes.length > 0 && (
               <div className="space-y-2" data-testid="prizes-by-date-list">
                 {byDate.map(prize => {
-                  const member = memberMap.get(prize.family_member_id)
-                  const color = member ? getMemberColor(member) : 'var(--color-accent)'
+                  const isFamily = prize.family_member_id === null
+                  const member = isFamily ? undefined : memberMap.get(prize.family_member_id as string)
+                  const color = isFamily
+                    ? 'var(--color-btn-primary-bg)'
+                    : member ? getMemberColor(member) : 'var(--color-accent)'
                   return (
                     <PrizeOwedRow
                       key={prize.id}
@@ -577,7 +632,11 @@ function PrizesSection({
                       onEditImage={() => setEditingImagePrize(prize)}
                       onRedeem={() => handleRedeem(prize)}
                       isRedeeming={redeemMutation.isPending}
-                      memberTag={member ? { name: member.display_name, color } : undefined}
+                      memberTag={
+                        isFamily
+                          ? { name: 'Family', color }
+                          : member ? { name: member.display_name, color } : undefined
+                      }
                     />
                   )
                 })}
@@ -600,10 +659,12 @@ function PrizesSection({
               {showRedeemed && (
                 <div className="space-y-2 mt-3 opacity-80">
                   {visibleRedeemed.map(prize => {
-                    const member = memberMap.get(prize.family_member_id)
+                    const isFamily = prize.family_member_id === null
+                    const member = isFamily ? undefined : memberMap.get(prize.family_member_id as string)
                     return (
                       <div
                         key={prize.id}
+                        data-testid={`redeemed-row-${prize.id}`}
                         className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]"
                       >
                         <PrizeThumb prize={prize} />
@@ -612,7 +673,7 @@ function PrizesSection({
                             {prize.prize_name ?? prize.prize_text ?? 'Prize'}
                           </p>
                           <p className="text-xs text-[var(--color-text-secondary)]">
-                            {member?.display_name ?? 'Unknown'} · Redeemed{' '}
+                            {isFamily ? 'Family' : (member?.display_name ?? 'Unknown')} · Redeemed{' '}
                             {prize.redeemed_at ? new Date(prize.redeemed_at).toLocaleDateString() : ''}
                           </p>
                         </div>
@@ -620,6 +681,7 @@ function PrizesSection({
                           onClick={() => unredeemMutation.mutate({ prizeId: prize.id, memberId: prize.family_member_id })}
                           disabled={unredeemMutation.isPending}
                           data-testid="unredeem-button"
+                          aria-label={`Un-redeem: ${prize.prize_name ?? prize.prize_text ?? 'Prize'}`}
                           className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
                         >
                           <Undo2 size={14} />
@@ -682,6 +744,11 @@ function PrizesSection({
             </button>
           </div>
         </div>
+      )}
+
+      {/* FAMILY-GOALS-PRIZES: manager door #1 (Build Item 6 has door #2, Hub Settings) */}
+      {familyId && isMomViewer && (
+        <FamilyGoalManager isOpen={managerOpen} onClose={() => setManagerOpen(false)} familyId={familyId} />
       )}
     </div>
   )

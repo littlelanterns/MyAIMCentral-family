@@ -44,6 +44,9 @@ export interface MyRewardsSections {
   creatures: boolean
   coloring: boolean
   propose: boolean
+  /** FAMILY-GOALS-PRIZES: family goals this member participates in + earned
+   *  unredeemed family prizes. Default ON (spec Build Item 7). */
+  family: boolean
 }
 
 export type MyRewardsSectionKey = keyof MyRewardsSections
@@ -74,6 +77,7 @@ const EMPTY_SETTINGS: MyRewardsSettings = {
     creatures: false,
     coloring: false,
     propose: false,
+    family: true,
   },
   overrides: {},
   personalRewardsPrivacy: false,
@@ -109,6 +113,9 @@ export function resolveMyRewardsSections(opts: {
     // default or Play kids lose victory visibility entirely.
     victories: isPlay,
     propose: false,
+    // FAMILY-GOALS-PRIZES: default ON for everyone, including Play — a family
+    // goal a Play kid participates in should be visible on their Fun tab too.
+    family: true,
   }
   return { ...defaults, ...opts.overrides }
 }

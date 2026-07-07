@@ -122,7 +122,7 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
 
   '/prize-board': `PRIZE BOARD — 3 tabs: Allowance, Prizes, Balance.
   ALLOWANCE TAB: Unpaid periods grouped by date range. Each group expands to show per-pool breakdown (pool name, percentage, earned amount, weight). "Paid" button marks all pools in that period as closed.
-  PRIZES TAB: Earned IOUs from reward reveals, one per kid. A summary strip up top shows how many prizes are waiting and across how many kids (prizes/privileges only — never dollar amounts). "Arrange: By kid / By date" toggle switches between grouped-per-kid and one combined chronological stream (choice remembered). Mark a prize "Redeemed" when fulfilled; recently redeemed prizes have an Un-redeem button for accidental taps. A "Me" pill at the top is mom's own promises-to-herself — her own self-proposed rewards, redeem, history, and "Promise Yourself a Reward" — kept separate from what's owed to the kids below.
+  PRIZES TAB: Earned IOUs from reward reveals, one per kid — PLUS a "Family Goals" strip at the top showing active family goals with progress bars and a "Manage Family Goals" button (opens the same manager as Hub Settings). Earned-but-unredeemed family prizes render in their own "Family" group when arranged By kid, or with a "Family" tag when arranged By date — they're a whole-family prize, not any one kid's. A summary strip up top shows how many prizes are waiting and across how many kids (family prizes counted separately, e.g. "+1 family prize" — prizes/privileges only, never dollar amounts). "Arrange: By kid / By date" toggle switches between grouped-per-kid and one combined chronological stream (choice remembered). Mark a prize "Redeemed" when fulfilled — for a family prize this redeems it for everyone at once; recently redeemed prizes have an Un-redeem button for accidental taps. A "Me" pill at the top is mom's own promises-to-herself — her own self-proposed rewards, redeem, history, and "Promise Yourself a Reward" — kept separate from what's owed to the kids below.
   BALANCE TAB: Full earnings ledger with running balance.
   Kid selector pill bar at top — tap a kid for their ledger, "All Kids" for combined chronological stream.
   Filters: All / Earnings / Payments / Adjustments / By Pool.
@@ -160,7 +160,8 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   PROPOSE A DEAL (kids/teens): the kid describes what they want and what they'll do to earn it — once, a daily streak for N days, or finishing a checklist of items. It lands as a pending card in mom's Queue > Requests tab.
   PROMISE YOURSELF A REWARD (adults, including mom on her own page): same idea, but self-directed and private by default — she can optionally share it with specific family members.
   Mom's processing options on a pitch: Approve (opens a prefilled task, streak tracker, or routine checklist for her to confirm — nothing is created until she saves), Counter (revise the terms once; the kid then accepts or declines the counteroffer), or Decline with an optional note.
-  The reward itself is never auto-created — mom always confirms through the normal creation flow first.`,
+  The reward itself is never auto-created — mom always confirms through the normal creation flow first.
+  FAMILY GOALS section (default on): any family goal this member participates in, shown as "You: X · Family: Y/Target" (or "You: X / Target" for "everyone does their part" goals), plus any earned family prizes ready to redeem.`,
 }
 
 // ── Use Case Recipes ──────────────────────────────────────
@@ -180,6 +181,26 @@ export interface UseCaseRecipe {
 }
 
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
+  {
+    triggers: ['family goal', 'family prize', 'whole family reward', 'work together as a family', 'shared prize', 'family movie night', 'earn something together', 'family working together'],
+    clarifyingQuestion: "Family Goals are perfect for this — the whole family works toward one prize together. Quick question: should any ONE family member's contribution count toward a shared total (like tallying \"Remain Calm\" 50 times as a family), or does EVERY participant need to hit their own target before it's earned (like each kid reading 10 books)?",
+    variants: [
+      {
+        name: 'All together (shared counter)',
+        description: 'One shared counter — anyone\'s contribution counts toward the family total.',
+        howToSetUp: `Open the Prize Board's Prizes tab (or Hub Settings > Family Goals & Prizes) and tap "Manage Family Goals" > "New Family Goal."
+Pick "All together," set the target count, name the prize, and choose who participates.
+Link it to a Family Best Intention tally and/or specific tasks — every qualifying tap or completion counts automatically, from the Hub tablet, anyone's dashboard, or a task checkbox.
+When the shared total hits the target, the family earns the prize instantly — redeem it once from the Prize Board and everyone's done.`,
+      },
+      {
+        name: 'Everyone does their part (each member)',
+        description: 'Each participant must hit their own target independently.',
+        howToSetUp: `Same manager, but pick "Everyone does their part" and set the per-person target.
+The goal completes only once every participant has individually reached the target — the Hub and My Rewards pages show each person's own progress toward it.`,
+      },
+    ],
+  },
   {
     triggers: ['check on my kids', 'see how everyone is doing', 'spot check', 'did the kids do their chores', 'family at a glance', 'approve their work', 'command center'],
     clarifyingQuestion: "The Family Overview is built for exactly this! Quick question so I point you right: do you want the at-a-glance view of everyone's day, a deep-dive on ONE child, or are you looking to clear out approvals and queue items?",
