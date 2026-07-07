@@ -624,6 +624,7 @@ function EditorView({
         onContentChange(newContent)
       }
     } else if (voice.state === 'idle') {
+      voice.clearError()
       await voice.startRecording()
     }
   }
@@ -763,6 +764,21 @@ function EditorView({
           >
             {voice.interimText}
           </div>
+        )}
+        {/* Mic error (permission denied / no device) — dismissible */}
+        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && voice.error && (
+          <button
+            type="button"
+            onClick={voice.clearError}
+            className="w-full px-3 py-2 text-xs text-left border-t"
+            style={{
+              color: 'var(--color-error, #e53e3e)',
+              borderColor: 'var(--color-border)',
+              backgroundColor: 'color-mix(in srgb, var(--color-error, #e53e3e) 10%, transparent)',
+            }}
+          >
+            {voice.error} <span className="opacity-70 underline">Dismiss</span>
+          </button>
         )}
       </div>
 

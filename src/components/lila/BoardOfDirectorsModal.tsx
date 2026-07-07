@@ -219,6 +219,8 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
     state: voiceState,
     duration: _voiceDuration,
     interimText,
+    error: voiceError,
+    clearError: clearVoiceError,
     startRecording,
     stopRecording,
     isSupported: voiceSupported,
@@ -289,10 +291,6 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingChunks])
-
-  useEffect(() => {
-    if (voiceState === 'recording' && interimText) setInput(interimText)
-  }, [interimText, voiceState])
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) { if (e.key === 'Escape' && !isStreaming) onClose() }
@@ -550,12 +548,14 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
   const handleVoiceMic = useCallback(async () => {
     if (voiceState === 'recording') {
       const transcribed = await stopRecording()
-      if (transcribed) setInput(prev => prev ? prev + ' ' + transcribed : transcribed)
+      // Append to the existing draft — interim preview lives above the input.
+      if (transcribed) setInput(prev => (prev.trim() ? prev.trimEnd() + ' ' + transcribed : transcribed))
     } else if (voiceState === 'idle') {
-      setInput('')
+      clearVoiceError()
       await startRecording()
     }
-  }, [voiceState, stopRecording, startRecording])
+  }, [voiceState, stopRecording, startRecording, clearVoiceError])
+
   // ── Notepad bridge (null outside NotepadProvider shells) ──
 
   const notepad = useNotepadContextSafe()
@@ -1068,6 +1068,30 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
               </div>
             )}
           </div>
+        )}
+
+        {/* Voice preview / error (Board has no separate status bar) */}
+        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && voiceState === 'recording' && (
+          <div
+            className="mx-4 mb-1 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent)', color: 'var(--color-error, #dc2626)' }}
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+            {interimText
+              ? <span className="truncate italic opacity-80">{interimText}</span>
+              : <span className="opacity-70 shrink-0">Listening — tap mic to finish</span>}
+          </div>
+        )}
+        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && voiceError && (
+          <button
+            type="button"
+            onClick={clearVoiceError}
+            className="mx-4 mb-1 flex w-[calc(100%-2rem)] items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-left"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #dc2626) 12%, transparent)', color: 'var(--color-error, #dc2626)' }}
+          >
+            <span>{voiceError}</span>
+            <span className="ml-auto opacity-70 shrink-0">Dismiss</span>
+          </button>
         )}
 
         {/* Input */}

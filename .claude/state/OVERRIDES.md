@@ -14,3 +14,7 @@
 ## 2026-05-01 18:19 — Pre-commit override
 - **Reason:** useRoutineWeekView.ts: date is explicitly UTC-constructed via T12:00:00Z + setUTCDate — same pattern as existing line 134 in same file
 - **Staged files with violations:** see commit diff
+
+## 2026-07-07 10:32 — Pre-commit override
+- **Reason:** Secret-scanner false positive: the flagged string is a deliberately FORGED JWT test fixture (tests/e2e/features/voice-and-endpoint-auth.spec.ts:37-40, nil-UUID payload + literal 'not_a_real_signature') used to prove extract-insights now REJECTS forged/unsigned tokens after the auth fix. Not a real credential — the regex matches any JWT-shaped string by its common header prefix.
+- **Staged files with violations:** see commit diff

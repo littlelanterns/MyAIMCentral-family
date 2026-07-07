@@ -45,6 +45,7 @@ export function WriteDrawerNotepad({
         onContentChange(newContent)
       }
     } else if (voice.state === 'idle') {
+      voice.clearError()
       await voice.startRecording()
     }
   }, [voice, content, onContentChange])
@@ -116,6 +117,17 @@ export function WriteDrawerNotepad({
         >
           {voice.interimText}
         </div>
+      )}
+      {/* Mic error (permission denied / no device) — dismissible */}
+      {voice.error && (
+        <button
+          type="button"
+          onClick={voice.clearError}
+          className="w-full px-3 py-2 text-sm text-left"
+          style={{ color: 'var(--color-error, #e53e3e)', backgroundColor: 'color-mix(in srgb, var(--color-error, #e53e3e) 10%, transparent)' }}
+        >
+          {voice.error} <span className="opacity-70 underline">Dismiss</span>
+        </button>
       )}
 
       {/* Main textarea */}

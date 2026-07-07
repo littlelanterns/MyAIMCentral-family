@@ -28,6 +28,7 @@ export function VoiceDumpModal({ open, onClose, onTranscriptReady }: VoiceDumpMo
         onClose()
       }
     } else {
+      voice.clearError()
       await voice.startRecording()
     }
   }, [voice, onTranscriptReady, onClose])
@@ -42,7 +43,9 @@ export function VoiceDumpModal({ open, onClose, onTranscriptReady }: VoiceDumpMo
 
   const handleClose = useCallback(() => {
     if (voice.state === 'recording') {
-      voice.stopRecording()
+      // Cancel — closing the modal discards the note, so don't pay for a
+      // Whisper transcription whose result is thrown away.
+      voice.cancelRecording()
     }
     onClose()
   }, [voice, onClose])
@@ -129,6 +132,17 @@ export function VoiceDumpModal({ open, onClose, onTranscriptReady }: VoiceDumpMo
               <p className="text-xs" style={{ color: 'var(--color-error, #ef4444)' }}>
                 Voice recording is not supported in this browser.
               </p>
+            )}
+
+            {voice.error && (
+              <button
+                type="button"
+                onClick={voice.clearError}
+                className="text-xs text-center px-3"
+                style={{ color: 'var(--color-error, #ef4444)' }}
+              >
+                {voice.error} <span className="opacity-70 underline">Dismiss</span>
+              </button>
             )}
 
             <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>

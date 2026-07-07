@@ -49,6 +49,8 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
     state: voiceState,
     duration: voiceDuration,
     interimText,
+    error: voiceError,
+    clearError: clearVoiceError,
     startRecording,
     stopRecording,
     isSupported: voiceSupported,
@@ -59,13 +61,6 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
   const [streamingContent, setStreamingContent] = useState('')
   const [openingMessage, setOpeningMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Show interim voice text in input while recording
-  useEffect(() => {
-    if (voiceState === 'recording' && interimText) {
-      setInput(interimText)
-    }
-  }, [interimText, voiceState])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -93,16 +88,14 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
     if (voiceState === 'recording') {
       const transcribed = await stopRecording()
       if (transcribed) {
-        setInput(prev => {
-          const base = prev.replace(interimText, '').trimEnd()
-          return base ? base + ' ' + transcribed : transcribed
-        })
+        // Append to the existing draft — interim preview lives in the status bar.
+        setInput(prev => (prev.trim() ? prev.trimEnd() + ' ' + transcribed : transcribed))
       }
     } else if (voiceState === 'idle') {
-      setInput('')
+      clearVoiceError()
       await startRecording()
     }
-  }, [voiceState, stopRecording, startRecording, interimText])
+  }, [voiceState, stopRecording, startRecording, clearVoiceError])
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || !member || !family || isStreaming) return
@@ -356,8 +349,11 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
           >
             {voiceState === 'recording' && (
               <>
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span>Recording — {formatDuration(voiceDuration)} — tap mic to finish</span>
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                <span className="shrink-0">{formatDuration(voiceDuration)}</span>
+                {interimText
+                  ? <span className="truncate italic opacity-80">{interimText}</span>
+                  : <span className="opacity-70 shrink-0">tap mic to finish</span>}
               </>
             )}
             {voiceState === 'transcribing' && (
@@ -367,6 +363,22 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
               </>
             )}
           </div>
+        )}
+
+        {/* Mic error (permission denied / no device) — dismissible */}
+        {FEATURE_FLAGS.ENABLE_VOICE_INPUT && voiceError && (
+          <button
+            type="button"
+            onClick={clearVoiceError}
+            className="mx-4 mb-1 flex w-[calc(100%-2rem)] items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-left"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-error, #dc2626) 12%, transparent)',
+              color: 'var(--color-error, #dc2626)',
+            }}
+          >
+            <span>{voiceError}</span>
+            <span className="ml-auto opacity-70 shrink-0">Dismiss</span>
+          </button>
         )}
 
         {/* Input */}

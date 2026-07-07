@@ -51,6 +51,7 @@ export function VoiceInputButton({
       const text = await voice.stopRecording()
       if (text) onTranscript(text)
     } else if (voice.state === 'idle') {
+      voice.clearError()
       await voice.startRecording()
     }
   }, [voice, onTranscript])
@@ -63,6 +64,16 @@ export function VoiceInputButton({
         <p className="text-xs italic px-1 mb-1" style={{ color: 'var(--color-text-tertiary)' }}>
           {voice.interimText}
         </p>
+      )}
+      {voice.error && (
+        <button
+          type="button"
+          onClick={voice.clearError}
+          className="text-xs px-1 mb-1 text-left"
+          style={{ color: 'var(--color-error, #c44)' }}
+        >
+          {voice.error} <span className="opacity-70 underline">Dismiss</span>
+        </button>
       )}
       <button
         type="button"

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { reduceSpeechResults } from '@/lib/voice/reduceSpeechResults'
 
 /**
  * useVoiceInput — Whisper-primary voice transcription with Web Speech API fallback.
@@ -17,6 +18,9 @@ interface UseVoiceInputReturn {
   state: VoiceState
   duration: number
   interimText: string
+  /** Friendly, user-facing message set when the mic can't start. null when clear. */
+  error: string | null
+  clearError: () => void
   startRecording: () => Promise<void>
   stopRecording: () => Promise<string>
   cancelRecording: () => void
@@ -33,6 +37,9 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
   const [state, setState] = useState<VoiceState>('idle')
   const [duration, setDuration] = useState(0)
   const [interimText, setInterimText] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const clearError = useCallback(() => setError(null), [])
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -79,6 +86,7 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
     if (state !== 'idle') return
     cleanup()
     stoppedRef.current = false
+    setError(null)
 
     try {
       // Request audio with minimal constraints — let the browser pick the best mic
@@ -149,7 +157,15 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
     } catch (err) {
       cleanup()
       setState('idle')
-      throw new Error('Microphone access denied')
+      // Don't throw — no consumer catches it, which left the mic button a
+      // silent dead button on permission denial. Surface a friendly message
+      // via `error` instead so every consumer can show it.
+      const name = (err as Error)?.name
+      setError(
+        name === 'NotFoundError' || name === 'DevicesNotFoundError'
+          ? "I couldn't find a microphone on this device."
+          : "I need microphone access to hear you — check your browser's mic permission and try again.",
+      )
     }
   }, [state, cleanup])
 
@@ -164,22 +180,14 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
     recognition.lang = 'en-US'
 
     recognition.onresult = (event: any) => {
-      let sessionFinal = ''
-      let interim = ''
-      for (let i = 0; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
-          sessionFinal += transcript + ' '
-        } else {
-          interim += transcript
-        }
-      }
-      // Accumulate finalized text across recognition restarts
+      // Only read results from event.resultIndex forward — reading from 0 on a
+      // continuous session re-appends every prior phrase (the duplication bug).
+      // reduceSpeechResults is unit-tested; see reduceSpeechResults.test.ts.
+      const { finalChunk, interim } = reduceSpeechResults(event)
       webSpeechInterimRef.current = interim
-      if (sessionFinal.trim()) {
-        // Only update if we got new final text (avoid duplicates on restart)
-        const combined = webSpeechFinalRef.current + sessionFinal
-        webSpeechFinalRef.current = combined
+      // Accumulate finalized text across Chrome's silent recognition restarts.
+      if (finalChunk) {
+        webSpeechFinalRef.current += finalChunk
       }
       setInterimText((webSpeechFinalRef.current + interim).trim())
     }
@@ -237,16 +245,24 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
       timerRef.current = undefined
     }
 
-    // Wait for MediaRecorder to finish and collect all audio data
+    // Wait for MediaRecorder to finish and collect all audio data.
+    // Guard against a recorder that already stopped (e.g. mic unplugged
+    // mid-recording) — otherwise recorder.stop() throws inside the executor,
+    // the promise rejects, and the button stays stuck on 'recording'.
     const audioBlob = await new Promise<Blob>((resolve) => {
-      recorder.onstop = () => {
+      const finalize = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType })
         console.log(`[Voice] Audio blob: ${(blob.size / 1024).toFixed(1)}KB, ${audioChunksRef.current.length} chunks, type=${mimeType}`)
         resolve(blob)
       }
+      if (recorder.state === 'inactive') {
+        finalize()
+        return
+      }
+      recorder.onstop = finalize
       // Request any remaining buffered data before stopping
       try { recorder.requestData() } catch { /* not all browsers support this */ }
-      recorder.stop()
+      try { recorder.stop() } catch { finalize() }
     })
 
     // Release microphone
@@ -310,6 +326,8 @@ export function useVoiceInput(options?: UseVoiceInputOptions): UseVoiceInputRetu
     state,
     duration,
     interimText,
+    error,
+    clearError,
     startRecording,
     stopRecording,
     cancelRecording,

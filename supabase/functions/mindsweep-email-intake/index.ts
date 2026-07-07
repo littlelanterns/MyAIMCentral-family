@@ -23,6 +23,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+// Shared secret the email provider (Resend/Postmark/SendGrid) must present.
+// Set MINDSWEEP_WEBHOOK_SECRET when email intake is wired up. Until then the
+// endpoint fails closed — see the auth gate below.
+const WEBHOOK_SECRET = Deno.env.get('MINDSWEEP_WEBHOOK_SECRET') || ''
 
 interface EmailPayload {
   from: string
@@ -36,6 +40,22 @@ Deno.serve(async (req) => {
   // Only accept POST
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
+  }
+
+  // Webhook auth — FAIL CLOSED. The endpoint had no secret check: it trusted
+  // the payload and only gated on recipient address + allowed-sender list,
+  // both attacker-learnable — so anyone could inject a spoofed "email" into a
+  // family's MindSweep queue. The provider must present the shared secret via
+  // `x-webhook-secret` or `Authorization: Bearer`. Until MINDSWEEP_WEBHOOK_SECRET
+  // is configured (email intake is not live yet), every call is rejected.
+  const provided =
+    req.headers.get('x-webhook-secret') ||
+    (req.headers.get('Authorization') || '').replace('Bearer ', '')
+  if (!WEBHOOK_SECRET || provided !== WEBHOOK_SECRET) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey)

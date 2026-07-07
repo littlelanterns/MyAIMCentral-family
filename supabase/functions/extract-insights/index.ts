@@ -6,6 +6,9 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts';
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts';
 import { logAICost } from '../_shared/cost-logger.ts';
 import { callOpenRouter } from '../_shared/openrouter-client.ts';
+import { authenticateRequest } from '../_shared/auth.ts';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ASSESSMENT_KEYWORDS = [
   'enneagram', 'mbti', 'disc', 'strengthsfinder', 'cliftonstrengths',
@@ -75,26 +78,14 @@ serve(async (req: Request) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
+  // Verify the caller against Supabase — the previous code base64-decoded the
+  // JWT and trusted `sub` WITHOUT checking the signature, so anyone could forge
+  // a token and run this function with service-role storage access.
+  const auth = await authenticateRequest(req);
+  if (auth instanceof Response) return auth;
+  const userId = auth.user.id;
+
   try {
-    // Validate JWT — decode for user_id
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: jsonHeaders },
-      );
-    }
-    const jwt = authHeader.replace('Bearer ', '');
-    const payloadB64 = jwt.split('.')[1];
-    const b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
-    const jwtPayload = JSON.parse(atob(b64));
-    const userId = jwtPayload.sub as string;
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token payload' }),
-        { status: 401, headers: jsonHeaders },
-      );
-    }
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
     const body = await req.json();
@@ -109,6 +100,35 @@ serve(async (req: Request) => {
 
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Storage ownership check. Paths are `${member_id}/innerworkings/...`
+    // (InnerWorkings upload). The download below uses the service-role client,
+    // which bypasses storage RLS — so without this an authenticated user could
+    // read ANY family's uploaded files by passing another member's path.
+    // Confirm the caller shares a family with the member who owns the path.
+    const pathMemberId = (file_storage_path.split('/')[0] || '').trim();
+    if (!UUID_RE.test(pathMemberId)) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: jsonHeaders },
+      );
+    }
+    const { data: callerRows } = await supabase
+      .from('family_members')
+      .select('family_id')
+      .eq('user_id', userId);
+    const callerFamilyIds = new Set((callerRows || []).map((r) => r.family_id));
+    const { data: targetMember } = await supabase
+      .from('family_members')
+      .select('family_id')
+      .eq('id', pathMemberId)
+      .maybeSingle();
+    if (!targetMember || !callerFamilyIds.has(targetMember.family_id)) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: jsonHeaders },
+      );
+    }
 
     // Get API key from environment
     const apiKey = Deno.env.get('OPENROUTER_API_KEY') || '';
