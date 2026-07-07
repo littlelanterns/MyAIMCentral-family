@@ -237,6 +237,29 @@ export interface PaymentInput {
   family_member_id: string
   amount: number
   note?: string
+  /**
+   * ALLOWANCE-RECONCILIATION (2026-07-07): which 'calculated' allowance
+   * periods this payment settles. Explicit ids (Allowance tab "Paid" /
+   * "Pay All") close exactly those periods — even when the ledger clamp
+   * reduces or zeroes the recorded payment because part was already paid
+   * out earlier. When omitted, the paid amount is allocated against the
+   * member's calculated periods oldest-first server-side (Balance tab,
+   * FO Pay All). Set skipSettlement to record a payment with no period
+   * settlement at all.
+   */
+  settlePeriodIds?: string[]
+  skipSettlement?: boolean
+}
+
+/** Result shape of useCreatePayment (ALLOWANCE-RECONCILIATION). transaction
+ *  is null when the ledger balance was already $0 and the call only marked
+ *  explicitly-named periods as settled. */
+export interface CreatePaymentResult {
+  transaction: FinancialTransaction | null
+  family_id: string
+  family_member_id: string
+  paidAmount: number
+  settledPeriodIds: string[]
 }
 
 export interface LoanInput {

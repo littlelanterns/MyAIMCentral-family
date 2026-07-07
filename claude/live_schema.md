@@ -2597,6 +2597,30 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
+### `ai_output_scans` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `surface` |
+| 5 | `mode_key` |
+| 6 | `conversation_id` |
+| 7 | `message_table` |
+| 8 | `message_id` |
+| 9 | `content` |
+| 10 | `is_safe_harbor` |
+| 11 | `member_is_under_13` |
+| 12 | `status` |
+| 13 | `tier1_similarity` |
+| 14 | `tier1_matched_pattern_id` |
+| 15 | `tier2_verdict` |
+| 16 | `tier2_confidence` |
+| 17 | `retry_count` |
+| 18 | `created_at` |
+| 19 | `scanned_at` |
+
 ### `allowance_configs` — 5 rows
 
 | # | Column |
@@ -3074,7 +3098,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 119 rows
+### `financial_transactions` — 122 rows
 
 | # | Column |
 |---|---|
@@ -3227,6 +3251,31 @@
 | 7 | `is_included_in_ai_default` |
 | 8 | `created_at` |
 | 9 | `updated_at` |
+
+### `lila_ethics_rejections` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `surface` |
+| 5 | `mode_key` |
+| 6 | `conversation_id` |
+| 7 | `message_table` |
+| 8 | `message_id` |
+| 9 | `scan_id` |
+| 10 | `direction` |
+| 11 | `tier` |
+| 12 | `category` |
+| 13 | `action` |
+| 14 | `matched_pattern` |
+| 15 | `tier1_similarity` |
+| 16 | `tier2_confidence` |
+| 17 | `tier2_reasoning` |
+| 18 | `content_excerpt` |
+| 19 | `is_safe_harbor` |
+| 20 | `created_at` |
 
 ### `list_item_member_tracking` — 0 rows
 
@@ -4078,6 +4127,21 @@
 | 15 | `extraction_count` |
 | 16 | `discovered_sections` |
 
+### `platform_intelligence.ethics_pattern_library` — 150 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `category` |
+| 3 | `direction` |
+| 4 | `pattern_text` |
+| 5 | `embedding` |
+| 6 | `source` |
+| 7 | `status` |
+| 8 | `notes` |
+| 9 | `created_at` |
+| 10 | `updated_at` |
+
 ### `platform_intelligence.persona_promotion_queue` — 0 rows
 
 | # | Column |
@@ -4106,7 +4170,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 81 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 83 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

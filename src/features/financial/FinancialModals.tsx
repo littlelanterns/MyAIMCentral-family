@@ -16,6 +16,7 @@ export function PaymentModal({
   memberName,
   suggestedAmount,
   suggestedNote,
+  settlePeriodIds,
   onPaymentComplete,
 }: {
   isOpen: boolean
@@ -25,6 +26,10 @@ export function PaymentModal({
   memberName: string
   suggestedAmount?: number
   suggestedNote?: string
+  /** ALLOWANCE-RECONCILIATION: 'calculated' allowance period ids this payment
+   *  settles (Allowance tab). When omitted, the paid amount allocates against
+   *  the member's calculated periods oldest-first. */
+  settlePeriodIds?: string[]
   onPaymentComplete?: (paidAmount: number) => void
 }) {
   const { data: balance } = useRunningBalance(memberId)
@@ -38,6 +43,15 @@ export function PaymentModal({
   const displayAmount = suggestedAmount ?? currentBalance
   const payAmount = mode === 'full' ? displayAmount : Number(partialAmount) || 0
 
+  // ALLOWANCE-RECONCILIATION clamp honesty: the hook never records more than
+  // the ledger balance (part of the requested amount may have been paid out
+  // earlier from another surface). Tell mom up front instead of silently
+  // recording a smaller number. settleOnly = nothing left to pay, this
+  // confirm just marks the named period(s) settled.
+  const willRecord = Math.min(payAmount, Math.max(currentBalance, 0))
+  const isClamped = payAmount > 0 && willRecord < payAmount - 0.005
+  const settleOnly = willRecord <= 0 && (settlePeriodIds?.length ?? 0) > 0
+
   // Reset state when modal opens with new context
   if (isOpen && !initialized) {
     setMode('full')
@@ -50,14 +64,15 @@ export function PaymentModal({
   }
 
   const handleConfirm = async () => {
-    if (payAmount <= 0) return
-    await createPayment.mutateAsync({
+    if (payAmount <= 0 && !settleOnly) return
+    const result = await createPayment.mutateAsync({
       family_id: familyId,
       family_member_id: memberId,
       amount: payAmount,
       note: note || undefined,
+      settlePeriodIds,
     })
-    onPaymentComplete?.(payAmount)
+    onPaymentComplete?.(result.paidAmount)
     onClose()
   }
 
@@ -74,6 +89,31 @@ export function PaymentModal({
         <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
           Paying: <span className="font-semibold" style={{ color: 'var(--color-text-heading)' }}>{memberName}</span> — ${displayAmount.toFixed(2)}
         </div>
+
+        {settleOnly ? (
+          <div
+            className="text-xs rounded-lg px-3 py-2"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            {memberName}'s balance is already $0.00 — this amount was paid out
+            earlier. Confirming just marks the period{(settlePeriodIds?.length ?? 0) === 1 ? '' : 's'} as settled;
+            no new payment will be recorded.
+          </div>
+        ) : isClamped ? (
+          <div
+            className="text-xs rounded-lg px-3 py-2"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 8%, transparent)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            {memberName}'s ledger balance is ${Math.max(currentBalance, 0).toFixed(2)} —
+            that's what will be recorded now. The rest was already paid out earlier.
+          </div>
+        ) : null}
 
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-heading)' }}>
@@ -151,14 +191,18 @@ export function PaymentModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={payAmount <= 0 || createPayment.isPending}
+            disabled={(payAmount <= 0 && !settleOnly) || createPayment.isPending}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
             style={{
               backgroundColor: 'var(--color-btn-primary-bg)',
               color: 'var(--color-btn-primary-text)',
             }}
           >
-            {createPayment.isPending ? 'Processing...' : 'Confirm Payment'}
+            {createPayment.isPending
+              ? 'Processing...'
+              : settleOnly
+                ? 'Mark Settled'
+                : 'Confirm Payment'}
           </button>
         </div>
       </div>

@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useFinancial'
 import { getMemberColor } from '@/lib/memberColors'
 import { supabase } from '@/lib/supabase/client'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { AllowancePeriod } from '@/types/financial'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
@@ -64,7 +64,13 @@ export default function PrizeBoard() {
   // tab (period ops). Mom sees everything (manage for all).
   const { viewableLevels, isMom } = useViewableMembers('financial_tracking')
   const isAdditionalAdult = currentMember?.role === 'additional_adult'
+  // ALLOWANCE-RECONCILIATION: check the role directly too — useViewableMembers
+  // resolves async, and its briefly-false isMom used to bounce mom off the
+  // Allowance tab onto Prizes on slow loads (the redirect effect below never
+  // flips back).
+  const isMomRole = currentMember?.role === 'primary_parent'
   const canSeeAllowanceTab =
+    isMomRole ||
     isMom ||
     (isAdditionalAdult &&
       Object.entries(viewableLevels).some(
@@ -180,9 +186,8 @@ function KidAllowanceCard({
   isMom?: boolean
 }) {
   const color = getMemberColor(member)
-  const queryClient = useQueryClient()
 
-  const [payTarget, setPayTarget] = useState<{ groups: PeriodGroup[]; amount: number; note: string } | null>(null)
+  const [payTarget, setPayTarget] = useState<{ groups: PeriodGroup[]; amount: number; note: string; periodIds: string[] } | null>(null)
 
   const { data: unpaidPeriods = [], isLoading } = useQuery({
     queryKey: ['unpaid-allowance-periods', member.id],
@@ -222,11 +227,18 @@ function KidAllowanceCard({
 
   const totalOwed = groupedPeriods.reduce((sum, g) => sum + g.total_earned, 0)
 
+  // ALLOWANCE-RECONCILIATION (2026-07-07): period settlement now happens
+  // INSIDE useCreatePayment via the settle_calculated_allowance_periods RPC
+  // (explicit ids passed below), so the payment and the period close can
+  // never diverge again. The old client-side close-after-payment here left
+  // periods 'calculated' whenever the payment path threw (e.g. balance
+  // already $0) — and the other payment surfaces never closed periods at all.
   const openPayForGroup = (group: PeriodGroup) => {
     setPayTarget({
       groups: [group],
       amount: group.total_earned,
       note: `Allowance for ${formatDateRange(group.period_start, group.period_end)}`,
+      periodIds: group.pools.map(p => p.id),
     })
   }
 
@@ -238,21 +250,8 @@ function KidAllowanceCard({
       note: dateRanges.length <= 2
         ? `Allowance for ${dateRanges.join(' & ')}`
         : `Allowance for ${dateRanges.length} periods`,
+      periodIds: groupedPeriods.flatMap(g => g.pools.map(p => p.id)),
     })
-  }
-
-  const handlePaymentComplete = async () => {
-    if (!payTarget) return
-    try {
-      const ids = payTarget.groups.flatMap(g => g.pools.map(p => p.id))
-      await supabase
-        .from('allowance_periods')
-        .update({ status: 'closed', closed_at: new Date().toISOString() })
-        .in('id', ids)
-      queryClient.invalidateQueries({ queryKey: ['unpaid-allowance-periods', member.id] })
-    } catch (err) {
-      console.warn('Failed to mark period(s) closed:', err)
-    }
   }
 
   if (isLoading) {
@@ -303,7 +302,7 @@ function KidAllowanceCard({
         memberName={member.display_name}
         suggestedAmount={payTarget?.amount}
         suggestedNote={payTarget?.note}
-        onPaymentComplete={handlePaymentComplete}
+        settlePeriodIds={payTarget?.periodIds}
       />
     </div>
   )

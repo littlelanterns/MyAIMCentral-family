@@ -103,9 +103,10 @@ export function LedgerView({
     poolFilter !== 'all' ? { poolName: poolFilter } : undefined,
   )
 
-  const rawTransactions = mode === 'mom-all-kids'
-    ? (familyLedger.data ?? [])
-    : (memberLedger.data ?? [])
+  const rawTransactions = useMemo(
+    () => (mode === 'mom-all-kids' ? (familyLedger.data ?? []) : (memberLedger.data ?? [])),
+    [mode, familyLedger.data, memberLedger.data],
+  )
   const isLoading = mode === 'mom-all-kids' ? familyLedger.isLoading : memberLedger.isLoading
 
   // For per-kid views, useMemberLedger returns ascending by created_at —
@@ -144,6 +145,19 @@ export function LedgerView({
 
   const visible = filtered.slice(0, showCount)
   const hasMore = filtered.length > showCount
+
+  // Per-member balances from the UNFILTERED set — SUM(amount) is the ground
+  // truth per Convention #223, matching calculate_running_balance (migration
+  // 100288). Computed here (not inside the child section) so an active
+  // earnings/payments filter never distorts the header balance.
+  const balanceByMember = useMemo(() => {
+    const map = new Map<string, number>()
+    if (mode !== 'mom-all-kids') return map
+    for (const tx of rawTransactions) {
+      map.set(tx.family_member_id, (map.get(tx.family_member_id) ?? 0) + Number(tx.amount))
+    }
+    return map
+  }, [mode, rawTransactions])
 
   // By-child grouping (mom-all-kids only): one section per kid in roster
   // order, newest transactions first inside each section.
@@ -327,6 +341,7 @@ export function LedgerView({
               key={member?.id ?? transactions[0].family_member_id}
               member={member}
               transactions={transactions}
+              balance={balanceByMember.get(member?.id ?? transactions[0].family_member_id) ?? null}
               hideMoney={hideMoney}
               familyId={familyId}
             />
@@ -378,21 +393,21 @@ export function LedgerView({
 function ChildLedgerSection({
   member,
   transactions,
+  balance,
   hideMoney,
   familyId,
 }: {
   member: { id: string; display_name: string } | undefined
   transactions: FinancialTransaction[]
+  /** SUM(amount) over the member's UNFILTERED transactions (computed by the
+   *  parent so display filters never distort it) — the ground truth per
+   *  Convention #223, matching calculate_running_balance (migration 100288). */
+  balance: number | null
   hideMoney?: boolean
   familyId: string
 }) {
   const [expanded, setExpanded] = useState(false)
   const color = member ? getMemberColor(member as Parameters<typeof getMemberColor>[0]) : 'var(--color-text-secondary)'
-
-  // Current balance = balance_after on the newest balance-moving row
-  // (append-only ledger invariant, Convention #223).
-  const latestMoving = transactions.find(tx => tx.transaction_type !== 'pool_contribution')
-  const balance = latestMoving ? Number(latestMoving.balance_after) : null
 
   const shown = expanded ? transactions : transactions.slice(0, GROUP_PREVIEW_COUNT)
   const hiddenCount = transactions.length - GROUP_PREVIEW_COUNT

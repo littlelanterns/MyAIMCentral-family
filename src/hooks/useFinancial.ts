@@ -14,6 +14,7 @@ import type {
   ChildFinancialSummary,
   TransactionFilter,
   PaymentInput,
+  CreatePaymentResult,
   LoanInput,
   DeductionInput,
   PeriodStatus,
@@ -1080,96 +1081,142 @@ export async function applyMultiPoolRecalc(args: {
 export function useCreatePayment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: PaymentInput) => {
+    mutationFn: async (input: PaymentInput): Promise<CreatePaymentResult> => {
       // Get current balance
       const { data: balance } = await supabase.rpc('calculate_running_balance', {
         p_member_id: input.family_member_id,
       })
       const currentBalance = Number(balance ?? 0)
-      const paymentAmount = Math.min(input.amount, currentBalance) // cannot overpay
-      if (paymentAmount <= 0) throw new Error('Nothing to pay')
+      // Never hand out more than the ledger balance — part of the requested
+      // amount may have already been paid out earlier (ALLOWANCE-RECONCILIATION:
+      // the settlement below still closes the periods mom marked, so a
+      // previously-paid period can be settled without double-paying).
+      const paymentAmount = Math.min(input.amount, currentBalance)
+      const explicitPeriodIds = input.settlePeriodIds?.length ? input.settlePeriodIds : undefined
+      if (paymentAmount <= 0 && !explicitPeriodIds) throw new Error('Nothing to pay')
 
-      // PERMISSIONS-WIRING (founder Decision 3, 2026-06-09): payments are
-      // attributed to the actor. Granted dads can record payments (RLS
-      // migration 100260, contribute+); the ledger row shows who paid and
-      // mom gets a quiet in-app notification when it wasn't her.
-      const { data: auth } = await supabase.auth.getUser()
-      const { data: actor } = auth?.user
-        ? await supabase
-            .from('family_members')
-            .select('id, display_name, role')
-            .eq('family_id', input.family_id)
-            .eq('user_id', auth.user.id)
-            .maybeSingle()
-        : { data: null }
-      const actorIsMom = !actor || actor.role === 'primary_parent'
+      let data: FinancialTransaction | null = null
 
-      const baseDescription = input.note ? `Payment — ${input.note}` : 'Payment'
-      const newBalance = currentBalance - paymentAmount
-      const { data, error } = await supabase
-        .from('financial_transactions')
-        .insert({
-          family_id: input.family_id,
-          family_member_id: input.family_member_id,
-          transaction_type: 'payment_made',
-          amount: -paymentAmount, // negative for payment
-          balance_after: newBalance,
-          description: actorIsMom
-            ? baseDescription
-            : `${baseDescription} (paid by ${actor!.display_name})`,
-          source_type: 'manual',
-          note: input.note ?? null,
-          metadata: actor
-            ? { acted_by: actor.id, acted_by_name: actor.display_name, acted_by_role: actor.role }
-            : {},
-        })
-        .select()
-        .single()
-      if (error) throw error
+      if (paymentAmount > 0) {
+        // PERMISSIONS-WIRING (founder Decision 3, 2026-06-09): payments are
+        // attributed to the actor. Granted dads can record payments (RLS
+        // migration 100260, contribute+); the ledger row shows who paid and
+        // mom gets a quiet in-app notification when it wasn't her.
+        const { data: auth } = await supabase.auth.getUser()
+        const { data: actor } = auth?.user
+          ? await supabase
+              .from('family_members')
+              .select('id, display_name, role')
+              .eq('family_id', input.family_id)
+              .eq('user_id', auth.user.id)
+              .maybeSingle()
+          : { data: null }
+        const actorIsMom = !actor || actor.role === 'primary_parent'
 
-      // Quiet in-app notification to mom when a granted adult records a
-      // payment (fire-and-forget — a notification failure must never undo or
-      // block the payment itself).
-      if (!actorIsMom && actor) {
-        try {
-          const { data: mom } = await supabase
-            .from('family_members')
-            .select('id, display_name')
-            .eq('family_id', input.family_id)
-            .eq('role', 'primary_parent')
-            .eq('is_active', true)
-            .maybeSingle()
-          const { data: kid } = await supabase
-            .from('family_members')
-            .select('display_name')
-            .eq('id', input.family_member_id)
-            .maybeSingle()
-          if (mom) {
-            await supabase.from('notifications').insert({
-              family_id: input.family_id,
-              recipient_member_id: mom.id,
-              notification_type: 'finance_payment_recorded',
-              category: 'tasks',
-              title: 'Payment recorded',
-              body: `${actor.display_name} paid ${kid?.display_name ?? 'a family member'} $${paymentAmount.toFixed(2)}.`,
-              source_type: 'financial_transaction',
-              source_reference_id: (data as FinancialTransaction).id,
-              action_url: '/finances/history',
-              priority: 'normal',
-            })
+        const baseDescription = input.note ? `Payment — ${input.note}` : 'Payment'
+        const newBalance = currentBalance - paymentAmount
+        const { data: inserted, error } = await supabase
+          .from('financial_transactions')
+          .insert({
+            family_id: input.family_id,
+            family_member_id: input.family_member_id,
+            transaction_type: 'payment_made',
+            amount: -paymentAmount, // negative for payment
+            balance_after: newBalance,
+            description: actorIsMom
+              ? baseDescription
+              : `${baseDescription} (paid by ${actor!.display_name})`,
+            source_type: 'manual',
+            note: input.note ?? null,
+            metadata: actor
+              ? { acted_by: actor.id, acted_by_name: actor.display_name, acted_by_role: actor.role }
+              : {},
+          })
+          .select()
+          .single()
+        if (error) throw error
+        data = inserted as FinancialTransaction
+
+        // Quiet in-app notification to mom when a granted adult records a
+        // payment (fire-and-forget — a notification failure must never undo or
+        // block the payment itself).
+        if (!actorIsMom && actor) {
+          try {
+            const { data: mom } = await supabase
+              .from('family_members')
+              .select('id, display_name')
+              .eq('family_id', input.family_id)
+              .eq('role', 'primary_parent')
+              .eq('is_active', true)
+              .maybeSingle()
+            const { data: kid } = await supabase
+              .from('family_members')
+              .select('display_name')
+              .eq('id', input.family_member_id)
+              .maybeSingle()
+            if (mom) {
+              await supabase.from('notifications').insert({
+                family_id: input.family_id,
+                recipient_member_id: mom.id,
+                notification_type: 'finance_payment_recorded',
+                category: 'tasks',
+                title: 'Payment recorded',
+                body: `${actor.display_name} paid ${kid?.display_name ?? 'a family member'} $${paymentAmount.toFixed(2)}.`,
+                source_type: 'financial_transaction',
+                source_reference_id: data.id,
+                action_url: '/finances/history',
+                priority: 'normal',
+              })
+            }
+          } catch (notifyErr) {
+            console.warn('Payment notification failed (payment itself succeeded):', notifyErr)
           }
-        } catch (notifyErr) {
-          console.warn('Payment notification failed (payment itself succeeded):', notifyErr)
         }
       }
 
-      return data as FinancialTransaction
+      // ALLOWANCE-RECONCILIATION (2026-07-07): settle 'calculated' allowance
+      // periods so the Allowance tab's "owed" stays in step with the ledger
+      // for EVERY payment entry point. Before this, only the Allowance tab's
+      // targeted Paid button closed periods — payments from the Balance tab
+      // and FO Pay All left them 'calculated' forever, permanently
+      // overstating what mom owed. Explicit ids close exactly the periods
+      // mom marked; otherwise the paid amount allocates oldest-first
+      // (settle_calculated_allowance_periods RPC, migration 100288).
+      let settledPeriodIds: string[] = []
+      if (!input.skipSettlement) {
+        try {
+          const { data: settled, error: settleError } = await supabase.rpc(
+            'settle_calculated_allowance_periods',
+            explicitPeriodIds
+              ? { p_member_id: input.family_member_id, p_period_ids: explicitPeriodIds }
+              : { p_member_id: input.family_member_id, p_allocate_amount: Math.max(paymentAmount, 0) },
+          )
+          if (settleError) throw settleError
+          settledPeriodIds = (settled as string[] | null) ?? []
+        } catch (settleErr) {
+          // The payment itself succeeded — never fail the mutation over
+          // settlement. A later payment's allocation pass can catch up.
+          console.warn('Allowance period settlement after payment failed:', settleErr)
+        }
+      }
+
+      return {
+        transaction: data,
+        family_id: input.family_id,
+        family_member_id: input.family_member_id,
+        paidAmount: Math.max(paymentAmount, 0),
+        settledPeriodIds,
+      }
     },
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['financial-transactions', data.family_member_id] })
-      qc.invalidateQueries({ queryKey: ['family-transactions', data.family_id] })
-      qc.invalidateQueries({ queryKey: ['running-balance', data.family_member_id] })
-      qc.invalidateQueries({ queryKey: ['family-financial-summary', data.family_id] })
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['financial-transactions', result.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['member-ledger', result.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['family-ledger', result.family_id] })
+      qc.invalidateQueries({ queryKey: ['family-transactions', result.family_id] })
+      qc.invalidateQueries({ queryKey: ['running-balance', result.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['family-financial-summary', result.family_id] })
+      qc.invalidateQueries({ queryKey: ['unpaid-allowance-periods', result.family_member_id] })
+      qc.invalidateQueries({ queryKey: ['period-history', result.family_member_id] })
     },
   })
 }
