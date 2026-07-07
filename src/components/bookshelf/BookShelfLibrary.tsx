@@ -491,27 +491,36 @@ export function BookShelfLibrary() {
           </div>
 
           {/* LiLa context indicator — Convention #8 */}
-          <div
-            className="flex items-center gap-1.5 mb-2 text-xs"
-            style={{ color: 'var(--color-text-tertiary)' }}
-          >
-            {settings.bookKnowledgeAccess === 'none' ? (
-              <>
-                <HeartOff size={14} />
-                <span>LiLa is not drawing from your BookShelf</span>
-              </>
-            ) : (
-              <>
-                <Heart size={14} style={{ color: 'var(--color-accent)' }} />
-                <span>
-                  LiLa is drawing from{' '}
-                  {settings.bookKnowledgeAccess === 'hearted_only'
-                    ? 'hearted extractions'
-                    : settings.bookKnowledgeAccess === 'insights_only'
-                      ? 'insights only'
-                      : 'all extractions'}
-                </span>
-              </>
+          <div className="mb-2">
+            <div
+              className="flex items-center gap-1.5 text-xs"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              {settings.bookKnowledgeAccess === 'none' ? (
+                <>
+                  <HeartOff size={14} />
+                  <span>LiLa is not drawing from your BookShelf</span>
+                </>
+              ) : (
+                <>
+                  <Heart size={14} style={{ color: 'var(--color-accent)' }} />
+                  <span>
+                    LiLa is drawing from{' '}
+                    {settings.bookKnowledgeAccess === 'hearted_only'
+                      ? 'hearted extractions'
+                      : settings.bookKnowledgeAccess === 'insights_only'
+                        ? 'insights only'
+                        : 'all extractions'}
+                  </span>
+                </>
+              )}
+            </div>
+            {/* HITM-CLOSURE: the all_extracted setting quietly includes extractions that
+                never passed the hearting review — founder wants that visible, not changed. */}
+            {settings.bookKnowledgeAccess === 'all_extracted' && (
+              <p className="text-xs mt-0.5 ml-5" style={{ color: 'var(--color-text-tertiary)' }}>
+                This includes extractions you haven&rsquo;t hearted yet.
+              </p>
             )}
           </div>
 

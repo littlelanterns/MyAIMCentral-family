@@ -299,6 +299,9 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
           )}
 
           {messages.map((msg, i) => {
+            // HITM deliberately hidden in support modes: help/assist/general/optimizer answers
+            // are guidance about the app, not content that becomes a family record — re-asking
+            // is the natural regenerate (HITM-CLOSURE rationale, Convention #279).
             const isConversationalMode = ['help', 'assist', 'general', 'optimizer'].includes(modeKey)
             return (
               <LilaMessageBubble

@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-05
+> Auto-generated from live Supabase on 2026-07-07
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -126,7 +126,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 518 rows
+### `view_as_sessions` — 532 rows
 
 | # | Column |
 |---|---|
@@ -138,7 +138,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 398 rows
+### `view_as_feature_exclusions` — 412 rows
 
 | # | Column |
 |---|---|
@@ -228,7 +228,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 211 rows
+### `feature_key_registry` — 212 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 690 rows
+### `ai_usage_tracking` — 708 rows
 
 | # | Column |
 |---|---|
@@ -667,7 +667,7 @@
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
 
-### `tasks` — 192 rows
+### `tasks` — 191 rows
 
 | # | Column |
 |---|---|
@@ -757,7 +757,7 @@
 | 84 | `reward_visibility` |
 | 85 | `reward_shared_with` |
 
-### `task_assignments` — 65 rows
+### `task_assignments` — 64 rows
 
 | # | Column |
 |---|---|
@@ -798,7 +798,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2057 rows
+### `routine_step_completions` — 2069 rows
 
 | # | Column |
 |---|---|
@@ -853,7 +853,7 @@
 | 9 | `released` |
 | 10 | `released_at` |
 
-### `task_rewards` — 6 rows
+### `task_rewards` — 3 rows
 
 | # | Column |
 |---|---|
@@ -1278,7 +1278,7 @@
 
 ## Family Hub (PRD-14D)
 
-### `family_hub_configs` — 1 rows
+### `family_hub_configs` — 2 rows
 
 | # | Column |
 |---|---|
@@ -1634,7 +1634,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 2 rows
+### `notifications` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2042,7 +2042,7 @@
 | 7 | `collection_id` |
 | 8 | `created_at` |
 
-### `bookshelf_member_settings` — 5 rows
+### `bookshelf_member_settings` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2223,7 +2223,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 237 rows
+### `vault_user_visits` — 244 rows
 
 | # | Column |
 |---|---|
@@ -2407,7 +2407,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 14 rows
+### `mindsweep_events` — 16 rows
 
 | # | Column |
 |---|---|
@@ -2501,7 +2501,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 325 rows
+### `activity_log_entries` — 334 rows
 
 | # | Column |
 |---|---|
@@ -2675,7 +2675,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 55 rows
+### `allowance_periods` — 60 rows
 
 | # | Column |
 |---|---|
@@ -3074,7 +3074,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 110 rows
+### `financial_transactions` — 119 rows
 
 | # | Column |
 |---|---|
@@ -3409,7 +3409,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 35 rows
+### `member_creature_collection` — 39 rows
 
 | # | Column |
 |---|---|
@@ -3712,7 +3712,7 @@
 | 13 | `created_at` |
 | 14 | `tag` |
 
-### `reward_proposals` — 17 rows
+### `reward_proposals` — 0 rows
 
 | # | Column |
 |---|---|
@@ -3774,7 +3774,7 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
-### `rhythm_completions` — 35 rows
+### `rhythm_completions` — 36 rows
 
 | # | Column |
 |---|---|
@@ -4106,7 +4106,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 78 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 126 API-exposed tables in domain sections | 81 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 5 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

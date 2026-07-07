@@ -263,6 +263,11 @@ export function MeetingConversationView({ meeting, onEnd, onClose }: MeetingConv
             </div>
           )}
 
+          {/* HITM deliberately hidden here: meeting facilitation turns are part of a
+              shared multi-participant record — regenerating or deleting them mid-meeting
+              would corrupt what the post-meeting summary is built from. Mom's review
+              point is the editable summary + Regenerate at PostMeetingReview before
+              Save & Close persists it (Convention #239; HITM-CLOSURE rationale, #279). */}
           {messages.map((msg, i) => (
             <LilaMessageBubble
               key={msg.id}

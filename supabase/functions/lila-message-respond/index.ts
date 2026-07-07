@@ -9,7 +9,13 @@
  *   - Participant profiles via context-assembler (names, roles, ages, InnerWorkings)
  *   - Family Communication Guidelines from messaging_settings
  *
- * LiLa responds with message_type='lila', distinct avatar treatment.
+ * HITM-CLOSURE (2026-07-06): the streamed reply is a PRIVATE DRAFT to the
+ * invoker — nothing persists to `messages` until the invoker approves it via
+ * action='send_draft' (HMAC-verified verbatim). Editing posts as the member
+ * themselves through the normal composer. Crisis responses are the one
+ * exception: they post to the thread immediately (Convention #7).
+ *
+ * LiLa messages post with message_type='lila', distinct avatar treatment.
  * Crisis detection runs first. Cost logged to ai_usage_tracking.
  */
 
@@ -33,8 +39,38 @@ const MODEL = 'anthropic/claude-sonnet-4'
 
 const RequestSchema = z.object({
   thread_id: z.string().uuid(),
-  user_message_content: z.string().min(1),
+  // action 'generate' (default): stream a PRIVATE draft back to the invoker — nothing persists.
+  // action 'send_draft': verify the HMAC signature and post the draft VERBATIM as LiLa (HITM-CLOSURE).
+  action: z.enum(['generate', 'send_draft']).optional(),
+  user_message_content: z.string().min(1).optional(),
+  draft_id: z.string().uuid().optional(),
+  draft_content: z.string().min(1).optional(),
+  draft_signature: z.string().optional(),
 })
+
+// ── Draft signing (HITM-CLOSURE) ──
+// [Send] must post exactly what LiLa generated — a client-supplied string would let
+// anyone put words in LiLa's mouth. Stateless HMAC over (thread|sender|draft_id|content)
+// keyed off the service-role secret; no draft storage, an abandoned draft just evaporates.
+
+async function draftHmacKey(): Promise<CryptoKey> {
+  const keyData = new TextEncoder().encode(`lila-message-draft:${SUPABASE_SERVICE_ROLE_KEY}`)
+  return crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+}
+
+async function signDraft(threadId: string, senderId: string, draftId: string, content: string): Promise<string> {
+  const key = await draftHmacKey()
+  const msg = new TextEncoder().encode(`${threadId}|${senderId}|${draftId}|${content}`)
+  const sig = await crypto.subtle.sign('HMAC', key, msg)
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
 
 // ── System Prompt ──
 
@@ -71,7 +107,7 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: jsonHeaders },
       )
     }
-    const { thread_id, user_message_content } = parsed.data
+    const { thread_id, action, user_message_content, draft_id, draft_content, draft_signature } = parsed.data
 
     // ── Resolve sender ──
     const { data: sender } = await serviceClient
@@ -88,7 +124,94 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // ── Load thread + space info ──
+    const { data: thread } = await serviceClient
+      .from('conversation_threads')
+      .select('id, space_id, title')
+      .eq('id', thread_id)
+      .single()
+
+    if (!thread) {
+      return new Response(JSON.stringify({ error: 'Thread not found' }), {
+        status: 404, headers: jsonHeaders,
+      })
+    }
+
+    // ── Space membership guard (HITM-CLOSURE) ──
+    // Everything below runs on the service role; without this check any
+    // authenticated member could invoke or post into threads they don't belong to.
+    const { data: membership } = await serviceClient
+      .from('conversation_space_members')
+      .select('id')
+      .eq('space_id', thread.space_id)
+      .eq('family_member_id', sender.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (!membership) {
+      return new Response(JSON.stringify({ error: 'Not a member of this conversation' }), {
+        status: 403, headers: jsonHeaders,
+      })
+    }
+
+    // ── Action: send_draft — post an approved draft VERBATIM as LiLa ──
+    if (action === 'send_draft') {
+      if (!draft_id || !draft_content || !draft_signature) {
+        return new Response(JSON.stringify({ error: 'Missing draft fields' }), {
+          status: 400, headers: jsonHeaders,
+        })
+      }
+
+      const expected = await signDraft(thread_id, sender.id, draft_id, draft_content)
+      if (!timingSafeEqual(expected, draft_signature)) {
+        return new Response(JSON.stringify({ error: 'Invalid draft signature' }), {
+          status: 403, headers: jsonHeaders,
+        })
+      }
+
+      const { data: savedMsg, error: insertErr } = await serviceClient
+        .from('messages')
+        .insert({
+          thread_id,
+          sender_member_id: null,
+          message_type: 'lila',
+          content: draft_content,
+          metadata: {
+            model: MODEL,
+            feature: 'ask_lila_send',
+            draft_id,
+            approved_by_member_id: sender.id,
+          },
+        })
+        .select('id')
+        .single()
+
+      if (insertErr || !savedMsg) {
+        return new Response(JSON.stringify({ error: 'Failed to post message' }), {
+          status: 500, headers: jsonHeaders,
+        })
+      }
+
+      await serviceClient
+        .from('conversation_threads')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', thread_id)
+
+      return new Response(JSON.stringify({ sent: true, message_id: savedMsg.id }), {
+        headers: jsonHeaders,
+      })
+    }
+
+    // ── Action: generate (default) ──
+    if (!user_message_content) {
+      return new Response(JSON.stringify({ error: 'Missing user_message_content' }), {
+        status: 400, headers: jsonHeaders,
+      })
+    }
+
     // ── Crisis detection ──
+    // Crisis resources post to the thread IMMEDIATELY — the draft gate never
+    // applies to safety surfaces (Convention #7 override is global and exempt).
     if (detectCrisis(user_message_content)) {
       // Save the crisis response as a LiLa message
       await serviceClient.from('messages').insert({
@@ -103,19 +226,6 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
         { headers: jsonHeaders },
       )
-    }
-
-    // ── Load thread + space info ──
-    const { data: thread } = await serviceClient
-      .from('conversation_threads')
-      .select('id, space_id, title')
-      .eq('id', thread_id)
-      .single()
-
-    if (!thread) {
-      return new Response(JSON.stringify({ error: 'Thread not found' }), {
-        status: 404, headers: jsonHeaders,
-      })
     }
 
     // ── Load participants ──
@@ -264,24 +374,13 @@ Deno.serve(async (req: Request) => {
             }
           }
 
-          // ── Save LiLa message ──
-          const { data: savedMsg } = await serviceClient
-            .from('messages')
-            .insert({
-              thread_id,
-              sender_member_id: null,
-              message_type: 'lila',
-              content: fullResponse,
-              metadata: { model: MODEL, feature: 'ask_lila_send' },
-            })
-            .select('id')
-            .single()
-
-          // ── Update thread last_message_at ──
-          await serviceClient
-            .from('conversation_threads')
-            .update({ last_message_at: new Date().toISOString() })
-            .eq('id', thread_id)
+          // ── Emit the PRIVATE draft (HITM-CLOSURE) ──
+          // Nothing persists to `messages` here. The invoker reviews the draft
+          // client-side and either sends it (action='send_draft', verified
+          // verbatim via the HMAC signature), edits it into their own composer
+          // to send as themselves, or discards it.
+          const draftId = crypto.randomUUID()
+          const signature = await signDraft(thread_id, sender.id, draftId, fullResponse)
 
           // ── Cost logging ──
           logAICost({
@@ -293,11 +392,15 @@ Deno.serve(async (req: Request) => {
             outputTokens,
           })
 
-          // ── Send metadata + done ──
+          // ── Send draft + done ──
+          // `content` is the server-canonical full text; the client replaces its
+          // accumulated stream with this so the signature always matches.
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({
-              type: 'metadata',
-              message_id: savedMsg?.id,
+              type: 'draft',
+              draft_id: draftId,
+              content: fullResponse,
+              signature,
               input_tokens: inputTokens,
               output_tokens: outputTokens,
             })}\n\n`),

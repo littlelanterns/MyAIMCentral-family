@@ -182,6 +182,96 @@ export function useBookDiscussions() {
     }
   }, [member, activeDiscussion, discussions, messages])
 
+  // --- HITM controls (HITM-CLOSURE 2026-07-06, Convention #55 semantics) ---
+
+  // Reject: delete an assistant message row and drop it from local state.
+  const rejectMessage = useCallback(async (messageId: string) => {
+    await supabase
+      .from('bookshelf_discussion_messages')
+      .delete()
+      .eq('id', messageId)
+    setMessages(prev => prev.filter(m => m.id !== messageId))
+  }, [])
+
+  // Regenerate: delete the latest assistant reply and re-run the same user
+  // message with the retry suffix. The user's message is NOT re-inserted —
+  // history is rebuilt around it, so the visible result is the same question
+  // with a fresh answer (HITM-CLOSURE decision D-6).
+  const regenerateLastResponse = useCallback(async (discussionId: string) => {
+    if (!member || sending) return
+    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
+    if (!lastAssistant) return
+
+    const remaining = messages.filter(m => m.id !== lastAssistant.id)
+    let lastUserIdx = -1
+    remaining.forEach((m, i) => { if (m.role === 'user') lastUserIdx = i })
+    if (lastUserIdx === -1) return
+    const lastUser = remaining[lastUserIdx]
+
+    const discussion = activeDiscussion?.id === discussionId
+      ? activeDiscussion
+      : discussions.find(d => d.id === discussionId)
+    if (!discussion) {
+      setError('Discussion not found')
+      return
+    }
+
+    setSending(true)
+    setError(null)
+    try {
+      await supabase
+        .from('bookshelf_discussion_messages')
+        .delete()
+        .eq('id', lastAssistant.id)
+      setMessages(remaining)
+
+      const { data: aiResponse, error: aiErr } = await supabase.functions.invoke('bookshelf-discuss', {
+        body: {
+          bookshelf_item_ids: discussion.bookshelf_item_ids,
+          discussion_type: discussion.discussion_type,
+          audience: discussion.audience,
+          message: lastUser.content + '\n\n[Please try a different approach.]',
+          conversation_history: remaining.slice(0, lastUserIdx).map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          family_id: member.family_id,
+          member_id: member.id,
+        },
+      })
+
+      if (aiErr || aiResponse?.error) {
+        setError(aiErr?.message || aiResponse?.error || 'AI response failed')
+        return
+      }
+
+      const aiContent = aiResponse?.content || ''
+      if (aiContent) {
+        const { data: aiMsg } = await supabase
+          .from('bookshelf_discussion_messages')
+          .insert({
+            discussion_id: discussionId,
+            role: 'assistant',
+            content: aiContent,
+            metadata: { regenerated: true },
+          })
+          .select('*')
+          .single()
+
+        if (aiMsg) setMessages(prev => [...prev, aiMsg])
+      }
+
+      await supabase
+        .from('bookshelf_discussions')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', discussionId)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setSending(false)
+    }
+  }, [member, sending, messages, activeDiscussion, discussions])
+
   // --- Continue an existing discussion ---
   const continueDiscussion = useCallback(async (
     discussionId: string,
@@ -294,6 +384,8 @@ export function useBookDiscussions() {
     fetchDiscussions,
     startDiscussion,
     sendMessage,
+    rejectMessage,
+    regenerateLastResponse,
     continueDiscussion,
     updateAudience,
     copyToClipboard,

@@ -9,6 +9,8 @@ import { Send, Copy, Clock, Trash2, MessageSquare, Target, HelpCircle, CheckSqua
 import { VoiceInputButton } from '@/components/shared/VoiceInputButton'
 import { ModalV2 } from '@/components/shared/ModalV2'
 import { useBookDiscussions } from '@/hooks/useBookDiscussions'
+import { HumanInTheMix } from '@/components/HumanInTheMix'
+import { useNotepadContextSafe } from '@/components/notepad'
 import type { DiscussionType, DiscussionAudience, BookShelfDiscussion } from '@/types/bookshelf'
 
 const DISCUSSION_TYPE_LABELS: Record<DiscussionType, string> = {
@@ -55,8 +57,18 @@ export function BookDiscussionModal({
   const {
     discussions, activeDiscussion, messages, loading, sending, error,
     fetchDiscussions, startDiscussion, sendMessage, continueDiscussion,
+    rejectMessage, regenerateLastResponse,
     updateAudience, copyToClipboard, deleteDiscussion, closeDiscussion,
   } = useBookDiscussions()
+
+  const notepad = useNotepadContextSafe()
+
+  // HITM-CLOSURE: latest assistant reply carries Edit/Approve/Regenerate/Reject
+  // (Convention #55) — this surface previously persisted AI replies with no controls.
+  const latestAssistantId = useMemo(
+    () => [...messages].reverse().find(m => m.role === 'assistant')?.id ?? null,
+    [messages],
+  )
 
   const [audience, setAudience] = useState<DiscussionAudience>(initialAudience)
   const [inputText, setInputText] = useState('')
@@ -145,6 +157,33 @@ export function BookDiscussionModal({
   const handleDeleteDiscussion = useCallback(async (id: string) => {
     await deleteDiscussion(id)
   }, [deleteDiscussion])
+
+  // ── HITM handlers (HITM-CLOSURE) ──
+
+  const handleHitmEdit = useCallback((content: string) => {
+    if (notepad) {
+      const title = content.split('\n')[0]?.slice(0, 60) || 'From book discussion'
+      notepad.openNotepad({
+        content,
+        title,
+        sourceType: 'lila_conversation' as any,
+        sourceReferenceId: activeDiscussion?.id,
+      })
+    } else {
+      navigator.clipboard.writeText(content).catch(() => {})
+      setToast('Copied — paste it where you want to edit')
+      setTimeout(() => setToast(null), 2500)
+    }
+  }, [notepad, activeDiscussion?.id])
+
+  const handleHitmRegenerate = useCallback(() => {
+    if (!activeDiscussion || sending) return
+    regenerateLastResponse(activeDiscussion.id)
+  }, [activeDiscussion, sending, regenerateLastResponse])
+
+  const handleHitmReject = useCallback((messageId: string) => {
+    rejectMessage(messageId)
+  }, [rejectMessage])
 
   const handleClose = useCallback(() => {
     closeDiscussion()
@@ -294,6 +333,17 @@ export function BookDiscussionModal({
               }`}
             >
               {msg.content}
+              {/* HITM on the latest AI reply (HITM-CLOSURE, Convention #55) */}
+              {msg.role === 'assistant' && msg.id === latestAssistantId && !sending && (
+                <div data-testid={`bookshelf-hitm-${msg.id}`}>
+                  <HumanInTheMix
+                    onEdit={() => handleHitmEdit(msg.content)}
+                    onApprove={() => { /* message stays — approval is the default state */ }}
+                    onRegenerate={handleHitmRegenerate}
+                    onReject={() => handleHitmReject(msg.id)}
+                  />
+                </div>
+              )}
             </div>
           ))}
 

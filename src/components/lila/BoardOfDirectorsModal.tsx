@@ -27,6 +27,8 @@ import { LilaAvatar } from './LilaAvatar'
 import { supabase } from '@/lib/supabase/client'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
 import { FEATURE_FLAGS } from '@/config/featureFlags'
+import { HumanInTheMix } from '@/components/HumanInTheMix'
+import { useNotepadContextSafe } from '@/components/notepad'
 
 const MAX_ADVISORS = 5
 
@@ -84,6 +86,7 @@ async function streamBoDChat(
   onEvent: (event: StreamEvent) => void,
   onDone: () => void,
   onError: (error: string) => void,
+  extraBody?: Record<string, unknown>,
 ) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -97,7 +100,11 @@ async function streamBoDChat(
         'Authorization': `Bearer ${session.access_token}`,
         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ conversation_id: conversationId, content }),
+      body: JSON.stringify({
+        conversation_id: conversationId,
+        ...(content ? { content } : {}),
+        ...(extraBody || {}),
+      }),
     })
 
     if (!response.ok) {
@@ -167,6 +174,11 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
   const [conversation, setConversation] = useState<LilaConversation | null>(existingConversation || null)
   const [boardSessionId, setBoardSessionId] = useState<string | null>(null)
   const { data: messages = [] } = useLilaMessages(conversation?.id)
+
+  // Index of the latest user message — advisor replies AFTER it form the
+  // current turn and carry HITM controls (HITM-CLOSURE, Convention #55).
+  let lastUserIdx = -1
+  messages.forEach((m, i) => { if (m.role === 'user') lastUserIdx = i })
 
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -544,6 +556,38 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
       await startRecording()
     }
   }, [voiceState, stopRecording, startRecording])
+  // ── Notepad bridge (null outside NotepadProvider shells) ──
+
+  const notepad = useNotepadContextSafe()
+
+  // ── Shared SSE event handler (send + per-advisor regenerate) ──
+
+  const applyStreamEvent = useCallback((event: StreamEvent) => {
+    if (event.type === 'advisor_start') {
+      setCurrentStreamPersona(event.persona_name || null)
+      setStreamingChunks(prev => [...prev, { personaName: event.persona_name || null, content: '' }])
+    } else if (event.type === 'chunk') {
+      setStreamingChunks(prev => {
+        const updated = [...prev]
+        if (updated.length > 0) {
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            content: updated[updated.length - 1].content + (event.content || ''),
+          }
+        } else {
+          updated.push({ personaName: event.source === 'lila' ? 'LiLa' : (event.persona_name || null), content: event.content || '' })
+        }
+        return updated
+      })
+    } else if (event.type === 'advisor_end') {
+      // advisor done, next one will start fresh
+    } else if (event.type === 'moderator_start') {
+      setCurrentStreamPersona('LiLa')
+      setStreamingChunks(prev => [...prev, { personaName: 'LiLa', content: '' }])
+    } else if (event.type === 'prayer_seat') {
+      setStreamingChunks(prev => [...prev, { personaName: 'Reflection', content: event.content || '' }])
+    }
+  }, [])
 
   // ── Send message ─────────────────────────────────────────
 
@@ -596,32 +640,7 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
     await streamBoDChat(
       conv.id,
       messageText,
-      (event) => {
-        if (event.type === 'advisor_start') {
-          setCurrentStreamPersona(event.persona_name || null)
-          setStreamingChunks(prev => [...prev, { personaName: event.persona_name || null, content: '' }])
-        } else if (event.type === 'chunk') {
-          setStreamingChunks(prev => {
-            const updated = [...prev]
-            if (updated.length > 0) {
-              updated[updated.length - 1] = {
-                ...updated[updated.length - 1],
-                content: updated[updated.length - 1].content + (event.content || ''),
-              }
-            } else {
-              updated.push({ personaName: event.source === 'lila' ? 'LiLa' : (event.persona_name || null), content: event.content || '' })
-            }
-            return updated
-          })
-        } else if (event.type === 'advisor_end') {
-          // advisor done, next one will start fresh
-        } else if (event.type === 'moderator_start') {
-          setCurrentStreamPersona('LiLa')
-          setStreamingChunks(prev => [...prev, { personaName: 'LiLa', content: '' }])
-        } else if (event.type === 'prayer_seat') {
-          setStreamingChunks(prev => [...prev, { personaName: 'Reflection', content: event.content || '' }])
-        }
-      },
+      applyStreamEvent,
       () => {
         setIsStreaming(false)
         setStreamingChunks([])
@@ -634,13 +653,64 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
         setStreamingChunks([{ personaName: 'LiLa', content: 'I had trouble with that. Want to try again?' }])
       },
     )
-  }, [input, member, family, isStreaming, conversation, seatedPersonas, createConversation, queryClient])
+  }, [input, member, family, isStreaming, conversation, seatedPersonas, createConversation, queryClient, applyStreamEvent])
 
   // ── Copy handler ─────────────────────────────────────────
 
   const handleCopy = useCallback((content: string) => {
     navigator.clipboard.writeText(content).catch(() => {})
   }, [])
+
+  // ── Save to Notepad (HITM-CLOSURE — the chip previously mislabeled a copy action) ──
+
+  const handleSaveToNotepad = useCallback((content: string) => {
+    if (!notepad) return
+    const title = content.split('\n')[0]?.slice(0, 60) || 'From Board of Directors'
+    notepad.openNotepad({ content, title, sourceType: 'lila_conversation' as any, sourceReferenceId: conversation?.id })
+    // Don't close the modal — notepad opens as a drawer on top
+  }, [notepad, conversation?.id])
+
+  // ── Per-advisor HITM (HITM-CLOSURE, Convention #55 adapted) ──
+  // Regenerate re-runs THAT advisor's call server-side (the action deletes the
+  // old message first); Reject deletes that advisor's message only.
+
+  const handleRegenerateAdvisor = useCallback(async (messageId: string) => {
+    if (!conversation || isStreaming) return
+    setIsStreaming(true)
+    setStreamingChunks([])
+    setCurrentStreamPersona(null)
+
+    await streamBoDChat(
+      conversation.id,
+      '',
+      (event) => {
+        if (event.type === 'advisor_start') {
+          // The server has deleted the rejected take by now — refresh so it
+          // disappears while the replacement streams in.
+          queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+        }
+        applyStreamEvent(event)
+      },
+      () => {
+        setIsStreaming(false)
+        setStreamingChunks([])
+        setCurrentStreamPersona(null)
+        queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+      },
+      (error) => {
+        console.error('BoD regenerate error:', error)
+        setIsStreaming(false)
+        setStreamingChunks([{ personaName: 'LiLa', content: 'I had trouble with that. Want to try again?' }])
+      },
+      { action: 'regenerate_advisor', message_id: messageId },
+    )
+  }, [conversation, isStreaming, queryClient, applyStreamEvent])
+
+  const handleRejectAdvisor = useCallback(async (messageId: string) => {
+    if (!conversation) return
+    await supabase.from('lila_messages').delete().eq('id', messageId)
+    queryClient.invalidateQueries({ queryKey: ['lila-messages', conversation.id] })
+  }, [conversation, queryClient])
 
   // ── Render ───────────────────────────────────────────────
 
@@ -774,9 +844,22 @@ export function BoardOfDirectorsModal({ onClose, existingConversation }: BoardOf
                     <button onClick={() => handleCopy(msg.content)} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
                       <Copy size={10} /> Copy
                     </button>
-                    <button onClick={() => handleCopy(msg.content)} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                      <FileText size={10} /> Save to Notepad
-                    </button>
+                    {notepad && (
+                      <button onClick={() => handleSaveToNotepad(msg.content)} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                        <FileText size={10} /> Save to Notepad
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Per-advisor HITM — current turn only (HITM-CLOSURE, Convention #55) */}
+                {msg.role === 'assistant' && !isStreaming && isAdvisor && _i > lastUserIdx && (
+                  <div className="ml-4" data-testid={`bod-hitm-${msg.id}`}>
+                    <HumanInTheMix
+                      onEdit={() => (notepad ? handleSaveToNotepad(msg.content) : handleCopy(msg.content))}
+                      onApprove={() => { /* message stays — approval is the default state */ }}
+                      onRegenerate={() => handleRegenerateAdvisor(msg.id)}
+                      onReject={() => handleRejectAdvisor(msg.id)}
+                    />
                   </div>
                 )}
               </div>

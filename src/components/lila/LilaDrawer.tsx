@@ -630,6 +630,9 @@ export function LilaDrawer({
 
           {messages.map((msg, i) => {
             const isLatestAssistant = msg.role === 'assistant' && i === messages.length - 1 && !isStreaming
+            // HITM deliberately hidden in support modes: help/assist/optimizer answers are
+            // guidance about the app, not content that becomes a family record — re-asking
+            // is the natural regenerate (HITM-CLOSURE rationale, Convention #279).
             const isConversationalMode = ['help', 'assist', 'optimizer'].includes(currentMode)
             return (
               <LilaMessageBubble

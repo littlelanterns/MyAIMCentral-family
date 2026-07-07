@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useMemo, useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Pencil, Loader2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Loader2, Send, X } from 'lucide-react'
 import { useMessages, useSendMessage, useAutoMarkRead } from '@/hooks/useMessages'
 import { useThreadRealtime } from '@/hooks/useMessagingRealtime'
 import { useRenameThread } from '@/hooks/useConversationThreads'
@@ -162,8 +162,23 @@ export function ChatThreadView({
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useMessages(threadId)
   const sendMessage = useSendMessage()
   const renameThread = useRenameThread()
-  const { invokeLila, isStreaming: lilaStreaming, streamedContent: lilaStreamedContent } = useLilaMessageRespond()
+  const {
+    invokeLila,
+    sendDraft,
+    discardDraft,
+    isStreaming: lilaStreaming,
+    streamedContent: lilaStreamedContent,
+    draft: lilaDraft,
+    isSendingDraft,
+  } = useLilaMessageRespond()
   const { checkCoaching, recordCoachedSend } = useMessageCoaching()
+
+  // HITM-CLOSURE: "Edit as my own message" — LiLa's draft text moves into the
+  // member's composer; they send it as themselves (coaching still applies).
+  const [composerPrefill, setComposerPrefill] = useState<string | null>(null)
+
+  // Kid shells (Guided/Play) get simpler draft-card copy.
+  const isKidShell = currentMember?.dashboard_mode === 'guided' || currentMember?.dashboard_mode === 'play'
 
   // Coaching checkpoint state
   const [coachingState, setCoachingState] = useState<{
@@ -196,9 +211,9 @@ export function ChatThreadView({
   const [editTitle, setEditTitle] = useState(threadTitle ?? '')
 
   useEffect(() => {
-    // Scroll to bottom on new messages or LiLa streaming
+    // Scroll to bottom on new messages, LiLa streaming, or a draft appearing
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [allMessages.length, lilaStreamedContent])
+  }, [allMessages.length, lilaStreamedContent, lilaDraft])
 
   // Load older on scroll to top
   const handleScroll = useCallback(() => {
@@ -275,7 +290,8 @@ export function ChatThreadView({
     setCoachingState({ active: false, loading: false, note: '', pendingContent: '' })
   }, [])
 
-  // "Ask LiLa & Send" handler
+  // "Ask LiLa & Send" handler — the user's own message posts immediately;
+  // LiLa's reply streams back as a PRIVATE draft (HITM-CLOSURE).
   const handleSendWithLila = useCallback((content: string) => {
     if (!threadId) return
     // First send the user's message normally
@@ -283,12 +299,28 @@ export function ChatThreadView({
       { thread_id: threadId, content },
       {
         onSuccess: () => {
-          // Then invoke LiLa to respond
+          // Then invoke LiLa — nothing persists until the invoker approves
           invokeLila(threadId, content)
         },
       },
     )
   }, [threadId, sendMessage, invokeLila])
+
+  // Draft actions (HITM-CLOSURE)
+  const handleDraftSend = useCallback(() => {
+    if (!threadId) return
+    sendDraft(threadId)
+  }, [threadId, sendDraft])
+
+  const handleDraftEdit = useCallback(() => {
+    if (!lilaDraft) return
+    setComposerPrefill(lilaDraft.content)
+    discardDraft()
+  }, [lilaDraft, discardDraft])
+
+  const handleDraftDiscard = useCallback(() => {
+    discardDraft()
+  }, [discardDraft])
 
   const handleSaveTitle = useCallback(() => {
     if (!threadId || !editTitle.trim()) return
@@ -460,60 +492,136 @@ export function ChatThreadView({
           })
         )}
 
-        {/* LiLa streaming response (shown while streaming) */}
-        {lilaStreaming && lilaStreamedContent && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: '0.5rem',
-              padding: '0.125rem 1rem',
-            }}
-          >
+        {/* LiLa PRIVATE draft — streaming preview + review card (HITM-CLOSURE).
+            Nothing here exists in the thread until the invoker taps Send. */}
+        {(lilaStreaming && lilaStreamedContent) || lilaDraft ? (
+          <div style={{ padding: '0.25rem 1rem' }} data-testid="lila-draft-preview">
             <div
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                backgroundColor: 'var(--color-btn-primary-bg)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                flexShrink: 0,
+                border: '1px dashed var(--color-border)',
+                borderRadius: '12px',
+                padding: '0.625rem 0.75rem',
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 6%, var(--color-bg-secondary))',
               }}
             >
-              L
-            </div>
-            <div style={{ maxWidth: '75%', display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginBottom: '0.125rem', paddingLeft: '0.25rem' }}>
-                LiLa
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--color-btn-primary-bg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--color-text-on-primary, #fff)',
+                    fontSize: '0.625rem',
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  L
+                </div>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                  {isKidShell
+                    ? "LiLa's idea — only you can see it right now"
+                    : 'LiLa drafted a reply — only you can see it until you send it'}
+                </span>
+              </div>
+
               <div
+                data-testid="lila-draft-content"
                 style={{
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '12px 12px 12px 2px',
-                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, var(--color-bg-secondary))',
                   color: 'var(--color-text-primary)',
                   fontSize: '0.875rem',
                   lineHeight: '1.4',
                   whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
                 }}
               >
-                {lilaStreamedContent}
-                <span
-                  className="animate-cursor-blink"
-                  aria-hidden="true"
-                  style={{ marginLeft: '1px', fontWeight: 600 }}
-                >
-                  |
-                </span>
+                {lilaDraft ? lilaDraft.content : lilaStreamedContent}
+                {lilaStreaming && (
+                  <span
+                    className="animate-cursor-blink"
+                    aria-hidden="true"
+                    style={{ marginLeft: '1px', fontWeight: 600 }}
+                  >
+                    |
+                  </span>
+                )}
               </div>
+
+              {lilaDraft && !lilaStreaming && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.625rem' }}>
+                  <button
+                    data-testid="lila-draft-send"
+                    onClick={handleDraftSend}
+                    disabled={isSendingDraft}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      border: 'none',
+                      backgroundColor: 'var(--color-btn-primary-bg)',
+                      color: 'var(--color-text-on-primary, #fff)',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: isSendingDraft ? 'default' : 'pointer',
+                      opacity: isSendingDraft ? 0.6 : 1,
+                    }}
+                  >
+                    {isSendingDraft ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                    Send
+                  </button>
+                  <button
+                    data-testid="lila-draft-edit"
+                    onClick={handleDraftEdit}
+                    disabled={isSendingDraft}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      cursor: isSendingDraft ? 'default' : 'pointer',
+                    }}
+                  >
+                    <Pencil size={12} />
+                    {isKidShell ? 'Make it my own' : 'Edit as my message'}
+                  </button>
+                  <button
+                    data-testid="lila-draft-discard"
+                    onClick={handleDraftDiscard}
+                    disabled={isSendingDraft}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: 'var(--vibe-radius-input, 8px)',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: 'var(--color-text-secondary)',
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      cursor: isSendingDraft ? 'default' : 'pointer',
+                    }}
+                  >
+                    <X size={12} />
+                    {isKidShell ? 'Skip it' : 'Discard'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        )}
+        ) : null}
 
         <div ref={bottomRef} />
       </div>
@@ -538,6 +646,8 @@ export function ChatThreadView({
           coachingEnabled={coachingEnabled}
           disabled={sendMessage.isPending || lilaStreaming}
           lilaStreaming={lilaStreaming}
+          prefillText={composerPrefill}
+          onPrefillConsumed={() => setComposerPrefill(null)}
         />
       )}
     </div>

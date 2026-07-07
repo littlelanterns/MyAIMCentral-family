@@ -7,7 +7,7 @@
  * before the message actually sends.
  */
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, Sparkles } from 'lucide-react'
 
 interface MessageInputBarProps {
@@ -19,6 +19,14 @@ interface MessageInputBarProps {
   disabled?: boolean
   placeholder?: string
   lilaStreaming?: boolean
+  /**
+   * HITM-CLOSURE: when set, the composer adopts this text (LiLa draft "Edit
+   * as my own message" path) and calls onPrefillConsumed so the parent can
+   * clear it. The member then sends it as THEMSELVES through the normal flow
+   * — coaching included.
+   */
+  prefillText?: string | null
+  onPrefillConsumed?: () => void
 }
 
 export function MessageInputBar({
@@ -30,9 +38,20 @@ export function MessageInputBar({
   disabled,
   placeholder,
   lilaStreaming,
+  prefillText,
+  onPrefillConsumed,
 }: MessageInputBarProps) {
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (prefillText != null && prefillText !== '') {
+      setText(prefillText)
+      inputRef.current?.focus()
+      onPrefillConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillText])
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim()

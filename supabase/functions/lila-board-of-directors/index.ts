@@ -57,6 +57,7 @@ const InputSchema = z.object({
     'reject_queued_persona',
     'defer_queued_persona',
     'list_persona_promotion_queue',
+    'regenerate_advisor',
   ]).optional(),
   // Additional fields used by specific actions — validated inline
 }).passthrough()
@@ -943,6 +944,193 @@ Deno.serve(async (req) => {
       })
       if (error) return new Response(JSON.stringify({ error: error.message }), { status: 403, headers: jsonHeaders })
       return new Response(JSON.stringify({ rows: data || [] }), { headers: jsonHeaders })
+    }
+
+    // ── Action: Regenerate a single advisor's reply (HITM-CLOSURE) ────
+    // Convention #55 adapted per-advisor: deletes THAT advisor's message and
+    // re-runs only that persona's call with the retry suffix appended as a
+    // final user turn. Sibling advisors' responses stay in history so the
+    // regenerated take still "hears" the rest of the table.
+    if (action === 'regenerate_advisor') {
+      const messageId = ((body.message_id as string) || '').trim()
+      if (!messageId) return new Response(JSON.stringify({ error: 'Missing message_id' }), { status: 400, headers: jsonHeaders })
+
+      // BoD conversations are personal — only the owner (or mom) may regenerate.
+      const { data: caller } = await supabase
+        .from('family_members')
+        .select('id, family_id, role')
+        .eq('user_id', auth.user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .single()
+      if (!caller || caller.family_id !== conv.family_id || (caller.id !== conv.member_id && caller.role !== 'primary_parent')) {
+        return new Response(JSON.stringify({ error: 'Not allowed' }), { status: 403, headers: jsonHeaders })
+      }
+
+      // Verify the target is an advisor message of THIS conversation
+      const { data: target } = await supabase
+        .from('lila_messages')
+        .select('id, role, metadata')
+        .eq('id', messageId)
+        .eq('conversation_id', conversation_id)
+        .maybeSingle()
+      const tmeta = (target?.metadata || {}) as Record<string, unknown>
+      if (!target || target.role !== 'assistant' || tmeta.mode !== 'board_of_directors' || !tmeta.persona_id) {
+        return new Response(JSON.stringify({ error: 'Not an advisor message' }), { status: 400, headers: jsonHeaders })
+      }
+      const personaId = tmeta.persona_id as string
+
+      // Resolve the persona from either tier (Convention #258 dual-column polymorphism)
+      let personaLookup: { id: string; persona_name: string; personality_profile: Record<string, unknown>; persona_type: string } | null = null
+      {
+        const { data: t1 } = await supabase
+          .from('board_personas')
+          .select('id, persona_name, personality_profile, persona_type')
+          .eq('id', personaId)
+          .maybeSingle()
+        personaLookup = t1 || null
+        if (!personaLookup) {
+          const { data: t3 } = await supabase
+            .schema('platform_intelligence')
+            .from('board_personas')
+            .select('id, persona_name, personality_profile, persona_type')
+            .eq('id', personaId)
+            .maybeSingle()
+          personaLookup = t3 || null
+        }
+      }
+      if (!personaLookup) return new Response(JSON.stringify({ error: 'Persona not found' }), { status: 404, headers: jsonHeaders })
+      const regenPersona = personaLookup
+
+      // Delete the rejected take, then rebuild history without it
+      await supabase.from('lila_messages').delete().eq('id', messageId)
+
+      const { data: regenHistory } = await supabase.from('lila_messages')
+        .select('role, content, metadata')
+        .eq('conversation_id', conversation_id)
+        .order('created_at', { ascending: true })
+        .limit(60)
+
+      const lastUser = [...(regenHistory || [])].reverse().find(m => m.role === 'user')
+      if (!lastUser) return new Response(JSON.stringify({ error: 'No user message to regenerate from' }), { status: 400, headers: jsonHeaders })
+
+      // Seated names so the advisor prompt keeps its board context
+      const { data: regenSession } = await supabase
+        .from('board_sessions')
+        .select('id')
+        .eq('conversation_id', conversation_id)
+        .maybeSingle()
+      let seatNames: string[] = [regenPersona.persona_name]
+      if (regenSession) {
+        const { data: seats } = await supabase
+          .from('board_session_personas')
+          .select('persona_id, platform_persona_id, is_prayer_seat')
+          .eq('board_session_id', regenSession.id)
+          .is('removed_at', null)
+        const ids1 = (seats || []).filter(s => !s.is_prayer_seat && s.persona_id).map(s => s.persona_id!)
+        const ids3 = (seats || []).filter(s => !s.is_prayer_seat && s.platform_persona_id).map(s => s.platform_persona_id!)
+        const names: string[] = []
+        if (ids1.length) {
+          const { data } = await supabase.from('board_personas').select('persona_name').in('id', ids1)
+          names.push(...(data || []).map(p => p.persona_name))
+        }
+        if (ids3.length) {
+          const { data } = await supabase.schema('platform_intelligence').from('board_personas').select('persona_name').in('id', ids3)
+          names.push(...(data || []).map(p => p.persona_name))
+        }
+        if (names.length) seatNames = names
+      }
+
+      const assembledRegen = await assembleContext({
+        familyId: conv.family_id,
+        memberId: conv.member_id,
+        userMessage: lastUser.content,
+        recentMessages: (regenHistory || []).slice(-4).map(m => ({ role: m.role, content: m.content })),
+        featureContext: 'Discussing with Board of Directors advisors',
+        alwaysIncludeMembers: [conv.member_id],
+      })
+      const regenContext = [
+        assembledRegen.familyRoster,
+        assembledRegen.featureContext,
+        assembledRegen.relevantContext,
+      ].filter(Boolean).join('\n')
+
+      const regenMessages = [
+        { role: 'system' as const, content: buildAdvisorPrompt(regenPersona, seatNames, regenContext) },
+        ...(regenHistory || []).map(m => ({
+          role: (m.role === 'system' ? 'assistant' : m.role) as 'user' | 'assistant',
+          content: m.content,
+        })),
+        { role: 'user' as const, content: '[Please try a different approach.]' },
+      ]
+
+      const regenRes = await callOpenRouter(
+        OPENROUTER_API_KEY,
+        { model: MODEL_SONNET, messages: regenMessages, stream: true, max_tokens: 1024 },
+        { title: `MyAIM Central - BoD ${regenPersona.persona_name} (regen)` },
+      )
+      if (!regenRes.ok || !regenRes.body) return new Response(JSON.stringify({ error: 'AI error' }), { status: 502, headers: jsonHeaders })
+
+      const regenEncoder = new TextEncoder()
+      let regenInTok = 0, regenOutTok = 0
+      const regenStream = new ReadableStream({
+        async start(controller) {
+          let advisorFull = ''
+          try {
+            controller.enqueue(regenEncoder.encode(`data: ${JSON.stringify({ type: 'advisor_start', persona_id: regenPersona.id, persona_name: regenPersona.persona_name })}\n\n`))
+            const reader = regenRes.body!.getReader()
+            const dec = new TextDecoder()
+            let buf = ''
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              buf += dec.decode(value, { stream: true })
+              const lines = buf.split('\n')
+              buf = lines.pop() || ''
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue
+                const d = line.slice(6).trim()
+                if (d === '[DONE]') continue
+                try {
+                  const p = JSON.parse(d)
+                  const c = p.choices?.[0]?.delta?.content || ''
+                  if (c) {
+                    advisorFull += c
+                    controller.enqueue(regenEncoder.encode(`data: ${JSON.stringify({ type: 'chunk', content: c, persona_id: regenPersona.id, persona_name: regenPersona.persona_name })}\n\n`))
+                  }
+                  if (p.usage) { regenInTok += p.usage.prompt_tokens || 0; regenOutTok += p.usage.completion_tokens || 0 }
+                } catch { /* skip */ }
+              }
+            }
+
+            await supabase.from('lila_messages').insert({
+              conversation_id, role: 'assistant', content: advisorFull,
+              metadata: {
+                mode: 'board_of_directors',
+                persona_id: regenPersona.id,
+                persona_name: regenPersona.persona_name,
+                is_prayer_seat_reflection: false,
+                show_disclaimer: false,
+                regenerated: true,
+              },
+            })
+
+            controller.enqueue(regenEncoder.encode(`data: ${JSON.stringify({ type: 'advisor_end', persona_id: regenPersona.id, persona_name: regenPersona.persona_name })}\n\n`))
+            controller.enqueue(regenEncoder.encode('data: [DONE]\n\n'))
+          } finally {
+            logAICost({
+              familyId: conv.family_id,
+              memberId: conv.member_id,
+              featureKey: 'lila_board_of_directors',
+              model: MODEL_SONNET,
+              inputTokens: regenInTok,
+              outputTokens: regenOutTok,
+            })
+            controller.close()
+          }
+        },
+      })
+      return new Response(regenStream, { headers: sseHeaders })
     }
 
     // ── Action: Chat (default) — sequential multi-advisor ────
