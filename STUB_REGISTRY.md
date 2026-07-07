@@ -18,6 +18,14 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
+## HITM-CLOSURE (2026-07-06)
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| `ContextLearningSaveDialog.tsx` — PRD-13 context-learning approval dialog (suggest-then-accept: Save / Edit Before Saving / Skip with `context_learning_dismissals` hash). Fully built, correctly HITM-shaped, imported NOWHERE — waits on the LiLa-side context-learning detection trigger (the pipeline that detects candidate facts in conversations, Convention #247 attribute 3 / P3 pattern). Wires when that detection lands. Verified dormant 2026-07-06 by the Beta Readiness HITM audit (report §4C). **Do NOT delete it** — it is the intended HITM gate for that pipeline. | PRD-13 build | LiLa context-learning detection build | ⏳ Unwired (MVP) | Future PRD-13/PRD-05 phase |
+
+---
+
 ## OPPORTUNITY-SURFACES Follow-Ups (2026-07-03)
 
 | Stub | Created By | Wired By | Status | Build Phase |
@@ -30,11 +38,25 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
-## Family Goals & Family Prizes (2026-07-05) — founder-directed, awaiting Fable pre-build
+## Family Goals & Family Prizes (2026-07-05 → 2026-07-06, FAMILY-GOALS-PRIZES build)
+
+**RESOLVED 2026-07-06.** Founder-directed family-level goal system (raised mid KIDS-REWARDS-PAGE-S5), pre-built by Fable 2026-07-05, built same day/next by a Sonnet worker. `family_goals` / `family_goal_sources` / `family_goal_contributions` tables (migration 100284), DB-trigger contribution counting (never client-computed), race-safe award evaluation (status-guarded UPDATE + partial unique index on `earned_prizes`), purpose-built engine (NOT routed through contracts/deed_firings — Key Decision #2). `FamilyGoalManager` (two doors: Prize Board + Hub Settings), Prize Board Family group + Family Goals strip, Hub `family_goals` section, My Rewards Family section. E2E `tests/e2e/features/family-goals-prizes.spec.ts` (10/10) + eyes-on tour (`family-goals-prizes-eyes-on-tour.spec.ts`, Convention #277, all 3 viewports × mom/kid roles read and verified). See `claude/feature-decisions/Family-Goals-And-Prizes.md` and `.claude/completed-builds/2026-07/family-goals-prizes.md` for the full build record.
 
 | Stub | Created By | Wired By | Status | Build Phase |
 |------|-----------|----------|--------|-------------|
-| **Family-level goal/tracking system: Family Prizes, Family Best Intentions integration, and general "family goals" the whole family works toward together.** Raised by the founder mid-session during KIDS-REWARDS-PAGE-S5 ("if the family is working together on a prize or a goal, it would be a family prize"). She explicitly asked for REAL multi-member contribution tracking (not a manual mom-declared placeholder) and to run the design in a dedicated Fable session rather than absorb it into the Slice 5 PrizeBoard polish it was raised alongside. Full research handoff — schema constraints already checked (`earned_prizes.family_member_id` is `NOT NULL` today; `contracts.family_member_id IS NULL` already means something different — "all kids individually," not "one shared goal"; `family_best_intentions`/`family_intention_iterations` is the closest existing precedent but is entirely disconnected from the reward-firing pipeline), three founder decisions already resolved (build real tracking now; surface on a member's own rewards page when they participate in or are earning toward it; mom marks a family prize redeemed once for everyone), and open design questions for the Fable pre-build to resolve — all in `claude/feature-decisions/Family-Goals-And-Prizes-Handoff.md`. | Founder directive, 2026-07-05 (mid KIDS-REWARDS-PAGE-S5) | Unwired | ⏳ Unwired (MVP) | Dedicated Fable pre-build session — see handoff doc §6 for the starting prompt |
+| Boss Battle / Party Quest / Family Bingo visuals (PRD-24C proper — the never-written parent PRD; this build is its practical core, per FD-7). `family_goals` + `family_goal_contributions` are shaped to be skinned by these future visuals without a schema change. | FAMILY-GOALS-PRIZES spec Key Decision (addendum ruling) | Unwired | 📌 Unwired (Post-MVP) | Future PRD-24C build |
+| "Everyone completes all their assigned things on day X" goal type (Family Bingo `goalType:'family'` shape) — an assigned-**denominator** question, not an events/numerator one. MUST route through `get_member_day_obligations` (Convention #271) when built; standing law for this engine (Rider 2). | FAMILY-GOALS-PRIZES Key Decision #12 / Rider 2 | Unwired | ⏳ Unwired (MVP) | Future build extending `family_goal_sources.source_kind` |
+| Money-payload family prizes (a per-member `financial_transactions` split policy doesn't exist for a NULL-member row — Convention #223 append-only ledger is per-member) | FAMILY-GOALS-PRIZES Key Decision #13 | Unwired | 📌 Unwired (Post-MVP) | Needs its own design question first |
+| LiLa goal suggestion/generation (HITM flow, PRD-24A Game Modes pattern) + NLC/Studio wizard entry point (Conventions #249/#253 — outcome-named wizard tile + `nlc-compose` catalog integration) | FAMILY-GOALS-PRIZES Key Decision #15 | Unwired | 📌 Unwired (Post-MVP) | ST-B/ST-D era (Studio Intelligence Phase 2) |
+| Family Overview `family_goals` column section (Convention #275 section registry — new section key, `mergeSectionOrder`-style graft) | FAMILY-GOALS-PRIZES spec | Unwired | 📌 Unwired (Post-MVP) | Next FO-COMMAND-CENTER-adjacent build |
+| PlayRewards (`/rewards`) family goal display — Hub covers Play kids' shared visibility for v1; the My Rewards Family section (shared component) IS available on Play's Fun tab already since `MyRewards.tsx` is one component for both variants, so this is display-polish, not a hard gap | FAMILY-GOALS-PRIZES spec | Unwired | 📌 Unwired (Post-MVP) | — |
+| Reveal-animation ceremony / presentation-layer integration on award (`ContractRevealWatcher` is contract-grant-keyed; this engine deliberately bypasses contracts per Key Decision #2) — v1 award celebration is the Hub "You did it!" banner only | FAMILY-GOALS-PRIZES Key Decision (spec) | Unwired | 📌 Unwired (Post-MVP) | Would need a parallel non-contract reveal-watcher path |
+| Award notifications (`notifications` category fit TBD — no 'gamification' category exists live today) | FAMILY-GOALS-PRIZES spec | Unwired | 📌 Unwired (Post-MVP) | — |
+| Realtime live progress on Hub/Prize Board/My Rewards (React Query invalidation only for v1 — wired at the 3 client-performed write paths: intention tally, task completion, task approval; any future channel must obey Convention #272 per-instance-channel discipline) | FAMILY-GOALS-PRIZES spec | Unwired | 📌 Unwired (Post-MVP) | — |
+| Contribution rewind on task un-complete (matches the platform-wide Convention #206 gap — no unmark cascade exists anywhere; contributions already counted stay counted, consistent with celebration-only #219) | FAMILY-GOALS-PRIZES Key Decision #8 | Unwired | 📌 Unwired (Post-MVP) | Same future build that closes #206 generally |
+| LiLa context assembly of active family goals (`family_goals.is_included_in_ai` column ships and the Heart toggle is in the manager form; `_shared/context-assembler.ts` wiring is a separate future pass, matching the 7 other stub context loaders noted in Convention #57) | FAMILY-GOALS-PRIZES Key Decision #10 | Unwired | 📌 Unwired (Post-MVP) | Next LiLa context-assembly pass |
+| Repeating/recurring family goals (v1 completes once; mom re-runs via "Duplicate" from the Completed list — cheap manager affordance, Key Decision #16). A true repeating goal with fresh windows MUST use the Universal Scheduler (Convention #23) when built. | FAMILY-GOALS-PRIZES Key Decision #16 | Unwired | 📌 Unwired (Post-MVP) | Would need PRD-35 scheduler integration |
+| Victory / tracker / homework `source_kind` values (`family_goal_sources.source_kind` CHECK currently allows only `'family_intention'`/`'task'` — extensible by design, per Rider 2 standing law for any addition) | FAMILY-GOALS-PRIZES spec | Unwired | 📌 Unwired (Post-MVP) | Future source-kind expansion build |
 
 ---
 
