@@ -6,7 +6,8 @@
 > **Any future session must be able to resume from this file alone.**
 >
 > Created: 2026-07-04 (Fable 5 session, fresh start — no prior manifest existed)
-> Last updated: 2026-07-04 — **FACTORY COMPLETE: STAGES 1-4 DONE. ALL BATCHES (1-9) RESOLVED;
+> Last updated: 2026-07-06 — PRD42 (Meal Planning) designed + packed, decisions-pending (see
+> processing log). Prior state: 2026-07-04 — **FACTORY COMPLETE: STAGES 1-4 DONE. ALL BATCHES (1-9) RESOLVED;
 > every pack APPROVED with final dispatch prompts** (amendments recorded in the ⚖ block:
 > PRD40+ARP, FDWA widened + PINR pair, RFLX privacy-NO + standing no-hiding principle w/
 > legacy-carve-out clarification, 28B SDS fold-in, PRD31 greenfield Stripe, PRD38
@@ -105,6 +106,7 @@ P6 = tail. Priority is PACK-PRODUCTION order, not build order.
 | BSBP | BookShelf Becoming program (Builds 2+) | Surface | **placeholder complete** (`BSBP.md`) — synthesis trigger = BSB1 close-out | P6 |
 | ARP | Attorney Review Package (COPPA/privacy, Missouri — PRD40 amendment) | Deliverable | **DELIVERED 2026-07-05** — `claude/legal-drafts/` holds all six drafts incl. attorney cover memo; next step = founder sends to counsel (the sign-off) | P1 |
 | FGPZ | Family Goals & Family Prizes (family-level tracking, family prizes, family best intentions) | Surface | **inventoried 2026-07-05** — founder raised mid-KIDS-REWARDS-S5 and ruled "build it now, but switch to Fable to design it"; research handoff at `claude/feature-decisions/Family-Goals-And-Prizes-Handoff.md`; next step = Fable-led pre-build ritual against that brief (NOT yet a pack; coordinate with PRD29 Build C's family-plan machinery + PrizeBoard territory) | P2 | Placeholder — synthesize from Recon Part 6 program plan AFTER Build 1 ships; Build 1's section-anchor infra is load-bearing for Builds 5/6 |
+| PRD42 | PRD-42 **KitchenCompass** (recipes, weekly plan, food intelligence) | PRD | **APPROVED 2026-07-06** (pack: `PRD42.md`; PRD: `prds/daily-life/PRD-42-Meal-Planning.md` §14 = founder decision record). D-42-8 scope inferred-approved — Phase A worker re-confirms at pre-build gate | P3 | Founder direct ask 2026-07-06, designed + ruled same day. Rulings incl. 4 riders: Family Pointers + Cook View (mom's "how WE do it" for dad/kids, Phase A); "Use it up" text/voice box instead of camera scan (Phase B); nutrition AI-awareness w/o tracking, kids never see calories (standing rule); Instacart/Walmart cart export UPGRADED to Phase C build (ops prereq: founder dev-account signups). Tables ×7 + 2 EFs; inherits MindSweep's dead-end `recipe` destination, shopping/aisle machinery, Archives prefs. New-convention proposal: allergy always-include inversion (D-42-4). No upstream blockers; slot = P3 chain beside PRD12A/12B |
 
 ## Dependency graph (build-order edges, not pack-production order)
 
@@ -124,6 +126,10 @@ P6 = tail. Priority is PACK-PRODUCTION order, not build order.
 - PRD40 sequencing interlocks with PRD-41 (SAFETY Slice D) for under-13 beta
 - TRKG and RSTP both consume the Slice-1 earned-prizes pipeline (shipped); TRKG touches grandfathered Convention #271 surfaces → those refactors ride along (widget_data_points, roll_creature)
 - FDWA, PINR, MSRE, RFLX, SMFX, TYPES: no upstream blockers
+- PRD42 (meal planning): no upstream blockers. Coordinate-with edges: FDWA (family-shadow
+  policy pattern — whoever lands second copies the first), ST-E (widget category keys),
+  MSWP email-DNS (grandma recipe pipeline, ops-only). Unblocks later: PRD37 (went-well
+  photos → family_moments), PRD28B (home-ec hours), SAEX (shift-meals view)
 - PRD33 last (deps: all phases)
 
 ## Decision queue
@@ -386,3 +392,22 @@ only), **SMFX** (items fully known), **FDWA** + **PINR** (code recon via cheap a
   the PrizeBoard). Docs-only commit pushed: dispatch-factory/ + legal-drafts/ + the approved
   Goal Science Addendum + vision/brief docs + BookShelf recon/draft + model-routing.md —
   parallel sessions' in-flight files deliberately left unstaged.
+- 2026-07-06: NEW ITEM DESIGNED END-TO-END: **PRD42 — Meal Planning** (founder direct ask;
+  Fable design session produced the full PRD at `prds/daily-life/PRD-42-Meal-Planning.md`,
+  the pack `PRD42.md` with two phase dispatch prompts, and an 8-decision batch — D-42-1..8,
+  incl. name pick TableSpread/GatherRound/KitchenCompass, the kids-never-see-calories values
+  ruling, and the allergy always-include convention proposal). Numbering: PRD-39 left
+  earmarked for the gameplan's Playwright Video Library; PRD-40/41 exist; PRD-42 verified
+  free by repo grep. Status decisions-pending; no upstream blockers once approved.
+- 2026-07-06 (later): **PRD42 APPROVED — founder resolved D-42-1..7 same day.** Name =
+  KitchenCompass (working). Four riders folded into PRD + pack: (1) Family Pointers +
+  Cook View — mom-saved "how WE do it" instructions for dad/kids, recipe-specific +
+  reusable technique notes, new `meal_pointers` table, Phase A; (2) fridge-scanner
+  compromise — "Use it up" text/voice box in the Suggestions drawer NOW, camera scan stays
+  a demand card; (3) nutrition posture — tracking later-or-never, kids NEVER see
+  calorie/macro surfaces (standing rule), but AI is aware of mom's `nutrition_direction`
+  when set (qualitative only, mom/adult surfaces only); (4) Instacart/Walmart cart export
+  UPGRADED from demand card to committed Phase C build (Instacart Developer Platform first —
+  official link-handoff API, covers Aldi; Walmart affiliate second; ops prereq = founder
+  account signups). D-42-8 (scope) inferred-approved from a trailed-off reply — Phase A
+  worker re-confirms at its pre-build gate. Phase A dispatch prompt is paste-ready.

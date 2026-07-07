@@ -1,6 +1,6 @@
 # Active Build: SAFETY-BETA-GATE — Convention #247 Layers 1+2 Before Beta
 
-> **Status: APPROVED FOR DISPATCH (Slices C→B→A as ONE Sonnet worker, in that order — same file territory, sequential; Slice D = claude.ai PRD-41 authoring; Slice E waits on approved PRD-41). Founder gates resolved 2026-07-02 — see resolutions below. Dispatch prompt at the bottom of this file.**
+> **Status (2026-07-06): Slices C/B/A code-complete, deployed, verified — HOLDING FOR FOUNDER COMMIT (see progress logs). Slice D COMPLETE — PRD-41 authored by a Fable session in-repo (founder dispatched it in Claude Code rather than claude.ai), approved 2026-07-06 with resolutions, now the authoritative spec at `prds/foundation/PRD-41-LiLa-Runtime-Ethics-Enforcement.md`. Slice E READY TO DISPATCH — pre-build summary + paste-ready Sonnet prompt in the "Slice E" section below.** Founder gates resolved 2026-07-02; PRD-41 resolutions recorded in the PRD's Founder Decision Record.
 > Auditor session: Fable 5 pre-build audit, 2026-07-01.
 > Authority chain: `claude/feature-decisions/Safety-Beta-Gate.md` (full evidence + plan, wins) → CLAUDE.md Convention #247 → `RECON_DECISIONS_RESOLVED.md` Decision 9 → TRIAGE_WORKSHEET Rows 3/6/24/25.
 > Gate rule: Convention #247 — Layer 1 (platform output validation, PRD-41 scope) AND Layer 2 (per-mode system-prompt guardrails) must both exist before any beta user touches LiLa. Neither alone is sufficient.
@@ -40,7 +40,7 @@
 | B | Crisis coverage closure: `detectCrisis` into mindsweep-sort, message-coach, auto-title-thread, mindsweep-scan, celebrate-victory, extract-insights, calendar-extract, smart-list-import, ai-parse, scan-activity-victories (+ keyword-list expansion; history re-screen policy per founder) | None | Sonnet xhigh worker |
 | C | Auth closure: `authenticateRequest` into the 6 open endpoints | None | Sonnet xhigh worker |
 | D | **PRD-41 authoring** — claude.ai session, brief = Decision 9 scope + this audit | n/a | claude.ai handoff |
-| E | Layer 1 build per approved PRD-41: `_shared/ethics-guard.ts` (Tier 0 sync input/output pattern guard, $0) → pgmq queue → `validate-ai-output` Edge Function (Tier 1 embedding classification vs seeded `ethics_pattern_library`, ~$0.01/family/mo) → Tier 2 Haiku confirm on flagged subset (~$0.075/family/mo) → `lila_ethics_rejections` append-only log → retraction UX → red-team suite (vitest + Playwright pins, pre-deploy). **Total ≈ $0.09/family/month worst case; zero Sonnet calls.** | Yes — numbered at build time | Sonnet xhigh workers; Fable/Opus verify |
+| E | Layer 1 build per approved PRD-41: `_shared/ethics-guard.ts` (Tier 0 sync input/output pattern guard, $0) → `ai_output_scans` status-table queue + pg_cron (NOT pgmq — approved refinement, matches the production embedding pipeline; the queue row IS the audit record) → `validate-ai-output` Edge Function (Tier 1 embedding classification vs seeded `platform_intelligence.ethics_pattern_library`, ~$0.01/family/mo) → Tier 2 Haiku confirm on flagged subset (~$0.075/family/mo) → `lila_ethics_rejections` append-only log → retraction UX + mom log/notification (no-excerpt ruling) → red-team suite (vitest + Playwright pins, pre-deploy). **Total ≈ $0.09/family/month worst case; zero Sonnet calls.** | Yes — numbered at build time | Sonnet xhigh workers; Fable/Opus verify |
 
 Gate exit: A+B+C+E verified with zero Missing + red-team suite green + founder sign-off. PRD-30 is the NEXT build after this gate (locked sequence), not part of it.
 
@@ -132,16 +132,185 @@ proof is green AND founder eyes-on clears; selective staging, founder confirms
 before push.
 ```
 
+## Slice D — COMPLETE (2026-07-06)
+
+PRD-41 authored 2026-07-05 by a Fable session (founder dispatched in Claude Code, superseding the claude.ai plan from gate 4 — same deliverable, better grounding: the session read the shipped Slice A/B/C code directly). Founder approved 2026-07-06. **The PRD now lives at `prds/foundation/PRD-41-LiLa-Runtime-Ethics-Enforcement.md` and is the sole requirement list for Slice E.** Approval resolutions, all recorded in the PRD's Founder Decision Record:
+
+1. Decisions 1–3 approved as recommended (PRD authoritative; **no off switch for anyone including mom — "it's LiLa's character"**; shadow-mode rollout for output retraction, input reframes live day one).
+2. Both deviations from the audit sketch accepted: cron + `ai_output_scans` status-table instead of pgmq (matches production reality; queue row = audit record); no-off-switch scope.
+3. **No-side-door ruling (supersedes the draft's excerpt recommendation):** mom-facing notifications AND the LiLa Response Log carry **surface + category + timestamp, NEVER conversation excerpts** — the `lila_conversation` kid-privacy carve-out is frozen pending attorney advice and neither surface may route around it. Enforced at the data layer: column-level `REVOKE SELECT` on `lila_ethics_rejections.content_excerpt` + `tier2_reasoning` (service-role-only), not just UI omission.
+4. Items 7 (reframe copy wordsmithing) + 8 (red-team pre-push hook) settle at Slice E pre-build — the worker presents both in its first message.
+
+## Slice E — READY TO DISPATCH: pre-build summary
+
+**PRD:** `prds/foundation/PRD-41-LiLa-Runtime-Ethics-Enforcement.md` — read in FULL per the Pre-Build Process; it carries the complete data model, wiring matrix (all 52 functions classified), UX copy, cost model, red-team spec, and rollout phases. **Addenda:** none exist (PRD born 2026-07-06); the always-check cross-cutting rulings are already baked in (permission behavior → PRD §Five-Role table; audit-readiness disciplines → PRD §New Conventions). **Feature decision record:** the PRD's own Founder Decision Record + `claude/feature-decisions/Safety-Beta-Gate.md` — deliberately no third file; the worker must NOT create a duplicate decision file.
+
+**Dependencies verified in place:** Layer 2 shipped and deployed (Slices A/B/C — `safety-preamble.ts` at 16 prompt sites, crisis gates everywhere, auth closed; `safety-beta-gate.spec.ts` 58/58); `notifications` table + `lila` category live (PRD-15); `platform_intelligence` schema live; embed pipeline live (cron + `TABLE_CONFIG`); shared no-training OpenRouter client live (NOTRAIN-HARDEN); Convention #246 Vault bootstrap done.
+
+**Scope shape:** PRD Rollout Phases **1→2→3 as ONE Sonnet worker, sequential** (same-file-territory rule that governed C→B→A — Phases 2/3 edit the same Edge Functions Phase 1 patterns). **Phase 4 (calibration review + enforcement flip) is explicitly NOT in the dispatch** — it's a separate founder-gated session after ≥1 week of founder-family shadow data, and it is the Layer-1 gate-exit.
+
+**Ships in shadow mode:** output-side actions log-only (`action='logged_only'`); input reframes live immediately (deterministic, red-team-pinned). The `ENFORCEMENT_MODE` constant is the rollback lever.
+
+**Stubs (registered, not built):** dad log access (arrives via PRD-30 recipient grants); non-English Tier-0 coverage; automated multi-turn probing detection (mom's log makes it visible; nothing acts on it); PRD-30 hooks left ready (notifications path, scan-queue pattern).
+
+**Migration discipline:** numbers taken at file-creation time and re-checked immediately before applying; parallel sessions (STUDIO-EXPERIENCE slices) are landing migrations — if foreign unapplied migrations are pending, apply only this build's SQL via `supabase db query --linked -f` with idempotent SQL.
+
+**Post-Slice-E gate exit (Checkpoint 5 for the whole build):** A+B+C+E requirements all Wired/Stubbed with zero Missing, red-team suite green, Phase-4 flip signed off → Convention #247 gate clears → PRD-30 becomes the next build.
+
+## Slice E dispatch prompt (paste into a FRESH session)
+
+```
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 2: paste the rest of this prompt.
+
+You are the implementation worker for SAFETY-BETA-GATE Slice E — the Layer 1
+ethics-enforcement build per approved PRD-41. You execute Rollout Phases
+1→2→3 sequentially in this session. Phase 4 (calibration + enforcement flip)
+is NOT yours — it's a later founder-gated session after ≥1 week of shadow
+data. Everything ships in SHADOW MODE for output actions; input reframes go
+live immediately.
+
+READ FIRST (in order):
+1. prds/foundation/PRD-41-LiLa-Runtime-Ethics-Enforcement.md — THE spec,
+   approved 2026-07-06. Read every word. Its Founder Decision Record is
+   binding — especially the no-side-door ruling: mom-facing notifications and
+   the LiLa Response Log carry surface + category + timestamp, NEVER
+   conversation excerpts; content columns are service-role-only via
+   column-level privileges, not just UI omission.
+2. .claude/rules/current-builds/SAFETY-BETA-GATE.md (auto-loads) — Slice E
+   pre-build summary + this prompt.
+3. claude/feature-decisions/Safety-Beta-Gate.md — the evidence record
+   (surface audit, streaming architecture, cost provenance).
+4. supabase/functions/_shared/crisis-detection.ts, safety-preamble.ts,
+   streaming.ts — your patterns. ethics-guard.ts is a SIBLING of
+   crisis-detection.ts. Do NOT modify anything Slices A/B/C shipped — only
+   add beside it.
+
+TWO PRE-BUILD CONFIRMS — present BOTH to the founder in your FIRST message,
+before any code:
+(a) Reframe copy: paste the five PRD §UX reframe responses for her approve /
+    mark-up (shape is fixed: validate → redirect → open door, ≤3 sentences,
+    no lecture-markers, no emoji; the words are hers).
+(b) Red-team enforcement point: npm run redteam wired into the pre-push hook
+    (recommended — can't be skipped silently) vs deploy-checklist-only.
+
+BUILD (PRD-41 §Rollout):
+PHASE 1 — Foundation + flagship:
+- Migration (take the NEXT FREE number at creation; re-check right before
+  applying; parallel sessions are landing migrations — if foreign unapplied
+  migrations are pending, apply ONLY yours via supabase db query --linked -f
+  with idempotent SQL): lila_ethics_rejections (append-only — NO
+  UPDATE/DELETE policies; UNIQUE(scan_id); column-level REVOKE on
+  content_excerpt + tier2_reasoning with explicit column-list GRANT on the
+  rest), ai_output_scans (partial pending index; 30-day validated retention),
+  platform_intelligence.ethics_pattern_library (HNSW halfvec),
+  match_ethics_patterns(), both crons via util.invoke_edge_function
+  (Convention #246), embed TABLE_CONFIG entry for the library.
+- _shared/ethics-guard.ts per PRD §Edge Function Architecture: Tier-0 pattern
+  families per category+direction (word-boundary regex, code constants NEVER
+  DB rows), ETHICS_REFRAME_RESPONSES (PRD copy verbatim as founder-approved
+  in confirm (a)), enqueueOutputScan + logEthicsRejection never-throw
+  helpers, ENFORCEMENT_MODE: 'shadow' constant. Crisis gate always wins over
+  ethics gate on input; the output scan imports CRISIS_KEYWORDS for the
+  crisis-output rider.
+- validate-ai-output Edge Function: batch claim (SKIP LOCKED), batched
+  embeddings, Tier-1 similarity at the named threshold constant (0.45
+  initial), Tier-2 Haiku via the shared no-training OpenRouter client
+  (Zod-validated verdict JSON, temperature 0, cost-logged to
+  ai_usage_tracking as feature_key='ethics_validation'), retry→error at 3,
+  structured per-invocation count logging, candidate harvesting that
+  EXCLUDES under-13 members and is_safe_harbor rows. Deploy --no-verify-jwt
+  with in-code service-role bearer check.
+- Seed ~150 library exemplars, authored TOGETHER with the red-team corpus so
+  they're born calibrated.
+- Wire lila-chat only: Tier-0 input after the detectCrisis gate; Tier-0
+  output on fullText before [DONE]; ethics_retraction SSE event;
+  metadata.ethics_retraction persisted annotation; scan enqueue. Client:
+  retraction card in the LiLa drawer + modal (Lucide Undo2, theme tokens
+  only, HITM buttons removed on retracted messages with Ask-again
+  affordance, kid-shell copy variant per PRD §UX).
+- Red-team suite: tests/redteam/corpus (violation + benign-contrast +
+  crisis-output sets, per-tier expectation tags), vitest sets 1-4, npm run
+  redteam script; tests/e2e/features/ethics-enforcement.spec.ts pins 1, 3, 4
+  (ETHICSTEST-prefixed fixtures, service-role sweep, zero residue).
+  ALSO fold in a deity-block bypass set (Beta Readiness Report 2026-07
+  recommendation — closes Gate criterion 4 for free): probes against the
+  Board of Directors content-policy gate (Conventions #100-102) covering
+  direct deity names, paraphrase/euphemism variants, blocked-figure
+  attempts, and re-ask persistence — expected outcomes: deity → Prayer Seat
+  redirect, blocked figure → hard block, never a generated persona.
+PHASE 2 — Full conversation retrofit: the remaining 14 streaming
+conversation surfaces + lila-translator per the PRD wiring matrix (board of
+directors = per-advisor scan); polymorphic annotation for
+bookshelf_discussion_messages and messages; Playwright pin 2 (kid surface
+reframe + mom notification).
+PHASE 3 — Utility retrofit + visibility: every category-2 tool per the
+matrix (incl. the ai-parse buildSafetyPreamble prepend rider; message-coach
+replacement responses MUST keep shouldCoach:true/isClean:false shape — the
+documented client-rendering lesson); mom Settings → LiLa Response Log
+(mom-only, plain-language category labels, NO excerpt anywhere, feature key
+lila_ethics_log registered in feature_key_registry + PermissionGate);
+child-surface retraction notification (category 'lila', priority 'normal',
+NEVER bypasses DND, NEVER carries content); minimal admin pattern-library
+curation screen (candidate approve/edit/discard, active list + retire, ops
+strip — PRD-32 registration); Playwright pins 5-6.
+
+HARD RULES (from the PRD — violating any is a build defect):
+- No off switch: enforcement is not feature-gated, not tier-gated, ignores
+  the beta useCanAccess bypass. Only the log surface is a gated feature.
+- Shadow mode is the shipped state. Do NOT flip ENFORCEMENT_MODE.
+- Tier-0 patterns are code; Tier-1 exemplars are data. Never move a Tier-0
+  pattern into the DB.
+- lila_ethics_rejections is append-only, financial_transactions discipline.
+- No emoji anywhere. All user-facing copy from the PRD as founder-approved.
+
+PROOF (Playwright is the only proof of done):
+- npm run redteam green: Tier-0 violation corpus hits with correct
+  categories, benign contrast corpus ZERO hits, reframe-copy lecture-marker
+  assertions, static drift pins (every OpenRouter-chat-calling function
+  imports ethics-guard; the PRD's exempt list asserted EXACTLY; existing
+  buildSafetyPreamble pins still green).
+- ethics-enforcement.spec.ts all 6 pins green, zero fixture residue.
+- safety-beta-gate.spec.ts 58/58 MUST stay green — you are editing the same
+  functions Slices A/B/C shipped.
+- tsc -b clean; lint clean; regression pins green (leak-pass,
+  permissions-wiring, fo-command-center, kids-rewards slices) — ask the
+  founder before running full shared suites (fixtures are shared across
+  windows).
+- Convention #277 Claude-driven eyes-on tour for every Mom-UI row (reframe
+  bubble, retraction card, Settings log incl. empty state, notification) at
+  desktop/tablet/mobile as the relevant roles; fill the Mom-UI Verification
+  table in the active build file. Screenshot JUDGMENT is Sonnet-minimum per
+  model-routing rule 7.
+- Ask the founder before deploying ANY Edge Function — present the full
+  deploy list (~30 functions incl. validate-ai-output) for ONE
+  founder-approved deploy pass.
+
+COORDINATION: your territory = supabase/functions/**, the migration, the
+red-team suite + spec, the client retraction card + Settings log +
+notification surfaces, the admin curation screen. STUDIO-EXPERIENCE slices
+and other sessions run in parallel — check git status before staging;
+selective staging of YOUR files only. Fill the Post-Build Verification table
+(every PRD requirement Wired/Stubbed/Missing — zero Missing; stubs
+pre-approved in the Slice E summary: dad log access, non-English Tier 0,
+automated probing detection). NOTHING COMMITS until proof is green AND
+founder eyes-on clears; founder confirms before push. Do NOT run Phase 4, do
+NOT write the Beta Readiness Report — those belong to the flip session.
+```
+
 ## Mom-UI Surfaces
 
-Slices A–D: **no mom-UI surfaces affected** (Edge Function prompts, server code, PRD authoring). Slice E touches mom-facing UI in two places, TBD by PRD-41: (1) graceful-refusal rendering inside LiLa conversation surfaces (drawer + modal — mom/adult/independent/guided shells), (2) retraction annotation on flagged assistant messages (same surfaces). If PRD-41 adds an admin/mom visibility surface for `lila_ethics_rejections`, it gets added to the table below at Slice E pre-build.
+Slices A–D: **no mom-UI surfaces affected** (Edge Function prompts, server code, PRD authoring). Slice E (per approved PRD-41): (1) reframe bubble inside LiLa conversation surfaces (drawer + modal — mom/adult/independent/guided shells); (2) retraction card on withdrawn assistant messages (same surfaces + kid-shell copy variant); (3) Settings → LiLa Response Log (mom shell only, new section); (4) NotificationBell entry for child-surface retractions (mom shell); (5) admin pattern-library curation screen (founder-only, Admin Console). Per the 2026-07-06 ruling, none of these surfaces ever render conversation excerpts.
 
 ## Mom-UI Verification
 
 | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
 |---------|-----------------|---------------|---------------|---------------|----------|-----------|
-| LiLa graceful-refusal message rendering (Slice E) | | | | | | |
-| Retracted-response annotation (Slice E) | | | | | | |
+| LiLa reframe bubble — input pre-flight response (Slice E) | | | | mom + guided kid | | |
+| Retraction card — withdrawn response, incl. kid-shell copy variant + HITM removal (Slice E) | | | | mom + guided kid | | |
+| Settings → LiLa Response Log incl. empty state, no-excerpt rule (Slice E) | | | | mom | | |
+| NotificationBell — child-surface retraction notification, no content in body (Slice E) | | | | mom | | |
+| Admin pattern-library curation screen (Slice E) | | | | admin/founder | | |
 
 ## Progress Log (2026-07-05, same session — founder eyes-on tour + 2 follow-up fixes)
 

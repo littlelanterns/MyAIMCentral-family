@@ -1,26 +1,39 @@
-# Current State — As of 2026-06-08
+# Current State — As of 2026-07-07 (release batch day; Fable intro pricing ends today)
 
-## Active builds
-- **None in flight.** `.claude/rules/current-builds/` holds only `IDLE.md`.
+> Any coordination session (fresh, compacted, or resumed) can rebuild the full picture from:
+> this file → `claude/dispatch-factory/MANIFEST.md` (29 packs incl. PRD42 KitchenCompass) →
+> `.claude/rules/current-builds/*` (in-flight) → `.claude/completed-builds/README.md` (history).
 
-## Last completed
-- **Member-Day Task State — Single Source of Truth** (2026-06-08, commit `6143b5a`, migration 100247) — fixed silent allowance erosion from past-end-date painted routines; canonical `get_member_day_obligations`/`obligation_active_for_member_on_date`; Convention #271; invariant test guards TS↔SQL drift. Checkpoint 5: 12/12 Wired, 0 Missing.
-- View-As — Identity-Scope Architecture (2026-06-04)
-- PRD-09B — Living Shopping List & Shopping Mode V1 (2026-06-04; code shipped 2026-05-04 `f2569b7`)
-- TaskCreationModal — Checkbox Honesty (2026-06-04; code shipped 2026-05-25 `970e175`)
-- Phase 3.5 — Multi-Pool Allowance (2026-05-06)
-- Phase 3.8 — Activity Management (2026-05-05)
+## Landed since 2026-07-05 (proof green, committed via the 2026-07-07 release batch)
 
-## Open follow-ups carried from last close-out
-- **Member-Day deltas:** founder to capture per-kid old→corrected allowance numbers (Gideon/Miriam/Mosiah) during this-week testing; decide honor-old-vs-corrected per kid. Default: corrected.
-- **Convention #271 grandfathered surfaces:** refactor into `get_member_day_obligations` when next touched (gamification `roll_creature_for_completion`, homework time logs, victory creation, tracker widget events, intention tallies, practice log, non-routine task derivations, `countAssignedTasks` non-routine portion). See `STUB_REGISTRY.md` → "Member-Day Obligations — Grandfathered".
-- **Layer 2 source_type extension:** future builds add non-routine `source_type` values one at a time.
-- **Orphan-row sweep:** find/prevent the deploy flow that creates `assignee_id=NULL` routine rows.
-- Pre-build pending: none. (Member-Day build file moved to completed-builds.)
+- **FAMILY-GOALS-PRIZES** — family goals engine (migration 100284, trigger-counted contributions, race-safe award, NULL-owner family prizes). Rider 1 audit found + fixed 2 pre-existing Prize Board bugs. Convention #278.
+- **HITM-CLOSURE** — Ask LiLa & Send gated (Send/Edit/Discard, HMAC verbatim guarantee), BoD + BookShelf HITM rows, Convention #279 (HITM applicability + declared exceptions). **Major find:** Convention #55 Reject/Regenerate silently broken platform-wide since PRD-05 — `lila_messages` never had a DELETE policy; fixed in migration 100285.
+- **VOICE-INPUT-REPAIR** — speech duplicator fixed at the shared hook (all ~15 surfaces), LiLa chat mic fixes, mic-denied messaging, whisper-transcribe/extract-insights auth + ownership checks, email webhook fails closed. Functions deployed.
+- **SAFETY-BETA-GATE follow-ups** — MindSweep crisis rendering card, NO_EMOJI_BLOCK in safety-preamble (16 functions redeployed).
+- **Beta Readiness Report** (`claude/feature-decisions/Beta-Readiness-Report-2026-07.md`) — ~4–6 weeks to beta; HITM audit run for the first time (findings all closed by HITM-CLOSURE); critical path ordered.
+- **PRD-41 approved** → `prds/foundation/PRD-41-LiLa-Runtime-Ethics-Enforcement.md`. **PRD-42 KitchenCompass** designed (meal planning; pack PRD42.md, Phase A Sonnet-ready). **PRD-30 pre-build complete + founder-approved** (D1–D7 resolved; D6 = wire real email provider, sequenced last in SM-C).
 
-## Open queues
-- Beta glitch reports: check via `/bug-reports` or query `beta_glitch_reports`
-- TRIAGE_WORKSHEET: check `claude/web-sync/TRIAGE_WORKSHEET.md`
+## In flight right now
+
+- **SAFETY-BETA-GATE Slice E** (Sonnet) — PRD-41 Layer 1 build, Phase 1 running. Confirms (a)+(b) resolved: reframe copy approved as-is; red-team = pre-push hook. **Phase 2 gated on the release batch landing** (entangled Edge Function files).
+- **PRD-30 SM-A** — dispatch prompt ready in `.claude/rules/current-builds/PRD-30-safety-monitoring.md`; founder pastes when ready.
+- Possible other Wave-1 lanes (ST-A, FDWA, PINR, BSB1) — check windows/build files before claiming their files.
+
+## Founder-only open items
+
+1. **Attorney package** (`claude/legal-drafts/`) — founder plans to send in ~2 weeks (her clock; noted 2026-07-07). Fill 3 contact blanks + ask counsel about T&C. Legal-dependent items (PRD-40 finalization, kid-privacy carve-outs) wait on this; build track does not.
+2. `MINDSWEEP_WEBHOOK_SECRET` must be set before email intake is ever enabled (webhook now fails closed).
+3. OpenRouter privity support ticket (wording in `no-training-verification.md` §6).
+4. Identify `mcps/` (untracked — commit deliberately or gitignore).
+5. **Fable→Opus judgment re-pin: DEFERRED to end of day 2026-07-07** (founder using remaining Fable window). After today: re-pin `pre-build-auditor` + `post-build-verifier` to `opus`; Fable becomes escalation-step-3 only.
+6. Resend/DNS setup when SM-C reaches its email item (worker will ask; non-blocking).
+7. Slice E Phase-4 enforcement flip session after ≥1 week of family shadow data.
+
+## Standing rules established this week
+
+- Convention #277 Claude-driven visual verification; #278 family-goals engine contract; #279 HITM applicability + declared exceptions.
+- DB-asserted pins are the only accepted proof — "controls present" ≠ "controls working" (the Convention #55 discovery is the canonical example).
+- Release-worker pattern for multi-lane commits: attribution from build files, selective staging, shared docs in one citing commit, one push, no hook bypasses.
 
 ---
 *This file is overwritten at every close-out and every baton-pass. For history, see HISTORY.md.*
