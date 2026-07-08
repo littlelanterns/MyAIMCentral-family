@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-07
+> Auto-generated from live Supabase on 2026-07-08
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -177,7 +177,7 @@
 | 10 | `start_time` |
 | 11 | `end_time` |
 
-### `permission_level_profiles` — 167 rows
+### `permission_level_profiles` — 173 rows
 
 | # | Column |
 |---|---|
@@ -228,7 +228,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 212 rows
+### `feature_key_registry` — 221 rows
 
 | # | Column |
 |---|---|
@@ -239,7 +239,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 362 rows
+### `feature_access_v2` — 385 rows
 
 | # | Column |
 |---|---|
@@ -632,6 +632,9 @@
 | 43 | `default_reward_description` |
 | 44 | `default_reward_image_url` |
 | 45 | `default_reward_image_asset_key` |
+| 46 | `routine_points_mode` |
+| 47 | `routine_step_points` |
+| 48 | `routine_completion_points` |
 
 ### `task_template_sections` — 44 rows
 
@@ -666,8 +669,13 @@
 | 12 | `linked_source_id` |
 | 13 | `linked_source_type` |
 | 14 | `display_name_override` |
+| 15 | `reward_type` |
+| 16 | `reward_amount` |
+| 17 | `reward_description` |
+| 18 | `reward_image_url` |
+| 19 | `reward_image_asset_key` |
 
-### `tasks` — 191 rows
+### `tasks` — 193 rows
 
 | # | Column |
 |---|---|
@@ -886,7 +894,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 51 rows
+### `lists` — 58 rows
 
 | # | Column |
 |---|---|
@@ -937,6 +945,7 @@
 | 45 | `default_purchase_history_days` |
 | 46 | `default_auto_archive_days` |
 | 47 | `include_in_shopping_mode` |
+| 48 | `subject_member_id` |
 
 ### `list_items` — 201 rows
 
@@ -1005,6 +1014,13 @@
 | 61 | `reward_description` |
 | 62 | `reward_image_url` |
 | 63 | `reward_image_asset_key` |
+| 64 | `image_url` |
+| 65 | `is_included_in_ai` |
+| 66 | `wishlist_state` |
+| 67 | `occasion_tags` |
+| 68 | `added_by` |
+| 69 | `excluded_from_shares` |
+| 70 | `source_list_item_id` |
 
 ### `list_shares` — 8 rows
 
@@ -1340,6 +1356,142 @@
 | 9 | `recurring_annually` |
 | 10 | `created_at` |
 | 11 | `updated_at` |
+
+---
+
+## Meal Planning (KitchenCompass) (PRD-42)
+
+### `recipes` — 1 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `created_by` |
+| 4 | `title` |
+| 5 | `description` |
+| 6 | `source_type` |
+| 7 | `source_url` |
+| 8 | `photo_urls` |
+| 9 | `ingredients` |
+| 10 | `instructions` |
+| 11 | `prep_minutes` |
+| 12 | `cook_minutes` |
+| 13 | `total_minutes` |
+| 14 | `servings_base` |
+| 15 | `effort_level` |
+| 16 | `equipment_tags` |
+| 17 | `tags` |
+| 18 | `tradition_tags` |
+| 19 | `texture_flavor_tags` |
+| 20 | `rotation` |
+| 21 | `approval_status` |
+| 22 | `times_made` |
+| 23 | `is_included_in_ai` |
+| 24 | `embedding` |
+| 25 | `archived_at` |
+| 26 | `created_at` |
+| 27 | `updated_at` |
+
+### `recipe_versions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `recipe_id` |
+| 3 | `family_id` |
+| 4 | `label` |
+| 5 | `scale_factor` |
+| 6 | `servings` |
+| 7 | `ingredients` |
+| 8 | `notes` |
+| 9 | `created_by` |
+| 10 | `created_at` |
+
+### `meal_plan_entries` — 1 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `entry_date` |
+| 4 | `meal_slot` |
+| 5 | `custom_slot_label` |
+| 6 | `recipe_id` |
+| 7 | `recipe_version_id` |
+| 8 | `title_snapshot` |
+| 9 | `status` |
+| 10 | `made_at` |
+| 11 | `cook_member_id` |
+| 12 | `kids_helped_member_ids` |
+| 13 | `prep_task_id` |
+| 14 | `servings_planned` |
+| 15 | `notes` |
+| 16 | `created_by` |
+| 17 | `created_at` |
+| 18 | `updated_at` |
+
+### `food_restrictions` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `restriction_type` |
+| 5 | `item` |
+| 6 | `severity` |
+| 7 | `notes` |
+| 8 | `created_by` |
+| 9 | `created_at` |
+| 10 | `updated_at` |
+
+### `meal_feedback` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `recipe_id` |
+| 4 | `meal_plan_entry_id` |
+| 5 | `member_id` |
+| 6 | `feedback` |
+| 7 | `note` |
+| 8 | `photo_url` |
+| 9 | `acted_by` |
+| 10 | `created_at` |
+
+### `meal_settings` — 3 rows
+
+| # | Column |
+|---|---|
+| 1 | `family_id` |
+| 2 | `enabled_slots` |
+| 3 | `default_servings` |
+| 4 | `show_on_hub` |
+| 5 | `kid_recipe_browsing` |
+| 6 | `prep_reminders_enabled` |
+| 7 | `prep_reminder_time` |
+| 8 | `connection_prompts_enabled` |
+| 9 | `standing_direction` |
+| 10 | `nutrition_direction` |
+| 11 | `use_up_note` |
+| 12 | `created_at` |
+| 13 | `updated_at` |
+
+### `meal_pointers` — 1 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `recipe_id` |
+| 4 | `technique_tag` |
+| 5 | `text` |
+| 6 | `sort_order` |
+| 7 | `created_by` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
 
 ---
 
@@ -1993,6 +2145,7 @@
 | 7 | `created_at` |
 | 8 | `updated_at` |
 | 9 | `discussion_type` |
+| 10 | `safety_scanned` |
 
 ### `bookshelf_discussion_messages` — 9 rows
 
@@ -2004,6 +2157,7 @@
 | 4 | `content` |
 | 5 | `metadata` |
 | 6 | `created_at` |
+| 7 | `safety_scanned` |
 
 ### `bookshelf_collections` — 15 rows
 
@@ -2898,7 +3052,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 65 rows
+### `contracts` — 71 rows
 
 | # | Column |
 |---|---|
@@ -3140,6 +3294,8 @@
 | 17 | `level_thresholds` |
 | 18 | `created_at` |
 | 19 | `updated_at` |
+| 20 | `intention_tally_points` |
+| 21 | `daily_points_goal` |
 
 ### `gamification_creatures` — 161 rows
 
@@ -3186,6 +3342,41 @@
 | 8 | `is_active` |
 | 9 | `sort_order` |
 | 10 | `created_at` |
+
+### `gift_claims` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `list_item_id` |
+| 4 | `item_title_snapshot` |
+| 5 | `claimed_by_member_id` |
+| 6 | `claimant_label` |
+| 7 | `share_link_id` |
+| 8 | `status` |
+| 9 | `claimed_at` |
+| 10 | `released_at` |
+| 11 | `notes` |
+| 12 | `created_at` |
+
+### `gift_history` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `direction` |
+| 5 | `item_title` |
+| 6 | `counterparty_label` |
+| 7 | `counterparty_member_id` |
+| 8 | `occasion` |
+| 9 | `given_on` |
+| 10 | `source_list_item_id` |
+| 11 | `notes` |
+| 12 | `photo_url` |
+| 13 | `created_at` |
 
 ### `homeschool_configs` — 0 rows
 
@@ -3577,6 +3768,23 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
+### `point_transactions` — 20 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `family_member_id` |
+| 4 | `amount` |
+| 5 | `balance_after` |
+| 6 | `transaction_type` |
+| 7 | `source_type` |
+| 8 | `source_id` |
+| 9 | `description` |
+| 10 | `idempotency_key` |
+| 11 | `acted_by` |
+| 12 | `created_at` |
+
 ### `points_godmother_configs` — 0 rows
 
 | # | Column |
@@ -3861,6 +4069,106 @@
 | 15 | `created_at` |
 | 16 | `updated_at` |
 
+### `safety_flags` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `flagged_member_id` |
+| 4 | `conversation_table` |
+| 5 | `conversation_id` |
+| 6 | `surface` |
+| 7 | `category` |
+| 8 | `severity` |
+| 9 | `detection_layer` |
+| 10 | `context_snippet` |
+| 11 | `matched_keywords` |
+| 12 | `classification_reasoning` |
+| 13 | `conversation_starter` |
+| 14 | `resource_ids` |
+| 15 | `status` |
+| 16 | `reviewed_at` |
+| 17 | `reviewed_by` |
+| 18 | `is_safe_harbor` |
+| 19 | `created_at` |
+
+### `safety_keywords` — 86 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `keyword` |
+| 3 | `category` |
+| 4 | `base_severity` |
+| 5 | `is_phrase` |
+| 6 | `is_active` |
+| 7 | `notes` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
+
+### `safety_monitoring_configs` — 13 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `monitored_member_id` |
+| 4 | `is_active` |
+| 5 | `created_at` |
+| 6 | `updated_at` |
+| 7 | `created_by` |
+
+### `safety_notification_recipients` — 3 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `recipient_member_id` |
+| 4 | `is_active` |
+| 5 | `notification_channels` |
+| 6 | `created_at` |
+
+### `safety_pattern_summaries` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `monitored_member_id` |
+| 4 | `period_start` |
+| 5 | `period_end` |
+| 6 | `summary_data` |
+| 7 | `narrative` |
+| 8 | `created_at` |
+
+### `safety_resources` — 16 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `category` |
+| 3 | `resource_name` |
+| 4 | `resource_type` |
+| 5 | `resource_value` |
+| 6 | `description` |
+| 7 | `display_order` |
+| 8 | `is_active` |
+| 9 | `created_at` |
+| 10 | `updated_at` |
+
+### `safety_sensitivity_configs` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `monitored_member_id` |
+| 4 | `category` |
+| 5 | `sensitivity` |
+| 6 | `updated_at` |
+
 ### `shift_sessions` — 0 rows
 
 | # | Column |
@@ -4017,6 +4325,25 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
+### `wishlist_share_links` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `list_id` |
+| 4 | `created_by` |
+| 5 | `token_hash` |
+| 6 | `label` |
+| 7 | `display_name` |
+| 8 | `scope` |
+| 9 | `allow_reserve` |
+| 10 | `expires_at` |
+| 11 | `revoked_at` |
+| 12 | `view_count` |
+| 13 | `last_viewed_at` |
+| 14 | `created_at` |
+
 ### `wizard_templates` — 0 rows
 
 | # | Column |
@@ -4170,7 +4497,7 @@
 
 ---
 
-> **Summary:** 126 API-exposed tables in domain sections | 83 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 133 API-exposed tables in domain sections | 94 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
