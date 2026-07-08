@@ -20,6 +20,12 @@ import {
   buildConsolidatedNotificationBody,
   buildContextSnippetFromIndex,
   buildContextSnippetFromIndices,
+  computeTrend,
+  buildWeeklySummaryData,
+  timezoneOffsetMinutesAt,
+  familyLocalDayBoundsUtc,
+  shiftLocalDate,
+  ZERO_FLAG_NARRATIVE,
   CATEGORY_LIST,
   LOCKED_CATEGORIES,
   type SafetyKeywordRow,
@@ -352,5 +358,66 @@ describe('PRD-30 safety-classify-match — context snippet construction (Screen 
 
   it('Layer 2 with no key indices returns an empty snippet', () => {
     expect(buildContextSnippetFromIndices(messages, [])).toEqual([])
+  })
+})
+
+describe('PRD-30 safety-classify-match — SM-C weekly digest pure helpers', () => {
+  it('computeTrend: increasing/decreasing/stable', () => {
+    expect(computeTrend(3, 1)).toBe('increasing')
+    expect(computeTrend(1, 3)).toBe('decreasing')
+    expect(computeTrend(2, 2)).toBe('stable')
+    expect(computeTrend(0, 0)).toBe('stable')
+  })
+
+  it('buildWeeklySummaryData: zero flags produces a zeroed shape and stable/decreasing trend vs a nonzero prior', () => {
+    const result = buildWeeklySummaryData([], 2)
+    expect(result.total_flags).toBe(0)
+    expect(result.trend).toBe('decreasing')
+    for (const c of CATEGORY_LIST) expect(result.category_counts[c]).toBe(0)
+    expect(result.severity_breakdown).toEqual({ concern: 0, warning: 0, critical: 0 })
+  })
+
+  it('buildWeeklySummaryData: counts by category and severity correctly, matches PRD example shape', () => {
+    const result = buildWeeklySummaryData(
+      [
+        { category: 'substance', severity: 'warning' },
+        { category: 'substance', severity: 'concern' },
+        { category: 'bullying', severity: 'concern' },
+      ],
+      2,
+    )
+    expect(result.total_flags).toBe(3)
+    expect(result.category_counts.substance).toBe(2)
+    expect(result.category_counts.bullying).toBe(1)
+    expect(result.category_counts.self_harm).toBe(0)
+    expect(result.severity_breakdown).toEqual({ concern: 2, warning: 1, critical: 0 })
+    expect(result.trend).toBe('increasing') // 3 > 2
+  })
+
+  it('ZERO_FLAG_NARRATIVE matches the PRD literal edge-case text', () => {
+    expect(ZERO_FLAG_NARRATIVE).toBe('No concerns detected this week.')
+  })
+
+  it('shiftLocalDate: moves calendar dates without off-by-one, across a month boundary', () => {
+    expect(shiftLocalDate('2026-07-07', -1)).toBe('2026-07-06')
+    expect(shiftLocalDate('2026-07-07', -6)).toBe('2026-07-01')
+    expect(shiftLocalDate('2026-07-01', -1)).toBe('2026-06-30')
+    expect(shiftLocalDate('2026-01-01', -1)).toBe('2025-12-31')
+  })
+
+  it('timezoneOffsetMinutesAt: America/Chicago is UTC-5 (CDT) in July, UTC-6 (CST) in January', () => {
+    const july = new Date('2026-07-15T12:00:00Z')
+    const january = new Date('2026-01-15T12:00:00Z')
+    expect(timezoneOffsetMinutesAt(july, 'America/Chicago')).toBe(-5 * 60)
+    expect(timezoneOffsetMinutesAt(january, 'America/Chicago')).toBe(-6 * 60)
+  })
+
+  it('familyLocalDayBoundsUtc: a Chicago-local calendar day maps to the correct UTC instant range', () => {
+    const offsetMinutes = -5 * 60 // CDT
+    const { startUtc, endUtc } = familyLocalDayBoundsUtc('2026-07-07', offsetMinutes)
+    // 2026-07-07 00:00 CDT (UTC-5) = 2026-07-07 05:00 UTC
+    expect(startUtc).toBe('2026-07-07T05:00:00.000Z')
+    // 2026-07-07 23:59:59.999 CDT = 2026-07-08 04:59:59.999 UTC
+    expect(endUtc).toBe('2026-07-08T04:59:59.999Z')
   })
 })

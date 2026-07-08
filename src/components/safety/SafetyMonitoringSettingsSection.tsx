@@ -107,7 +107,7 @@ export function SafetyMonitoringSettingsSection() {
           </div>
         </div>
         <p className="text-xs mt-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-          A weekly trend summary will arrive here once it's ready — no setup needed then either.
+          A weekly trend summary arrives automatically every Sunday for anyone monitored — no setup needed.
         </p>
       </div>
 

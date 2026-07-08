@@ -20,7 +20,18 @@ const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
 const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-const MODEL = 'anthropic/claude-haiku-4-5-20251001'
+// NOTE (found live via PRD-30 SM-C, 2026-07-08; fixed under seat-granted
+// cross-territory authorization): 'anthropic/claude-haiku-4-5-20251001' is
+// NOT a valid OpenRouter model ID (confirmed via a live 400: "...is not a
+// valid model ID"). Auto-titling has been silently failing since deploy —
+// a failed call leaves the thread's title NULL, which looks identical to
+// "no reply yet" (the function's own gate condition), so nothing ever
+// looked broken. The correct, proven-working id — used successfully by
+// mindsweep-sort/-scan, calendar-extract, safety-classify/safety-weekly-
+// digest/validate-ai-output/message-coach (all fixed the same way this
+// session), bookshelf-extract/-process, wishlist-extract — is
+// 'anthropic/claude-haiku-4.5'.
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 Deno.serve(async (req: Request) => {
   const cors = handleCors(req)

@@ -35,7 +35,24 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 const MODEL_SONNET = 'anthropic/claude-sonnet-4'
-const MODEL_HAIKU = 'anthropic/claude-haiku-4-5-20251001'
+// NOTE (found live via PRD-30 SM-C, 2026-07-08; fixed under seat-granted
+// cross-territory authorization): 'anthropic/claude-haiku-4-5-20251001' is
+// NOT a valid OpenRouter model ID (confirmed via a live 400: "...is not a
+// valid model ID"). Both call sites are fail-closed on HTTP error by
+// design (SCOPE-8a.F8a for the content-policy screen), so this bug's
+// effect was SAFE rather than dangerous — but not free: the content-
+// policy harm screen (contentPolicyCheck) has been silently
+// fail-closed-BLOCKING every custom persona creation attempt since
+// deploy (not "approved," the opposite failure direction from the other
+// functions this session found), and the multi-family-relevance
+// classifier (classifyRelevance) has always defaulted to "personal-only"
+// (CLASSIFIER_FAIL_CLOSED), meaning nothing has ever been promoted to the
+// Tier-3 shared persona cache via this path. The correct, proven-working
+// id — used successfully by mindsweep-sort/-scan, calendar-extract,
+// safety-classify/safety-weekly-digest/validate-ai-output/message-coach/
+// auto-title-thread (all fixed the same way this session), bookshelf-
+// extract/-process, wishlist-extract — is 'anthropic/claude-haiku-4.5'.
+const MODEL_HAIKU = 'anthropic/claude-haiku-4.5'
 
 const PRESCREEN_SILENT_THRESHOLD = 0.92
 const PRESCREEN_SUGGEST_THRESHOLD = 0.88

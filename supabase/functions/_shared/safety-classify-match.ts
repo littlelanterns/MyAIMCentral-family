@@ -284,6 +284,99 @@ function capitalize(s: string): string {
 }
 
 // ============================================================
+// Weekly pattern digest — pure helpers (SM-C, Build Item 13).
+// Narrative generation (Haiku) is content-free by construction (J2/D2):
+// it only ever receives category counts + severity breakdown + trend,
+// never conversation content. `safety_flags.is_safe_harbor=true` rows are
+// EXCLUDED from all counts here (J5 — "excluded from pattern summaries and
+// any future aggregation").
+// ============================================================
+
+export type SummaryTrend = 'increasing' | 'decreasing' | 'stable'
+
+export const ZERO_FLAG_NARRATIVE = 'No concerns detected this week.'
+
+/** Pure — PRD §Edge Cases "No Flags Generated": zero-flag weeks never call Haiku. */
+export function computeTrend(currentTotal: number, priorTotal: number): SummaryTrend {
+  if (currentTotal > priorTotal) return 'increasing'
+  if (currentTotal < priorTotal) return 'decreasing'
+  return 'stable'
+}
+
+export interface WeeklySummaryData {
+  category_counts: Record<SafetyCategory, number>
+  total_flags: number
+  severity_breakdown: Record<SafetySeverity, number>
+  trend: SummaryTrend
+}
+
+/** Pure — builds the summary_data JSONB shape from a flat list of (category, severity) flags. */
+export function buildWeeklySummaryData(
+  flags: { category: SafetyCategory; severity: SafetySeverity }[],
+  priorTotal: number,
+): WeeklySummaryData {
+  const category_counts = Object.fromEntries(CATEGORY_LIST.map(c => [c, 0])) as Record<SafetyCategory, number>
+  const severity_breakdown: Record<SafetySeverity, number> = { concern: 0, warning: 0, critical: 0 }
+  for (const f of flags) {
+    category_counts[f.category] += 1
+    severity_breakdown[f.severity] += 1
+  }
+  return {
+    category_counts,
+    total_flags: flags.length,
+    severity_breakdown,
+    trend: computeTrend(flags.length, priorTotal),
+  }
+}
+
+/**
+ * Pure — the UTC offset (in minutes, positive = ahead of UTC) a given IANA
+ * timezone carries AT the supplied instant. Handles DST correctly for that
+ * instant; a single week's digest boundary using one offset for the whole
+ * window is an accepted approximation (this is a trend narrative, not a
+ * DATE-column write — Convention #257's precision concern is elsewhere).
+ */
+export function timezoneOffsetMinutesAt(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(instant)
+  const map: Record<string, string> = {}
+  for (const p of parts) map[p.type] = p.value
+  const asUtcMs = Date.UTC(
+    Number(map.year), Number(map.month) - 1, Number(map.day),
+    Number(map.hour), Number(map.minute), Number(map.second),
+  )
+  return (asUtcMs - instant.getTime()) / 60000
+}
+
+/**
+ * Pure — [start, end] UTC ISO bounds for a family-local calendar date
+ * (YYYY-MM-DD), inclusive of the full local day. `offsetMinutesAtNow` is
+ * `timezoneOffsetMinutesAt(now, timeZone)`, passed in so callers compute it
+ * once per family per invocation.
+ */
+export function familyLocalDayBoundsUtc(dateStr: string, offsetMinutesAtNow: number): { startUtc: string; endUtc: string } {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const startUtcMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0) - offsetMinutesAtNow * 60000
+  const endUtcMs = Date.UTC(y, m - 1, d, 23, 59, 59, 999) - offsetMinutesAtNow * 60000
+  return { startUtc: new Date(startUtcMs).toISOString(), endUtc: new Date(endUtcMs).toISOString() }
+}
+
+/** Pure — formats a family-local date (YYYY-MM-DD) N days earlier/later, no Date-string parsing pitfalls.
+ *  Formatted via getUTC accessors on a UTC-constructed date: pure calendar arithmetic on the
+ *  input date, no device-clock or timezone dependency (and no Convention #257 pattern). */
+export function shiftLocalDate(dateStr: string, deltaDays: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const shifted = new Date(Date.UTC(y, m - 1, d + deltaDays))
+  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(shifted.getUTCDate()).padStart(2, '0')
+  return `${shifted.getUTCFullYear()}-${mm}-${dd}`
+}
+
+// ============================================================
 // Context snippet construction (Screen 3 — max 5 messages, default 3)
 // ============================================================
 

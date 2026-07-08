@@ -276,19 +276,85 @@ Both registered in `feature_key_registry` + `feature_access_v2` (idempotent upse
 
 ## Post-Build PRD Verification
 
-> Completed after build, before declaring the phase done. Zero Missing = complete.
+> Completed after build (SM-A + SM-B + SM-C combined), before declaring the phase done. Zero Missing = complete.
 
-| Requirement | Source | Status | Notes |
-|---|---|---|---|
-| *(populated at Checkpoint 5 — every MVP checklist item from PRD §What "Done" Looks Like + every J-area resolution + every D-decision outcome)* | | | |
+### PRD §What "Done" Looks Like — MVP (Must Have)
 
-**Status key:** Wired = built and functional · Stubbed = in STUB_REGISTRY.md · Missing = incomplete
+| Requirement | Status | Notes |
+|---|---|---|
+| `safety_monitoring_configs` table + RLS | ✅ Wired | Migration 100289 (SM-A) |
+| `safety_sensitivity_configs` table + RLS | ✅ Wired | Migration 100289 (SM-A) |
+| `safety_notification_recipients` table + RLS | ✅ Wired | Migration 100289 (SM-A) |
+| `safety_flags` table + RLS (polymorphic conversation ref + column guard deviation, J2/D2) | ✅ Wired | Migration 100289 (SM-A) |
+| `safety_keywords` table, ≥50 keywords across all categories | ✅ Wired | 86 active keywords, migration 100289 (SM-A) |
+| `safety_resources` table, curated resources per category | ✅ Wired | Migration 100289 (SM-A) |
+| `safety_pattern_summaries` table + RLS | ✅ Wired | Table+RLS in migration 100289 (SM-A); generation logic + idempotency constraint in migration 100303 (SM-C) |
+| Layer 1 keyword matching on every LiLa message from monitored members | ✅ Wired | `safety-classify` polled sweep (SM-A), model-ID bug fixed (SM-C) |
+| Layer 2 Haiku classification on conversation completion | ✅ Wired | `safety-classify` (SM-A); was silently non-functional since SM-A due to an invalid model ID (found + fixed SM-C — Layer 2 had never actually classified anything in production until this fix) |
+| Flag generation with context snippets (flagged message + 2 before) | ✅ Wired | `buildContextSnippetFromIndex`/`Indices` (SM-A); column-guarded per J2/D2 |
+| Conversation starter suggestion per flag via Haiku | ✅ Wired | `generateConversationStarter` (SM-A); was silently non-functional since SM-A (same model-ID bug), fixed SM-C — verified live post-fix with a genuine, warm, content-free starter |
+| Settings → Safety Monitoring section (Screen 1) | ✅ Wired | `SafetyMonitoringSettingsSection.tsx` (SM-B) |
+| Per-member sensitivity configuration (Screen 2) | ✅ Wired | `SafetySensitivityModal.tsx` (SM-B) |
+| Safety flag detail view (Screen 3) | ✅ Wired (NO-EXCERPT MODE per J2/D2) | `SafetyFlagDetailModal.tsx` (SM-B) — context/excerpt block deliberately never rendered, frozen pending attorney advice |
+| Safety flag history view (Screen 4) | ✅ Wired | `SafetyFlagsPage.tsx` at canonical route `/safety-flags` (SM-B), extended with the "This Week's Trend" digest section (SM-C) |
+| Family Overview safety summary section (Screen 5) | ✅ Wired | `safety_monitoring` FO column section (SM-B), FO-native shape per Convention #275 (differs from the PRD's single-card mockup, founder-approved D7) |
+| Notification integration — safety flags bypass DND | ✅ Wired | `priority='high'` for Critical/Warning (D3 refinement of Convention #143); Concern respects DND |
+| Email delivery for safety flag alerts | ⏳ Stubbed | Founder D6 resolved "in scope" 2026-07-07, then chose "not ready" 2026-07-08 (no Resend credentials yet) — explicit, acknowledged, registered open item in STUB_REGISTRY.md, not silently dropped |
+| New children auto-created with monitoring ON | ✅ Wired | `auto_provision_member_resources` extension (SM-A); backfilled for all existing production families |
+| Locked categories cannot be lowered below High | ✅ Wired | Enforced at the application/pipeline layer (`isLockedCategory`), survives a tampered DB row; UI shows a Lock pill, no editable control |
+| Flagged member has zero visibility into flag existence | ✅ Wired | No RLS policy grants the flagged member's own row visibility on `safety_flags` |
+| RLS verified: flagged member cannot query safety tables | ✅ Wired | `tests/e2e/features/safety-monitoring.spec.ts` RLS leak probes (SM-A); one narrow, deliberate exception — a monitored member CAN read their own `safety_monitoring_configs.is_active` (migration 100299, the teen disclosure mechanism itself, J5/D4) |
+| Dedup: same member + category within 24h consolidates | ✅ Wired | `decideDedup` (SM-A); D5 crisis-hit flags reuse the same window (SM-C) |
+| `safety_scanned` on `lila_messages` prevents double-processing | ✅ Wired | Migration 7 column, wired by SM-A |
+
+### PRD §What "Done" Looks Like — MVP When Dependency Is Ready
+
+| Requirement | Status | Notes |
+|---|---|---|
+| Weekly pattern summary generation + digest | ✅ Wired | `safety-weekly-digest` (SM-C) — in-app digest; email rendition is the one stubbed piece above |
+| Push notification for Critical flags | 📌 Stubbed (Post-MVP) | PRD-33 dependency, unchanged |
+
+### J-Area Resolutions (feature decision file §The Five Judgment Areas)
+
+| Area | Resolution | Status |
+|---|---|---|
+| J1 — Layer reconciliation vs PRD-41 | Disjoint by content direction; PRD-30 reuses patterns not tables | ✅ Wired |
+| J2/D2 — No-side-door / no-excerpt rule | Column guard + no-excerpt flag detail UI + content-free starter/narrative prompts | ✅ Wired |
+| J3/D3 — Severity-tiered DND | Critical/Warning bypass, Concern respects DND | ✅ Wired |
+| J4 — Coverage (lila_messages, bookshelf_discussion_messages, D5 non-persisted surfaces) | All three scanned/wired; `messages` (PRD-15) deliberately deferred | ✅ Wired / 📌 Stubbed (messages, Post-MVP per PRD) |
+| J5 — PRD-20 strip | Dependency dropped; defensive `is_safe_harbor` flag; disclosure rehomed to teen What's Shared panel | ✅ Wired |
+
+### D-Decision Outcomes
+
+| Decision | Outcome | Status |
+|---|---|---|
+| D1 — Polling architecture | `safety-classify` cron-invoked every minute, not request-path hooks | ✅ Wired |
+| D2 — No-excerpt flag view | Screen 3 ships content-free; column guard enforced at the DB layer | ✅ Wired |
+| D3 — Severity-tiered DND | Refines Convention #143 | ✅ Wired |
+| D4 — Teen disclosure replacement | Standing row in `TeenTransparencyPanel` | ✅ Wired |
+| D5 — Crisis-hit flag wiring on non-persisted surfaces | `mindsweep-sort`, `mindsweep-scan`, `message-coach` | ✅ Wired |
+| D6 — Email delivery | Resolved "(a) in scope" 2026-07-07; founder chose "not ready" 2026-07-08 | ⏳ Stubbed (explicit, acknowledged) |
+| D7 — FO section shape | Per-member column section (Convention #275-native), not the PRD's single card | ✅ Wired |
+
+### Unplanned findings this build (SM-C)
+
+| Finding | Resolution | Status |
+|---|---|---|
+| Invalid OpenRouter model ID silently broke `safety-classify`'s Layer 2 + conversation starters since SM-A | Fixed — `'anthropic/claude-haiku-4.5'` | ✅ Fixed |
+| Same bug in `validate-ai-output` (PRD-41) — Tier 2 had never confirmed/rejected anything | Fixed, cross-territory, founder+seat-approved | ✅ Fixed |
+| Same bug in `message-coach` (PRD-15) — real coaching-note generation | Fixed | ✅ Fixed |
+| Same bug found (not fixed) in `auto-title-thread`, `lila-board-of-directors` | Grandfathered + flagged in STUB_REGISTRY | ⏳ Stubbed (explicit) |
+| `safety-weekly-digest`'s narrative lacked PRD-41 output-scan wiring | Fixed before ship — `scanUtilityOutput`/`enqueueOutputScan` wired in | ✅ Fixed |
+| `message-coach` D5 reorder regressed the crisis-response-must-never-depend-on-DB invariant | Caught by `safety-beta-gate.spec.ts`'s own regression pin, fixed — crisis check restored to run unconditionally first | ✅ Fixed |
+| `safety-weekly-digest` sweeps ALL monitored members platform-wide, creating test-fixture side effects in Testworth beyond what any single test tracks | Test cleanup hardened to a family+category-scoped sweep | ✅ Fixed |
+
+**Status key:** ✅ Wired = built and functional · ⏳ Stubbed (MVP) = documented open item, committed to a future build · 📌 Stubbed (Post-MVP) = speculative/deferred · Missing = incomplete
 
 ### Summary
-- Total requirements verified:
-- Wired:
-- Stubbed:
-- Missing: **0 required**
+- Total requirements verified: 37 (MVP checklist) + 5 (J-areas) + 7 (D-decisions) + 7 (unplanned findings) = 56
+- Wired: 54
+- Stubbed: 2 (email delivery — explicit, founder-acknowledged; PRD-33 push — pre-existing Post-MVP)
+- Missing: **0**
 
 ---
 

@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertOctagon, AlertTriangle, Info, ChevronLeft, ShieldCheck } from 'lucide-react'
+import { AlertOctagon, AlertTriangle, Info, ChevronLeft, ShieldCheck, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
-import { useSafetyFlags, type SafetyFlagFilters, type SafetyFlagRow } from '@/hooks/useSafetyMonitoring'
+import {
+  useSafetyFlags,
+  useLatestSafetyPatternSummaries,
+  type SafetyFlagFilters,
+  type SafetyFlagRow,
+  type SafetyPatternSummaryRow,
+} from '@/hooks/useSafetyMonitoring'
 import { SafetyFlagDetailModal } from '@/components/safety/SafetyFlagDetailModal'
 import {
   CATEGORY_LIST,
@@ -112,6 +118,8 @@ export function SafetyFlagsPage() {
           Safety Flag History
         </h1>
       </div>
+
+      <WeeklyPatternSummarySection familyId={familyId} nameFor={nameFor} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
@@ -231,6 +239,62 @@ export function SafetyFlagsPage() {
           }
         />
       )}
+    </div>
+  )
+}
+
+// PRD-30 SM-C — the notification's action_url links here (part of the flag
+// history surface, per PRD §Flows "delivered as weekly digest ... digest
+// view"). Only shows summaries generated within the last 9 days (a weekly
+// cadence with a small buffer) so a paused/broken cron doesn't leave a
+// stale "this week" narrative on screen forever.
+const TREND_ICON = { increasing: TrendingUp, decreasing: TrendingDown, stable: Minus } as const
+const TREND_COPY = { increasing: 'up from last week', decreasing: 'down from last week', stable: 'about the same as last week' } as const
+
+function WeeklyPatternSummarySection({ familyId, nameFor }: { familyId: string | undefined; nameFor: (id: string) => string }) {
+  const { data: summaries = [] } = useLatestSafetyPatternSummaries(familyId)
+  const fresh = useMemo(() => {
+    const cutoff = Date.now() - 9 * 24 * 60 * 60 * 1000
+    return summaries.filter((s: SafetyPatternSummaryRow) => new Date(s.period_end).getTime() >= cutoff)
+  }, [summaries])
+
+  if (fresh.length === 0) return null
+
+  return (
+    <div className="space-y-2" data-testid="safety-weekly-summary-section">
+      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
+        This Week's Trend
+      </p>
+      <div className="space-y-1.5">
+        {fresh.map((summary) => {
+          const TrendIcon = TREND_ICON[summary.summary_data.trend]
+          return (
+            <div
+              key={summary.id}
+              className="p-3 rounded-lg"
+              style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
+              data-testid={`safety-weekly-summary-${summary.monitored_member_id}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  {nameFor(summary.monitored_member_id)}
+                </span>
+                {summary.summary_data.total_flags > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    <TrendIcon size={12} /> {TREND_COPY[summary.summary_data.trend]}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                {summary.narrative ?? 'No concerns detected this week.'}
+              </p>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

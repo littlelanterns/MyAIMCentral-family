@@ -10,6 +10,7 @@
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { flagCrisisEvent } from '../_shared/crisis-flag.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -127,6 +128,9 @@ async function handleScan(body: {
   // crisis content surfaces resources instead of silently flowing into a
   // task/list/calendar destination.
   if (detectCrisis(extractedText)) {
+    // PRD-30 D5 — this surface never persists to a table the safety-classify
+    // sweep can see; without this, a crisis hit here never reached mom.
+    await flagCrisisEvent(supabase, { familyId: family_id, memberId: member_id, surface: 'mindsweep-scan', content: extractedText })
     return new Response(
       JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
       { headers: jsonHeaders },
@@ -219,6 +223,9 @@ async function handleLink(body: {
   // Convention #7 — crisis override is global. Gate before summarization so
   // fetched page text never reaches the model unscreened.
   if (detectCrisis(pageText)) {
+    // PRD-30 D5 — this surface never persists to a table the safety-classify
+    // sweep can see; without this, a crisis hit here never reached mom.
+    await flagCrisisEvent(supabase, { familyId: family_id, memberId: member_id, surface: 'mindsweep-scan', content: pageText })
     return new Response(
       JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
       { headers: jsonHeaders },

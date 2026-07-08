@@ -46,7 +46,20 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 const EMBEDDING_MODEL = 'text-embedding-3-small'
-const HAIKU_MODEL = 'anthropic/claude-haiku-4-5-20251001'
+// NOTE (found live via SM-C, 2026-07-08, cross-territory fix per
+// coordination-seat grant — SAFETY-BETA-GATE Slice E's window is closed):
+// 'anthropic/claude-haiku-4-5-20251001' is NOT a valid OpenRouter model ID
+// (confirmed via a live 400: "...is not a valid model ID"). Every Tier 2
+// Haiku call in tier2Confirm() has been silently failing since deploy —
+// a failed call returns null, and the caller's `if (!tier2 || ...)` branch
+// treats null EXACTLY like a genuine "clean" verdict, auto-validating the
+// row with tier2_verdict=null. So every Tier-1-flagged row has been
+// silently auto-cleared: Tier 2 has never actually confirmed OR rejected
+// anything in production. The correct, proven-working id — used
+// successfully by mindsweep-sort/-scan, calendar-extract, safety-classify
+// (PRD-30, fixed alongside this one), bookshelf-extract/-process,
+// wishlist-extract — is 'anthropic/claude-haiku-4.5'.
+const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
 const BATCH_SIZE = 50
 const TIER1_THRESHOLD = 0.45 // named constant per PRD §Tier 1 — deliberate high-recall
 const TIER2_CONFIRM_THRESHOLD = 0.7

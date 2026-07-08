@@ -413,3 +413,47 @@ export function useSafetyFlagCountsForMembers(familyId: string | undefined, memb
 function rank(s: SafetySeverity): number {
   return s === 'critical' ? 3 : s === 'warning' ? 2 : 1
 }
+
+// ── Weekly pattern digest (SM-C — Build Item 13) ────────────────────────────
+
+export interface SafetyPatternSummaryRow {
+  id: string
+  family_id: string
+  monitored_member_id: string
+  period_start: string
+  period_end: string
+  summary_data: {
+    category_counts: Record<SafetyCategory, number>
+    total_flags: number
+    severity_breakdown: Record<'concern' | 'warning' | 'critical', number>
+    trend: 'increasing' | 'decreasing' | 'stable'
+  }
+  narrative: string | null
+  created_at: string
+}
+
+/** Latest weekly summary per monitored member (part of the flag history
+ * surface — PRD §Flows "Weekly summary ... digest view"). RLS scopes this
+ * to mom + active safety_notification_recipients, same as safety_flags. */
+export function useLatestSafetyPatternSummaries(familyId: string | undefined) {
+  return useQuery({
+    queryKey: ['safety-pattern-summaries', familyId],
+    queryFn: async () => {
+      if (!familyId) return [] as SafetyPatternSummaryRow[]
+      const { data, error } = await supabase
+        .from('safety_pattern_summaries')
+        .select('id, family_id, monitored_member_id, period_start, period_end, summary_data, narrative, created_at')
+        .eq('family_id', familyId)
+        .order('period_end', { ascending: false })
+      if (error) throw error
+      const rows = (data ?? []) as unknown as SafetyPatternSummaryRow[]
+      // One row per member — most recent period_end only (sorted above).
+      const latestByMember = new Map<string, SafetyPatternSummaryRow>()
+      for (const row of rows) {
+        if (!latestByMember.has(row.monitored_member_id)) latestByMember.set(row.monitored_member_id, row)
+      }
+      return Array.from(latestByMember.values())
+    },
+    enabled: !!familyId,
+  })
+}

@@ -87,6 +87,9 @@ export function surfaceLabel(surface: string): string {
   const map: Record<string, string> = {
     'lila-chat': 'a LiLa chat',
     'bookshelf-discuss': 'a BookShelf discussion',
+    'mindsweep-sort': 'a MindSweep capture',
+    'mindsweep-scan': 'a scanned note',
+    'message-coach': 'a message draft',
   }
   return map[surface] || 'a ' + surface.replace(/-/g, ' ')
 }

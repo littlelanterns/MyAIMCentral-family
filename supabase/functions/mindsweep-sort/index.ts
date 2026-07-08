@@ -11,6 +11,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { flagCrisisEvent } from '../_shared/crisis-flag.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { scanUtilityInput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
@@ -137,6 +138,14 @@ Deno.serve(async (req) => {
     // the only place a crisis disclosure surfaces. Any hit short-circuits the
     // entire batch before embedding/LLM classification touches the content.
     if (extractedItems.some(item => detectCrisis(item.text))) {
+      // PRD-30 D5 — this surface never persists to a table the safety-classify
+      // sweep can see; without this, a crisis hit here never reached mom.
+      await flagCrisisEvent(supabase, {
+        familyId: input.family_id,
+        memberId: input.member_id,
+        surface: 'mindsweep-sort',
+        content: extractedItems.map(i => i.text).join('\n'),
+      })
       return new Response(
         JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
         { headers: jsonHeaders },

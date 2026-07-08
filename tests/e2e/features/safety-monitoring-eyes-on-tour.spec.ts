@@ -14,6 +14,8 @@
  *   sm-09      Family Overview safety_monitoring column section (mom, desktop).
  *   sm-10..11  Teen What's Shared disclosure row (Alex, independent) —
  *              desktop / mobile.
+ *   sm-12..13  SM-C: "This Week's Trend" weekly digest section at
+ *              /safety-flags (mom) — desktop / mobile.
  *
  * No model calls — all fixtures are service-role inserts (real flag rows), no
  * live safety-classify sweep needed for these screenshots.
@@ -24,6 +26,7 @@ import { createClient } from '@supabase/supabase-js'
 import fs from 'fs'
 import path from 'path'
 import { loginAsMom, loginAsAlex } from '../helpers/auth'
+import { localIsoDaysFromToday } from '../helpers/dates'
 
 const RUN_TOUR = process.env.EYES_ON_TOUR === '1'
 const admin = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -38,6 +41,7 @@ const MOBILE = { width: 390, height: 844 }
 let familyId = ''
 let jordanId = ''
 let flagId = ''
+let summaryId = ''
 
 async function shot(page: Page, name: string) {
   if (!fs.existsSync(SHOT_DIR)) fs.mkdirSync(SHOT_DIR, { recursive: true })
@@ -68,10 +72,40 @@ async function seedFlag() {
   flagId = data!.id
 }
 
+async function seedSummary() {
+  // SM-C — This Week's Trend digest section. period_end must be a real
+  // "yesterday, family-local" style date for the freshness filter
+  // (last 9 days) on SafetyFlagsPage to render it.
+  const yesterday = localIsoDaysFromToday(-1)
+  const weekAgo = localIsoDaysFromToday(-7)
+  const { data } = await admin
+    .from('safety_pattern_summaries')
+    .insert({
+      family_id: familyId,
+      monitored_member_id: jordanId,
+      period_start: weekAgo,
+      period_end: yesterday,
+      summary_data: {
+        category_counts: { self_harm: 0, abuse: 0, sexual_predatory: 0, substance: 0, eating_disorder: 0, bullying: 1, profanity: 0, other: 0 },
+        total_flags: 1,
+        severity_breakdown: { concern: 0, warning: 1, critical: 0 },
+        trend: 'decreasing',
+      },
+      narrative: 'One bullying-related flag this week, down from two last week. No critical flags.',
+    })
+    .select('id')
+    .single()
+  summaryId = data!.id
+}
+
 async function sweep() {
   if (flagId) {
     await admin.from('notifications').delete().eq('source_reference_id', flagId)
     await admin.from('safety_flags').delete().eq('id', flagId)
+  }
+  if (summaryId) {
+    await admin.from('notifications').delete().eq('source_reference_id', summaryId)
+    await admin.from('safety_pattern_summaries').delete().eq('id', summaryId)
   }
 }
 
@@ -83,6 +117,7 @@ test.describe('PRD-30 SM-B eyes-on tour', () => {
   test.beforeAll(async () => {
     await resolve()
     await seedFlag()
+    await seedSummary()
   })
 
   test.afterAll(async () => {
@@ -150,6 +185,19 @@ test.describe('PRD-30 SM-B eyes-on tour', () => {
     await reviewLink.scrollIntoViewIfNeeded()
     await page.waitForTimeout(300)
     await shot(page, 'sm-09-fo-safety-section-desktop')
+  })
+
+  test('SM-C: This Week\'s Trend digest section at /safety-flags', async ({ page }) => {
+    await loginAsMom(page)
+    for (const [name, vp] of [['sm-12-digest-desktop', DESKTOP], ['sm-13-digest-mobile', MOBILE]] as const) {
+      await page.setViewportSize(vp)
+      await page.goto('/safety-flags')
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByTestId('safety-weekly-summary-section')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByTestId(`safety-weekly-summary-${jordanId}`)).toContainText('down from two last week')
+      await page.waitForTimeout(300)
+      await shot(page, name)
+    }
   })
 
   test('Teen What\'s Shared disclosure row (Alex)', async ({ page }) => {

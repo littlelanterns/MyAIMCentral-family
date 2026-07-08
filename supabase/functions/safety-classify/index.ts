@@ -85,7 +85,22 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-const HAIKU_MODEL = 'anthropic/claude-haiku-4-5-20251001'
+// NOTE (found live via SM-C, 2026-07-08): 'anthropic/claude-haiku-4-5-20251001'
+// is NOT a valid OpenRouter model ID (confirmed via a live 400: "...is not
+// a valid model ID"). This means EVERY Haiku call in this file — Layer 2
+// classification AND conversation-starter generation — has been silently
+// failing since SM-A shipped (zero ai_usage_tracking rows for
+// feature_key='safety_classification' ever existed, confirmed by direct
+// query). Layer 2 failures are invisible by design (the sweep just leaves
+// the conversation unscanned and retries next tick — Convention: silent
+// tooling failure), and a failed starter is silently skipped
+// (`if (starter) { UPDATE ... }`), so no flag has ever gotten a real
+// "How to Bring This Up" starter, and no conversation has ever actually
+// been Layer-2-classified in production. The correct, proven-working id —
+// used successfully by mindsweep-sort/-scan, calendar-extract,
+// bookshelf-extract/-process, wishlist-extract — is
+// 'anthropic/claude-haiku-4.5'.
+const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
 const LAYER1_BATCH_SIZE = 150
 const LAYER2_BATCH_SIZE = 15
 const QUIET_MINUTES = 30

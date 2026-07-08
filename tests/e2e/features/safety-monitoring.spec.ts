@@ -77,6 +77,7 @@ const createdFlagIds: string[] = []
 const createdConversationIds: string[] = []
 const createdNotificationIds: string[] = []
 const createdRecipientIds: string[] = []
+const createdSummaryIds: string[] = []
 
 test.afterAll(async () => {
   // Notification cleanup is a SWEEP by source_reference_id, not just the
@@ -87,6 +88,31 @@ test.afterAll(async () => {
   // most recent" id per test under-counts whenever 2+ recipients exist.
   if (createdFlagIds.length) {
     await sr.from('notifications').delete().in('source_reference_id', createdFlagIds)
+  }
+  if (createdSummaryIds.length) {
+    await sr.from('notifications').delete().in('source_reference_id', createdSummaryIds)
+    await sr.from('safety_pattern_summaries').delete().in('id', createdSummaryIds)
+  }
+  // safety-weekly-digest sweeps EVERY currently-monitored member
+  // PLATFORM-WIDE on every invocation (that's the real, correct behavior —
+  // the cron isn't scoped to one family). Testing one Testworth member's
+  // digest therefore also generates summary rows for every OTHER monitored
+  // Testworth member as a side effect, none of which are in
+  // createdSummaryIds. Testworth should never carry a real production
+  // summary or a real safety notification, so sweep the WHOLE family by
+  // category — cross-referencing "notifications whose source_reference_id
+  // still exists in safety_pattern_summaries" is fragile (a notification
+  // can outlive its summary if an earlier pass deletes the summary but not
+  // the notification, e.g. a prior manual/partial cleanup — a family+
+  // category sweep can't leave that kind of orphan).
+  const fidForSweep = await resolveFamilyId().catch(() => null)
+  if (fidForSweep) {
+    await sr.from('safety_pattern_summaries').delete().eq('family_id', fidForSweep)
+    const { data: familyMemberIds } = await sr.from('family_members').select('id').eq('family_id', fidForSweep)
+    const memberIds = (familyMemberIds ?? []).map(m => m.id)
+    if (memberIds.length) {
+      await sr.from('notifications').delete().eq('category', 'safety').in('recipient_member_id', memberIds)
+    }
   }
   if (createdNotificationIds.length) await sr.from('notifications').delete().in('id', createdNotificationIds)
   if (createdFlagIds.length) await sr.from('safety_flags').delete().in('id', createdFlagIds)
@@ -380,9 +406,18 @@ test.describe('PRD-30 SM-A — RLS leak probes', () => {
 // ============================================================
 // Class 2 — LIVE pipeline pins (require safety-classify deployed)
 // ============================================================
+//
+// Extended timeout (SM-C, 2026-07-08): safety-classify's sweep now makes
+// REAL Haiku calls that succeed (conversation-starter generation was
+// silently failing fast on an invalid model ID since SM-A — see the model-
+// id-guard fix in this same session). A successful sweep across every
+// monitored member/conversation platform-wide legitimately takes longer
+// than the invalid-model-ID's fast-400-and-give-up path did. 60s replaces
+// the 30s default for these three tests only.
 
 test.describe.serial('PRD-30 SM-A — LIVE pipeline (requires safety-classify deployed)', () => {
   test('seeded keyword message -> flag row + notification row after a sweep', async ({ request }) => {
+    test.setTimeout(60000)
     const fid = await resolveFamilyId()
     const jordanId = await resolveMemberId('Jordan')
 
@@ -430,6 +465,7 @@ test.describe.serial('PRD-30 SM-A — LIVE pipeline (requires safety-classify de
   })
 
   test('sensitivity=Low suppresses a Concern-severity keyword hit', async ({ request }) => {
+    test.setTimeout(60000)
     const fid = await resolveFamilyId()
     const caseyId = await resolveMemberId('Casey')
 
@@ -465,6 +501,7 @@ test.describe.serial('PRD-30 SM-A — LIVE pipeline (requires safety-classify de
   })
 
   test('Critical notification is priority=high (bypasses DND per D3)', async ({ request }) => {
+    test.setTimeout(60000)
     const fid = await resolveFamilyId()
     const ruthieId = await resolveMemberId('Ruthie')
 
@@ -736,5 +773,260 @@ test.describe('PRD-30 SM-B — teen disclosure row', () => {
     await expect(page.getByTestId('teen-safety-disclosure-row')).toHaveCount(0)
 
     await sr.from('safety_monitoring_configs').update({ is_active: true }).eq('family_id', fid).eq('monitored_member_id', alexId)
+  })
+})
+
+// ============================================================
+// Class 4 — SM-C LIVE pins (require safety-weekly-digest, mindsweep-sort,
+// message-coach deployed with the D5/digest changes). Run AFTER Class 1-3
+// so any residual fixture state doesn't interfere.
+//
+// mindsweep-scan's D5 wiring (both handleScan and handleLink hit sites) is
+// covered by the static drift pin + code review only (tests/safety-crisis-
+// flag.test.ts) — mirroring the exact precedent SAFETY-BETA-GATE Slice B
+// already established for this same function ("mindsweep-scan ...covered
+// by static pin + code review — schemas make live probing require heavier
+// fixtures [real vision-model image or an uncontrolled external URL fetch],
+// judged lower-value than the static coverage"). A live pin here would
+// require either a base64-encoded image or a stable external URL whose
+// fetched text contains crisis language — neither is a repeatable, isolated
+// CI fixture, and the underlying flagCrisisEvent() helper is already fully
+// covered (both by its own pure-logic vitest and by the two LIVE pins below
+// exercising the exact same code path via different callers).
+// ============================================================
+
+test.describe('PRD-30 SM-C — LIVE: D5 crisis-hit flag wiring (requires mindsweep-sort/message-coach deployed)', () => {
+  test('mindsweep-sort: a crisis phrase in a brain-dump item creates a Critical flag (conversation_table NULL) + mom notification', async () => {
+    const fid = await resolveFamilyId()
+    const jordanId = await resolveMemberId('Jordan')
+    const jordanClient = await signInClient(TEST_USERS.jordan.email, TEST_USERS.jordan.password)
+
+    const { data, error } = await jordanClient.functions.invoke('mindsweep-sort', {
+      body: {
+        items: [{ content: 'I want to kill myself, nobody would even notice', content_type: 'text' }],
+        family_id: fid,
+        member_id: jordanId,
+        source_channel: 'rhythm_evening',
+        input_type: 'text',
+      },
+    })
+    expect(error, `mindsweep-sort must be deployed with the D5 change for this LIVE pin — ${error?.message}`).toBeFalsy()
+    expect(data?.crisis).toBe(true)
+    expect(data?.response).toContain('988') // member STILL sees resources (Convention #7 unaffected by D5)
+
+    const { data: flags } = await sr
+      .from('safety_flags')
+      .select('id, category, severity, surface, conversation_table, conversation_id, matched_keywords')
+      .eq('family_id', fid)
+      .eq('flagged_member_id', jordanId)
+      .eq('surface', 'mindsweep-sort')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(flags?.length).toBe(1)
+    expect(flags?.[0].severity).toBe('critical')
+    expect(flags?.[0].category).toBe('self_harm')
+    expect(flags?.[0].conversation_table).toBeNull()
+    expect(flags?.[0].conversation_id).toBeNull()
+    expect(flags?.[0].matched_keywords).toEqual(['kill myself'])
+    if (flags) createdFlagIds.push(...flags.map(f => f.id))
+
+    const { data: notifs } = await sr
+      .from('notifications')
+      .select('id, priority, category, notification_type')
+      .eq('family_id', fid)
+      .eq('source_reference_id', flags![0].id)
+    expect(notifs && notifs.length).toBeGreaterThan(0)
+    expect(notifs?.[0].priority).toBe('high')
+    expect(notifs?.[0].category).toBe('safety')
+    if (notifs) createdNotificationIds.push(...notifs.map(n => n.id))
+  })
+
+  test('message-coach: a crisis phrase in a message draft creates a Critical flag + mom notification (member still sees the coaching-note resources)', async () => {
+    const fid = await resolveFamilyId()
+    const caseyId = await resolveMemberId('Casey')
+    const caseyClient = await signInClient(TEST_USERS.casey.email, TEST_USERS.casey.password)
+
+    const { data, error } = await caseyClient.functions.invoke('message-coach', {
+      body: { thread_id: '11111111-1111-1111-1111-111111111111', message_content: 'I want to kill myself' },
+    })
+    expect(error, `message-coach must be deployed with the D5 change for this LIVE pin — ${error?.message}`).toBeFalsy()
+    expect(data?.crisis).toBe(true)
+    expect(data?.shouldCoach).toBe(true)
+    expect(data?.isClean).toBe(false)
+    expect(data?.coachingNote).toContain('988')
+
+    const { data: flags } = await sr
+      .from('safety_flags')
+      .select('id, category, severity, surface')
+      .eq('family_id', fid)
+      .eq('flagged_member_id', caseyId)
+      .eq('surface', 'message-coach')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(flags?.length).toBe(1)
+    expect(flags?.[0].severity).toBe('critical')
+    expect(flags?.[0].category).toBe('self_harm')
+    if (flags) createdFlagIds.push(...flags.map(f => f.id))
+
+    const { data: notifs } = await sr
+      .from('notifications')
+      .select('id, priority')
+      .eq('family_id', fid)
+      .eq('source_reference_id', flags![0].id)
+    expect(notifs && notifs.length).toBeGreaterThan(0)
+    expect(notifs?.[0].priority).toBe('high')
+    if (notifs) createdNotificationIds.push(...notifs.map(n => n.id))
+  })
+
+  test('dedup: a second crisis hit for the same member+category within 24h does not create a duplicate flag or notification', async () => {
+    const fid = await resolveFamilyId()
+    const jordanId = await resolveMemberId('Jordan')
+    const jordanClient = await signInClient(TEST_USERS.jordan.email, TEST_USERS.jordan.password)
+
+    const { data: beforeFlags } = await sr
+      .from('safety_flags')
+      .select('id')
+      .eq('family_id', fid)
+      .eq('flagged_member_id', jordanId)
+      .eq('surface', 'mindsweep-sort')
+      .eq('category', 'self_harm')
+    const beforeCount = beforeFlags?.length ?? 0
+    expect(beforeCount).toBeGreaterThan(0) // the earlier test in this block already created one
+
+    const { data, error } = await jordanClient.functions.invoke('mindsweep-sort', {
+      body: {
+        items: [{ content: 'end it all, I cannot go on', content_type: 'text' }],
+        family_id: fid,
+        member_id: jordanId,
+        source_channel: 'rhythm_evening',
+        input_type: 'text',
+      },
+    })
+    expect(error).toBeFalsy()
+    expect(data?.crisis).toBe(true)
+
+    const { data: afterFlags } = await sr
+      .from('safety_flags')
+      .select('id')
+      .eq('family_id', fid)
+      .eq('flagged_member_id', jordanId)
+      .eq('surface', 'mindsweep-sort')
+      .eq('category', 'self_harm')
+    expect(afterFlags?.length).toBe(beforeCount) // no new row — dedup window absorbed it
+  })
+})
+
+test.describe('PRD-30 SM-C — LIVE: weekly digest (requires safety-weekly-digest deployed)', () => {
+  test('a backdated flag inside the digest window produces a non-zero summary with a content-free narrative + a quiet in-app notification', async ({ request }) => {
+    const fid = await resolveFamilyId()
+    const alexId = await resolveMemberId('Alex')
+
+    // Fresh slate — a residual summary from a prior CI run for the SAME
+    // family-local week would short-circuit generation via the idempotency
+    // check before this test's backdated flag was ever inserted.
+    await sr.from('safety_pattern_summaries').delete().eq('family_id', fid).eq('monitored_member_id', alexId)
+
+    // 3 days ago is safely inside the digest's rolling 7-day window
+    // (period_end = yesterday, period_start = period_end - 6) for any
+    // real-world family timezone.
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+    const CONTENT_MARKER = 'ZZZ_DIGEST_CONTENT_LEAK_MARKER_ZZZ'
+    const { data: flag } = await sr
+      .from('safety_flags')
+      .insert({
+        family_id: fid,
+        flagged_member_id: alexId,
+        conversation_table: null,
+        conversation_id: null,
+        surface: 'lila-chat',
+        category: 'substance',
+        severity: 'warning',
+        detection_layer: 'keyword',
+        matched_keywords: [CONTENT_MARKER],
+        classification_reasoning: `${CONTENT_MARKER} — this must never reach the digest narrative`,
+        status: 'new',
+        is_safe_harbor: false,
+        created_at: threeDaysAgo,
+      })
+      .select('id')
+      .single()
+    expect(flag).toBeTruthy()
+    createdFlagIds.push(flag!.id)
+
+    const res = await request.post(FN('safety-weekly-digest'), {
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+    })
+    expect(res.ok(), `safety-weekly-digest must be deployed for this LIVE pin — got ${res.status()}`).toBeTruthy()
+
+    const { data: summaries } = await sr
+      .from('safety_pattern_summaries')
+      .select('id, summary_data, narrative')
+      .eq('family_id', fid)
+      .eq('monitored_member_id', alexId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(summaries?.length).toBe(1)
+    const summary = summaries![0]
+    createdSummaryIds.push(summary.id)
+
+    expect(summary.summary_data.total_flags).toBeGreaterThanOrEqual(1)
+    expect(summary.summary_data.category_counts.substance).toBeGreaterThanOrEqual(1)
+    expect(summary.narrative).toBeTruthy()
+    // Content-free by construction (J2/D2): the Haiku prompt receives only
+    // counts, never the flag's content-bearing columns.
+    expect(summary.narrative).not.toContain(CONTENT_MARKER)
+
+    const { data: notifs } = await sr
+      .from('notifications')
+      .select('id, priority, notification_type, category, body')
+      .eq('family_id', fid)
+      .eq('source_reference_id', summary.id)
+    expect(notifs && notifs.length).toBeGreaterThan(0)
+    expect(notifs?.[0].priority).toBe('normal') // digest is a trend review, not an alert (J3/D3)
+    expect(notifs?.[0].notification_type).toBe('safety_digest')
+    expect(notifs?.[0].category).toBe('safety')
+    expect(notifs?.[0].body).not.toContain(CONTENT_MARKER)
+    if (notifs) createdNotificationIds.push(...notifs.map(n => n.id))
+  })
+
+  test('idempotent: re-running the sweep does not create a second summary for the same member+period', async ({ request }) => {
+    const fid = await resolveFamilyId()
+    const alexId = await resolveMemberId('Alex')
+
+    const res = await request.post(FN('safety-weekly-digest'), {
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+    })
+    expect(res.ok()).toBeTruthy()
+
+    const { data: summaries } = await sr
+      .from('safety_pattern_summaries')
+      .select('id')
+      .eq('family_id', fid)
+      .eq('monitored_member_id', alexId)
+    expect(summaries?.length).toBe(1) // still just the one from the previous test
+  })
+
+  test('zero-flag week: a monitored member with no flags in the window gets the PRD literal narrative, no Haiku call', async ({ request }) => {
+    const fid = await resolveFamilyId()
+    const ruthieId = await resolveMemberId('Ruthie')
+
+    await sr.from('safety_pattern_summaries').delete().eq('family_id', fid).eq('monitored_member_id', ruthieId)
+
+    const res = await request.post(FN('safety-weekly-digest'), {
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+    })
+    expect(res.ok()).toBeTruthy()
+
+    const { data: summaries } = await sr
+      .from('safety_pattern_summaries')
+      .select('id, summary_data, narrative')
+      .eq('family_id', fid)
+      .eq('monitored_member_id', ruthieId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    expect(summaries?.length).toBe(1)
+    createdSummaryIds.push(summaries![0].id)
+    expect(summaries![0].summary_data.total_flags).toBe(0)
+    expect(summaries![0].narrative).toBe('No concerns detected this week.')
   })
 })

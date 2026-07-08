@@ -17,6 +17,7 @@
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
+import { flagCrisisEvent } from '../_shared/crisis-flag.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -28,7 +29,16 @@ const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 
 const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-const MODEL = 'anthropic/claude-haiku-4-5-20251001'
+// NOTE (found live via SM-C, 2026-07-08 — same file already being touched
+// for D5 wiring, so fixed alongside it): 'anthropic/claude-haiku-4-5-20251001'
+// is NOT a valid OpenRouter model ID (confirmed via a live 400: "...is not
+// a valid model ID"). Every real coaching-note generation call in this file
+// has been silently failing since deploy. The correct, proven-working id —
+// used successfully by mindsweep-sort/-scan, calendar-extract,
+// safety-classify/safety-weekly-digest/validate-ai-output (all fixed in
+// this same session), bookshelf-extract/-process, wishlist-extract — is
+// 'anthropic/claude-haiku-4.5'.
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 interface CoachRequest {
   thread_id: string
@@ -100,8 +110,37 @@ Deno.serve(async (req: Request) => {
     // shouldCoach MUST be true here — the client's checkCoaching short-circuits
     // straight to send whenever isClean || !shouldCoach (ChatThreadView.tsx),
     // so a crisis hit has to ride the existing checkpoint surface to be seen
-    // at all. Skip the model entirely.
+    // at all. Skip the model entirely. This check — and the response it
+    // returns — must NEVER depend on a DB lookup succeeding: the crisis
+    // response is unconditional, full stop (restored to running before
+    // sender resolution after a regression was caught by the safety-beta-
+    // gate regression pin's own documented invariant).
     if (detectCrisis(message_content)) {
+      // PRD-30 D5 — this surface never persists to a table the safety-classify
+      // sweep can see; without this, a crisis hit here never reached mom.
+      // Best-effort ONLY: an independent, separately-wrapped sender lookup
+      // that can never delay or block the crisis response above it — if it
+      // fails for any reason, the member still sees resources immediately,
+      // just without a parent-facing flag this one time.
+      try {
+        const { data: senderForFlag } = await serviceClient
+          .from('family_members')
+          .select('id, family_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1)
+          .single()
+        if (senderForFlag) {
+          await flagCrisisEvent(serviceClient, {
+            familyId: senderForFlag.family_id,
+            memberId: senderForFlag.id,
+            surface: 'message-coach',
+            content: message_content,
+          })
+        }
+      } catch (err) {
+        console.error('message-coach: D5 sender lookup for flagCrisisEvent failed (crisis response unaffected):', (err as Error).message)
+      }
       return new Response(
         JSON.stringify({ crisis: true, shouldCoach: true, coachingNote: CRISIS_RESPONSE, isClean: false }),
         { headers: jsonHeaders },
