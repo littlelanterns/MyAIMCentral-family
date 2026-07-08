@@ -343,7 +343,7 @@ Both registered in `feature_key_registry` + `feature_access_v2` (idempotent upse
 | Invalid OpenRouter model ID silently broke `safety-classify`'s Layer 2 + conversation starters since SM-A | Fixed — `'anthropic/claude-haiku-4.5'` | ✅ Fixed |
 | Same bug in `validate-ai-output` (PRD-41) — Tier 2 had never confirmed/rejected anything | Fixed, cross-territory, founder+seat-approved | ✅ Fixed |
 | Same bug in `message-coach` (PRD-15) — real coaching-note generation | Fixed | ✅ Fixed |
-| Same bug found (not fixed) in `auto-title-thread`, `lila-board-of-directors` | Grandfathered + flagged in STUB_REGISTRY | ⏳ Stubbed (explicit) |
+| Same bug in `auto-title-thread`, `lila-board-of-directors` | Fixed + deployed same session (seat-granted encore); guard grandfather list reduced to cost-logger's inert pricing row | ✅ Fixed |
 | `safety-weekly-digest`'s narrative lacked PRD-41 output-scan wiring | Fixed before ship — `scanUtilityOutput`/`enqueueOutputScan` wired in | ✅ Fixed |
 | `message-coach` D5 reorder regressed the crisis-response-must-never-depend-on-DB invariant | Caught by `safety-beta-gate.spec.ts`'s own regression pin, fixed — crisis check restored to run unconditionally first | ✅ Fixed |
 | `safety-weekly-digest` sweeps ALL monitored members platform-wide, creating test-fixture side effects in Testworth beyond what any single test tracks | Test cleanup hardened to a family+category-scoped sweep | ✅ Fixed |
@@ -365,3 +365,13 @@ Both registered in `feature_key_registry` + `feature_access_v2` (idempotent upse
 - [ ] Zero Missing confirmed
 - [ ] **Phase approved as complete**
 - **Completion date:**
+
+---
+
+## Checkpoint 5 — Independent post-build verification (Fable verifier, 2026-07-08)
+
+**VERDICT: PASS. 48 Wired / 4 Stubbed / 0 Missing** — every row verified against committed code at HEAD `4a007a4`, not worker reports. All six mandated spot-checks passed: column guard has no side door (even for mom), D3 severity→priority mapping exact, teen self-read policy provably narrow (SELECT-only, own-row, one table), email honestly deferred with no fake sender, crisis-flag wiring pinned to exactly three surfaces with the crisis check provably DB-independent, model-ID guard green with zero function-level exceptions. Vitest 45/45, Convention #243 CI check, and `tsc -b` re-run clean by the verifier in its own session.
+
+Three doc discrepancies found; all corrected same day by the seat: (1) the TIER_GATE_ENABLED stub registered in STUB_REGISTRY (was promised at SM-A checkpoint, missed at close-out), (2) CLAUDE.md Pattern #8's "not yet fixed" clause updated for the encore, (3) this file's grandfathered-pair row flipped to ✅ Fixed. Full verifier report in the coordination-seat session record.
+
+**Awaiting: founder sign-off** → then archive the build file to `.claude/completed-builds/2026-07/` and add the feature-decisions README index row.

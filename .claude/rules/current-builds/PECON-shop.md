@@ -149,3 +149,13 @@ Mobile nav parity (Convention #16): N/A — no new top-level page was added. All
 | Commit + push (both builds) | — | **Not done — holding for founder/seat sign-off** | Selective staging prepared; nothing staged/committed per the standing instruction |
 
 **0 Missing across the whole PECON build (Worker A + Worker B).** Both builds are code-complete and proof-complete; the only remaining step is founder eyes-on and the coordination seat's explicit commit/push go-ahead.
+
+---
+
+## Checkpoint 5 — Independent post-build verification, whole PECON build (Fable verifier, 2026-07-08)
+
+**VERDICT: PASS. 24 Wired / 0 new Stubbed / 0 Missing** — verified against committed code at HEAD `4a007a4`. All mandated spot-checks passed: `point_transactions` genuinely append-only with `record_point_transaction` as the single writer and ZERO live `gamification_points` bypass anywhere on the platform; the 100300 lockdown covers dispatch_godmothers + all 14 execute functions; the dead lever fixed at the resolution layer; rider pins real and DB-asserted; daily goal invisible-when-unset and shame-free; purchases race-pinned through the choke point; the obligations grace-buffer gap honestly documented with zero src/ workarounds. Invariant vitest 31/31 re-run by the verifier.
+
+Two hardening deviations (non-blocking, queued as follow-ups): **D1** — the rider-3 pin uses a variant shape (per_completion shared-contributor attribution is pinned; the literal "4 steps on a shared per_step routine, zero to co-assignees" scenario is not — attribution verified structurally in the RPC body; extend the test when next touched). **D2** — resolve/cancel refunds lack an idempotency key, leaving a narrow concurrent double-refund window (sequential double-resolve IS pinned); fix = `refund:{purchase_id}` key or `FOR UPDATE`, one line, next PECON-adjacent session. **D3** — mom manual points-adjustment surface never existed (ruling 5 vacuous): registered in STUB_REGISTRY + Convention #206 corrected same day.
+
+**Awaiting: founder sign-off** (+ her kid-device feel-pass on the Play shelf) → then archive both PECON build files to `.claude/completed-builds/2026-07/`.

@@ -12,10 +12,10 @@
 
 **Slice E is LIVE IN SHADOW MODE** (37 fns deployed, 3 tiers armed — note: Tier-2 verdicts only real AFTER the model-ID fix deploy; earlier shadow data is Tier-0/1 only, recorded in the SAFETY-BETA-GATE.md Phase-4 handoff). **PRD-30 detection + digests LIVE.**
 
-## Builds complete, awaiting Checkpoint 5 + founder sign-off
+## Builds complete — Checkpoint 5 VERIFIED (independent Fable passes, 2026-07-08), awaiting FOUNDER SIGN-OFF only
 
-- **PRD-30 (SM-A+B+C)** — worker-filled tables show 56 reqs / 0 Missing. Post-build-verifier (Fable) pass + founder sign-off pending, then archive to completed-builds + feature-decisions README row.
-- **PECON (Workers A+B)** — combined table filled, addendum §13 decision record filled. Same verifier + sign-off pending. Founder-owned feel-pass this week: real kid buys a real shop item from their own device (Play shelf = human-feel class).
+- **PRD-30 (SM-A+B+C): Checkpoint 5 PASS** — 48 Wired / 4 Stubbed / 0 Missing, all six spot-checks green (no-side-door column guard holds even vs mom; crisis path provably DB-independent). Three doc discrepancies found → all corrected by the seat same day (tier-gate STUB row added, two stale "not yet fixed" texts updated). Verdict appended to the feature decision file. On founder sign-off: archive build file to completed-builds + README index row.
+- **PECON (A+B): Checkpoint 5 PASS** — 24 Wired / 0 Missing; ledger genuinely append-only with zero platform-wide bypass; lockdown covers all 15 functions. Three non-blocking follow-ups queued (see pile): rider-3 pin strengthening (D1), refund idempotency key (D2 — one line, next PECON-adjacent session), mom manual-points-adjustment stub registered + Convention #206 corrected (D3, done). Verdict appended to PECON-shop.md. Founder feel-pass still hers: kid buys a shop item on a real device (Play shelf = human-feel class).
 
 ## Ready to dispatch (seat sequences)
 
@@ -44,7 +44,7 @@ Model routing + two-step /model headers · ONE shared Playwright suite at a time
 
 ## Seat's SMFX pile
 
-CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token) · nameless dashboard greeting · pre-commit banned-pattern grep excludes comment lines (3 false positives this sprint) · obligations Layer 2 step-fairness grace-buffer gap (flagged in PECON-earn.md — #271 next-toucher rule).
+CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token) · nameless dashboard greeting · pre-commit banned-pattern grep excludes comment lines (3 false positives this sprint) · obligations Layer 2 step-fairness grace-buffer gap (flagged in PECON-earn.md — #271 next-toucher rule) · **PECON C5 follow-ups:** rider-3 pin strengthened to literal shared-per_step shape (D1) + `refund:{purchase_id}` idempotency key or FOR UPDATE in resolve/cancel (D2 — one line).
 
 ---
 *Overwritten at every close-out and baton-pass. History: HISTORY.md.*
