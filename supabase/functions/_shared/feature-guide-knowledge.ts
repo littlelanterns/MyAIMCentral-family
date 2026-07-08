@@ -38,6 +38,15 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   When opportunity is checked: set default reward (money/points), item type (one-time/claimable/repeatable), and claim lock duration.
   Pool Mode (gear icon on randomizer): set who can see the list (colored member pills).`,
 
+  '/wishlists': `WISHLISTS PAGE — one canonical wishlist per family member, plus mom's hidden Gift Planning space.
+  CAPTURE: [Capture] button (or the Gift icon in QuickCreate) opens WishCatch — pick who it's for, type/speak/photo/paste-a-link, tap Add. Saves in ~5 seconds, nothing blocks on AI. A photo saves instantly with the image; the AI-suggested title appears after, as a confirm/edit chip. A pasted link auto-fills title/image/price when possible ("auto-filled — check it"); otherwise shows a confirm chip too.
+  FAMILY TAB (mom/adult): person pills across the top — tap any member to see their wishlist. Item detail sheet: photo, notes, price, link, occasion tags, priority (Must-Have/Would-Love/Nice-to-Have), Heart (LiLa context), "Changed my mind" (moves to Maybe Later, reversible).
+  GIFT PLANNING TAB (mom + any adult granted "Gift Planning" in the Permission Hub): pick a kid, capture private gift ideas about them (they never see this), browse their real wishlist and tap "Consider for gift" to copy an item into your planning list with a note showing where it came from, and mark items Reserved/Purchased/Given.
+  INDEPENDENT (teen) shell: full control — drag to reorder priority, occasion filter, "$X away" balance chips if mom's turned on finance visibility, Maybe Later section.
+  GUIDED shell: simplified list, add + "changed my mind" only.
+  PLAY shell: picture grid, no prices ever — reachable from the Fun tab's "My Wish List" button.
+  Share links for grandma and gift history are coming in the next update.`,
+
   '/tasks': `TASKS PAGE — purely PERSONAL (FO-COMMAND-CENTER 2026-06-10): your own items only, for every role including mom.
   TWO TABS for every role (OPPORTUNITY-SURFACES 2026-07-02): My Tasks and Opportunities.
   OPPORTUNITIES TAB: the browsable opportunity boards. Each member sees the boards they're eligible for; mom sees EVERY board (she can claim only where eligible). Expand a board to see items with rewards and "I'll do this!" claim buttons. Standalone opportunity tasks group below the boards. Completing a claimed job automatically checks it off the board.
@@ -162,6 +171,22 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Mom's processing options on a pitch: Approve (opens a prefilled task, streak tracker, or routine checklist for her to confirm — nothing is created until she saves), Counter (revise the terms once; the kid then accepts or declines the counteroffer), or Decline with an optional note.
   The reward itself is never auto-created — mom always confirms through the normal creation flow first.
   FAMILY GOALS section (default on): any family goal this member participates in, shown as "You: X · Family: Y/Target" (or "You: X / Target" for "everyone does their part" goals), plus any earned family prizes ready to redeem.`,
+
+  '/settings#safety-monitoring': `SETTINGS > SAFETY MONITORING (mom/primary-parent only — dad never sees this screen even when he receives flags). The invisible safety net behind LiLa.
+  WHO GETS ALERTED: mom is always on (locked, can't be turned off). Dad gets a toggle if he should also receive flags.
+  DELIVERY: in-app notifications only for now (email is coming). A weekly trend summary will show up automatically once it ships — no setup needed.
+  WHO'S MONITORED: a row per child/adult with an ON/OFF toggle. Children default ON (opt-out); additional adults default OFF (opt-in). Mom herself can never be monitored. Tap the gear icon next to an active row to open sensitivity settings.
+  SENSITIVITY MODAL: 8 categories (self-harm, abuse, sexual/predatory content, substance use, eating disorder language, bullying, profanity, other) each set to Low/Medium/High. Self-harm, abuse, and sexual/predatory content are LOCKED at High — there's no control to lower them, by design.
+  "View Flag History" link goes to /safety-flags — filterable by member, category, and time, with each flag opening a detail view (category, severity, timestamp, a warm "how to bring this up" suggestion, and curated resources — never the conversation content itself).`,
+
+  '/meals': `KITCHENCOMPASS (Meal Planning, PRD-42 Phase A) — Plan & Do > KitchenCompass in the sidebar. Two tabs: This Week, Recipe Box.
+  RECIPE BOX: search + filter (Favorites, Traditions, Quick <30min, Slow cooker, New), sort, "+ Add Recipe" opens a 4-tile capture chooser: Link (paste a URL), Photo (snap a recipe card), Paste (paste recipe text), This Went Well (describe from memory, voice-enabled). Every capture shows a review card first — Edit/Approve/Regenerate/Reject — nothing saves until Approve (Human-in-the-Mix).
+  RECIPE DETAIL: scale stepper (0.5x–4x + custom), an optional AI "Smooth these with AI" pass for awkward-to-scale ingredients (also HITM-reviewed), Save This Version for variants, a rotation dial (favorite/normal/rest/retired, mom-only), and a FAMILY POINTERS section — short "how WE do it" notes attached to the recipe. Anyone can read pointers; only mom/granted adults can add or edit them.
+  THIS WEEK: a 7-day grid (List/Week/Month view switcher), tap a day/slot to add a meal or drag an existing one to a different day. Tap a planned meal to open its entry sheet: assign who's cooking, tag which kids helped, mark made / didn't happen, add notes. "Cook This" opens COOK VIEW — a big-type, step-by-step surface for cooking, showing Family Pointers matched to the recipe and to specific technique tags (e.g. a "searing" pointer surfaces on any step that mentions searing), with quantities scaled to the planned servings and a mic-addable "add a pointer for next time" box.
+  MARK MADE follow-up: after marking a meal made, quick prompts appear to plan leftovers tomorrow, log a helping kid's homeschool cooking minutes, or celebrate them with a Victory.
+  SEND TO SHOPPING LIST: from a single recipe or the whole week — merges duplicate ingredients across recipes, sums quantities, scales for planned servings, lets you edit/exclude items or mark "already have it," then writes into an existing shopping list.
+  FOOD PROFILES (shield icon button): a whole-family row plus a card per member. RESTRICTIONS (allergies, intolerances) are always included in meal planning and CANNOT be toggled off — a deliberate safety exception to the usual is_included_in_ai pattern. LOVES / NOT A FAN OF quick-add saves to that person's Archives Preferences. A private, mom-only "nutrition awareness" note nudges suggestions qualitatively — no calorie/macro tracking anywhere, and it never shows on a kid's screen.
+  ACCESS: mom always has full access. Other adults need the "KitchenCompass plan editing — whole family" grant in the Permission Hub. Not yet available: suggestion engine, LiLa meal-planning mode, kid-facing meal views, Family Hub "what's for dinner" card, and grocery-cart export — those ship in a later phase.`,
 }
 
 // ── Use Case Recipes ──────────────────────────────────────
@@ -181,6 +206,26 @@ export interface UseCaseRecipe {
 }
 
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
+  {
+    triggers: ['wish list', 'wishlist', 'grandma asks what they want', 'kid saw something at the store', 'gift idea', 'gift planning', 'christmas list', 'birthday list', 'wanted a toy at the store'],
+    clarifyingQuestion: "WishLists is built for this. Are you looking to catch something your kid wants right now (the in-store \"I'll put it on your list\" moment), or set up your own private gift-planning notes about what to get them?",
+    variants: [
+      {
+        name: 'Catch a want in the moment',
+        description: 'The 5-second capture — text, voice, photo, or a pasted link.',
+        howToSetUp: `Tap the Gift icon in your + menu (QuickCreate), or open WishLists from the Family section of your sidebar and tap [Capture].
+Pick who it's for, then type it, speak it, snap a photo of the item, or paste a product link — tap Add.
+It's saved instantly. Your kid can open their own WishLists page anytime and see it there, with "you added this."`,
+      },
+      {
+        name: 'Private gift-planning notes',
+        description: "Mom's hidden Gift Planning space — the kid never sees it.",
+        howToSetUp: `Open WishLists and switch to the Gift Planning tab (visible to you, and to any adult you've granted "Gift Planning" access to in the Permission Hub).
+Pick the kid, then either capture a new idea directly, or browse their real wishlist and tap "Consider for gift" to copy an item into your planning list — it keeps a note of where it came from.
+Mark items Reserved, Purchased, or Given as you shop. None of this ever appears on the kid's own wishlist.`,
+      },
+    ],
+  },
   {
     triggers: ['family goal', 'family prize', 'whole family reward', 'work together as a family', 'shared prize', 'family movie night', 'earn something together', 'family working together'],
     clarifyingQuestion: "Family Goals are perfect for this — the whole family works toward one prize together. Quick question: should any ONE family member's contribution count toward a shared total (like tallying \"Remain Calm\" 50 times as a family), or does EVERY participant need to hit their own target before it's earned (like each kid reading 10 books)?",
@@ -689,6 +734,51 @@ Describe what you want and what you'll do to earn it.
 Visibility defaults to PRIVATE — you can optionally share it with specific family members via the member picker.
 Tapping through opens the normal task/tracker creation flow, prefilled, for you to confirm.
 Completing the task later awards the reward automatically through the same pipeline as any other reward.`,
+      },
+    ],
+  },
+  {
+    triggers: ['keep my kid safe with ai', 'is lila watching my kids conversations', 'worried about what my teen tells the ai', 'monitor lila conversations', 'safety net for kids', 'set up safety monitoring', 'turn on safety alerts'],
+    clarifyingQuestion: "Safety Monitoring is built for exactly this. Do you want to check who's currently monitored and adjust sensitivity, or set it up for the first time?",
+    variants: [
+      {
+        name: 'First-time setup',
+        description: 'Children are already monitored by default the moment they join the family — this just confirms it and adds anyone else.',
+        howToSetUp: `Go to Settings > Safety Monitoring.
+Children show up already toggled ON (opt-out, not opt-in). If you want an adult (like a co-parent) monitored too, toggle them on.
+Decide if dad should also receive alerts — toggle him on under "Who gets alerted" if so. You (mom) are always on and can't be turned off.
+Tap the gear icon next to any active person to fine-tune sensitivity per category if the defaults feel off (Play/Guided default to High everywhere; teens and adults default to Medium, Low for profanity).
+That's it — nothing else to configure. A flag will show up as a quiet notification if something concerning comes up.`,
+      },
+      {
+        name: 'Review past flags',
+        description: 'Check flag history to see patterns over time.',
+        howToSetUp: `From Settings > Safety Monitoring, tap "View Flag History" (or tap any safety notification directly).
+Filter by member, category, or include dismissed flags.
+Tap any flag to see its category, severity, when it happened, and a warm suggestion for how to bring it up with your child — never the actual conversation.
+Acknowledge once you've addressed it, or Dismiss if it was a false positive. Both are one-way — flags are never deleted.`,
+      },
+    ],
+  },
+  {
+    triggers: ['stop asking what for dinner', 'meal plan for the week', 'save my recipes somewhere', 'someone has allergies plan around it', 'get dinner on the table', 'organize our recipes', 'weekly dinner plan', 'family cooking notes'],
+    clarifyingQuestion: "KitchenCompass is built for this. Do you want to start by capturing a few recipes you already use, or jump straight to planning out this week's meals?",
+    variants: [
+      {
+        name: 'Capture the recipes you already make',
+        description: 'Get your go-to meals into Recipe Box so they\'re ready to plan with.',
+        howToSetUp: `Open KitchenCompass (Plan & Do in the sidebar) > Recipe Box > + Add Recipe.
+For a recipe from a website, paste the Link. For a printed card or cookbook page, use Photo. For something you know by heart, use This Went Well and describe it (typing or speaking) — I'll structure it into ingredients and steps.
+Review what I pulled out before it saves — fix anything, then Approve. Nothing is saved until you do.
+If your family has any food allergies or restrictions, set those up once in Food Profiles (the shield icon) — I'll always factor them in, and that setting can't accidentally get turned off.`,
+      },
+      {
+        name: 'Plan this week',
+        description: 'Get meals onto the calendar and dinner-time notes into Cook View.',
+        howToSetUp: `Open KitchenCompass > This Week and tap any day's slot to add a meal from your Recipe Box (or type a freeform title if it's not saved yet).
+Drag a meal to a different day if plans change.
+When you're ready to cook, tap the meal card, then "Cook This" for a big-type, step-by-step view — it'll show any "how WE do it" Family Pointers you've saved for that recipe.
+When the week's set, tap "Send to shopping list" to push all the ingredients — merged and scaled — into your shopping list in one step.`,
       },
     ],
   },

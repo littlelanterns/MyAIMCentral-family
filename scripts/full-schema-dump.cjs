@@ -68,6 +68,10 @@ const DOMAIN_ORDER = [
   { name: 'Family Hub', prefix: 'PRD-14D', tables: [
     'family_hub_configs', 'family_best_intentions', 'family_intention_iterations', 'countdowns',
   ]},
+  { name: 'Meal Planning (KitchenCompass)', prefix: 'PRD-42', tables: [
+    'recipes', 'recipe_versions', 'meal_plan_entries', 'food_restrictions',
+    'meal_feedback', 'meal_settings', 'meal_pointers',
+  ]},
   { name: 'Victories', prefix: 'PRD-11', tables: [
     'victories', 'victory_celebrations', 'victory_voice_preferences', 'family_victory_celebrations',
   ]},

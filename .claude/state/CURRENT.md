@@ -1,39 +1,48 @@
-# Current State — As of 2026-07-07 (release batch day; Fable intro pricing ends today)
+# Current State — As of 2026-07-08 early AM (night-batch push; Fable window through 2026-07-12)
 
-> Any coordination session (fresh, compacted, or resumed) can rebuild the full picture from:
-> this file → `claude/dispatch-factory/MANIFEST.md` (29 packs incl. PRD42 KitchenCompass) →
+> Any coordination session (fresh, compacted, or resumed) rebuilds the full picture from:
+> this file → `claude/dispatch-factory/MANIFEST.md` (packs + queue) →
 > `.claude/rules/current-builds/*` (in-flight) → `.claude/completed-builds/README.md` (history).
 
-## Landed since 2026-07-05 (proof green, committed via the 2026-07-07 release batch)
+## Landed in the 2026-07-07 NIGHT BATCH (committed + pushed by the coordination seat)
 
-- **FAMILY-GOALS-PRIZES** — family goals engine (migration 100284, trigger-counted contributions, race-safe award, NULL-owner family prizes). Rider 1 audit found + fixed 2 pre-existing Prize Board bugs. Convention #278.
-- **HITM-CLOSURE** — Ask LiLa & Send gated (Send/Edit/Discard, HMAC verbatim guarantee), BoD + BookShelf HITM rows, Convention #279 (HITM applicability + declared exceptions). **Major find:** Convention #55 Reject/Regenerate silently broken platform-wide since PRD-05 — `lila_messages` never had a DELETE policy; fixed in migration 100285.
-- **VOICE-INPUT-REPAIR** — speech duplicator fixed at the shared hook (all ~15 surfaces), LiLa chat mic fixes, mic-denied messaging, whisper-transcribe/extract-insights auth + ownership checks, email webhook fails closed. Functions deployed.
-- **SAFETY-BETA-GATE follow-ups** — MindSweep crisis rendering card, NO_EMOJI_BLOCK in safety-preamble (16 functions redeployed).
-- **Beta Readiness Report** (`claude/feature-decisions/Beta-Readiness-Report-2026-07.md`) — ~4–6 weeks to beta; HITM audit run for the first time (findings all closed by HITM-CLOSURE); critical path ordered.
-- **PRD-41 approved** → `prds/foundation/PRD-41-LiLa-Runtime-Ethics-Enforcement.md`. **PRD-42 KitchenCompass** designed (meal planning; pack PRD42.md, Phase A Sonnet-ready). **PRD-30 pre-build complete + founder-approved** (D1–D7 resolved; D6 = wire real email provider, sequenced last in SM-C).
+Six-commit batch, seat-executed release (5 lanes entangled in one tree; per-lane commits + one shared-surfaces sweep):
+
+1. **SAFETY-BETA-GATE Slices C/B/A + E** — Layer 1+2 ethics enforcement SHIPPED IN SHADOW MODE. Red-team 63/63 (seat re-verified independently). Migrations 100286/100287/100290. **Founder-owned next: the ~30-function consolidated deploy pass (starts the shadow week), then Phase-4 flip session after ≥1 week of family data.** Slice E window has the deploy list.
+2. **Schema batch** — migrations 100286–100294, 100297, 100299 + live_schema regen.
+3. **PRD-30 SM-A + SM-B** — safety monitoring detection LIVE in production (safety-classify deployed, founder-approved) + all mom surfaces (/safety-flags, Settings, FO column section, teen disclosure row). Proof: vitest 24/24, spec 21/21, tour 6/6. **SM-C remains** (digests, crisis-hit wiring on 3 surfaces, email provider LAST — founder supplies Resend key/DNS when asked). Note: until SM-C, weekly digests don't exist; flag detail/history are live.
+4. **PRD-43 WishLists Phase A** — kid wishlists + DB-enforced hidden gift-ideas + WishCatch capture. wishlist-extract deployed. E2E 11/11, tour caught 4 real bugs. Phase B is a future dispatch (pack final in MANIFEST).
+5. **PRD-42 KitchenCompass Phase A** — recipes, This Week plan, Cook View + Family Pointers, Food Profiles. recipe-extract deployed. E2E 10/10, 26-shot tour caught the var(--color-bg) ghost-token transparency bug. Phase B/C future dispatches (C blocked on founder Instacart/Walmart signups).
+6. **Shared-surfaces sweep** — App.tsx/Sidebar/PermissionHub/useManagementGrants/SettingsPage/config.toml/package.json/mindsweep cluster + append-docs (CLAUDE.md incl. PECON's drafted Convention #280, STUB_REGISTRY, WIRING_STATUS) citing all lanes.
 
 ## In flight right now
 
-- **SAFETY-BETA-GATE Slice E** (Sonnet) — PRD-41 Layer 1 build, Phase 1 running. Confirms (a)+(b) resolved: reframe copy approved as-is; red-team = pre-push hook. **Phase 2 gated on the release batch landing** (entangled Edge Function files).
-- **PRD-30 SM-A** — dispatch prompt ready in `.claude/rules/current-builds/PRD-30-safety-monitoring.md`; founder pastes when ready.
-- Possible other Wave-1 lanes (ST-A, FDWA, PINR, BSB1) — check windows/build files before claiming their files.
+- **PECON-EARN (Worker A)** — Slices A1–A3 code-complete; **CRITICAL platform security fix shipped mid-build**: godmother EXECUTE lockdown (migration 100300) after live-proving unauthenticated cross-tenant points/money mutation (all 15 connector functions were anon-executable since Phase 3; ledger drift 0.00 = no evidence of real-world abuse; seat independently verified grants + DEFINER chain). A4 remaining: run point-economy-earning.spec.ts (12 tests, slot granted) + eyes-on tour + close-out. Its migrations 100295/100296/100298/100300/100301 + all its files remain UNCOMMITTED by design — commits at its own close. Window was compacting — build file `PECON-earn.md` carries full state; baton-pass if degraded.
+- **PECON-SHOP (Worker B)** — dispatches after Worker A closes (prompt in `claude/dispatch-factory/PECON.md`).
+- **SM-C** — dispatches after PRD-30 SM-B founder sign-off (prompt in the PRD-30 build file).
+
+## Standing operating rules (the seat enforces these)
+
+- Model routing per `.claude/rules/model-routing.md`; two-step /model headers on every dispatch (manual founder step). Fable = judgment + seat through 07-12.
+- ONE shared Playwright suite across all windows at a time — seat serializes. Tree-level suite results count for all lanes in the tree (established tonight).
+- Selective staging by lane; shared files ride a seat-run sweep commit citing contributors; hook overrides only via OVERRIDE_REASON (none used tonight); pre-commit requires live_schema.md staged with any migration (consolidated schema commit is the compliant pattern).
+- **Founder standing authorization (2026-07-07): seat batch-reviews and PUSHES after proof green without per-push confirmation.** Production Edge Function deploys + destructive ops stay founder-per-instance (tonight's deploys: safety-classify, wishlist-extract, recipe-extract — all founder-approved in-window).
+- Convention #277 tours are load-bearing: tonight they caught two invisible-UI defect classes no other check could see.
 
 ## Founder-only open items
 
-1. **Attorney package** (`claude/legal-drafts/`) — founder plans to send in ~2 weeks (her clock; noted 2026-07-07). Fill 3 contact blanks + ask counsel about T&C. Legal-dependent items (PRD-40 finalization, kid-privacy carve-outs) wait on this; build track does not.
-2. `MINDSWEEP_WEBHOOK_SECRET` must be set before email intake is ever enabled (webhook now fails closed).
-3. OpenRouter privity support ticket (wording in `no-training-verification.md` §6).
-4. Identify `mcps/` (untracked — commit deliberately or gitignore).
-5. **Fable→Opus judgment re-pin: DEFERRED to 2026-07-12** — Anthropic extended Fable intro pricing through 07-12 (announced 07-07). Until then: judgment agents stay pinned to Fable; every Checkpoint-5 post-build audit this week runs at Fable quality. At 07-12: re-decide (likely re-pin `pre-build-auditor` + `post-build-verifier` to `opus`; Fable becomes escalation-step-3 only).
-6. Resend/DNS setup when SM-C reaches its email item (worker will ask; non-blocking).
-7. Slice E Phase-4 enforcement flip session after ≥1 week of family shadow data.
+1. **Slice E consolidated deploy pass** (~30 functions) — approving starts the shadow week; Phase-4 flip ≥1 week later.
+2. Resend API key + domain DNS when SM-C asks (non-blocking, email is SM-C's LAST item).
+3. Attorney package (claude/legal-drafts/) — her clock (~2 weeks).
+4. `MINDSWEEP_WEBHOOK_SECRET` before email intake ever turns on.
+5. **2026-07-12 Fable full-price revisit** — before then: adversarial safety-stack review (seat generates once Slice E deploy + SM-C land; **scope now includes the platform-wide RPC EXECUTE-grant audit** born from PECON's godmother finding), Beta Readiness delta report, Fable-vs-Opus re-pin recommendation, PRD-31 + PRD-40 Fable pre-build windows midweek.
+6. OpenRouter privity support ticket (no-training-verification.md §6).
 
-## Standing rules established this week
+## Seat's SMFX pile (fold into SMFX dispatch as a freshness addendum)
 
-- Convention #277 Claude-driven visual verification; #278 family-goals engine contract; #279 HITM applicability + declared exceptions.
-- DB-asserted pins are the only accepted proof — "controls present" ≠ "controls working" (the Convention #55 discovery is the canonical example).
-- Release-worker pattern for multi-lane commits: attribution from build files, selective staging, shared docs in one citing commit, one push, no hook bypasses.
+- **CSS token misuse sweep** (one item, two greppable patterns): `backgroundColor:` with `var(--surface-primary)` (a gradient — silently transparent; ~15 pre-existing files incl. HubSettings.tsx) and nonexistent `var(--color-bg)` (ghost token). Both classes produced invisible-UI bugs tonight, caught only by #277 tours.
+- Nameless dashboard greeting ("Good evening, there") — check display_name vs auth-metadata read (from CLIENT-DATE tour).
+- Convention #280 number claimed by PECON's CLAUDE.md draft — verify no collision at PECON close.
 
 ---
-*This file is overwritten at every close-out and every baton-pass. For history, see HISTORY.md.*
+*Overwritten at every close-out and baton-pass. History: HISTORY.md.*

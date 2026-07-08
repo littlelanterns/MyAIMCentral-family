@@ -408,6 +408,14 @@ async function routeItem(
       // Recipes dual-route (archive + shopping list) — handled by queue
       return routeToStudioQueue(content, familyId, memberId, 'list')
 
+    case 'wishlist':
+      // PRD-43: wishlist items need a person-target confirmed (usually
+      // self, but not always in an evening brain dump) — same triage
+      // treatment as calendar/archives/recipe. Queue destination='wishlist'
+      // is understood by deployQueueItem's wishlist case (defaults to the
+      // owner's own list when no explicit target is picked at deploy time).
+      return routeToStudioQueue(content, familyId, memberId, 'wishlist')
+
     case 'release':
       // Unreachable — filtered before routeItem — but TypeScript exhaustiveness
       throw new Error('release should be filtered before routeItem')

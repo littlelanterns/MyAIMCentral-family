@@ -211,6 +211,7 @@ export type MindSweepLiteDisposition =
   | 'innerworkings'
   | 'archives'
   | 'recipe'
+  | 'wishlist'
   | 'release'
   | 'family_request'
   | 'talk_to_someone'
@@ -236,6 +237,7 @@ export const DISPOSITION_DISPLAY_NAMES: Record<MindSweepLiteDisposition, string>
   innerworkings: 'Self-Knowledge',
   archives: 'Archive Note',
   recipe: 'Recipe',
+  wishlist: 'Wishlist',
   release: 'Release',
   family_request: 'Send as Request',
   talk_to_someone: 'Talk to someone',
@@ -255,6 +257,7 @@ export const DISPOSITION_PICK_ORDER: MindSweepLiteDisposition[] = [
   'family_request',
   'calendar',
   'list',
+  'wishlist',
   'journal',
   'best_intentions',
   'guiding_stars',

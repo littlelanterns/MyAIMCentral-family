@@ -8,7 +8,7 @@ import {
   LayoutDashboard, BookOpen, BookHeart, Sun, CheckSquare, Calendar,
   BarChart3, List, Star, Brain, Target, Trophy, Compass, Users, Archive,
   Palette, Lock, Gem, Rss, Library, GraduationCap, MessageCircle, UsersRound,
-  ChevronLeft, ChevronRight, Gift, FileText, ShoppingCart,
+  ChevronLeft, ChevronRight, Gift, FileText, ShoppingCart, ChefHat,
 } from 'lucide-react'
 import { useEffectiveShell } from '@/hooks/useEffectiveShell'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
@@ -186,6 +186,7 @@ export function getSidebarSections(
       { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
       { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
       { label: 'Touch Base', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Keep track of things to talk about with family, kids, and contacts' },
+      { label: 'KitchenCompass', path: '/meals', featureKey: 'meals_basic', icon: <ChefHat size={20} />, tooltip: 'Recipes, weekly meal plan, and shopping handoff' },
       { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
       { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
       { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
@@ -212,6 +213,7 @@ export function getSidebarSections(
     collapsible: true,
     items: [
       { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
+      { label: 'WishLists', path: '/wishlists', featureKey: 'wishlists_basic', icon: <Gift size={20} />, tooltip: 'Wishlists, gift ideas, and gift planning' },
       { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
       { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
     ],
@@ -259,6 +261,7 @@ export function getSidebarSections(
         { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
         { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
         { label: 'Touch Base', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Keep track of things to talk about with family, kids, and contacts' },
+      { label: 'KitchenCompass', path: '/meals', featureKey: 'meals_basic', icon: <ChefHat size={20} />, tooltip: 'Recipes, weekly meal plan, and shopping handoff' },
         { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
         { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
         { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
@@ -297,6 +300,7 @@ export function getSidebarSections(
         collapsible: true,
         items: [
           { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
+          { label: 'WishLists', path: '/wishlists', featureKey: 'wishlists_basic', icon: <Gift size={20} />, tooltip: 'Wishlists, gift ideas, and gift planning' },
           { label: 'People', path: '/family-context', featureKey: 'people_relationships', icon: <Users size={20} />, tooltip: 'People and relationships' },
           { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },
         ],
@@ -335,6 +339,7 @@ export function getSidebarSections(
         { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Tasks, routines, and to-dos' },
         { label: 'Calendar', path: '/calendar', featureKey: 'calendar', icon: <Calendar size={20} />, tooltip: 'Family calendar' },
         { label: 'Touch Base', path: '/meetings', featureKey: 'meetings_basic', icon: <UsersRound size={20} />, tooltip: 'Meeting agenda and things to talk about' },
+        { label: 'KitchenCompass', path: '/meals', featureKey: 'meals_basic', icon: <ChefHat size={20} />, tooltip: 'Recipes, weekly meal plan, and shopping handoff' },
         { label: 'Trackers', path: '/trackers', featureKey: 'widgets_trackers', icon: <BarChart3 size={20} />, tooltip: 'Charts and trackers' },
         { label: 'Lists', path: '/lists', featureKey: 'lists', icon: <List size={20} />, tooltip: 'Lists and templates' },
         { label: 'Shopping Mode', path: '/shopping-mode', featureKey: 'shopping_mode', icon: <ShoppingCart size={20} />, tooltip: 'Cross-list shopping view by store' },
@@ -363,6 +368,7 @@ export function getSidebarSections(
         collapsible: true,
         items: [
           { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Family conversations' },
+          { label: 'WishLists', path: '/wishlists', featureKey: 'wishlists_basic', icon: <Gift size={20} />, tooltip: 'Your wish list' },
           // Family Feeds — stub / coming-soon entry per PRD-32A demand
           // validation. Renders PlannedExpansionCard until PRD-37 ships.
           { label: 'Family Feeds', path: '/feeds', featureKey: 'family_feeds', icon: <Rss size={20} />, tooltip: 'Private family social feed' },

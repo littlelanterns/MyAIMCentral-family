@@ -1,6 +1,14 @@
 # Pre-Dispatch Pack — RSTP: Per-Step Routine Rewards
 
-> **Factory status:** synthesized → decisions-pending (2 decisions, batch 7)
+> ⛔ **SUPERSEDED BY `PECON.md` (2026-07-07). DO NOT DISPATCH THIS PACK.**
+> The founder's Point Economy ask (per-routine point modes + the Reward Shop, designed 2026-07-07)
+> absorbs this pack's entire scope: the batch-7-approved rulings D-RSTP-1/2 and the per-step
+> prize-reward design below carry INTACT into PECON Worker A Slice 3 (one payout RPC now handles
+> step prizes AND routine points — one build, one payout point). Spec of record:
+> `prds/addenda/PRD-24-Point-Economy-Addendum.md` §5.5. Dispatch prompts live in `PECON.md`.
+> The recon evidence below (TRKG-RSTP-RECON.md RSTP section) remains accurate and cited.
+
+> **Factory status:** ~~synthesized → decisions-pending (2 decisions, batch 7)~~ **SUPERSEDED → PECON**
 > Produced: 2026-07-04 (dispatch factory, Fable 5). Item ID: RSTP. Priority: P4.
 > Evidence: `claude/dispatch-factory/TRKG-RSTP-RECON.md` (RSTP section).
 > Headline: the recon corrected the record — **routine steps fire ZERO reward pipeline today**

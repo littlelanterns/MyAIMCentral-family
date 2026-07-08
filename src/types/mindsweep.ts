@@ -145,6 +145,9 @@ export interface MindSweepSortResponse {
   // `results`/`totals`. Callers MUST check `crisis` before touching
   // `results`.
   crisis?: boolean;
+  // PRD-41 — an ethics-shaped brain-dump item short-circuits with a gentle
+  // reframe (returns `ethics_reframe`, `response`, and empty `results`).
+  ethics_reframe?: boolean;
   response?: string;
   event_id?: string;
   results?: MindSweepSortResult[];

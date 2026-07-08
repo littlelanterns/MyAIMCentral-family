@@ -1,7 +1,54 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-07-06 (FAMILY-GOALS-PRIZES close-out).
+> Updated each build session. Last updated: 2026-07-07 (PRD-43 WishLists Phase A).
+
+## PRD-43 WishLists (Gift Planning & In-Store Capture) — Phase A (2026-07-07)
+
+`/wishlists` canonical route with 5 shell-specific renders (Mom/Adult person tabs + Gift Planning tab, Independent full control w/ dnd-kit + occasions + balance strip, Guided simplified, Play picture grid zero-prices), WishCatch capture sheet (text/voice/photo/link, 5-second contract, confirm-chip AI suggestions never blocking), `wishlist-extract` Edge Function (link + photo modes, deployed), item detail/refine sheet, Gift Planning tab (surprise-safe, per-kid gift-ideas list, Considering-copy provenance, claim controls), Archives Wishlist folder doorway (member-scoped deep link), RoutingStrip/MindSweep/QuickCreate/Sidebar/BottomNav entry-point wiring. Migrations 100292 (`gift_claims`/`wishlist_share_links`/`gift_history` tables, `lists.subject_member_id`, 6 new `list_items` columns, RESTRICTIVE surprise-safe RLS, `util.gift_planning_access()` grant helper, `wishlist-images` storage bucket) + 100293 (`source_list_item_id` provenance FK) + 100297 (`list_items_priority_check` F-21-class fix — found live during the eyes-on tour). `gift_planning` is an explicit-grant-only family-wide permission key (Convention #274 shape, `studio`/`reward_rules` pattern not `financial_tracking`). E2E `tests/e2e/features/wishlists-gift-planning.spec.ts` 11/11 (incl. a real browser typed-capture round-trip, not just DB-level probes) + Convention #277 eyes-on tour (`wishlists-eyes-on-tour.spec.ts`, 15 screenshots across desktop/tablet/mobile, all read — found and fixed 3 real bugs live: Special Adults selectable in WishCatch person pills, third-person empty-state copy on mom's own tab, and the priority CHECK constraint gap; found and fixed a 4th real bug via targeted regression-test authoring: the Archives doorway navigated to a generic page instead of the viewed member's tab). Zero fixture residue. Founder-approved 2026-07-07, `claude/dispatch-factory/PRD43.md` pack. See `.claude/rules/current-builds/PRD-43-wishlists.md` for the full build record.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| WishCatch capture sheet (text/voice/photo/link, person pills, instant save) | `WishCatchModal.tsx`; text mode UI-round-trip DB-asserted; voice/photo affordances render, activation not exercised (no media device in CI) | **Wired** | Special Adults correctly excluded from person pills (bug found+fixed) |
+| Link extraction (og:/JSON-LD deterministic + Haiku fallback) | `wishlist-extract` Edge Function `mode:'link'`, deployed | **Wired** | Deterministic auto-fills with no confirm; AI fallback renders a confirm-required chip |
+| Photo extraction (Sonnet vision) | `wishlist-extract` Edge Function `mode:'photo'`, deployed | **Wired** | |
+| `/wishlists` — Independent full control (dnd priority reorder, occasion tags, dormant/Maybe-later, balance-away chip) | `IndependentWishlistSurface` in `WishLists.tsx` | **Wired** | |
+| `/wishlists` — Guided simplified list | `GuidedWishlistSurface` | **Wired** | |
+| `/wishlists` — Play picture grid, zero prices | `PlayWishlistSurface` + "My Wish List" entry point on the Fun tab | **Wired** | No 3rd top-level Play nav tab added (2026-06-12 founder decision honored) |
+| `/wishlists` — Mom/Adult person tabs + item refine sheet | `MomAdultWishlistSurface`, `WishlistItemDetailSheet.tsx` | **Wired** | |
+| Gift Planning tab (surprise-safe, per-kid gift-ideas list, claim controls) | `GiftPlanningTab.tsx`, gated on `gift_planning` grant via `useManagementGrants` | **Wired** | |
+| "Consider for gift" — wishlist item → gift-ideas Considering copy | `useConsiderForGift`; `source_list_item_id` provenance FK | **Wired** | |
+| Claim lifecycle (reserve/purchased/given, release, first-claim-wins) | `gift_claims` table, partial unique index, `useCreateGiftClaim`/`useUpdateGiftClaimStatus`/`useReleaseGiftClaim` | **Wired** | |
+| Surprise-safe RLS (subject can never read claims/gift-ideas about themself) | RESTRICTIVE policies on `lists`/`list_items`/`gift_claims`, `util.gift_planning_access()` | **Wired** | Leak-probe E2E pins (kid session, family-device path via RESTRICTIVE design, ungranted adult) |
+| Archives Wishlist folder doorway | `MemberArchiveDetail.tsx` — navigates to `/wishlists?member=<id>`, pre-selects that member's tab | **Wired** | Real bug found+fixed: originally navigated to the generic route with no member context |
+| RoutingStrip `wishlist` destination + person drill-down | `RoutingStrip.tsx`, `NotepadReviewRoute.tsx` | **Wired** | |
+| MindSweep classification + direct deploy + teen disposition | `mindsweep-sort/index.ts`, `deployQueueItem.ts`, `useMindSweep.ts`, `MindSweepLiteTeenSection.tsx` | **Wired** | |
+| QuickCreate "Wishlist" entry point | `QuickCreate.tsx`, `ShellQuickCreateFAB.tsx` (shared + MomShell's local duplicate) | **Wired** | |
+| Sidebar "WishLists" entry + BottomNav parity | `Sidebar.tsx` (3 shell blocks), single-source `getSidebarSections()` | **Wired** | Convention #16 compliant — no hand-maintained duplicate |
+| Share link generation/consumption | `wishlist_share_links` table + RLS exist | Stub | PRD-43 Phase B |
+| Gift history recording | `gift_history` table + RLS exist | Stub | PRD-43 Phase B |
+| Motivation-bridge "Add as reward" prefill | — | Stub | PRD-43 Phase B, blocked on STUDIO-EXPERIENCE ST-F |
+
+## PRD-42 KitchenCompass (Meal Planning) — Phase A (2026-07-07)
+
+Recipe Box, capture (link/photo/paste/went-well/scale_assist), scaling + saved versions, This Week plan (week/day/month + dnd-kit drag-drop), Cook View + Family Pointers (D-42-6 "how WE do it" rider), send-to-shopping-list, Food Profiles (always-include restrictions + Archives preferences quick-add), SortTab Recipe card, sidebar/BottomNav registration under Plan & Do. Migration 100291 (7 tables: `recipes`, `recipe_versions`, `meal_plan_entries`, `food_restrictions`, `meal_feedback`, `meal_settings`, `meal_pointers`) + migration 100294 (`victories.source` CHECK extended with `'meal_made'`). `meal_planning` is an explicit-grant-only family-wide permission key (Convention #274 shape). E2E `tests/e2e/features/meal-planning.spec.ts` 10/10 + Convention #277 eyes-on tour (`meal-planning-eyes-on-tour.spec.ts`, 26 screenshots across 3 viewports + 2 nav-parity tests, all read and verified — found and fixed a real CSS token bug, see below). Zero fixture residue. Founder-confirmed two-phase v1 scope (D-42-8). See `.claude/rules/current-builds/PRD-42-meal-planning.md` for the full build record.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Recipe capture (link/photo/paste/went-well) + HITM review | `recipe-extract` Edge Function (5 modes, full SAFETY-BETA-GATE scaffold) → `RecipeCaptureModal` 4-tile chooser → Edit/Approve/Regenerate/Reject before persisting (Convention #4/#279) | **Wired (Edge Function not yet deployed)** | Code complete; awaiting founder-approved deploy pass |
+| Recipe Box (keyword + semantic search, filter chips, sort) | `match_recipes` RPC (pgvector) + `RecipeBox.tsx` | **Wired** | |
+| Recipe scaling (client-side math + optional `scale_assist` AI escape hatch) | `RecipeDetailModal.tsx` scale stepper; `scale_assist` is single-Haiku, itself HITM-reviewed | **Wired** | |
+| Saved recipe versions | `recipe_versions` table + `useSaveRecipeVersion` | **Wired** | |
+| This Week plan (week/day/month views, drag-drop between day×slot cells) | `ThisWeekPlan.tsx` via `@dnd-kit/core` `useDraggable`/`useDroppable` | **Wired** | New cross-container drag pattern for this codebase (prior dnd-kit usage was same-list `useSortable` reorder only) |
+| Cook View (big-type step-through, recipe + technique pointer matching, mic-addable) | `CookViewModal.tsx`; `matchesStep()` substring-matches technique tags against instruction text/ingredients | **Wired** | |
+| Family Pointers ("how WE do it") — recipe-specific and technique-tag pointers | `meal_pointers` table, family-readable/mom-editable, exactly-one-of CHECK | **Wired** | D-42-6 rider |
+| Mark meal made → follow-up strip (leftovers / kids-helped homeschool minutes / celebrate victory) | `EntrySheetModal.tsx`; `useCreateLeftoverEntry`, `useLogCookingHomeschoolMinutes`, `useCreateMealVictory` | **Wired** | Real bug found+fixed during build: follow-up strip was gated on a stale `entry.status` prop that never updated within the same modal session |
+| Send to shopping list (merge review, dynamic per-entry scaling, store_category, already-have toggle) | `SendToShoppingListModal.tsx` → existing `list_items` hooks | **Wired** | Real bug found+fixed during build: "Send week to shopping list" was silently sending `ingredients: []` for every entry (scaling was never actually computed) |
+| Food Profiles (always-include restrictions, no toggle to disable; Loves/Not-a-fan-of quick-add to Archives Preferences) | `FoodProfilesModal.tsx`; `food_restrictions` table has **no `is_included_in_ai` column** — always-include inversion (D-42-4), distinct from the universal three-tier toggle pattern | **Wired** | Convention #75 write-back to `archive_context_items` |
+| MindSweep/SortTab → Recipe capture | `SortTab.tsx` renders `RecipeCaptureModal` prefilled with queue content on `destination='recipe'`; `mindsweep-sort` dual-route metadata fixed (`recipe_to: 'archives'` → `'recipes'`, ruling 1) | **Wired** | |
+| `/meals` route + sidebar/BottomNav registration | `Meals.tsx`, `App.tsx`, `Sidebar.tsx` Plan & Do section (mom + additional_adult shells) | **Wired** | Convention #16 parity visually verified: desktop sidebar and mobile More menu both show "KitchenCompass" in the same section/position/icon; tap-through confirmed routing to `/meals` |
+| **CSS custom property bug: `var(--color-bg)` does not exist in the theme system** | `ThemeProvider.tsx` only sets `--color-bg-primary/secondary/tertiary/card/nav/input` — no bare `--color-bg`. All 9 new meal-planning components initially used the non-existent token, causing every modal panel to render fully transparent (visible bleed-through of underlying content, caught by the Convention #277 eyes-on tour on Cook View). Fixed: 21 occurrences across the 9 files, mapped to `--color-bg-card` (modal panels), `--color-bg-primary` (Cook View full-screen takeover), `--color-bg-secondary` (nested inputs/popovers/badges) — the same tokens `ModalV2.tsx` and the rest of the codebase already use correctly. | **Wired (fixed)** | Grep-verified: `var(--color-bg)` (without a fallback) does not appear anywhere else in `src/` — this was isolated to Phase A's new files, not a pre-existing codebase-wide issue |
+| Suggestion engine, `meal_planning` LiLa mode, Family Hub section, kid dashboards, `meal_plan` widget, theme nights, prep reminders, Instacart/Walmart export | — | Stub | Full list + rationale in `STUB_REGISTRY.md` → "PRD-42 KitchenCompass (Meal Planning) — Phase A" |
 
 ## FAMILY-GOALS-PRIZES (2026-07-06)
 

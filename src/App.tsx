@@ -18,6 +18,7 @@ import { InnerWorkingsPage } from '@/pages/InnerWorkings'
 import { JournalPage } from '@/pages/Journal'
 import { TasksPage } from '@/pages/Tasks'
 import { ListsPage } from '@/pages/Lists'
+import { WishListsPage } from '@/pages/WishLists'
 import { ShoppingModePage } from '@/pages/ShoppingMode'
 import { StudioPage } from '@/pages/Studio'
 import { DevPreview } from '@/pages/DevPreview'
@@ -31,6 +32,7 @@ import {
 import { RhythmsSettingsPage } from '@/pages/RhythmsSettingsPage'
 import { MessagesPage } from '@/pages/MessagesPage'
 import { MeetingsPage } from '@/pages/MeetingsPage'
+import Meals from '@/pages/Meals'
 import { MessagesSpacePage } from '@/pages/MessagesSpacePage'
 import { MessagesThreadPage } from '@/pages/MessagesThreadPage'
 import { CalendarPage } from '@/components/calendar'
@@ -61,9 +63,11 @@ import { VaultBrowsePage, PersonalPromptLibraryPage } from '@/features/vault'
 import { AdminLayout } from '@/pages/admin/AdminLayout'
 import { ApprovalsPlaceholder } from '@/pages/admin/ApprovalsPlaceholder'
 import { PersonasAdminPage } from '@/pages/admin/PersonasAdminPage'
+import { EthicsPatternsAdminPage } from '@/pages/admin/EthicsPatternsAdminPage'
 import { AdminGate } from '@/components/AdminGate'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
-import { MomOnlyRoute, GrantedRoute } from '@/lib/permissions'
+import { MomOnlyRoute, GrantedRoute, SafetyRecipientRoute } from '@/lib/permissions'
+import { SafetyFlagsPage } from '@/pages/SafetyFlagsPage'
 import { MyRewardsPage } from '@/pages/MyRewardsPage'
 import { ViewAsProvider } from '@/lib/permissions/ViewAsProvider'
 import { ThemeProvider } from '@/lib/theme'
@@ -145,6 +149,7 @@ function App() {
               <Route path="/journal/kid-quips" element={<ProtectedRoute><JournalPage /></ProtectedRoute>} />
               <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
               <Route path="/lists" element={<ProtectedRoute><ListsPage /></ProtectedRoute>} />
+              <Route path="/wishlists" element={<ProtectedRoute><WishListsPage /></ProtectedRoute>} />
               <Route path="/shopping-mode" element={<ProtectedRoute><ShoppingModePage /></ProtectedRoute>} />
               {/* PERMISSIONS-WIRING (2026-06-09): Studio is mom-only BY DEFAULT
                   but grantable family-wide to additional adults. */}
@@ -198,6 +203,13 @@ function App() {
                   balance view is LedgerView mode='self', gated by
                   child_can_see_finances. */}
               <Route path="/finances/history" element={<GrantedRoute grant="financial_tracking"><TransactionHistoryPage /></GrantedRoute>} />
+              {/* PRD-30 Safety Monitoring — Screen 4 flag history + Screen 3
+                  detail (via ?flag=<id>). Recipient-gated: mom + granted dad
+                  (safety_notification_recipients), not member_permissions —
+                  see SafetyRecipientRoute. Never a sidebar entry (Convention
+                  #16 N/A) — reached via Settings link, FO section, and
+                  notification tap-through only. */}
+              <Route path="/safety-flags" element={<SafetyRecipientRoute><SafetyFlagsPage /></SafetyRecipientRoute>} />
               <Route path="/feeds" element={<ProtectedRoute><FamilyFeedsStub /></ProtectedRoute>} />
               <Route path="/bookshelf" element={<ProtectedRoute><BookShelfPage /></ProtectedRoute>} />
               <Route path="/bookshelf/prompts" element={<ProtectedRoute><JournalPromptsPage /></ProtectedRoute>} />
@@ -208,6 +220,7 @@ function App() {
               <Route path="/messages/thread/:threadId" element={<ProtectedRoute><MessagesThreadPage /></ProtectedRoute>} />
 
               <Route path="/meetings" element={<ProtectedRoute><MeetingsPage /></ProtectedRoute>} />
+              <Route path="/meals" element={<ProtectedRoute><Meals /></ProtectedRoute>} />
 
               {/* Admin Console — SCOPE-2.F48 minimum-scope shell.
                   AdminGate = AuthGuard + hardcoded-super-admin email OR
@@ -216,6 +229,7 @@ function App() {
                 <Route index element={<Navigate to="approvals" replace />} />
                 <Route path="approvals" element={<ApprovalsPlaceholder />} />
                 <Route path="personas" element={<PersonasAdminPage />} />
+                <Route path="ethics-patterns" element={<EthicsPatternsAdminPage />} />
               </Route>
 
               {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}

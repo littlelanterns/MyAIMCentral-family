@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Calendar, CheckSquare, List, BookOpen, Star, Heart, Trophy,
   BarChart3, MessageCircle, ListChecks, Brain, Wand2, StickyNote,
-  ThumbsUp, SkipForward, Clock, Lightbulb, HandHelping,
+  ThumbsUp, SkipForward, Clock, Lightbulb, HandHelping, Gift,
 } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
 import { getFeatureIcons } from '@/lib/assets'
@@ -123,6 +123,7 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
   { key: 'mindsweep', label: 'MindSweep', icon: Wand2, featureKey: 'mindsweep_manual', accent: 'warm' },
   { key: 'ideas', label: 'Ideas', icon: Lightbulb, featureKey: 'lists', accent: 'warm' },
   { key: 'backburner', label: 'Backburner', icon: Clock, featureKey: 'lists', accent: 'muted' },
+  { key: 'wishlist', label: 'Wishlist', icon: Gift, featureKey: 'wishlists_basic', accent: 'rose' },
   { key: 'quick_note', label: 'Quick Note', icon: StickyNote, featureKey: 'notepad_basic', accent: 'muted' },
   { key: 'acknowledge', label: 'Acknowledge', icon: ThumbsUp, featureKey: 'notifications_basic', accent: 'muted' },
   { key: 'skip', label: 'Skip', icon: SkipForward, featureKey: 'skip', accent: 'muted' },
@@ -133,13 +134,13 @@ const ALL_DESTINATIONS: RoutingDestinationConfig[] = [
 const CONTEXT_FILTERS: Record<RoutingContext, string[]> = {
   notepad_send_to: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'track_this', 'message', 'request', 'agenda', 'innerworkings', 'optimizer', 'mindsweep', 'ideas', 'backburner', 'quick_note',
+    'victory', 'track', 'track_this', 'message', 'request', 'agenda', 'innerworkings', 'optimizer', 'mindsweep', 'ideas', 'backburner', 'wishlist', 'quick_note',
   ],
   request_accept: ['calendar', 'tasks', 'list', 'acknowledge'],
   meeting_action: ['tasks', 'best_intentions', 'calendar', 'list', 'backburner', 'skip'],
   review_route_card: [
     'calendar', 'tasks', 'list', 'journal', 'guiding_stars', 'best_intentions',
-    'victory', 'track', 'message', 'mindsweep', 'ideas', 'backburner', 'quick_note',
+    'victory', 'track', 'message', 'mindsweep', 'ideas', 'backburner', 'wishlist', 'quick_note',
   ],
 }
 

@@ -11,6 +11,16 @@ export interface FeatureGuideEntry {
 }
 
 export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
+  wishlists_basic: {
+    title: 'WishLists',
+    description:
+      'When your kid sees something they love, you can say "Cool, I\'ll put it on your list" — and mean it. Tap Capture, pick who it\'s for, type it, snap a photo, or paste a link, and it\'s saved. They can open their own list later and see it\'s really there. Mom also has a hidden Gift Planning space for gift-ideas and grandma-ready share links — kids never see it.',
+    bullets: [
+      'Capture in about 5 seconds: text, voice, photo, or a pasted link',
+      'Everyone has their own wishlist — kids see everything on theirs, including what you added',
+      'Gift Planning (mom + granted adults) is a separate, hidden space for surprise-planning',
+    ],
+  },
   family_goals: {
     title: 'Family Goals & Prizes',
     description:
@@ -273,6 +283,18 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
       'Prize options: your own photo, platform images, text messages, or celebration-only confetti',
       'Rotating animations and prize pools — different surprise each time',
       'Earned prizes go to the Prize Box until redeemed',
+    ],
+  },
+
+  // ── Safety Monitoring ──────────────────────────────────────────
+  safety_monitoring_basic: {
+    title: 'Safety Monitoring',
+    description:
+      'The invisible safety net behind LiLa. Children are watched by default (adults are opt-in) for concerning patterns in their LiLa conversations — self-harm language, abuse indicators, substance pressure, and more. When something comes up, you get a private, gentle heads-up — never anything the child can see, never their exact words.',
+    bullets: [
+      'Turn monitoring on/off per person, and adjust how sensitive each category is',
+      'Three categories (self-harm, abuse, sexual/predatory content) always stay at High',
+      'A flag never shows your child the conversation — it shows YOU a category, a severity, and a warm suggestion for how to bring it up',
     ],
   },
 };

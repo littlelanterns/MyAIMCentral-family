@@ -576,7 +576,7 @@ function FamilyManagementGrants({
         .eq('family_id', familyId)
         .eq('granted_to', adultId)
         .is('target_member_id', null)
-        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking', 'task_assignment'])
+        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking', 'task_assignment', 'gift_planning', 'meal_planning'])
       return data ?? []
     },
   })
@@ -662,6 +662,49 @@ function FamilyManagementGrants({
           Allowed = this adult can create and assign new tasks to every child (covers kids
           you add later too). Off = they create tasks only for themselves. A child's own
           "Assign tasks" setting below overrides this for that child.
+        </p>
+      </div>
+
+      {/* PRD-43 WishLists — family-wide Gift Planning grant. Opens the hidden
+          Gift Planning tab (gift_ideas lists, claims, gift history for every
+          kid). Explicit-grant-only — never touched by a profile apply. */}
+      <div className="py-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+            Gift Planning — whole family
+          </span>
+          <BinaryGrantPicker
+            value={getLevel('gift_planning')}
+            onChange={(level) => setLevel('gift_planning', level)}
+          />
+        </div>
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          Allowed = this adult sees the hidden Gift Planning tab inside WishLists — gift
+          ideas, claims, and gift history for every kid. Off = they only see kids' regular
+          wishlists (visible by default), never the hidden surface.
+        </p>
+      </div>
+
+      {/* PRD-42 KitchenCompass — family-wide meal-plan structure grant.
+          Explicit-grant-only (Convention #274 shape, never touched by a
+          profile apply — migration 100291). Mark-made / kids-helped / cook
+          volunteering stay available to every adult WITHOUT this grant
+          (PRD §8.1) — this only gates plan-structure edits, settings, and
+          food restriction edits. */}
+      <div className="py-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+            KitchenCompass plan editing — whole family
+          </span>
+          <BinaryGrantPicker
+            value={getLevel('meal_planning')}
+            onChange={(level) => setLevel('meal_planning', level)}
+          />
+        </div>
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+          Allowed = this adult can add/move/remove plan entries, edit meal settings, and
+          edit food restrictions. Off = they can still mark meals made, volunteer as cook,
+          and note who helped — no grant needed for that.
         </p>
       </div>
     </div>
@@ -767,7 +810,7 @@ function KidPermissionBlock({
         .eq('family_id', familyId)
         .eq('granted_to', adult.id)
         .is('target_member_id', null)
-        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking', 'task_assignment'])
+        .in('permission_key', ['studio', 'reward_rules', 'financial_tracking', 'task_assignment', 'gift_planning', 'meal_planning'])
       return data ?? []
     },
   })

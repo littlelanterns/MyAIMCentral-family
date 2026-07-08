@@ -86,7 +86,8 @@ const HIGH_TASK_THRESHOLD = 8
 /** Map mindsweep-sort destination string → our disposition enum. */
 function normalizeDestination(dest: string): MindSweepLiteDisposition {
   // mindsweep-sort returns: task, list, calendar, journal, victory,
-  // guiding_stars, best_intentions, backburner, innerworkings, archives, recipe
+  // guiding_stars, best_intentions, backburner, innerworkings, archives,
+  // recipe, wishlist (PRD-43)
   switch (dest) {
     case 'task':
     case 'list':
@@ -99,6 +100,7 @@ function normalizeDestination(dest: string): MindSweepLiteDisposition {
     case 'innerworkings':
     case 'archives':
     case 'recipe':
+    case 'wishlist':
       return dest
     default:
       // Unknown destination — fall back to task as safe default

@@ -35,6 +35,11 @@ interface HelpPattern {
 
 const HELP_PATTERNS: HelpPattern[] = [
   {
+    category: 'wishlists',
+    keywords: ['wishlist', 'wish list', 'wishcatch', 'gift idea', 'gift planning', 'gift ideas', 'grandma wish list', 'put it on the list', 'want for christmas', 'want for birthday'],
+    response: "WishLists lives in the Family section of your sidebar (or tap the Gift icon in the + menu). Capture is fast: pick who it's for, type it, speak it, snap a photo, or paste a link — it saves instantly. Everyone has their own wishlist, and kids see everything on theirs including what you added. Mom (and any adult you grant Gift Planning to) also gets a hidden Gift Planning tab for gift-ideas notes and \"Considering\" picks — kids never see that part. Want help setting up a share link for grandma? That's coming in the next update.",
+  },
+  {
     category: 'account',
     keywords: ['password', 'reset password', 'forgot password', "can't log in", "can't sign in", 'login problem', 'sign in problem'],
     response: "To reset your password, go to Settings > Account > Change Password. Enter your email and follow the reset link sent to your inbox. If you don't see it, check your spam folder. Still stuck? I can help troubleshoot.",
@@ -318,6 +323,30 @@ const HELP_PATTERNS: HelpPattern[] = [
     category: 'recalculate_allowance',
     keywords: ['recalculate', 'recalc', 'wrong allowance', 'fix allowance', 'adjustment', 'allowance correction', 'grace day'],
     response: "If a routine was edited after an allowance period was calculated:\n\n1. Go to **Tasks > Finances tab** or the Routine's **View this week** page\n2. Tap **Recalculate** on the period\n3. The system re-runs the math without writing anything yet\n4. If the new amount is **higher**: the positive adjustment is applied automatically\n5. If the new amount is **lower**: you'll see three options:\n   - **Apply correction** — writes the adjustment to the ledger\n   - **Zero it out** — updates percentages but keeps the original earned amount (mercy option)\n   - **Cancel** — nothing changes\n\n**Grace days** apply across ALL pools for a child. Add/remove grace days from the allowance config — they update every active pool period simultaneously.",
+  },
+
+  // ── Safety Monitoring (PRD-30) ──────────────────────────────
+  {
+    category: 'safety_monitoring',
+    keywords: ['safety monitoring', 'safety alert', 'safety flag', 'is my kid safe', 'concerning', 'flag history', 'monitoring settings', 'sensitivity settings', 'who is monitored', 'lila watching'],
+    response: "Safety Monitoring lives in **Settings > Safety Monitoring**. Children are watched by default (adults are opt-in) for concerning patterns in their LiLa conversations — self-harm, abuse, sexual content, substance use, eating disorder language, bullying, profanity, and other behavioral changes.\n\n**How it works:** a quiet keyword scan and periodic conversation review run in the background. If something concerning comes up, you get a private notification with the category, severity, and a warm suggestion for how to bring it up — never the child's exact words.\n\n**Per-member controls:** toggle monitoring on/off for each person, and tap the gear icon to adjust how sensitive each category is (Low/Medium/High). Self-harm, abuse, and sexual/predatory content always stay at High.\n\n**Flag history:** tap \"View Flag History\" in Settings, or a notification, to see past flags — filterable by member, category, and time.\n\nThis is disclosed, not hidden — a teen's own Settings page shows a note when monitoring is active for them.",
+  },
+
+  // ── KitchenCompass Meal Planning (PRD-42, Phase A) ──────────────────────
+  {
+    category: 'meal_capture',
+    keywords: ['add a recipe', 'save a recipe', 'recipe box', 'capture a recipe', 'recipe from a link', 'recipe from a photo', 'snap a recipe', 'paste a recipe', 'this went well', 'kitchencompass', 'meal planning'],
+    response: "KitchenCompass lives under **Plan & Do > KitchenCompass** in the sidebar. To add a recipe, tap **Recipe Box > + Add Recipe** and pick one of four ways: paste a **Link**, **Snap a photo** of a recipe card, **Paste** recipe text, or **This Went Well** to describe something you made from memory (you can speak it). I'll pull out the ingredients and steps and show you a review card first — nothing saves until you tap Approve, and you can Edit, Regenerate, or Reject if it's not quite right. Once saved, you can scale servings up or down, save alternate versions, and mark favorites.",
+  },
+  {
+    category: 'meal_plan_cook',
+    keywords: ['this week meal', 'plan a meal', 'meal calendar', 'what are we having', 'weekly meal plan', 'cook view', 'family pointers', 'how we do it', 'cooking notes', 'send to shopping list', 'meal to shopping list'],
+    response: "The **This Week** tab in KitchenCompass shows your week as a grid — tap any day/slot to add a meal, or drag a planned meal to a different day. Tap a planned meal to open its entry sheet: assign who's cooking, mark kids who helped, or tap **Cook This** for a big-type step-by-step Cook View while you're at the stove. Cook View also shows your family's **Family Pointers** — little \"how WE do it\" notes attached to a recipe or a technique (like \"always double the garlic\") that anyone can read but only adults can add or edit. When you're ready to shop, tap **Send to shopping list** on the week or on a single recipe — it merges duplicate ingredients across recipes and scales quantities automatically.",
+  },
+  {
+    category: 'food_profiles',
+    keywords: ['food restrictions', 'food allergies', 'allergy list', 'food profiles', 'dietary restrictions', 'what my kid can eat', "can't turn off allergy"],
+    response: "**Food Profiles** (the shield icon button on the KitchenCompass page) is where you track allergies and restrictions per family member, plus a whole-family row for things everyone avoids. Restrictions I always plan around and can't be turned off — that's on purpose, since these are safety-critical. You can also quick-add what someone loves or isn't a fan of, which saves to their Preferences in Archives. There's also a private, mom-only note for general nutrition awareness (no calorie or macro tracking anywhere in the app) that gently shapes suggestions without ever showing on a kid's screen.",
   },
 ]
 

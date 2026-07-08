@@ -10,9 +10,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
   ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift, Calendar,
-  Lock, Eye,
+  Lock, Eye, ShieldCheck, ShieldAlert,
 } from 'lucide-react'
 import { TeenTransparencyPanel } from '@/features/permissions'
+import { PermissionGate } from '@/lib/permissions/PermissionGate'
+import { LilaResponseLogSection } from '@/components/settings/LilaResponseLogSection'
+import { SafetyMonitoringSettingsSection } from '@/components/safety/SafetyMonitoringSettingsSection'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useCalendarSettings, useUpdateCalendarSettings } from '@/hooks/useCalendarEvents'
 import {
@@ -190,6 +193,29 @@ export function SettingsPage() {
             to="/settings/reward-reveals"
           />
         </SettingsSection>
+      )}
+
+      {/* LiLa Response Log (Mom only) — PRD-41. Every time LiLa gently
+          redirected an ask or softened a response. Never any conversation
+          content (DB column-guarded); surface + plain-language category +
+          when only. */}
+      {shell === 'mom' && (
+        <PermissionGate featureKey="lila_ethics_log">
+          <SettingsSection title="LiLa Response Log" icon={ShieldCheck}>
+            <LilaResponseLogSection />
+          </SettingsSection>
+        </PermissionGate>
+      )}
+
+      {/* Safety Monitoring (Mom only) — PRD-30. Primary-parent-only by
+          addendum ruling — dad receives flags when granted but never sees
+          this configuration screen. */}
+      {shell === 'mom' && (
+        <PermissionGate featureKey="safety_monitoring_basic">
+          <SettingsSection title="Safety Monitoring" icon={ShieldAlert}>
+            <SafetyMonitoringSettingsSection />
+          </SettingsSection>
+        </PermissionGate>
       )}
 
       {/* Access & Security (Mom only) */}

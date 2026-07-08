@@ -418,6 +418,10 @@ verify_jwt = false
 [functions.task-breaker]
 verify_jwt = false
 
+# ── PRD-42 KitchenCompass ──
+[functions.recipe-extract]
+verify_jwt = false
+
 [functions.whisper-transcribe]
 verify_jwt = false
 
@@ -570,6 +574,28 @@ verify_jwt = false
 # because the prebuild verify_jwt guard (correctly) failed the Vercel deploy
 # when this function shipped without its config entry.
 [functions.calendar-extract]
+verify_jwt = false
+
+# PRD-41 Tier 1/2 async ethics scan pipeline. Cron-invoked (Convention #246,
+# util.invoke_edge_function every minute) — sb_secret_... service key is not
+# a JWT, so verify_jwt must be false; the function validates the
+# service-role bearer itself. Pre-existing gap found and fixed opportunistically
+# by PRD-30 SM-A while adding safety-classify's own entry below (this
+# function shipped in SAFETY-BETA-GATE Slice E without a config.toml entry
+# at all, which would fail `npm run prebuild`'s verify_jwt guard).
+[functions.validate-ai-output]
+verify_jwt = false
+
+# PRD-30 Safety Monitoring — cron-invoked (Convention #246, every minute).
+# Same shape as validate-ai-output: sb_secret_... service key is not a JWT,
+# in-code service-role bearer check.
+[functions.safety-classify]
+verify_jwt = false
+
+# PRD-43 WishLists — client-invoked utility (link/photo extraction), same
+# shape as curriculum-parse/mindsweep-scan: authenticateRequest validates the
+# Bearer token in code.
+[functions.wishlist-extract]
 verify_jwt = false
 
 # Experimental features may be deprecated any time

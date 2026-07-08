@@ -919,6 +919,32 @@ export function MindSweepCapture() {
             </div>
           )}
 
+          {sweepStatus.status === 'reframe' && sweepStatus.reframeMessage && (
+            <div
+              data-testid="mindsweep-ethics-reframe"
+              className="flex flex-col gap-2 py-4 px-4 rounded-xl border"
+              style={{
+                backgroundColor: 'var(--color-bg-card)',
+                borderColor: 'var(--color-border-default, var(--color-border))',
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <HeartHandshake size={20} style={{ color: 'var(--color-text-secondary)', flexShrink: 0, marginTop: 2 }} />
+                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
+                  {sweepStatus.reframeMessage}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => sweepStatus.resetSweep()}
+                className="self-end text-xs font-medium px-3 py-1.5 rounded-lg"
+                style={{ color: 'var(--color-text-secondary)', background: 'transparent', minHeight: 'unset' }}
+              >
+                Close
+              </button>
+            </div>
+          )}
+
           {sweepStatus.status === 'error' && (
             <div className="flex items-center justify-center gap-2 py-3 rounded-xl"
               style={{ backgroundColor: 'color-mix(in srgb, var(--color-error, #e53e3e) 10%, transparent)' }}

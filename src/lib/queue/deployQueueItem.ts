@@ -31,7 +31,7 @@
 import { supabase } from '@/lib/supabase/client'
 
 export interface DeployableItem {
-  /** Normalized destination key ('task'/'tasks', 'list', or anything else). */
+  /** Normalized destination key ('task'/'tasks', 'list', 'wishlist', or anything else). */
   destination: string
   /** The item text — becomes the task title / list item content. */
   content: string
@@ -46,6 +46,12 @@ export interface DeployableItem {
   sourceReferenceId?: string | null
   /** Explicit target list (Review & Route which-list sub-pick). */
   targetListId?: string | null
+  /**
+   * PRD-43 WishLists — explicit target PERSON for the 'wishlist' destination
+   * (Review & Route which-person sub-pick, dynamicSubOptions). Defaults to
+   * ownerId (self-capture) when not given.
+   */
+  targetMemberId?: string | null
   /** Sub-type flag preserved on queue fallback rows. */
   structureFlag?: string | null
   /** When deploying an EXISTING studio_queue row, its id — marked processed. */
@@ -139,6 +145,55 @@ export async function deployQueueItem(item: DeployableItem): Promise<DeployOutco
         const { data, error } = await supabase
           .from('list_items')
           .insert({ list_id: listId, content })
+          .select('id')
+          .single()
+        if (error) return { status: 'error', error: error.message }
+        if (item.queueItemId) await markQueueItemProcessed(item.queueItemId)
+        return { status: 'deployed', recordType: 'list_item', recordId: data.id as string }
+      }
+
+      case 'wishlist': {
+        const targetMemberId = item.targetMemberId ?? item.ownerId
+
+        const { data: existingWishlist } = await supabase
+          .from('lists')
+          .select('id')
+          .eq('family_id', item.familyId)
+          .eq('owner_id', targetMemberId)
+          .eq('list_type', 'wishlist')
+          .is('archived_at', null)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+
+        let listId = existingWishlist?.id as string | undefined
+        if (!listId) {
+          const { data: createdList, error: createErr } = await supabase
+            .from('lists')
+            .insert({
+              family_id: item.familyId,
+              owner_id: targetMemberId,
+              title: 'My Wish List',
+              list_type: 'wishlist',
+              is_included_in_ai: true,
+            })
+            .select('id')
+            .single()
+          if (createErr) return { status: 'error', error: createErr.message }
+          listId = createdList.id as string
+        }
+
+        const isUrl = /^https?:\/\/\S+$/i.test(content)
+        const { data, error } = await supabase
+          .from('list_items')
+          .insert({
+            list_id: listId,
+            content,
+            resource_url: isUrl ? content : null,
+            wishlist_state: 'active',
+            is_included_in_ai: true,
+            added_by: item.actorId ?? item.ownerId,
+          })
           .select('id')
           .single()
         if (error) return { status: 'error', error: error.message }

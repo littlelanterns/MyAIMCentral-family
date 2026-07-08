@@ -62,6 +62,26 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     .filter(l => l.list_type !== 'randomizer')
     .map(l => ({ key: l.id as string, label: (l.list_name || l.title || 'Untitled list') as string }))
 
+  // PRD-43 WishLists: the 'wishlist' tile's which-person drill-down.
+  const { data: familyMembersForWishlist = [] } = useQuery({
+    queryKey: ['review-route-wishlist-members', familyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('family_members')
+        .select('id, display_name')
+        .eq('family_id', familyId)
+        .eq('is_active', true)
+        .neq('role', 'family')
+        .neq('role', 'special_adult')
+        .order('display_name')
+      return data ?? []
+    },
+  })
+  const wishlistSubOptions = familyMembersForWishlist.map(m => ({
+    key: m.id as string,
+    label: m.id === tab.member_id ? 'Me' : (m.display_name as string),
+  }))
+
   function invalidateDeployTargets() {
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
     queryClient.invalidateQueries({ queryKey: ['lists'] })
@@ -99,8 +119,11 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
     const normalizedDest = destination === 'tasks' ? 'task' : destination
     const isDirectTask = normalizedDest === 'task' && _subType !== 'individual' && _subType !== 'ai_sort'
     const isDirectList = normalizedDest === 'list'
+    // PRD-43 WishLists: approved wishlist cards deploy directly too, same
+    // HITM logic as task/list — the card review IS the review.
+    const isDirectWishlist = normalizedDest === 'wishlist'
 
-    if (isDirectTask || isDirectList) {
+    if (isDirectTask || isDirectList || isDirectWishlist) {
       const outcome = await deployQueueItem({
         destination: normalizedDest,
         content: item.extracted_content,
@@ -109,6 +132,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
         source: 'review_route',
         sourceReferenceId: item.id,
         targetListId: isDirectList && _subType ? _subType : null,
+        targetMemberId: isDirectWishlist && _subType ? _subType : null,
       })
 
       if (outcome.status === 'error') {
@@ -454,6 +478,7 @@ export function NotepadReviewRoute({ tab, familyId, onBack, onAllRouted }: Notep
             onSkip={() => handleSkipItem(item)}
             onEditInNotepad={() => handleEditInNotepad(item)}
             listSubOptions={listSubOptions}
+            wishlistSubOptions={wishlistSubOptions}
           />
         ))}
       </div>
@@ -530,7 +555,7 @@ function Header({ onBack }: { onBack: () => void }) {
 
 // ─── Extracted Card (with inline editing — Issue #4) ─────────
 
-function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip, onEditInNotepad, listSubOptions }: {
+function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip, onEditInNotepad, listSubOptions, wishlistSubOptions }: {
   item: NotepadExtractedItem
   isShowingRoutes: boolean
   onToggleRoutes: () => void
@@ -539,6 +564,8 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip,
   onEditInNotepad: () => void
   /** The routing user's lists — feeds the 'List' tile which-list drill-down. */
   listSubOptions?: { key: string; label: string }[]
+  /** Family members — feeds the 'Wishlist' tile which-person drill-down (PRD-43). */
+  wishlistSubOptions?: { key: string; label: string }[]
 }) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -751,7 +778,10 @@ function ExtractedCard({ item, isShowingRoutes, onToggleRoutes, onRoute, onSkip,
           context="review_route_card"
           onRoute={onRoute}
           onCancel={onToggleRoutes}
-          dynamicSubOptions={listSubOptions && listSubOptions.length > 0 ? { list: listSubOptions } : undefined}
+          dynamicSubOptions={{
+            ...(listSubOptions && listSubOptions.length > 0 ? { list: listSubOptions } : {}),
+            ...(wishlistSubOptions && wishlistSubOptions.length > 0 ? { wishlist: wishlistSubOptions } : {}),
+          }}
         />
       )}
     </div>

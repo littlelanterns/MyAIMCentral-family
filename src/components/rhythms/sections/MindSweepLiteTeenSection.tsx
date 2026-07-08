@@ -154,6 +154,14 @@ function adultDestinationToTeenDisposition(
     case 'recipe':
     case 'family_request': // defensive: classifier doesn't emit this
     case 'talk_to_someone': // defensive: classifier doesn't emit this
+    // PRD-43 WishLists — the classifier now also emits 'wishlist', which
+    // isn't (yet) a member of MindSweepLiteDisposition, so it falls through
+    // to this default at runtime and maps to 'journal' (same treatment as
+    // list/backburner/recipe above) rather than adding a 6th value to the
+    // deliberately-fixed 5-option TeenDisposition vocabulary (Convention
+    // #192). Teens still have a full, direct wishlist capture path via
+    // WishCatch (QuickCreate FAB). A dedicated "Add to my wishlist"
+    // disposition is a registered follow-up.
     default:
       return 'journal'
   }

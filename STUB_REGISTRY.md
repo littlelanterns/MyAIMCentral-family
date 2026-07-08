@@ -18,6 +18,69 @@ Every stub across all PRDs with created-by PRD, wired-by PRD (or "Unwired"), and
 
 ---
 
+## PECON-EARN — Point Economy: Earning Configuration + Ledger (Worker A, 2026-07-07)
+
+Worker A (earning/ledger side) shipped: `point_transactions` append-only ledger + `record_point_transaction()` choke point (migration 100295); config-as-truth `execute_points_godmother` rewrite, `ensure_point_economy_contracts` provisioning trigger, never-diverged payload NULLing, `task_templates`/`task_template_steps` points+reward columns, `process_routine_step_completion()` routine-economics payout point, `member_points_today()`, daily-points-goal crossing deed (migration 100296) + its authorization-gate fix (100298) + the platform-wide connector-function lockdown this audit surfaced and the seat authorized fixing same-session (100300); `update_routine_template_atomic` extension for the new columns (100301); full client wiring (TaskCreationModal "Points for this task" + routine Points block, RoutineSectionEditor per-step reward picker, GamificationSettingsModal Points section incl. first-ever currency name/icon editor, daily-goal progress on My Rewards/Play/Guided, ContractForm `daily_points_goal_met` option, `useRewardProvenance` `routine_step` case). See `.claude/rules/current-builds/PECON-earn.md` for the full build record and `RLS-VERIFICATION.md` for the security-audit detail. New CLAUDE.md Convention #280 documents the config-as-truth pattern. Per the addendum's §12 close-out instruction: the "R1 row → superseded by PECON" reference in the dispatch pack refers to per-step routine rewards (RSTP scope) — that scope is now Wired via `process_routine_step_completion`'s per-step prize/points handling, not a pre-existing STUB_REGISTRY row (none existed to correct).
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Reward Shop (`reward_shop_items`/`reward_shop_purchases` tables, 3 shop RPCs, `member_completion_percentage()` weekly-window unlock gate, Prize Board Shop tab, My Rewards Shop section, Play picture shelf, Queue `StorePurchaseCard`) — entirely Worker B's build, not started | PRD-24 Point Economy Addendum §6, rulings 6–8 | Unwired | ⏳ Unwired (MVP) | PECON-SHOP (Worker B) |
+| `[Manage the Reward Shop →]` door on `GamificationSettingsModal`'s new Points section — deliberately omitted; linking to a page that doesn't exist yet is a broken UX, not a stub worth shipping early | PECON-EARN Slice A3 | Unwired | ⏳ Unwired (MVP) | PECON-SHOP (Worker B), same session as the Shop page itself |
+| `gamification_configs.routine_points_mode` — retired/dormant column, confirmed read by zero code paths; superseded by the new template-level `task_templates.routine_points_mode` (live-propagating per Convention #259) | Pre-PECON schema (Build M era) | Superseded by `task_templates.routine_points_mode` | ❌ Superseded | PECON-EARN (column intentionally left in place, not dropped, per the addendum's non-destructive-migration discipline) |
+| `gamification_events` — the table PRD-24's original design imagined for tracking gamification triggers; never built. Superseded by the `deed_firings` + connector-godmother architecture (Phase 3) and, for points specifically, `point_transactions` (PECON-EARN) | PRD-24 original design (pre-Phase-3) | Superseded by `deed_firings` + `point_transactions` | ❌ Superseded | — |
+| Platform-wide audit: "what OTHER `PUBLIC`-executable `SECURITY DEFINER` RPCs trust caller input with no authorization check?" — PECON-EARN's `rls-verifier` pass found and the seat authorized fixing all 15 pre-existing Phase-3 Connector `execute_*_godmother`/`dispatch_godmothers` functions (fully unauthenticated-callable since their original migrations, unrelated to this build) plus `process_routine_step_completion`'s own new-function gap; the BROADER question of whether other RPCs across the platform share this pattern is explicitly out of PECON-EARN's scope | PECON-EARN Slice A2 (discovered as a byproduct) | Folded into this week's adversarial safety-stack review (seat-owned, separate from PECON-EARN) | ⏳ Unwired (MVP) | Seat-scheduled adversarial safety-stack review |
+
+---
+
+## PRD-43 WishLists (Gift Planning & In-Store Capture) — Phase A (2026-07-07)
+
+Phase A shipped: `lists.subject_member_id` + `gift_ideas` list type, 6 new `list_items` columns (image_url/is_included_in_ai/wishlist_state/occasion_tags/added_by/excluded_from_shares) + `source_list_item_id` provenance FK, `gift_claims`/`wishlist_share_links`/`gift_history` tables (migrations 100292, 100293), `util.gift_planning_access()` grant helper, RESTRICTIVE surprise-safe RLS on `lists`/`list_items`/`gift_claims`, `wishlist-images` storage bucket, `wishlist-extract` Edge Function (link + photo modes, deployed), WishCatch capture sheet, `/wishlists` canonical route with 5 shell-specific renders, item detail/refine sheet, Gift Planning tab, Archives Wishlist folder doorway (member-scoped deep link), full RoutingStrip/MindSweep/QuickCreate/Sidebar/BottomNav entry-point wiring. Founder-approved 2026-07-07, `claude/dispatch-factory/PRD43.md` pack, PRD §14 decision record. See `.claude/rules/current-builds/PRD-43-wishlists.md` for the full build record (11/11 E2E green, Convention #277 eyes-on tour fully read with 4 real bugs found+fixed live).
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Share link generation/consumption UI (`wishlist_share_links` table + adult-grant-shaped RLS exist; no UI to create a link, no public consumption page) | PRD-43 §5.3 | Unwired | ⏳ Unwired (MVP) | PRD-43 Phase B |
+| Gift history recording UI (`gift_history` table + RLS exist; no UI to log "gave X for Y occasion") | PRD-43 §5.4 | Unwired | ⏳ Unwired (MVP) | PRD-43 Phase B |
+| Motivation-bridge "Add as reward" prefill from a wishlist item into a task/tracker reward (blocked on ST-F/STUDIO-EXPERIENCE reward-wire truth landing first — see the Phase B coordination note in the active build file) | PRD-43 §12 | Unwired | ⏳ Unwired (MVP) | PRD-43 Phase B (after STUDIO-EXPERIENCE ST-F) |
+| Image share_target (PWA share-to-app for wishlist capture) | PRD-33 dependency | Unwired | 📌 Unwired (Post-MVP) | PRD-33 |
+| Offline capture queue for WishCatch | PRD-33 dependency | Unwired | 📌 Unwired (Post-MVP) | PRD-33 |
+| Emailed share links (outbound email for grandparents/Out-of-Nest) | PRD-30 SM-C dependency (email provider wiring) | Unwired | 📌 Unwired (Post-MVP) | After PRD-30 email infrastructure lands |
+| Gift-scoped secret conversation spaces (coordinating gift logistics without the recipient seeing) | PRD-43 §11 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Savings goal-pool wiring (`allowance_configs.pool_type='goal_pool'` — kid saves allowance toward a specific wishlist item) | PRD-43 §11, PRD-28 dependency | Unwired | 📌 Unwired (Post-MVP) | — |
+| Kids' own "giving" lists (a kid's own gift-planning surface for people THEY want to give to) | PRD-43 §11 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Kid-safe "gifts I've given" view | PRD-43 §11 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Occasion-contract triggers (connector-layer automation, e.g. "2 weeks before birthday, remind mom to check the wishlist") | PRD-43 §11 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Grandparent Out-of-Nest in-app surface for browsing a grandkid's wishlist | PRD-43 §11, PRD-15 Out-of-Nest dependency | Unwired | 📌 Unwired (Post-MVP) | — |
+| FDWA (family-shadow write-audit) reconciliation — `gift_claims` deliberately has NO family-device write arm (surprise-safety, RESTRICTIVE by design); re-verify this stays correct when FDWA lands rather than being "fixed" into a leak | RR-DEPLOY-SCOPING precedent, applied here pre-emptively | Unwired | ⏳ Unwired (MVP) | Whichever session builds FDWA |
+
+---
+
+## PRD-42 KitchenCompass (Meal Planning) — Phase A (2026-07-07)
+
+Phase A shipped: `recipes`/`recipe_versions`/`meal_plan_entries`/`food_restrictions`/`meal_feedback`/`meal_settings`/`meal_pointers` (migration 100291) + `recipe-extract` Edge Function (5 modes) + Recipe Box/Capture/Detail + This Week plan (week/day/month, dnd-kit) + Cook View + Family Pointers + Food Profiles + SortTab queue wiring + `/meals` route + sidebar/BottomNav registration. Founder confirmed the two-phase v1 scope (D-42-8) 2026-07-07. See `.claude/rules/current-builds/PRD-42-meal-planning.md` and `claude/dispatch-factory/PRD42.md` for the full build record and reconciliation rulings.
+
+| Stub | Created By | Wired By | Status | Build Phase |
+|------|-----------|----------|--------|-------------|
+| Suggestion engine (Favorites/Traditions/Try Something New rotation + "Use it up" box from `meal_settings.use_up_note`) | PRD-42 §6.2/§9 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B |
+| `meal_planning` LiLa guided mode + `_shared/context-assembler.ts` wiring (Phase A deliberately does not touch `lila_guided_modes`) | PRD-42 §7.1 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B |
+| Family Hub `family_meals` section ("What's for Dinner" card) | PRD-42 §6.9 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B |
+| Guided/Play/teen dashboard meal surfaces (Phase A has zero kid-facing meal UI) | PRD-42 §6.11 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B |
+| `meal_plan` dashboard widget (blocked on ST-E canonical tracker-category work landing first — noted in the build's freshness preamble) | PRD-42 §6.10 slice B3 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B (after STUDIO-EXPERIENCE ST-E) |
+| Theme nights (`meal_patterns`, e.g. "Taco Tuesday" recurring slot templates) | PRD-42 §5.4 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B |
+| Prep reminders (`meal_settings.prep_reminders_enabled/_time` columns exist; no notification firing) | PRD-42 §9.6 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B |
+| Budget estimate on shopping-list handoff | PRD-42 §9.7 | Unwired | 📌 Unwired (Post-MVP) | — |
+| Instacart / Walmart grocery-cart export | PRD-42 §6.12 (Phase C) | Unwired | 📌 Unwired (Post-MVP) | PRD-42 Phase C — blocked on founder completing Instacart Developer Platform + Walmart affiliate signups |
+| Fridge-scan camera capture ("what do I have") | PRD-42 §14 PEC list | Unwired | 📌 Unwired (Post-MVP) | — |
+| Family Cookbook export (printable/PDF) | PRD-42 §14 PEC list | Unwired | 📌 Unwired (Post-MVP) | — |
+| Pantry inventory tracking | PRD-42 §14 PEC list | Unwired | 📌 Unwired (Post-MVP) | — |
+| `family_moments` photo routing from meal completions (PRD-37) | PRD-42 §14 PEC list | Unwired | 📌 Unwired (Post-MVP) | — |
+| Homeschool compliance-report surfacing of cooking minutes (PRD-28B) | PRD-42 §14 PEC list | Unwired | 📌 Unwired (Post-MVP) | — |
+| Special Adult shift-meals view (SAEX — Special Adult Experience is itself unbuilt, see `claude/follow-up-builds/special-adult-experience.md`) | PRD-42 §14 PEC list | Unwired | 📌 Unwired (Post-MVP) | Blocked on SAEX |
+| New CLAUDE.md convention documenting the `food_restrictions` always-include inversion pattern (no `is_included_in_ai` column; celebration-only/safety-first exception to the universal three-tier toggle) — schema/behavior is correct NOW, only the convention doc entry is deferred | PRD-42 dispatch pack ruling 3 / D-42-4 | Unwired | ⏳ Unwired (MVP) | PRD-42 Phase B close-out (by explicit pack instruction) |
+| FDWA (family-shadow write-audit) reconciliation of the 2 family-shadow RLS policies this build added (`meal_feedback` INSERT, `meal_plan_entries` UPDATE status-only) via the 100262 precedent, ahead of FDWA's own eventual landing | RR-DEPLOY-SCOPING precedent, applied here pre-emptively | Unwired | ⏳ Unwired (MVP) | Whichever session builds FDWA |
+| `recipe-extract` Edge Function deploy (code complete, config.toml entry added, awaiting founder-approved deploy pass per standing project convention) | PRD-42 Phase A | Unwired | ⏳ Unwired (MVP) | Next founder-approved deploy pass |
+
+---
+
 ## HITM-CLOSURE (2026-07-06)
 
 | Stub | Created By | Wired By | Status | Build Phase |

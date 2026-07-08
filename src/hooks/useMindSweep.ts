@@ -358,7 +358,11 @@ async function routeDirectly(
 
   // Direct deploy via the shared engine (same writer as Review & Route and the
   // Queue "Deploy all" button). 'recipe' keeps its dual-routing queue path.
-  if (destination === 'task' || destination === 'list') {
+  // PRD-43: 'wishlist' auto-routes to the SWEEPING member's own wishlist only
+  // — never a cross-member target in autopilot mode (teens never auto-write
+  // to a sibling's list; an adult wanting to capture for a kid uses
+  // always_ask or Review & Route's explicit person drill-down instead).
+  if (destination === 'task' || destination === 'list' || destination === 'wishlist') {
     const outcome = await deployQueueItem({
       destination,
       content: result.extracted_text,
@@ -366,6 +370,7 @@ async function routeDirectly(
       familyId,
       source: 'mindsweep_auto',
       sourceReferenceId: eventId ?? null,
+      targetMemberId: destination === 'wishlist' ? memberId : undefined,
     })
     if (outcome.status === 'error') {
       throw new Error(`direct deploy failed: ${outcome.error}`)
@@ -658,6 +663,14 @@ export function useRunSweep() {
         return null
       }
 
+      // PRD-41 — an ethics-shaped item short-circuits with a gentle reframe
+      // (mindsweep-sort returns { ethics_reframe, response, results: [] }).
+      // Show the reframe rather than silently sweeping nothing.
+      if (response.ethics_reframe && response.response) {
+        sweepStatus.reframeSweep(response.response)
+        return null
+      }
+
       const results = response.results ?? []
 
       const routeResult = await routeSweepResults(
@@ -699,7 +712,7 @@ export function useRunSweep() {
 
 // ── Sweep Status ──
 
-export type SweepStatus = 'idle' | 'processing' | 'complete' | 'error' | 'crisis'
+export type SweepStatus = 'idle' | 'processing' | 'complete' | 'error' | 'crisis' | 'reframe'
 
 const AUTO_RESET_MS = 8000
 
@@ -720,6 +733,9 @@ export function useSweepStatus() {
   const [status, setStatus] = useState<SweepStatus>('idle')
   const [lastResult, setLastResult] = useState<{ autoRouted: number; queued: number; failed: number; errors: string[] } | null>(null)
   const [crisisMessage, setCrisisMessage] = useState<string | null>(null)
+  // PRD-41: a gentle reframe (an ethics-shaped brain-dump item was declined,
+  // not classified). Distinct from crisis — warm styling, not error styling.
+  const [reframeMessage, setReframeMessage] = useState<string | null>(null)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const clearResetTimer = useCallback(() => {
@@ -763,14 +779,23 @@ export function useSweepStatus() {
     clearResetTimer()
   }, [clearResetTimer])
 
+  // PRD-41 reframe — like crisis, stays visible until dismissed (the user
+  // typed something and deserves to read why it wasn't swept).
+  const reframeSweep = useCallback((message: string) => {
+    setReframeMessage(message)
+    setStatus('reframe')
+    clearResetTimer()
+  }, [clearResetTimer])
+
   const resetSweep = useCallback(() => {
     clearResetTimer()
     setStatus('idle')
     setLastResult(null)
     setCrisisMessage(null)
+    setReframeMessage(null)
   }, [clearResetTimer])
 
-  return { status, lastResult, crisisMessage, startSweep, completeSweep, errorSweep, crisisSweep, resetSweep }
+  return { status, lastResult, crisisMessage, reframeMessage, startSweep, completeSweep, errorSweep, crisisSweep, reframeSweep, resetSweep }
 }
 
 // ── Calendar Import ──

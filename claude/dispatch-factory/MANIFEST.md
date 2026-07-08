@@ -6,8 +6,10 @@
 > **Any future session must be able to resume from this file alone.**
 >
 > Created: 2026-07-04 (Fable 5 session, fresh start — no prior manifest existed)
-> Last updated: 2026-07-06 — PRD42 (Meal Planning) designed + packed, decisions-pending (see
-> processing log). Prior state: 2026-07-04 — **FACTORY COMPLETE: STAGES 1-4 DONE. ALL BATCHES (1-9) RESOLVED;
+> Last updated: 2026-07-07 — PRD43 (**WishLists** — Gift Planning & In-Store Capture)
+> designed, packed, and **APPROVED same day** (D-43-1..9 all resolved as recommended; name
+> override WishLists; see processing log). PECON also designed same day in a parallel
+> window (decisions-pending, batch 10). Prior: 2026-07-06 — PRD42 approved. Prior state: 2026-07-04 — **FACTORY COMPLETE: STAGES 1-4 DONE. ALL BATCHES (1-9) RESOLVED;
 > every pack APPROVED with final dispatch prompts** (amendments recorded in the ⚖ block:
 > PRD40+ARP, FDWA widened + PINR pair, RFLX privacy-NO + standing no-hiding principle w/
 > legacy-carve-out clarification, 28B SDS fold-in, PRD31 greenfield Stripe, PRD38
@@ -90,7 +92,8 @@ P6 = tail. Priority is PACK-PRODUCTION order, not build order.
 | GDCX | Guided Dashboard completion (PRD-25 residuals) | Surface | **decisions-pending** (pack: `GDCX.md`, recon: `GDCX-RECON.md`) — **NBT dark for 2+ months, root-caused, fix in Slice 1**; 4 stale registry rows found already-wired | P3 | Write drawer Messages tab (PRD-15 now built), LiLa Homework Help + Communication Coach modals ("Coming soon"; their guided-mode prompts land in SAFETY-BETA-GATE Slice A — dependency), unread badge, Progress page gamification, task point values, gamification header indicators |
 | RFLX | Reflections revamp (privacy + Past tab + render shape) | Surface | **decisions-pending** (pack: `RFLX.md`, recon: `RFLX-MSRE-RECON.md`) — headline reframed: kid-privacy = design REVERSAL question; real bugs = journal-copy mismatch + dead routing column | P3 | View-As follow-up G ⏳MVP — no privacy column on reflection_responses; kid-private decision; "Visible to parent" audit; Past tab UX |
 | TRKG | Tracker goals & gamification-mode honesty | Surface | **decisions-pending** (pack: `TRKG.md`, recon: `TRKG-RSTP-RECON.md`) — **gamification earning-mode settings are UI theater (1/4 creature + 2/3 page modes real); tracker_goal branch dropped in Connector rewrite**; scope renamed: Phase-B features (multiplayer/TrackThis/gameboard) stay registered residuals | P4 | KIDS-REWARDS R2 ⏳MVP (goal detection → earned_prizes firing); Build M tracker_goal page-earning trigger (MISLEADING UI); widget milestone→victory AIR; color_reveal/gameboard picker mismatch; multiplayer layer; Track This flow; linked pair; timer→widget data points; streak-proposal trackers (KIDS-REWARDS S4) |
-| RSTP | Per-step routine rewards (R1) | Surface | **decisions-pending** (pack: `RSTP.md`, recon: `TRKG-RSTP-RECON.md`) — R1 stub premise corrected: routine steps fire ZERO reward pipeline today; no routine-level completion event exists; step-level ruled | P4 | KIDS-REWARDS R1 ⏳MVP — no reward columns on task_template_steps; payout at routine_step_completions insert (no fireDeed there today); earned-prizes pipe + 3-mode image picker reusable |
+| RSTP | Per-step routine rewards (R1) | Surface | **SUPERSEDED → PECON** (2026-07-07; tombstone header on `RSTP.md` — never dispatch). Batch-7 rulings D-RSTP-1/2 carry INTACT into PECON Worker A Slice 3 | — | Absorbed: one payout RPC now handles step prizes AND routine points |
+| PECON | **Point Economy** — earning config (per-source values, per-ROUTINE point modes, routine-completion event) + the **Reward Shop** (kids spend points) | Surface+PRD-24 addendum | **decisions-pending** (batch 10, D-PECON-1..8; pack: `PECON.md`; spec: `prds/addenda/PRD-24-Point-Economy-Addendum.md`) — founder direct ask 2026-07-07. **Recon found 4 live/latent defects in the points pipeline:** dead-lever "Points per task" setting (awards read a 100219 payload snapshot), zero points contracts for post-cutover members, intention deeds matched by nothing, and daily/weekly sections invisible to `get_member_day_obligations`/allowance via `= ANY(NULL)` (production-verified: 12 sections, all on undeployed templates — zero harm yet). All four fixed in-build (a 5th honesty repair added by rider 1: per-item point amounts on opportunity/sequential/randomizer bridge tasks write `tasks.points_override`, which nothing has ever paid — the resolution order now reads it). Supersedes RSTP. **Founder riders 2026-07-07 folded (rulings 10-12):** per-task point values (`points_override` REUSED, task-editor field, allowance_points symmetry), optional per-kid DAILY POINTS GOAL ("7/10 today" warm progress + contracts-hookable `daily_points_goal_met` deed, celebration-only, invisible when unset — points are a neutral composable primitive), per-step shared-attribution PIN (actual completer, never assignee list), three-independent-rails PIN (extra-credit-numerator-only allowance survives points; `counts_for_allowance` ⊥ `counts_for_gamification`). Awaiting founder's updated-scope confirmation before Worker A dispatches | **P2** | 2 sequential Sonnet workers (A EARN: ledger + config-as-truth + per-task values + routine modes + completion event + daily goal + step prizes → B SHOP: catalog + purchase lifecycle + gates + surfaces). New tables: point_transactions (#223 ledger), reward_shop_items, reward_shop_purchases. Consumes earned_prizes pipe + RewardImagePicker + my_rewards_sections; shares useRewardProvenance with TRKG (second lander merges); coordinate on 100210/100219/100247 lineages + PRD43 WishLists ("Add to Reward Shop" prefill noted non-conflicting on their side) |
 | SAEX | Special Adult Experience + PRD-27 Caregiver Tools | Surface+PRD | **decisions-pending** (pack: `SAEX.md`, recon: `SAEX-RECON.md`) — D-001 resolved: ONE pack, TWO builds (A foundation → B content). **Split-brain shift system found: gate + mom UI read a dead table; shift access never worked** | P4 | `claude/follow-up-builds/special-adult-experience.md` (ShiftView built-never-mounted, SA sidebar, shift-gated visibility, special_adult_permissions unenforced) + PRD-27 (trackable events, shift reports, custody). Merge decision D-001 |
 | MSRE | Mom self-restriction enforcement | Surface | **decisions-pending** (pack: `MSRE.md`, recon: `RFLX-MSRE-RECON.md`) — FO leak path found; registry conflation found | P4 | PERMISSIONS-WIRING stub ⏳MVP — mom_self_restrictions rows saved+displayed inactive; needs target-aware filtering on mom-side journal/stars/intentions/innerworkings surfaces |
 | PRD28B | PRD-28B Compliance & Progress Reporting | PRD | **decisions-pending** (pack: `PRD28B.md`, recon: `PRD3728-RECON.md`) — SDS Vault tool split as early-dispatchable Slice 0; after PRD19 + PRD37 | P5 | Phase 32 residual. 6 tables unbuilt (STUB entry 606); consumes homeschool_time_logs (built, 0 rows — needs real data); unblocks PRD-37 portfolio export, PRD-19 report templates, ESA invoices |
@@ -107,6 +110,7 @@ P6 = tail. Priority is PACK-PRODUCTION order, not build order.
 | ARP | Attorney Review Package (COPPA/privacy, Missouri — PRD40 amendment) | Deliverable | **DELIVERED 2026-07-05** — `claude/legal-drafts/` holds all six drafts incl. attorney cover memo; next step = founder sends to counsel (the sign-off) | P1 |
 | FGPZ | Family Goals & Family Prizes (family-level tracking, family prizes, family best intentions) | Surface | **inventoried 2026-07-05** — founder raised mid-KIDS-REWARDS-S5 and ruled "build it now, but switch to Fable to design it"; research handoff at `claude/feature-decisions/Family-Goals-And-Prizes-Handoff.md`; next step = Fable-led pre-build ritual against that brief (NOT yet a pack; coordinate with PRD29 Build C's family-plan machinery + PrizeBoard territory) | P2 | Placeholder — synthesize from Recon Part 6 program plan AFTER Build 1 ships; Build 1's section-anchor infra is load-bearing for Builds 5/6 |
 | PRD42 | PRD-42 **KitchenCompass** (recipes, weekly plan, food intelligence) | PRD | **APPROVED 2026-07-06** (pack: `PRD42.md`; PRD: `prds/daily-life/PRD-42-Meal-Planning.md` §14 = founder decision record). D-42-8 scope inferred-approved — Phase A worker re-confirms at pre-build gate | P3 | Founder direct ask 2026-07-06, designed + ruled same day. Rulings incl. 4 riders: Family Pointers + Cook View (mom's "how WE do it" for dad/kids, Phase A); "Use it up" text/voice box instead of camera scan (Phase B); nutrition AI-awareness w/o tracking, kids never see calories (standing rule); Instacart/Walmart cart export UPGRADED to Phase C build (ops prereq: founder dev-account signups). Tables ×7 + 2 EFs; inherits MindSweep's dead-end `recipe` destination, shopping/aisle machinery, Archives prefs. New-convention proposal: allergy always-include inversion (D-42-4). No upstream blockers; slot = P3 chain beside PRD12A/12B |
+| PRD43 | PRD-43 **WishLists** (gift planning, in-store capture) | PRD | **APPROVED 2026-07-07** (pack: `PRD43.md`; PRD: `prds/daily-life/PRD-43-Wishlists-Gift-Planning.md` §14 = founder decision record — D-43-1..9 all resolved as recommended; name override **WishLists**, rejected WishWell/WishKeeper/GiftGlow; values line confirmed verbatim). Dispatch prompts FINAL — founder dispatches Phase A from the queue | P3 | Founder direct ask 2026-07-07, designed same day (Fable). Three surfaces per kid: kid's own wishlist (trust anchor — "I'll put it on your list" in ≤5s: voice/photo/text/link + kid pill), mom's DB-enforced hidden gift-ideas list (RESTRICTIVE RLS closes the family-device hole; Living-Shopping-List addendum's "Jake never sees mom's gift ideas" made first-class), tokenized share links for grandma (first-name-only, frozen sizes snapshot, optional no-account reserve). Headline recon finds: assembler wishlist loader ALREADY BUILT but dark (`lists.is_included_in_ai` default false, no toggle); lists RLS already owner-or-parent; `list_items` already carries reward columns; `reward_proposals` = shipped "ask to earn this." 3 small tables (gift_claims, wishlist_share_links, gift_history) + 2 EFs (wishlist-extract, wishlist-share) + columns. April composed-view doc honored (its `wishlist_reward_links` idea superseded by provenance metadata). Slot = P3 chain beside PRD42/PRD12A/12B; coordinate PECON (Reward Shop sibling — verified non-conflicting, "Add to Reward Shop" prefill is a conditional Phase B deliverable), ST-F (reward payer), FDWA (never open gift_ideas), PRD-30 SM-C (emailed links), PRD-33 (image share_target socket) |
 
 ## Dependency graph (build-order edges, not pack-production order)
 
@@ -124,12 +128,23 @@ P6 = tail. Priority is PACK-PRODUCTION order, not build order.
 - SAFETY-BETA-GATE Slice A (in flight) → GDCX (guided mode prompts for Homework Help / Communication Coach exist before their modals mount)
 - KIDS-REWARDS completion → BSB1 dispatch (founder sequencing ruling 2026-06-12)
 - PRD40 sequencing interlocks with PRD-41 (SAFETY Slice D) for under-13 beta
-- TRKG and RSTP both consume the Slice-1 earned-prizes pipeline (shipped); TRKG touches grandfathered Convention #271 surfaces → those refactors ride along (widget_data_points, roll_creature)
+- TRKG and PECON (which absorbed RSTP) both consume the Slice-1 earned-prizes pipeline (shipped); TRKG touches grandfathered Convention #271 surfaces → those refactors ride along (widget_data_points, roll_creature). PECON ↔ TRKG share useRewardProvenance (second lander merges); no hard ordering edge. PECON Worker A rewrites `get_member_day_obligations` + `calculate_allowance_progress` (100247 lineage) and `execute_points_godmother` (100210 lineage) — any parallel session touching those coordinates. PECON is a founder-pull P2: suggested slot right after the in-flight safety-sequence deploys
 - FDWA, PINR, MSRE, RFLX, SMFX, TYPES: no upstream blockers
 - PRD42 (meal planning): no upstream blockers. Coordinate-with edges: FDWA (family-shadow
   policy pattern — whoever lands second copies the first), ST-E (widget category keys),
   MSWP email-DNS (grandma recipe pipeline, ops-only). Unblocks later: PRD37 (went-well
   photos → family_moments), PRD28B (home-ec hours), SAEX (shift-meals view)
+- PRD43 (wishlists/gift planning): no upstream blockers. Coordinate-with edges: PECON
+  (Reward Shop sibling, both packs born 2026-07-07 — verified non-conflicting/disjoint
+  tables; "Add to Reward Shop" prefill from a wishlist item is a conditional PRD43 Phase B
+  deliverable; both freshness preambles check the other), ST-F (reward payer architecture —
+  Add-as-reward only PREFILLS whatever ST-F leaves standing), FDWA (RESTRICTIVE gift_ideas
+  policy is structural — FDWA must never add gift_ideas arms), PRD-30 SM-C (shared
+  send-email → one-tap emailed share links; v1 copy-link), PRD-33 (image share_target +
+  offline capture sockets), FGPZ (prize-image prefill, display-only), ARP/PRD-40
+  (share-link line in the data-practices summary for counsel). Unblocks later: kids'
+  giving-lists, Secret Santa (randomizer + claims), group gifting, goal-pool savings
+  (PRD-28 schema-only columns), Out-of-Nest wishlist surface (PRD-37 era)
 - PRD33 last (deps: all phases)
 
 ## Decision queue
@@ -195,6 +210,7 @@ below). Batch 9 (PRD05C/PRD21C/PRD38) remains OPEN. Overrides & resolutions:
 | D-TRKG-1..3 + D-RSTP-1..2 + D-TYPES-1 | See `TRKG.md` / `RSTP.md` / `TYPES.md` §decisions (Connector-event + centralized SUM-semantics detection; mode-blindness repair in scope; picker honesty; step-level immediate idempotent never-revoked rewards; incremental types adoption) | OPEN (batch 7) | All recommended-yes |
 | D-11B-1..2, D-14E-1..3, D-MSWP-1..2, D-PRD33-0..2 | See `PRD11B.md` / `PRD14E.md` / `MSWP.md` / `PRD33.md` §decisions (11B before 14E; family_celebration grant class; PWA scope→33; drop dead families columns; countdown emoji→icon picker; approval-learning stays Post-MVP; email = founder ops checklist; PRD33 parked + manifest/idb rulings) | OPEN (batch 8) | All recommended-yes |
 | D-05C-1..2, D-21C-1..2, D-38-1..2 | See `PRD05C.md` / `PRD21C.md` / `PRD38.md` §decisions | ✅ RESOLVED (batch 9, founder 2026-07-04) | All approved per recommendations; D-38-1 answered: domain PARKED at GoDaddy → DNS cutover = founder-ops checklist, never a build dependency |
+| D-PECON-1..8 + riders 1-4 | See `PECON.md` §decisions (config-as-truth + pipeline repairs; per-routine template points; per-kid intention value; shop shape + name; deduct-at-purchase ledger mechanics; completion-% as unlock GATE; points-only v1; RSTP supersession) + founder riders (per-task values, daily points goal, two named pins) | OPEN (batch 10, queued 2026-07-07; riders founder-DIRECTED same day, folded — not open questions) | All recommended-yes; D-PECON-4 includes a display-name pick ("Reward Shop" recommended). D-RSTP-1/2 were already approved in batch 7 and carry intact — D-PECON-8 just confirms the packaging. Founder's message referred to "the approved design" — final scope confirmation requested before Worker A dispatch |
 
 ## STANDING RULE — deadline skip-ahead (founder, 2026-07-04)
 
@@ -411,3 +427,62 @@ only), **SMFX** (items fully known), **FDWA** + **PINR** (code recon via cheap a
   official link-handoff API, covers Aldi; Walmart affiliate second; ops prereq = founder
   account signups). D-42-8 (scope) inferred-approved from a trailed-off reply — Phase A
   worker re-confirms at its pre-build gate. Phase A dispatch prompt is paste-ready.
+- 2026-07-07: NEW ITEM DESIGNED END-TO-END: **PECON — Point Economy** (founder direct ask,
+  same-day Fable design session — both halves as ONE system: what things EARN, mom-configured
+  per source with per-ROUTINE granularity, and what things COST, the never-built PRD-24 reward
+  store where kids spend their balance). Deliverables: `prds/addenda/PRD-24-Point-Economy-
+  Addendum.md` (full reconciliation of March PRD-24 against the July platform — connector wins,
+  earned_prizes wins, point_transactions supersedes gamification_events, reward_shop_* supersede
+  gamification_rewards/reward_redemptions) + `PECON.md` (9 rulings, 2 sequential Sonnet workers
+  EARN→SHOP, both dispatch prompts paste-ready) + batch 10 (D-PECON-1..8). **PECON SUPERSEDES
+  RSTP** (tombstone applied; batch-7 D-RSTP-1/2 carry intact as Worker A Slice 3). Recon (3
+  parallel code agents + 2 read-only prod queries) found FOUR live/latent points-pipeline
+  defects, all folded into the build: dead-lever "Points per task" setting (awards read the
+  100219 payload snapshot, never the config mom edits), zero points contracts for post-cutover
+  members (they earn nothing), intention_iteration deeds matched by no contract (intentions earn
+  nothing — half the founder's ask), and the `= ANY(NULL frequency_days)` section-day blindness
+  in get_member_day_obligations + calculate_allowance_progress (12 daily/weekly sections in
+  prod, ALL on undeployed templates — latent, zero harm yet, fixed before the routine-completion
+  event keys on that query). Founder idea "percentage of completion" ruled as an unlock GATE on
+  shop items (a rate, not a currency), weekly window, progress-forward framing.
+- 2026-07-07 (later): **PECON FOUNDER RIDERS folded** (her buffet use case — points-first
+  families: different tasks worth different points, kid chooses freely, daily target). Rider 1
+  per-task point values: `tasks.points_override` verified live-on-write/dead-on-read (written by
+  opportunity/sequential/randomizer bridge paths via resolveRewardProperties; paid by nothing) →
+  REUSED deliberately as THE per-task value, task editor gains a "Points for this task" field
+  (allowance_points symmetry), dead task_rewards stars/points dropdown options removed +
+  backfilled — a 5th honesty repair. Rider 2 daily points goal: `gamification_configs.
+  daily_points_goal` (NULL=invisible), "7/10 today" earn-sum progress at family timezone
+  (member_points_today RPC, #257), `daily_points_goal_met` deed fired once/day from the ledger
+  choke point, contracts-hookable (source_type CHECK widened + ContractForm option); misses
+  render NOTHING. Riders 3-4 = named E2E pins: per-step shared attribution to the ACTUAL
+  completer; three-independent-rails (extra-credit shared routine → numerator boost + zero
+  denominator change + step points; counts_for_allowance ⊥ counts_for_gamification) — also the
+  regression guard on the calculate_allowance_progress rewrite. Addendum §1.1/§5.1/§5.6/§10 +
+  PECON rulings 10-12 + Worker A prompt updated. Scope confirmation sent to founder; Worker A
+  dispatches on her go.
+- 2026-07-07 (parallel Fable window): NEW ITEM DESIGNED END-TO-END: **PRD43 — WishLists
+  (Gift Planning & In-Store Capture)** (founder direct ask; full PRD at
+  `prds/daily-life/PRD-43-Wishlists-Gift-Planning.md`, pack `PRD43.md` with two phase
+  dispatch prompts, decision batch D-43-1..9 incl. the name pick, the grandma-share-link
+  exposure contract, reserve-without-account v1-or-v2, mom-visibility of claims,
+  kid-wishlist default visibility, and the no-auto-glean LiLa ruling). Honors the 2026-04-29 composed-view doc; translates the founder's external
+  requirements list item-by-item (PRD §9: build / exists / adapt / PEC / never-build).
+  Recon headline: assembler wishlist loader already built but DARK (`lists.is_included_in_ai`
+  default false, no toggle); lists RLS already owner-or-parent — the hidden gift-ideas list
+  needs only ONE RESTRICTIVE policy to close the family-device hole; `reward_proposals` +
+  list_items reward columns already carry the kid-side motivation bridge. Values ruling
+  stated in the PRD: surprise ≠ surveillance — the standing no-hiding principle runs
+  kid→parent only; mom's gift-ideas list is her own planning notebook, DB-enforced.
+  **PECON cross-check done same session** (both packs born 2026-07-07 in parallel windows):
+  verified non-conflicting — disjoint tables, disjoint provenance; natural integration
+  ("Add to Reward Shop" prefill from a wishlist item) recorded as a conditional Phase B
+  deliverable in PRD43 + a freshness-preamble check in both directions. PRD-43 verified
+  free by repo grep (PRD-39 stays earmarked).
+- 2026-07-07 (same session, later): **PRD43 APPROVED — founder resolved D-43-1..9 same
+  day, all recommendations approved with ONE override: name = WishLists** ("plain
+  compound-capitals, says what it is"; rejected WishWell/WishKeeper/GiftGlow — keys were
+  already `wishlists_*`, now exactly aligned). Values line confirmed verbatim: "surprise
+  is not surveillance; the no-hiding principle runs one direction." PRD §14 flipped to the
+  founder decision record; pack status APPROVED; dispatch prompts FINAL. Founder
+  dispatches Phase A from the queue (P3 chain beside PRD42/PRD12A/12B).
